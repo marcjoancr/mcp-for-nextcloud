@@ -49,6 +49,11 @@ class PolicyWriter {
     /** Seconds a group preview may be saved (contracts §2.3). */
     public const PREVIEW_TTL = 120;
 
+    /** What a user inherits once an individual Allow of eligibility is removed (inheritances()). */
+    private const INHERITED_ELIGIBLE = 'eligible';
+    private const INHERITED_LOST = 'lost';
+    private const INHERITED_UNKNOWN = 'unknown';
+
     private bool $usable = true;
     /**
      * State of the attempt under the mutex, for the revocations a cell write triggers: its outbox, the state row read
@@ -210,7 +215,6 @@ class PolicyWriter {
      * be active, its gen renewed by this commit (holdLifecycles()): a pending_delete between the phases does not move
      * the revision, so without that comparison a consent could issue on the policy of a group being deleted, and a
      * deletion's Before that read the old gen must lose its transition and see the code this consent issues.
-
      *
      * @param string $uid the consenting user
      * @param Closure(): (list<array{groupId:string, gen:string}>|null) $admit GrantPolicy::admission() of an enabled
@@ -421,13 +425,17 @@ class PolicyWriter {
      * @param list<array{uid:string, key:string, value:?string}> $cells key from PolicyEventPayload::userKey(); value
      *     '1' (allow), '0' (deny) or null (inherit: remove the override). An exact duplicate is dropped; the same cell
      *     with two values is refused.
+     * @param (Closure(string): (list<array{groupId:string, gen:string}>|null))|null $inheritance
+     *     GrantPolicy::inheritance(), for a cell that removes an individual Allow of eligibility (see writeCell());
+     *     null cuts on every such removal, as before
      * @return array{revision:string, changed:int, receiptId:?string} committed revision, changed cell count, receipt
      * @throws \InvalidArgumentException for an invalid revision, cell, unknown user, or more than MAX_UIDS users or
      *     MAX_CELLS cells; nothing is written
      * @throws PolicyConflict when the expected revision is stale
-     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     * @throws PolicyUnavailable when the policy storage fails, the outcome is uncertain ($uncertain = true), or an
+     *     individual Allow is removed while what the user inherits is unknown (nothing written, nothing cut)
      */
-    public function applyCells(string $expectedRevision, string $actor, string $action, array $cells): array {
+    public function applyCells(string $expectedRevision, string $actor, string $action, array $cells, ?Closure $inheritance = null): array {
         if (!in_array($action, PolicyEventPayload::GRANT_ACTIONS, true) || !PolicyEventPayload::validUid($actor)) {
             throw new \InvalidArgumentException('Invalid command');
         }
@@ -435,12 +443,13 @@ class PolicyWriter {
         $uids = array_values(array_unique(array_column($cells, 'uid')));
         $receiptId = null;
         $changed = 0;
-        $result = $this->runAdmin($expectedRevision, $uids, function () use ($uids): void {
+        $result = $this->runAdmin($expectedRevision, $uids, function () use ($uids, $cells, $inheritance): array {
             foreach ($uids as $uid) {
                 $this->assertUser($uid);
             }
-        }, function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($cells, $actor, $action, &$receiptId, &$changed): bool {
-            $changes = $this->applyLocal($cells);
+            return $this->inheritances($cells, $inheritance);
+        }, function (array $inherited, array $current, string $commandId, PolicyOutbox $outbox) use ($cells, $actor, $action, &$receiptId, &$changed): bool {
+            $changes = $this->applyLocal($cells, $inherited);
             $changed = count($changes);
             $receiptId = null;
             if ($changes === []) {
@@ -468,10 +477,13 @@ class PolicyWriter {
      * @throws \InvalidArgumentException for an invalid revision
      * @throws ReceiptNotFound for an unknown or invented receipt, or one created by another administrator
      * @throws ReceiptExpired for the caller's own receipt past RECEIPT_TTL
+     * @param (Closure(string): (list<array{groupId:string, gen:string}>|null))|null $inheritance as for applyCells(),
+     *     for an undo that restores the absence of an individual Allow of eligibility
      * @throws PolicyConflict when the policy changed since the receipt's commit, or one of its users is gone
-     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     * @throws PolicyUnavailable when the policy storage fails, the outcome is uncertain ($uncertain = true), or an
+     *     individual Allow is removed while what the user inherits is unknown (nothing written, nothing cut)
      */
-    public function restoreReceipt(string $receiptId, string $expectedRevision, string $actor): array {
+    public function restoreReceipt(string $receiptId, string $expectedRevision, string $actor, ?Closure $inheritance = null): array {
         DecimalCounter::validate($expectedRevision);
         $receipt = $this->receipt($receiptId, $actor);
         if ($receipt['revision'] !== $expectedRevision) {
@@ -488,15 +500,16 @@ class PolicyWriter {
             }
         }
         $changed = 0;
-        $result = $this->runAdmin($expectedRevision, $uids, function () use ($uids): void {
+        $result = $this->runAdmin($expectedRevision, $uids, function () use ($uids, $grantCells, $inheritance): array {
             foreach ($uids as $uid) {
                 if (!PolicyEventPayload::validUid($uid) || $this->users->get($uid) === null) {
                     // Writing preferences back for a deleted account would leave orphans; the state moved on.
                     throw new PolicyConflict();
                 }
             }
-        }, function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($grantCells, $scopeCells, $actor, $receiptId, &$changed): bool {
-            $changes = $grantCells === [] ? [] : $this->applyLocal($grantCells);
+            return $this->inheritances($grantCells, $inheritance);
+        }, function (array $inherited, array $current, string $commandId, PolicyOutbox $outbox) use ($grantCells, $scopeCells, $actor, $receiptId, &$changed): bool {
+            $changes = $grantCells === [] ? [] : $this->applyLocal($grantCells, $inherited);
             $revision = self::next($current['revision']);
             foreach ($scopeCells as $cell) {
                 $items = PolicyEventPayload::scopeItems($cell['value']);
@@ -993,12 +1006,46 @@ class PolicyWriter {
     }
 
     /**
+     * The external phase of a command that may remove an individual Allow of eligibility: what each user of such a cell
+     * inherits without it. Only cells that set eligibility to absent are read; the raw value before is read under the
+     * mutex, so a cell that turns out not to remove an Allow ignores its entry. An unknown inheritance is kept, not
+     * thrown: it refuses the command only if the cell really removes an Allow.
+     *
+     * @param list<array{uid:string, key:string, value:?string}> $cells
+     * @param (Closure(string): (list<array{groupId:string, gen:string}>|null))|null $inheritance
+     * @return array<string, array{state:string, lifecycles?:list<array{groupId:string, gen:string}>}> by a digest
+     *     of the uid
+     */
+    private function inheritances(array $cells, ?Closure $inheritance): array {
+        $inherited = [];
+        if ($inheritance === null) {
+            return $inherited;
+        }
+        foreach ($cells as $cell) {
+            if ($cell['key'] !== GrantPolicy::ELIGIBLE_KEY || $cell['value'] !== null) {
+                continue;
+            }
+            try {
+                $lifecycles = $inheritance($cell['uid']);
+                $inherited[hash('sha256', $cell['uid'])] = $lifecycles === null || $lifecycles === []
+                    ? ['state' => self::INHERITED_LOST]
+                    : ['state' => self::INHERITED_ELIGIBLE, 'lifecycles' => $lifecycles];
+            } catch (PolicyUnavailable) {
+                $inherited[hash('sha256', $cell['uid'])] = ['state' => self::INHERITED_UNKNOWN];
+            }
+        }
+        return $inherited;
+    }
+
+    /**
      * Writes user cells under the mutex, reading each key's current raw values for all its users in one batch.
      *
      * @param list<array{uid:string, key:string, value:?string}> $cells validated, without duplicates
+     * @param array<string, array{state:string, lifecycles?:list<array{groupId:string, gen:string}>}> $inherited
+     *     inheritances(), by a digest of the uid
      * @return list<array{uid:string, key:string, before:?string, after:?string}> the cells that changed, in order
      */
-    private function applyLocal(array $cells): array {
+    private function applyLocal(array $cells, array $inherited = []): array {
         $byKey = [];
         foreach ($cells as $cell) {
             $byKey[$cell['key']][] = $cell['uid'];
@@ -1011,7 +1058,8 @@ class PolicyWriter {
         foreach ($cells as $cell) {
             $values = $current[$cell['key']];
             $before = array_key_exists($cell['uid'], $values) ? (string)$values[$cell['uid']] : null;
-            $change = $this->writeCell($cell['uid'], $cell['key'], $cell['value'], $before);
+            $change = $this->writeCell($cell['uid'], $cell['key'], $cell['value'], $before,
+                $cell['key'] === GrantPolicy::ELIGIBLE_KEY ? ($inherited[hash('sha256', $cell['uid'])] ?? null) : null);
             if ($change !== null) {
                 $changes[] = $change;
             }
@@ -1024,11 +1072,21 @@ class PolicyWriter {
      * revocation scope: switching the service off revokes everyone (global epoch), and a user left without explicit
      * eligibility, or disconnecting, is signed out (cut), including on an explicit repeated disable of either.
      *
+     * Removing an individual Allow of eligibility (a reset to inherit, or an undo that restores absence) cuts only when
+     * the user inherits no eligibility (contracts §3.1: a change that keeps eligibility through another source does
+     * not cut; §4.1: the reset recalculates inheritance). With $inherited from the external phase: eligible through
+     * groups keeps the credentials and renews those groups' gens under this mutex (holdLifecycles(), so a deletion
+     * of one of them sees the user without an individual value), lost cuts, unknown refuses the whole command without
+     * any write or cut. Without it the removal cuts, as before. An explicit Deny and a disconnect always cut.
+     *
      * @param string|false|null $before the raw value already read in this transaction (null = absent), or false to
      *     read it here
+     * @param array{state:string, lifecycles?:list<array{groupId:string, gen:string}>}|null $inherited what the user
+     *     inherits without an individual value (inheritances()); null when not prepared
      * @return array{uid:?string, key:string, before:?string, after:?string}|null the change, or null for a no-op
+     * @throws PolicyUnavailable when an individual Allow is removed and the inheritance is unknown
      */
-    private function writeCell(?string $uid, string $key, ?string $value, string|false|null $before = false): ?array {
+    private function writeCell(?string $uid, string $key, ?string $value, string|false|null $before = false, ?array $inherited = null): ?array {
         if ($before === false) {
             // Batch reads preserve presence and legacy MIXED values. Never materialize an inherited default.
             if ($uid === null) {
@@ -1039,6 +1097,15 @@ class PolicyWriter {
             }
         }
         $changed = $before !== $value;
+        $reset = $changed && $uid !== null && $key === GrantPolicy::ELIGIBLE_KEY && $before === '1' && $value === null && $inherited !== null;
+        if ($reset && $inherited['state'] === self::INHERITED_UNKNOWN) {
+            // Before any write: the command rolls back whole, nothing is cut (503).
+            throw new GrantUnknown('Inherited eligibility is unknown');
+        }
+        if ($reset && $inherited['state'] === self::INHERITED_ELIGIBLE) {
+            // Before the write too: a group that left active since the external phase replays the whole attempt.
+            $this->holdLifecycles($inherited['lifecycles'] ?? []);
+        }
         if ($changed) {
             if ($uid === null) {
                 $this->config->setAppValue(GrantPolicy::APP, $key, (string)$value);
@@ -1052,6 +1119,10 @@ class PolicyWriter {
             // Every explicit disable moves the epoch, as 1.0.8 deleted everything on every disable: an off value
             // written outside the app must not leave credentials that come back when the service is switched on.
             $this->revokeAllLocal();
+        } elseif ($reset) {
+            if ($inherited['state'] === self::INHERITED_LOST) {
+                $this->revokeUserLocal($uid);
+            }
         } elseif ($uid !== null && (($key === GrantPolicy::ELIGIBLE_KEY && ($value === '0' || ($changed && $value !== '1')))
             || ($key === GrantPolicy::CONNECTED_KEY && $value === '0'))) {
             $this->revokeUserLocal($uid);

@@ -92,6 +92,15 @@ final class PolicyOperationContext {
         return new EligibilityResolution($result->allowed, $result->source, $result->groupIds, $result->rawState);
     }
 
+    /**
+     * The eligibility the user would have without an individual value: what a reset of an individual Allow, or an undo
+     * that restores absence, leaves (contracts §3.1, §4.1). Group sources and unknown candidates as in eligible().
+     */
+    public function inheritedEligibility(): EligibilityResolution {
+        $result = $this->resolve(GrantPolicy::ELIGIBLE_KEY, '_system', 'eligible', false, true);
+        return new EligibilityResolution($result->allowed, $result->source, $result->groupIds, $result->rawState);
+    }
+
     public function granted(string $module, string $operation): GrantResolution {
         self::validate($module, $operation);
         return $this->resolve('grant_' . $module . '_' . $operation, $module, $operation,
@@ -128,9 +137,10 @@ final class PolicyOperationContext {
             $gate === 'resource_scope' ? 'out_of_scope' : ($gate ?? 'allowed'), $grant, $gate, $scope);
     }
 
-    private function resolve(string $key, string $module, string $operation, bool $default): GrantResolution {
+    /** @param bool $inherited ignore the individual value, as if it were absent */
+    private function resolve(string $key, string $module, string $operation, bool $default, bool $inherited = false): GrantResolution {
         $this->check();
-        $raw = $this->raw[$key] ?? ['present' => false];
+        $raw = $inherited ? ['present' => false] : ($this->raw[$key] ?? ['present' => false]);
         if ($raw['present']) {
             return match ($raw['value']) {
                 '1' => new GrantResolution(true, 'individual_allow', [], $raw),
