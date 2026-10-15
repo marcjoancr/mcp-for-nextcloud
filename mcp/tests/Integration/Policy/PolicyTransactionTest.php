@@ -175,4 +175,88 @@ final class PolicyTransactionTest extends IntegrationTestCase {
         }
         $this->assertSame($after, (new PolicyStateMapper($this->openIndependentConnection()))->state());
     }
+
+    /**
+     * The setters every caller uses, end to end on the core: change() reads presence through
+     * IConfig::getUserValueForUsers (and IAppConfig::hasKey for the service switch) and must tell a no-op from a write
+     * exactly as IUserConfig::getValuesByUsers would, including right after a read has filled the worker caches.
+     */
+    public function testRealSettersAdvanceRevisionOnlyForRawChangesAndRollBackInsideChange(): void {
+        $config = Server::get(IConfig::class);
+        $users = Server::get(IUserConfig::class);
+        $apps = Server::get(IAppConfig::class);
+        $state = Server::get(PolicyStateMapper::class);
+        $writer = Server::get(PolicyWriter::class);
+        $policy = Server::get(GrantPolicy::class);
+        $second = $this->openIndependentConnection();
+        $otherUsers = clone $users;
+        (new \ReflectionProperty($otherUsers, 'connection'))->setValue($otherUsers, $second);
+        $otherApps = clone $apps;
+        (new \ReflectionProperty($otherApps, 'connection'))->setValue($otherApps, $second);
+        $config->deleteUserValue(Fixtures::ALICE, 'mcp', self::SET_KEY);
+        $config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY);
+
+        // Runs one setter after warming every cache it reads, then checks the revision step and what another
+        // session sees for the grant (null = absent) and for the service switch.
+        $step = function (string $label, \Closure $command, bool $advances, ?string $grant, ?string $service) use ($config, $state, $otherUsers, $otherApps): void {
+            $config->getUserValue(Fixtures::ALICE, 'mcp', self::SET_KEY);
+            $config->getAppValue('mcp', GrantPolicy::SERVICE_KEY);
+            $before = $state->state()['revision'];
+            $command();
+            $this->assertSame($advances ? (string)((int)$before + 1) : $before, $state->state()['revision'], $label);
+            $otherUsers->clearCache(Fixtures::ALICE, false);
+            $otherApps->clearCache(false);
+            $this->assertSame($grant === null ? [] : [Fixtures::ALICE => $grant],
+                $otherUsers->getValuesByUsers('mcp', self::SET_KEY, null, [Fixtures::ALICE]), $label);
+            $this->assertSame($service !== null, $otherApps->hasKey('mcp', GrantPolicy::SERVICE_KEY), $label);
+            if ($service !== null) {
+                $this->assertSame($service, $otherApps->getValueString('mcp', GrantPolicy::SERVICE_KEY), $label);
+            }
+        };
+
+        $step('absent -> 1', fn () => $policy->setGrant(Fixtures::ALICE, 'notes', 'edit', true), true, '1', null);
+        $config->setUserValue(Fixtures::ALICE, 'mcp', self::SET_KEY, '0');
+        $step('0 -> 1', fn () => $policy->setGrant(Fixtures::ALICE, 'notes', 'edit', true), true, '1', null);
+        $step('1 -> 1', fn () => $policy->setGrant(Fixtures::ALICE, 'notes', 'edit', true), false, '1', null);
+        $step('reset present', fn () => $writer->resetOverride(Fixtures::ALICE, 'notes', 'edit'), true, null, null);
+        $step('reset absent', fn () => $writer->resetOverride(Fixtures::ALICE, 'notes', 'edit'), false, null, null);
+        $step('service absent -> 1', fn () => $policy->setGlobalEnabled(true), true, null, '1');
+        $step('service 1 -> 1', fn () => $policy->setGlobalEnabled(true), false, null, '1');
+
+        // A failure inside change(), after its official config write: everything rolls back, on both sessions.
+        $config->setUserValue(Fixtures::ALICE, 'mcp', self::SET_KEY, '1');
+        $before = $state->state();
+        $db = $this->official();
+        $mapper = new class($db) extends PolicyStateMapper {
+            public function compareAndSet(string $expected): void {
+                parent::compareAndSet($expected);
+                throw new RuntimeException('Injected inside change()');
+            }
+        };
+        $failing = new GrantPolicy($config, $users, new PolicyWriter($db, $mapper, $config, $users, $apps,
+            Server::get(IUserManager::class), Server::get(OAuthStore::class)));
+        try {
+            $failing->setGrant(Fixtures::ALICE, 'notes', 'edit', false);
+            $this->fail('Injected failure swallowed');
+        } catch (RuntimeException $e) {
+            $this->assertSame('Injected inside change()', $e->getMessage());
+        }
+        $this->assertFalse($db->inTransaction());
+        $this->assertSame($before, $state->state());
+        $this->assertSame($before, (new PolicyStateMapper($second))->state());
+        $otherUsers->clearCache(Fixtures::ALICE, false);
+        $this->assertSame([Fixtures::ALICE => '1'], $otherUsers->getValuesByUsers('mcp', self::SET_KEY, null, [Fixtures::ALICE]));
+        $this->assertTrue($policy->granted(Fixtures::ALICE, 'notes', 'edit'));
+    }
+
+    /** The seed on a live row takes the unique-violation path on every real database, from either session. */
+    public function testSeedOverALiveRowIsANoOpFromAnySession(): void {
+        $state = Server::get(PolicyStateMapper::class);
+        Server::get(PolicyWriter::class)->runInternal([], fn () => null, fn () => true);
+        $after = $state->state();
+        (new PolicyStateSeeder($this->official()))->seed();
+        (new PolicyStateSeeder($this->openIndependentConnection()))->seed();
+        $this->assertFalse($this->official()->inTransaction());
+        $this->assertSame($after, $state->state());
+    }
 }
