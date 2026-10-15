@@ -36,8 +36,8 @@ use RuntimeException;
 /**
  * Ticket 04 on the real server: the cut by generation and the global epoch through the production services, the
  * consent as one transaction with the official config, the account listener, and the cleanup job registered by the
- * app. Every test works on its own account, created and deleted here; the global epoch it moves is put back, so the
- * credentials other tests issued at the starting epoch are not affected.
+ * app. Every test works on its own account, created and deleted here. The global epoch is moved only in the fresh
+ * cells, and put back afterwards, so credentials other tests issue at the starting epoch stay valid.
  */
 final class GenerationCutTest extends IntegrationTestCase {
     private const CLIENT = 'https://claude.ai/oauth/mcp-client-metadata';
@@ -171,7 +171,14 @@ final class GenerationCutTest extends IntegrationTestCase {
         $this->assertSame($state, (new PolicyStateMapper($second))->state());
     }
 
+    /**
+     * Fresh cells only: the cleanup of a global revocation removes every credential of the old epoch, by design, and
+     * in the upgrade cells that would include the baseline credentials LegacyCredentialsTest still has to check.
+     */
     public function testSwitchingTheServiceOffMovesTheGlobalEpochAndOnlyLaterCredentialsWork(): void {
+        if (getenv('MCP_IT_MODE') === 'upgrade') {
+            $this->markTestSkipped('The global cleanup would remove the baseline credentials of the upgrade cell');
+        }
         $second = $this->openIndependentConnection();
         $grant = $this->exchange($this->consent());
         $policy = Server::get(GrantPolicy::class);

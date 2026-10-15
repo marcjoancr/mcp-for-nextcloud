@@ -68,5 +68,6 @@ service switched off revoke by a cut or by the global epoch, as another session 
 commit removes the revoked rows, and repeating it never removes a credential issued after the cut. A consent whose
 code fails to store leaves the official `connected` value, the generation and the revision exactly as they were. The
 daily cleanup job must be registered by the app (install and upgrade) and must not remove a valid credential. The
-global epoch the test moves is put back afterwards, so the baseline credentials of the upgrade cells keep theirs.
+global epoch is moved only in the fresh cells (its cleanup would remove the baseline credentials an upgrade cell still
+has to check) and is put back afterwards.
 Recheck causes are not covered here: they belong to ticket 06.
