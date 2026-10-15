@@ -166,21 +166,28 @@ final class MountsTest extends ExclusionTestCase {
         // The versions come from writes made through the server's web endpoint, so no lock of this CLI process is
         // left on the file when it is restored.
         foreach (['second', 'third'] as $content) {
+            // Versions are named by the second: writes in the same second would share one.
+            sleep(2);
             $edit = $alice->write('files_edit', ['path' => $path, 'content' => $content]);
             $this->assertTrue($edit->ok(), "files_edit to $content in the groupfolder: " . $edit->describe());
         }
 
         $versions = $alice->tool('files_versions_list', ['path' => $path]);
         $this->assertTrue($versions->ok(), 'files_versions_list: ' . $versions->describe());
-        // The oldest version: the newest entry of the list can be the current content itself, which would prove nothing.
-        $list = $versions->json()['versions'] ?? [];
-        $revision = $list === [] ? null : $list[count($list) - 1]['revision'];
-        $this->assertIsString($revision, 'the groupfolder file has a version: ' . $versions->describe());
-        $stored = $alice->tool('files_version_read', ['path' => $path, 'version' => $revision]);
-        $this->assertTrue($stored->ok(), 'files_version_read: ' . $stored->describe());
-        $expected = $stored->json()['text'] ?? null;
-        $this->assertIsString($expected);
-        $this->assertNotSame('third', $expected, 'the oldest version is not the last write');
+        // A version that differs from the current content, so the restore changes something observable.
+        $revision = null;
+        $expected = null;
+        foreach ($versions->json()['versions'] ?? [] as $entry) {
+            $stored = $alice->tool('files_version_read', ['path' => $path, 'version' => (string)$entry['revision']]);
+            $text = $stored->ok() ? ($stored->json()['text'] ?? null) : null;
+            $this->observe('groupfolder version ' . $entry['revision'] . ' reads as ' . json_encode($text));
+            if (is_string($text) && $text !== 'third') {
+                $revision = (string)$entry['revision'];
+                $expected = $text;
+                break;
+            }
+        }
+        $this->assertIsString($revision, 'the groupfolder file has a version other than its current content: ' . $versions->describe());
 
         // Regression of the restore refused with "Resource locked by another operation" where files_lock is installed
         // (NC 34 and 35): the tool wrote the version over the file while the version's own stream was still open. It
