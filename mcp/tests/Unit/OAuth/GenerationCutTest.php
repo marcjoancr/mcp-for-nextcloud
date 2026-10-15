@@ -69,13 +69,18 @@ final class GenerationCutTest extends TestCase {
     private bool $aliceEnabled = true;
     /** @var (\Closure(): void)|null runs inside every account read, in the external phase */
     private ?\Closure $onAccountRead = null;
+    /** @var array<string, list<string>> members by group id, served by one Database backend */
+    private array $groups = [];
+    /** @var (\Closure(): void)|null runs once at the next classification, after the lifecycles of a resolution were read */
+    private ?\Closure $onGroupExists = null;
     /** Whether the physical cleanup of the OAuth tables fails (the revocation itself still commits). */
     private bool $cleanupFails = false;
 
     protected function setUp(): void {
         $this->database = new SqliteDatabase($this, [new Version000500Date20260930000000(), new Version000700Date20261001000000(),
             new Version000800Date20261002000000(), new Version000800Date20261002010000(), new Version001002Date20261008000000(),
-            new Version001100Date20261015000000($this->createMock(IDBConnection::class)), new Version001100Date20261015010000()]);
+            new Version001100Date20261015000000($this->createMock(IDBConnection::class)), new Version001100Date20261015010000(),
+            new \OCA\Mcp\Migration\Version001100Date20261014000000()]);
         $this->db = $this->database->connection();
         (new PolicyStateSeeder($this->db))->seed();
         $this->data = new InMemoryConfig();
@@ -114,7 +119,12 @@ final class GenerationCutTest extends TestCase {
         $this->writer = new PolicyWriter($this->db, $this->state, $events, $config, $userConfig, $apps, $users, $time,
             $this->authUsers, new RecheckMapper($this->db), $processor,
             new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), new \OCA\Mcp\OAuth\OAuthStore($this->db));
-        $this->policy = new GrantPolicy($config, $userConfig, $this->writer);
+        $this->policy = new GrantPolicy($config, $userConfig, $this->writer,
+            InMemoryConfig::resolverOver($this, $this->state, $this->writer, $config, $userConfig, $apps, $users, $this->db,
+                fn (): array => [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(fn (): array => $this->groups, 'Database', function (): void {
+                    [$hook, $this->onGroupExists] = [$this->onGroupExists, null];
+                    $hook !== null && $hook();
+                })]));
         $gate = new TokenOwnerGate($users, $this->policy, $this->writer, $userConfig, $apps, new NullLogger(), InMemoryConfig::noCauses($this));
         $hasher = $this->hasher;
         $this->service = new TokenService($this->store, $hasher, $time, $gate, $config, $this->writer, $this->authUsers, $processor);
@@ -408,4 +418,93 @@ final class GenerationCutTest extends TestCase {
         return $time;
     }
 
+    /** Alice eligible only through the Database group "team" (pending item of ticket 06: group cases over Bearer). */
+    private function groupEligibleAlice(): void {
+        unset($this->data->user['alice']['mcp']['eligible']);
+        $this->groups = ['team' => ['alice'], 'staff' => ['alice']];
+        InMemoryConfig::storeGroupPolicy($this->database, 'team', ['_system' => ['eligible']]);
+    }
+
+    public function testGroupEligibilityAdmitsConsentExchangeRefreshAndBearer(): void {
+        $this->groupEligibleAlice();
+        $first = $this->exchange($this->consent());
+        $this->assertSame('alice', $this->bearer($first));
+        $this->assertSame('alice', $this->bearer($this->refresh($first['refresh_token'])));
+        $this->assertSame('1', $this->data->user['alice']['mcp']['connected']);
+        $this->assertArrayNotHasKey('eligible', $this->data->user['alice']['mcp'], 'consent never writes an individual Allow');
+    }
+
+    /** Clarification 6 over Bearer: a sole indeterminate group is unavailable (503), never a cut; it recovers. */
+    public function testASoleIndeterminateGroupMakesBearerAndRefreshUnavailableWithoutCutting(): void {
+        $this->groupEligibleAlice();
+        $grant = $this->exchange($this->consent());
+        $generations = $this->authUsers->generations('alice');
+        InMemoryConfig::storeGroupState($this->database, 'team', 'needs_confirm');
+        foreach ([fn () => $this->bearer($grant), fn () => $this->refresh($grant['refresh_token']), fn () => $this->consent()] as $use) {
+            try {
+                $use();
+                $this->fail('An unknown eligibility was answered');
+            } catch (PolicyUnavailable) {
+                $this->addToAssertionCount(1);
+            }
+        }
+        $this->assertSame($generations, $this->authUsers->generations('alice'), 'nothing was cut');
+        // Another valid source keeps the access while "team" stays indeterminate; the credential was never cut.
+        InMemoryConfig::storeGroupPolicy($this->database, 'staff', ['_system' => ['eligible']]);
+        $this->assertSame('alice', $this->bearer($grant));
+        $this->assertSame('alice', $this->bearer($this->refresh($grant['refresh_token'])));
+    }
+
+    /** A group that stops granting is a loss observed in use: the credential is cut like an individual Deny. */
+    public function testAGroupThatNoLongerGrantsIsALossObservedInUse(): void {
+        $this->groupEligibleAlice();
+        $grant = $this->exchange($this->consent());
+        InMemoryConfig::storeGroupPolicy($this->database, 'team', []);
+        $this->assertNull($this->bearer($grant));
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->authUsers->generations('alice'));
+    }
+
+    /**
+     * F3 of the review of ticket 07: a pending_delete between the phases moves no revision, so the consent compares
+     * under the mutex the lifecycle gen the admission read; the replay then sees the group no longer grants.
+     */
+    public function testConsentComparesTheGrantingLifecycleUnderTheMutex(): void {
+        $this->groupEligibleAlice();
+        $revision = $this->state->state()['revision'];
+        $this->onGroupExists = fn () => InMemoryConfig::storeGroupState($this->database, 'team', 'pending_delete');
+        try {
+            $this->consent();
+            $this->fail('A consent issued on a group being deleted');
+        } catch (PolicyUnavailable) {
+        }
+        $this->assertNull($this->onGroupExists, 'the change landed between the phases');
+        $this->assertSame([], $this->database->dbal->fetchAllAssociative('SELECT * FROM mcp_oauth_codes'));
+        $this->assertSame(['issue_seq' => '1', 'revoked_below' => '0'], $this->authUsers->generations('alice'));
+        $this->assertSame($revision, $this->state->state()['revision']);
+    }
+
+    /** The same comparison guards exchange and refresh, the other issuances of a group-admitted owner. */
+    public function testExchangeAndRefreshCompareTheGrantingLifecycleUnderTheMutex(): void {
+        $this->groupEligibleAlice();
+        $code = $this->consent();
+        $this->onGroupExists = fn () => InMemoryConfig::storeGroupState($this->database, 'team', 'pending_delete');
+        try {
+            $this->exchange($code);
+            $this->fail('A code was exchanged on a group being deleted');
+        } catch (PolicyUnavailable) {
+        }
+        $this->assertSame([], $this->generations('mcp_oauth_tokens'));
+        $this->assertCount(1, $this->database->dbal->fetchAllAssociative('SELECT * FROM mcp_oauth_codes'), 'the code is not consumed');
+
+        InMemoryConfig::storeGroupState($this->database, 'team', 'active');
+        $grant = $this->exchange($code);
+        $this->onGroupExists = fn () => InMemoryConfig::storeGroupState($this->database, 'team', 'pending_delete');
+        try {
+            $this->refresh($grant['refresh_token']);
+            $this->fail('A refresh rotated on a group being deleted');
+        } catch (PolicyUnavailable) {
+        }
+        InMemoryConfig::storeGroupState($this->database, 'team', 'active');
+        $this->assertSame('alice', $this->bearer($grant), 'the refresh token was not rotated');
+    }
 }

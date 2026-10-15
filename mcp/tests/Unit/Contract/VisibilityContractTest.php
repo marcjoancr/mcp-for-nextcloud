@@ -98,6 +98,7 @@ final class VisibilityContractTest extends TestCase {
     private array $listedShares = [];
     /** @var array<string, \OCP\Share\IShare> what getShareById() answers, by full share id */
     private array $sharesById = [];
+    private ?GrantPolicy $policy = null;
 
     protected function setUp(): void {
         parent::setUp();
@@ -183,6 +184,11 @@ final class VisibilityContractTest extends TestCase {
                 $args[] = $shares;
                 continue;
             }
+            if ($name === GrantPolicy::class) {
+                // The policy every tool reads, also from inside a module (a share type): alice holds every grant.
+                $args[] = $this->policy();
+                continue;
+            }
             if ($name === IRootFolder::class) {
                 $rootFolder = $this->createMock(IRootFolder::class);
                 $rootFolder->method('getUserFolder')->willReturn($this->tree->rootFolder());
@@ -215,13 +221,22 @@ final class VisibilityContractTest extends TestCase {
         return $share;
     }
 
-    private function registry(array $modules): ToolRegistry {
+    /** @return GrantPolicy one policy for the registry and the modules, with every grant allowed to alice */
+    private function policy(): GrantPolicy {
+        if ($this->policy !== null) {
+            return $this->policy;
+        }
         $policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->config->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
                 $policy->setGrant('alice', $module, $operation, true);
             }
         }
+        return $this->policy = $policy;
+    }
+
+    private function registry(array $modules): ToolRegistry {
+        $policy = $this->policy();
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
         $users = $this->createMock(IUserManager::class);

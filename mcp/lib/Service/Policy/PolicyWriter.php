@@ -196,33 +196,71 @@ class PolicyWriter {
 
     /**
      * Consent (contracts §3.1): connected=true and a new authorization code in one command, so a failure leaves
-     * neither. Under the mutex the service and the user's eligibility are read again; the code gets the next
-     * generation of the user (issue_seq + 1) and the current global epoch. Other sessions of the user are untouched.
+     * neither. The code gets the next generation of the user (issue_seq + 1) and the current global epoch. Other
+     * sessions of the user are untouched.
+     *
+     * The eligibility is decided by $admit in the external phase (it may read group backends); under the mutex the
+     * service and the user's individual value are read again, and every group that made the user eligible must still
+     * have the lifecycle gen $admit read (assertLifecycles()): a pending_delete between the phases does not move the
+     * revision, so without that comparison a consent could issue on the policy of a group being deleted.
      *
      * @param string $uid the consenting user
+     * @param Closure(): (list<array{groupId:string, gen:string}>|null) $admit GrantPolicy::admission() of an enabled
+     *     account; null when the user may not consent
      * @param Closure(string, string): void $insertCode stores the code with (generation, epoch); runs under the mutex
      * @param (Closure(string, list<array>): array<string, bool>)|null $classify consumes the pending causes before the
      *     code is issued (runCredential())
      * @return bool false when the account is disabled, the service is off or the user is not eligible: nothing written
      * @throws \InvalidArgumentException for a user the server does not know
-     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     * @throws PolicyUnavailable when the eligibility is unknown, the policy storage fails, the granting groups keep
+     *     changing, or the outcome is uncertain ($uncertain = true)
      */
-    public function consent(string $uid, Closure $insertCode, ?Closure $classify = null): bool {
+    public function consent(string $uid, Closure $admit, Closure $insertCode, ?Closure $classify = null): bool {
         $allowed = false;
-        $this->runCredential($uid, function () use ($uid): bool {
+        $this->runCredential($uid, function () use ($uid, $admit): ?array {
             $this->assertUser($uid);
-            return (bool)$this->users->get($uid)?->isEnabled();
-        }, function (bool $enabled, array $current) use ($uid, $insertCode, &$allowed): bool {
-            $allowed = $enabled && $this->config->getAppValue(GrantPolicy::APP, GrantPolicy::SERVICE_KEY, '0') === '1'
-                && $this->config->getUserValue($uid, GrantPolicy::APP, GrantPolicy::ELIGIBLE_KEY, '0') === '1';
+            return $admit();
+        }, function (?array $lifecycles, array $current) use ($uid, $insertCode, &$allowed): bool {
+            $individual = $this->config->getUserValueForUsers(GrantPolicy::APP, GrantPolicy::ELIGIBLE_KEY, [$uid])[$uid] ?? null;
+            // An individual Allow admits by itself; a group admits only while the user has no individual value.
+            $allowed = $lifecycles !== null
+                && $this->config->getAppValue(GrantPolicy::APP, GrantPolicy::SERVICE_KEY, '0') === '1'
+                && ($individual === '1' || ($individual === null && $lifecycles !== []));
             if (!$allowed) {
                 return false;
             }
+            $this->assertLifecycles($lifecycles);
             $changed = $this->writeCell($uid, GrantPolicy::CONNECTED_KEY, '1') !== null;
             $insertCode($this->authUsers->issue($uid), $current['auth_epoch']);
             return $changed;
         }, $classify);
         return $allowed;
+    }
+
+    /**
+     * Under the mutex of a command whose decision relied on group lifecycles read in its external phase: each of
+     * them must still be active with the same gen, or the attempt is replayed (and its external phase reads the new
+     * state, where such a group no longer grants). A lifecycle transition that does not move the revision
+     * (pending_delete, contracts §3.3.5) is caught here.
+     *
+     * @param list<array{groupId:string, gen:string}> $lifecycles what the external phase read
+     * @throws SnapshotInvalidated when one of them changed
+     * @throws \OCP\DB\Exception when the read fails
+     */
+    public function assertLifecycles(array $lifecycles): void {
+        if ($lifecycles === []) {
+            return;
+        }
+        $current = [];
+        foreach ($this->life->forGroups(array_column($lifecycles, 'groupId')) as $row) {
+            $current[$row['groupId']] = $row;
+        }
+        foreach ($lifecycles as $lifecycle) {
+            $row = $current[$lifecycle['groupId']] ?? null;
+            if ($row === null || $row['state'] !== GroupLifeMapper::ACTIVE || $row['gen'] !== $lifecycle['gen']) {
+                throw new SnapshotInvalidated();
+            }
+        }
     }
 
     /**

@@ -10,6 +10,8 @@ namespace OCA\Mcp\Service;
 use InvalidArgumentException;
 use OCA\Mcp\Db\LogsGroupsMapper;
 use OCA\Mcp\Db\PolicyEventsMapper;
+use OCA\Mcp\Service\Policy\LogsRoleReader;
+use OCA\Mcp\Service\Policy\MembershipReader;
 use OCA\Mcp\Service\Policy\PolicyConflict;
 use OCA\Mcp\Service\Policy\PolicyEventPayload;
 use OCA\Mcp\Service\Policy\PolicyOutbox;
@@ -18,6 +20,7 @@ use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Service\Policy\SnapshotInvalidated;
 use OCP\IConfig;
 use OCP\IGroupManager;
+use OCP\IUserManager;
 use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
 
@@ -27,6 +30,11 @@ use OCP\Lock\LockedException;
  * MCP settings may read it. An empty list means administrators only.
  *
  * The gate also closes while the log is not a file: syslog, errorlog and systemd keep nothing the core can read back.
+ *
+ * The role is read fresh on every check (contracts §4.2): the membership from the group backends (MembershipReader)
+ * and the administrator role from LogsRoleReader, never from the memoized IGroupManager::isAdmin/isInGroup, so a worker
+ * reusing this service never keeps a role of an earlier operation. One deliberate difference with those calls: group
+ * ids compare strictly ("1" and "01" are two groups), as LogsGroupsMapper stores them.
  */
 class LogsAccess {
     /** Legacy appconfig key, used only for the one-time import. */
@@ -38,10 +46,13 @@ class LogsAccess {
 
     /**
      * @param IConfig $config system settings (log_type)
-     * @param IGroupManager $groupManager administrators and group membership
+     * @param IGroupManager $groupManager existence of the listed groups
      * @param LogsGroupsMapper $mapper uncached, versioned role state
      * @param ILockingProvider $locks the core's locking provider, shared by every worker
      * @param PolicyWriter $writer owner of the transaction: a role change also advances the global revision
+     * @param LogsRoleReader $roles the role on a fresh membership
+     * @param MembershipReader $membership fresh group membership, from the backends
+     * @param IUserManager $users the account the membership is read for
      */
     public function __construct(
         private IConfig $config,
@@ -49,6 +60,9 @@ class LogsAccess {
         private LogsGroupsMapper $mapper,
         private ILockingProvider $locks,
         private PolicyWriter $writer,
+        private LogsRoleReader $roles,
+        private MembershipReader $membership,
+        private IUserManager $users,
     ) {}
 
     /** @return string the log_type system setting, lowercase; 'file' when unset */
@@ -62,27 +76,32 @@ class LogsAccess {
      * @return bool whether the server writes its log to a file the core can read back
      */
     public function available(): bool {
-        return !in_array($this->logType(), self::NON_FILE_TYPES, true);
+        return self::fileLog($this->config);
+    }
+
+    /**
+     * @param IConfig $config system settings
+     * @return bool whether log_type names the file writer (any value but the non-file ones)
+     */
+    public static function fileLog(IConfig $config): bool {
+        return !in_array(strtolower($config->getSystemValueString('log_type', 'file')), self::NON_FILE_TYPES, true);
     }
 
     /**
      * @param string $uid Nextcloud user id
      * @return bool whether the log is a file and the user is an administrator or a member of a listed group
+     * @throws PolicyUnavailable when the membership cannot be read; never a permissive or empty default
      */
     public function permits(string $uid): bool {
         if (!$this->available()) {
             return false;
         }
-        if ($this->groupManager->isAdmin($uid)) {
-            return true;
+        $user = $this->users->get($uid);
+        if ($user === null) {
+            return false;
         }
-        foreach ($this->groups() as $gid) {
-            // A group deleted after it was listed has no members, so it stops matching on its own.
-            if ($this->groupManager->isInGroup($uid, $gid)) {
-                return true;
-            }
-        }
-        return false;
+        // A group deleted after it was listed has no members, so it stops matching on its own.
+        return $this->roles->read($uid, $this->membership->read($user))['permitted'];
     }
 
     /** @return list<string> the group ids listed by the administrator, canonical; a garbled value reads as none */

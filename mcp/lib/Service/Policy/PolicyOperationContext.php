@@ -45,6 +45,38 @@ final class PolicyOperationContext {
         return $this->candidates;
     }
 
+    /** @return bool whether the user switched the personal connection on (raw '1'); anything else is off */
+    public function connected(): bool {
+        $this->check();
+        return ($this->raw[GrantPolicy::CONNECTED_KEY]['value'] ?? null) === '1';
+    }
+
+    /** @return bool whether the administrator switched the service on */
+    public function serviceEnabled(): bool {
+        $this->check();
+        return $this->serviceEnabled;
+    }
+
+    /**
+     * The lifecycle gens of granting groups, as this snapshot read them: what a writer command compares again under
+     * its mutex before acting on a decision those groups made (a pending_delete does not move the revision).
+     *
+     * @param list<string> $groupIds groups a resolution named as its sources
+     * @return list<array{groupId:string, gen:string}> the groups among them that grant in this snapshot, with their
+     *     gen (a list, so a numeric-looking id never becomes an integer key)
+     */
+    public function lifecycles(array $groupIds): array {
+        $this->check();
+        $gens = [];
+        foreach ($this->candidates as $candidate) {
+            if (in_array($candidate['groupId'], $groupIds, true) && $candidate['trusted']
+                && $candidate['state'] === GroupLifeMapper::ACTIVE && is_string($candidate['gen'])) {
+                $gens[] = ['groupId' => $candidate['groupId'], 'gen' => $candidate['gen']];
+            }
+        }
+        return $gens;
+    }
+
     public function eligible(): EligibilityResolution {
         $result = $this->resolve(GrantPolicy::ELIGIBLE_KEY, '_system', 'eligible', false);
         return new EligibilityResolution($result->allowed, $result->source, $result->groupIds, $result->rawState);
@@ -64,7 +96,7 @@ final class PolicyOperationContext {
             !$this->serviceEnabled => 'service',
             $eligibility->allowed === null => 'eligibility_unknown',
             !$eligibility->allowed => 'eligibility',
-            ($this->raw[GrantPolicy::CONNECTED_KEY]['value'] ?? null) !== '1' => 'connection',
+            !$this->connected() => 'connection',
             !$this->apps[$module] => 'app',
             $module === 'logs' && !$this->logsAvailable => 'logs_available',
             $module === 'logs' && !$this->logsPermitted => 'logs_role',

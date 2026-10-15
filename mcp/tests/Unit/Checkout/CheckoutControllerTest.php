@@ -101,13 +101,18 @@ final class CheckoutControllerTest extends TestCase {
         $this->headers['Content-Length'] = (string)strlen($body);
     }
 
+    private InMemoryConfig $policyData;
+    private \OCP\IConfig $policyConfig;
+
     protected function setUp(): void {
         $this->tree = new FakeTree($this);
         $this->tree->addFile(self::FILE, '# Ata', 'text/markdown');
         $this->locks = new FakeLockManager();
         $this->store = new InMemoryCheckoutTokenStore();
         $this->config = new InMemoryConfig();
-        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy((new InMemoryConfig())->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $this->policyData = new InMemoryConfig();
+        $this->policyConfig = $this->policyData->mock($this);
+        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->policyConfig, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $this->policy->setGlobalEnabled(true);
         $this->policy->setEligible('alice', true);
         $this->policy->setConnected('alice', true);
@@ -282,6 +287,21 @@ final class CheckoutControllerTest extends TestCase {
         $this->assertSame(409, $this->code($this->controller->upload()));
         $this->assertSame('# Ata', $this->tree->nodes[self::FILE]['content']);
         $this->assertSame([], $this->tree->ops);
+    }
+
+    /**
+     * T11: an issued link reads the policy of its owner again on use, groups included. A grant held only through a
+     * group of indeterminate policy is unknown: 503, nothing written, and the link is not spent.
+     */
+    public function testAGroupGrantFollowsTheLinkAndAnUnknownOneAnswers503WithoutSpendingIt(): void {
+        unset($this->policyData->user['alice']['mcp']['grant_files_edit']);
+        $this->policyData->groupBackends = [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn (): array => ['team' => ['alice']])];
+        InMemoryConfig::groupPolicy($this->policyConfig, 'team', ['files' => ['edit']], 'needs_confirm');
+        $this->issue();
+        $this->assertSame(503, $this->code($this->controller->upload()));
+        $this->assertSame([], $this->tree->ops);
+        InMemoryConfig::groupPolicy($this->policyConfig, 'team', ['files' => ['edit']]);
+        $this->assertSame(200, $this->code($this->controller->upload()), 'the same link, now granted by the group');
     }
 
     public function testRevokingTheGrantBetweenCheckoutAndUploadBlocksIt(): void {

@@ -68,7 +68,14 @@ final class MatrixFixture {
 
     /** The role gate of the logs module over the same config and groups; members of 'admin' are the administrators. */
     public function logsAccess(): \OCA\Mcp\Service\LogsAccess {
-        return new \OCA\Mcp\Service\LogsAccess($this->config->mock($this->test), $this->groupManager(), new \OCA\Mcp\Db\LogsGroupsMapper($this->logsDb->connection(), $this->appConfig->worker($this->test)), $this->locks, $this->writer());
+        $config = $this->config->mock($this->test);
+        $groups = $this->groupManager();
+        $mapper = new \OCA\Mcp\Db\LogsGroupsMapper($this->logsDb->connection(), $this->appConfig->worker($this->test));
+        $remote = $this->mock(\OCP\Security\Ip\IRemoteAddress::class);
+        $remote->method('allowsAdminActions')->willReturn(true);
+        $roles = new \OCA\Mcp\Service\Policy\LogsRoleReader($config, $mapper, $groups, $remote, $this->mock(\OCP\IUserSession::class));
+        return new \OCA\Mcp\Service\LogsAccess($config, $groups, $mapper, $this->locks, $this->writer(), $roles,
+            new \OCA\Mcp\Service\Policy\MembershipReader($groups), $this->userManager());
     }
 
     /** @return \OCA\Mcp\Service\Policy\PolicyWriter the writer behind the policy, shared by every worker of the fixture */
@@ -103,6 +110,7 @@ final class MatrixFixture {
     private function groupManager(): IGroupManager {
         $manager = $this->mock(IGroupManager::class);
         $manager->method('get')->willReturnCallback(fn (string $gid) => isset($this->groups[$gid]) ? $this->group($gid) : null);
+        $manager->method('getBackends')->willReturnCallback(fn (): array => [$this->backend()]);
         $manager->method('search')->willReturnCallback(fn () => array_map(fn ($gid) => $this->group($gid), array_keys($this->groups)));
         $manager->method('isInGroup')->willReturnCallback(fn (string $uid, string $gid) => in_array($uid, $this->groups[$gid] ?? [], true));
         $manager->method('isAdmin')->willReturnCallback(fn (string $uid) => in_array($uid, $this->groups['admin'], true));
@@ -112,6 +120,11 @@ final class MatrixFixture {
             return array_combine($uids, array_map(fn ($uid) => $this->users[$uid]['name'], $uids)) ?: [];
         });
         return $manager;
+    }
+
+    /** The groups of the fixture as their one Database backend, as the fresh readers see them. */
+    public function backend(): \OCA\Mcp\Tests\Unit\ArrayGroupBackend {
+        return new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(fn (): array => $this->groups);
     }
 
     private function appManager(): IAppManager {

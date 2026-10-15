@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Controller;
 
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Checkout\CheckoutToken;
 use OCA\Mcp\Checkout\CheckoutTokenStore;
 use OCA\Mcp\L10n\Translator;
@@ -366,8 +367,8 @@ class CheckoutController extends Controller {
      */
     private function create(CheckoutToken $row, string $body): Response {
         $uid = $row->userId;
-        if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->policy->granted($uid, self::MODULE, self::OPERATION_CREATE)) {
-            return $this->refuse(Http::STATUS_FORBIDDEN, FilesMessages::checkoutRevoked());
+        if (($refusal = $this->admit($uid, self::OPERATION_CREATE)) !== null) {
+            return $refusal;
         }
         if ($this->l10n !== null && $this->userManager !== null && ($user = $this->userManager->get($uid)) !== null) {
             Translator::use($this->l10n->forUser($user));
@@ -475,6 +476,22 @@ class CheckoutController extends Controller {
      * @param string $uid owner of the link
      * @return bool true when the account is there and enabled
      */
+    /**
+     * The policy of the link's owner, read again on every use of an issued link (contracts §4.3): enabled account,
+     * connection allowed and the files grant of this step, resolved with groups like any MCP request, in one snapshot.
+     *
+     * @return Response|null 403 when the policy refuses, 503 when it cannot be resolved now; null to proceed
+     */
+    private function admit(string $uid, string $operation): ?Response {
+        try {
+            $allowed = $this->ownerUsable($uid) && $this->policy->within($uid,
+                fn (): bool => $this->policy->canConnect($uid) && $this->policy->granted($uid, self::MODULE, $operation));
+        } catch (PolicyUnavailable) {
+            return $this->refuse(Http::STATUS_SERVICE_UNAVAILABLE, FilesMessages::checkoutUnavailable());
+        }
+        return $allowed ? null : $this->refuse(Http::STATUS_FORBIDDEN, FilesMessages::checkoutRevoked());
+    }
+
     private function ownerUsable(string $uid): bool {
         $user = $this->userManager?->get($uid);
         return $user !== null && $user->isEnabled();
@@ -527,8 +544,8 @@ class CheckoutController extends Controller {
             return $this->refuse(Http::STATUS_NOT_FOUND, FilesMessages::tokenInvalid());
         }
         $uid = $row->userId;
-        if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->policy->granted($uid, self::MODULE, self::OPERATION)) {
-            return $this->refuse(Http::STATUS_FORBIDDEN, FilesMessages::checkoutRevoked());
+        if (($refusal = $this->admit($uid, self::OPERATION)) !== null) {
+            return $refusal;
         }
         if ($this->l10n !== null && $this->userManager !== null) {
             $user = $this->userManager->get($uid);

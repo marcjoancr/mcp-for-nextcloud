@@ -16,9 +16,10 @@
 \OCP\Util::addStyle('mcp', 'admin');
 $escape = static fn ($value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $service = $_['global'] ? $l->t('enabled') : $l->t('disabled');
-$adminEligibility = $_['eligible'] ? $l->t('allowed') : $l->t('not allowed');
+// null: the eligibility depends only on a group whose policy is indeterminate right now; it is not a refusal.
+$adminEligibility = $_['eligible'] === null ? $l->t('cannot be checked right now') : ($_['eligible'] ? $l->t('allowed') : $l->t('not allowed'));
 $connection = $_['connected'] ? $l->t('active') : $l->t('disconnected');
-$canConnect = $_['connected'] || ($_['eligible'] && $_['global']);
+$canConnect = $_['connected'] || ($_['eligible'] === true && $_['global']);
 ?>
 <div id="mcp-personal" class="mcp-settings">
     <div class="section mcp-block" id="mcp-personal-status">

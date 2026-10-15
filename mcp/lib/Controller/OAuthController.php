@@ -68,7 +68,13 @@ class OAuthController extends Controller {
         }
         $user = $this->userSession->getUser();
         $uid = $user->getUID();
-        if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
+        try {
+            // Eligibility includes the groups that may grant it; an unknown answer is not a refusal (contracts §3.3.5).
+            $allowed = $this->policy->globalEnabled() && $this->policy->eligible($uid);
+        } catch (PolicyUnavailable) {
+            return $this->page(['unavailable' => true]);
+        }
+        if (!$allowed) {
             return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
         }
         $pendingId = bin2hex(random_bytes(16));
@@ -108,10 +114,10 @@ class OAuthController extends Controller {
         if ($decision !== 'allow') {
             return new RedirectResponse($authRequest->redirectWith(['error' => 'access_denied'], $this->urls->issuer()));
         }
-        if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
-            return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
-        }
         try {
+            if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
+                return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
+            }
             // Connection and code in one command: a failure leaves the user neither connected nor with a code.
             $code = $this->tokens->consent($authRequest, $uid);
         } catch (PolicyUnavailable) {
@@ -161,7 +167,7 @@ class OAuthController extends Controller {
     /** @param array<string,mixed> $params */
     private function page(array $params): TemplateResponse {
         return new TemplateResponse($this->appName, 'consent', $params + [
-            'error' => null, 'blocked' => false, 'pending' => null,
+            'error' => null, 'blocked' => false, 'unavailable' => false, 'pending' => null,
         ], TemplateResponse::RENDER_AS_GUEST);
     }
 

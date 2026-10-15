@@ -33,7 +33,7 @@ final class OAuthControllerFlowTest extends TestCase {
     /** @var array<string,mixed> */
     private array $stored = [];
     private bool $serviceOn = true;
-    private bool $eligible = true;
+    private ?bool $eligible = true;
     private MockObject&GrantPolicy $policy;
     private MockObject&TokenService $tokens;
     /** @var array<string,mixed> */
@@ -59,7 +59,7 @@ final class OAuthControllerFlowTest extends TestCase {
         $resolver->method('resolve')->willReturn(new ClientMetadata('https://claude.ai/c', 'Claude', ['https://claude.ai/cb']));
         $this->policy = $this->createMock(GrantPolicy::class);
         $this->policy->method('globalEnabled')->willReturnCallback(fn () => $this->serviceOn);
-        $this->policy->method('eligible')->willReturnCallback(fn () => $this->eligible);
+        $this->policy->method('eligible')->willReturnCallback(fn () => $this->eligible ?? throw new \OCA\Mcp\Service\Policy\PolicyUnavailable());
         $this->tokens = $this->createMock(TokenService::class);
         $urls = $this->createMock(ResourceUrl::class);
         $urls->method('base')->willReturn(self::ISSUER . '/apps/mcp/');
@@ -205,6 +205,29 @@ final class OAuthControllerFlowTest extends TestCase {
             $this->assertInstanceOf(TemplateResponse::class, $response, $what);
             $this->assertTrue($response->getParams()['blocked'], $what);
         }
+    }
+
+    /**
+     * An eligibility that is unknown (only a group of indeterminate policy grants it) is neither the blocked page nor
+     * a consent: the page says it cannot be checked now, keeps nothing, and the click answers temporarily_unavailable.
+     */
+    public function testAnUnknownEligibilityIsNeitherBlockedNorAConsent(): void {
+        $controller = $this->controller();
+        $pending = $this->authorize($controller);
+        $this->eligible = null;
+        $this->tokens->expects($this->never())->method('consent');
+        $response = $controller->consent($pending, 'allow');
+        $this->assertInstanceOf(RedirectResponse::class, $response);
+        parse_str((string)parse_url($response->getRedirectURL(), PHP_URL_QUERY), $query);
+        $this->assertSame('temporarily_unavailable', $query['error']);
+
+        $this->params = ['client_id' => 'https://claude.ai/c', 'redirect_uri' => 'https://claude.ai/cb', 'response_type' => 'code',
+            'code_challenge_method' => 'S256', 'code_challenge' => self::CHALLENGE, 'scope' => 'mcp'];
+        $page = $controller->authorize();
+        $this->assertTrue($page->getParams()['unavailable']);
+        $this->assertFalse($page->getParams()['blocked']);
+        $this->assertNull($page->getParams()['pending']);
+        $this->assertSame([], $this->stored, 'nothing was kept in the session');
     }
 
     public function testTheConsentPageIsBlockedWhenTheServiceIsOffOrTheUserIsNotEligible(): void {

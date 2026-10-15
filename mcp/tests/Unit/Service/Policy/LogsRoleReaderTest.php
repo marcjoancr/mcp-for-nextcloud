@@ -75,7 +75,11 @@ final class LogsRoleReaderTest extends TestCase {
         return $manager;
     }
 
-    /** @return array{0:LogsAccess,1:LogsRoleReader} */
+    /**
+     * @return array{0:\Closure(string):array{available:bool,permitted:bool}, 1:LogsRoleReader, 2:LogsAccess} the 1.0.8 gate
+     *     (a transcription of LogsAccess::permits() before ticket 09, over the core manager), the reader, and the
+     *     LogsAccess of ticket 09, which reads the role through the reader on a fresh membership
+     */
     private function pair(string $type, bool $remoteAllowed, bool $nativeAdmin, ?string $sessionUid, bool $strict, array $listed): array {
         $data = new InMemoryConfig();
         $data->system['log_type'] = $type;
@@ -85,49 +89,78 @@ final class LogsRoleReaderTest extends TestCase {
         $backend = $this->createMockForIntersectionOfInterfaces([GroupInterface::class, IIsAdminBackend::class]);
         $backend->method('implementsActions')->with(GroupInterface::IS_ADMIN)->willReturn(true);
         $backend->method('isAdmin')->with('alice')->willReturn($nativeAdmin);
+        $backend->method('getUserGroups')->willReturnCallback(fn (): array => $this->ids);
         $remote = $this->createMock(IRemoteAddress::class);
         $remote->method('allowsAdminActions')->willReturn($remoteAllowed);
         $session = $this->session($sessionUid);
         $manager = $this->coreManager($remote, $session, [$backend], $strict);
-        $logs = new LogsAccess($config, $manager, $mapper, $this->createMock(ILockingProvider::class), InMemoryConfig::writer($config));
-        return [$logs, new LogsRoleReader($logs, $manager, $remote, $session)];
+        $reader = new LogsRoleReader($config, $mapper, $manager, $remote, $session);
+        $users = $this->createMock(\OCP\IUserManager::class);
+        $users->method('get')->willReturnCallback(function (string $uid): IUser {
+            $user = $this->createMock(IUser::class);
+            $user->method('getUID')->willReturn($uid);
+            return $user;
+        });
+        $access = new LogsAccess($config, $manager, $mapper, $this->createMock(ILockingProvider::class), InMemoryConfig::writer($config),
+            $reader, new \OCA\Mcp\Service\Policy\MembershipReader($manager), $users);
+        $available = !in_array($type, LogsAccess::NON_FILE_TYPES, true);
+        $legacy = static function (string $uid) use ($available, $manager, $listed): array {
+            if (!$available) {
+                return ['available' => false, 'permitted' => false];
+            }
+            if ($manager->isAdmin($uid)) {
+                return ['available' => true, 'permitted' => true];
+            }
+            foreach ($listed as $gid) {
+                if ($manager->isInGroup($uid, $gid)) {
+                    return ['available' => true, 'permitted' => true];
+                }
+            }
+            return ['available' => true, 'permitted' => false];
+        };
+        return [$legacy, $reader, $access];
     }
 
     #[DataProvider('cases')]
     public function testFreshAdapterMatchesLegacyLogGate(string $type, bool $remoteAllowed, bool $nativeAdmin, array $ids,
         ?string $sessionUid, bool $strict): void {
         $this->ids = $ids;
-        [$logs, $reader] = $this->pair($type, $remoteAllowed, $nativeAdmin, $sessionUid, $strict, ['logs']);
-        $this->assertSame(['available' => $logs->available(), 'permitted' => $logs->permits('alice')], $reader->read('alice', $ids));
+        [$legacy, $reader, $access] = $this->pair($type, $remoteAllowed, $nativeAdmin, $sessionUid, $strict, ['logs']);
+        $this->assertSame($legacy('alice'), $reader->read('alice', $ids));
+        // LogsAccess now reads through the reader on a fresh membership: the same answer as the 1.0.8 gate.
+        $this->assertSame($legacy('alice')['permitted'], $access->permits('alice'));
     }
 
     public function testAnotherUsersAdministrationIsNotSubjectToTheViewersRemoteAddress(): void {
         $this->ids = ['admin'];
-        [$logs, $reader] = $this->pair('file', false, false, 'bob', false, []);
-        $this->assertTrue($logs->permits('alice'));
+        [$legacy, $reader, $access] = $this->pair('file', false, false, 'bob', false, []);
+        $this->assertTrue($legacy('alice')['permitted']);
         $this->assertTrue($reader->read('alice', ['admin'])['permitted']);
-        [$logs, $reader] = $this->pair('file', false, false, 'alice', false, []);
-        $this->assertFalse($logs->permits('alice'));
+        $this->assertTrue($access->permits('alice'));
+        [$legacy, $reader, $access] = $this->pair('file', false, false, 'alice', false, []);
+        $this->assertFalse($legacy('alice')['permitted']);
         $this->assertFalse($reader->read('alice', ['admin'])['permitted']);
+        $this->assertFalse($access->permits('alice'));
     }
 
     /** Intentional, fail-closed divergence from the loose isInGroup of NC32–34: "01" and "1" are distinct groups. */
     public function testNumericGroupIdsCompareStrictlyOnEveryVersion(): void {
         $this->ids = ['1'];
-        [$logs, $reader] = $this->pair('file', true, false, null, false, ['01']);
-        $this->assertTrue($logs->permits('alice'), 'NC32–34 core matches "01" == "1"');
+        [$legacy, $reader, $access] = $this->pair('file', true, false, null, false, ['01']);
+        $this->assertTrue($legacy('alice')['permitted'], 'NC32–34 core matches "01" == "1"');
         $this->assertFalse($reader->read('alice', ['1'])['permitted']);
-        [$logs, $reader] = $this->pair('file', true, false, null, true, ['01']);
-        $this->assertFalse($logs->permits('alice'));
+        $this->assertFalse($access->permits('alice'), 'the one documented divergence, fail-closed');
+        [$legacy, $reader, $access] = $this->pair('file', true, false, null, true, ['01']);
+        $this->assertFalse($legacy('alice')['permitted']);
+        $this->assertFalse($access->permits('alice'));
         $this->assertFalse($reader->read('alice', ['1'])['permitted']);
         $this->assertTrue($reader->read('alice', ['01'])['permitted']);
     }
 
     public function testSameReaderUsesNewMembershipRemoteAddressAndRoleStateOnEveryOperation(): void {
-        $logs = $this->createMock(LogsAccess::class);
-        $logs->method('available')->willReturn(true);
-        $logs->method('groups')->willReturn(['logs']);
-        $logs->expects($this->never())->method('permits');
+        $config = (new InMemoryConfig())->mock($this);
+        $mapper = $this->createMock(LogsGroupsMapper::class);
+        $mapper->method('state')->willReturn(['groups' => ['logs'], 'version' => 1]);
         $manager = $this->createMock(IGroupManager::class);
         $manager->method('getBackends')->willReturn([]);
         $manager->expects($this->never())->method('isAdmin');
@@ -135,7 +168,7 @@ final class LogsRoleReaderTest extends TestCase {
         $allowed = true;
         $remote = $this->createMock(IRemoteAddress::class);
         $remote->method('allowsAdminActions')->willReturnCallback(static function () use (&$allowed): bool { return $allowed; });
-        $reader = new LogsRoleReader($logs, $manager, $remote, $this->session('alice'));
+        $reader = new LogsRoleReader($config, $mapper, $manager, $remote, $this->session('alice'));
         $this->assertTrue($reader->read('alice', ['admin'])['permitted']);
         $allowed = false;
         $this->assertFalse($reader->read('alice', ['admin'])['permitted']);

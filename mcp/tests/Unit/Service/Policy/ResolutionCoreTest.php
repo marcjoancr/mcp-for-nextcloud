@@ -107,7 +107,14 @@ final class ResolutionCoreTest extends TestCase {
             $this->appConfig, $this->users, new MembershipReader($this->manager), new GroupSourceClassifier($this->manager),
             new GroupGrantsMapper($this->db), $this->life,
             new GroupTrustObserver($this->db, $this->writer, $this->life, $this->createMock(LoggerInterface::class)),
-            $this->apps, new LogsRoleReader($this->logs, $this->manager, $this->createMock(\OCP\Security\Ip\IRemoteAddress::class), $this->createMock(\OCP\IUserSession::class)));
+            $this->apps, new LogsRoleReader($this->config, $this->logsGroups(), $this->manager, $this->createMock(\OCP\Security\Ip\IRemoteAddress::class), $this->createMock(\OCP\IUserSession::class)));
+    }
+
+    /** No group listed for the logs role: only administrators hold it. */
+    private function logsGroups(): \OCA\Mcp\Db\LogsGroupsMapper {
+        $mapper = $this->createMock(\OCA\Mcp\Db\LogsGroupsMapper::class);
+        $mapper->method('state')->willReturn(['groups' => [], 'version' => 0]);
+        return $mapper;
     }
 
     private function backend(?string $name = 'Database', array $gids = ['team']): GroupInterface {

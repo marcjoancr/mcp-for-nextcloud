@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools;
 
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use InvalidArgumentException;
 use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Service\Compat\AppEnablement;
@@ -102,6 +103,7 @@ class ToolRegistry {
      * @param string $userId authenticated user
      * @return array{content: list<array{type:string, text:string}>, isError?: bool} MCP tool result
      * @throws InvalidArgumentException for unknown, hidden or invalid calls (JSON-RPC -32602)
+     * @throws PolicyUnavailable when the grant or the role cannot be resolved now (the endpoint answers 503)
      */
     public function call(string $name, array $arguments, string $userId): array {
         if ($name === ToolGuide::TOOL) {
@@ -164,6 +166,11 @@ class ToolRegistry {
                     // A locked file is an expected refusal, never a server error, even from a module that did not map it.
                     $audit(RestrictedModule::READ_ERROR);
                     return ToolResult::error(NodeAccess::lockFailure($e)->getMessage());
+                } catch (PolicyUnavailable $e) {
+                    // A grant re-checked inside the tool (a share type, a linked module) that cannot be resolved now:
+                    // the whole request answers 503, never a tool error that reads as a refusal.
+                    $audit(RestrictedModule::READ_ERROR);
+                    throw $e;
                 } catch (\Throwable $e) {
                     $this->logger->error('MCP tool failed', ['app' => 'mcp', 'tool' => $name, 'exception_class' => $e::class, 'exception_message' => self::loggable($e)]);
                     $audit(RestrictedModule::READ_ERROR);

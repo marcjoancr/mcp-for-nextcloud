@@ -62,7 +62,7 @@ final class LogsModuleTest extends TestCase {
     private function module(?IWriter $writer = null): LogsModule {
         $config = $this->config->mock($this);
         $groups = $this->createMock(IGroupManager::class);
-        $groups->method('isAdmin')->willReturnCallback(static fn (string $uid): bool => $uid === 'root');
+        $groups->method('getBackends')->willReturn([new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn (): array => ['admin' => ['root']])]);
         $factory = $this->createMock(ILogFactory::class);
         $factory->method('get')->willReturn($writer ?? $this->log);
         $dispatcher = $this->createMock(IEventDispatcher::class);
@@ -80,7 +80,7 @@ final class LogsModuleTest extends TestCase {
         }
         $db = new \OCA\Mcp\Tests\Unit\SqliteDatabase($this, [new \OCA\Mcp\Migration\Version001002Date20261008000000()]);
         $mapper = new \OCA\Mcp\Db\LogsGroupsMapper($db->connection(), (new \OCA\Mcp\Tests\Unit\InMemoryAppConfig())->worker($this));
-        $access = new LogsAccess($config, $groups, $mapper, new \OCA\Mcp\Tests\Unit\InMemoryLocks(), \OCA\Mcp\Tests\Unit\InMemoryConfig::writer($config));
+        $access = \OCA\Mcp\Tests\Unit\InMemoryConfig::logsAccess($this, $config, $groups, $mapper, new \OCA\Mcp\Tests\Unit\InMemoryLocks());
         $guard = new \OCA\Mcp\Service\VisibilityGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
         $fileNames = new \OCA\Mcp\Service\LogFileNames($this->appConfig->worker($this), $guard);
         return new LogsModule($access, new LogScanner(new LogReader($factory)), new LogAudit($dispatcher, $logger), $config, $fileNames);

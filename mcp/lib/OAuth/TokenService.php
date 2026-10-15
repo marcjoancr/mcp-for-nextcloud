@@ -52,11 +52,13 @@ class TokenService {
      * @return string|null the one-time authorization code, or null when the service is off, the account is disabled
      *     or the user is not eligible (nothing was written)
      * @throws \InvalidArgumentException for a user the server does not know
-     * @throws PolicyUnavailable when the policy storage fails or keeps changing; nothing was issued
+     * @throws PolicyUnavailable when the eligibility is unknown, the policy storage fails or keeps changing; nothing
+     *     was issued
      */
     public function consent(AuthorizationRequest $request, string $uid): ?string {
         $code = $this->hasher->generate('code');
-        $allowed = $this->writer->consent($uid, function (string $generation, string $epoch) use ($request, $uid, $code): void {
+        $allowed = $this->writer->consent($uid, fn (): ?array => $this->gate->admission($uid, false),
+            function (string $generation, string $epoch) use ($request, $uid, $code): void {
             $now = $this->time->getTime();
             $this->store->insertCode([
                 'code_hash' => $this->hasher->hash($code),
@@ -211,8 +213,10 @@ class TokenService {
     }
 
     /**
-     * Runs a unit for an owner who must still be usable (checked in the external phase). An unusable owner is
-     * revoked by a cut at $observed, the issue_seq read before the check, and the request fails with invalid_grant.
+     * Runs a unit for an owner who must still be usable (checked in the external phase, with the lifecycles of the
+     * groups that admit the owner compared again under the mutex). An unusable owner is revoked by a cut at $observed,
+     * the issue_seq read before the check, and the request fails with invalid_grant; an unknown eligibility fails
+     * with PolicyUnavailable and revokes nothing.
      *
      * @param Closure(array, array):void $local the local statements, given the state row and generations under the mutex
      * @throws OAuthException invalid_grant for an unusable owner
@@ -220,11 +224,11 @@ class TokenService {
      */
     private function asOwner(string $uid, string $observed, \Closure $local): void {
         try {
-            $this->writer->runCredential($uid, function () use ($uid): void {
-                if ($this->gate->usable($uid) === null) {
-                    throw new OwnerNotUsable();
-                }
-            }, function ($snapshot, array $state, array $generations) use ($local): bool {
+            $this->writer->runCredential($uid, function () use ($uid): array {
+                return $this->gate->admission($uid, true) ?? throw new OwnerNotUsable();
+            }, function (array $lifecycles, array $state, array $generations) use ($local): bool {
+                // The groups that admitted the owner must still grant (F3 of the review of ticket 07).
+                $this->writer->assertLifecycles($lifecycles);
                 $local($state, $generations);
                 return false;
             }, $this->gate->causes());

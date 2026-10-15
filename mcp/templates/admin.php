@@ -13,7 +13,7 @@
  * tags and log groups are filled by js/admin-grants.js, the connections by js/connections.js. Without
  * JavaScript every panel stays visible, the tab bar stays hidden and the log privacy detail stays open.
  *
- * @var array{endpoint:string, serviceEnabled:bool, ocrActive:bool, ocrUrl:string, version:string, eligibleUsers:int, connectedUsers:int, activeConnections:int, unsupportedApps:list<array{name:string, installed:string, required:string}>, logsAvailable:bool, logType:string} $_
+ * @var array{endpoint:string, serviceEnabled:bool, ocrActive:bool, ocrUrl:string, version:string, eligibleUsers:int|null, connectedUsers:int|null, activeConnections:int, unsupportedApps:list<array{name:string, installed:string, required:string}>, logsAvailable:bool, logType:string} $_
  * @var \OCP\IL10N $l
  */
 \OCP\Util::addScript('mcp', 'admin-picker');
@@ -56,11 +56,11 @@
             </div>
             <div class="mcp-card">
                 <span class="mcp-card-label"><?php p($l->t('Eligible users')); ?></span>
-                <span class="mcp-card-value" id="mcp-count-eligible"><?php p((string)$_['eligibleUsers']); ?></span>
+                <span class="mcp-card-value" id="mcp-count-eligible"><?php p($_['eligibleUsers'] === null ? '—' : (string)$_['eligibleUsers']); ?></span>
             </div>
             <div class="mcp-card">
                 <span class="mcp-card-label"><?php p($l->t('Connected users')); ?></span>
-                <span class="mcp-card-value" id="mcp-count-connected"><?php p((string)$_['connectedUsers']); ?></span>
+                <span class="mcp-card-value" id="mcp-count-connected"><?php p($_['connectedUsers'] === null ? '—' : (string)$_['connectedUsers']); ?></span>
                 <span class="mcp-hint"><?php p($l->t('Eligible users who activated their connection.')); ?></span>
             </div>
             <div class="mcp-card">

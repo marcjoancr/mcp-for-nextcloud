@@ -84,6 +84,39 @@ final class GroupGrantsMapper {
     }
 
     /**
+     * The groups holding one grant, for the enumeration of the users it reaches (the eligible filter and totals of
+     * the admin matrix). Only the rows of this app; whether a group may grant is decided by its caller.
+     *
+     * @param string $module catalog module, or '_system' for eligibility
+     * @param string $operation operation of that module
+     * @return list<string> group ids, unique, sorted bytewise
+     * @throws UnexpectedValueException for a row whose key is not the digest of its id
+     * @throws \OCP\DB\Exception when the query fails
+     */
+    public function groupsGranting(string $module, string $operation): array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('group_key', 'group_id')->from('mcp_group_grants')
+            ->where($qb->expr()->eq('module', $qb->createNamedParameter($module)))
+            ->andWhere($qb->expr()->eq('operation', $qb->createNamedParameter($operation)))
+            ->executeQuery();
+        $groups = [];
+        try {
+            while (($row = $result->fetch()) !== false) {
+                $gid = $row['group_id'] ?? null;
+                if (!is_string($gid) || ($row['group_key'] ?? null) !== hash('sha256', "group\0" . $gid)) {
+                    throw new UnexpectedValueException('Invalid stored group grant');
+                }
+                $groups[$row['group_key']] = $gid;
+            }
+        } finally {
+            $result->closeCursor();
+        }
+        $groups = array_values($groups);
+        sort($groups, SORT_STRING);
+        return $groups;
+    }
+
+    /**
      * Removes every grant row of one group, as the purge of its lifecycle does. The rows are read first through
      * forGroups(), which compares each stored id byte for byte, so a digest collision fails closed before the delete.
      *

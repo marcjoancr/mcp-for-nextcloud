@@ -27,6 +27,9 @@
     <h2><?php p($l->t('Connection not possible')); ?></h2>
     <p class="mcp-error"><?php p($l->t('The authorization request is invalid.')); ?></p>
     <p class="mcp-hosts"><?php p($_['error']); ?></p>
+<?php elseif ($_['unavailable']): ?>
+    <h2><?php p($l->t('Connection not possible')); ?></h2>
+    <p class="mcp-error"><?php p($l->t('MCP access for your account cannot be checked right now. Try connecting again shortly.')); ?></p>
 <?php elseif ($_['blocked']): ?>
     <h2><?php p($l->t('MCP is not available for your account')); ?></h2>
     <p><?php p($l->t('%s cannot be connected because an administrator has not enabled MCP for your account.', [$_['client']])); ?></p>

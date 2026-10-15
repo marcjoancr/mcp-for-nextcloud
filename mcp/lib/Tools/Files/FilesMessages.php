@@ -605,6 +605,11 @@ final class FilesMessages {
         return Translator::t('MCP connection is disabled or access to this folder is no longer granted.');
     }
 
+    /** @return string the access policy cannot be resolved now: nothing was decided, the link still works later */
+    public static function checkoutUnavailable(): string {
+        return Translator::t('MCP access cannot be checked right now. Try the link again shortly.');
+    }
+
     /** @return string the checkout token is unknown */
     public static function tokenInvalid(): string {
         return Translator::t('Invalid edit link.');

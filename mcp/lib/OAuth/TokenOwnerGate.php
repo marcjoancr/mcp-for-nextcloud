@@ -21,8 +21,8 @@ use Throwable;
 
 /**
  * Decides whether a token owner may still use OAuth credentials: the account exists and is enabled and the MCP
- * connection policy (global switch, admin eligibility, personal connection) allows it, on a fresh read of the
- * official config. A failed read is not an answer: it fails the request (PolicyUnavailable) and revokes nothing.
+ * connection policy (global switch, eligibility, individual or by group, personal connection) allows it, on a fresh
+ * resolution. An eligibility that is unknown (it depends only on a group of indeterminate policy) is a failed read. A failed read is not an answer: it fails the request (PolicyUnavailable) and revokes nothing.
  * An owner observed unusable is revoked by a cut at the generation read before the check (contracts §3.1, (iii)),
  * so re-enabling later requires a new consent, and a consent made after that read is never touched by it.
  *
@@ -69,6 +69,30 @@ class TokenOwnerGate {
             $this->appConfig->clearCache(false);
             $user = $this->userManager->get($uid);
             return $user !== null && $user->isEnabled() && $this->policy->canConnect($uid) ? $user : null;
+        } catch (PolicyUnavailable $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new PolicyUnavailable('Cannot read the credential owner', previous: $e);
+        }
+    }
+
+    /**
+     * The check of an issuance (consent, exchange, refresh), in the external phase of its writer command: the account
+     * exists and is enabled, and GrantPolicy::admission() admits the user. The groups that admitted the user come
+     * back with their lifecycle gens, for PolicyWriter::assertLifecycles() under the mutex.
+     *
+     * @param string $uid the user a credential is issued to
+     * @param bool $connection also require the personal connection (exchange, refresh); a consent sets it itself
+     * @return list<array{groupId:string, gen:string}>|null null when the account or the policy refuses the user
+     * @throws PolicyUnavailable when the account or the policy cannot be read, or the eligibility is unknown
+     */
+    public function admission(string $uid, bool $connection): ?array {
+        try {
+            $user = $this->userManager->get($uid);
+            if ($user === null || !$user->isEnabled()) {
+                return null;
+            }
+            return $this->policy->admission($uid, $connection);
         } catch (PolicyUnavailable $e) {
             throw $e;
         } catch (Throwable $e) {

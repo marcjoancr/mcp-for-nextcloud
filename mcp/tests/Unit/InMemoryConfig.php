@@ -35,6 +35,8 @@ final class InMemoryConfig {
     public array $generations = [];
     /** @var (\Closure(string):bool)|null which uids the writer's user manager knows; null knows every uid */
     public ?\Closure $userExists = null;
+    /** @var list<\OCP\GroupInterface> group backends the resolver of policy() reads memberships and sources from */
+    public array $groupBackends = [];
 
     /** @var \WeakMap<IConfig, IUserConfig>|null the IUserConfig double that serves the same data as each IConfig mock */
     private static ?\WeakMap $userConfigs = null;
@@ -43,6 +45,8 @@ final class InMemoryConfig {
     private static ?\WeakMap $states = null;
     private static ?\WeakMap $authUsers = null;
     private static ?\WeakMap $processors = null;
+    private static ?\WeakMap $resolvers = null;
+    private static ?\WeakMap $groupDatabases = null;
 
     /** @return \OCA\Mcp\Db\AuthUsersMapper the OAuth generations the writer of $config uses (over $generations) */
     public static function authUsers(IConfig $config): \OCA\Mcp\Db\AuthUsersMapper {
@@ -77,7 +81,125 @@ final class InMemoryConfig {
      * (the policy lists flagged users through IUserConfig::searchUsersByValueString).
      */
     public static function policy(IConfig $config, \OCA\Mcp\OAuth\OAuthStore $store): \OCA\Mcp\Service\GrantPolicy {
-        return new \OCA\Mcp\Service\GrantPolicy($config, self::$userConfigs[$config], self::writer($config, $store));
+        $writer = self::writer($config, $store);
+        return new \OCA\Mcp\Service\GrantPolicy($config, self::$userConfigs[$config], $writer, self::resolver($config));
+    }
+
+    /**
+     * The real resolver over the data of $config: no group backends unless $groupBackends lists some, grant rows and
+     * lifecycles in an SQLite database of their own (groupDatabase()). Without group rows its answer is the 1.0.8 one.
+     */
+    public static function resolver(IConfig $config): \OCA\Mcp\Service\Policy\PolicyResolver {
+        self::$resolvers ??= new \WeakMap();
+        self::$groupDatabases ??= new \WeakMap();
+        if (isset(self::$resolvers[$config])) {
+            return self::$resolvers[$config];
+        }
+        $writer = self::writer($config);
+        [$data, $test] = self::$stores[$config];
+        $mock = fn (string $class) => (new \ReflectionMethod($test, 'createMock'))->invoke($test, $class);
+        $groups = self::$groupDatabases[$config] = new SqliteDatabase($test, [
+            new \OCA\Mcp\Migration\Version001100Date20261014000000(), new \OCA\Mcp\Migration\Version001100Date20261015010000()]);
+        $users = $mock(\OCP\IUserManager::class);
+        $users->method('get')->willReturnCallback(static function (string $uid) use ($data, $mock): ?\OCP\IUser {
+            if ($data->userExists !== null && !($data->userExists)($uid)) {
+                return null;
+            }
+            $user = $mock(\OCP\IUser::class);
+            $user->method('getUID')->willReturn($uid);
+            $user->method('isEnabled')->willReturn(true);
+            return $user;
+        });
+        return self::$resolvers[$config] = self::resolverOver($test, self::state($config), $writer, $config,
+            self::$userConfigs[$config], $mock(\OCP\IAppConfig::class), $users, $groups->connection(),
+            static fn (): array => $data->groupBackends);
+    }
+
+    /**
+     * The real resolver over the given collaborators, for a test that builds its own writer: grant rows and lifecycles
+     * in $db, memberships and sources from $backends, the apps of every module off and no logs role.
+     *
+     * @param \Closure(): list<\OCP\GroupInterface> $backends the group backends, read on every call
+     */
+    public static function resolverOver(TestCase $test, \OCA\Mcp\Db\PolicyStateMapper $state, \OCA\Mcp\Service\Policy\PolicyWriter $writer,
+        IConfig $config, IUserConfig $userConfig, \OCP\IAppConfig $appConfig, \OCP\IUserManager $users, \OCP\IDBConnection $db,
+        ?\Closure $backends = null): \OCA\Mcp\Service\Policy\PolicyResolver {
+        $mock = fn (string $class) => (new \ReflectionMethod($test, 'createMock'))->invoke($test, $class);
+        $manager = $mock(\OCP\IGroupManager::class);
+        $manager->method('getBackends')->willReturnCallback($backends ?? static fn (): array => []);
+        $logs = $mock(\OCA\Mcp\Service\Policy\LogsRoleReader::class);
+        $logs->method('read')->willReturn(['available' => false, 'permitted' => false]);
+        $life = new \OCA\Mcp\Db\GroupLifeMapper($db);
+        return new \OCA\Mcp\Service\Policy\PolicyResolver($state, $writer, $config, $userConfig, $appConfig, $users,
+            new \OCA\Mcp\Service\Policy\MembershipReader($manager), new \OCA\Mcp\Service\Policy\GroupSourceClassifier($manager),
+            new \OCA\Mcp\Db\GroupGrantsMapper($db), $life,
+            new \OCA\Mcp\Service\Policy\GroupTrustObserver($db, $writer, $life, new \Psr\Log\NullLogger()),
+            $mock(\OCP\App\IAppManager::class), $logs);
+    }
+
+    /**
+     * The logs role gate over a fresh membership of $groups (members by group id, read on every check; 'admin' are
+     * the administrators), as the server builds it: LogsRoleReader and MembershipReader over one Database backend.
+     *
+     * @param \Closure(): array<string, list<string>> $groups
+     */
+    public static function logsAccess(TestCase $test, IConfig $config, \OCP\IGroupManager $manager, \OCA\Mcp\Db\LogsGroupsMapper $mapper,
+        \OCP\Lock\ILockingProvider $locks): \OCA\Mcp\Service\LogsAccess {
+        $mock = fn (string $class) => (new \ReflectionMethod($test, 'createMock'))->invoke($test, $class);
+        $remote = $mock(\OCP\Security\Ip\IRemoteAddress::class);
+        $remote->method('allowsAdminActions')->willReturn(true);
+        $users = $mock(\OCP\IUserManager::class);
+        $users->method('get')->willReturnCallback(static function (string $uid) use ($mock): \OCP\IUser {
+            $user = $mock(\OCP\IUser::class);
+            $user->method('getUID')->willReturn($uid);
+            return $user;
+        });
+        $roles = new \OCA\Mcp\Service\Policy\LogsRoleReader($config, $mapper, $manager, $remote, $mock(\OCP\IUserSession::class));
+        return new \OCA\Mcp\Service\LogsAccess($config, $manager, $mapper, $locks, self::writer($config), $roles,
+            new \OCA\Mcp\Service\Policy\MembershipReader($manager), $users);
+    }
+
+    /**
+     * Stores a group policy as a save of ticket 08 leaves it, in the database the resolver of $config reads: one row
+     * per grant and a lifecycle in $state, with a new gen.
+     *
+     * @param array<string, list<string>> $grants operations by module, '_system' => ['eligible'] for eligibility
+     * @return string the gen of the lifecycle
+     */
+    public static function groupPolicy(IConfig $config, string $gid, array $grants, string $state = 'active'): string {
+        return self::storeGroupPolicy(self::groupDatabase($config), $gid, $grants, $state);
+    }
+
+    /** @see groupPolicy(), over any database with the group tables */
+    public static function storeGroupPolicy(SqliteDatabase $database, string $gid, array $grants, string $state = 'active'): string {
+        $key = \OCA\Mcp\Db\IdentityKey::group($gid);
+        $database->dbal->delete('mcp_group_grants', ['group_key' => $key]);
+        foreach ($grants as $module => $operations) {
+            foreach ($operations as $operation) {
+                $database->dbal->insert('mcp_group_grants', ['group_key' => $key, 'group_id' => $gid, 'module' => $module, 'operation' => $operation]);
+            }
+        }
+        $database->dbal->delete('mcp_group_life', ['group_key' => $key]);
+        $gen = bin2hex(random_bytes(16));
+        $database->dbal->insert('mcp_group_life', ['group_key' => $key, 'group_id' => $gid, 'state' => $state, 'gen' => $gen, 'policy_rev' => 0]);
+        return $gen;
+    }
+
+    /**
+     * Moves a lifecycle to $state with a new gen, as another process would (a pending_delete moves no revision).
+     *
+     * @return string the new gen
+     */
+    public static function storeGroupState(SqliteDatabase $database, string $gid, string $state): string {
+        $gen = bin2hex(random_bytes(16));
+        $database->dbal->update('mcp_group_life', ['state' => $state, 'gen' => $gen], ['group_key' => \OCA\Mcp\Db\IdentityKey::group($gid)]);
+        return $gen;
+    }
+
+    /** @return SqliteDatabase the group rows and lifecycles the resolver of $config reads */
+    public static function groupDatabase(IConfig $config): SqliteDatabase {
+        self::resolver($config);
+        return self::$groupDatabases[$config];
     }
 
     /**

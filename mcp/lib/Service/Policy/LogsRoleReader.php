@@ -6,14 +6,18 @@
 declare(strict_types=1);
 namespace OCA\Mcp\Service\Policy;
 
+use OCA\Mcp\Db\LogsGroupsMapper;
 use OCA\Mcp\Service\LogsAccess;
 use OCP\GroupInterface;
+use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IUserSession;
 use OCP\Security\Ip\IRemoteAddress;
 
 /**
- * Fresh equivalent of the logs role gate; the existing LogsAccess consumer stays unchanged until ticket 09.
+ * The logs role gate on a fresh membership: LogsAccess::permits() and the resolver both read it, so the role never
+ * comes from the memoized IGroupManager::isAdmin/isInGroup. It reads the log type and the listed groups itself (the
+ * uncached role row), never through LogsAccess, which depends on it.
  *
  * One intentional divergence: group ids compare strictly. IGroupManager::isInGroup compares loosely on
  * NC32–34 ('01' == '1') and strictly on NC35. LogsGroupsMapper already treats "1" and "01" as distinct
@@ -21,7 +25,8 @@ use OCP\Security\Ip\IRemoteAddress;
  */
 class LogsRoleReader {
     public function __construct(
-        private LogsAccess $logs,
+        private IConfig $config,
+        private LogsGroupsMapper $mapper,
         private IGroupManager $groups,
         private IRemoteAddress $remote,
         private IUserSession $session,
@@ -32,7 +37,7 @@ class LogsRoleReader {
      * @return array{available:bool,permitted:bool}
      */
     public function read(?string $uid, array $groupIds): array {
-        $available = $this->logs->available();
+        $available = LogsAccess::fileLog($this->config);
         if (!$available || $uid === null) {
             return ['available' => $available, 'permitted' => false];
         }
@@ -48,7 +53,7 @@ class LogsRoleReader {
                 return ['available' => true, 'permitted' => true];
             }
         }
-        foreach ($this->logs->groups() as $gid) {
+        foreach ($this->mapper->state()['groups'] as $gid) {
             if (in_array($gid, $groupIds, true)) {
                 return ['available' => true, 'permitted' => true];
             }

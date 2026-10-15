@@ -7,15 +7,28 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Service;
 
+use Closure;
 use InvalidArgumentException;
+use OCA\Mcp\Service\Policy\PolicyOperationContext;
+use OCA\Mcp\Service\Policy\PolicyResolver;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
+use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
-use OCA\Mcp\Service\Policy\PolicyWriter;
 
 /**
- * Persisted MCP access policy: global switch, per-user admin eligibility, per-user personal
- * connection and per-user grants for (module, operation). Every read goes back to Nextcloud's
- * persisted config, so a change applies to the next request. Grants never widen Nextcloud ACLs.
+ * MCP access policy: global switch, admin eligibility, personal connection and grants for (module, operation).
+ * Grants never widen Nextcloud ACLs.
+ *
+ * Every authorization read is the resolution of PolicyResolver (contracts §4.1–§4.3): an individual Allow or Deny,
+ * then the groups that may grant (trusted source, active lifecycle), then the default. Without any group policy that
+ * is exactly the 1.0.8 answer. A resolution that is unknown (it depended only on a group of indeterminate policy), an
+ * abandoned writer context or a failed read is never answered with a default: it throws PolicyUnavailable, which the
+ * entry points answer with 503 and which never revokes anything.
+ *
+ * Reads go back to the persisted policy, so a change applies to the next operation. Inside within() one operation
+ * reuses one snapshot (the controlled reuse of contracts §4.2, T14); a write through this service, or the end of the
+ * operation, discards it. The snapshot is held per operation and released in finally, never kept between operations.
  */
 class GrantPolicy {
     /** Operations an admin can grant per module; Files deliberately has no delete. */
@@ -59,61 +72,126 @@ class GrantPolicy {
      */
     public const RESERVED_APP_KEYS = ['enabled', 'installed_version', 'types', 'levels', 'ocsid'];
 
-    public function __construct(private IConfig $config, private IUserConfig $userConfig, private PolicyWriter $writer) {}
+    /** @var array<string, PolicyOperationContext|null> snapshot of each open operation, by 'u' . uid; null until read */
+    private array $operations = [];
 
-    /** @return bool whether the administrator enabled the MCP service (off by default) */
+    public function __construct(
+        private IConfig $config,
+        private IUserConfig $userConfig,
+        private PolicyWriter $writer,
+        private PolicyResolver $resolver,
+    ) {}
+
+    /**
+     * Runs one operation of $uid (a request of the MCP endpoint, a checkout step) over one policy snapshot: every
+     * read of that user inside $work reuses it, so tools/list and a tools/call each see the policy of their own
+     * request, consistently, and never one of an earlier request. The snapshot is assembled on the first read and
+     * discarded when $work returns or throws. A nested call joins the operation already open.
+     *
+     * @template T
+     * @param string $uid the user of the operation
+     * @param Closure(): T $work
+     * @return T what $work returned
+     */
+    public function within(string $uid, Closure $work): mixed {
+        $key = 'u' . $uid;
+        if (array_key_exists($key, $this->operations)) {
+            return $work();
+        }
+        $this->operations[$key] = null;
+        try {
+            return $work();
+        } finally {
+            $context = $this->operations[$key];
+            unset($this->operations[$key]);
+            $context?->close();
+        }
+    }
+
+    /**
+     * @return bool whether the administrator enabled the MCP service (off by default)
+     * @throws PolicyUnavailable when the policy context was abandoned
+     */
     public function globalEnabled(): bool {
+        $this->writer->assertUsable();
         return $this->config->getAppValue(self::APP, self::SERVICE_KEY, '0') === '1';
     }
 
-    /** @param bool $enabled new state of the global service switch */
+    /**
+     * @param bool $enabled new state of the global service switch
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain
+     */
     public function setGlobalEnabled(bool $enabled): void {
-        $this->writer->setGlobalEnabled($enabled);
+        try {
+            $this->writer->setGlobalEnabled($enabled);
+        } finally {
+            $this->discard(null);
+        }
     }
 
     /**
      * @param string $uid Nextcloud user id
-     * @return bool whether an administrator allowed this user to connect (off by default, admins included)
+     * @return bool whether the user may connect: an individual Allow, or a group that may grant eligibility, and no
+     *     individual Deny (off by default, admins included)
+     * @throws PolicyUnavailable when the eligibility is unknown or cannot be read
      */
     public function eligible(string $uid): bool {
-        return $this->config->getUserValue($uid, self::APP, self::ELIGIBLE_KEY, '0') === '1';
+        return $this->read($uid, static fn (PolicyOperationContext $context): bool => self::known($context->eligible()->allowed));
     }
 
     /**
      * @param string $uid Nextcloud user id
      * @param bool $enabled new eligibility
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain
      */
     public function setEligible(string $uid, bool $enabled): void {
-        $this->writer->setEligible($uid, $enabled);
+        try {
+            $this->writer->setEligible($uid, $enabled);
+        } finally {
+            $this->discard($uid);
+        }
     }
 
     /**
      * @param string $uid Nextcloud user id
      * @return bool whether the user activated their own connection (off by default)
+     * @throws PolicyUnavailable when the policy context was abandoned
      */
     public function connected(string $uid): bool {
+        $this->writer->assertUsable();
         return $this->config->getUserValue($uid, self::APP, self::CONNECTED_KEY, '0') === '1';
     }
 
     /**
      * @param string $uid Nextcloud user id
      * @param bool $enabled new personal connection state
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain
      */
     public function setConnected(string $uid, bool $enabled): void {
-        $this->writer->setConnected($uid, $enabled);
+        try {
+            $this->writer->setConnected($uid, $enabled);
+        } finally {
+            $this->discard($uid);
+        }
     }
 
     /**
-     * Users whose eligibility or connection flag is on, for the admin filters and the status summary.
+     * Users whose eligibility resolves to true, or whose personal connection is on, for the admin filters and the
+     * status summary. Eligibility includes the members of the groups that may grant it (PolicyResolver::eligibleUids).
      *
      * @param string $key ELIGIBLE_KEY or CONNECTED_KEY
-     * @return list<string> uids with that flag set to '1', sorted
+     * @return list<string> uids, sorted
      * @throws InvalidArgumentException for any other key
+     * @throws PolicyUnavailable when the policy cannot be read
      */
     public function flaggedUsers(string $key): array {
         if (!in_array($key, [self::ELIGIBLE_KEY, self::CONNECTED_KEY], true)) {
             throw new InvalidArgumentException('Invalid request');
         }
+        if ($key === self::ELIGIBLE_KEY) {
+            return $this->resolver->eligibleUids();
+        }
+        $this->writer->assertUsable();
         $found = iterator_to_array($this->userConfig->searchUsersByValueString(self::APP, $key, '1'), false);
         $uids = array_map('strval', $found);
         sort($uids);
@@ -121,10 +199,11 @@ class GrantPolicy {
     }
 
     /**
-     * Users an administrator allowed and who activated their connection: the one meaning of "connected" in the
-     * status summary and in the matrix filter.
+     * Users who are eligible and activated their connection: the one meaning of "connected" in the status summary and
+     * in the matrix filter. A personal connection without eligibility does not count.
      *
-     * @return list<string> uids with both flags on, sorted
+     * @return list<string> uids, sorted
+     * @throws PolicyUnavailable when the policy cannot be read
      */
     public function connectedUsers(): array {
         return array_values(array_intersect($this->flaggedUsers(self::ELIGIBLE_KEY), $this->flaggedUsers(self::CONNECTED_KEY)));
@@ -132,22 +211,51 @@ class GrantPolicy {
 
     /**
      * @param string $uid Nextcloud user id
-     * @return bool true only when the service is on, the user is eligible and connected
+     * @return bool true only when the service is on, the user is connected and eligible
+     * @throws PolicyUnavailable when the answer depends on an eligibility that is unknown or cannot be read
      */
     public function canConnect(string $uid): bool {
-        return $this->globalEnabled() && $this->eligible($uid) && $this->connected($uid);
+        return $this->read($uid, static fn (PolicyOperationContext $context): bool => $context->serviceEnabled()
+            && $context->connected() && self::known($context->eligible()->allowed));
+    }
+
+    /**
+     * The eligibility decision a consent or an issuance acts on, for its writer command (contracts §3.1; F3 of the
+     * review of ticket 07): always a fresh read, outside any open operation, that persists no observation, since it
+     * runs in the external phase of a writer command.
+     *
+     * @param string $uid Nextcloud user id
+     * @param bool $connection also require the personal connection (an existing lineage); a consent sets it itself
+     * @return list<array{groupId:string, gen:string}>|null null when the service is off, the user is not eligible, or
+     *     not connected when $connection; otherwise the lifecycles of the groups that made the user eligible ([] for
+     *     an individual Allow), which the command must find unchanged under its mutex
+     * @throws PolicyUnavailable when the eligibility is unknown or cannot be read
+     */
+    public function admission(string $uid, bool $connection): ?array {
+        $context = $this->resolver->begin($uid, [], [], false);
+        try {
+            if (!$context->serviceEnabled() || ($connection && !$context->connected())) {
+                return null;
+            }
+            $eligibility = $context->eligible();
+            return self::known($eligibility->allowed) ? $context->lifecycles($eligibility->groupIds) : null;
+        } finally {
+            $context->close();
+        }
     }
 
     /**
      * @param string $uid Nextcloud user id
      * @param string $module key of CATALOG
      * @param string $operation operation listed for the module in CATALOG
-     * @return bool the stored grant, or {@see self::defaultGranted()} when none is stored
+     * @return bool the resolved grant: individual Allow or Deny, else a group that may grant it, else
+     *     {@see self::defaultGranted()}
      * @throws InvalidArgumentException for a module or operation outside CATALOG
+     * @throws PolicyUnavailable when the grant is unknown or cannot be read
      */
     public function granted(string $uid, string $module, string $operation): bool {
-        $key = self::grantKey($module, $operation);
-        return $this->config->getUserValue($uid, self::APP, $key, self::defaultValue($module, $operation)) === '1';
+        self::grantKey($module, $operation);
+        return $this->read($uid, static fn (PolicyOperationContext $context): bool => self::known($context->granted($module, $operation)->allowed));
     }
 
     /**
@@ -168,42 +276,47 @@ class GrantPolicy {
      * @param string $operation operation listed for the module in CATALOG
      * @param bool $enabled new grant
      * @throws InvalidArgumentException for a module or operation outside CATALOG
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain
      */
     public function setGrant(string $uid, string $module, string $operation, bool $enabled): void {
-        $this->writer->setGrant($uid, $module, $operation, $enabled);
+        try {
+            $this->writer->setGrant($uid, $module, $operation, $enabled);
+        } finally {
+            $this->discard($uid);
+        }
     }
 
     /**
-     * Reads eligibility, connection and every grant of many users with one query per key
-     * (IConfig::getUserValueForUsers, backed by IUserConfig::getValuesByUsers in stable33),
-     * so the cost does not grow with the number of users.
+     * The resolved policy of many users over one revision snapshot (PolicyResolver::beginMany), for the admin matrix.
+     * The booleans keep their 1.0.8 meaning; null marks a value that is unknown (it depended only on a group of
+     * indeterminate policy). origins says where each value comes from: individual_allow, individual_deny, group (with
+     * the granting groups), default, invalid or unknown (with the indeterminate groups).
      *
      * @param list<string> $uids Nextcloud user ids
-     * @return array<string, array{eligible:bool, connected:bool, grants:array<string, array<string, bool>>}> state by uid, defaults applied
+     * @return array<string, array{eligible:?bool, connected:bool, grants:array<string, array<string, ?bool>>, origins:array{eligible:array{source:string, groupIds:list<string>}, grants:array<string, array<string, array{source:string, groupIds:list<string>}>>}}> state by uid
+     * @throws PolicyUnavailable when the policy cannot be read
      */
     public function forUsers(array $uids): array {
-        $uids = array_values(array_unique($uids));
-        if ($uids === []) {
-            return [];
-        }
-        $load = fn (string $key): array => $this->config->getUserValueForUsers(self::APP, $key, $uids);
-        $eligible = $load(self::ELIGIBLE_KEY);
-        $connected = $load(self::CONNECTED_KEY);
-        $grants = [];
-        foreach (self::CATALOG as $module => $operations) {
-            foreach ($operations as $operation) {
-                $grants[$module][$operation] = $load(self::grantKey($module, $operation));
-            }
-        }
+        $contexts = $this->resolver->beginMany(array_values(array_unique($uids)));
         $out = [];
-        foreach ($uids as $uid) {
-            $state = ['eligible' => ($eligible[$uid] ?? '0') === '1', 'connected' => ($connected[$uid] ?? '0') === '1', 'grants' => []];
-            foreach (self::CATALOG as $module => $operations) {
-                foreach ($operations as $operation) {
-                    $state['grants'][$module][$operation] = ($grants[$module][$operation][$uid] ?? self::defaultValue($module, $operation)) === '1';
+        try {
+            foreach ($contexts as $uid => $context) {
+                $eligibility = $context->eligible();
+                $state = ['eligible' => $eligibility->allowed, 'connected' => $context->connected(), 'grants' => [],
+                    'origins' => ['eligible' => ['source' => $eligibility->source, 'groupIds' => $eligibility->groupIds], 'grants' => []]];
+                foreach (self::CATALOG as $module => $operations) {
+                    foreach ($operations as $operation) {
+                        $grant = $context->granted($module, $operation);
+                        $state['grants'][$module][$operation] = $grant->allowed;
+                        $state['origins']['grants'][$module][$operation] = ['source' => $grant->source, 'groupIds' => $grant->groupIds];
+                    }
                 }
+                $out[(string)$uid] = $state;
             }
-            $out[$uid] = $state;
+        } finally {
+            foreach ($contexts as $context) {
+                $context->close();
+            }
         }
         return $out;
     }
@@ -217,9 +330,44 @@ class GrantPolicy {
         return isset(self::CATALOG[$module]) && in_array($operation, self::CATALOG[$module], true);
     }
 
-    /** @return string {@see self::defaultGranted()} as the stored value */
-    private static function defaultValue(string $module, string $operation): string {
-        return self::defaultGranted($module, $operation) ? '1' : '0';
+    /**
+     * @template T
+     * @param Closure(PolicyOperationContext): T $read
+     * @return T
+     * @throws PolicyUnavailable
+     */
+    private function read(string $uid, Closure $read): mixed {
+        $key = 'u' . $uid;
+        if (array_key_exists($key, $this->operations)) {
+            return $read($this->operations[$key] ??= $this->resolver->begin($uid));
+        }
+        $context = $this->resolver->begin($uid);
+        try {
+            return $read($context);
+        } finally {
+            $context->close();
+        }
+    }
+
+    /** A write through this service makes the snapshot of the open operation stale: the next read assembles a new one. */
+    private function discard(?string $uid): void {
+        foreach ($this->operations as $key => $context) {
+            if ($uid === null || $key === 'u' . $uid) {
+                $context?->close();
+                $this->operations[$key] = null;
+            }
+        }
+    }
+
+    /**
+     * @return bool the resolved answer
+     * @throws PolicyUnavailable when it is unknown: never a default, never a revocation
+     */
+    private static function known(?bool $allowed): bool {
+        if ($allowed === null) {
+            throw new PolicyUnavailable('Policy resolution is unknown');
+        }
+        return $allowed;
     }
 
     /** @throws InvalidArgumentException for a module or operation outside CATALOG */

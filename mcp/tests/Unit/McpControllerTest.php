@@ -15,6 +15,7 @@ use OCA\Mcp\OAuth\AccessTokenAuthenticator;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\McpProtocol;
+use OCA\Mcp\Tests\Unit\ArrayGroupBackend;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUser;
@@ -29,6 +30,8 @@ final class TestableMcpController extends McpController {
 final class McpControllerTest extends TestCase {
     private InMemoryConfig $store;
     private GrantPolicy $policy;
+    /** The config mock the policy reads, where group policies are stored too (InMemoryConfig::groupPolicy). */
+    private \OCP\IConfig $config;
     private ?IUser $user = null;
     private array $headers = [];
     /** @var AccessTokenAuthenticator&\PHPUnit\Framework\MockObject\MockObject */
@@ -49,7 +52,8 @@ final class McpControllerTest extends TestCase {
 
     protected function setUp(): void {
         $this->store = new InMemoryConfig();
-        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->store->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $this->config = $this->store->mock($this);
+        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->config, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $this->policy->setGlobalEnabled(true);
         foreach (['alice', 'bob'] as $uid) {
             $this->policy->setEligible($uid, true);
@@ -399,5 +403,81 @@ final class McpControllerTest extends TestCase {
         $this->assertSame('alice', $seen);
         $this->assertSame([], $this->sessionWrites);
         $this->assertSame('alice', $this->sessionUid);
+    }
+    /**
+     * A protocol over the policy of this test, with one tool per notes operation the tests need: what the endpoint
+     * lists and calls is decided by the same GrantPolicy the controller checks the connection with.
+     *
+     * @param \Closure(): void|null $inside runs inside the tool, where a module may read a grant again
+     */
+    private function groupProtocol(?\Closure $inside = null): McpProtocol {
+        $module = new class($inside) implements \OCA\Mcp\Tools\ToolModule {
+            public function __construct(private ?\Closure $inside) {}
+            public function definitions(): array {
+                return [['name' => 'notes_probe', 'description' => 'x', 'module' => 'notes', 'operation' => 'read',
+                    'inputSchema' => ['type' => 'object', 'additionalProperties' => false, 'properties' => new \stdClass()]]];
+            }
+            public function call(string $name, array $arguments, string $userId): array {
+                if ($this->inside !== null) {
+                    ($this->inside)();
+                }
+                return \OCA\Mcp\Tools\ToolResult::json(['ok' => true]);
+            }
+        };
+        return new McpProtocol(new \OCA\Mcp\Tools\ToolRegistry([$module], $this->policy,
+            $this->createMock(\OCP\App\IAppManager::class), $this->createMock(\OCP\IUserManager::class), $this->createMock(\Psr\Log\LoggerInterface::class)),
+            new \OCA\Mcp\Service\PromptCatalog(), $this->policy, $this->createMock(\Psr\Log\LoggerInterface::class));
+    }
+
+    /** Alice eligible only through the Database group "team"; "staff" holds her too, without a policy. */
+    private function groupEligibleAlice(): void {
+        unset($this->store->user['alice']['mcp']['eligible']);
+        $this->store->groupBackends = [new ArrayGroupBackend(static fn (): array => ['team' => ['alice'], 'staff' => ['alice']])];
+        InMemoryConfig::groupPolicy($this->config, 'team', ['_system' => ['eligible']]);
+    }
+
+    private function call(McpProtocol $protocol, string $tool): array {
+        $response = $this->controller('{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"' . $tool . '","arguments":{}}}', $protocol)->post();
+        return [$response->getStatus(), $response->render()];
+    }
+
+    /** Clarification 6 and T11 over Basic: a group admits; a sole indeterminate group answers 503 and revokes nothing. */
+    public function testGroupEligibilityAdmitsBasicAndAnUnknownOneAnswers503WithoutRevoking(): void {
+        $this->groupEligibleAlice();
+        $protocol = $this->groupProtocol();
+        $this->assertSame(200, $this->call($protocol, 'notes_probe')[0]);
+
+        InMemoryConfig::groupPolicy($this->config, 'team', ['_system' => ['eligible']], 'needs_confirm');
+        $response = $this->controller('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', $protocol)->post();
+        $this->assertSame(503, $response->getStatus());
+        $this->assertSame('1', self::headers($response)['Retry-After']);
+        $this->assertSame('1', $this->store->user['alice']['mcp']['connected'], 'unknown is not a loss: nothing is switched off');
+        $this->assertSame([], $this->store->generations, 'and no generation is cut');
+
+        // Another valid source keeps the access while "team" stays indeterminate.
+        InMemoryConfig::groupPolicy($this->config, 'staff', ['_system' => ['eligible']]);
+        $this->assertSame(200, $this->call($protocol, 'notes_probe')[0]);
+    }
+
+    /** T11/T14: a grant listed by tools/list is read again by tools/call, in the request of the call. */
+    public function testToolsListDoesNotFreezeGrantsForToolsCall(): void {
+        $this->groupEligibleAlice();
+        $protocol = $this->groupProtocol();
+        $listed = $this->controller('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', $protocol)->post()->render();
+        $this->assertStringContainsString('notes_probe', $listed);
+        $this->policy->setGrant('alice', 'notes', 'read', false);
+        [$status, $body] = $this->call($protocol, 'notes_probe');
+        $this->assertSame(200, $status);
+        $this->assertStringContainsString('"error"', $body, 'the individual Deny of the next request wins over the group');
+        $this->assertStringNotContainsString('\\"ok\\"', $body);
+    }
+
+    /** A grant that becomes unknown inside the tool is a 503 of the request, never a tool error that reads as a refusal. */
+    public function testAPolicyUnavailableInsideAToolAnswers503(): void {
+        $this->groupEligibleAlice();
+        $protocol = $this->groupProtocol(function (): void {
+            throw new \OCA\Mcp\Service\Policy\PolicyUnavailable('Policy resolution is unknown');
+        });
+        $this->assertSame(503, $this->call($protocol, 'notes_probe')[0]);
     }
 }

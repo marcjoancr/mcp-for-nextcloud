@@ -39,11 +39,13 @@ final class LogsAccessTest extends TestCase {
     /** One request: its own app config cache over the shared store, and the shared locks. */
     private function access(): LogsAccess {
         $groups = $this->createMock(IGroupManager::class);
-        $groups->method('isAdmin')->willReturnCallback(fn (string $uid): bool => in_array($uid, $this->groups['admin'], true));
-        $groups->method('isInGroup')->willReturnCallback(fn (string $uid, string $gid): bool => in_array($uid, $this->groups[$gid] ?? [], true));
+        // The role is read fresh, from the backend: never through the memoized isAdmin/isInGroup.
+        $groups->expects($this->never())->method('isAdmin');
+        $groups->expects($this->never())->method('isInGroup');
+        $groups->method('getBackends')->willReturnCallback(fn (): array => [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(fn (): array => $this->groups)]);
         $groups->method('get')->willReturnCallback(fn (string $gid): ?IGroup => isset($this->groups[$gid]) ? $this->createMock(IGroup::class) : null);
         $config = $this->store->mock($this);
-        return new LogsAccess($config, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $this->locks, InMemoryConfig::writer($config));
+        return InMemoryConfig::logsAccess($this, $config, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $this->locks);
     }
 
     public function testOnlyAdministratorsPassWhileNoGroupIsListed(): void {
@@ -53,6 +55,21 @@ final class LogsAccessTest extends TestCase {
         $this->assertFalse($access->permits('tina'));
         $this->assertFalse($access->permits('rita'));
         $this->assertFalse($access->permits('nobody'));
+    }
+
+    /** Contracts §4.2: the same instance reads the role from the backend on every check, never a remembered one. */
+    public function testTheSameInstanceFollowsTheBackendOnEveryCheck(): void {
+        $access = $this->access();
+        $access->setGroups(['ti']);
+        $this->assertFalse($access->permits('rita'));
+        $this->groups['ti'][] = 'rita';
+        $this->assertTrue($access->permits('rita'));
+        $this->groups['admin'][] = 'tina';
+        $this->groups['ti'] = [];
+        $this->assertTrue($access->permits('tina'), 'administrator now');
+        $this->groups['admin'] = ['root'];
+        $this->assertFalse($access->permits('tina'));
+        $this->assertFalse($access->permits('rita'));
     }
 
     public function testMembersOfAListedGroupPassAndOthersDoNot(): void {
@@ -268,9 +285,9 @@ final class LogsAccessTest extends TestCase {
         $groups->method('get')->willReturn($this->createMock(IGroup::class));
         $noop = $this->createMock(\OCP\Lock\ILockingProvider::class);
         $ca = $this->store->mock($this);
-        $a = new LogsAccess($ca, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop, InMemoryConfig::writer($ca));
+        $a = InMemoryConfig::logsAccess($this, $ca, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop);
         $cb = $this->store->mock($this);
-        $b = new LogsAccess($cb, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop, InMemoryConfig::writer($cb));
+        $b = InMemoryConfig::logsAccess($this, $cb, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop);
         $a->setGroups(['rh', 'ti'], [], 0);
         // Both pass their version/list checks. A commits exactly between B's check and UPDATE. B asks for a
         // different list: saving the stored list again is a no-op that never reaches the UPDATE.
