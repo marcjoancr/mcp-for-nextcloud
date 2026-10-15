@@ -680,6 +680,7 @@ final class Reorganization {
             try {
                 $this->assertPathsVisible($root, [$move['to'], $move['from']]);
                 $node = NodeAccess::run(fn () => NodeAccess::get($root, $move['to']));
+                FolderExposureGate::assertMove($root, $node, $move['from'], $this->visibilityGuard);
                 NodeAccess::run(fn () => $this->locked(fn (): Node => $node->move($this->absolute($root, $move['from'])), $node, $userId));
                 $undone++;
                 $this->assertPathsVisible($root, [$move['to'], $move['from']]);

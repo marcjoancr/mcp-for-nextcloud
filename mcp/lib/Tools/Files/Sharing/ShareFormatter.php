@@ -33,8 +33,8 @@ final class ShareFormatter {
      *   `shareId` is the full id files_unshare takes; `permission` is view, edit or custom
      *   ({@see SharePermission::classify()}); `reshare` is the SHARE bit, which on a link means outgoing
      *   federation and not a re-share; `expires` is Y-m-d or null; `url` normally exists for a link only,
-     *   and is null for any folder share while D7 suppresses capabilities
-     * @param bool $hideUrl D7: folder shares retain metadata but publish url:null without reading the token
+     *   and is null for a folder link while D7 suppresses capabilities
+     * @param bool $hideUrl D7: folder links publish url:null without reading the token
      * @throws \InvalidArgumentException for a share type outside user, group, link and room
      */
     public function item(IShare $share, string $path, bool $removable, bool $hideUrl = false): array {
@@ -51,7 +51,7 @@ final class ShareFormatter {
             'hasPassword' => $password !== null && $password !== '',
         ];
         $token = $hideUrl ? null : $share->getToken();
-        if ($hideUrl) {
+        if ($hideUrl && $recipient->kind === ShareRecipient::LINK) {
             $item['url'] = null;
         }
         if ($recipient->kind === ShareRecipient::LINK && $token !== null && $token !== '') {

@@ -14,7 +14,7 @@ needed to make that decision.
 | Batch plan and confirm | `MovePlanner::plan` first calls `Reorganization::assertFolderMoves` for the entire batch | per-item lock evaluation, `planDirs`, `createFolders`, mutation |
 | Undo plan and confirm | `Reorganization::planUndoBatch/undoBatch`, after batch identity/lifetime/undone checks | `assertUndoVisible`, conflicts/locks, `emptyDirs`, folder recreation and mutation |
 | Share/link create and update | `ShareWriter::prepare/prepareLink`, after `ShareAccess::ownNode` | all IShareManager queries and writes, including policy getters |
-| Share list by path and by page | `ShareLister`, using the resolved visible node | `ShareFormatter` returns `url: null` for folder shares and never reads their token; visible file URLs stay unchanged |
+| Share list by path and by page | `ShareLister`, using the resolved visible node | `ShareFormatter` returns `url: null` for folder links and never reads their token; visible file URLs stay unchanged |
 
 Renames compare the positive canonical file IDs of the actual source and target
 parents. A missing/unresolved parent cannot prove a rename. A requested virtual
@@ -43,5 +43,8 @@ Portuguese and Spanish entries are added together in their JSON and JS catalogs.
 German intentionally uses the English fallback during development, as approved;
 a reviewed German translation belongs to B2/C ticket 16. The local translation
 contract checks Portuguese, Spanish and German fallback. There is no new tool or
-argument schema. The approved output change is the nullable `url` on folder share
+argument schema. The approved output change is the nullable `url` on folder link
 list items when exclusions are configured; no share is revoked or modified by listing.
+
+Non-link shares retain the absence of the `url` key. Undo also reapplies D7 per
+item immediately before its lock/write guard, preserving remaining items for retry.

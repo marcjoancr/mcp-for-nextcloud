@@ -784,7 +784,7 @@ final class FilesMessages {
         return 'List the shares you created: with a path, the shares of that file or folder (which must be yours); '
             . 'without one, every share you created, ' . \OCA\Mcp\Tools\Files\Sharing\ShareAccess::PAGE_SIZE . ' per page '
             . 'with offset. Each item has shareId, type (user, group, link or room), with (id and display name), '
-            . 'permission (view, edit or custom), reshare, expires, hasPassword, url (links only), removable and path. '
+            . 'permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. '
             . 'Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false '
             . 'and is removed in Talk.';
     }

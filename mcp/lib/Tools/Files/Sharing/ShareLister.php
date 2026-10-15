@@ -13,7 +13,7 @@ use OCP\Files\Folder;
 
 /**
  * The result of files_list_shares: the shares of one own node, or one page of every share the user created.
- * With exclusions configured, folder shares retain metadata with url:null and no token.
+ * With exclusions configured, folder links retain metadata with url:null and no token.
  * The rules live in {@see ShareAccess}, the shape of each item in {@see ShareFormatter}. Stateless.
  */
 final class ShareLister {

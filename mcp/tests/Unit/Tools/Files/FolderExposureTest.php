@@ -279,6 +279,69 @@ final class FolderExposureTest extends FilesToolsTestCase {
         \OCA\Mcp\Tools\Files\FolderExposureGate::assertMove($root, $source, '/missing/renamed', $this->visibilityGuard);
     }
 
+    public function testUndoRechecksD7PerItemAndPreservesRemainingMovesForRetry(): void {
+        $this->config('[]');
+        $folder = $this->tree->node('/alice/files/Documentos')->move('/alice/files/Destination/Documentos');
+        $fileId = $this->tree->addFile('/alice/files/Destination/later.md', 'x');
+        $id = $this->batches->insert(new Batch(null, 'alice', $this->time->getTime(), [
+            ['from' => '/Documentos', 'to' => '/Destination/Documentos', 'toId' => $folder->getId()],
+            ['from' => '/later.md', 'to' => '/Destination/later.md', 'toId' => $fileId],
+        ], [], null));
+        $this->tree->ops = [];
+        $this->tree->afterMove = function (string $from): void {
+            if ($from === '/alice/files/Destination/later.md') {
+                $this->config('["999"]');
+            }
+        };
+        $out = $this->json('files_undo_batch', ['batch_id' => $id]);
+        $this->assertSame(1, $out['undone']);
+        $this->assertSame(FilesMessages::folderExposureRefused(), $out['conflicts'][0]['reason']);
+        $this->assertArrayHasKey('/alice/files/Destination/Documentos', $this->tree->nodes);
+        $this->assertArrayNotHasKey('/alice/files/Documentos', $this->tree->nodes);
+        $this->assertCount(1, $this->batches->find($id, 'alice')->moves);
+        $this->assertNull($this->batches->rows[$id]['undone_at']);
+        $this->tree->afterMove = null;
+        $this->config('[]');
+        $this->assertSame(1, $this->json('files_undo_batch', ['batch_id' => $id])['undone']);
+        $this->assertArrayHasKey('/alice/files/Documentos', $this->tree->nodes);
+    }
+
+    public function testChainedRenameAndMoveIsRefusedAsAWholeWithoutMutation(): void {
+        $args = ['moves' => [
+            ['from' => '/Documentos', 'to' => '/Renamed'],
+            ['from' => '/Renamed', 'to' => '/Destination/Renamed'],
+        ]];
+        $plan = $this->plan('files_move_batch', $args);
+        $this->assertFalse($plan['ok']);
+        $this->assertSame(CommonMessages::notFound(), $plan['denied'][0]['reason']);
+        $this->assertSame(FilesMessages::batchNotOk(0, 1), $this->refused('files_move_batch', $args, true));
+        $this->assertSame([], $this->tree->ops);
+        $this->assertSame([], $this->batches->rows);
+        $this->assertArrayHasKey('/alice/files/Documentos', $this->tree->nodes);
+        $this->assertArrayNotHasKey('/alice/files/Renamed', $this->tree->nodes);
+        $this->assertArrayNotHasKey('/alice/files/Destination/Renamed', $this->tree->nodes);
+    }
+
+    public function testOnlyFolderLinksHaveNullUrlsWhileOtherShareTypesKeepTheKeyAbsent(): void {
+        foreach ([IShare::TYPE_USER, IShare::TYPE_GROUP, IShare::TYPE_ROOM, IShare::TYPE_LINK] as $type) {
+            $this->shares->add(['node' => $this->tree->nodes['/alice/files/Documentos']['id'],
+                'nodeType' => 'folder', 'type' => $type, 'token' => 'SECRET']);
+        }
+        foreach ([['path' => '/Documentos'], []] as $args) {
+            $out = $this->json('files_list_shares', $args);
+            $this->assertCount(4, $out['shares']);
+            foreach ($out['shares'] as $share) {
+                if ($share['type'] === 'link') {
+                    $this->assertArrayHasKey('url', $share);
+                    $this->assertNull($share['url']);
+                } else {
+                    $this->assertArrayNotHasKey('url', $share);
+                }
+            }
+        }
+        $this->assertStringContainsString('null for a folder link while files are excluded from MCP access', FilesMessages::listSharesTool());
+    }
+
     public function testNonpositiveParentIdentityCannotAuthorizeARename(): void {
         $parent = $this->createMock(\OCP\Files\Folder::class);
         $parent->method('getId')->willReturn(0);
