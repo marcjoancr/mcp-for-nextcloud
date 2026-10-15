@@ -79,6 +79,19 @@ class PolicyResolver {
     }
 
     /**
+     * Grant-only contexts: admin counting only, not an access decision. Used in a caller-bounded batch. These contexts support eligible,
+     * granted and inherited only: no effective gates/resource scope are assembled, and no trust observation writes.
+     * Group rows and raw overrides are fetched in batches, rather than once per member. Close every context.
+     *
+     * @param list<string> $uids
+     * @return array<string, PolicyOperationContext>
+     */
+    public function beginManyGrants(array $uids): array {
+        $uids = array_values(array_unique(array_map('strval', $uids)));
+        return $uids === [] ? [] : $this->assemble($uids, [], false, true);
+    }
+
+    /**
      * Every user whose eligibility resolves to true now, for the admin filters and totals (contracts §4.3, T10): the
      * individual Allows ('1') and the members of each group that may grant eligibility (trusted, active lifecycle),
      * less every member with an individual value other than '1' (a Deny, or an invalid value, which denies). A user
@@ -152,7 +165,7 @@ class PolicyResolver {
      * @return array<string, PolicyOperationContext> by uid
      * @throws PolicyUnavailable
      */
-    private function assemble(array $uids, array $overlays, bool $observe): array {
+    private function assemble(array $uids, array $overlays, bool $observe, bool $grantsOnly = false): array {
         try {
             for ($attempt = 0; $attempt < 2; ++$attempt) {
                 $this->writer->assertUsable();
@@ -205,8 +218,8 @@ class PolicyResolver {
                     $user = $users[$uid];
                     $enabled = [];
                     foreach (GrantMatrix::MODULE_APPS as $module => $app) {
-                        $enabled[$module] = $app === '' || $app === 'files'
-                            || ($user !== null && AppEnablement::forUser($this->apps, $app, $user));
+                        $enabled[$module] = !$grantsOnly && ($app === '' || $app === 'files'
+                            || ($user !== null && AppEnablement::forUser($this->apps, $app, $user)));
                     }
                     $candidates = [];
                     foreach ($ids[$uid] as $gid) {
@@ -214,11 +227,12 @@ class PolicyResolver {
                             $candidates[] = $groups[IdentityKey::group($gid)];
                         }
                     }
-                    $logs = $this->logs->read($user === null ? null : $uid, $ids[$uid]);
+                    $logs = $grantsOnly ? ['available' => false, 'permitted' => false]
+                        : $this->logs->read($user === null ? null : $uid, $ids[$uid]);
                     // Read inside the revision window: every scope write bumps the revision, so a scope saved while
                     // the snapshot was assembled repeats it instead of pairing new rows with old grants. A failed read
                     // is kept as unavailable for the scope modules only.
-                    $scope = ScopeGuard::read($this->scopes, $user === null ? null : $uid);
+                    $scope = $grantsOnly ? null : ScopeGuard::read($this->scopes, $user === null ? null : $uid);
                     $parts[$uid] = [$raw[$uid], $candidates, $user !== null && $user->isEnabled(), $enabled, $logs, $scope];
                 }
                 $after = $this->state->state();
@@ -227,7 +241,7 @@ class PolicyResolver {
                     $contexts = [];
                     foreach ($parts as $uid => [$userRaw, $candidates, $account, $enabled, $logs, $scope]) {
                         $contexts[$uid] = new PolicyOperationContext($after['revision'], $this->writer, $userRaw, $candidates,
-                            $account, $service, $enabled, $logs['available'], $logs['permitted'], $scope);
+                            $account, $service, $enabled, $logs['available'], $logs['permitted'], $scope, $grantsOnly);
                     }
                     return $contexts;
                 }

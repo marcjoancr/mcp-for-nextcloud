@@ -22,9 +22,14 @@ class GroupSourceClassifier {
      * @throws PolicyUnavailable when a backend cannot be read
      */
     public function trusted(string $gid): bool {
+        return $this->classify($gid)['trusted'];
+    }
+
+    /** Read the source once for both diagnostics. @return array{trusted:bool, exists:bool} */
+    public function classify(string $gid): array {
         $serving = $this->serving($gid);
-        return count($serving) === 1 && $serving[0] instanceof INamedBackend
-            && $serving[0]->getBackendName() === 'Database';
+        return ['trusted' => count($serving) === 1 && $serving[0] instanceof INamedBackend
+            && $serving[0]->getBackendName() === 'Database', 'exists' => $serving !== []];
     }
 
     /**

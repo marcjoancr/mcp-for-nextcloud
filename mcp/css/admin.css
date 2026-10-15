@@ -748,3 +748,14 @@
 #mcp-admin .mcp-attribution a {
     text-decoration: underline;
 }
+
+/* Group policies retain native keyboard controls and expose diagnostics without relying on color. */
+[id="mcp-group-list"] { padding-inline-start: 0; list-style: none; }
+[id="mcp-group-list"] li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 4px; }
+[id="mcp-group-detail"] fieldset { margin-block: 12px; padding: 12px; border: 1px solid var(--color-border); }
+.mcp-group-permissions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 8px; }
+.mcp-group-permissions label { display: inline-flex; align-items: center; gap: 4px; }
+.mcp-group-counts { width: 100%; margin-block: 16px; }
+.mcp-group-counts th, .mcp-group-counts td { text-align: start; padding: 6px; }
+[id="mcp-group-alert"] { color: var(--color-error); }
+[id="mcp-group-detail"] :focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }

@@ -18,6 +18,7 @@
  */
 \OCP\Util::addScript('mcp', 'admin-picker');
 \OCP\Util::addScript('mcp', 'admin-grants');
+\OCP\Util::addScript('mcp', 'admin-groups');
 \OCP\Util::addScript('mcp', 'connections');
 \OCP\Util::addScript('mcp', 'admin-tabs');
 \OCP\Util::addStyle('mcp', 'admin');
@@ -86,6 +87,20 @@
     </div>
 
     <div role="tabpanel" id="mcp-panel-access" aria-labelledby="mcp-tab-access" class="mcp-tab-panel" tabindex="0">
+    <div class="section mcp-block" id="mcp-group-editor">
+        <h2><?php p($l->t('Group grants')); ?></h2>
+        <p class="mcp-hint"><?php p($l->t('Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.')); ?></p>
+        <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. Group identity protection relies on delivered Nextcloud events; a lost deletion event may let a recreated group inherit the old policy.')); ?></p>
+        <p class="mcp-hint"><?php p($l->t('Removing group eligibility is refused when remaining access is unknown for a credential holder. Check the sources and retry.')); ?></p>
+        <label for="mcp-group-search"><?php p($l->t('Search groups by name or ID')); ?></label>
+        <input type="search" id="mcp-group-search">
+        <ul id="mcp-group-list" aria-busy="true"></ul>
+        <button type="button" id="mcp-group-prev"><?php p($l->t('Previous')); ?></button>
+        <button type="button" id="mcp-group-next"><?php p($l->t('Next')); ?></button>
+        <p id="mcp-group-status" role="status" aria-live="polite"></p>
+        <p id="mcp-group-alert" role="alert" aria-live="assertive"></p>
+        <div id="mcp-group-detail"></div>
+    </div>
     <div class="section mcp-block" id="mcp-block-matrix">
         <h2><?php p($l->t('Permissions')); ?></h2>
         <p class="settings-hint mcp-hint"><?php p($l->t('Users need “Can connect” and must turn the connection on in their personal settings. Reading starts allowed except the server log; writing, deleting and transferring start denied; Nextcloud permissions still apply. Changes save at once, and “All” applies to the current page.')); ?></p>
