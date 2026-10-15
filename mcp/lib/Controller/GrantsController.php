@@ -183,7 +183,8 @@ class GrantsController extends Controller {
      * value, absence included. expectedRevision must be the revision that receipt's command committed.
      *
      * @return JSONResponse {revision, changed: int}; 404 for an unknown or another administrator's receipt, 410 when
-     *     it expired, 409 when anything changed since, or 400/428/503
+     *     it expired, 409 when anything changed since, 422 {"error":"ScopeInactive"} for a resource scope receipt of a
+     *     module whose activation barrier is closed, or 400/428/503
      */
     public function undo(): JSONResponse {
         $receiptId = $this->request->getParam('receiptId');
@@ -198,6 +199,9 @@ class GrantsController extends Controller {
                 return new JSONResponse(['error' => 'NotFound'], Http::STATUS_NOT_FOUND);
             } catch (ReceiptExpired) {
                 return new JSONResponse(['error' => 'Gone'], Http::STATUS_GONE);
+            } catch (\OCA\Mcp\Service\Policy\ScopeInactive) {
+                // A resource scope receipt while its module's activation barrier is closed: nothing is restored.
+                return new JSONResponse(['error' => 'ScopeInactive'], Http::STATUS_UNPROCESSABLE_ENTITY);
             }
         }, fn (): ?array => is_string($receiptId) ? $this->receiptState($receiptId) : null);
     }

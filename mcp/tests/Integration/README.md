@@ -66,3 +66,13 @@ fresh install and after the upgrade from the baseline release, so every user sta
 `policy_rev` holds the largest counter; and that scopes written by `ResourceScopeMapper` commit or roll back with the
 policy writer, seen from a second session, with ids never case-folded. The revision these tests store is arbitrary:
 which revision the scope writer records is B2's contract, not the schema's.
+
+## Resource scope writer (issue #4, B2)
+
+`Policy/ResourceScopeWriterTest.php` checks that the container wires the scope mapper, the native enumerator and the
+activation barrier into the policy writer and the matrix, and that the container's writer refuses `setResourceScope`
+for files, calendar and tasks while their barrier is closed, leaving the revision, the events and both tables as they
+were. Behind an open barrier (built by hand, with a stand-in enumerator, since native folders and calendars are not
+provisioned here) the saved scope carries `policy_rev` = the committed revision, another session reads the mode and
+its items through the one-statement join and the grouped count, no epoch moves, and undo restores the absence of the
+mode. The native resource checks themselves are unit contracts; the real Files and CalDAV enumeration belongs to B8.

@@ -25,6 +25,10 @@ return ['routes' => [
     ['name' => 'grants#service', 'url' => '/api/service', 'verb' => 'PUT'],
     ['name' => 'grants#oauthClients', 'url' => '/api/oauth-clients', 'verb' => 'GET'],
     ['name' => 'grants#updateOauthClients', 'url' => '/api/oauth-clients', 'verb' => 'PUT'],
+    // The module is the last segment, so a uid never collides with "candidates".
+    ['name' => 'scope#show', 'url' => '/api/scope/{uid}/{module}', 'verb' => 'GET'],
+    ['name' => 'scope#candidates', 'url' => '/api/scope/{uid}/{module}/candidates', 'verb' => 'GET'],
+    ['name' => 'scope#update', 'url' => '/api/scope/{uid}/{module}', 'verb' => 'PUT'],
     ['name' => 'grants#logsAccess', 'url' => '/api/logs-access', 'verb' => 'GET'],
     ['name' => 'grants#updateLogsAccess', 'url' => '/api/logs-access', 'verb' => 'PUT'],
     ['name' => 'logs_privacy#show', 'url' => '/api/logs-privacy', 'verb' => 'GET'],
@@ -34,6 +38,7 @@ return ['routes' => [
     ['name' => 'connections#revokeUser', 'url' => '/api/connections/users/{uid}', 'verb' => 'DELETE'],
     ['name' => 'connections#destroy', 'url' => '/api/connections/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
     ['name' => 'my_connections#index', 'url' => '/api/my/connections', 'verb' => 'GET'],
+    ['name' => 'my_scope#index', 'url' => '/api/my/scope', 'verb' => 'GET'],
     ['name' => 'my_connections#destroy', 'url' => '/api/my/connections/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
     ['name' => 'checkout_limit#show', 'url' => '/api/checkout-limit', 'verb' => 'GET'],
     ['name' => 'checkout_limit#update', 'url' => '/api/checkout-limit', 'verb' => 'PUT'],

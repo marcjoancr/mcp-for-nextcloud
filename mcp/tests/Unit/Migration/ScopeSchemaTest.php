@@ -155,9 +155,11 @@ final class ScopeSchemaTest extends TestCase {
 
     /**
      * A rollback to 1.0.8 before any scope is adopted leaves two empty tables that nothing of 1.0.8 reads, and the
-     * 1.0.8 steps neither touch nor need them. Until the scope guard ships, no code outside the mapper names them.
+     * 1.0.8 steps neither touch nor need them. Only the mapper names the tables; besides it, only the scope writer,
+     * the matrix summary, the admin and personal scope routes and the native enumerator use the mapper. No tool does
+     * until the scope guard ships: a new reader has to be added here on purpose.
      */
-    public function testThe108StepsIgnoreTheTablesAndNoCodeOutsideTheMapperReadsThem(): void {
+    public function testThe108StepsIgnoreTheTablesAndOnlyTheScopeAdministrationReadsThem(): void {
         [$schema, $closure] = $this->schema();
         $this->apply($closure, [...$this->legacy(), ...$this->earlier(), new Version001100Date20261015020000()]);
         $sql = self::sql($schema);
@@ -173,6 +175,19 @@ final class ScopeSchemaTest extends TestCase {
             }
         }
         sort($readers);
-        $this->assertSame(['Db/ResourceScopeMapper.php', 'Migration/Version001100Date20261015020000.php'], $readers);
+        $this->assertSame([
+            'Controller/MyScopeController.php',
+            'Controller/ScopeController.php',
+            'Db/ResourceScopeMapper.php',
+            'Migration/Version001100Date20261015020000.php',
+            'Service/GrantMatrix.php',
+            'Service/Policy/PolicyEventPayload.php',
+            'Service/Policy/PolicyWriter.php',
+            'Service/Scope/NativeResourceEnumerator.php',
+        ], $readers);
+        $tables = array_values(array_filter($readers, static fn (string $file): bool
+            => str_contains((string)file_get_contents($root . '/' . $file), 'mcp_scope_')));
+        $this->assertSame(['Db/ResourceScopeMapper.php'], array_values(array_diff($tables, ['Migration/Version001100Date20261015020000.php'])),
+            'only the mapper (and the migration that creates them) names the tables');
     }
 }

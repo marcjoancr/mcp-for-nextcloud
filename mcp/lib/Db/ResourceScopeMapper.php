@@ -44,16 +44,7 @@ class ResourceScopeMapper {
      * @throws Exception when a query fails
      */
     public function forUser(string $uid): array {
-        $userKey = IdentityKey::user($uid);
-        $scopes = [];
-        foreach ($this->modeRows($uid, $userKey, null) as $module => $policyRev) {
-            $scopes[$module] = ['policyRev' => $policyRev, 'items' => []];
-        }
-        foreach ($this->itemRows($userKey, null) as $module => $items) {
-            if (isset($scopes[$module])) {
-                $scopes[$module]['items'] = self::checkedCount($items);
-            }
-        }
+        $scopes = $this->scopeRows($uid, IdentityKey::user($uid), null);
         ksort($scopes, SORT_STRING);
         return $scopes;
     }
@@ -68,12 +59,63 @@ class ResourceScopeMapper {
      */
     public function forModule(string $uid, string $module): ?array {
         self::checkModule($module);
-        $userKey = IdentityKey::user($uid);
-        $modes = $this->modeRows($uid, $userKey, $module);
-        if (!isset($modes[$module])) {
-            return null;
+        return $this->scopeRows($uid, IdentityKey::user($uid), $module)[$module] ?? null;
+    }
+
+    /**
+     * How many resources each restricted module of each user keeps, for the matrix: no ids and no names. One
+     * statement, so a page never pairs a mode with items of another commit.
+     *
+     * @param list<string> $uids Nextcloud user ids, at most PolicyWriter::MAX_UIDS
+     * @return array<string, array<string, int>> count by module by uid; an unrestricted module is absent
+     * @throws InvalidArgumentException for an invalid user id
+     * @throws UnexpectedValueException for a user identity collision or an invalid stored row
+     * @throws Exception when the query fails
+     */
+    public function counts(array $uids): array {
+        $byKey = [];
+        foreach (array_values(array_unique($uids)) as $uid) {
+            $byKey[IdentityKey::user($uid)] = $uid;
         }
-        return ['policyRev' => $modes[$module], 'items' => self::checkedCount($this->itemRows($userKey, $module)[$module] ?? [])];
+        $counts = array_fill_keys(array_values($byKey), []);
+        if ($byKey === []) {
+            return $counts;
+        }
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('m.user_key', 'm.module', 'm.user_id')
+            ->selectAlias($qb->func()->count('i.resource_key'), 'items')
+            ->from(self::MODES_TABLE, 'm')
+            ->leftJoin('m', self::ITEMS_TABLE, 'i', $qb->expr()->andX(
+                $qb->expr()->eq('i.user_key', 'm.user_key'),
+                $qb->expr()->eq('i.module', 'm.module'),
+            ))
+            ->where($qb->expr()->in('m.user_key', array_map(fn (string $key) => $qb->createNamedParameter($key), array_keys($byKey))))
+            ->groupBy('m.user_key', 'm.module', 'm.user_id');
+        $result = $qb->executeQuery();
+        try {
+            while (($row = $result->fetch()) !== false) {
+                $uid = $byKey[(string)($row['user_key'] ?? '')] ?? null;
+                $module = $row['module'] ?? null;
+                if ($uid === null || ($row['user_id'] ?? null) !== $uid) {
+                    throw new UnexpectedValueException('User identity collision');
+                }
+                if (!is_string($module) || !in_array($module, self::MODULES, true) || isset($counts[$uid][$module])) {
+                    throw new UnexpectedValueException('Invalid stored resource scope');
+                }
+                $count = (int)$row['items'];
+                if ($count < 0 || $count > self::MAX_ITEMS) {
+                    throw new UnexpectedValueException('Invalid stored resource scope');
+                }
+                $counts[$uid][$module] = $count;
+            }
+        } finally {
+            $result->closeCursor();
+        }
+        foreach ($counts as &$modules) {
+            ksort($modules, SORT_STRING);
+        }
+        unset($modules);
+        return $counts;
     }
 
     /**
@@ -174,6 +216,74 @@ class ResourceScopeMapper {
             ->andWhere($qb->expr()->eq('module', $qb->createNamedParameter($module)))
             ->executeStatement();
         return $deleted;
+    }
+
+    /**
+     * The modes of one user, optionally of one module, with their items, in one statement: two reads outside a
+     * transaction could pair a mode of one commit with the items of another. The join is by user only, so every item
+     * row of the user is verified like itemRows() does, even one of another module or without a mode, and a single
+     * invalid row fails the whole read; items without a mode still have no effect.
+     *
+     * @return array<string, array{policyRev:string, items:list<string>}> by module
+     * @throws UnexpectedValueException for another identity under the same digest, or an invalid row
+     */
+    private function scopeRows(string $uid, string $userKey, ?string $module): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('m.module', 'm.user_id', 'm.policy_rev')
+            ->selectAlias('i.module', 'item_module')
+            ->selectAlias('i.resource_key', 'resource_key')
+            ->selectAlias('i.resource_id', 'resource_id')
+            ->from(self::MODES_TABLE, 'm')
+            ->leftJoin('m', self::ITEMS_TABLE, 'i', $qb->expr()->eq('i.user_key', 'm.user_key'))
+            ->where($qb->expr()->eq('m.user_key', $qb->createNamedParameter($userKey)));
+        if ($module !== null) {
+            $qb->andWhere($qb->expr()->eq('m.module', $qb->createNamedParameter($module)));
+        }
+        $result = $qb->executeQuery();
+        $scopes = [];
+        $items = [];
+        try {
+            while (($row = $result->fetch()) !== false) {
+                if (($row['user_id'] ?? null) !== $uid) {
+                    throw new UnexpectedValueException('User identity collision');
+                }
+                $stored = $row['module'] ?? null;
+                if (!is_string($stored) || !in_array($stored, self::MODULES, true) || ($module !== null && $stored !== $module)) {
+                    throw new UnexpectedValueException('Invalid stored resource scope');
+                }
+                try {
+                    $policyRev = DecimalCounter::validate((string)($row['policy_rev'] ?? ''), DecimalCounter::MAX);
+                } catch (InvalidArgumentException $e) {
+                    throw new UnexpectedValueException('Invalid stored resource scope', 0, $e);
+                }
+                // One mode row per (user, module): every joined row of a module repeats the same revision.
+                if (isset($scopes[$stored]) && $scopes[$stored]['policyRev'] !== $policyRev) {
+                    throw new UnexpectedValueException('Invalid stored resource scope');
+                }
+                $scopes[$stored] ??= ['policyRev' => $policyRev, 'items' => []];
+                $itemModule = $row['item_module'] ?? null;
+                $key = $row['resource_key'] ?? null;
+                $id = $row['resource_id'] ?? null;
+                if ($itemModule === null && $key === null && $id === null) {
+                    continue; // the user has no item row at all
+                }
+                if (!is_string($itemModule) || !in_array($itemModule, self::MODULES, true)
+                    || !is_string($id) || !self::canonical($id) || $key !== IdentityKey::resource($itemModule, $id)) {
+                    throw new UnexpectedValueException('Invalid stored resource scope');
+                }
+                // The join repeats each item once per mode row of the user; the primary key keeps them distinct.
+                $items[$itemModule][$id] = true;
+            }
+        } finally {
+            $result->closeCursor();
+        }
+        foreach ($scopes as $stored => &$scope) {
+            $ids = array_map('strval', array_keys($items[$stored] ?? []));
+            usort($ids, DecimalCounter::compare(...));
+            $scope['items'] = self::checkedCount($ids);
+        }
+        unset($scope);
+        return $scopes;
     }
 
     /**
