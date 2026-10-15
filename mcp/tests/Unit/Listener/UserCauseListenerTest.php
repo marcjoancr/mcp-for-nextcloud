@@ -38,6 +38,8 @@ use PHPUnit\Framework\TestCase;
  * part: duplicate pairs of User::delete, exception in each handler), T19/F5 (no query inside a caller's transaction).
  */
 final class UserCauseListenerTest extends TestCase {
+    /** Whether the user also has an individual Allow of eligibility. */
+    private bool $allow = false;
     private SqliteDatabase $database;
     private IDBConnection $db;
     private RecheckMapper $rechecks;
@@ -91,8 +93,14 @@ final class UserCauseListenerTest extends TestCase {
         $resolver->method('begin')->willReturnCallback(function (string $uid, array $added = [], array $removed = [], bool $observe = true): PolicyOperationContext {
             $this->assertFalse($observe, 'a pre-event handler never runs a writer command');
             $eligible = ($this->eligibility)($removed);
-            $raw = ['eligible' => $eligible === null ? ['present' => false] : ['present' => true, 'value' => $eligible ? '1' : '0']];
-            $candidates = $eligible === null ? [['groupId' => 'x', 'grants' => ['_system' => ['eligible']], 'trusted' => false, 'state' => 'active']] : [];
+            // Eligible through a group source (never staff itself, which the overlay may remove); an individual
+            // Allow, when set, is the raw value on top of it.
+            $raw = $this->allow ? ['eligible' => ['present' => true, 'value' => '1']] : [];
+            $candidates = match ($eligible) {
+                true => [['groupId' => 'other', 'grants' => ['_system' => ['eligible']], 'trusted' => true, 'state' => 'active', 'gen' => str_repeat('b', 32)]],
+                null => [['groupId' => 'x', 'grants' => ['_system' => ['eligible']], 'trusted' => false, 'state' => 'active']],
+                false => [],
+            };
             return new PolicyOperationContext('0', $this->createMock(PolicyWriter::class), $raw, $candidates, true, true, [], true, true,
                 \OCA\Mcp\Service\Scope\ScopeGuard::read($this->createMock(\OCA\Mcp\Db\ResourceScopeMapper::class), null));
         });
@@ -251,6 +259,25 @@ final class UserCauseListenerTest extends TestCase {
             $this->assertSame([], $this->causes(), $label);
             $this->assertSame([], $this->afters, $label);
         }
+    }
+
+    /**
+     * RF2 of the re-reading of F2: an individual Allow no longer hides a removal from the only group U would inherit
+     * eligibility from. The cause is recorded; its processing re-reads eligibility (no cut while the Allow exists), and
+     * a reset of the Allow prepared before it is replayed by the revision that processing advances.
+     */
+    public function testARemovalMaskedByAnIndividualAllowStillRecordsTheCause(): void {
+        $this->allow = true;
+        $this->eligibility = static fn (array $without): ?bool => !in_array('staff', $without, true);
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
+        $this->assertSame(['group_removal:staff'], $this->causes());
+        // Another group keeps the inherited eligibility: nothing to re-check.
+        $this->database->dbal->executeStatement('DELETE FROM mcp_auth_recheck');
+        $this->eligibility = static fn (): bool => true;
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
+        $this->assertSame([], $this->causes());
     }
 
     public function testAFailedRelevanceReadStillRecordsTheCause(): void {

@@ -227,8 +227,9 @@ class TokenService {
             $this->writer->runCredential($uid, function () use ($uid): array {
                 return $this->gate->admission($uid, true) ?? throw new OwnerNotUsable();
             }, function (array $lifecycles, array $state, array $generations) use ($local): bool {
-                // The groups that admitted the owner must still grant (F3 of the review of ticket 07).
-                $this->writer->assertLifecycles($lifecycles);
+                // The groups that admitted the owner must still grant (F3 of the review of ticket 07), and their gens are
+                // renewed so a concurrent deletion's Before sees this issuance (F1 of the second reading).
+                $this->writer->holdLifecycles($lifecycles);
                 $local($state, $generations);
                 return false;
             }, $this->gate->causes());

@@ -15,8 +15,10 @@ use Throwable;
 
 /**
  * The final transitions of the GID lifecycle (contracts §3.3.5, §3.3.6), each a writer command under the global mutex
- * that advances the revision when it changes anything (coordinator clarification 1). The pre-event transition to
- * pending_delete is not here: it runs without the mutex (GroupLifeMapper::markPendingDelete()).
+ * that advances the revision when it changes anything (coordinator clarification 1). The pre-event transitions of a
+ * deletion's Before (needs_confirm, then pending_delete once the holders' causes are recorded) are not here: they run
+ * without the mutex (GroupLifeMapper::markSuspended(), markPendingDelete()). The job purges only pending_delete, so it
+ * never purges a lifecycle whose Before did not complete its capture.
  *
  * | Signal | Under the mutex |
  * | --- | --- |
