@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools\Calendar\Handler;
 
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarMessages;
 use OCA\Mcp\Tools\Calendar\CalendarTool;
 use OCA\Mcp\Tools\Calendar\ToolSchema;
@@ -17,9 +17,9 @@ use OCA\Mcp\Tools\Calendar\ToolSchema;
  */
 final class ListCalendars implements CalendarTool {
     /**
-     * @param CalendarAccess $access calendar visibility and ACL
+     * @param ScopedCalendarAccess $access the calendars the tools may reach: native visibility and ACL, narrowed by the resource scope
      */
-    public function __construct(private CalendarAccess $access) {}
+    public function __construct(private ScopedCalendarAccess $access) {}
 
     /**
      * @return array{name:string, description:string, inputSchema:array<string, mixed>, module:string, operation:string, app:string}

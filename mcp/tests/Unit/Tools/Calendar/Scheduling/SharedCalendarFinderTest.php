@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Unit\Tools\Calendar\Scheduling;
 
 use OCA\Mcp\Tests\Unit\Tools\Calendar\FakeCalendarStore;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub;
 use OCA\Mcp\Tools\Calendar\Scheduling\SharedCalendarFinder;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -36,7 +36,7 @@ final class SharedCalendarFinderTest extends TestCase {
         });
         $groupManager = $this->createMock(IGroupManager::class);
         $groupManager->method('getUserGroupIds')->willReturnCallback(fn (IUser $u): array => $this->users[$u->getUID()]);
-        $this->finder = new SharedCalendarFinder(new CalendarAccess($this->store), $this->store, $userManager, $groupManager);
+        $this->finder = new SharedCalendarFinder(ScopeStub::access($this->store), $this->store, $userManager, $groupManager);
     }
 
     public function testNoAttendeesYieldsNoCandidates(): void {

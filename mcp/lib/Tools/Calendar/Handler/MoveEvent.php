@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools\Calendar\Handler;
 
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarMessages;
 use OCA\Mcp\Tools\Calendar\CalendarTool;
 use OCA\Mcp\Tools\Calendar\EventRelocator;
@@ -19,12 +19,12 @@ use OCA\Mcp\Tools\Calendar\ToolSchema;
  */
 final class MoveEvent implements \OCA\Mcp\Tools\Calendar\CalendarWriteTool {
     /**
-     * @param CalendarAccess $access calendar visibility and ACL
+     * @param ScopedCalendarAccess $access the calendars the tools may reach: native visibility and ACL, narrowed by the resource scope
      * @param EventRelocator $relocator shared move/transfer logic
      * @param SharedGuard $guard confirmation gate for calendars of somebody else
      */
     public function __construct(
-        private CalendarAccess $access,
+        private ScopedCalendarAccess $access,
         private EventRelocator $relocator,
         private SharedGuard $guard,
     ) {}

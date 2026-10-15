@@ -12,7 +12,7 @@ use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Service\UserTimezone;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCA\Mcp\Tests\Unit\L10n\JsonL10n;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub;
 use OCA\Mcp\Tools\Calendar\CalendarDav;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\SharedGuard;
@@ -328,7 +328,7 @@ final class TasksPlanRendererTest extends TestCase {
         $config = $preferences->mock($this);
 
         return new TasksModule(
-            new CalendarAccess($store),
+            ScopeStub::access($store),
             $store,
             $tasks,
             $this->createMock(CalendarDav::class),

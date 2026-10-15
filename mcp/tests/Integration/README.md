@@ -215,8 +215,8 @@ which revision the scope writer records is B2's contract, not the schema's.
 
 `Policy/ResourceScopeWriterTest.php` checks that the container wires the scope mapper, the native enumerator and the
 activation barrier into the policy writer and the matrix, and that the container's writer refuses `setResourceScope`
-for files, calendar and tasks while their barrier is closed, leaving the revision, the events and both tables as they
-were. Behind an open barrier (built by hand, with a stand-in enumerator, since native folders and calendars are not
+for files while its barrier is closed (B5 opens it), leaving the revision, the events and both tables as they were,
+and saves calendar and tasks, whose barrier B6 opened. Behind an open barrier (built by hand, with a stand-in enumerator, since native folders and calendars are not
 provisioned here) the saved scope carries `policy_rev` = the committed revision, another session reads the mode and
 its items through the one-statement join and the grouped count, no epoch moves, and undo restores the absence of the
 mode. The native resource checks themselves are unit contracts; the real Files and CalDAV enumeration belongs to B8.
@@ -228,6 +228,18 @@ mount (R4 of the plan review) and scans uncached sub-storages. It also materiali
 before the folder filter and the page of 50, so there is no width cap yet; measuring a folder with thousands of
 children belongs to B7, and if that fails the mitigation is a recoverable refusal above a fixed width, not a
 cache-based listing (which would lose the mounts and diverge from the native view).
+
+## Calendar and tasks scope (issue #4, B6)
+
+`Policy/CalendarScopeTest.php` creates calendars, task lists and a share of bob's in the container's DAV app (the
+share and its withdrawal go through bob's own CalDAV request) and saves the scope with the container's writer, which
+checks each calendar against alice's native calendars. With the calendar scope set, only its calendars reach the
+calendar tools, and a calendar outside it answers a read, a plan and a confirmed write exactly as a missing calendar
+does, with nothing written (S7). The tasks scope is independent: one calendar with VEVENT and VTODO stays a calendar
+while leaving the task tools, which are called over HTTP through the MCP endpoint. The shared calendar is kept by the
+owner's calendar id through a rename, a withdrawal and a new share, and its recreation under the same URI gets a new
+id that the old scope does not reach (S15). The calendar tools need the Calendar app, which the harness does not
+install, so they run through the container's `CalendarModule` inside one policy operation, as the endpoint runs them.
 
 ## Exclusion proof (issue #4, A4)
 

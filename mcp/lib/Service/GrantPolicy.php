@@ -14,6 +14,7 @@ use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Scope\ScopeReader;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
 
@@ -32,7 +33,7 @@ use OCP\IConfig;
  * reuses one snapshot (the controlled reuse of contracts §4.2, T14); a write through this service, or the end of the
  * operation, discards it. The snapshot is held per operation and released in finally, never kept between operations.
  */
-class GrantPolicy {
+class GrantPolicy implements ScopeReader {
     /** Operations an admin can grant per module; Files deliberately has no delete. */
     public const CATALOG = [
         // 'restore' rolls a file back to a stored version and 'create' adds a folder, a copy or a new file;
@@ -292,6 +293,20 @@ class GrantPolicy {
             }
             return $unknown ? self::known(null) : false;
         });
+    }
+
+    /**
+     * The resource scope of the open operation's snapshot (contract B.5), read once with it like every other policy
+     * value of the operation.
+     *
+     * @param string $userId authenticated user of the operation
+     * @param string $module scope module (decision D1)
+     * @param string $resourceId canonical decimal id of the resource
+     * @return bool whether the resource is inside the user's scope of that module
+     * @throws PolicyUnavailable when the scope or the policy cannot be read
+     */
+    public function inScope(string $userId, string $module, string $resourceId): bool {
+        return $this->read($userId, static fn (PolicyOperationContext $context): bool => $context->scope()->allows($module, [$resourceId]));
     }
 
     /**

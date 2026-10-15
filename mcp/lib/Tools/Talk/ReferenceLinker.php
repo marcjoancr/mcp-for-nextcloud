@@ -10,7 +10,7 @@ namespace OCA\Mcp\Tools\Talk;
 use InvalidArgumentException;
 use OCA\Mcp\Service\Compat\AppEnablement;
 use OCA\Mcp\Service\GrantPolicy;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarException;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\Classification;
@@ -49,7 +49,7 @@ class ReferenceLinker {
 
     public function __construct(
         private DeckGatewayInterface $deck,
-        private CalendarAccess $calendars,
+        private ScopedCalendarAccess $calendars,
         private CalendarStore $calendarStore,
         private EventRepository $events,
         private Classification $classification,
