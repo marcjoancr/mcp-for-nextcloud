@@ -57,7 +57,7 @@ final class PolicyWriterTest extends TestCase {
     private function writer(?PolicyStateMapper $state = null, ?IUserConfig $users = null, ?IAppConfig $apps = null): PolicyWriter {
         return new PolicyWriter($this->db, $state ?? $this->state, $this->events(),
             (new InMemoryConfig())->mock($this), $users ?? $this->createMock(IUserConfig::class),
-            $apps ?? $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+            $apps ?? $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), new InMemoryOAuthStore(), $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
     }
 
     private function write(int $id): \Closure {
@@ -206,7 +206,7 @@ final class PolicyWriterTest extends TestCase {
         $users->method('get')->willReturn($this->createMock(IUser::class));
         $apps = $this->createMock(IAppConfig::class);
         $apps->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $data->app[$app] ?? []));
-        $writer = new PolicyWriter($this->db, $this->state, $this->events(), $config, $this->createMock(IUserConfig::class), $apps, $users, new InMemoryOAuthStore());
+        $writer = new PolicyWriter($this->db, $this->state, $this->events(), $config, $this->createMock(IUserConfig::class), $apps, $users, new InMemoryOAuthStore(), $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
         // Absence/default false -> explicit deny is a real raw change.
         $writer->setGrant('alice', 'notes', 'edit', false);
         $this->assertSame('0', $data->user['alice']['mcp']['grant_notes_edit']);
@@ -312,7 +312,7 @@ final class PolicyWriterTest extends TestCase {
     private function writerOn(IDBConnection $db): PolicyWriter {
         return new PolicyWriter($db, new PolicyStateMapper($db), $this->events($db), (new InMemoryConfig())->mock($this),
             $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class),
-            $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+            $this->createMock(IUserManager::class), new InMemoryOAuthStore(), $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
     }
 
     public function testCacheClearFailureAbandonsTheWholeWriterContext(): void {
@@ -382,7 +382,7 @@ final class PolicyWriterTest extends TestCase {
         });
         $writer = new PolicyWriter($db, new PolicyStateMapper($db), $this->events($db), (new InMemoryConfig())->mock($this),
             $this->createMock(IUserConfig::class), $this->appsFailingCacheClearOnCall(3, new \RuntimeException('cache unavailable')),
-            $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+            $this->createMock(IUserManager::class), new InMemoryOAuthStore(), $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
         try {
             $writer->runInternal([], fn () => null, $this->write(1));
             $this->fail('Unknown commit accepted');
@@ -421,7 +421,7 @@ final class PolicyWriterTest extends TestCase {
             }
         };
         $writer = new PolicyWriter($this->db, $this->state, $events, (new InMemoryConfig())->mock($this),
-            $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+            $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), new InMemoryOAuthStore(), $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
         try {
             $writer->runInternal([], fn () => null, function ($s, $c, $id, PolicyOutbox $outbox): bool {
                 $outbox->add(PolicyEventsMapper::KIND_AUDIT, []);
@@ -448,5 +448,106 @@ final class PolicyWriterTest extends TestCase {
             $this->assertSame([], $this->database->rows('mcp_policy_events'));
             $this->assertSame('0', $this->state->state()['revision']);
         }
+    }
+
+    /** A writer over the SQLite state and events, a config double and a clock at $now. */
+    private function commandWriter(InMemoryConfig $data, int &$now, ?\OCA\Mcp\OAuth\OAuthStore $oauth = null): PolicyWriter {
+        $users = $this->createMock(IUserManager::class);
+        $users->method('get')->willReturnCallback(fn (string $uid): ?IUser => $uid === 'ghost' ? null : $this->createMock(IUser::class));
+        $time = $this->createMock(ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(function () use (&$now): int {
+            return $now;
+        });
+        $config = $data->mock($this);
+        $apps = $this->createMock(IAppConfig::class);
+        $apps->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $data->app[$app] ?? []));
+        return new PolicyWriter($this->db, $this->state, new PolicyEventsMapper($this->db, $time), $config,
+            $this->createMock(IUserConfig::class), $apps, $users, $oauth ?? new InMemoryOAuthStore(), $time);
+    }
+
+    /** @return list<array{id:string, kind:string, payload:array}> the stored events, decoded */
+    private function storedEvents(): array {
+        return array_map(static fn (array $row): array => ['id' => $row['id'], 'kind' => $row['kind'], 'payload' => json_decode($row['payload'], true)],
+            // Ids start with a random command id: order by time, then by the sequence within one command.
+            $this->database->dbal->fetchAllAssociative('SELECT * FROM mcp_policy_events ORDER BY created_at, id'));
+    }
+
+    public function testACommandCommitsItsReceiptAndAuditWithTheRevisionAndAFailureLeavesNeither(): void {
+        $data = new InMemoryConfig();
+        $now = 1760000000;
+        $oauth = $this->createMock(\OCA\Mcp\OAuth\OAuthStore::class);
+        $oauth->method('deleteForUser')->willThrowException(new \RuntimeException('injected in the last cell'));
+        try {
+            $this->commandWriter($data, $now, $oauth)->applyCells('0', 'root', 'grants.commands', [
+                ['uid' => 'alice', 'key' => 'grant_notes_edit', 'value' => '1'],
+                ['uid' => 'bob', 'key' => 'eligible', 'value' => '0'],
+            ]);
+            $this->fail('Injected failure swallowed');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('injected in the last cell', $e->getMessage());
+        }
+        // The database side rolled back: no revision, no receipt, no audit (the config double is not transactional).
+        $this->assertSame(['revision' => '0', 'lock_seq' => '0', 'auth_epoch' => '0'], $this->state->state());
+        $this->assertSame([], $this->storedEvents());
+
+        $data = new InMemoryConfig();
+        $result = $this->commandWriter($data, $now)->applyCells('0', 'root', 'grants.commands', [
+            ['uid' => 'alice', 'key' => 'grant_notes_edit', 'value' => '1'],
+            ['uid' => 'bob', 'key' => 'eligible', 'value' => '0'],
+        ]);
+        $this->assertSame('1', $result['revision']);
+        $events = $this->storedEvents();
+        $this->assertSame([PolicyEventsMapper::KIND_RECEIPT, PolicyEventsMapper::KIND_AUDIT], array_column($events, 'kind'));
+        $this->assertSame($result['receiptId'], $events[0]['id']);
+        $this->assertSame(['0', '1'], [$events[0]['payload']['fromRevision'], $events[0]['payload']['revision']]);
+        $this->assertSame($result['receiptId'], $events[1]['payload']['receiptId']);
+    }
+
+    public function testUndoReadsTheStoredReceiptRestoresAbsenceAndExpiresAfterItsTtl(): void {
+        $data = new InMemoryConfig();
+        $data->user['bob']['mcp']['grant_deck_move'] = '0';
+        $now = 1760000000;
+        $writer = $this->commandWriter($data, $now);
+        $saved = $writer->applyCells('0', 'root', 'grants.bulk', [
+            ['uid' => 'alice', 'key' => 'grant_deck_move', 'value' => '1'],
+            ['uid' => 'bob', 'key' => 'grant_deck_move', 'value' => '1'],
+        ]);
+        $now += PolicyWriter::RECEIPT_TTL - 1; // the last second it is still valid
+        $this->assertSame(['revision' => '2', 'changed' => 2], $writer->restoreReceipt($saved['receiptId'], '1', 'root'));
+        $this->assertArrayNotHasKey('grant_deck_move', $data->user['alice']['mcp']);
+        $this->assertSame('0', $data->user['bob']['mcp']['grant_deck_move']);
+        $undo = $this->storedEvents()[2]['payload'];
+        $this->assertSame(['grants.undo', $saved['receiptId'], null], [$undo['action'], $undo['undoOf'], $undo['receiptId']]);
+
+        $again = $writer->applyCells('2', 'root', 'grants.update', [['uid' => 'alice', 'key' => 'eligible', 'value' => '1']]);
+        $now += PolicyWriter::RECEIPT_TTL;
+        $this->expectException(\OCA\Mcp\Service\Policy\ReceiptExpired::class);
+        $writer->restoreReceipt($again['receiptId'], '3', 'root');
+    }
+
+    public function testACorruptStoredReceiptIsAStorageFailureNeverAPartialUndo(): void {
+        $data = new InMemoryConfig();
+        $now = 1760000000;
+        $writer = $this->commandWriter($data, $now);
+        $saved = $writer->applyCells('0', 'root', 'grants.update', [['uid' => 'alice', 'key' => 'grant_notes_edit', 'value' => '1']]);
+        $this->database->dbal->update('mcp_policy_events', ['payload' => json_encode(['v' => 1, 'actor' => 'root'])], ['id' => $saved['receiptId']]);
+        try {
+            $writer->restoreReceipt($saved['receiptId'], '1', 'root');
+            $this->fail('Corrupt receipt accepted');
+        } catch (PolicyUnavailable) {
+        }
+        $this->assertSame('1', $data->user['alice']['mcp']['grant_notes_edit']);
+        $this->assertSame('1', $this->state->state()['revision']);
+    }
+
+    public function testAnAuditEventIdIsNeverAcceptedAsAReceipt(): void {
+        $data = new InMemoryConfig();
+        $now = 1760000000;
+        $writer = $this->commandWriter($data, $now);
+        $saved = $writer->applyCells('0', 'root', 'grants.update', [['uid' => 'alice', 'key' => 'grant_notes_edit', 'value' => '1']]);
+        $audit = $this->storedEvents()[1]['id'];
+        $this->assertNotSame($saved['receiptId'], $audit);
+        $this->expectException(\OCA\Mcp\Service\Policy\ReceiptNotFound::class);
+        $writer->restoreReceipt($audit, '1', 'root');
     }
 }

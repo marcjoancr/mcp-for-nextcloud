@@ -12,6 +12,7 @@ use OCA\Mcp\Checkout\CheckoutTokenStore;
 use OCA\Mcp\Tools\Files\BatchStore;
 use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\Service\GrantPolicy;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Settings\PersonalSection;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -50,6 +51,9 @@ class SettingsController extends Controller {
             return $this->applyPersonal($enabled);
         } catch (InvalidArgumentException) {
             return new DataDisplayResponse('Invalid request', 400, ['Content-Type' => 'text/plain; charset=utf-8']);
+        } catch (PolicyUnavailable) {
+            // Never assume the connection state: the page is reloaded by the user once storage is back.
+            return new DataDisplayResponse('Temporarily unavailable', 503, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
     }
 

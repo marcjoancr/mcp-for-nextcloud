@@ -26,11 +26,27 @@ final class GrantsControllerTest extends TestCase {
         $this->fx->addUser('carl', 'Carl', 'carl@corp.example', false);
     }
 
+    /**
+     * A request with this JSON body. Every request carries the current revision unless the body names
+     * expectedRevision itself (null leaves it out, as an old page would).
+     */
     private function controller(array $body = []): GrantsController {
+        if (!array_key_exists('expectedRevision', $body)) {
+            $body['expectedRevision'] = (string)$this->fx->config->revision;
+        }
         $this->body = $body;
         $request = $this->createMock(IRequest::class);
         $request->method('getParam')->willReturnCallback(fn (string $key, $default = null) => array_key_exists($key, $this->body) ? $this->body[$key] : $default);
-        return new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(), $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess());
+        return new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(), $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(),
+            $this->fx->writer(), $this->fx->state(), $this->session('root'));
+    }
+
+    private function session(string $uid): \OCP\IUserSession {
+        $user = $this->createMock(\OCP\IUser::class);
+        $user->method('getUID')->willReturn($uid);
+        $session = $this->createMock(\OCP\IUserSession::class);
+        $session->method('getUser')->willReturn($user);
+        return $session;
     }
 
     private static function assertBad(JSONResponse $response): void {
@@ -91,7 +107,7 @@ final class GrantsControllerTest extends TestCase {
 
     public function testBulkUpdatesThePageAtomically(): void {
         $response = $this->controller(['uids' => ['ana', 'bob', 'ana'], 'module' => 'notes', 'operation' => 'create', 'granted' => true])->bulk();
-        $this->assertSame(['updated' => 2], $response->getData());
+        $this->assertSame(2, $response->getData()['updated']);
         $this->assertTrue($this->fx->policy->granted('ana', 'notes', 'create'));
         $this->assertTrue($this->fx->policy->granted('bob', 'notes', 'create'));
         $this->controller(['uids' => ['ana', 'bob'], 'module' => null, 'operation' => 'eligible', 'granted' => true])->bulk();
@@ -127,7 +143,7 @@ final class GrantsControllerTest extends TestCase {
     }
 
     public function testServiceUsesItsOwnKey(): void {
-        $this->assertSame(['enabled' => true], $this->controller(['enabled' => true])->service()->getData());
+        $this->assertSame(['enabled' => true, 'revision' => '1'], $this->controller(['enabled' => true])->service()->getData());
         $this->assertSame('1', $this->fx->config->app['mcp']['service_enabled']);
         $this->assertArrayNotHasKey('enabled', $this->fx->config->app['mcp']);
         self::assertBad($this->controller(['enabled' => '1'])->service());
@@ -140,7 +156,7 @@ final class GrantsControllerTest extends TestCase {
         $this->fx->oauth->insertToken(['user_id' => 'ana'], 0);
         $this->fx->oauth->insertCode(['user_id' => 'bob'], 0);
 
-        $this->assertSame(['enabled' => false], $this->controller(['enabled' => false])->service()->getData());
+        $this->assertSame(['enabled' => false, 'revision' => '2'], $this->controller(['enabled' => false])->service()->getData());
 
         $this->assertFalse($this->fx->policy->globalEnabled());
         $this->assertSame('0', $this->fx->config->app['mcp']['service_enabled']);

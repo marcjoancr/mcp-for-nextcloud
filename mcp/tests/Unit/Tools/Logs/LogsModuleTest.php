@@ -80,7 +80,7 @@ final class LogsModuleTest extends TestCase {
         }
         $db = new \OCA\Mcp\Tests\Unit\SqliteDatabase($this, [new \OCA\Mcp\Migration\Version001002Date20261008000000()]);
         $mapper = new \OCA\Mcp\Db\LogsGroupsMapper($db->connection(), (new \OCA\Mcp\Tests\Unit\InMemoryAppConfig())->worker($this));
-        $access = new LogsAccess($config, $groups, $mapper, new \OCA\Mcp\Tests\Unit\InMemoryLocks());
+        $access = new LogsAccess($config, $groups, $mapper, new \OCA\Mcp\Tests\Unit\InMemoryLocks(), \OCA\Mcp\Tests\Unit\InMemoryConfig::writer($config));
         $guard = new \OCA\Mcp\Service\VisibilityGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
         $fileNames = new \OCA\Mcp\Service\LogFileNames($this->appConfig->worker($this), $guard);
         return new LogsModule($access, new LogScanner(new LogReader($factory)), new LogAudit($dispatcher, $logger), $config, $fileNames);

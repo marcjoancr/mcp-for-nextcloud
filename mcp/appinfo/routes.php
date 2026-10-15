@@ -18,6 +18,9 @@ return ['routes' => [
     ['name' => 'grants#index', 'url' => '/api/grants', 'verb' => 'GET'],
     // POST keeps "bulk" from colliding with a user whose uid is "bulk" on PUT /api/grants/{uid}.
     ['name' => 'grants#bulk', 'url' => '/api/grants/bulk', 'verb' => 'POST'],
+    // Same reasoning: POST never collides with the per-user PUT route.
+    ['name' => 'grants#commands', 'url' => '/api/grants/commands', 'verb' => 'POST'],
+    ['name' => 'grants#undo', 'url' => '/api/grants/undo', 'verb' => 'POST'],
     ['name' => 'grants#update', 'url' => '/api/grants/{uid}', 'verb' => 'PUT'],
     ['name' => 'grants#service', 'url' => '/api/service', 'verb' => 'PUT'],
     ['name' => 'grants#oauthClients', 'url' => '/api/oauth-clients', 'verb' => 'GET'],

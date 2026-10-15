@@ -41,6 +41,14 @@ reexecution must preserve existing counters, and a second writer must reject a s
 The policy outbox is one more injection point: an event the command emits is written after the revision CAS, in the
 same transaction, and must be invisible to the second session until the commit.
 
+## Administrative commands and undo (T3/T4)
+
+`Policy/AdminCommandsTest.php` runs the commands of the admin routes through the production writer. A command over
+two users and four cells, whose last cell fails after every config write ran, must leave each raw value, the
+revision and the event table exactly as another session saw them before. A receipt's undo must bring back absence
+where a key was absent and the old value elsewhere, seen from another session, and a second undo of the same
+receipt must be refused without touching anything. Route mapping (428/409/410/503) is covered by the unit suite.
+
 ## Authorization schema (T12/T18)
 
 `Policy/AuthStateTest.php` checks the B2b tables and the OAuth generation columns on the real database of each cell,

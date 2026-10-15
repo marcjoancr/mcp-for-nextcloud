@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Controller;
 
 use InvalidArgumentException;
+use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\OAuth\ClientMetadataFetcher;
 use OCA\Mcp\OAuth\ClientResolver;
 use OCA\Mcp\OAuth\NativeClient;
@@ -16,6 +17,13 @@ use OCA\Mcp\Service\GrantMatrix;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\LogsAccess;
 use OCA\Mcp\Service\LogsGroupsConflict;
+use OCA\Mcp\Service\Policy\MissingRevision;
+use OCA\Mcp\Service\Policy\PolicyConflict;
+use OCA\Mcp\Service\Policy\PolicyEventPayload;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
+use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Policy\ReceiptExpired;
+use OCA\Mcp\Service\Policy\ReceiptNotFound;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -23,15 +31,27 @@ use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserManager;
+use OCP\IUserSession;
 
 /**
  * JSON API of the admin permission matrix. Every endpoint is admin-only and CSRF-protected by
  * Nextcloud's defaults (no NoAdminRequired/NoCSRFRequired); the page sends the requesttoken header.
  * Invalid input answers 400 {"error":"Invalid request"} without saying which part was wrong.
+ *
+ * Every policy write carries expectedRevision, the global policy revision (a decimal string) the page was built
+ * from, and goes through the PolicyWriter (contracts §2.3):
+ * - without it: 428 {"error":"PreconditionRequired"}, nothing written;
+ * - stale: 409 {"error":"Conflict", "revision", "state"}, nothing written; revision and state are read after the
+ *   rollback, so the page can show what is saved now;
+ * - storage failure: 503 {"error":"Unavailable", "uncertain"}; uncertain=true means the write may have committed, so
+ *   the page reloads instead of repeating it. No route falls back to defaults on either error.
+ * Booleans keep their 1.0.8 meaning: true is Allow and false is Deny, never Inherit.
  */
 class GrantsController extends Controller {
     /** Pseudo-operation of the bulk endpoint that toggles eligibility instead of a grant. */
     public const ELIGIBLE = 'eligible';
+    /** Triestate of POST /api/grants/commands, mapped to the raw value stored ('1', '0' or no key). */
+    public const STATES = ['allow' => '1', 'deny' => '0', 'inherit' => null];
     public function __construct(
         string $appName,
         IRequest $request,
@@ -41,6 +61,9 @@ class GrantsController extends Controller {
         private IConfig $config,
         private OAuthStore $oauth,
         private LogsAccess $logs,
+        private PolicyWriter $writer,
+        private PolicyStateMapper $state,
+        private IUserSession $session,
     ) {
         parent::__construct($appName, $request);
     }
@@ -50,72 +73,143 @@ class GrantsController extends Controller {
      * @param string $group group id, '' for every user
      * @param int $page 1-based page
      * @param string $filter '' for every user, 'eligible' or 'connected' (see GrantMatrix::FILTERS)
-     * @return JSONResponse one matrix page (see GrantMatrix::page), or 400
+     * @return JSONResponse one matrix page (see GrantMatrix::page) plus the policy revision it was built from, or 400
      */
     public function index(string $search = '', string $group = '', int $page = 1, string $filter = ''): JSONResponse {
-        return $this->guard(fn () => $this->matrix->page($search, $group, $page, $filter));
-    }
-
-    /**
-     * Body {eligible: bool} or {module, operation, granted: bool}, never both.
-     *
-     * @param string $uid existing Nextcloud user id
-     * @return JSONResponse the user's updated row, or 400
-     */
-    public function update(string $uid): JSONResponse {
-        return $this->guard(function () use ($uid): array {
-            $user = $this->user($uid);
-            $eligible = $this->request->getParam('eligible');
-            $hasGrant = $this->request->getParam('module') !== null || $this->request->getParam('operation') !== null || $this->request->getParam('granted') !== null;
-            if ($eligible !== null && !$hasGrant) {
-                $this->policy->setEligible($uid, self::bool($eligible));
-            } elseif ($eligible === null && $hasGrant) {
-                [$module, $operation] = self::grant($this->request->getParam('module'), $this->request->getParam('operation'));
-                $this->policy->setGrant($uid, $module, $operation, self::bool($this->request->getParam('granted')));
-            } else {
-                throw new InvalidArgumentException('Invalid request');
-            }
-            return $this->matrix->rows([$user])[0];
+        return $this->guard(function () use ($search, $group, $page, $filter): array {
+            // Read before the page: a write in between makes the next save a conflict, never a stale accept.
+            $revision = $this->revision();
+            return $this->matrix->page($search, $group, $page, $filter) + ['revision' => $revision];
         });
     }
 
     /**
-     * Body {uids: list<string> (1..PAGE_SIZE), module: string|null, operation: string, granted: bool}; operation
-     * "eligible" with module null toggles eligibility. Every uid is validated before anything is written.
+     * Body {expectedRevision, eligible: bool} or {expectedRevision, module, operation, granted: bool}, never both.
      *
-     * @return JSONResponse {updated: int}, or 400
+     * @param string $uid existing Nextcloud user id
+     * @return JSONResponse the user's updated row with {revision, receiptId} (receiptId null when nothing changed),
+     *     or 400/409/428/503
+     */
+    public function update(string $uid): JSONResponse {
+        return $this->guard(function () use ($uid): array {
+            $user = $this->user($uid);
+            $expected = $this->expectedRevision();
+            $eligible = $this->request->getParam('eligible');
+            $hasGrant = $this->request->getParam('module') !== null || $this->request->getParam('operation') !== null || $this->request->getParam('granted') !== null;
+            if ($eligible !== null && !$hasGrant) {
+                $key = GrantPolicy::ELIGIBLE_KEY;
+                $value = self::bool($eligible);
+            } elseif ($eligible === null && $hasGrant) {
+                [$module, $operation] = self::grant($this->request->getParam('module'), $this->request->getParam('operation'));
+                $key = (string)PolicyEventPayload::userKey($module, $operation);
+                $value = self::bool($this->request->getParam('granted'));
+            } else {
+                throw new InvalidArgumentException('Invalid request');
+            }
+            $result = $this->writer->applyCells($expected, $this->actor(), PolicyEventPayload::ACTION_UPDATE,
+                [['uid' => $uid, 'key' => $key, 'value' => $value ? '1' : '0']]);
+            return $this->matrix->rows([$user])[0] + ['revision' => $result['revision'], 'receiptId' => $result['receiptId']];
+        }, fn (): array => $this->usersState([$uid]));
+    }
+
+    /**
+     * Body {expectedRevision, uids: list<string> (1..PAGE_SIZE), module: string|null, operation: string,
+     * granted: bool}; operation "eligible" with module null toggles eligibility. One transaction: every uid is
+     * validated first, and all are written or none is.
+     *
+     * @return JSONResponse {updated: int, revision, receiptId}, or 400/409/428/503
      */
     public function bulk(): JSONResponse {
-        return $this->guard(function (): array {
-            $uids = $this->request->getParam('uids');
+        $uids = $this->request->getParam('uids');
+        return $this->guard(function () use ($uids): array {
             if (!is_array($uids) || $uids === [] || count($uids) > GrantMatrix::PAGE_SIZE || !array_is_list($uids)) {
                 throw new InvalidArgumentException('Invalid request');
             }
             $module = $this->request->getParam('module');
             $operation = $this->request->getParam('operation');
             $granted = self::bool($this->request->getParam('granted'));
-            $eligibility = $operation === self::ELIGIBLE && $module === null;
-            if (!$eligibility) {
+            if (!($operation === self::ELIGIBLE && $module === null)) {
                 [$module, $operation] = self::grant($module, $operation);
             }
+            $key = (string)PolicyEventPayload::userKey($module, $operation);
             $uids = array_values(array_unique(array_map(fn ($uid) => $this->user(is_string($uid) ? $uid : '')->getUID(), $uids)));
-            foreach ($uids as $uid) {
-                $eligibility ? $this->policy->setEligible($uid, $granted) : $this->policy->setGrant($uid, $module, $operation, $granted);
-            }
-            return ['updated' => count($uids)];
-        });
+            $expected = $this->expectedRevision();
+            $result = $this->writer->applyCells($expected, $this->actor(), PolicyEventPayload::ACTION_BULK,
+                array_map(static fn (string $uid): array => ['uid' => $uid, 'key' => $key, 'value' => $granted ? '1' : '0'], $uids));
+            return ['updated' => count($uids), 'revision' => $result['revision'], 'receiptId' => $result['receiptId']];
+        }, fn (): array => $this->usersState(is_array($uids) ? $uids : []));
     }
 
     /**
-     * Body {enabled: bool}.
+     * Body {expectedRevision, commands: list<{uid, module: string|null, operation, state}>}: several users and
+     * operations in one transaction (at most PolicyWriter::MAX_UIDS users and MAX_CELLS distinct cells). state is
+     * "allow", "deny" or "inherit" (removes the override); operation "eligible" with module null targets eligibility.
+     * A boolean "granted" is refused here, so a cell never mixes the two forms.
      *
-     * @return JSONResponse {enabled: bool}, or 400
+     * @return JSONResponse {revision, changed: int, receiptId}, or 400/409/428/503
+     */
+    public function commands(): JSONResponse {
+        $commands = $this->request->getParam('commands');
+        return $this->guard(function () use ($commands): array {
+            // Counted before duplicates are dropped too: a body is never larger than the limit it may write.
+            if (!is_array($commands) || $commands === [] || !array_is_list($commands) || count($commands) > PolicyWriter::MAX_CELLS) {
+                throw new InvalidArgumentException('Invalid request');
+            }
+            $cells = [];
+            foreach ($commands as $command) {
+                if (!is_array($command) || array_diff(array_keys($command), ['uid', 'module', 'operation', 'state']) !== []
+                    || !is_string($command['uid'] ?? null) || !is_string($command['operation'] ?? null)
+                    || !(is_string($command['module'] ?? null) || ($command['module'] ?? null) === null)
+                    || !is_string($command['state'] ?? null) || !array_key_exists($command['state'], self::STATES)) {
+                    throw new InvalidArgumentException('Invalid request');
+                }
+                $key = PolicyEventPayload::userKey($command['module'] ?? null, $command['operation']);
+                if ($key === null) {
+                    throw new InvalidArgumentException('Invalid request');
+                }
+                $cells[] = ['uid' => $command['uid'], 'key' => $key, 'value' => self::STATES[$command['state']]];
+            }
+            $expected = $this->expectedRevision();
+            $result = $this->writer->applyCells($expected, $this->actor(), PolicyEventPayload::ACTION_COMMANDS, $cells);
+            return ['revision' => $result['revision'], 'changed' => $result['changed'], 'receiptId' => $result['receiptId']];
+        }, fn (): array => $this->usersState(is_array($commands) ? array_map(static fn ($c) => is_array($c) ? ($c['uid'] ?? '') : '', $commands) : []));
+    }
+
+    /**
+     * Body {receiptId, expectedRevision}: undoes the cells of one of the caller's receipts, restoring each raw
+     * value, absence included. expectedRevision must be the revision that receipt's command committed.
+     *
+     * @return JSONResponse {revision, changed: int}; 404 for an unknown or another administrator's receipt, 410 when
+     *     it expired, 409 when anything changed since, or 400/428/503
+     */
+    public function undo(): JSONResponse {
+        return $this->guard(function (): array|JSONResponse {
+            $receiptId = $this->request->getParam('receiptId');
+            if (!is_string($receiptId)) {
+                throw new InvalidArgumentException('Invalid request');
+            }
+            $expected = $this->expectedRevision();
+            try {
+                return $this->writer->restoreReceipt($receiptId, $expected, $this->actor());
+            } catch (ReceiptNotFound) {
+                return new JSONResponse(['error' => 'NotFound'], Http::STATUS_NOT_FOUND);
+            } catch (ReceiptExpired) {
+                return new JSONResponse(['error' => 'Gone'], Http::STATUS_GONE);
+            }
+        }, fn (): array => []);
+    }
+
+    /**
+     * Body {expectedRevision, enabled: bool}.
+     *
+     * @return JSONResponse {enabled: bool, revision}, or 400/409/428/503
      */
     public function service(): JSONResponse {
         return $this->guard(function (): array {
-            $this->policy->setGlobalEnabled(self::bool($this->request->getParam('enabled')));
-            return ['enabled' => $this->policy->globalEnabled()];
-        });
+            $enabled = self::bool($this->request->getParam('enabled'));
+            $result = $this->writer->adminSetGlobalEnabled($this->expectedRevision(), $this->actor(), $enabled);
+            return ['enabled' => $this->policy->globalEnabled(), 'revision' => $result['revision']];
+        }, fn (): array => ['enabled' => $this->policy->globalEnabled()]);
     }
 
     /**
@@ -168,19 +262,20 @@ class GrantsController extends Controller {
     /**
      * Who may read the server log besides the administrators, for the "Server log" block.
      *
-     * @return JSONResponse {groups, version, missing, allGroups, available, logType}
+     * @return JSONResponse {groups, version, revision, missing, allGroups, available, logType}
      */
     public function logsAccess(): JSONResponse {
         return $this->guard(fn (): array => $this->logsState());
     }
 
     /**
-     * Body {groups: list<string>, previous: list<string>, version: int}: the groups whose members pass the role gate of the logs
-     * module, and the list/version the page showed when the change was made. When the stored version differs,
-     * another tab or administrator saved first: the answer is 409 {error: "Conflict", state} and nothing is written,
-     * so a stale save never puts a removed group back. An empty list leaves the administrators only.
+     * Body {groups: list<string>, previous: list<string>, version: int, expectedRevision: string}: the groups whose
+     * members pass the role gate of the logs module, and the list, list version and policy revision the page showed
+     * when the change was made. Both versions are checked in one gate: when either differs, another tab or
+     * administrator saved first, the answer is 409 {error: "Conflict", revision, state} and nothing is written, so a
+     * stale save never puts a removed group back. An empty list leaves the administrators only.
      *
-     * @return JSONResponse the same shape as logsAccess(), 400 for an invalid body, or 409
+     * @return JSONResponse the same shape as logsAccess(), 400 for an invalid body, 409, 428 or 503
      */
     public function updateLogsAccess(): JSONResponse {
         $groups = $this->request->getParam('groups');
@@ -190,22 +285,25 @@ class GrantsController extends Controller {
         if (!$valid($groups) || !$valid($previous) || !is_int($version) || $version < 0) {
             return new JSONResponse(['error' => 'Invalid request'], Http::STATUS_BAD_REQUEST);
         }
-        try {
-            return $this->guard(function () use ($groups, $previous, $version): array {
-                $this->logs->setGroups($groups, $previous, $version);
-                return $this->logsState();
-            });
-        } catch (LogsGroupsConflict) {
-            return new JSONResponse(['error' => 'Conflict', 'state' => $this->logsState()], Http::STATUS_CONFLICT);
-        }
+        return $this->guard(function () use ($groups, $previous, $version): array|JSONResponse {
+            $expected = $this->expectedRevision();
+            try {
+                $this->logs->setGroups($groups, $previous, $version, $expected, $this->actor());
+            } catch (LogsGroupsConflict) {
+                throw new PolicyConflict();
+            }
+            return $this->logsState();
+        }, fn (): array => $this->logsState());
     }
 
-    /** @return array{groups:list<string>, version:int, missing:list<string>, allGroups:list<array{id:string, displayName:string}>, available:bool, logType:string} */
+    /** @return array{groups:list<string>, version:int, revision:string, missing:list<string>, allGroups:list<array{id:string, displayName:string}>, available:bool, logType:string} */
     private function logsState(): array {
+        $revision = $this->revision();
         $state = $this->logs->state();
         return [
             'groups' => $state['groups'],
             'version' => $state['version'],
+            'revision' => $revision,
             'missing' => $this->logs->missingGroups($state['groups']),
             'allGroups' => $this->matrix->groups(),
             'available' => $this->logs->available(),
@@ -249,13 +347,82 @@ class GrantsController extends Controller {
         return array_values(array_unique($value));
     }
 
-    /** @param callable():array<string, mixed> $action */
-    private function guard(callable $action): JSONResponse {
+    /**
+     * Runs one route and maps the policy errors; nothing here falls back to defaults.
+     *
+     * @param callable():(array<string, mixed>|JSONResponse) $action the route body
+     * @param (callable():array<string, mixed>)|null $state fresh state for a 409 body, read after the rollback
+     */
+    private function guard(callable $action, ?callable $state = null): JSONResponse {
         try {
-            return new JSONResponse($action());
+            $result = $action();
+            return $result instanceof JSONResponse ? $result : new JSONResponse($result);
+        } catch (MissingRevision) {
+            return new JSONResponse(['error' => 'PreconditionRequired'], Http::STATUS_PRECONDITION_REQUIRED);
+        } catch (PolicyConflict) {
+            try {
+                return new JSONResponse(['error' => 'Conflict', 'revision' => $this->revision(), 'state' => $state === null ? null : $state()],
+                    Http::STATUS_CONFLICT);
+            } catch (PolicyUnavailable $e) {
+                return self::unavailable($e);
+            }
+        } catch (PolicyUnavailable $e) {
+            return self::unavailable($e);
         } catch (InvalidArgumentException) {
             return new JSONResponse(['error' => 'Invalid request'], Http::STATUS_BAD_REQUEST);
         }
+    }
+
+    private static function unavailable(PolicyUnavailable $e): JSONResponse {
+        return new JSONResponse(['error' => 'Unavailable', 'uncertain' => $e->uncertain], Http::STATUS_SERVICE_UNAVAILABLE);
+    }
+
+    /** @throws PolicyUnavailable when the policy state cannot be read */
+    private function revision(): string {
+        return $this->state->state()['revision'];
+    }
+
+    /**
+     * @return string the expectedRevision of the body, canonical
+     * @throws MissingRevision without one
+     * @throws InvalidArgumentException when it is not a canonical decimal string
+     */
+    private function expectedRevision(): string {
+        $expected = $this->request->getParam('expectedRevision');
+        if ($expected === null) {
+            throw new MissingRevision();
+        }
+        if (!is_string($expected)) {
+            throw new InvalidArgumentException('Invalid request');
+        }
+        return \OCA\Mcp\Service\Policy\DecimalCounter::validate($expected);
+    }
+
+    /** @return string uid of the signed-in administrator, recorded on receipts and audit */
+    private function actor(): string {
+        $user = $this->session->getUser();
+        if ($user === null) {
+            throw new InvalidArgumentException('Invalid request');
+        }
+        return $user->getUID();
+    }
+
+    /**
+     * @param array<mixed> $uids uids of the request, as sent
+     * @return array{users: list<array<string, mixed>>} fresh rows of those that exist
+     */
+    private function usersState(array $uids): array {
+        $users = [];
+        foreach (array_unique(array_filter($uids, 'is_string')) as $uid) {
+            $user = $uid === '' ? null : $this->userManager->get($uid);
+            if ($user !== null) {
+                $users[] = $user;
+            }
+            if (count($users) >= PolicyWriter::MAX_UIDS) {
+                break;
+            }
+        }
+        return ['users' => $this->matrix->rows($users)];
     }
 
     /** @throws InvalidArgumentException for an unknown user */

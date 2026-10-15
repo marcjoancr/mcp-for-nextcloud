@@ -43,4 +43,19 @@ final class DecimalCounterTest extends TestCase {
             }
         }
     }
+
+    public function testIncrementCarriesOnTheStringUpToTheLargestCounter(): void {
+        $this->assertSame('1', DecimalCounter::increment('0'));
+        $this->assertSame('10', DecimalCounter::increment('9'));
+        $this->assertSame('1000', DecimalCounter::increment('999'));
+        $this->assertSame('9007199254740993', DecimalCounter::increment('9007199254740992'));
+        $this->assertSame(DecimalCounter::MAX, DecimalCounter::increment(DecimalCounter::MAX_EXPECTED));
+        foreach ([DecimalCounter::MAX, '01', '-1', ''] as $bad) {
+            try {
+                DecimalCounter::increment($bad);
+                $this->fail('Accepted ' . $bad);
+            } catch (\InvalidArgumentException) {
+            }
+        }
+    }
 }

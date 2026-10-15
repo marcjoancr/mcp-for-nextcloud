@@ -12,6 +12,7 @@ use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\GrantPolicy;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\DB\Exception as DatabaseException;
 use OCP\IAppConfig;
@@ -27,6 +28,13 @@ use Throwable;
  * order of contracts §2.1: mutex, app state, official config, then epochs/outbox/recheck).
  */
 class PolicyWriter {
+    /** Seconds an administrator may undo a command through its receipt (contracts §2.3). */
+    public const RECEIPT_TTL = 600;
+    /** Most users one administrative command may touch. */
+    public const MAX_UIDS = 50;
+    /** Most distinct cells one administrative command may write. */
+    public const MAX_CELLS = 2500;
+
     private bool $usable = true;
 
     public function __construct(
@@ -38,6 +46,7 @@ class PolicyWriter {
         private IAppConfig $appConfig,
         private IUserManager $users,
         private OAuthStore $oauth,
+        private ITimeFactory $time,
     ) {}
 
     /**
@@ -53,7 +62,7 @@ class PolicyWriter {
      */
     public function runAdmin(string $expectedRevision, array $uids, Closure $prepare, Closure $apply): array {
         DecimalCounter::validate($expectedRevision);
-        if (count(array_unique($uids)) > 50) {
+        if (count(array_unique($uids)) > self::MAX_UIDS) {
             throw new \InvalidArgumentException('Too many policy users');
         }
         return $this->run($uids, $prepare, $apply, $expectedRevision);
@@ -135,40 +144,282 @@ class PolicyWriter {
         $this->change($uid, 'grant_' . $module . '_' . $operation, null);
     }
 
+    /**
+     * One administrative command over many user cells, as one transaction: every cell is written or none is. Cells
+     * whose raw value is already the requested one are no-ops; a command where every cell is a no-op commits nothing
+     * and leaves the revision as it was. Otherwise it commits one receipt (undoable for RECEIPT_TTL seconds by the
+     * same administrator) and one audit event, in the same transaction.
+     *
+     * @param string $expectedRevision the revision the administrator's page was built from
+     * @param string $actor uid of the administrator who sent the command
+     * @param string $action PolicyEventPayload::RECEIPT_ACTIONS member naming the route
+     * @param list<array{uid:string, key:string, value:?string}> $cells key from PolicyEventPayload::userKey(); value
+     *     '1' (allow), '0' (deny) or null (inherit: remove the override). An exact duplicate is dropped; the same cell
+     *     with two values is refused.
+     * @return array{revision:string, changed:int, receiptId:?string} committed revision, changed cell count, receipt
+     * @throws \InvalidArgumentException for an invalid revision, cell, unknown user, or more than MAX_UIDS users or
+     *     MAX_CELLS cells; nothing is written
+     * @throws PolicyConflict when the expected revision is stale
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function applyCells(string $expectedRevision, string $actor, string $action, array $cells): array {
+        if (!in_array($action, PolicyEventPayload::RECEIPT_ACTIONS, true) || !PolicyEventPayload::validUid($actor)) {
+            throw new \InvalidArgumentException('Invalid command');
+        }
+        $cells = self::cells($cells);
+        $uids = array_values(array_unique(array_column($cells, 'uid')));
+        $receiptId = null;
+        $changed = 0;
+        $result = $this->runAdmin($expectedRevision, $uids, function () use ($uids): void {
+            foreach ($uids as $uid) {
+                $this->assertUser($uid);
+            }
+        }, function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($cells, $actor, $action, &$receiptId, &$changed): bool {
+            $changes = $this->applyLocal($cells);
+            $changed = count($changes);
+            $receiptId = null;
+            if ($changes === []) {
+                return false;
+            }
+            $revision = self::next($current['revision']);
+            $receiptId = $outbox->add(PolicyEventsMapper::KIND_RECEIPT, PolicyEventPayload::receipt($actor, $action, $current['revision'], $revision, $changes));
+            $outbox->add(PolicyEventsMapper::KIND_AUDIT, PolicyEventPayload::audit($actor, $action, $current['revision'], $revision, $receiptId, null, []));
+            return true;
+        });
+        return ['revision' => $result['revision'], 'changed' => $changed, 'receiptId' => $receiptId];
+    }
+
+    /**
+     * Undoes the cells of one receipt, as a new transaction and revision: each cell gets its exact raw value from
+     * before the command back, including absence. Tokens and epochs revoked by the command are not restored, but a
+     * cell that loses eligibility again revokes like any other change. Only the receipt's own administrator may undo
+     * it, only within RECEIPT_TTL seconds and only while the policy is still at the revision that command committed:
+     * any later change, to these cells or any other, is a conflict that touches nothing.
+     *
+     * @param string $receiptId id returned by applyCells()
+     * @param string $expectedRevision the revision the receipt's command committed
+     * @param string $actor uid of the administrator asking
+     * @return array{revision:string, changed:int} committed revision and restored cell count
+     * @throws \InvalidArgumentException for an invalid revision
+     * @throws ReceiptNotFound for an unknown or invented receipt, or one created by another administrator
+     * @throws ReceiptExpired for the caller's own receipt past RECEIPT_TTL
+     * @throws PolicyConflict when the policy changed since the receipt's commit, or one of its users is gone
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function restoreReceipt(string $receiptId, string $expectedRevision, string $actor): array {
+        DecimalCounter::validate($expectedRevision);
+        $receipt = $this->receipt($receiptId, $actor);
+        if ($receipt['revision'] !== $expectedRevision) {
+            throw new PolicyConflict();
+        }
+        $cells = array_map(static fn (array $change): array => ['uid' => $change['uid'], 'key' => $change['key'], 'value' => $change['before']], $receipt['changes']);
+        $uids = array_values(array_unique(array_column($cells, 'uid')));
+        $changed = 0;
+        $result = $this->runAdmin($expectedRevision, $uids, function () use ($uids): void {
+            foreach ($uids as $uid) {
+                if (!PolicyEventPayload::validUid($uid) || $this->users->get($uid) === null) {
+                    // Writing preferences back for a deleted account would leave orphans; the state moved on.
+                    throw new PolicyConflict();
+                }
+            }
+        }, function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($cells, $actor, $receiptId, &$changed): bool {
+            $changes = $this->applyLocal($cells);
+            $changed = count($changes);
+            if ($changes === []) {
+                return false;
+            }
+            $outbox->add(PolicyEventsMapper::KIND_AUDIT, PolicyEventPayload::audit($actor, PolicyEventPayload::ACTION_UNDO,
+                $current['revision'], self::next($current['revision']), null, $receiptId, $changes));
+            return true;
+        });
+        return ['revision' => $result['revision'], 'changed' => $changed];
+    }
+
+    /**
+     * The service switch from the admin page: same effect as setGlobalEnabled(), behind the expected revision, with
+     * an audit event when it changes.
+     *
+     * @param string $expectedRevision the revision the administrator's page was built from
+     * @param string $actor uid of the administrator
+     * @param bool $enabled new state of the global service switch
+     * @return array{revision:string, changed:bool}
+     * @throws \InvalidArgumentException for an invalid revision
+     * @throws PolicyConflict when the expected revision is stale
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function adminSetGlobalEnabled(string $expectedRevision, string $actor, bool $enabled): array {
+        if (!PolicyEventPayload::validUid($actor)) {
+            throw new \InvalidArgumentException('Invalid command');
+        }
+        $value = $enabled ? '1' : '0';
+        $result = $this->runAdmin($expectedRevision, [], fn () => null,
+            function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($actor, $value): bool {
+                $change = $this->writeCell(null, GrantPolicy::SERVICE_KEY, $value);
+                if ($change === null) {
+                    return false;
+                }
+                $outbox->add(PolicyEventsMapper::KIND_AUDIT, PolicyEventPayload::audit($actor, PolicyEventPayload::ACTION_SERVICE,
+                    $current['revision'], self::next($current['revision']), null, null, [$change]));
+                return true;
+            });
+        return ['revision' => $result['revision'], 'changed' => $result['changed']];
+    }
+
+    /**
+     * The revision a command running at $revision commits; an exhausted counter is a storage failure (503).
+     *
+     * @throws PolicyUnavailable when $revision is already the largest one a CAS may start from
+     */
+    public static function next(string $revision): string {
+        try {
+            return DecimalCounter::increment($revision);
+        } catch (\InvalidArgumentException $e) {
+            throw new PolicyUnavailable('Policy revision exhausted', previous: $e);
+        }
+    }
+
     private function change(?string $uid, string $key, ?string $value): void {
         $uids = $uid === null ? [] : [$uid];
         $this->runInternal($uids, function () use ($uid): void {
-            if ($uid !== null && ($uid === '' || str_contains($uid, "\0") || !mb_check_encoding($uid, 'UTF-8') || $this->users->get($uid) === null)) {
-                throw new \InvalidArgumentException('Unknown user');
+            if ($uid !== null) {
+                $this->assertUser($uid);
             }
-        }, function () use ($uid, $key, $value): bool {
+        }, fn (): bool => $this->writeCell($uid, $key, $value) !== null);
+    }
+
+    /** @throws \InvalidArgumentException for a user id the server does not know */
+    private function assertUser(string $uid): void {
+        if (!PolicyEventPayload::validUid($uid) || $this->users->get($uid) === null) {
+            throw new \InvalidArgumentException('Unknown user');
+        }
+    }
+
+    /**
+     * Writes user cells under the mutex, reading each key's current raw values for all its users in one batch.
+     *
+     * @param list<array{uid:string, key:string, value:?string}> $cells validated, without duplicates
+     * @return list<array{uid:string, key:string, before:?string, after:?string}> the cells that changed, in order
+     */
+    private function applyLocal(array $cells): array {
+        $byKey = [];
+        foreach ($cells as $cell) {
+            $byKey[$cell['key']][] = $cell['uid'];
+        }
+        $current = [];
+        foreach ($byKey as $key => $uids) {
+            $current[$key] = $this->config->getUserValueForUsers(GrantPolicy::APP, (string)$key, $uids);
+        }
+        $changes = [];
+        foreach ($cells as $cell) {
+            $values = $current[$cell['key']];
+            $before = array_key_exists($cell['uid'], $values) ? (string)$values[$cell['uid']] : null;
+            $change = $this->writeCell($cell['uid'], $cell['key'], $cell['value'], $before);
+            if ($change !== null) {
+                $changes[] = $change;
+            }
+        }
+        return $changes;
+    }
+
+    /**
+     * Writes one raw value (null removes the key) when it differs from the stored one, and applies the legacy
+     * revocation scope: switching the service off revokes everyone, and a user left without explicit eligibility is
+     * signed out, including on an explicit repeated disable.
+     *
+     * @param string|false|null $before the raw value already read in this transaction (null = absent), or false to
+     *     read it here
+     * @return array{uid:?string, key:string, before:?string, after:?string}|null the change, or null for a no-op
+     */
+    private function writeCell(?string $uid, string $key, ?string $value, string|false|null $before = false): ?array {
+        if ($before === false) {
             // Batch reads preserve presence and legacy MIXED values. Never materialize an inherited default.
             if ($uid === null) {
-                $present = $this->appConfig->hasKey(GrantPolicy::APP, $key);
-                $before = $present ? $this->config->getAppValue(GrantPolicy::APP, $key) : null;
+                $before = $this->appConfig->hasKey(GrantPolicy::APP, $key) ? $this->config->getAppValue(GrantPolicy::APP, $key) : null;
             } else {
                 $values = $this->config->getUserValueForUsers(GrantPolicy::APP, $key, [$uid]);
-                $present = array_key_exists($uid, $values);
-                $before = $present ? $values[$uid] : null;
+                $before = array_key_exists($uid, $values) ? (string)$values[$uid] : null;
             }
-            $changed = $value === null ? $present : (!$present || $before !== $value);
-            if ($changed) {
-                if ($uid === null) {
-                    $this->config->setAppValue(GrantPolicy::APP, $key, $value);
-                } elseif ($value === null) {
-                    $this->config->deleteUserValue($uid, GrantPolicy::APP, $key);
-                } else {
-                    $this->config->setUserValue($uid, GrantPolicy::APP, $key, $value);
+        }
+        $changed = $before !== $value;
+        if ($changed) {
+            if ($uid === null) {
+                $this->config->setAppValue(GrantPolicy::APP, $key, (string)$value);
+            } elseif ($value === null) {
+                $this->config->deleteUserValue($uid, GrantPolicy::APP, $key);
+            } else {
+                $this->config->setUserValue($uid, GrantPolicy::APP, $key, $value);
+            }
+        }
+        if ($key === GrantPolicy::SERVICE_KEY && $value === '0') {
+            $this->oauth->deleteAll();
+        } elseif ($key === GrantPolicy::ELIGIBLE_KEY && $uid !== null && ($value === '0' || ($changed && $value !== '1'))) {
+            $this->oauth->deleteForUser($uid);
+        }
+        return $changed ? ['uid' => $uid, 'key' => $key, 'before' => $before, 'after' => $value] : null;
+    }
+
+    /**
+     * Validates a whole command before anything runs: shapes, keys, values and limits.
+     *
+     * @param array<mixed> $cells candidate cells
+     * @return list<array{uid:string, key:string, value:?string}> the distinct cells, in first-seen order
+     * @throws \InvalidArgumentException for any invalid cell, a cell asked with two values, or a limit exceeded
+     */
+    private static function cells(array $cells): array {
+        if ($cells === [] || !array_is_list($cells)) {
+            throw new \InvalidArgumentException('Invalid command');
+        }
+        $distinct = [];
+        $uids = [];
+        foreach ($cells as $cell) {
+            if (!is_array($cell) || !is_string($cell['uid'] ?? null) || !is_string($cell['key'] ?? null)
+                || !array_key_exists('value', $cell) || !in_array($cell['value'], ['1', '0', null], true)
+                || !PolicyEventPayload::validUid($cell['uid']) || !PolicyEventPayload::validUserKey($cell['key'])) {
+                throw new \InvalidArgumentException('Invalid command');
+            }
+            $id = hash('sha256', $cell['uid'] . "\0" . $cell['key']);
+            if (array_key_exists($id, $distinct)) {
+                if ($distinct[$id]['value'] !== $cell['value']) {
+                    throw new \InvalidArgumentException('Invalid command');
                 }
+                continue;
             }
-            // Preserve the legacy revocation scope, including an explicit repeated disable.
-            if ($value === '0' && $key === GrantPolicy::SERVICE_KEY) {
-                $this->oauth->deleteAll();
-            } elseif ($value === '0' && $key === GrantPolicy::ELIGIBLE_KEY) {
-                $this->oauth->deleteForUser($uid);
+            $distinct[$id] = ['uid' => $cell['uid'], 'key' => $cell['key'], 'value' => $cell['value']];
+            $uids[$cell['uid']] = true;
+            if (count($distinct) > self::MAX_CELLS || count($uids) > self::MAX_UIDS) {
+                throw new \InvalidArgumentException('Invalid command');
             }
-            return $changed;
-        });
+        }
+        return array_values($distinct);
+    }
+
+    /**
+     * Loads a receipt for its own administrator, checking ownership before expiry so another administrator's
+     * receipt is indistinguishable from an unknown one.
+     *
+     * @return array{revision:string, changes:list<array{uid:string, key:string, before:?string, after:?string}>}
+     * @throws ReceiptNotFound|ReceiptExpired|PolicyUnavailable
+     */
+    private function receipt(string $receiptId, string $actor): array {
+        if (!PolicyEventsMapper::validId($receiptId)) {
+            throw new ReceiptNotFound();
+        }
+        try {
+            $event = $this->events->find($receiptId);
+            $payload = $event === null || $event['kind'] !== PolicyEventsMapper::KIND_RECEIPT ? null
+                : PolicyEventPayload::validate(PolicyEventsMapper::KIND_RECEIPT, $event['payload']);
+        } catch (\UnexpectedValueException $e) {
+            throw new PolicyUnavailable('Invalid stored receipt', previous: $e);
+        } catch (DatabaseException $e) {
+            throw new PolicyUnavailable(previous: $e);
+        }
+        if ($payload === null || $payload['actor'] !== $actor) {
+            throw new ReceiptNotFound();
+        }
+        if ($this->time->getTime() >= $event['createdAt'] + self::RECEIPT_TTL) {
+            throw new ReceiptExpired();
+        }
+        return ['revision' => $payload['revision'], 'changes' => $payload['changes']];
     }
 
     private function run(array $uids, Closure $prepare, Closure $apply, ?string $expected): array {

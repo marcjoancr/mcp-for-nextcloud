@@ -9,6 +9,13 @@ namespace OCA\Mcp\Service;
 
 use InvalidArgumentException;
 use OCA\Mcp\Db\LogsGroupsMapper;
+use OCA\Mcp\Db\PolicyEventsMapper;
+use OCA\Mcp\Service\Policy\PolicyConflict;
+use OCA\Mcp\Service\Policy\PolicyEventPayload;
+use OCA\Mcp\Service\Policy\PolicyOutbox;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
+use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Policy\SnapshotInvalidated;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\Lock\ILockingProvider;
@@ -34,12 +41,14 @@ class LogsAccess {
      * @param IGroupManager $groupManager administrators and group membership
      * @param LogsGroupsMapper $mapper uncached, versioned role state
      * @param ILockingProvider $locks the core's locking provider, shared by every worker
+     * @param PolicyWriter $writer owner of the transaction: a role change also advances the global revision
      */
     public function __construct(
         private IConfig $config,
         private IGroupManager $groupManager,
         private LogsGroupsMapper $mapper,
         private ILockingProvider $locks,
+        private PolicyWriter $writer,
     ) {}
 
     /** @return string the log_type system setting, lowercase; 'file' when unset */
@@ -94,17 +103,26 @@ class LogsAccess {
     /**
      * Replaces the list. A group not listed yet must exist; a listed group may stay or go even after it was deleted,
      * so a deleted group never locks the list. Empty lists stay in the row, with their incremented version.
-     * The lock is an extra layer; an atomic database CAS is authoritative even when file locking is disabled.
+     *
+     * The change runs through the policy writer, so the role list and the global revision move in one transaction
+     * (contracts §2.1): the group lookups (possibly remote) happen before the mutex, and under it only the list's own
+     * version CAS, the revision CAS and the audit event run. Saving the stored list again is a no-op that advances
+     * neither counter. The lock is an extra layer; the database CAS is authoritative even when file locking is off.
      *
      * @param list<string> $gids group ids
      * @param list<string>|null $previous the list the caller changed; when it differs from the stored one, another
      *     save came first and nothing is written. Null skips the check (internal callers).
-     * @param int|null $version expected database version; required by PUT, internal callers use their current read
-     * @throws InvalidArgumentException for an id or a previous id that is not a non-empty string, or a new group
-     *     that does not exist
-     * @throws LogsGroupsConflict when $previous is not the stored list or another save holds the lock
+     * @param int|null $version expected list version; required by PUT, internal callers use their current read
+     * @param string|null $expectedRevision global policy revision the page was built from; required by PUT, null for
+     *     internal callers, which run at the current revision
+     * @param string|null $actor administrator uid recorded in the audit event; null for internal callers
+     * @throws InvalidArgumentException for an id or a previous id that is not a non-empty string, a new group that
+     *     does not exist, or an invalid revision
+     * @throws LogsGroupsConflict when $previous or $version is not the stored one, or another save holds the lock
+     * @throws PolicyConflict when $expectedRevision is stale
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
-    public function setGroups(array $gids, ?array $previous = null, ?int $version = null): void {
+    public function setGroups(array $gids, ?array $previous = null, ?int $version = null, ?string $expectedRevision = null, ?string $actor = null): void {
         foreach ([...$gids, ...($previous ?? [])] as $gid) {
             if (!is_string($gid) || $gid === '') {
                 throw new InvalidArgumentException('Invalid request');
@@ -117,21 +135,40 @@ class LogsAccess {
             throw new LogsGroupsConflict('Another save of the groups is running');
         }
         try {
-            $state = $this->mapper->state();
-            $stored = $state['groups'];
-            $version ??= $state['version'];
-            if ($version !== $state['version']) {
-                throw new LogsGroupsConflict('The groups changed since they were read');
-            }
-            if ($previous !== null && self::canonical($previous) !== $stored) {
-                throw new LogsGroupsConflict('The groups changed since they were read');
-            }
-            foreach ($gids as $gid) {
-                if (!in_array($gid, $stored, true) && $this->groupManager->get($gid) === null) {
-                    throw new InvalidArgumentException('Invalid request');
+            // Outside the mutex: the stored list it was checked against, and whether each new group exists.
+            $prepare = function () use ($gids): array {
+                $observed = $this->mapper->state();
+                foreach ($gids as $gid) {
+                    if (!in_array($gid, $observed['groups'], true) && $this->groupManager->get($gid) === null) {
+                        throw new InvalidArgumentException('Invalid request');
+                    }
                 }
-            }
-            $this->mapper->compareAndSet($gids, $version);
+                return $observed;
+            };
+            $apply = function (array $observed, array $current, string $commandId, PolicyOutbox $outbox) use ($gids, $previous, $version, $actor): bool {
+                $state = $this->mapper->state();
+                if ($version !== null && $version !== $state['version']) {
+                    throw new LogsGroupsConflict('The groups changed since they were read');
+                }
+                if ($previous !== null && self::canonical($previous) !== $state['groups']) {
+                    throw new LogsGroupsConflict('The groups changed since they were read');
+                }
+                if ($state !== $observed) {
+                    // Another save landed between the existence checks and the mutex: check again.
+                    throw new SnapshotInvalidated();
+                }
+                if ($gids === $state['groups']) {
+                    return false;
+                }
+                $this->mapper->compareAndSet($gids, $state['version']);
+                $outbox->add(PolicyEventsMapper::KIND_AUDIT, PolicyEventPayload::audit($actor, PolicyEventPayload::ACTION_LOGS,
+                    $current['revision'], PolicyWriter::next($current['revision']), null, null,
+                    [['uid' => null, 'key' => 'logs_groups', 'before' => json_encode($state['groups'], JSON_THROW_ON_ERROR), 'after' => json_encode($gids, JSON_THROW_ON_ERROR)]]));
+                return true;
+            };
+            $expectedRevision === null
+                ? $this->writer->runInternal([], $prepare, $apply)
+                : $this->writer->runAdmin($expectedRevision, [], $prepare, $apply);
         } finally {
             $this->locks->releaseLock(self::LOCK_KEY, ILockingProvider::LOCK_EXCLUSIVE);
         }

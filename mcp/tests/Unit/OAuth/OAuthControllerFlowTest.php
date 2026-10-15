@@ -97,6 +97,21 @@ final class OAuthControllerFlowTest extends TestCase {
         $this->assertSame('CODE', $query['code']);
     }
 
+    /** A storage failure of the policy writer is temporarily_unavailable for the client, never a 500 or a code. */
+    public function testAPolicyStorageFailureIssuesNoCodeAndTellsTheClientToRetry(): void {
+        $controller = $this->controller();
+        $pending = $this->authorize($controller);
+        $this->policy->method('setConnected')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
+        $this->tokens->expects($this->never())->method('createCode');
+
+        $response = $controller->consent($pending, 'allow');
+
+        $this->assertInstanceOf(RedirectResponse::class, $response);
+        parse_str((string)parse_url($response->getRedirectURL(), PHP_URL_QUERY), $query);
+        $this->assertSame('temporarily_unavailable', $query['error']);
+        $this->assertArrayNotHasKey('code', $query);
+    }
+
     public function testAnythingButAllowIssuesNoCodeAndConnectsNothing(): void {
         foreach (['deny', '', 'ALLOW', 'allow ', 'yes'] as $decision) {
             $controller = $this->controller();

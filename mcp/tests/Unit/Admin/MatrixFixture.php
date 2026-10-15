@@ -29,6 +29,8 @@ final class MatrixFixture {
     public \OCA\Mcp\Tests\Unit\InMemoryLocks $locks;
     public \OCA\Mcp\Tests\Unit\SqliteDatabase $logsDb;
     public GrantPolicy $policy;
+    /** The IConfig mock the policy, its writer and the logs gate share. */
+    public \OCP\IConfig $policyConfig;
     public \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore $oauth;
     /** @var array<string, array{name:string, email:string, enabled:bool}> */
     public array $users = [];
@@ -48,7 +50,9 @@ final class MatrixFixture {
         $this->locks = new \OCA\Mcp\Tests\Unit\InMemoryLocks();
         $this->logsDb = new \OCA\Mcp\Tests\Unit\SqliteDatabase($test, [new \OCA\Mcp\Migration\Version001002Date20261008000000()]);
         $this->oauth = new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore();
-        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->config->mock($test), $this->oauth);
+        $this->config->userExists = fn (string $uid): bool => isset($this->users[$uid]);
+        $this->policyConfig = $this->config->mock($test);
+        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->policyConfig, $this->oauth);
     }
 
     public function addUser(string $uid, string $name, string $email = '', bool $enabled = true, array $groups = []): void {
@@ -64,7 +68,17 @@ final class MatrixFixture {
 
     /** The role gate of the logs module over the same config and groups; members of 'admin' are the administrators. */
     public function logsAccess(): \OCA\Mcp\Service\LogsAccess {
-        return new \OCA\Mcp\Service\LogsAccess($this->config->mock($this->test), $this->groupManager(), new \OCA\Mcp\Db\LogsGroupsMapper($this->logsDb->connection(), $this->appConfig->worker($this->test)), $this->locks);
+        return new \OCA\Mcp\Service\LogsAccess($this->config->mock($this->test), $this->groupManager(), new \OCA\Mcp\Db\LogsGroupsMapper($this->logsDb->connection(), $this->appConfig->worker($this->test)), $this->locks, $this->writer());
+    }
+
+    /** @return \OCA\Mcp\Service\Policy\PolicyWriter the writer behind the policy, shared by every worker of the fixture */
+    public function writer(): \OCA\Mcp\Service\Policy\PolicyWriter {
+        return InMemoryConfig::writer($this->policyConfig, $this->oauth);
+    }
+
+    /** @return \OCA\Mcp\Db\PolicyStateMapper the revision the writer reads */
+    public function state(): \OCA\Mcp\Db\PolicyStateMapper {
+        return InMemoryConfig::state($this->policyConfig);
     }
 
     public function userManager(): IUserManager {

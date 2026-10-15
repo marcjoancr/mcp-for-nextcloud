@@ -126,7 +126,7 @@ final class PolicyTransactionTest extends IntegrationTestCase {
                 ($this->after)('outbox');
             }
         };
-        $writer = new PolicyWriter($db, $mapper, $events, $config, $users, $apps, Server::get(IUserManager::class), Server::get(OAuthStore::class));
+        $writer = new PolicyWriter($db, $mapper, $events, $config, $users, $apps, Server::get(IUserManager::class), Server::get(OAuthStore::class), Server::get(\OCP\AppFramework\Utility\ITimeFactory::class));
         try {
             $result = $writer->runAdmin($before['revision'], [Fixtures::ALICE], function () use ($db): void {
                 $this->assertFalse($db->inTransaction());
@@ -259,7 +259,7 @@ final class PolicyTransactionTest extends IntegrationTestCase {
             }
         };
         $failing = new GrantPolicy($config, $users, new PolicyWriter($db, $mapper, Server::get(PolicyEventsMapper::class), $config, $users, $apps,
-            Server::get(IUserManager::class), Server::get(OAuthStore::class)));
+            Server::get(IUserManager::class), Server::get(OAuthStore::class), Server::get(\OCP\AppFramework\Utility\ITimeFactory::class)));
         try {
             $failing->setGrant(Fixtures::ALICE, 'notes', 'edit', false);
             $this->fail('Injected failure swallowed');

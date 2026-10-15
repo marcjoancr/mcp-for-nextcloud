@@ -127,7 +127,11 @@ class PolicyEventsMapper {
             'createdAt' => (int)$row['created_at'], 'attempts' => (int)$row['attempts']];
     }
 
-    private static function validId(string $id): bool {
+    /**
+     * @param string $id candidate event id, from storage or from a client (a receipt id)
+     * @return bool whether it has the form append() accepts
+     */
+    public static function validId(string $id): bool {
         return preg_match('/^[0-9a-f]{32}(-[1-9][0-9]{0,8})?$/D', $id) === 1;
     }
 }

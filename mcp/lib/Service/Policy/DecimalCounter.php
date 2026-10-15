@@ -40,4 +40,24 @@ final class DecimalCounter {
         self::validate($b, self::MAX);
         return strlen($a) <=> strlen($b) ?: strcmp($a, $b) <=> 0;
     }
+
+    /**
+     * The next counter, by decimal carry on the string: the revision a CAS from $value commits.
+     *
+     * @param string $value canonical counter at most MAX_EXPECTED
+     * @return string $value + 1, at most MAX
+     * @throws \InvalidArgumentException when $value is not canonical or is already above MAX_EXPECTED
+     */
+    public static function increment(string $value): string {
+        self::validate($value);
+        $digits = str_split($value);
+        for ($i = count($digits) - 1; $i >= 0; --$i) {
+            if ($digits[$i] !== '9') {
+                $digits[$i] = (string)((int)$digits[$i] + 1);
+                return implode('', $digits);
+            }
+            $digits[$i] = '0';
+        }
+        return '1' . implode('', $digits);
+    }
 }

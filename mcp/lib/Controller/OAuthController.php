@@ -15,6 +15,7 @@ use OCA\Mcp\OAuth\RedirectUriMatcher;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\Service\GrantPolicy;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -110,7 +111,12 @@ class OAuthController extends Controller {
         if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
             return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
         }
-        $this->policy->setConnected($uid, true);
+        try {
+            $this->policy->setConnected($uid, true);
+        } catch (PolicyUnavailable) {
+            // Nothing was issued: the client may try again (RFC 6749 §4.1.2.1), the state is never assumed.
+            return new RedirectResponse($authRequest->redirectWith(['error' => 'temporarily_unavailable'], $this->urls->issuer()));
+        }
         return new RedirectResponse($authRequest->redirectWith(['code' => $this->tokens->createCode($authRequest, $uid)], $this->urls->issuer()));
     }
 

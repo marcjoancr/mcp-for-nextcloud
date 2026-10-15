@@ -42,7 +42,8 @@ final class LogsAccessTest extends TestCase {
         $groups->method('isAdmin')->willReturnCallback(fn (string $uid): bool => in_array($uid, $this->groups['admin'], true));
         $groups->method('isInGroup')->willReturnCallback(fn (string $uid, string $gid): bool => in_array($uid, $this->groups[$gid] ?? [], true));
         $groups->method('get')->willReturnCallback(fn (string $gid): ?IGroup => isset($this->groups[$gid]) ? $this->createMock(IGroup::class) : null);
-        return new LogsAccess($this->store->mock($this), $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $this->locks);
+        $config = $this->store->mock($this);
+        return new LogsAccess($config, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $this->locks, InMemoryConfig::writer($config));
     }
 
     public function testOnlyAdministratorsPassWhileNoGroupIsListed(): void {
@@ -266,13 +267,16 @@ final class LogsAccessTest extends TestCase {
         $groups = $this->createMock(IGroupManager::class);
         $groups->method('get')->willReturn($this->createMock(IGroup::class));
         $noop = $this->createMock(\OCP\Lock\ILockingProvider::class);
-        $a = new LogsAccess($this->store->mock($this), $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop);
-        $b = new LogsAccess($this->store->mock($this), $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop);
+        $ca = $this->store->mock($this);
+        $a = new LogsAccess($ca, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop, InMemoryConfig::writer($ca));
+        $cb = $this->store->mock($this);
+        $b = new LogsAccess($cb, $groups, new \OCA\Mcp\Db\LogsGroupsMapper($this->db->connection(), $this->appConfig->worker($this)), $noop, InMemoryConfig::writer($cb));
         $a->setGroups(['rh', 'ti'], [], 0);
-        // Both pass their version/list checks. A commits exactly between B's check and UPDATE.
+        // Both pass their version/list checks. A commits exactly between B's check and UPDATE. B asks for a
+        // different list: saving the stored list again is a no-op that never reaches the UPDATE.
         $this->db->beforeStatement = fn () => $a->setGroups(['ti'], ['rh', 'ti'], 1);
         try {
-            $b->setGroups(['rh', 'ti'], ['rh', 'ti'], 1);
+            $b->setGroups(['rh'], ['rh', 'ti'], 1);
             $this->fail('zero affected rows must be a conflict even without locks');
         } catch (LogsGroupsConflict) {
         }

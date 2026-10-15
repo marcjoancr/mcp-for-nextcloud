@@ -157,4 +157,21 @@ final class SettingsControllerTest extends TestCase {
     private function attributes(string $class, string $method): array {
         return array_map(fn ($a) => $a->getName(), (new \ReflectionMethod($class, $method))->getAttributes());
     }
+
+    /** A policy storage failure is a 503 that revokes and assumes nothing, never a 500. */
+    public function testAPolicyStorageFailureIsA503AndTouchesNothingElse(): void {
+        $policy = $this->createMock(GrantPolicy::class);
+        $policy->method('setConnected')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('alice');
+        $user->method('isEnabled')->willReturn(true);
+        $session = $this->createMock(IUserSession::class);
+        $session->method('getUser')->willReturn($user);
+        $this->tokens->expects($this->never())->method('revokeUser');
+        $this->checkoutTokens->expects($this->never())->method('deleteForUser');
+        $controller = new SettingsController('mcp', $this->createMock(IRequest::class),
+            $this->createMock(IURLGenerator::class), $session, $policy, $this->tokens, $this->checkoutTokens, $this->batches);
+
+        $this->assertSame(503, $controller->personal('0')->getStatus());
+    }
 }
