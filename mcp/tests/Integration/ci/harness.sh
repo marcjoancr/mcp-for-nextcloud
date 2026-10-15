@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Disposable Nextcloud instance for the integration suite (.github/workflows/integration.yml).
-# It starts containers, so it refuses to run anywhere but a GitHub Actions runner.
+# It starts containers, so it refuses to run anywhere but a GitHub Actions runner or an explicit local run
+# (MCP_IT_LOCAL=1, which only run-local.sh sets: it brings the container engine up and always takes it down again).
 #
 # Usage: harness.sh <packages|tools|start-db|start-nextcloud|install-app|fixtures|report|test|collect>
 # Cell, from the workflow matrix:
@@ -15,10 +16,19 @@
 #   MCP_IT_BASELINE    git tag of the released baseline for the upgrade mode
 set -eu
 
-if [ "${GITHUB_ACTIONS:-}" != "true" ] || [ -z "${RUNNER_TEMP:-}" ]; then
-    echo "harness.sh starts Nextcloud and database containers; it runs only on a GitHub Actions runner." >&2
+if { [ "${GITHUB_ACTIONS:-}" != "true" ] && [ "${MCP_IT_LOCAL:-}" != "1" ]; } || [ -z "${RUNNER_TEMP:-}" ]; then
+    echo "harness.sh starts Nextcloud and database containers; it runs only on a GitHub Actions runner or through run-local.sh." >&2
     exit 1
 fi
+
+# Checks "<sha256>  <file>" on stdin: GNU coreutils on the runner, the BSD tools on a Mac.
+sha256_check() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum -c -
+    else
+        shasum -a 256 -c -
+    fi
+}
 
 REPO_ROOT=$(cd "$(dirname "$0")/../../../.." && pwd)
 WORK="$RUNNER_TEMP/mcp-it"
@@ -81,7 +91,7 @@ build_package() {
 # PHPUnit runs inside the Nextcloud container as a PHAR, so none of its dependencies shadow the server's own.
 cmd_tools() {
     curl -fsSL -o "$TOOLS_DIR/phpunit.phar" "https://phar.phpunit.de/phpunit-$PHPUNIT_VERSION.phar"
-    echo "$PHPUNIT_SHA256  $TOOLS_DIR/phpunit.phar" | sha256sum -c -
+    echo "$PHPUNIT_SHA256  $TOOLS_DIR/phpunit.phar" | sha256_check
 }
 
 cmd_start_db() {
@@ -182,7 +192,8 @@ cmd_install_app() {
         # pending migrations. This runner-only copy gets a higher version; the package itself is never changed.
         if ! php -r 'exit(version_compare($argv[1], $argv[2], ">") ? 0 : 1);' "$expected" "$baseline_version"; then
             expected="$baseline_version.1"
-            sed -i "s:<version>.*</version>:<version>$expected</version>:" "$WORK/branch-pkg/mcp/appinfo/info.xml"
+            sed "s:<version>.*</version>:<version>$expected</version>:" "$WORK/branch-pkg/mcp/appinfo/info.xml" > "$WORK/info.xml.next"
+            mv "$WORK/info.xml.next" "$WORK/branch-pkg/mcp/appinfo/info.xml"
             echo "Runner-only version bump of the branch copy to $expected so that occ upgrade runs its migrations"
         fi
         docker cp "$WORK/branch-pkg/mcp" "$NC:/tmp/mcp-next"
