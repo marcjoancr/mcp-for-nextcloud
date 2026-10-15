@@ -180,6 +180,44 @@ final class GroupGrantsWriterTest extends TestCase {
         return $issued;
     }
 
+    /** Every account exists and is enabled. */
+    private function users(): \OCP\IUserManager {
+        $users = $this->createMock(\OCP\IUserManager::class);
+        $users->method('get')->willReturnCallback(function (string $uid): \OCP\IUser {
+            $user = $this->createMock(\OCP\IUser::class);
+            $user->method('getUID')->willReturn($uid);
+            $user->method('isEnabled')->willReturn(true);
+            return $user;
+        });
+        return $users;
+    }
+
+    /** GrantPolicy::inheritance() over resolver(). */
+    private function inheritance(string $uid): ?array {
+        $context = $this->resolver()->begin($uid, [], [], false);
+        try {
+            $inherited = $context->inheritedEligibility();
+            return $inherited->allowed === true ? $context->lifecycles($inherited->groupIds) : null;
+        } finally {
+            $context->close();
+        }
+    }
+
+    /** Removes $uid from $gid as the core does: the production UserCauseListener sees Before and After. */
+    private function removeMember(string $uid, string $gid, CauseProcessor $causes): void {
+        $time = $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        $listener = new \OCA\Mcp\Listener\UserCauseListener($causes, $this->rechecks, new OAuthStore($this->db), $this->grants,
+            $this->life, $this->classifier(), $this->resolver(), $this->db, $time, new \Psr\Log\NullLogger());
+        $group = $this->createMock(\OCP\IGroup::class);
+        $group->method('getGID')->willReturn($gid);
+        $group->method('inGroup')->willReturnCallback(fn (\OCP\IUser $user): bool => in_array($gid, $this->memberOf[$user->getUID()] ?? [], true));
+        $user = $this->users()->get($uid);
+        $listener->handle(new \OCP\Group\Events\BeforeUserRemovedEvent($group, $user));
+        $this->memberOf[$uid] = array_values(array_diff($this->memberOf[$uid] ?? [], [$gid]));
+        $listener->handle(new \OCP\Group\Events\UserRemovedEvent($group, $user));
+    }
+
     /** The production writer over this database with another lifecycle mapper. */
     private function writerWith(GroupLifeMapper $life): PolicyWriter {
         $time = $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class);
@@ -187,7 +225,7 @@ final class GroupGrantsWriterTest extends TestCase {
         $events = new PolicyEventsMapper($this->db, $time);
         return new PolicyWriter($this->db, $this->state, $events, $this->configData->mock($this),
             $this->createMock(\OCP\Config\IUserConfig::class), $this->createMock(\OCP\IAppConfig::class),
-            $this->createMock(\OCP\IUserManager::class), $time, new AuthUsersMapper($this->db), $this->rechecks,
+            $this->users(), $time, new AuthUsersMapper($this->db), $this->rechecks,
             new \OCA\Mcp\Service\Policy\PolicyEventProcessor($events, new OAuthStore($this->db), new \Psr\Log\NullLogger(), $time),
             $this->grants, $life, new OAuthStore($this->db));
     }
@@ -800,5 +838,72 @@ final class GroupGrantsWriterTest extends TestCase {
         $this->assertSame('2', $this->generations('bob')['issue_seq']);
         $this->assertNotSame($gen, $this->life->get('team')['gen']);
         $this->assertSame('active', $this->life->get('team')['state']);
+    }
+
+    /**
+     * RF2 of the re-reading of F2, the exact interleaving: ana has an individual Allow, a credential and team, the only
+     * group she would inherit from. A reset of the Allow reads in its external phase that she inherits from team; then
+     * her removal from team is delivered (Before and After) before the reset reaches its mutex. The removal records
+     * its cause although the Allow masks it, and processing it (no cut: the Allow still exists) advances the revision,
+     * so the reset meets a conflict and writes nothing. Sent again on the new revision it reads ana outside team and
+     * cuts; adding her back never revives the old credential.
+     */
+    public function testAResetRacingTheRemovalOfTheMemberCutsInsteadOfKeepingAStaleInheritance(): void {
+        $this->policy('team');
+        $this->holder('ana', '2');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $this->configData->user['ana']['mcp'] = ['eligible' => '1', 'connected' => '1'];
+        [, $causes] = $this->listener(new GroupLifeMapper($this->db));
+        $writer = $this->writerWith(new GroupLifeMapper($this->db));
+        $cell = [['uid' => 'ana', 'key' => 'eligible', 'value' => null]];
+
+        try {
+            $writer->applyCells($this->revision(), 'root', 'grants.commands', $cell, function (string $uid) use ($causes): ?array {
+                $inherited = $this->inheritance($uid);
+                $this->assertNotNull($inherited, 'read while ana is in team');
+                $this->removeMember('ana', 'team', $causes);
+                return $inherited;
+            });
+            $this->fail('the processed removal moved the revision');
+        } catch (\OCA\Mcp\Service\Policy\PolicyConflict) {
+        }
+        $this->assertSame('1', $this->configData->user['ana']['mcp']['eligible'], 'nothing written');
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '0'], $this->generations('ana'), 'still eligible by the Allow: no cut');
+        $this->assertSame([], $this->rechecks->causes('ana'), 'the cause was processed');
+
+        $writer->applyCells($this->revision(), 'root', 'grants.commands', $cell, fn (string $uid): ?array => $this->inheritance($uid));
+        $this->assertArrayNotHasKey('eligible', $this->configData->user['ana']['mcp']);
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->generations('ana'), 'cut');
+        $this->memberOf['ana'] = ['team'];
+        $this->assertSame('2', $this->generations('ana')['revoked_below'], 'back in team, the old generation stays cut');
+    }
+
+    /** RF2, the undo that restores absence: the same race leaves the Allow in place (conflict), never a stale keep. */
+    public function testAnUndoRacingTheRemovalOfTheMemberNeverKeepsAStaleInheritance(): void {
+        $this->policy('team');
+        $this->holder('ana', '2');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $this->configData->user['ana']['mcp'] = ['connected' => '1'];
+        [, $causes] = $this->listener(new GroupLifeMapper($this->db));
+        $writer = $this->writerWith(new GroupLifeMapper($this->db));
+        $saved = $writer->applyCells($this->revision(), 'root', 'grants.commands', [['uid' => 'ana', 'key' => 'eligible', 'value' => '1']]);
+
+        try {
+            $writer->restoreReceipt((string)$saved['receiptId'], $saved['revision'], 'root', function (string $uid) use ($causes): ?array {
+                $inherited = $this->inheritance($uid);
+                $this->removeMember('ana', 'team', $causes);
+                return $inherited;
+            });
+            $this->fail('the processed removal moved the revision');
+        } catch (\OCA\Mcp\Service\Policy\PolicyConflict) {
+        }
+        $this->assertSame('1', $this->configData->user['ana']['mcp']['eligible'], 'the Allow stays: ana is still eligible');
+        $this->assertSame('0', $this->generations('ana')['revoked_below']);
+        $this->memberOf['ana'] = [];
+        $writer->applyCells($this->revision(), 'root', 'grants.commands', [['uid' => 'ana', 'key' => 'eligible', 'value' => null]],
+            fn (string $uid): ?array => $this->inheritance($uid));
+        $this->assertSame('2', $this->generations('ana')['revoked_below'], 'removing the Allow now cuts');
     }
 }
