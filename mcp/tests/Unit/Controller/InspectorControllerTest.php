@@ -106,4 +106,20 @@ final class InspectorControllerTest extends TestCase {
         $this->assertSame(400, $controller->access('')->getStatus(), 'no user to inspect');
         $this->assertSame(['invalid', 'unavailable'], array_map(static fn (array $entry): string => $entry[1]['result'], $this->audit));
     }
+
+    /** An unexpected failure is audited as an error with its class only, then answered with a generic 500. */
+    public function testAnUnexpectedFailureIsAuditedBeforeTheGeneric500(): void {
+        $this->inspector->method('path')->willThrowException(new \RuntimeException('disk /alice/files/Secret failed'));
+        $errors = [];
+        $this->logger->method('error')->willReturnCallback(function (string $message, array $context) use (&$errors): void {
+            $errors[] = [$message, $context];
+        });
+
+        $response = $this->controller('root', true)->path('alice', '/Secret/plan.md');
+
+        $this->assertSame([500, ['error' => 'Unexpected error']], [$response->getStatus(), $response->getData()]);
+        $this->assertSame([['MCP access inspection failed', ['app' => 'mcp', 'admin' => 'root', 'target' => 'alice', 'action' => 'inspect_path',
+            'module' => 'files', 'result' => 'error', 'timestamp' => 1760000000, 'exception_class' => \RuntimeException::class]]], $errors);
+        $this->assertStringNotContainsString('Secret', json_encode($errors));
+    }
 }

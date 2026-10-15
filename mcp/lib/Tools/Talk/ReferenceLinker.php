@@ -147,7 +147,7 @@ class ReferenceLinker {
             // The calendar tools' own rules: the path must be one of the caller's visible calendars, and the
             // iCalendar CLASS of an event in someone else's calendar decides what the caller may see of it.
             $calendar = $this->calendars->resolve($userId, $path);
-            $row = $this->calendarStore->objectByUid($calendar->id, $uid);
+            $row = $this->calendarStore->objectByUid($calendar->id, $uid, 'VEVENT');
             $vcalendar = ($row === null || $row['deleted']) ? null : $this->events->parse($row['data']);
         } catch (CalendarException $e) {
             throw new ConversationAccessException(Messages::referenceNotFound(), $e);

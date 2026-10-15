@@ -125,7 +125,7 @@ class DavCalendarStore implements CalendarStore {
      * @throws \Psr\Container\ContainerExceptionInterface when the database cannot be resolved
      */
     public function object(int $calendarId, string $uri): ?array {
-        return $this->freshRow($calendarId, 'uri', $uri, false);
+        return $this->freshRow($calendarId, 'uri', $uri, false, null);
     }
 
     /**
@@ -134,11 +134,12 @@ class DavCalendarStore implements CalendarStore {
      *
      * @param int $calendarId backend calendar id
      * @param string $uid iCalendar UID
+     * @param string $component VEVENT or VTODO, matched against `calendarobjects.componenttype`
      * @return array{id:int, uri:string, etag:string, data:string, deleted:bool}|null
      * @throws \Psr\Container\ContainerExceptionInterface when the DAV app or the database cannot be resolved
      */
-    public function objectByUid(int $calendarId, string $uid): ?array {
-        return $this->freshRow($calendarId, 'uid', $uid, true);
+    public function objectByUid(int $calendarId, string $uid, string $component): ?array {
+        return $this->freshRow($calendarId, 'uid', $uid, true, $component);
     }
 
     /**
@@ -146,10 +147,11 @@ class DavCalendarStore implements CalendarStore {
      * @param string $column "uri" or "uid"
      * @param string $value value the column must equal
      * @param bool $liveOnly whether trashed rows are excluded
+     * @param string|null $component component type the row must have; null for any
      * @return array{id:int, uri:string, etag:string, data:string, deleted:bool}|null
      * @throws \Psr\Container\ContainerExceptionInterface when the database cannot be resolved
      */
-    private function freshRow(int $calendarId, string $column, string $value, bool $liveOnly): ?array {
+    private function freshRow(int $calendarId, string $column, string $value, bool $liveOnly, ?string $component): ?array {
         $qb = $this->container->get(IDBConnection::class)->getQueryBuilder();
         $qb->select(['id', 'uri', 'etag', 'calendardata', 'deleted_at'])
             ->from('calendarobjects')
@@ -158,6 +160,9 @@ class DavCalendarStore implements CalendarStore {
             ->andWhere($qb->expr()->eq('calendartype', $qb->createNamedParameter(self::CALENDAR_TYPE_CALENDAR, IQueryBuilder::PARAM_INT)));
         if ($liveOnly) {
             $qb->andWhere($qb->expr()->isNull('deleted_at'));
+        }
+        if ($component !== null) {
+            $qb->andWhere($qb->expr()->eq('componenttype', $qb->createNamedParameter($component)));
         }
         $result = $qb->setMaxResults(1)->executeQuery();
         // fetch() (OCP since 21): fetchAssociative() exists only from Nextcloud 33, and 32 is supported.

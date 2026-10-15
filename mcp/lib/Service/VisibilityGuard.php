@@ -772,13 +772,19 @@ class VisibilityGuard {
 
         try {
             $originalNode = $userFolder->get($originalRelPath);
-            // The original's own reason is not the backup's: it is set aside while the original is checked.
-            [$explaining, $this->explanation] = [$this->explanation, null];
+            // The original's own reason is not the backup's: it is recorded apart while the original is checked, and
+            // only an original that could not be evaluated is carried over (A.4: the gate not evaluated is named).
+            [$explaining, $this->explanation] = [$this->explanation, $this->explanation === null ? null : []];
             try {
-                return !$this->isVisible($originalNode);
+                $hidden = !$this->isVisible($originalNode);
+                $original = $this->explanation;
             } finally {
                 $this->explanation = $explaining;
             }
+            if ($hidden && $original !== null && ($original['reason'] ?? self::EXPLAINED_NOT_EVALUATED) === self::EXPLAINED_NOT_EVALUATED) {
+                $this->because(self::EXPLAINED_NOT_EVALUATED);
+            }
+            return $hidden;
         } catch (\Throwable) {
             $this->warnVisibilityFailure();
             return true;

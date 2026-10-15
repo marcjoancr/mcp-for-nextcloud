@@ -155,13 +155,32 @@ final class AccessInspectorTest extends TestCase {
 
     /** @return array<string, array{string}> */
     public static function invalidPaths(): array {
-        return ['relative' => ['Projects'], 'empty' => [''], 'parent segment' => ['/Projects/../Secret'], 'NUL' => ["/Projects\0"]];
+        return ['parent segment' => ['/Projects/../Secret'], 'NUL' => ["/Projects\0"], 'control character' => ["/Pro\x01jects"]];
     }
 
     #[DataProvider('invalidPaths')]
     public function testAPathOutsideTheContractIsRefused(string $path): void {
         $this->expectException(\InvalidArgumentException::class);
         $this->inspector->path('alice', $path);
+    }
+
+    /** B1 of the 13/A5 review: the path is read as the tools read it (PathGuard::normalize, '/' is the home). */
+    public function testAPathIsNormalizedLikeTheTools(): void {
+        $allowed = ['reason' => I::ALLOWED, 'gate' => null, 'exclusion' => null, 'folder' => null];
+        foreach (['Projects', '/./Projects', '//Projects/', '\\Projects', '/Projects/.'] as $path) {
+            $this->assertSame($allowed, $this->inspector->path('alice', $path), $path);
+        }
+        foreach (['', '/'] as $home) {
+            $this->assertSame($allowed, $this->inspector->path('alice', $home), 'the home: ' . json_encode($home));
+        }
+    }
+
+    /** B2 of the 13/A5 review: the exclusion is checked before the native read, as NodeAccess::get does. */
+    public function testAnExcludedItemTheUserCannotReadIsExcludedFirst(): void {
+        $id = (string)$this->fx->tree->addFolder('/alice/files/Closed', ['readable' => false]);
+        $this->fx->tags[$id] = [ScopeFixture::HIDDEN_TAG];
+        $this->assertSame(['reason' => I::EXCLUDED, 'gate' => 'exclusion', 'exclusion' => VisibilityGuard::EXPLAINED_TAG_DIRECT, 'folder' => null],
+            $this->inspector->path('alice', '/Closed'));
     }
 
     public function testACalendarIsExplainedByTheCalendarExplainer(): void {

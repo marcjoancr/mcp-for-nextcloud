@@ -35,7 +35,8 @@ class EventRepository {
      * @throws CalendarException when missing, hidden, confidential, unreadable or changed meanwhile
      */
     public function forChange(Calendar $calendar, string $uid, string $userId, ?string $etag): StoredEvent {
-        $row = $this->store->objectByUid($calendar->id, $uid);
+        // An object of another component (a task of a calendar that holds both) is as missing as an unknown UID.
+        $row = $this->store->objectByUid($calendar->id, $uid, 'VEVENT');
         if ($row === null || $row['deleted']) {
             throw CalendarException::notFound();
         }
@@ -57,7 +58,7 @@ class EventRepository {
      * @throws CalendarException when the UID or the URI is already taken in the calendar
      */
     public function assertFree(Calendar $calendar, string $uid, string $uri): void {
-        if ($this->store->objectByUid($calendar->id, $uid) !== null || $this->store->object($calendar->id, $uri) !== null) {
+        if ($this->store->objectByUid($calendar->id, $uid, 'VEVENT') !== null || $this->store->object($calendar->id, $uri) !== null) {
             throw CalendarException::conflict(CalendarMessages::conflictUid());
         }
     }

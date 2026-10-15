@@ -160,25 +160,42 @@
 		}
 	}
 
+	/** A request to the user or module that is no longer on screen is answered too late: its answer is dropped. */
+	const asked = { calendars: 0, path: 0, calendar: 0 }
+	function stale(kind, mine, user) {
+		return mine !== asked[kind] || user !== inspected
+	}
+
 	async function loadCalendars() {
 		const module = calendarModule.value
+		const mine = ++asked.calendars
+		const user = inspected
 		calendarOperation.replaceChildren(...(catalog[module] || ['read']).map((operation) => el('option', { value: operation, textContent: operationName(operation) })))
 		calendarSelect.replaceChildren()
 		try {
-			const data = await get('/api/scope/' + encodeURIComponent(inspected) + '/' + module + '/candidates', {})
+			const data = await get('/api/scope/' + encodeURIComponent(user) + '/' + module + '/candidates', {})
+			if (stale('calendars', mine, user) || module !== calendarModule.value) return
 			calendarSelect.replaceChildren(...data.items.map((item) => el('option', { value: item.id, textContent: item.name })))
 			if (data.items.length === 0) calendarResult.textContent = t('mcp', 'This user has no calendar or task list of this kind in Nextcloud.')
 		} catch (error) {
-			calendarResult.textContent = failure(error)
+			if (stale('calendars', mine, user)) return
+			say(failure(error), true)
 		}
 	}
 
-	async function explain(target, path, query) {
+	async function explain(kind, target, path, query) {
+		const mine = ++asked[kind]
+		const user = inspected
 		target.textContent = t('mcp', 'Checking…')
 		try {
-			target.textContent = explanation(await get(path, Object.assign({ uid: inspected }, query)))
+			const answer = await get(path, Object.assign({ uid: user }, query))
+			if (stale(kind, mine, user)) return
+			target.textContent = explanation(answer)
 		} catch (error) {
-			target.textContent = failure(error)
+			if (stale(kind, mine, user)) return
+			// An error is announced like every other error of the inspector, in its alert region.
+			target.textContent = ''
+			say(failure(error), true)
 		}
 	}
 
@@ -187,12 +204,12 @@
 		event.preventDefault()
 		const path = pathInput.value.trim()
 		if (inspected === null || path === '') return
-		explain(pathResult, '/api/inspector/path', { path: path.startsWith('/') ? path : '/' + path })
+		explain('path', pathResult, '/api/inspector/path', { path: path.startsWith('/') ? path : '/' + path })
 	})
 	calendarModule.addEventListener('change', () => { if (inspected !== null) loadCalendars() })
 	calendarForm.addEventListener('submit', (event) => {
 		event.preventDefault()
 		if (inspected === null || calendarSelect.value === '') return
-		explain(calendarResult, '/api/inspector/calendar', { module: calendarModule.value, calendarId: calendarSelect.value, operation: calendarOperation.value })
+		explain('calendar', calendarResult, '/api/inspector/calendar', { module: calendarModule.value, calendarId: calendarSelect.value, operation: calendarOperation.value })
 	})
 })()

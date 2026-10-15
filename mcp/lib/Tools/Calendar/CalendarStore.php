@@ -53,13 +53,16 @@ interface CalendarStore {
     public function object(int $calendarId, string $uri): ?array;
 
     /**
-     * Finds the live object holding a UID in one calendar.
+     * Finds the live object holding a UID in one calendar, of one component only: the event tools never reach a task
+     * of a calendar that holds both, nor the task tools an event, since each answers to the scope of its own module.
      *
      * @param int $calendarId backend calendar id
      * @param string $uid iCalendar UID
-     * @return array{id:int, uri:string, etag:string, data:string, deleted:bool}|null
+     * @param string $component VEVENT or VTODO, the component type the object is stored with
+     * @return array{id:int, uri:string, etag:string, data:string, deleted:bool}|null null also for an object of another
+     *     component, exactly as for a UID that does not exist
      */
-    public function objectByUid(int $calendarId, string $uid): ?array;
+    public function objectByUid(int $calendarId, string $uid, string $component): ?array;
 
     /**
      * Lists the sharees of a calendar.
