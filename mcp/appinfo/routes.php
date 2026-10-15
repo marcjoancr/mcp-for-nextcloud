@@ -24,6 +24,8 @@ return ['routes' => [
     ['name' => 'grants#update', 'url' => '/api/grants/{uid}', 'verb' => 'PUT'],
     ['name' => 'grants#service', 'url' => '/api/service', 'verb' => 'PUT'],
     // Group ids are opaque and may hold any byte but NUL, so they travel in the query or the body, never in the path.
+    ['name' => 'group_directory#index', 'url' => '/api/group-directory', 'verb' => 'GET'],
+    ['name' => 'group_directory#detail', 'url' => '/api/group-directory/detail', 'verb' => 'GET'],
     ['name' => 'grants#group', 'url' => '/api/group-grants', 'verb' => 'GET'],
     ['name' => 'grants#previewGroup', 'url' => '/api/group-grants/preview', 'verb' => 'POST'],
     ['name' => 'grants#saveGroup', 'url' => '/api/group-grants', 'verb' => 'PUT'],

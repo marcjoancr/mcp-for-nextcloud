@@ -128,9 +128,19 @@ final class PolicyOperationContext {
             $gate === 'resource_scope' ? 'out_of_scope' : ($gate ?? 'allowed'), $grant, $gate, $scope);
     }
 
-    private function resolve(string $key, string $module, string $operation, bool $default): GrantResolution {
+    /** The same resolution without this permission's individual override, for admin difference counters only. */
+    public function inherited(string $module, string $operation): GrantResolution {
+        if ($module === '_system' && $operation === 'eligible') {
+            return $this->resolve(GrantPolicy::ELIGIBLE_KEY, $module, $operation, false, true);
+        }
+        self::validate($module, $operation);
+        return $this->resolve('grant_' . $module . '_' . $operation, $module, $operation,
+            GrantPolicy::defaultGranted($module, $operation), true);
+    }
+
+    private function resolve(string $key, string $module, string $operation, bool $default, bool $inherit = false): GrantResolution {
         $this->check();
-        $raw = $this->raw[$key] ?? ['present' => false];
+        $raw = $inherit ? ['present' => false] : ($this->raw[$key] ?? ['present' => false]);
         if ($raw['present']) {
             return match ($raw['value']) {
                 '1' => new GrantResolution(true, 'individual_allow', [], $raw),

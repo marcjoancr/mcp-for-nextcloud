@@ -64,7 +64,7 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(5, $matches);
+        $this->assertCount(6, $matches);
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -80,7 +80,7 @@ final class AdminAssetsTest extends TestCase {
     public function testAdminTemplateHasUniqueIdsAndBalancedDivs(): void {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
-        $script = (string)file_get_contents($app . '/js/admin-grants.js') . file_get_contents($app . '/js/connections.js') . file_get_contents($app . '/js/admin-tabs.js') . file_get_contents($app . '/js/admin-picker.js');
+        $script = (string)file_get_contents($app . '/js/admin-grants.js') . file_get_contents($app . '/js/connections.js') . file_get_contents($app . '/js/admin-tabs.js') . file_get_contents($app . '/js/admin-picker.js') . file_get_contents($app . '/js/admin-groups.js');
         preg_match_all("/getElementById\\('([^']+)'\\)/", $script, $used);
         $this->assertNotEmpty($used[1]);
         foreach (array_unique($used[1]) as $id) {
@@ -172,12 +172,12 @@ final class AdminAssetsTest extends TestCase {
         $this->assertSame($sorted, $positions, 'tabs, panels and blocks must appear in the tab order');
     }
 
-    /** Eight blocks, each a core settings section with its own heading, in the tab order. */
-    public function testAdminPageHasEightSectionBlocks(): void {
+    /** Nine blocks, each a core settings section with its own heading, in the tab order. */
+    public function testAdminPageHasNineSectionBlocks(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
         preg_match_all('/<div class="section mcp-block" id="([^"]+)"[^>]*>\s*<h2><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
-        $this->assertSame(['mcp-block-status', 'mcp-block-matrix', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
-        $this->assertSame(['Status', 'Permissions', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
+        $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
+        $this->assertSame(['Status', 'Group grants', 'Permissions', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         $this->assertStringContainsString('data-scope="admin"', $template);
     }
 
@@ -207,7 +207,7 @@ final class AdminAssetsTest extends TestCase {
         foreach (['allowed', 'denied', 'unavailable'] as $state) {
             $this->assertStringContainsString("$state: { className: 'mcp-state-$state'", $script);
         }
-        $this->assertStringContainsString("textContent: '⊘'", $script);
+        $this->assertStringContainsString("textContent: checked === null ? '—' : '⊘'", $script);
         $this->assertStringContainsString("mark.setAttribute('aria-hidden', 'true')", $script);
         // A bulk change is one all-or-nothing command, undone by its server receipt, never by replaying old values.
         $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/commands'"), 'the bulk menu sends one command');
@@ -450,7 +450,7 @@ final class AdminAssetsTest extends TestCase {
         $this->assertTrue($loaded);
         $blocks = [
             'mcp-panel-overview' => ['mcp-block-status'],
-            'mcp-panel-access' => ['mcp-block-matrix'],
+            'mcp-panel-access' => ['mcp-group-editor', 'mcp-block-matrix'],
             'mcp-panel-clients' => ['mcp-block-oauth', 'mcp-connections'],
             'mcp-panel-protection' => ['mcp-block-tags'],
             'mcp-panel-advanced' => ['mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'],

@@ -1,0 +1,167 @@
+<?php
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+declare(strict_types=1);
+
+namespace OCA\Mcp\Service;
+
+use OCA\Mcp\Db\IdentityKey;
+use OCA\Mcp\Db\PolicyStateMapper;
+use OCA\Mcp\Service\Policy\GroupGrantsService;
+use OCA\Mcp\Service\Policy\GroupSourceClassifier;
+use OCA\Mcp\Service\Policy\PolicyResolver;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
+use OCP\IDBConnection;
+use OCP\IGroupManager;
+use Throwable;
+
+/**
+ * Read-only admin group directory. Public directory APIs run outside transactions and mutexes. Listing assembles
+ * names before sorting/paging (50 rows); there is no 200-group cutoff. Classification costs one backend existence
+ * call per backend per displayed group. Detail enumerates a trusted group's members once, then resolves grants in blocks of 200
+ * (one official membership read per member, batched app SQL/raw overrides, no scope or log reads), independently of
+ * the user matrix's page. This is linear
+ * in the full member set, intentionally not a subtotal of the first page. Unknown counts remain null.
+ */
+class GroupDirectory {
+    public function __construct(
+        private IGroupManager $groups,
+        private IDBConnection $db,
+        private GroupGrantsService $policies,
+        private GroupSourceClassifier $classifier,
+        private PolicyResolver $resolver,
+        private PolicyStateMapper $state,
+    ) {}
+
+    public function page(string $search = '', int $page = 1): array {
+        if ($page < 1 || $page > 100000 || mb_strlen($search) > 200) {
+            throw new \InvalidArgumentException('Invalid request');
+        }
+        return $this->read(function () use ($search, $page): array {
+            $all = [];
+            // Query all directory names for stable global ordering; policy-only GIDs are merged below.
+            foreach ($this->groups->search('') as $group) {
+                $gid = $group->getGID();
+                $all[IdentityKey::group($gid)] = ['groupId' => $gid, 'displayName' => $group->getDisplayName()];
+            }
+            foreach (['mcp_group_grants', 'mcp_group_life'] as $table) {
+                $result = $this->db->getQueryBuilder()->select('group_key', 'group_id')->from($table)->executeQuery();
+                try {
+                    while (($row = $result->fetch()) !== false) {
+                        if (!is_string($row['group_id']) || $row['group_key'] !== IdentityKey::group($row['group_id'])) {
+                            throw new PolicyUnavailable('Invalid stored group identity');
+                        }
+                        $all[$row['group_key']] ??= ['groupId' => $row['group_id'], 'displayName' => $row['group_id']];
+                    }
+                } finally {
+                    $result->closeCursor();
+                }
+            }
+            $all = array_values(array_filter($all, static fn (array $row): bool => $search === ''
+                || mb_stripos($row['groupId'], trim($search)) !== false || mb_stripos($row['displayName'], trim($search)) !== false));
+            usort($all, static fn (array $a, array $b): int => strnatcasecmp($a['displayName'], $b['displayName'])
+                ?: strcmp($a['groupId'], $b['groupId']));
+            $rows = [];
+            foreach (array_slice($all, ($page - 1) * 50, 50) as $row) {
+                try {
+                    $row += $this->policies->state($row['groupId']);
+                    $row['exists'] = $this->classifier->exists($row['groupId']);
+                } catch (PolicyUnavailable) {
+                    $row += ['trusted' => null, 'state' => null, 'exists' => null, 'grants' => null];
+                }
+                $rows[] = $row;
+            }
+            return ['groups' => $rows, 'page' => $page, 'pageSize' => 50, 'hasMore' => count($all) > $page * 50];
+        });
+    }
+
+    public function detail(string $gid): array {
+        return $this->read(function () use ($gid): array {
+            $policy = $this->policies->state($gid);
+            $policy['exists'] = $this->classifier->exists($gid);
+            $policy['catalog'] = ['_system' => ['eligible']] + GrantPolicy::CATALOG;
+            $counts = ['members' => null, 'overrides' => null, 'permissions' => null];
+            try {
+                $group = $this->groups->get($gid);
+                $count = $group?->count();
+                $counts['members'] = is_int($count) && $count >= 0 ? $count : null;
+                if ($policy['trusted']) {
+                    $members = $this->classifier->members($gid);
+                    // A backend without a reliable total cannot prove complete enumeration for statistics.
+                    if ($counts['members'] !== null && count($members) === $counts['members']) {
+                        $stats = $this->statisticsForMembers(array_values($members));
+                        $counts['overrides'] = $stats['overrides'];
+                        $counts['permissions'] = $stats['permissions'];
+                    }
+                }
+            } catch (Throwable) {
+                // Never present partial counters as complete after an unreadable member or policy.
+                $counts = ['members' => null, 'overrides' => null, 'permissions' => null];
+            }
+            return $policy + ['counts' => $counts];
+        });
+    }
+
+    private function statisticsForMembers(array $members): array {
+        $permissions = [];
+        foreach (['_system' => ['eligible']] + GrantPolicy::CATALOG as $module => $operations) {
+            foreach ($operations as $operation) {
+                $permissions[$module][$operation] = ['overrides' => 0, 'different' => 0];
+            }
+        }
+        $unique = 0;
+        foreach (array_chunk($members, 200) as $chunk) {
+            $contexts = $this->resolver->beginManyGrants($chunk);
+            try {
+                foreach ($contexts as $context) {
+                    $any = false;
+                    foreach ($permissions as $module => $operations) {
+                        foreach ($operations as $operation => $_) {
+                            $resolved = $module === '_system' ? $context->eligible() : $context->granted($module, $operation);
+                            if (!$resolved->rawState['present']) {
+                                continue;
+                            }
+                            $any = true;
+                            ++$permissions[$module][$operation]['overrides'];
+                            $inherited = $context->inherited($module, $operation)->allowed;
+                            if ($inherited === null) {
+                                $permissions[$module][$operation]['different'] = null;
+                            } elseif ($resolved->allowed !== $inherited && $permissions[$module][$operation]['different'] !== null) {
+                                ++$permissions[$module][$operation]['different'];
+                            }
+                        }
+                    }
+                    $unique += (int)$any;
+                }
+            } finally {
+                foreach ($contexts as $context) {
+                    $context->close();
+                }
+            }
+        }
+        return ['overrides' => $unique, 'permissions' => $permissions];
+    }
+
+    /** Keep each returned revision paired with its data; a concurrent writer gets one bounded re-read. */
+    private function read(callable $read): array {
+        try {
+            if ($this->db->inTransaction()) {
+                throw new PolicyUnavailable('Directory reads cannot run inside a transaction');
+            }
+            for ($attempt = 0; $attempt < 2; ++$attempt) {
+                $before = $this->state->state()['revision'];
+                $result = $read();
+                if ($before === $this->state->state()['revision']) {
+                    return $result + ['revision' => $before];
+                }
+            }
+            throw new PolicyUnavailable('Policy changed during directory read');
+        } catch (\InvalidArgumentException|PolicyUnavailable $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new PolicyUnavailable('Cannot read group directory', previous: $e);
+        }
+    }
+}

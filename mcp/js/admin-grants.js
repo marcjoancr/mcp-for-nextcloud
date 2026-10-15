@@ -541,7 +541,7 @@
 		if (!user.enabled) {
 			return t('mcp', 'Account disabled: no MCP access.')
 		}
-		if (!user.eligible) {
+		if (user.eligible === false) {
 			return t('mcp', 'No MCP access: turn on “Can connect”.')
 		}
 		return null
@@ -569,7 +569,7 @@
 		if (module === null) {
 			return null
 		}
-		if (!user.eligible) {
+		if (user.eligible === false) {
 			return t('mcp', 'This user may not connect: “Can connect” is off.')
 		}
 		if (!user.appsEnabled[module]) {
@@ -618,18 +618,23 @@
 	 */
 	function permissionCell(user, module, checked, label, body) {
 		const cell = el('td', { className: 'mcp-cell' })
-		const reason = unavailableReason(user, module)
+		const reason = checked === null ? t('mcp', 'Access is unknown. A group policy or directory is unavailable; retry after checking the group.') : unavailableReason(user, module)
 		if (reason !== null) {
-			const saved = checked ? t('mcp', 'Saved value: allowed.') : t('mcp', 'Saved value: denied.')
+			const saved = checked === null ? t('mcp', 'Unknown') : checked ? t('mcp', 'Saved value: allowed.') : t('mcp', 'Saved value: denied.')
 			paintState(cell, 'unavailable', reason + ' ' + saved)
-			const mark = el('span', { className: 'mcp-state-mark', textContent: '⊘' })
+			const mark = el('span', { className: 'mcp-state-mark', textContent: checked === null ? '—' : '⊘' })
 			mark.setAttribute('aria-hidden', 'true')
 			cell.append(mark, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + label + ': ' + cell.title }))
+			if (checked === null) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
 			return cell
 		}
 		const box = el('input', { type: 'checkbox', checked })
 		box.setAttribute('aria-label', user.displayName + ' — ' + label)
 		paintState(cell, checked ? 'allowed' : 'denied')
+		const origin = module === null ? user.origins?.eligible : user.origins?.grants?.[module]?.[body.operation]
+		if (origin?.source === 'group') {
+			cell.title += ' — ' + t('mcp', 'Granted by groups: {groups}', { groups: origin.groupIds.join(', ') })
+		}
 		box.addEventListener('change', async () => {
 			const value = box.checked
 			if (matrixLocked) {
@@ -776,7 +781,8 @@
 		let unavailable = 0
 		let unchanged = 0
 		for (const user of state.data.users) {
-			if (unavailableReason(user, module) !== null) {
+			if (unavailableReason(user, module) !== null || operationList.some((operation) =>
+				(module === null ? user.eligible : user.grants[module][operation]) === null)) {
 				unavailable++
 				continue
 			}
@@ -935,6 +941,8 @@
 			serviceBox.disabled = false
 		}
 	})
+
+	window.addEventListener('mcp-group-policy-saved', reloadLocked)
 
 	let searchTimer = null
 	searchInput.addEventListener('input', () => {
