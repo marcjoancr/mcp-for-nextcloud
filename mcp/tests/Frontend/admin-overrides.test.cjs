@@ -89,11 +89,14 @@ function user(uid, overrides = {}) {
 /**
  * Loads the script against a stub of the matrix. `answer` receives {method, path, body} and returns [status, body].
  */
-function app(users, answer = () => [200, { revision: '9007199254740994', changed: 1, receiptId: 'receipt-1' }]) {
+function app(users, answer = () => [200, { revision: '9007199254740994', changed: 1, receiptId: 'receipt-1' }], options = {}) {
 	const document = { activeElement: null }
 	const wrap = new Element('div', document)
 	const table = new Element('table', document)
-	table.closestResult = { '.mcp-matrix-wrap': wrap }
+	// By default the table sits in its wrapper; options.wrapper false drops it, options.detached drops the anchor itself.
+	table.closestResult = options.wrapper === false ? {} : { '.mcp-matrix-wrap': wrap }
+	if (options.wrapper === false) table.before = (node) => { table.inserted = (table.inserted || []).concat(node) }
+	if (options.detached) { table.isConnected = false; wrap.isConnected = false }
 	document.getElementById = (id) => id === 'mcp-matrix' ? table : null
 	document.createElement = (tag) => new Element(tag, document)
 	const timers = new Map()
@@ -128,6 +131,9 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 	/** What render() does in admin-grants.js: redraw every row, then announce it. */
 	const rows = new Map()
 	function render() {
+		// The rows of the old table leave the page: their controls are no longer connected.
+		const detach = (node) => { node.isConnected = false; for (const child of node.children) if (typeof child !== 'string') detach(child) }
+		rows.forEach(detach)
 		rows.clear()
 		for (const row of data.users) {
 			const tr = new Element('tr', document)
@@ -146,10 +152,11 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 	}
 	window.McpAdminMatrix = matrix
 	vm.runInNewContext(source, context)
-	const toolbar = wrap.inserted[0]
+	const toolbar = (wrap.inserted || table.inserted || [])[0]
+	if (!toolbar) return { window, log, toolbar: null }
 	const find = (selector) => toolbar.querySelector(selector)
 	const ui = {
-		document, data, log, rows, timers, toolbar, window, listeners,
+		document, data, log, rows, timers, toolbar, window, listeners, table,
 		status: find('p.mcp-reset-status'),
 		alert: find('p.mcp-reset-alert'),
 		panel: find('div.mcp-reset-preview'),
@@ -478,4 +485,91 @@ test('O1: undoing a 503 without uncertainty keeps the table, offers the same und
 	await notices[0].undo()
 	assert.deepEqual(plain(calls.map((call) => call.body)), [{ receiptId: 'receipt-1', expectedRevision: '7' }, { receiptId: 'receipt-1', expectedRevision: '7' }])
 	assert.equal(notices.at(-1).message, 'Change undone.')
+})
+
+test('B1: after a generic error or a conflict the focus lands on a control of the toolbar, never on the page', async () => {
+	for (const failure of [[400, { error: 'Invalid request' }], [409, { error: 'Conflict' }], [503, { error: 'Unavailable', uncertain: true }]]) {
+		const ui = app([alice()], () => failure)
+		await ui.rowButton('alice').click()
+		await ui.panelButton('confirm').click()
+		await tick()
+		assert.equal(ui.panel.hidden, true, String(failure[0]))
+		assert.ok(ui.document.activeElement, String(failure[0]) + ': the focus must not fall back to the body')
+		assert.equal(ui.document.activeElement, ui.selectAll, 'the old row button is gone, nothing is selected, so the select-all box takes it')
+		assert.equal(ui.commands().length, 1, 'never repeated')
+	}
+})
+
+test('B1: with no user on the page the toolbar itself takes the focus', async () => {
+	const ui = app([alice()], () => [400, {}])
+	await ui.rowButton('alice').click()
+	ui.data.users = []
+	await ui.panelButton('confirm').click()
+	await tick()
+	assert.equal(ui.document.activeElement, ui.toolbar)
+	assert.equal(ui.toolbar.tabIndex, -1)
+})
+
+test('B2: an unavailable cell with an override shows its state and keeps its reset, and one without says nothing more', async () => {
+	const ui = app([alice()])
+	const cell = (rowUser, module, operation) => {
+		const td = new Element('td', ui.document)
+		td.title = 'Unavailable: This app is unavailable for this user'
+		ui.window.McpAdminOverrides.decorateCell(td, null, rowUser, module, operation)
+		return td
+	}
+	const overridden = cell(alice(), 'notes', 'edit')
+	assert.ok(overridden.classes.has('mcp-override-deny'))
+	assert.match(overridden.title, /Individual override: denied$/)
+	assert.match(overridden.querySelector('span.mcp-sr-only').textContent, /Individual override: denied/)
+	assert.match(overridden.querySelector('button.mcp-reset-cell').getAttribute('aria-label'), /Back to inherited: Alice — Notes: edit/)
+	const inherited = cell(alice(), 'notes', 'read')
+	assert.equal(inherited.querySelector('button.mcp-reset-cell'), null)
+	assert.equal(inherited.querySelector('span.mcp-sr-only'), null)
+	assert.equal(inherited.title, 'Unavailable: This app is unavailable for this user')
+	await overridden.querySelector('button.mcp-reset-cell').click()
+	await ui.panelButton('confirm').click()
+	await tick()
+	assert.deepEqual(plain(ui.commands()[0].body.commands), [{ uid: 'alice', module: 'notes', operation: 'edit', state: 'inherit' }])
+})
+
+test('B2: the row preview says that overrides in cells the table does not offer are removed too', async () => {
+	const hidden = alice()
+	hidden.appsEnabled = { notes: false, files: true }
+	const ui = app([hidden, bob()])
+	await ui.rowButton('alice').click()
+	assert.match(ui.panel.textContent, /1 of these overrides is in a permission the table does not offer for that user/)
+	assert.match(ui.panel.textContent, /It is removed too/)
+	assert.match(ui.panel.textContent, /Notes: edit \(denied\)/, 'the override is listed like any other')
+	await ui.panelButton('cancel').click()
+	const disabled = bob()
+	disabled.enabled = false
+	const other = app([disabled])
+	assert.equal(other.window.McpAdminOverrides.plan([disabled], null).unseen, 1)
+	const notConnecting = alice()
+	notConnecting.eligible = false
+	assert.equal(other.window.McpAdminOverrides.plan([notConnecting], null).unseen, 2, 'the cells of a user who may not connect are not offered; "Can connect" itself is')
+	const noColumn = bob()
+	other.data.catalog = { files: ['read'] }
+	assert.equal(other.window.McpAdminOverrides.plan([noColumn], null).unseen, 1, 'a hidden column counts too')
+})
+
+test('B3: an invalid stored value of “Can connect” gets the same “may give access” warning as a Deny', async () => {
+	const ui = app([user('frank', { eligible: 'invalid' })])
+	await ui.rowButton('frank').click()
+	assert.match(ui.panel.textContent, /Can connect \(invalid, denied\)/)
+	assert.match(ui.panel.textContent, /Removing an individual Deny for “Can connect” lets the groups decide again, which may give access/)
+	assert.doesNotMatch(ui.panel.textContent, /signed out/)
+})
+
+test('B4: without the matrix wrapper the toolbar goes before the table; with nothing attached nothing is installed', async () => {
+	const ui = app([alice()], undefined, { wrapper: false })
+	assert.ok(ui.toolbar, 'the toolbar is in the page, before the table')
+	assert.equal(ui.table.inserted[0], ui.toolbar)
+	await ui.rowButton('alice').click()
+	assert.equal(ui.panel.hidden, false)
+	const detached = app([alice()], undefined, { detached: true })
+	assert.equal(detached.toolbar, null)
+	assert.equal(detached.window.McpAdminOverrides, undefined, 'no hooks: the matrix keeps working without the reset')
+	assert.equal(detached.log.reloads, 0)
 })

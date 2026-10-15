@@ -637,6 +637,8 @@
 			mark.setAttribute('aria-hidden', 'true')
 			cell.append(mark, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + label + ': ' + cell.title }))
 			if (checked === null) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
+			// A saved individual override stays visible and removable here, even though the cell cannot be edited.
+			window.McpAdminOverrides?.decorateCell(cell, null, user, module, module === null ? 'eligible' : body.operation)
 			return cell
 		}
 		const box = el('input', { type: 'checkbox', checked })

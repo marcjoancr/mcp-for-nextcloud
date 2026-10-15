@@ -22,7 +22,11 @@
 
 	const matrix = window.McpAdminMatrix
 	const table = document.getElementById('mcp-matrix')
-	if (!matrix || !table) {
+	// The toolbar goes before the table's wrapper, or before the table itself when the wrapper is missing. With no
+	// attached anchor it would be created outside the page and every message and the preview would be lost silently,
+	// so nothing is installed at all: the matrix keeps working without the reset.
+	const anchor = table?.closest('.mcp-matrix-wrap') || table
+	if (!matrix || !table || typeof anchor.before !== 'function' || anchor.isConnected === false) {
 		return
 	}
 
@@ -95,14 +99,35 @@
 	}
 
 	/**
+	 * Whether the table offers no checkbox for this cell of this user: a disabled account, a user who may not connect (the
+	 * permission columns show one notice instead), a module whose column is hidden or an app that is unavailable to them.
+	 * An override there is still removed by a reset of the row, so the preview says so.
+	 *
+	 * @param {object} user row from the API
+	 * @param {{module: string|null}} cell an override of the user
+	 * @return {boolean}
+	 */
+	function unseenCell(user, cell) {
+		if (!user.enabled) {
+			return true
+		}
+		if (cell.module === null) {
+			return false
+		}
+		return user.eligible === false || !(cell.module in (matrix.data()?.catalog || {})) || user.appsEnabled?.[cell.module] === false
+	}
+
+	/**
 	 * What a reset removes, computed from the table on screen.
 	 *
 	 * @param {object[]} users users to reset
 	 * @param {Array<{module: string|null, operation: string}>|null} only restrict to these cells, null for every override
-	 * @return {object} {targets, users, cells, allow, deny, invalid, eligibleAllow, eligibleDeny, without, tooMany}
+	 * @return {object} {targets, users, cells, allow, deny, invalid, eligibleAllow, eligibleDeny, unseen, without, tooMany}:
+	 *     eligibleDeny counts a Deny and an invalid value of "Can connect", both of which deny now and may stop denying;
+	 *     unseen counts the overrides in a cell the table does not offer to the user (see unseenCell())
 	 */
 	function plan(users, only) {
-		const result = { targets: [], users: 0, cells: 0, allow: 0, deny: 0, invalid: 0, eligibleAllow: 0, eligibleDeny: 0, without: 0, tooMany: false }
+		const result = { targets: [], users: 0, cells: 0, allow: 0, deny: 0, invalid: 0, eligibleAllow: 0, eligibleDeny: 0, unseen: 0, without: 0, tooMany: false }
 		for (const user of users) {
 			const cells = overrideCells(user).filter((cell) => only === null
 				|| only.some((wanted) => wanted.module === cell.module && wanted.operation === cell.operation))
@@ -117,8 +142,12 @@
 				result[cell.kind]++
 				if (cell.module === null && cell.kind === 'allow') {
 					result.eligibleAllow++
-				} else if (cell.module === null && cell.kind === 'deny') {
+				} else if (cell.module === null) {
+					// An invalid stored value denies like a Deny: removing it hands the decision back to the groups too.
 					result.eligibleDeny++
+				}
+				if (unseenCell(user, cell)) {
+					result.unseen++
 				}
 			}
 		}
@@ -169,10 +198,9 @@
 	toolbar.append(
 		el('span', { className: 'mcp-reset-select' }, [selectAll, ' ', el('label', { htmlFor: 'mcp-select-all', textContent: t('mcp', 'Select every user on this page') })]),
 		' ', resetSelected, statusLine, alertLine, panel)
-	const wrap = table.closest('.mcp-matrix-wrap')
-	if (wrap) {
-		wrap.before(toolbar)
-	}
+	// Focusable only by script: where the focus goes when nothing more specific is left to take it.
+	toolbar.tabIndex = -1
+	anchor.before(toolbar)
 
 	/** @return {object[]} the selected users that are on the page now */
 	function selectedUsers() {
@@ -247,7 +275,7 @@
 	 * reader, and gives an overridden cell its own "back to inherited" button.
 	 *
 	 * @param {HTMLTableCellElement} cell the permission cell
-	 * @param {HTMLInputElement} box its checkbox
+	 * @param {HTMLInputElement|null} box its checkbox, null for an unavailable cell, which has none
 	 * @param {object} user row from the API
 	 * @param {string|null} module module id, null for "Can connect"
 	 * @param {string} operation operation id, "eligible" for "Can connect"
@@ -260,13 +288,22 @@
 			deny: t('mcp', 'Individual override: denied'),
 			invalid: t('mcp', 'Invalid stored override (denied)'),
 		}
+		if (box === null && !kind) {
+			// An unavailable cell without an override of its own says nothing more than it already does.
+			return
+		}
 		const stateName = kind ? names[kind] : t('mcp', 'Inherited')
 		cell.classList.add(kind ? 'mcp-override' : 'mcp-inherited')
 		if (kind) {
 			cell.classList.add('mcp-override-' + kind)
 		}
 		cell.title += ' — ' + stateName
-		box.setAttribute('aria-label', box.getAttribute('aria-label') + ' — ' + stateName)
+		if (box !== null) {
+			box.setAttribute('aria-label', box.getAttribute('aria-label') + ' — ' + stateName)
+		} else {
+			// An unavailable cell has no checkbox: its saved override is named for screen readers next to its reason.
+			cell.append(el('span', { className: 'mcp-sr-only', textContent: stateName }))
+		}
 		if (!kind) {
 			return
 		}
@@ -313,8 +350,20 @@
 		panel.hidden = true
 		panel.replaceChildren()
 		if (restoreFocus) {
-			(trigger && trigger.isConnected !== false ? trigger : resetSelected).focus()
+			focusSomething(trigger)
 		}
+	}
+
+	/**
+	 * Puts the focus on the control that asked for the reset, or on the first control of the toolbar that can take it, and
+	 * as the last resort on the toolbar itself, so the focus never falls back to the page when a preview goes away.
+	 *
+	 * @param {HTMLElement|undefined} trigger control that opened the preview, which a reload may have replaced
+	 */
+	function focusSomething(trigger) {
+		const usable = (node) => node && node.isConnected !== false && !node.disabled
+		const target = [trigger, resetSelected, selectAll].find(usable) || toolbar
+		target.focus()
 	}
 
 	/**
@@ -354,6 +403,12 @@
 		if (result.eligibleDeny > 0) {
 			lines.push(el('p', { textContent: t('mcp', 'Removing an individual Deny for “Can connect” lets the groups decide again, which may give access.') }))
 		}
+		if (result.unseen > 0) {
+			lines.push(el('p', { textContent: n('mcp',
+				'%n of these overrides is in a permission the table does not offer for that user (the account or the app is unavailable, or the column is hidden). It is removed too.',
+				'%n of these overrides are in permissions the table does not offer for those users (the account or the app is unavailable, or the column is hidden). They are removed too.',
+				result.unseen, undefined, { escape: false }) }))
+		}
 		if (result.without > 0) {
 			lines.push(el('p', { textContent: n('mcp', '%n selected user has no individual overrides and is left out.', '%n selected users have no individual overrides and are left out.', result.without, undefined, { escape: false }) }))
 		}
@@ -390,6 +445,7 @@
 		updateToolbar()
 		say('')
 		let undo = null
+		let failed = false
 		try {
 			try {
 				const saved = await matrix.api('POST', '/api/grants/commands', { expectedRevision: matrix.data().revision, commands })
@@ -409,10 +465,12 @@
 					renderReview()
 					say(t('mcp', 'The change could not be made because what these users inherit could not be read. Nothing was changed, and your selection is kept. Try again.'), true)
 				} else if (!(await matrix.policyError(e))) {
+					failed = true
 					close(false)
 					say(t('mcp', 'Could not return the users to group inheritance. The table was reloaded with the saved values.'), true)
 					await matrix.reload()
 				} else {
+					failed = true
 					close(false)
 				}
 			}
@@ -423,6 +481,10 @@
 		}
 		if (review !== null && review.retry) {
 			panel.querySelector('button').focus()
+		}
+		if (failed) {
+			// The preview is gone and the table was redrawn: the focus goes to a control of the toolbar, never to the page.
+			focusSomething(current.trigger)
 		}
 		matrix.focusUndo(undo)
 	}
