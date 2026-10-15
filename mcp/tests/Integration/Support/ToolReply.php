@@ -60,6 +60,11 @@ final class ToolReply {
         return is_array($data) ? $data : [];
     }
 
+    /** @return string everything a client reads of the answer: the HTTP status and the whole result (content, structuredContent, _meta, isError) */
+    public function fingerprint(): string {
+        return $this->status . ' ' . json_encode($this->result(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     /** @return string a short account for assertion messages */
     public function describe(): string {
         return 'HTTP ' . $this->status . ' ' . substr($this->raw, 0, 600);

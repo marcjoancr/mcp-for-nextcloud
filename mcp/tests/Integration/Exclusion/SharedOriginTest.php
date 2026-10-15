@@ -68,6 +68,42 @@ final class SharedOriginTest extends ExclusionTestCase {
         }
     }
 
+    /**
+     * A share bob received and then moved into a folder of his own that is tagged: the share is outside what the
+     * owner's chain says, and the folder above its mount point (bob's) must still be checked.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function receivedShareKinds(): array {
+        return ['file share' => ['file'], 'folder share' => ['folder']];
+    }
+
+    #[DataProvider('receivedShareKinds')]
+    public function testAShareMovedByTheRecipientIntoOneOfTheirTaggedFoldersIsHidden(string $kind): void {
+        $this->makeFile('home', self::FILE, 'file content');
+        $shared = $this->node(self::ALICE, $this->path('home', $kind === 'file' ? self::FILE : 'proj/inner'));
+        $this->shareToUser($shared, self::ALICE, self::BOB, true);
+        $this->exclude();
+        $bob = $this->mcp(self::BOB);
+        $dav = $this->dav(self::BOB);
+        $shareName = $kind === 'file' ? 'f.txt' : 'inner';
+        $reachable = $kind === 'file' ? '/f.txt' : '/inner/f.txt';
+        $bobsFolder = 'locked-' . $this->run;
+        $this->later(fn () => $this->deleteQuietly(self::BOB, $bobsFolder));
+
+        $this->assertReadable($bob, $reachable, 'file content', 'the share where it was received');
+        $dav->mkcol('/' . $bobsFolder);
+        $dav->move('/' . $shareName, '/' . $bobsFolder . '/' . $shareName);
+        $moved = '/' . $bobsFolder . ($kind === 'file' ? '/f.txt' : '/inner/f.txt');
+        $this->assertReadable($bob, $moved, 'file content', 'the share after bob moved it into an untagged folder of his own');
+
+        $folder = $this->node(self::BOB, $bobsFolder);
+        $this->tag($folder);
+        $this->assertHiddenFromRead($bob, $moved, 'the share moved into a folder of bob that is tagged');
+        $this->untag($folder);
+        $this->assertReadable($bob, $moved, 'file content', 'after bob\'s folder is untagged');
+    }
+
     private function reach(McpClient $client, string $path): \OCA\Mcp\Tests\Integration\Support\ToolReply {
         return str_ends_with($path, '.txt')
             ? $client->tool('files_read', ['path' => $path])

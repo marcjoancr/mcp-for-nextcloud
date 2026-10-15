@@ -238,12 +238,12 @@ abstract class ExclusionTestCase extends IntegrationTestCase {
 
     // --- shares -------------------------------------------------------------------------------------------------
 
-    /** Shares a node of a user with another user, read only, through the server's share manager. */
-    protected function shareToUser(Node $node, string $by, string $with): IShare {
+    /** Shares a node of a user with another user through the server's share manager: read only, or with every permission the node has. */
+    protected function shareToUser(Node $node, string $by, string $with, bool $everyPermission = false): IShare {
         $manager = Server::get(IManager::class);
         $share = $manager->newShare();
         $share->setNode($node)->setShareType(IShare::TYPE_USER)->setSharedWith($with)->setSharedBy($by)
-            ->setPermissions(\OCP\Constants::PERMISSION_READ);
+            ->setPermissions($everyPermission ? ($node->getPermissions() & \OCP\Constants::PERMISSION_ALL) : \OCP\Constants::PERMISSION_READ);
         $created = $manager->createShare($share);
         $this->later(static function () use ($manager, $created): void {
             $manager->deleteShare($created);
@@ -291,7 +291,7 @@ abstract class ExclusionTestCase extends IntegrationTestCase {
         $missing = $reference ?? $this->missingReply($client);
         $this->assertTrue($missing->isError(), 'The reference reply of a missing path is a refusal: ' . $missing->describe());
         $this->assertTrue($reply->isError(), "$label must be refused: " . $reply->describe());
-        $this->assertSame($missing->text(), $reply->text(), "$label must read exactly like a path that does not exist");
+        $this->assertSame($missing->fingerprint(), $reply->fingerprint(), "$label must answer exactly like a path that does not exist: same HTTP status and same whole result");
     }
 
     /** The reply is the generic refusal of a resource that is not there (the text may carry a tool-specific hint). */

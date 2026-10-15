@@ -33,7 +33,7 @@ DB_PASSWORD=mcp-it-db-password
 DB_ROOT_PASSWORD=mcp-it-db-root-password
 ADMIN_PASSWORD=mcp-it-admin-password
 # Real mounts of the exclusion proof (issue #4, A4): the groupfolder and the three local external storages the
-# tests rely on (tests/Integration/Exclusion/Mounts.php). Both external aliases point at the same directory; the
+# tests rely on (tests/Integration/Exclusion/ExclusionTestCase.php). Both external aliases point at the same directory; the
 # narrow one at a subdirectory of it.
 GF_NAME=mcp-it-gf
 EXT_ROOT=/mcp-it-ext
@@ -298,10 +298,10 @@ provision_files_external() {
 # the scenario that needs the part (Exclusion/ProvisioningTest), with this log next to it in the uploaded artifact.
 cmd_provision() {
     pin_releases
-    # Core keeps the app config in the local cache (APCu) of the web server and invalidates it only for writes made
-    # by that same cache. The suite writes the app's settings from the PHP CLI and reads them in the web server's
-    # requests, so without this the server would keep serving a stale value (for example an exclusion list the test
-    # just emptied). Runner-only: the production path, a single web pool that writes and reads, is unaffected.
+    # Core keeps the app config in the web server's local cache (APCu) for 3 seconds (AppConfig::LOCAL_CACHE_TTL, NC 32 to
+    # 35) and invalidates it only for writes made through that same cache; the PHP CLI that writes the settings in this
+    # suite has no such cache. Most scenarios change the exclusion list and read it back at once, so the cache is off
+    # here. Its real window is measured, with the cache on, by Exclusion/AppConfigCacheWindowTest.
     occ config:system:set cache_app_config --value=false --type=boolean
     log="$ARTIFACTS/provision.log"
     : > "$log"

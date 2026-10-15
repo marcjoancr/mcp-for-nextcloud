@@ -55,7 +55,7 @@ final class WritesTest extends ExclusionTestCase {
             foreach (['plan without confirm' => $alice->tool($tool, $arguments), 'confirmed' => $alice->write($tool, $arguments)] as $step => $reply) {
                 $this->assertRefusedAsNotFound($reply, "$label, $step");
                 if ($reference->isError()) {
-                    $this->assertSame($reference->text(), $reply->text(), "$label, $step, reads like a destination that does not exist");
+                    $this->assertSame($reference->fingerprint(), $reply->fingerprint(), "$label, $step, answers like a destination that does not exist (status and whole result)");
                 }
             }
         }
@@ -284,6 +284,35 @@ final class WritesTest extends ExclusionTestCase {
 
         $manager = \OCP\Server::get(\OCP\Share\IManager::class);
         $this->assertSame($folderLink->getId(), $manager->getShareById($folderLink->getFullId())->getId(), 'nothing was revoked');
+    }
+
+    /**
+     * Folders bob received as shares: moving one into another received share is a move to another directory (D7), even
+     * though both live at the top of bob's tree and share a parent there; renaming it where it is stays allowed.
+     */
+    public function testAReceivedFolderCannotBeMovedIntoAnotherReceivedShareButCanBeRenamed(): void {
+        $p = 'P-' . $this->run;
+        $s = 'S-' . $this->run;
+        $this->makeFile('home', $p . '/p.txt', 'in P');
+        $this->makeFile('home', $s . '/s.txt', 'in S');
+        $this->makeFile('home', 'locked/x.txt', 'excluded elsewhere');
+        $this->shareToUser($this->node(self::ALICE, $this->path('home', $p)), self::ALICE, self::BOB, true);
+        $this->shareToUser($this->node(self::ALICE, $this->path('home', $s)), self::ALICE, self::BOB, true);
+        $this->tag($this->node(self::ALICE, $this->path('home', 'locked')));
+        $this->exclude();
+        $bob = $this->mcp(self::BOB);
+        $this->assertContains($s, $this->listNames($bob, '/') ?? [], 'bob received S');
+        $this->assertContains($p, $this->listNames($bob, '/') ?? [], 'bob received P');
+
+        $into = ['from' => '/' . $s, 'to' => '/' . $p . '/' . $s];
+        $this->assertD7($bob->tool('files_move', $into), 'moving a received share into another one, plan');
+        $this->assertD7($bob->write('files_move', $into), 'moving a received share into another one, confirmed');
+        $this->assertFalse($this->exists(self::ALICE, $this->path('home', $p, $s)), 'nothing was created in the shared P');
+        $this->assertContains($s, $this->listNames($bob, '/') ?? [], 'S is still where it was received');
+
+        $rename = $bob->write('files_move', ['from' => '/' . $s, 'to' => '/' . $s . '-renamed']);
+        $this->assertTrue($rename->ok(), 'renaming a received share inside bob\'s own folder stays allowed: ' . $rename->describe());
+        $this->assertContains($s . '-renamed', $this->listNames($bob, '/') ?? [], 'the renamed share is listed');
     }
 
     public function testWithoutAnyExclusionFoldersBehaveAsBefore(): void {

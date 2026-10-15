@@ -91,7 +91,7 @@ final class TalkReferenceTest extends ExclusionTestCase {
         foreach ([$alice->tool('talk_attach_file', $excluded), $alice->write('talk_attach_file', $excluded),
             $alice->tool('talk_attach_file', $missing), $alice->write('talk_attach_file', $missing)] as $reply) {
             $this->assertTrue($reply->isError(), 'attaching a file under an excluded folder is refused: ' . $reply->describe());
-            $this->assertSame($reference->text(), $reply->text(), 'and reads like a file that does not exist');
+            $this->assertSame($reference->fingerprint(), $reply->fingerprint(), 'and answers like a file that does not exist (status and whole result)');
         }
 
         $bogus = $alice->tool('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => 2000000000]);
@@ -99,7 +99,7 @@ final class TalkReferenceTest extends ExclusionTestCase {
         foreach ([$alice->tool('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => $id]),
             $alice->write('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => $id])] as $reply) {
             $this->assertTrue($reply->isError(), 'quoting the attachment of an excluded file is refused: ' . $reply->describe());
-            $this->assertSame($bogus->text(), $reply->text(), 'and reads like an attachment that does not exist');
+            $this->assertSame($bogus->fingerprint(), $reply->fingerprint(), 'and answers like an attachment that does not exist (status and whole result)');
         }
         $this->assertCount($before, $this->messages($alice, $token), 'nothing was posted');
     }
