@@ -58,3 +58,15 @@ installed and issues a code, a rotated grant (with its spent record) and a secon
 store; `OAuth/LegacyCredentialsTest.php` then checks after `occ upgrade` that every row, id and hash is unchanged,
 that they carry epoch 0 and generation 1, and that they still authenticate, exchange, rotate and detect the replay.
 It is skipped in fresh cells. These tests do not certify how later tickets use the columns, nor the full T19 matrix.
+
+## Revocation by generation and epoch (T7/T11 OAuth part)
+
+`OAuth/GenerationCutTest.php` runs the production token service, writer and account listener on an account it
+creates and deletes. A code carries the user's next generation, its grant and the spent record of a rotation keep
+it, and a second consent leaves the other sessions working. A disconnect, an account disabled in Nextcloud and the
+service switched off revoke by a cut or by the global epoch, as another session reads them; the cleanup after the
+commit removes the revoked rows, and repeating it never removes a credential issued after the cut. A consent whose
+code fails to store leaves the official `connected` value, the generation and the revision exactly as they were. The
+daily cleanup job must be registered by the app (install and upgrade) and must not remove a valid credential. The
+global epoch the test moves is put back afterwards, so the baseline credentials of the upgrade cells keep theirs.
+Recheck causes are not covered here: they belong to ticket 06.
