@@ -26,6 +26,8 @@ class PolicyEventsMapper {
     public const KIND_CLEANUP = 'cleanup';
     public const KINDS = [self::KIND_RECEIPT, self::KIND_AUDIT, self::KIND_CLEANUP];
     public const STATUS_PENDING = 'pending';
+    /** Delivered (audit logged, cleanup done); kept for a day as a trace, then purged by the job. */
+    public const STATUS_DELIVERED = 'delivered';
 
     public function __construct(private IDBConnection $db, private ITimeFactory $time) {}
 
@@ -79,6 +81,99 @@ class PolicyEventsMapper {
             $result->closeCursor();
         }
         return $row === false ? null : self::event($row);
+    }
+
+    /**
+     * Pending events of some kinds, oldest first, through the (status, created_at) index. Delivery reads only the
+     * kinds it delivers: receipts stay pending until they expire and are never delivered.
+     *
+     * @param list<string> $kinds members of KINDS
+     * @param int $limit at most this many events, 1..500
+     * @return list<array{id:string, kind:string, status:string, payload:array, createdAt:int, attempts:int}>
+     * @throws InvalidArgumentException for an unknown kind or a limit out of range
+     * @throws UnexpectedValueException for an invalid stored event
+     * @throws \OCP\DB\Exception when the query fails
+     */
+    public function pendingOf(array $kinds, int $limit): array {
+        if ($kinds === [] || array_diff($kinds, self::KINDS) !== [] || $limit < 1 || $limit > 500) {
+            throw new InvalidArgumentException('Invalid pending event query');
+        }
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id', 'kind', 'status', 'payload', 'created_at', 'attempts')->from(self::TABLE)
+            ->where($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_PENDING)))
+            ->andWhere($qb->expr()->in('kind', $qb->createNamedParameter(array_values($kinds), IQueryBuilder::PARAM_STR_ARRAY)))
+            ->orderBy('created_at')->addOrderBy('id')->setMaxResults($limit)->executeQuery();
+        $events = [];
+        try {
+            while (($row = $result->fetch()) !== false) {
+                $events[] = self::event($row);
+            }
+        } finally {
+            $result->closeCursor();
+        }
+        return $events;
+    }
+
+    /**
+     * Marks an event delivered. Delivery runs after the commit and may repeat; a second call is a no-op.
+     *
+     * @param string $id event id
+     * @return bool whether this call marked it
+     * @throws \OCP\DB\Exception when the update fails
+     */
+    public function complete(string $id): bool {
+        $qb = $this->db->getQueryBuilder();
+        return $qb->update(self::TABLE)->set('status', $qb->createNamedParameter(self::STATUS_DELIVERED))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+            ->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_PENDING)))
+            ->executeStatement() === 1;
+    }
+
+    /**
+     * Counts one failed delivery; the event stays pending and is retried later, without a final limit.
+     *
+     * @param string $id event id
+     * @throws \OCP\DB\Exception when the update fails
+     */
+    public function recordAttempt(string $id): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update(self::TABLE)->set('attempts', $qb->createFunction('attempts + 1'))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+            ->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_PENDING)))
+            ->executeStatement();
+    }
+
+    /**
+     * Deletes the events of one kind created before $before (expired receipts), whatever their status.
+     *
+     * @param string $kind member of KINDS
+     * @param int $before creation time bound, exclusive
+     * @return int deleted events
+     * @throws InvalidArgumentException for an unknown kind
+     * @throws \OCP\DB\Exception when the delete fails
+     */
+    public function purge(string $kind, int $before): int {
+        if (!in_array($kind, self::KINDS, true)) {
+            throw new InvalidArgumentException('Unknown policy event kind');
+        }
+        $qb = $this->db->getQueryBuilder();
+        return $qb->delete(self::TABLE)->where($qb->expr()->eq('kind', $qb->createNamedParameter($kind)))
+            ->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    /**
+     * Deletes delivered events created before $before; pending ones are never purged.
+     *
+     * @param int $before creation time bound, exclusive
+     * @return int deleted events
+     * @throws \OCP\DB\Exception when the delete fails
+     */
+    public function purgeDelivered(int $before): int {
+        $qb = $this->db->getQueryBuilder();
+        return $qb->delete(self::TABLE)->where($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_DELIVERED)))
+            ->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
     }
 
     /**

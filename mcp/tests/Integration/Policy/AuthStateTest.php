@@ -39,7 +39,7 @@ final class AuthStateTest extends IntegrationTestCase {
         }
         $qb = $db->getQueryBuilder();
         $qb->delete('mcp_group_life')->where($qb->expr()->eq('group_key', $qb->createNamedParameter(IdentityKey::group($this->gid))))->executeStatement();
-        Server::get(OAuthStore::class)->deleteForUser($this->uid);
+        Server::get(OAuthStore::class)->deleteUpToGeneration($this->uid, \OCA\Mcp\Service\Policy\DecimalCounter::MAX);
         parent::tearDown();
     }
 
@@ -56,8 +56,11 @@ final class AuthStateTest extends IntegrationTestCase {
             'access_hash' => hash('sha256', 'a' . $this->uid), 'access_expires' => $now + 60, 'refresh_hash' => hash('sha256', 'r' . $this->uid),
             'refresh_expires' => $now + 60, 'created_at' => $now], $now);
         $token = $store->findByAccess(hash('sha256', 'a' . $this->uid));
+        // Rotation runs in the policy writer's transaction; here a bare one on the official connection.
+        $db->beginTransaction();
         $this->assertTrue($store->rotate((int)$token['id'], hash('sha256', 'r' . $this->uid), hash('sha256', 'a2' . $this->uid), $now + 60,
             hash('sha256', 'r2' . $this->uid), $now + 60));
+        $db->commit();
         foreach (['mcp_oauth_codes', 'mcp_oauth_tokens', 'mcp_oauth_spent'] as $table) {
             $qb = $db->getQueryBuilder();
             $result = $qb->select('auth_global_epoch', 'auth_gen')->from($table)

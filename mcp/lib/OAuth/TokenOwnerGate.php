@@ -8,28 +8,75 @@ declare(strict_types=1);
 namespace OCA\Mcp\OAuth;
 
 use OCA\Mcp\Service\GrantPolicy;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
+use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCP\Config\IUserConfig;
+use OCP\IAppConfig;
 use OCP\IUser;
 use OCP\IUserManager;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
- * Decides whether a token owner may still use OAuth tokens: the account exists and is enabled and the MCP
- * connection policy (global switch, admin eligibility, personal connection) allows it. When not, every token of
- * that user is deleted, so re-enabling later requires a new consent.
+ * Decides whether a token owner may still use OAuth credentials: the account exists and is enabled and the MCP
+ * connection policy (global switch, admin eligibility, personal connection) allows it, on a fresh read of the
+ * official config. A failed read is not an answer: it fails the request (PolicyUnavailable) and revokes nothing.
+ * An owner observed unusable is revoked by a cut at the generation read before the check (contracts §3.1, (iii)),
+ * so re-enabling later requires a new consent, and a consent made after that read is never touched by it.
  */
 class TokenOwnerGate {
     public function __construct(
         private IUserManager $userManager,
         private GrantPolicy $policy,
-        private OAuthStore $store,
+        private PolicyWriter $writer,
+        private IUserConfig $userConfig,
+        private IAppConfig $appConfig,
+        private LoggerInterface $logger,
     ) {}
 
-    /** @return IUser|null the usable owner, or null after revoking all of the user's tokens */
-    public function owner(string $uid): ?IUser {
-        $user = $this->userManager->get($uid);
-        if ($user !== null && $user->isEnabled() && $this->policy->canConnect($uid)) {
-            return $user;
+    /**
+     * The fresh check alone, without any write.
+     *
+     * @param string $uid owner of the credential
+     * @return IUser|null the usable owner, or null when the account or the policy refuses it
+     * @throws PolicyUnavailable when the account or the policy cannot be read
+     */
+    public function usable(string $uid): ?IUser {
+        try {
+            $this->userConfig->clearCache($uid, false);
+            $this->appConfig->clearCache(false);
+            $user = $this->userManager->get($uid);
+            return $user !== null && $user->isEnabled() && $this->policy->canConnect($uid) ? $user : null;
+        } catch (PolicyUnavailable $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new PolicyUnavailable('Cannot read the credential owner', previous: $e);
         }
-        $this->store->deleteForUser($uid);
-        return null;
+    }
+
+    /**
+     * @param string $uid owner of the credential
+     * @param string $observed the owner's issue_seq, read before this check
+     * @return IUser|null the usable owner, or null after revoking every generation up to $observed
+     * @throws PolicyUnavailable when the account or the policy cannot be read; nothing is revoked then
+     */
+    public function owner(string $uid, string $observed): ?IUser {
+        $user = $this->usable($uid);
+        if ($user === null) {
+            $this->revokeObserved($uid, $observed);
+        }
+        return $user;
+    }
+
+    /**
+     * Cuts at the observed generation. The credential is refused whether or not the cut commits: validation repeats
+     * the check on every use, so a failed cut only leaves the tombstone for the next observation.
+     */
+    public function revokeObserved(string $uid, string $observed): void {
+        try {
+            $this->writer->revokeObserved($uid, $observed);
+        } catch (Throwable $e) {
+            $this->logger->warning('Cannot record the revocation of an unusable credential owner', ['app' => 'mcp', 'exception' => $e]);
+        }
     }
 }

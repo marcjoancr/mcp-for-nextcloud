@@ -13,24 +13,37 @@ use OCP\IDBConnection;
 /**
  * Persistence of authorization codes and token grants (tables mcp_oauth_codes / mcp_oauth_tokens). Only keyed
  * hashes are stored. Single use is enforced by conditional DELETE/UPDATE and their affected-row count.
+ *
+ * Every code, grant and spent record carries (auth_global_epoch, auth_gen) (contracts §3.1): a grant inherits the
+ * generation of its code, and rotation and spent records keep it. Writes that issue, rotate or consume run inside the
+ * policy writer's transaction, under its mutex. Revocation is logical (the epoch or the user's cut); the deletes here
+ * are the physical cleanup after it, always qualified by generation or epoch, so a late or repeated cleanup never
+ * removes a credential issued after the revocation it belongs to.
  */
 class OAuthStore {
     private const CODES = 'mcp_oauth_codes';
     private const TOKENS = 'mcp_oauth_tokens';
     private const SPENT = 'mcp_oauth_spent';
+    /** BIGINT counters every credential row carries (contracts §1). */
+    public const COUNTERS = ['auth_global_epoch', 'auth_gen'];
     /** Columns the connection lists may read; never the token hashes. */
     private const LISTED = ['id', 'user_id', 'client_id', 'scope', 'created_at', 'access_expires', 'refresh_expires'];
 
     public function __construct(private IDBConnection $db) {}
 
     /**
-     * @param array{code_hash:string,user_id:string,client_id:string,redirect_uri:string,code_challenge:string,resource:string,scope:string,expires_at:int} $row
+     * @param array{code_hash:string,user_id:string,client_id:string,redirect_uri:string,code_challenge:string,resource:string,scope:string,expires_at:int,auth_global_epoch:string,auth_gen:string} $row
      * @param int $now current time; expired codes are purged on insert
      */
     public function insertCode(array $row, int $now): void {
         $purge = $this->db->getQueryBuilder();
         $purge->delete(self::CODES)->where($purge->expr()->lt('expires_at', $purge->createNamedParameter($now, IQueryBuilder::PARAM_INT)))->executeStatement();
         $this->insert(self::CODES, $row);
+    }
+
+    /** @return array<string,mixed>|null the code with this hash, without consuming it */
+    public function findCode(string $codeHash): ?array {
+        return $this->findOne(self::CODES, 'code_hash', $codeHash);
     }
 
     /**
@@ -49,7 +62,7 @@ class OAuthStore {
     }
 
     /**
-     * @param array{user_id:string,client_id:string,resource:string,scope:string,access_hash:string,access_expires:int,refresh_hash:string,refresh_expires:int,created_at:int} $row
+     * @param array{user_id:string,client_id:string,resource:string,scope:string,access_hash:string,access_expires:int,refresh_hash:string,refresh_expires:int,created_at:int,auth_global_epoch:string,auth_gen:string} $row
      * @param int $now current time; grants whose refresh token expired are purged on insert
      */
     public function insertToken(array $row, int $now): void {
@@ -70,56 +83,61 @@ class OAuthStore {
     }
 
     /**
-     * Replaces both tokens of a grant only if it still holds $oldRefreshHash (refresh rotation, single use).
+     * Replaces both tokens of a grant only if it still holds $oldRefreshHash (refresh rotation, single use). Runs in
+     * the caller's transaction (the policy writer's), so the consumed hash commits together with its replacement and
+     * a racing loser or later replay can identify the client, owner and generation.
      *
      * @return bool true when exactly this call rotated the grant
+     * @throws \LogicException outside a transaction
      */
     public function rotate(int $id, string $oldRefreshHash, string $accessHash, int $accessExpires, string $refreshHash, int $refreshExpires): bool {
-        $this->purgeSpent($refreshExpires - TokenService::REFRESH_TTL);
-        $this->db->beginTransaction();
-        try {
-            $row = $this->findByRefresh($oldRefreshHash);
-            if ($row === null || (int)$row['id'] !== $id) {
-                $this->db->rollBack();
-                return false;
-            }
-            $qb = $this->db->getQueryBuilder();
-            $updated = $qb->update(self::TOKENS)
-                ->set('access_hash', $qb->createNamedParameter($accessHash))
-                ->set('access_expires', $qb->createNamedParameter($accessExpires, IQueryBuilder::PARAM_INT))
-                ->set('refresh_hash', $qb->createNamedParameter($refreshHash))
-                ->set('refresh_expires', $qb->createNamedParameter($refreshExpires, IQueryBuilder::PARAM_INT))
-                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
-                ->andWhere($qb->expr()->eq('refresh_hash', $qb->createNamedParameter($oldRefreshHash)))
-                ->executeStatement();
-            if ($updated !== 1) {
-                $this->db->rollBack();
-                return false;
-            }
-            // Commit the consumed hash together with its replacement, so a racing loser or later replay
-            // can identify the client/owner. Never retain the plaintext refresh token.
-            $this->insert(self::SPENT, ['refresh_hash' => $oldRefreshHash, 'user_id' => $row['user_id'],
-                'client_id' => $row['client_id'], 'grant_id' => $id, 'expires_at' => (int)$row['refresh_expires']]);
-            $this->db->commit();
-            return true;
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
+        if (!$this->db->inTransaction()) {
+            throw new \LogicException('Refresh rotation runs only inside the policy writer transaction');
         }
+        $this->purgeSpent($refreshExpires - TokenService::REFRESH_TTL);
+        $row = $this->findByRefresh($oldRefreshHash);
+        if ($row === null || (int)$row['id'] !== $id) {
+            return false;
+        }
+        $qb = $this->db->getQueryBuilder();
+        $updated = $qb->update(self::TOKENS)
+            ->set('access_hash', $qb->createNamedParameter($accessHash))
+            ->set('access_expires', $qb->createNamedParameter($accessExpires, IQueryBuilder::PARAM_INT))
+            ->set('refresh_hash', $qb->createNamedParameter($refreshHash))
+            ->set('refresh_expires', $qb->createNamedParameter($refreshExpires, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('refresh_hash', $qb->createNamedParameter($oldRefreshHash)))
+            ->executeStatement();
+        if ($updated !== 1) {
+            return false;
+        }
+        // Never retain the plaintext refresh token; the spent record keeps the lineage's epoch and generation.
+        $this->insert(self::SPENT, ['refresh_hash' => $oldRefreshHash, 'user_id' => $row['user_id'],
+            'client_id' => $row['client_id'], 'grant_id' => $id, 'expires_at' => (int)$row['refresh_expires'],
+            'auth_global_epoch' => (string)$row['auth_global_epoch'], 'auth_gen' => (string)$row['auth_gen']]);
+        return true;
     }
 
-    /** Revokes all grants of the matching client/owner if this is an unexpired consumed refresh hash. */
-    public function revokeReusedRefresh(string $hash, string $clientId, int $now): void {
-        $this->purgeSpent($now);
-        $row = $this->findOne(self::SPENT, 'refresh_hash', $hash);
-        if ($row !== null && $row['client_id'] === $clientId && (int)$row['expires_at'] >= $now) {
-            foreach ([self::TOKENS, self::SPENT] as $table) {
-                $qb = $this->db->getQueryBuilder();
-                $qb->delete($table)
-                    ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($row['user_id'])))
-                    ->andWhere($qb->expr()->eq('client_id', $qb->createNamedParameter($clientId)))
-                    ->executeStatement();
-            }
+    /** @return array<string,mixed>|null the spent record of a consumed refresh hash */
+    public function findSpent(string $refreshHash): ?array {
+        return $this->findOne(self::SPENT, 'refresh_hash', $refreshHash);
+    }
+
+    /**
+     * Anti-replay: revokes every grant and spent record of one owner and client. The caller first checks that the
+     * replayed spent record is still valid (generation and epoch), so a record from before a revocation never reaches
+     * this and cannot remove the session of a later consent.
+     *
+     * @param string $uid owner of the replayed refresh token
+     * @param string $clientId client of the replayed refresh token
+     */
+    public function deleteForOwnerAndClient(string $uid, string $clientId): void {
+        foreach ([self::TOKENS, self::SPENT] as $table) {
+            $qb = $this->db->getQueryBuilder();
+            $qb->delete($table)
+                ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($uid)))
+                ->andWhere($qb->expr()->eq('client_id', $qb->createNamedParameter($clientId)))
+                ->executeStatement();
         }
     }
 
@@ -206,18 +224,45 @@ class OAuthStore {
         return true;
     }
 
-    /** Deletes all credentials immediately when the service is disabled. */
-    public function deleteAll(): void {
+    /**
+     * Physical cleanup of a user cut: every code, grant and spent record of $uid with auth_gen <= $cut. Idempotent,
+     * and a credential issued after the cut (higher generation) is never touched.
+     *
+     * @param string $uid owner
+     * @param string $cut canonical generation of the cut
+     */
+    public function deleteUpToGeneration(string $uid, string $cut): void {
         foreach ([self::TOKENS, self::CODES, self::SPENT] as $table) {
-            $this->db->getQueryBuilder()->delete($table)->executeStatement();
+            $qb = $this->db->getQueryBuilder();
+            $qb->delete($table)->where($qb->expr()->eq('user_id', $qb->createNamedParameter($uid)))
+                ->andWhere($qb->expr()->lte('auth_gen', $qb->createNamedParameter($cut, IQueryBuilder::PARAM_INT)))
+                ->executeStatement();
         }
     }
 
-    /** Deletes every grant and pending code of a user. */
-    public function deleteForUser(string $uid): void {
+    /**
+     * Physical cleanup of a global revocation: every code, grant and spent record below the auth epoch $epoch.
+     *
+     * @param string $epoch canonical auth epoch that the revocation committed
+     */
+    public function deleteBelowEpoch(string $epoch): void {
         foreach ([self::TOKENS, self::CODES, self::SPENT] as $table) {
             $qb = $this->db->getQueryBuilder();
-            $qb->delete($table)->where($qb->expr()->eq('user_id', $qb->createNamedParameter($uid)))->executeStatement();
+            $qb->delete($table)->where($qb->expr()->lt('auth_global_epoch', $qb->createNamedParameter($epoch, IQueryBuilder::PARAM_INT)))
+                ->executeStatement();
+        }
+    }
+
+    /**
+     * Expired codes, grants whose refresh token expired and expired spent records: housekeeping of the cleanup job,
+     * which issuance also does on insert.
+     *
+     * @param int $now current time
+     */
+    public function purgeExpired(int $now): void {
+        foreach ([[self::CODES, 'expires_at'], [self::TOKENS, 'refresh_expires'], [self::SPENT, 'expires_at']] as [$table, $column]) {
+            $qb = $this->db->getQueryBuilder();
+            $qb->delete($table)->where($qb->expr()->lt($column, $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))->executeStatement();
         }
     }
 
@@ -240,7 +285,9 @@ class OAuthStore {
         $qb = $this->db->getQueryBuilder();
         $qb->insert($table);
         foreach ($row as $column => $value) {
-            $qb->setValue($column, $qb->createNamedParameter($value, is_int($value) ? IQueryBuilder::PARAM_INT : IQueryBuilder::PARAM_STR));
+            // Generations and epochs travel as canonical decimal strings but are BIGINT columns.
+            $int = is_int($value) || in_array($column, self::COUNTERS, true);
+            $qb->setValue($column, $qb->createNamedParameter($value, $int ? IQueryBuilder::PARAM_INT : IQueryBuilder::PARAM_STR));
         }
         $qb->executeStatement();
     }

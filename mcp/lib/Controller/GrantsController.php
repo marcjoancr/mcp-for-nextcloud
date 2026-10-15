@@ -255,7 +255,8 @@ class GrantsController extends Controller {
             if ($native !== null) {
                 $this->config->setAppValue($this->appName, NativeClient::CONFIG_KEY, $native ? '1' : '0');
                 if (!$native) {
-                    $this->oauth->deleteForClient(NativeClient::CLIENT_ID);
+                    // Under the issuance mutex, so no grant of the native client is issued past this point.
+                    $this->writer->underMutex(fn () => $this->oauth->deleteForClient(NativeClient::CLIENT_ID));
                 }
             }
             return $this->oauthState();

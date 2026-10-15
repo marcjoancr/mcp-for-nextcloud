@@ -11,7 +11,6 @@ use OCA\Mcp\Controller\McpController;
 use OCA\Mcp\Controller\SettingsController;
 use OCA\Mcp\Checkout\CheckoutTokenStore;
 use OCA\Mcp\Tools\Files\BatchStore;
-use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\Service\GrantPolicy;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -25,24 +24,26 @@ use PHPUnit\Framework\TestCase;
 final class SettingsControllerTest extends TestCase {
     private GrantPolicy $policy;
     private SettingsController $controller;
-    private TokenService $tokens;
+    private InMemoryConfig $data;
+    private \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore $store;
     private CheckoutTokenStore $checkoutTokens;
     private BatchStore $batches;
     private bool $aliceEnabled = true;
     private bool $signedIn = true;
 
     protected function setUp(): void {
-        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy((new InMemoryConfig())->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $this->data = new InMemoryConfig();
+        $this->store = new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore();
+        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->data->mock($this), $this->store);
         $alice = $this->createMock(IUser::class);
         $alice->method('getUID')->willReturn('alice');
         $alice->method('isEnabled')->willReturnCallback(fn (): bool => $this->aliceEnabled);
         $session = $this->createMock(IUserSession::class);
         $session->method('getUser')->willReturnCallback(fn () => $this->signedIn ? $alice : null);
-        $this->tokens = $this->createMock(TokenService::class);
         $this->checkoutTokens = $this->createMock(CheckoutTokenStore::class);
         $this->batches = $this->createMock(BatchStore::class);
         $this->controller = new SettingsController('mcp', $this->createMock(IRequest::class),
-            $this->createMock(IURLGenerator::class), $session, $this->policy, $this->tokens, $this->checkoutTokens,
+            $this->createMock(IURLGenerator::class), $session, $this->policy, $this->checkoutTokens,
             $this->batches);
     }
 
@@ -87,8 +88,11 @@ final class SettingsControllerTest extends TestCase {
         $this->policy->setGlobalEnabled(true);
         $this->policy->setEligible('alice', true);
         $this->controller->personal('1');
-        $this->tokens->expects($this->once())->method('revokeUser')->with('alice');
+        $this->store->insertToken(['user_id' => 'alice', 'client_id' => 'c', 'refresh_expires' => PHP_INT_MAX, 'auth_gen' => '1'], 0);
         $this->controller->personal('0');
+        // A cut at the last issued generation, in the transaction of connected = '0', then the physical cleanup.
+        $this->assertEquals(['issue_seq' => '1', 'revoked_below' => '1'], $this->data->generations['alice']);
+        $this->assertSame([], $this->store->tokens);
     }
 
     public function testPersonalActivationNeedsServiceAndEligibility(): void {
@@ -129,9 +133,8 @@ final class SettingsControllerTest extends TestCase {
         $this->policy->setGlobalEnabled(true);
         $this->policy->setEligible('alice', true);
         $this->policy->setConnected('alice', true);
-        $this->tokens->expects($this->never())->method('revokeUser');
-
         $this->assertSame(400, $this->controller->personal($value)->getStatus());
+        $this->assertArrayNotHasKey('alice', $this->data->generations, 'nothing was revoked');
         $this->assertTrue($this->policy->connected('alice'), 'the connection stayed as it was');
     }
 
@@ -167,10 +170,9 @@ final class SettingsControllerTest extends TestCase {
         $user->method('isEnabled')->willReturn(true);
         $session = $this->createMock(IUserSession::class);
         $session->method('getUser')->willReturn($user);
-        $this->tokens->expects($this->never())->method('revokeUser');
         $this->checkoutTokens->expects($this->never())->method('deleteForUser');
         $controller = new SettingsController('mcp', $this->createMock(IRequest::class),
-            $this->createMock(IURLGenerator::class), $session, $policy, $this->tokens, $this->checkoutTokens, $this->batches);
+            $this->createMock(IURLGenerator::class), $session, $policy, $this->checkoutTokens, $this->batches);
 
         $this->assertSame(503, $controller->personal('0')->getStatus());
     }

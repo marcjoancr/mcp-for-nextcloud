@@ -77,11 +77,12 @@ class ConnectionList {
      * @return bool true when it existed (and, with $uid, belonged to that user)
      */
     public function revoke(int $id, ?string $uid): bool {
-        return $id > 0 && $this->store->deleteGrant($id, $uid);
+        return $id > 0 && $this->tokens->revokeGrant($id, $uid);
     }
 
     /**
-     * Revokes every connection of a user. The user stays eligible and connected and can sign in again.
+     * Revokes every connection of a user, by a cut at the user's last issued generation. The user stays eligible and
+     * connected and can sign in again; the new consent gets a later generation.
      *
      * @param string $uid Nextcloud user id
      */

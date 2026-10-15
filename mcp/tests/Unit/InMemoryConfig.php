@@ -29,6 +29,10 @@ final class InMemoryConfig {
     public int $now = 1_800_000_000;
     /** Policy revision of the writer built by policy(). */
     public int $revision = 0;
+    /** Global auth epoch of the writer built by policy(). */
+    public int $authEpoch = 0;
+    /** @var array<string, array{issue_seq:string, revoked_below:string}> OAuth generations by uid; absent = (1, 0) */
+    public array $generations = [];
     /** @var (\Closure(string):bool)|null which uids the writer's user manager knows; null knows every uid */
     public ?\Closure $userExists = null;
 
@@ -37,6 +41,20 @@ final class InMemoryConfig {
     private static ?\WeakMap $stores = null;
     private static ?\WeakMap $writers = null;
     private static ?\WeakMap $states = null;
+    private static ?\WeakMap $authUsers = null;
+    private static ?\WeakMap $processors = null;
+
+    /** @return \OCA\Mcp\Db\AuthUsersMapper the OAuth generations the writer of $config uses (over $generations) */
+    public static function authUsers(IConfig $config): \OCA\Mcp\Db\AuthUsersMapper {
+        self::writer($config);
+        return self::$authUsers[$config];
+    }
+
+    /** @return \OCA\Mcp\Service\Policy\PolicyEventProcessor the event delivery of the writer of $config */
+    public static function processor(IConfig $config): \OCA\Mcp\Service\Policy\PolicyEventProcessor {
+        self::writer($config);
+        return self::$processors[$config];
+    }
 
     /** @return \OCA\Mcp\Db\PolicyStateMapper the state the writer of $config reads, for a controller under test */
     public static function state(IConfig $config): \OCA\Mcp\Db\PolicyStateMapper {
@@ -69,7 +87,7 @@ final class InMemoryConfig {
         $db = $mock(\OCP\IDBConnection::class);
         $state = $mock(\OCA\Mcp\Db\PolicyStateMapper::class);
         $state->method('state')->willReturnCallback(static function () use ($data): array {
-            return ['revision' => (string)$data->revision, 'lock_seq' => '0', 'auth_epoch' => '0'];
+            return ['revision' => (string)$data->revision, 'lock_seq' => '0', 'auth_epoch' => (string)$data->authEpoch];
         });
         $state->method('compareAndSet')->willReturnCallback(static function (string $expected) use ($data): void {
             if ($expected !== (string)$data->revision) {
@@ -77,12 +95,32 @@ final class InMemoryConfig {
             }
             ++$data->revision;
         });
+        $state->method('advanceAuthEpoch')->willReturnCallback(static fn (string $expected): string => (string)++$data->authEpoch);
+        $authUsers = $mock(\OCA\Mcp\Db\AuthUsersMapper::class);
+        $generations = static fn (string $uid): array => $data->generations[$uid] ?? ['issue_seq' => '1', 'revoked_below' => '0'];
+        $authUsers->method('generations')->willReturnCallback($generations);
+        $authUsers->method('issue')->willReturnCallback(static function (string $uid) use ($data, $generations): string {
+            $data->generations[$uid] = ['issue_seq' => (string)((int)$generations($uid)['issue_seq'] + 1)] + $generations($uid);
+            return $data->generations[$uid]['issue_seq'];
+        });
+        $authUsers->method('cut')->willReturnCallback(static function (string $uid, string $cut) use ($data, $generations): bool {
+            if ((int)$cut <= (int)$generations($uid)['revoked_below']) {
+                return false;
+            }
+            $data->generations[$uid] = ['revoked_below' => $cut] + $generations($uid);
+            return true;
+        });
+        $rechecks = $mock(\OCA\Mcp\Db\RecheckMapper::class);
+        $rechecks->method('causes')->willReturn([]);
         $users = $mock(\OCP\IUserManager::class);
         $user = $mock(\OCP\IUser::class);
+        $user->method('isEnabled')->willReturn(true);
         $users->method('get')->willReturnCallback(static fn (string $uid) => $data->userExists === null || ($data->userExists)($uid) ? $user : null);
         $appConfig = $mock(\OCP\IAppConfig::class);
         $appConfig->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $data->app[$app] ?? []));
         self::$states[$config] = $state;
+        self::$authUsers ??= new \WeakMap();
+        self::$authUsers[$config] = $authUsers;
         $events = $mock(\OCA\Mcp\Db\PolicyEventsMapper::class);
         $events->method('append')->willReturnCallback(static function (string $id, string $kind, array $payload) use ($data): void {
             $data->events[$id] = ['id' => $id, 'kind' => $kind, 'status' => 'pending', 'payload' => $payload, 'createdAt' => $data->now, 'attempts' => 0];
@@ -90,9 +128,20 @@ final class InMemoryConfig {
         $events->method('find')->willReturnCallback(static fn (string $id): ?array => $data->events[$id] ?? null);
         $time = $mock(\OCP\AppFramework\Utility\ITimeFactory::class);
         $time->method('getTime')->willReturnCallback(static fn (): int => $data->now);
+        $events->method('complete')->willReturnCallback(static function (string $id) use ($data): bool {
+            $pending = ($data->events[$id]['status'] ?? null) === 'pending';
+            if ($pending) {
+                $data->events[$id]['status'] = 'delivered';
+            }
+            return $pending;
+        });
         $store ??= new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore();
+        // The real delivery over the store double: a revocation's cleanup removes the store rows it covers.
+        $processor = new \OCA\Mcp\Service\Policy\PolicyEventProcessor($events, $store, new \Psr\Log\NullLogger(), $time);
+        self::$processors ??= new \WeakMap();
+        self::$processors[$config] = $processor;
         return self::$writers[$config] = new \OCA\Mcp\Service\Policy\PolicyWriter($db, $state, $events, $config,
-            self::$userConfigs[$config], $appConfig, $users, $store, $time);
+            self::$userConfigs[$config], $appConfig, $users, $time, $authUsers, $rechecks, $processor);
     }
 
     public function mock(TestCase $test): IConfig {

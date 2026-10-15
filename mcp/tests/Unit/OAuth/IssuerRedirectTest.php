@@ -54,7 +54,7 @@ final class IssuerRedirectTest extends TestCase {
         $policy->method('globalEnabled')->willReturn(true);
         $policy->method('eligible')->willReturn(true);
         $tokens = $this->createMock(TokenService::class);
-        $tokens->method('createCode')->willReturn('CODE');
+        $tokens->method('consent')->willReturn('CODE');
         $urls = $this->createMock(ResourceUrl::class);
         $urls->method('base')->willReturn(self::ISSUER . '/apps/mcp/');
         $urls->method('issuer')->willReturn(self::ISSUER);

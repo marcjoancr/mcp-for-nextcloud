@@ -8,7 +8,6 @@ namespace OCA\Mcp\Tests\Integration\Policy;
 
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
-use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Tests\Integration\Fixtures;
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
@@ -95,14 +94,15 @@ final class AdminCommandsTest extends IntegrationTestCase {
         $revision = $state->state();
         $events = $this->eventCount();
         $db = $this->official();
-        // The last cell takes eligibility away, so it revokes; the revocation fails after every config write ran.
-        $oauth = new class($db) extends OAuthStore {
-            public function deleteForUser(string $uid): void {
+        // The last cell takes eligibility away, so it revokes; the cut fails after every config write ran.
+        $authUsers = new class($db) extends \OCA\Mcp\Db\AuthUsersMapper {
+            public function cut(string $uid, string $cut): bool {
                 throw new RuntimeException('Injected in the last cell');
             }
         };
         $writer = new PolicyWriter($db, $state, Server::get(PolicyEventsMapper::class), $config, Server::get(IUserConfig::class),
-            Server::get(IAppConfig::class), Server::get(IUserManager::class), $oauth, Server::get(ITimeFactory::class));
+            Server::get(IAppConfig::class), Server::get(IUserManager::class), Server::get(ITimeFactory::class), $authUsers,
+            Server::get(\OCA\Mcp\Db\RecheckMapper::class), Server::get(\OCA\Mcp\Service\Policy\PolicyEventProcessor::class));
         try {
             $writer->applyCells($revision['revision'], 'admin', 'grants.commands', [
                 ['uid' => Fixtures::ALICE, 'key' => 'grant_notes_edit', 'value' => '1'],

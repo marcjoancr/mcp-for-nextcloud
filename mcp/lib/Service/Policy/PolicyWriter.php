@@ -8,9 +8,10 @@ declare(strict_types=1);
 namespace OCA\Mcp\Service\Policy;
 
 use Closure;
+use OCA\Mcp\Db\AuthUsersMapper;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
-use OCA\Mcp\OAuth\OAuthStore;
+use OCA\Mcp\Db\RecheckMapper;
 use OCA\Mcp\Service\GrantPolicy;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
@@ -26,6 +27,11 @@ use Throwable;
  * perform only local statements inside it. All participants use the server's singleton IDBConnection. Events the
  * command emits through its PolicyOutbox are persisted in the same transaction, after the revision CAS (the lock
  * order of contracts §2.1: mutex, app state, official config, then epochs/outbox/recheck).
+ *
+ * Revocation is a cut by generation (contracts §3.1): losing eligibility, disconnecting, disabling or deleting the
+ * account set the user's revoked_below to the issue_seq read under the mutex; switching the service off advances the
+ * global auth epoch. Each revocation writes a cleanup event in the same transaction; the physical delete runs after
+ * the commit (PolicyEventProcessor), so it never removes a credential issued after the cut.
  */
 class PolicyWriter {
     /** Seconds an administrator may undo a command through its receipt (contracts §2.3). */
@@ -36,6 +42,13 @@ class PolicyWriter {
     public const MAX_CELLS = 2500;
 
     private bool $usable = true;
+    /**
+     * State of the attempt under the mutex, for the revocations a cell write triggers: its outbox, the state row read
+     * under the mutex and whether a cut or epoch moved (which is a policy change even when no cell changed).
+     *
+     * @var array{outbox:PolicyOutbox, state:array{revision:string, lock_seq:string, auth_epoch:string}, cut:bool}|null
+     */
+    private ?array $local = null;
 
     public function __construct(
         private IDBConnection $db,
@@ -45,8 +58,10 @@ class PolicyWriter {
         private IUserConfig $userConfig,
         private IAppConfig $appConfig,
         private IUserManager $users,
-        private OAuthStore $oauth,
         private ITimeFactory $time,
+        private AuthUsersMapper $authUsers,
+        private RecheckMapper $rechecks,
+        private PolicyEventProcessor $processor,
     ) {}
 
     /**
@@ -56,7 +71,8 @@ class PolicyWriter {
      * @param list<string> $uids every user whose official config cache may be touched
      * @param Closure(array,string):mixed $prepare remote work, outside any transaction
      * @param Closure(mixed,array,string,PolicyOutbox):bool $apply local work only, under the global mutex
-     * @return array{revision:string, changed:bool, commandId:string}
+     * @return array{revision:string, changed:bool, commandId:string, cleanupPending:bool} cleanupPending: a cleanup or
+     *     audit event of the commit is not delivered yet (it is retried; the revocation itself is committed)
      * @throws PolicyConflict when the expected revision is stale, before or after the retries
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
@@ -74,11 +90,125 @@ class PolicyWriter {
      * @param list<string> $uids
      * @param Closure(array,string):mixed $prepare
      * @param Closure(mixed,array,string,PolicyOutbox):bool $apply
-     * @return array{revision:string, changed:bool, commandId:string}
+     * @return array{revision:string, changed:bool, commandId:string, cleanupPending:bool}
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
     public function runInternal(array $uids, Closure $prepare, Closure $apply): array {
         return $this->run($uids, $prepare, $apply, null);
+    }
+
+    /**
+     * One OAuth unit of $uid (contracts §2.1.1, §3.1): createCode, exchange, refresh, anti-replay. The user's
+     * generations and recheck causes are read before $prepare, which does every possibly remote read (account,
+     * policy) outside any transaction; under the mutex both must still be equal, or the attempt is rolled back and
+     * replayed (at most twice, then PolicyUnavailable, which OAuth answers with temporarily_unavailable). $apply runs
+     * the local statements of the unit with the state row and the generations read under the mutex.
+     *
+     * @param string $uid owner of the credential
+     * @param Closure(array):mixed $prepare external phase; its result is passed to $apply
+     * @param Closure(mixed, array{revision:string, lock_seq:string, auth_epoch:string}, array{issue_seq:string, revoked_below:string}):bool $apply
+     *     local phase; returns whether policy changed (only consent's connected flag does)
+     * @return array{revision:string, changed:bool, commandId:string, cleanupPending:bool}
+     * @throws PolicyUnavailable when the storage fails, the snapshot keeps changing, or the outcome is uncertain
+     */
+    public function runCredential(string $uid, Closure $prepare, Closure $apply): array {
+        return $this->runInternal([$uid], function (array $observed) use ($uid, $prepare): array {
+            $before = ['generations' => $this->authUsers->generations($uid), 'causes' => $this->rechecks->causes($uid)];
+            return ['before' => $before, 'snapshot' => $prepare($observed)];
+        }, function (array $prepared, array $current) use ($uid, $apply): bool {
+            $generations = $this->authUsers->generations($uid);
+            if ($generations !== $prepared['before']['generations'] || $this->rechecks->causes($uid) !== $prepared['before']['causes']) {
+                throw new SnapshotInvalidated();
+            }
+            return $apply($prepared['snapshot'], $current, $generations);
+        });
+    }
+
+    /**
+     * Consent (contracts §3.1): connected=true and a new authorization code in one command, so a failure leaves
+     * neither. Under the mutex the service and the user's eligibility are read again; the code gets the next
+     * generation of the user (issue_seq + 1) and the current global epoch. Other sessions of the user are untouched.
+     *
+     * @param string $uid the consenting user
+     * @param Closure(string, string): void $insertCode stores the code with (generation, epoch); runs under the mutex
+     * @return bool false when the account is disabled, the service is off or the user is not eligible: nothing written
+     * @throws \InvalidArgumentException for a user the server does not know
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function consent(string $uid, Closure $insertCode): bool {
+        $allowed = false;
+        $this->runCredential($uid, function () use ($uid): bool {
+            $this->assertUser($uid);
+            return (bool)$this->users->get($uid)?->isEnabled();
+        }, function (bool $enabled, array $current) use ($uid, $insertCode, &$allowed): bool {
+            $allowed = $enabled && $this->config->getAppValue(GrantPolicy::APP, GrantPolicy::SERVICE_KEY, '0') === '1'
+                && $this->config->getUserValue($uid, GrantPolicy::APP, GrantPolicy::ELIGIBLE_KEY, '0') === '1';
+            if (!$allowed) {
+                return false;
+            }
+            $changed = $this->writeCell($uid, GrantPolicy::CONNECTED_KEY, '1') !== null;
+            $insertCode($this->authUsers->issue($uid), $current['auth_epoch']);
+            return $changed;
+        });
+        return $allowed;
+    }
+
+    /**
+     * Revokes every OAuth credential of a user, now and before (contracts §3.1, cut point (i)): disable or delete of
+     * the account, or an administrator revoking all of a user's connections. The account may already be gone; its
+     * generation row stays as a tombstone, so a recreated account never inherits the old credentials.
+     *
+     * @param string $uid Nextcloud user id, existing or not
+     * @throws \InvalidArgumentException for an invalid user id
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function revokeCredentials(string $uid): void {
+        if (!PolicyEventPayload::validUid($uid)) {
+            throw new \InvalidArgumentException('Invalid user');
+        }
+        $this->runInternal([$uid], fn () => null, function () use ($uid): bool {
+            $this->revokeUserLocal($uid);
+            return false;
+        });
+    }
+
+    /**
+     * Revocation observed in use (contracts §3.1, cut point (iii)): the owner was found unusable in a validation, so
+     * every generation up to $observed, the issue_seq read before that validation, is revoked. The cut is fixed and
+     * never raised: a credential issued after $observed is not touched here and is judged on its own use.
+     *
+     * @param string $uid owner of the credential
+     * @param string $observed canonical issue_seq read before the external phase
+     * @throws \InvalidArgumentException for an invalid user id or generation
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function revokeObserved(string $uid, string $observed): void {
+        if (!PolicyEventPayload::validUid($uid)) {
+            throw new \InvalidArgumentException('Invalid user');
+        }
+        DecimalCounter::validate($observed, DecimalCounter::MAX);
+        $this->runInternal([$uid], fn () => null, function () use ($uid, $observed): bool {
+            $this->revokeUserLocal($uid, $observed);
+            return false;
+        });
+    }
+
+    /**
+     * Runs local OAuth statements that are no policy change (revoking one session, or every session of one client)
+     * under the same mutex as issuance, so they serialize with it in the lock order of contracts §2.1.
+     *
+     * @template T
+     * @param Closure(): T $local local statements only
+     * @return T what $local returned
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function underMutex(Closure $local): mixed {
+        $value = null;
+        $this->runInternal([], fn () => null, function () use ($local, &$value): bool {
+            $value = $local();
+            return false;
+        });
+        return $value;
     }
 
     /**
@@ -103,7 +233,8 @@ class PolicyWriter {
 
     /**
      * @param string $uid Nextcloud user id
-     * @param bool $enabled new personal connection state
+     * @param bool $enabled new personal connection state; false (disconnect) also revokes every credential of the
+     *     user, repeated or not
      * @throws \InvalidArgumentException for a user the server does not know
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
@@ -338,8 +469,8 @@ class PolicyWriter {
 
     /**
      * Writes one raw value (null removes the key) when it differs from the stored one, and applies the legacy
-     * revocation scope: switching the service off revokes everyone, and a user left without explicit eligibility is
-     * signed out, including on an explicit repeated disable.
+     * revocation scope: switching the service off revokes everyone (global epoch), and a user left without explicit
+     * eligibility, or disconnecting, is signed out (cut), including on an explicit repeated disable.
      *
      * @param string|false|null $before the raw value already read in this transaction (null = absent), or false to
      *     read it here
@@ -366,11 +497,51 @@ class PolicyWriter {
             }
         }
         if ($key === GrantPolicy::SERVICE_KEY && $value === '0') {
-            $this->oauth->deleteAll();
-        } elseif ($key === GrantPolicy::ELIGIBLE_KEY && $uid !== null && ($value === '0' || ($changed && $value !== '1'))) {
-            $this->oauth->deleteForUser($uid);
+            // On -> off moves the global epoch; a repeated disable only repeats the physical cleanup.
+            $this->revokeAllLocal($before === '1');
+        } elseif ($uid !== null && (($key === GrantPolicy::ELIGIBLE_KEY && ($value === '0' || ($changed && $value !== '1')))
+            || ($key === GrantPolicy::CONNECTED_KEY && $value === '0'))) {
+            $this->revokeUserLocal($uid);
         }
         return $changed ? ['uid' => $uid, 'key' => $key, 'before' => $before, 'after' => $value] : null;
+    }
+
+    /**
+     * Cut of one user at $cut (default: issue_seq read now, under the mutex) and its cleanup event.
+     *
+     * @throws \LogicException outside the local phase of an attempt
+     */
+    private function revokeUserLocal(string $uid, ?string $cut = null): void {
+        $local = $this->localPhase();
+        $cut ??= $this->authUsers->generations($uid)['issue_seq'];
+        if ($this->authUsers->cut($uid, $cut)) {
+            $this->local['cut'] = true;
+        }
+        $local['outbox']->add(PolicyEventsMapper::KIND_CLEANUP, PolicyEventPayload::cleanupUser($uid, $cut));
+    }
+
+    /**
+     * Global revocation: advances the auth epoch when $advance, and writes the cleanup event of the current epoch.
+     *
+     * @throws \LogicException outside the local phase of an attempt
+     */
+    private function revokeAllLocal(bool $advance): void {
+        $local = $this->localPhase();
+        $epoch = $local['state']['auth_epoch'];
+        if ($advance) {
+            $epoch = $this->state->advanceAuthEpoch($epoch);
+            $this->local['state']['auth_epoch'] = $epoch;
+            $this->local['cut'] = true;
+        }
+        $local['outbox']->add(PolicyEventsMapper::KIND_CLEANUP, PolicyEventPayload::cleanupGlobal($epoch));
+    }
+
+    /** @return array{outbox:PolicyOutbox, state:array, cut:bool} */
+    private function localPhase(): array {
+        if ($this->local === null) {
+            throw new \LogicException('Revocations run only in the local phase of a policy command');
+        }
+        return $this->local;
     }
 
     /**
@@ -475,10 +646,14 @@ class PolicyWriter {
                 $this->clearCaches($uids);
                 // A fresh outbox per attempt: a rolled-back attempt leaves no event behind, and ids repeat on retry.
                 $outbox = new PolicyOutbox($commandId);
+                $this->local = ['outbox' => $outbox, 'state' => $current, 'cut' => false];
                 $changed = $apply($snapshot, $current, $commandId, $outbox);
                 if (!is_bool($changed)) {
                     throw new \LogicException('Policy command must report whether raw policy changed');
                 }
+                // A cut or epoch change is a policy write even when no cell changed (coordinator clarification 1).
+                $changed = $changed || $this->local['cut'];
+                $this->local = null;
                 if ($changed) {
                     try {
                         DecimalCounter::validate($current['revision']);
@@ -497,10 +672,13 @@ class PolicyWriter {
                 $owned = false;
                 $result = ['revision' => $revision, 'changed' => $changed, 'commandId' => $commandId];
             } catch (Throwable $e) {
+                $this->local = null;
                 $failure = $this->failure($e, $owned, $committing, $attempt, $expected);
             }
             $this->settle($uids, $committed, $failure);
             if ($result !== null) {
+                // After the commit: physical cleanup and audit delivery, which never turn the success into an error.
+                $result['cleanupPending'] = !$this->processor->afterCommit($outbox->events());
                 return $result;
             }
             if ($failure !== null) {

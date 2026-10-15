@@ -111,6 +111,9 @@ Nextcloud 32–35 y PHP 8.2 o superior. Deck y Talk son opcionales: sus herramie
         <php min-version="8.2"/>
         <nextcloud min-version="32" max-version="35"/>
     </dependencies>
+    <background-jobs>
+        <job>OCA\Mcp\BackgroundJob\PolicyCleanupJob</job>
+    </background-jobs>
     <repair-steps>
         <post-migration>
             <step>OCA\Mcp\Migration\PolicyStateSeedStep</step>

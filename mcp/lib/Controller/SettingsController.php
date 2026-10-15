@@ -10,7 +10,6 @@ namespace OCA\Mcp\Controller;
 use InvalidArgumentException;
 use OCA\Mcp\Checkout\CheckoutTokenStore;
 use OCA\Mcp\Tools\Files\BatchStore;
-use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Settings\PersonalSection;
@@ -34,7 +33,6 @@ class SettingsController extends Controller {
         private IURLGenerator $urlGenerator,
         private IUserSession $userSession,
         private GrantPolicy $policy,
-        private TokenService $oauthTokens,
         private CheckoutTokenStore $checkoutTokens,
         private BatchStore $batches,
     ) {
@@ -68,10 +66,9 @@ class SettingsController extends Controller {
         if ($enabled === '1' && (!$this->policy->globalEnabled() || !$this->policy->eligible($uid))) {
             throw new InvalidArgumentException('Connection not allowed');
         }
+        // Disconnecting revokes every OAuth credential of the user in the same transaction (a cut by generation).
         $this->policy->setConnected($uid, $enabled === '1');
         if ($enabled === '0') {
-            // Disconnecting also revokes every OAuth access and refresh token of the user.
-            $this->oauthTokens->revokeUser($uid);
             // And every pending checkout link, so a link issued before the switch cannot be spent after it.
             $this->checkoutTokens->deleteForUser($uid);
             // And every batch still waiting to be undone: it must not outlive the connection that made it.

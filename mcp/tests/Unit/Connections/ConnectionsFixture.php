@@ -59,8 +59,11 @@ final class ConnectionsFixture {
         $config = (new InMemoryConfig())->mock($this->test);
         $system = $this->mock(IConfig::class);
         $system->method('getSystemValueString')->willReturn('instance-secret');
-        $tokens = new TokenService($this->store, new TokenHasher($system), $time,
-            new TokenOwnerGate($users, \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($config, $this->store), $this->store), $config);
+        $writer = InMemoryConfig::writer($config, $this->store);
+        $gate = new TokenOwnerGate($users, InMemoryConfig::policy($config, $this->store), $writer,
+            $this->mock(\OCP\Config\IUserConfig::class), $this->mock(\OCP\IAppConfig::class), new \Psr\Log\NullLogger());
+        $tokens = new TokenService($this->store, new TokenHasher($system), $time, $gate, $config, $writer,
+            InMemoryConfig::authUsers($config), InMemoryConfig::processor($config));
         return new ConnectionList($this->store, $tokens, $users, $time);
     }
 

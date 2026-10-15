@@ -9,7 +9,10 @@ namespace OCA\Mcp\Tests\Unit\OAuth;
 
 use OCA\Mcp\OAuth\OAuthStore;
 
-/** OAuthStore double keeping rows in arrays, with the same single-use semantics as the SQL implementation. */
+/**
+ * OAuthStore double keeping rows in arrays, with the same single-use and generation semantics as the SQL
+ * implementation. A row without auth_gen/auth_global_epoch has the column defaults, generation 1 and epoch 0.
+ */
 final class InMemoryOAuthStore extends OAuthStore {
     /** @var array<int,array<string,mixed>> */
     public array $codes = [];
@@ -22,6 +25,13 @@ final class InMemoryOAuthStore extends OAuthStore {
     public function __construct() {}
 
     public function insertCode(array $row, int $now): void { $this->codes[$this->nextId] = $row + ['id' => $this->nextId++]; }
+
+    public function findCode(string $codeHash): ?array {
+        foreach ($this->codes as $row) {
+            if ($row['code_hash'] === $codeHash) { return $row; }
+        }
+        return null;
+    }
 
     public function consumeCode(string $codeHash): ?array {
         foreach ($this->codes as $id => $row) {
@@ -38,23 +48,25 @@ final class InMemoryOAuthStore extends OAuthStore {
 
     public function rotate(int $id, string $oldRefreshHash, string $accessHash, int $accessExpires, string $refreshHash, int $refreshExpires): bool {
         if (($this->tokens[$id]['refresh_hash'] ?? null) !== $oldRefreshHash) { return false; }
-        $this->spent[$oldRefreshHash] = $this->tokens[$id];
+        $this->spent[$oldRefreshHash] = ['refresh_hash' => $oldRefreshHash, 'user_id' => $this->tokens[$id]['user_id'],
+            'client_id' => $this->tokens[$id]['client_id'], 'grant_id' => $id, 'expires_at' => $this->tokens[$id]['refresh_expires'],
+            'auth_global_epoch' => self::epoch($this->tokens[$id]), 'auth_gen' => self::gen($this->tokens[$id])];
         $this->tokens[$id] = array_merge($this->tokens[$id], ['access_hash' => $accessHash, 'access_expires' => $accessExpires,
             'refresh_hash' => $refreshHash, 'refresh_expires' => $refreshExpires]);
         return !$this->loseRotationRace;
     }
 
-    public function deleteToken(int $id): void {
-        unset($this->tokens[$id]);
-        $this->spent = array_filter($this->spent, fn (array $r) => $r['id'] !== $id);
+    public function findSpent(string $refreshHash): ?array { return $this->spent[$refreshHash] ?? null; }
+
+    public function deleteForOwnerAndClient(string $uid, string $clientId): void {
+        $keep = fn (array $r): bool => $r['user_id'] !== $uid || $r['client_id'] !== $clientId;
+        $this->tokens = array_filter($this->tokens, $keep);
+        $this->spent = array_filter($this->spent, $keep);
     }
 
-    public function revokeReusedRefresh(string $hash, string $clientId, int $now): void {
-        $row = $this->spent[$hash] ?? null;
-        if ($row !== null && $row['client_id'] === $clientId && $row['refresh_expires'] >= $now) {
-            $this->tokens = array_filter($this->tokens, fn (array $r) => $r['user_id'] !== $row['user_id'] || $r['client_id'] !== $clientId);
-            $this->spent = array_filter($this->spent, fn (array $r) => $r['user_id'] !== $row['user_id'] || $r['client_id'] !== $clientId);
-        }
+    public function deleteToken(int $id): void {
+        unset($this->tokens[$id]);
+        $this->spent = array_filter($this->spent, fn (array $r) => $r['grant_id'] !== $id);
     }
 
     public function listGrants(?string $uid, string $search, int $limit, int $offset, int $now): array {
@@ -76,12 +88,20 @@ final class InMemoryOAuthStore extends OAuthStore {
         return true;
     }
 
-    public function deleteAll(): void { $this->tokens = []; $this->codes = []; $this->spent = []; }
+    public function deleteUpToGeneration(string $uid, string $cut): void {
+        $keep = fn (array $r): bool => $r['user_id'] !== $uid || (int)self::gen($r) > (int)$cut;
+        [$this->tokens, $this->codes, $this->spent] = [array_filter($this->tokens, $keep), array_filter($this->codes, $keep), array_filter($this->spent, $keep)];
+    }
 
-    public function deleteForUser(string $uid): void {
-        $this->tokens = array_filter($this->tokens, fn (array $r) => $r['user_id'] !== $uid);
-        $this->codes = array_filter($this->codes, fn (array $r) => $r['user_id'] !== $uid);
-        $this->spent = array_filter($this->spent, fn (array $r) => $r['user_id'] !== $uid);
+    public function deleteBelowEpoch(string $epoch): void {
+        $keep = fn (array $r): bool => (int)self::epoch($r) >= (int)$epoch;
+        [$this->tokens, $this->codes, $this->spent] = [array_filter($this->tokens, $keep), array_filter($this->codes, $keep), array_filter($this->spent, $keep)];
+    }
+
+    public function purgeExpired(int $now): void {
+        $this->codes = array_filter($this->codes, fn (array $r) => $r['expires_at'] >= $now);
+        $this->tokens = array_filter($this->tokens, fn (array $r) => $r['refresh_expires'] >= $now);
+        $this->spent = array_filter($this->spent, fn (array $r) => $r['expires_at'] >= $now);
     }
 
     public function deleteForClient(string $clientId): void {
@@ -89,6 +109,10 @@ final class InMemoryOAuthStore extends OAuthStore {
         $this->codes = array_filter($this->codes, fn (array $r) => ($r['client_id'] ?? null) !== $clientId);
         $this->spent = array_filter($this->spent, fn (array $r) => ($r['client_id'] ?? null) !== $clientId);
     }
+
+    private static function gen(array $row): string { return (string)($row['auth_gen'] ?? '1'); }
+
+    private static function epoch(array $row): string { return (string)($row['auth_global_epoch'] ?? '0'); }
 
     private function find(string $column, string $value): ?array {
         foreach ($this->tokens as $row) {

@@ -318,5 +318,6 @@ final class NextcloudApiUsage {
         'OCA\\Deck\\Db\\Acl::getCreatedAt' => 'OCA\\Deck\\Db\\Card::getCreatedAt, in Tools/Deck/DeckServiceGateway',
         'OCP\\Files\\IRootFolder::removeListener' => 'Sabre\\DAV\\Server::removeListener, in Tools/Calendar/EmbeddedDavDispatcher',
         'OCP\\DB\\QueryBuilder\\IQueryBuilder::execute' => 'the app\'s own tools, in Tools/Calendar/CalendarModule and Service/Calendar/CalendarSelftestService',
+        'OCP\\BackgroundJob\\TimedJob::execute' => 'the app\'s own tools, in Tools/Calendar/CalendarModule and Service/Calendar/CalendarSelftestService',
     ];
 }

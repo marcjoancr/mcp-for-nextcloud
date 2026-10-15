@@ -87,8 +87,9 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAllowingIssuesTheCodeAndRecordsThePersonalConnection(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
-        $this->tokens->expects($this->once())->method('createCode')->willReturn('CODE');
-        $this->policy->expects($this->once())->method('setConnected')->with('alice', true);
+        // The connection and the code are one command of the token service; the controller never sets them apart.
+        $this->tokens->expects($this->once())->method('consent')->with($this->anything(), 'alice')->willReturn('CODE');
+        $this->policy->expects($this->never())->method('setConnected');
 
         $response = $controller->consent($pending, 'allow');
 
@@ -101,8 +102,7 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAPolicyStorageFailureIssuesNoCodeAndTellsTheClientToRetry(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
-        $this->policy->method('setConnected')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
-        $this->tokens->expects($this->never())->method('createCode');
+        $this->tokens->method('consent')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
 
         $response = $controller->consent($pending, 'allow');
 
@@ -112,11 +112,39 @@ final class OAuthControllerFlowTest extends TestCase {
         $this->assertArrayNotHasKey('code', $query);
     }
 
+    /** Eligibility or the service changed between the check and the mutex: the consent page, never a code. */
+    public function testAConsentRefusedUnderTheMutexShowsTheBlockedPage(): void {
+        $controller = $this->controller();
+        $pending = $this->authorize($controller);
+        $this->tokens->expects($this->once())->method('consent')->willReturn(null);
+
+        $response = $controller->consent($pending, 'allow');
+
+        $this->assertInstanceOf(TemplateResponse::class, $response);
+        $this->assertTrue($response->getParams()['blocked']);
+    }
+
+    /** The token endpoint answers a storage failure with temporarily_unavailable and Retry-After, never throttled. */
+    public function testATokenRequestDuringAStorageFailureIsRetriable(): void {
+        $controller = $this->controller();
+        $this->params = ['grant_type' => 'refresh_token'];
+        $this->tokens->method('refresh')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
+        $this->tokens->expects($this->once())->method('housekeeping');
+
+        $response = $controller->token();
+
+        $this->assertSame(503, $response->getStatus());
+        $this->assertSame('temporarily_unavailable', $response->getData()['error']);
+        $this->assertSame('1', $this->headers($response)['Retry-After']);
+        $this->assertSame('no-store', $this->headers($response)['Cache-Control']);
+        $this->assertSame([], $response->getThrottleMetadata());
+    }
+
     public function testAnythingButAllowIssuesNoCodeAndConnectsNothing(): void {
         foreach (['deny', '', 'ALLOW', 'allow ', 'yes'] as $decision) {
             $controller = $this->controller();
             $pending = $this->authorize($controller);
-            $this->tokens->expects($this->never())->method('createCode');
+            $this->tokens->expects($this->never())->method('consent');
             $this->policy->expects($this->never())->method('setConnected');
 
             $response = $controller->consent($pending, $decision);
@@ -131,7 +159,7 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAnUnknownPendingRequestIssuesNothing(): void {
         $controller = $this->controller();
         $this->authorize($controller);
-        $this->tokens->expects($this->never())->method('createCode');
+        $this->tokens->expects($this->never())->method('consent');
 
         $response = $controller->consent('not-the-pending-id', 'allow');
 
@@ -142,7 +170,7 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAPendingRequestIsSingleUse(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
-        $this->tokens->expects($this->once())->method('createCode')->willReturn('CODE');
+        $this->tokens->expects($this->once())->method('consent')->willReturn('CODE');
 
         $this->assertInstanceOf(RedirectResponse::class, $controller->consent($pending, 'allow'));
         $second = $controller->consent($pending, 'allow');
@@ -154,7 +182,7 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAWrongPendingIdBurnsTheRealOne(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
-        $this->tokens->expects($this->never())->method('createCode');
+        $this->tokens->expects($this->never())->method('consent');
 
         $controller->consent('guess', 'allow');
         $response = $controller->consent($pending, 'allow');
@@ -169,7 +197,7 @@ final class OAuthControllerFlowTest extends TestCase {
             $controller = $this->controller();
             $pending = $this->authorize($controller);
             $this->$flag = false;
-            $this->tokens->expects($this->never())->method('createCode');
+            $this->tokens->expects($this->never())->method('consent');
             $this->policy->expects($this->never())->method('setConnected');
 
             $response = $controller->consent($pending, 'allow');

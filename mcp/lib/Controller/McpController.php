@@ -14,6 +14,7 @@ use OCA\Mcp\OAuth\AccessTokenAuthenticator;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\McpProtocol;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -134,7 +135,14 @@ class McpController extends Controller {
         $authorization = $this->request->getHeader('Authorization');
         $bearer = AccessTokenAuthenticator::isOwnBearer($authorization);
         if ($bearer) {
-            $user = $this->tokens->authenticate($authorization, $this->resourceUrl->base());
+            try {
+                $user = $this->tokens->authenticate($authorization, $this->resourceUrl->base());
+            } catch (PolicyUnavailable) {
+                // The credential state could not be read: not an answer, so the token is neither accepted nor revoked.
+                $response = new McpResponse('', 503);
+                $response->addHeader('Retry-After', '1');
+                return $response;
+            }
             if ($user === null || ($sessionUser !== null && $sessionUser->getUID() !== $user->getUID())) {
                 return $this->unauthorized('Bearer error="invalid_token", ' . $this->bearerParameters());
             }

@@ -9,6 +9,7 @@ namespace OCA\Mcp\Controller;
 
 use InvalidArgumentException;
 use OCA\Mcp\Service\ConnectionList;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -46,11 +47,16 @@ class ConnectionsController extends Controller {
 
     /**
      * @param int $id grant id of the connection
-     * @return JSONResponse {revoked: true, counts: {connections}} with the live connection total left, or 404 when no such connection exists
+     * @return JSONResponse {revoked: true, counts: {connections}} with the live connection total left, 404 when no such
+     *     connection exists, or 503 {error: 'Unavailable', uncertain} when the revocation could not be stored
      */
     public function destroy(int $id): JSONResponse {
-        if (!$this->connections->revoke($id, null)) {
-            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+        try {
+            if (!$this->connections->revoke($id, null)) {
+                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+            }
+        } catch (PolicyUnavailable $e) {
+            return self::unavailable($e);
         }
         return new JSONResponse(['revoked' => true, 'counts' => $this->counts()]);
     }
@@ -59,14 +65,26 @@ class ConnectionsController extends Controller {
      * Also works for a user id that no longer exists, so leftovers can be cleaned up.
      *
      * @param string $uid user whose connections are revoked
-     * @return JSONResponse {revoked: true, counts: {connections}}, or 400 for an empty or oversized user id
+     * @return JSONResponse {revoked: true, counts: {connections}}, 400 for an invalid user id, or 503 {error:
+     *     'Unavailable', uncertain} when the revocation could not be stored
      */
     public function revokeUser(string $uid): JSONResponse {
         if ($uid === '' || strlen($uid) > self::MAX_UID) {
             return new JSONResponse(['error' => 'Invalid request'], Http::STATUS_BAD_REQUEST);
         }
-        $this->connections->revokeUser($uid);
+        try {
+            $this->connections->revokeUser($uid);
+        } catch (InvalidArgumentException) {
+            return new JSONResponse(['error' => 'Invalid request'], Http::STATUS_BAD_REQUEST);
+        } catch (PolicyUnavailable $e) {
+            return self::unavailable($e);
+        }
         return new JSONResponse(['revoked' => true, 'counts' => $this->counts()]);
+    }
+
+    /** The revocation runs under the policy mutex; a storage failure is retriable, never a 500. */
+    private static function unavailable(PolicyUnavailable $e): JSONResponse {
+        return new JSONResponse(['error' => 'Unavailable', 'uncertain' => $e->uncertain], Http::STATUS_SERVICE_UNAVAILABLE);
     }
 
     /**

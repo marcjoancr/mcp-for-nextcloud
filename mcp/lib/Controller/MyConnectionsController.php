@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Controller;
 
 use OCA\Mcp\Service\ConnectionList;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -44,13 +45,18 @@ class MyConnectionsController extends Controller {
 
     /**
      * @param int $id grant id of one of the user's own connections
-     * @return JSONResponse {revoked: true}, or 404 when it does not exist or belongs to someone else
+     * @return JSONResponse {revoked: true}, 404 when it does not exist or belongs to someone else, or 503 {error:
+     *     'Unavailable', uncertain} when the revocation could not be stored
      */
     #[NoAdminRequired]
     public function destroy(int $id): JSONResponse {
         $uid = $this->uid();
-        if ($uid === null || !$this->connections->revoke($id, $uid)) {
-            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+        try {
+            if ($uid === null || !$this->connections->revoke($id, $uid)) {
+                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+            }
+        } catch (PolicyUnavailable $e) {
+            return new JSONResponse(['error' => 'Unavailable', 'uncertain' => $e->uncertain], Http::STATUS_SERVICE_UNAVAILABLE);
         }
         return new JSONResponse(['revoked' => true]);
     }

@@ -86,4 +86,34 @@ class PolicyStateMapper {
             throw new PolicyConflict();
         }
     }
+
+    /**
+     * Invalidates every OAuth credential at once (the service was switched off): auth_epoch moves by one, and only
+     * credentials carrying the new epoch are valid afterwards. Call only under the writer's mutex.
+     *
+     * @param string $expected canonical auth_epoch read under the mutex
+     * @return string the new auth_epoch
+     * @throws \LogicException outside the policy writer's transaction
+     * @throws PolicyUnavailable when the epoch is exhausted or moved outside the mutex
+     * @throws \OCP\DB\Exception when the update fails
+     */
+    public function advanceAuthEpoch(string $expected): string {
+        if (!$this->db->inTransaction()) {
+            throw new \LogicException('The authorization epoch changes only inside the policy writer transaction');
+        }
+        try {
+            $next = DecimalCounter::increment($expected);
+        } catch (\InvalidArgumentException $e) {
+            throw new PolicyUnavailable('Authorization epoch exhausted', previous: $e);
+        }
+        $qb = $this->db->getQueryBuilder();
+        $count = $qb->update(self::TABLE)->set('auth_epoch', $qb->createFunction('auth_epoch + 1'))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('auth_epoch', $qb->createNamedParameter($expected)))
+            ->executeStatement();
+        if ($count !== 1) {
+            throw new PolicyUnavailable('Authorization epoch changed outside the policy mutex');
+        }
+        return $next;
+    }
 }

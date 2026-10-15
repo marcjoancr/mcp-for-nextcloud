@@ -60,8 +60,10 @@ final class LegacyCredentialsUpgradeTest extends TestCase {
                 'access_hash' => str_repeat("a$n", 32), 'access_expires' => $now + 3600, 'refresh_hash' => str_repeat("r$n", 32),
                 'refresh_expires' => $now + TokenService::REFRESH_TTL, 'created_at' => $now], $now);
         }
-        // Grant 1 rotates once under 1.0.8, which leaves a spent record of its first refresh token.
-        $this->assertTrue($store->rotate(1, str_repeat('r1', 32), str_repeat('A1', 32), $now + 3600, str_repeat('R1', 32), $now + TokenService::REFRESH_TTL));
+        // Grant 1 rotated once under 1.0.8, which left a spent record of its first refresh token (the 1.0.8 rows).
+        $database->dbal->update('mcp_oauth_tokens', ['access_hash' => str_repeat('A1', 32), 'refresh_hash' => str_repeat('R1', 32)], ['id' => 1]);
+        $database->dbal->insert('mcp_oauth_spent', ['refresh_hash' => str_repeat('r1', 32), 'user_id' => 'alice', 'client_id' => 'client',
+            'grant_id' => 1, 'expires_at' => $now + TokenService::REFRESH_TTL]);
         $before = [];
         foreach (Version001100Date20261015010000::OAUTH_TABLES as $table) {
             $before[$table] = self::rows($database, $table);
@@ -86,9 +88,15 @@ final class LegacyCredentialsUpgradeTest extends TestCase {
         $this->assertSame('alice', $store->findByAccess(str_repeat('A1', 32))['user_id']);
         $this->assertSame('bob', $store->findByRefresh(str_repeat('r2', 32))['user_id']);
         $this->assertSame('alice', $store->consumeCode(str_repeat('c', 64))['user_id']);
+        $connection = $database->connection();
+        $connection->beginTransaction();
         $this->assertTrue($store->rotate(2, str_repeat('r2', 32), str_repeat('A2', 32), $now + 3600, str_repeat('R2', 32), $now + TokenService::REFRESH_TTL));
-        // The record spent under 1.0.8 still detects the replay and revokes only that client and owner.
-        $store->revokeReusedRefresh(str_repeat('r1', 32), 'client', $now);
+        $connection->commit();
+        // The record spent under 1.0.8 is still a valid lineage (epoch 0, generation 1 against (1, 0)), so its replay
+        // still revokes only that client and owner.
+        $spent = $store->findSpent(str_repeat('r1', 32));
+        $this->assertTrue(\OCA\Mcp\OAuth\CredentialGeneration::live($spent, ['issue_seq' => '1', 'revoked_below' => '0'], '0'));
+        $store->deleteForOwnerAndClient((string)$spent['user_id'], (string)$spent['client_id']);
         $this->assertSame(['bob'], array_column($database->rows('mcp_oauth_tokens'), 'user_id'));
     }
 }

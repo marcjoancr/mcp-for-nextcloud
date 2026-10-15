@@ -25,7 +25,10 @@ use UnexpectedValueException;
  *   administrative command. A command that has a receipt links it and leaves changes empty (the receipt holds them);
  *   undo links the receipt it restored in undoOf; service and logs-access changes carry their single app-wide change.
  *
- * Cleanup events (kind=cleanup) belong to the revocation work and are not defined here.
+ * - cleanup (version 1): {v, scope, uid, cut, epoch}. Written with every revocation, in its transaction; the physical
+ *   delete runs after the commit and may repeat (contracts §3.2). scope 'user' names uid and the generation cut (every
+ *   credential of uid with auth_gen <= cut goes) and leaves epoch null; scope 'global' names the new auth epoch (every
+ *   credential below it goes) and leaves uid and cut null. A cleanup never removes a credential issued after it.
  */
 final class PolicyEventPayload {
     public const VERSION = 1;
@@ -38,6 +41,8 @@ final class PolicyEventPayload {
     /** Commands whose changes the matrix can undo through a receipt. */
     public const RECEIPT_ACTIONS = [self::ACTION_UPDATE, self::ACTION_BULK, self::ACTION_COMMANDS];
     public const ACTIONS = [...self::RECEIPT_ACTIONS, self::ACTION_UNDO, self::ACTION_SERVICE, self::ACTION_LOGS];
+    public const SCOPE_USER = 'user';
+    public const SCOPE_GLOBAL = 'global';
     /** App-wide keys an audit change may name, with a null uid. */
     public const APP_KEYS = [GrantPolicy::SERVICE_KEY, 'logs_groups'];
 
@@ -72,14 +77,38 @@ final class PolicyEventPayload {
     }
 
     /**
+     * @param string $uid owner of the revoked credentials
+     * @param string $cut canonical generation: every credential of $uid at or below it is invalid
+     * @return array<string, mixed> a valid cleanup payload
+     * @throws UnexpectedValueException when any part is invalid
+     */
+    public static function cleanupUser(string $uid, string $cut): array {
+        return self::validate(PolicyEventsMapper::KIND_CLEANUP, ['v' => self::VERSION, 'scope' => self::SCOPE_USER,
+            'uid' => $uid, 'cut' => $cut, 'epoch' => null]);
+    }
+
+    /**
+     * @param string $epoch the auth epoch just committed: every credential below it is invalid
+     * @return array<string, mixed> a valid cleanup payload
+     * @throws UnexpectedValueException when any part is invalid
+     */
+    public static function cleanupGlobal(string $epoch): array {
+        return self::validate(PolicyEventsMapper::KIND_CLEANUP, ['v' => self::VERSION, 'scope' => self::SCOPE_GLOBAL,
+            'uid' => null, 'cut' => null, 'epoch' => $epoch]);
+    }
+
+    /**
      * Checks a payload of a receipt or audit event exactly: no missing, extra or mistyped field.
      *
-     * @param string $kind PolicyEventsMapper::KIND_RECEIPT or KIND_AUDIT
+     * @param string $kind one of PolicyEventsMapper::KINDS
      * @param array<array-key, mixed> $payload as built or as read back from storage
      * @return array<string, mixed> the same payload
      * @throws UnexpectedValueException when the payload does not match its kind
      */
     public static function validate(string $kind, array $payload): array {
+        if ($kind === PolicyEventsMapper::KIND_CLEANUP) {
+            return self::validateCleanup($payload);
+        }
         $receipt = $kind === PolicyEventsMapper::KIND_RECEIPT;
         if (!$receipt && $kind !== PolicyEventsMapper::KIND_AUDIT) {
             throw new UnexpectedValueException('No payload is defined for this policy event kind');
@@ -148,6 +177,28 @@ final class PolicyEventPayload {
     /** @return bool a user id the official user config accepts: non-empty, valid UTF-8, without NUL */
     public static function validUid(string $uid): bool {
         return $uid !== '' && !str_contains($uid, "\0") && mb_check_encoding($uid, 'UTF-8');
+    }
+
+    private static function validateCleanup(array $payload): array {
+        $keys = array_keys($payload);
+        sort($keys);
+        $counter = static function (mixed $value): bool {
+            try {
+                return is_string($value) && DecimalCounter::validate($value, DecimalCounter::MAX) === $value;
+            } catch (\InvalidArgumentException) {
+                return false;
+            }
+        };
+        $valid = $keys === ['cut', 'epoch', 'scope', 'uid', 'v'] && ($payload['v'] ?? null) === self::VERSION
+            && match ($payload['scope'] ?? null) {
+                self::SCOPE_USER => is_string($payload['uid']) && self::validUid($payload['uid']) && $counter($payload['cut']) && $payload['epoch'] === null,
+                self::SCOPE_GLOBAL => $payload['uid'] === null && $payload['cut'] === null && $counter($payload['epoch']),
+                default => false,
+            };
+        if (!$valid) {
+            throw new UnexpectedValueException('Invalid policy event payload');
+        }
+        return $payload;
     }
 
     private static function validChange(mixed $change, bool $receipt): bool {

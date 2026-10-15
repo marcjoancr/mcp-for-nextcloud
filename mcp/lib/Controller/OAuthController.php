@@ -112,15 +112,23 @@ class OAuthController extends Controller {
             return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
         }
         try {
-            $this->policy->setConnected($uid, true);
+            // Connection and code in one command: a failure leaves the user neither connected nor with a code.
+            $code = $this->tokens->consent($authRequest, $uid);
         } catch (PolicyUnavailable) {
             // Nothing was issued: the client may try again (RFC 6749 §4.1.2.1), the state is never assumed.
             return new RedirectResponse($authRequest->redirectWith(['error' => 'temporarily_unavailable'], $this->urls->issuer()));
         }
-        return new RedirectResponse($authRequest->redirectWith(['code' => $this->tokens->createCode($authRequest, $uid)], $this->urls->issuer()));
+        if ($code === null) {
+            // The service or the eligibility changed since the check above.
+            return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
+        }
+        return new RedirectResponse($authRequest->redirectWith(['code' => $code], $this->urls->issuer()));
     }
 
-    /** @return JSONResponse token response (no-store) or an RFC 6749 error; failed grants are throttled */
+    /**
+     * @return JSONResponse token response (no-store), an RFC 6749 error (failed grants are throttled), or 503
+     *     temporarily_unavailable with Retry-After when the credential state cannot be read or keeps changing
+     */
     #[PublicPage]
     #[NoCSRFRequired]
     #[BruteForceProtection(action: 'mcp_oauth_token')]
@@ -138,7 +146,13 @@ class OAuthController extends Controller {
             if ($e->error === 'invalid_grant') {
                 $response->throttle(['action' => 'mcp_oauth_token']);
             }
+        } catch (PolicyUnavailable) {
+            // Storage failed or kept changing: nothing was consumed or issued, so the client may simply retry.
+            $response = new JSONResponse(['error' => 'temporarily_unavailable',
+                'error_description' => 'The authorization server is temporarily unavailable'], 503);
+            $response->addHeader('Retry-After', '1');
         }
+        $this->tokens->housekeeping();
         $response->addHeader('Cache-Control', 'no-store');
         $response->addHeader('Pragma', 'no-cache');
         return $response;

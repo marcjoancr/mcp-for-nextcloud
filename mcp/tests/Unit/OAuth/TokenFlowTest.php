@@ -18,6 +18,9 @@ use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Config\IUserConfig;
+use OCP\IAppConfig;
+use Psr\Log\NullLogger;
 use OCP\IConfig;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -57,21 +60,25 @@ final class TokenFlowTest extends TestCase {
         $alice->method('isEnabled')->willReturnCallback(fn (): bool => $this->aliceEnabled);
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturnCallback(fn (string $uid) => $uid === 'alice' && $this->aliceExists ? $alice : null);
-        $gate = new TokenOwnerGate($users, $this->policy, $this->store);
-        $this->service = new TokenService($this->store, $hasher, $time, $gate, $appConfigMock);
-        $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate, $appConfigMock);
+        $writer = InMemoryConfig::writer($appConfigMock, $this->store);
+        $gate = new TokenOwnerGate($users, $this->policy, $writer, $this->createMock(IUserConfig::class),
+            $this->createMock(IAppConfig::class), new NullLogger());
+        $this->service = new TokenService($this->store, $hasher, $time, $gate, $appConfigMock, $writer,
+            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::processor($appConfigMock));
+        $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate, $appConfigMock,
+            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::state($appConfigMock));
     }
 
     private function code(): string {
         $request = new AuthorizationRequest(new ClientMetadata(self::CLIENT, 'Claude', [self::REDIRECT]),
             self::REDIRECT, 'xyz', self::CHALLENGE, self::RESOURCE, 'mcp');
-        return $this->service->createCode($request, 'alice');
+        return $this->service->consent($request, 'alice');
     }
 
     private function nativeCode(): string {
         $request = new AuthorizationRequest(NativeClient::metadata(), 'http://localhost:53421/oauth/callback',
             'xyz', self::CHALLENGE, self::RESOURCE, 'mcp');
-        return $this->service->createCode($request, 'alice');
+        return $this->service->consent($request, 'alice');
     }
 
     private function nativeExchange(string $code): array {

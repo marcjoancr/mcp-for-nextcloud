@@ -247,6 +247,17 @@ final class McpControllerTest extends TestCase {
         $this->assertStringStartsWith('Bearer error="invalid_token", resource_metadata=', self::headers($response)['WWW-Authenticate']);
     }
 
+    /** An unreadable credential state is neither an accepted nor a rejected token: 503, retriable, no challenge. */
+    public function testAnUnreadableCredentialStateIsATemporaryFailure(): void {
+        $this->login(null);
+        $this->headers['Authorization'] = 'Bearer ncmcp_at_valid';
+        $this->authenticator->method('authenticate')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
+        $response = $this->controller('{}')->post();
+        $this->assertSame(503, $response->getStatus());
+        $this->assertSame('1', self::headers($response)['Retry-After']);
+        $this->assertArrayNotHasKey('WWW-Authenticate', self::headers($response));
+    }
+
     public function testBasicRequestTranslatesInTheLanguageOfTheAccount(): void {
         [$status, $body] = $this->listTools();
         $this->assertSame(200, $status);
