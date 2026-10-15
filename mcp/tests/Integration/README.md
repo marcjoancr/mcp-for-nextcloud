@@ -76,3 +76,11 @@ were. Behind an open barrier (built by hand, with a stand-in enumerator, since n
 provisioned here) the saved scope carries `policy_rev` = the committed revision, another session reads the mode and
 its items through the one-statement join and the grouped count, no epoch moves, and undo restores the absence of the
 mode. The native resource checks themselves are unit contracts; the real Files and CalDAV enumeration belongs to B8.
+
+The candidate listing of Files uses the native API on purpose (contracts F4), with its native side effects, which
+these tests neither suppress nor certify: `getUserFolder()` creates the home of a user who never signed in, and
+`getDirectoryListing()` (`View::getDirectoryContent` in stable32–35) may create the missing parent folder of a nested
+mount (R4 of the plan review) and scans uncached sub-storages. It also materializes every child of the listed folder
+before the folder filter and the page of 50, so there is no width cap yet; measuring a folder with thousands of
+children belongs to B7, and if that fails the mitigation is a recoverable refusal above a fixed width, not a
+cache-based listing (which would lose the mounts and diverge from the native view).

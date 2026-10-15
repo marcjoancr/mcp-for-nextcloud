@@ -103,8 +103,18 @@ final class NativeResourceEnumeratorTest extends TestCase {
             $this->fx->enumerator()->describe('alice', 'calendar', ['14']));
     }
 
-    public function testInaccessibleFailsClosedWhenTheTreeCannotBeRead(): void {
-        $this->assertSame(['5', '6'], $this->fx->enumerator()->inaccessible('bob', 'files', ['5', '6']));
+    /** Review F2: a tree that cannot be read is unavailability (retryable 503), never "these resources do not exist". */
+    public function testInaccessibleIsUnavailableWhenTheTreeOrCalendarsCannotBeRead(): void {
         $this->assertSame([], $this->fx->enumerator()->inaccessible('alice', 'files', [$this->fx->projects, $this->fx->secret]));
+        try {
+            $this->fx->enumerator()->inaccessible('bob', 'files', ['5', '6']);
+            $this->fail('Unreadable tree answered as inaccessible');
+        } catch (PolicyUnavailable) {
+        }
+        $calendars = $this->createMock(\OCA\Mcp\Tools\Calendar\CalendarStore::class);
+        $calendars->method('calendarsForPrincipal')->willThrowException(new \RuntimeException('CalDAV down'));
+        $enumerator = new NativeResourceEnumerator($this->createMock(\OCP\Files\IRootFolder::class), new \OCA\Mcp\Tools\Calendar\CalendarAccess($calendars), $this->fx->guard);
+        $this->expectException(PolicyUnavailable::class);
+        $enumerator->inaccessible('alice', 'calendar', ['11']);
     }
 }

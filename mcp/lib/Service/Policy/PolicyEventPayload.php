@@ -40,8 +40,10 @@ final class PolicyEventPayload {
     public const ACTION_SERVICE = 'service';
     public const ACTION_LOGS = 'logs_access';
     public const ACTION_SCOPE = 'scope.update';
-    /** Commands whose changes the matrix can undo through a receipt. */
-    public const RECEIPT_ACTIONS = [self::ACTION_UPDATE, self::ACTION_BULK, self::ACTION_COMMANDS, self::ACTION_SCOPE];
+    /** Grant commands of the matrix, written through PolicyWriter::applyCells(). */
+    public const GRANT_ACTIONS = [self::ACTION_UPDATE, self::ACTION_BULK, self::ACTION_COMMANDS];
+    /** Commands whose changes can be undone through a receipt: the grant commands and the scope write. */
+    public const RECEIPT_ACTIONS = [...self::GRANT_ACTIONS, self::ACTION_SCOPE];
     /** Prefix of the user cell holding the resource scope of one module. */
     public const SCOPE_PREFIX = 'scope_';
     public const ACTIONS = [...self::RECEIPT_ACTIONS, self::ACTION_UNDO, self::ACTION_SERVICE, self::ACTION_LOGS];
@@ -119,6 +121,14 @@ final class PolicyEventPayload {
         }
         foreach ($payload['changes'] as $change) {
             if (!self::validChange($change, $receipt)) {
+                throw new UnexpectedValueException('Invalid policy event payload');
+            }
+        }
+        if ($receipt) {
+            // A scope receipt holds exactly one scope cell, and a grant receipt holds none.
+            $scopeCells = count(array_filter($payload['changes'], static fn (array $change): bool => self::scopeModule((string)$change['key']) !== null));
+            $scope = $action === self::ACTION_SCOPE;
+            if ($scope ? ($scopeCells !== 1 || count($payload['changes']) !== 1) : $scopeCells !== 0) {
                 throw new UnexpectedValueException('Invalid policy event payload');
             }
         }

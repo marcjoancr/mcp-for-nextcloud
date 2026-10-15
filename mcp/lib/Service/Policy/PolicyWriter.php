@@ -158,7 +158,7 @@ class PolicyWriter {
      *
      * @param string $expectedRevision the revision the administrator's page was built from
      * @param string $actor uid of the administrator who sent the command
-     * @param string $action PolicyEventPayload::RECEIPT_ACTIONS member naming the route
+     * @param string $action PolicyEventPayload::GRANT_ACTIONS member naming the route
      * @param list<array{uid:string, key:string, value:?string}> $cells key from PolicyEventPayload::userKey(); value
      *     '1' (allow), '0' (deny) or null (inherit: remove the override). An exact duplicate is dropped; the same cell
      *     with two values is refused.
@@ -169,7 +169,7 @@ class PolicyWriter {
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
     public function applyCells(string $expectedRevision, string $actor, string $action, array $cells): array {
-        if (!in_array($action, PolicyEventPayload::RECEIPT_ACTIONS, true) || !PolicyEventPayload::validUid($actor)) {
+        if (!in_array($action, PolicyEventPayload::GRANT_ACTIONS, true) || !PolicyEventPayload::validUid($actor)) {
             throw new \InvalidArgumentException('Invalid command');
         }
         $cells = self::cells($cells);

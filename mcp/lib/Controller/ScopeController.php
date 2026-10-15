@@ -42,7 +42,9 @@ use Throwable;
  *   428 without expectedRevision, 409 {error, revision, state} when stale, 422 {"error":"ScopeInactive"} while the
  *   module's activation barrier is closed, 422 {"error":"Inaccessible", items} for a resource the user cannot reach,
  *   422 {"error":"TooManyResources", limit} above the limit, 503 {"error":"Unavailable", uncertain}. Nothing is
- *   written on any refusal. Undo goes through POST /api/grants/undo with the receipt id.
+ *   written on any refusal. A save whose summary cannot be read back after the commit answers 503 with
+ *   uncertain=true plus its revision, changed and receiptId. Undo goes through POST /api/grants/undo with the
+ *   receipt id.
  *
  * Every call is audited in the app log with structured context only: administrator, target uid, action, result,
  * timestamp and, when it applies, module, page and count. Never a resource name, path or title.
@@ -121,7 +123,13 @@ class ScopeController extends Controller {
             } catch (ScopeTooLarge) {
                 return new JSONResponse(['error' => 'TooManyResources', 'limit' => ResourceScopeMapper::MAX_ITEMS], Http::STATUS_UNPROCESSABLE_ENTITY);
             }
-            return $result + ['scope' => $this->summary($uid, $module)];
+            // Committed: a failing re-read of the summary answers uncertain, never "nothing was written", and keeps
+            // the revision and the receiptId of the commit so the undo stays reachable.
+            try {
+                return $result + ['scope' => $this->summary($uid, $module)];
+            } catch (Throwable) {
+                return new JSONResponse(['error' => 'Unavailable', 'uncertain' => true] + $result, Http::STATUS_SERVICE_UNAVAILABLE);
+            }
         }, static fn (array $body): array => ['count' => (int)($body['scope']['count'] ?? 0)], fn (): array => ['scope' => $this->summary($uid, $module)]);
     }
 
@@ -137,7 +145,8 @@ class ScopeController extends Controller {
         try {
             $result = $body();
             if ($result instanceof JSONResponse) {
-                $this->audit($action, $uid, $module, 'refused', ['status' => $result->getStatus()]);
+                $uncertain = $result->getStatus() === Http::STATUS_SERVICE_UNAVAILABLE;
+                $this->audit($action, $uid, $module, $uncertain ? 'uncertain' : 'refused', ['status' => $result->getStatus()]);
                 return $result;
             }
             $this->audit($action, $uid, $module, 'ok', $counted($result));

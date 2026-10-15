@@ -30,7 +30,7 @@ final class ScopeBoundariesTest extends TestCase {
         $this->fx = new ScopeFixture($this);
     }
 
-    private function matrix(?ResourceScopeMapper $scopes): GrantMatrix {
+    private function matrix(ResourceScopeMapper $scopes): GrantMatrix {
         $policy = $this->createMock(GrantPolicy::class);
         $policy->method('forUsers')->willReturnCallback(static fn (array $uids): array => array_fill_keys($uids, []));
         return new GrantMatrix($policy, $this->createMock(IUserManager::class), $this->createMock(IGroupManager::class),
@@ -106,6 +106,34 @@ final class ScopeBoundariesTest extends TestCase {
         $this->assertFalse(PolicyEventPayload::validUserKey('scope_files'));
         $this->expectException(\InvalidArgumentException::class);
         $this->fx->writer()->applyCells($this->fx->revision(), 'root', PolicyEventPayload::ACTION_COMMANDS, [['uid' => 'alice', 'key' => 'scope_files', 'value' => null]]);
+    }
+
+    /** Review F4: a scope receipt holds exactly one scope cell, a grant receipt none, and applyCells writes no scope. */
+    public function testReceiptActionsAndCellKindsAreTiedTogether(): void {
+        $scope = ['uid' => 'alice', 'key' => 'scope_files', 'before' => null, 'after' => '["5"]'];
+        $grant = ['uid' => 'alice', 'key' => 'grant_notes_edit', 'before' => null, 'after' => '1'];
+        $this->assertSame([$scope], PolicyEventPayload::receipt('root', PolicyEventPayload::ACTION_SCOPE, '1', '2', [$scope])['changes']);
+        foreach ([
+            [PolicyEventPayload::ACTION_SCOPE, [$grant]],
+            [PolicyEventPayload::ACTION_SCOPE, [$scope, $grant]],
+            [PolicyEventPayload::ACTION_SCOPE, [$scope, ['key' => 'scope_calendar'] + $scope]],
+            [PolicyEventPayload::ACTION_UPDATE, [$scope]],
+            [PolicyEventPayload::ACTION_COMMANDS, [$grant, $scope]],
+        ] as $index => [$action, $changes]) {
+            try {
+                PolicyEventPayload::receipt('root', $action, '1', '2', $changes);
+                $this->fail("Receipt case $index accepted");
+            } catch (\UnexpectedValueException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+        $before = $this->fx->snapshot();
+        try {
+            $this->fx->writer()->applyCells($before['revision'], 'root', PolicyEventPayload::ACTION_SCOPE, [['uid' => 'alice', 'key' => 'grant_notes_edit', 'value' => '1']]);
+            $this->fail('applyCells accepted the scope action');
+        } catch (\InvalidArgumentException) {
+        }
+        $this->assertSame($before, $this->fx->snapshot());
     }
 
     /** The enumerator lists what the account reaches in Nextcloud; a tool must never use it as its view. */

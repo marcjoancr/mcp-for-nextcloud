@@ -47,13 +47,14 @@ class NativeResourceEnumerator {
     /**
      * The ids of the list the target user cannot reach natively: a Files id must be a readable folder of the user's
      * tree, a calendar id one of the user's visible calendars of the module's component. A failure to read the
-     * user's resources makes every id unreachable.
+     * user's resources is unavailability, not an answer about them: the save is refused with a retryable 503.
      *
      * @param string $uid target user
      * @param string $module one of ResourceScopeMapper::MODULES
      * @param list<string> $ids canonical decimal ids
      * @return list<string> the unreachable ids, in the given order; empty when all are reachable
      * @throws InvalidArgumentException for an unknown module
+     * @throws PolicyUnavailable when the user's tree or calendars cannot be read
      */
     public function inaccessible(string $uid, string $module, array $ids): array {
         self::checkModule($module);
@@ -67,8 +68,8 @@ class NativeResourceEnumerator {
             }
             $visible = $this->calendarsById($uid, $module);
             return array_values(array_filter($ids, static fn (string $id): bool => !isset($visible[$id])));
-        } catch (Throwable) {
-            return $ids;
+        } catch (Throwable $e) {
+            throw new PolicyUnavailable('Native resources unavailable', previous: $e);
         }
     }
 
@@ -76,6 +77,13 @@ class NativeResourceEnumerator {
      * One page of candidates: the subfolders of $parent (the user's root when null), or the user's calendars or task
      * lists, whose name contains $search ignoring case, ordered by name. Pages never truncate: total counts every
      * match and hasMore says whether another page follows.
+     *
+     * The Files listing is the native one on purpose (contracts F4), with its native side effects, all admin-only and
+     * none of them widening access: getUserFolder() creates the home of a user who never signed in, and
+     * getDirectoryListing() (View::getDirectoryContent in stable32–35) may create the missing parent folder of a
+     * nested mount and scans uncached sub-storages. It also materializes every child of the folder, files included,
+     * before the folder filter and the page of 50: there is no width cap yet, and the measurement of a very wide
+     * folder belongs to B7. A cache-based listing would lose the mounts and diverge from the native view.
      *
      * @param string $uid target user
      * @param string $module one of ResourceScopeMapper::MODULES

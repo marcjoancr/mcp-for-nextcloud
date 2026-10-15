@@ -28,7 +28,7 @@ final class ScopeRoutesTest extends TestCase {
     }
 
     /** @param array<string, mixed> $body request parameters */
-    private function controller(array $body = [], bool $open = false): ScopeController {
+    private function controller(array $body = [], bool $open = false, ?\OCA\Mcp\Db\ResourceScopeMapper $reads = null, ?\OCA\Mcp\Service\Scope\NativeResourceEnumerator $resources = null): ScopeController {
         $request = $this->createMock(IRequest::class);
         $request->method('getParam')->willReturnCallback(fn (string $key, $default = null) => $body[$key] ?? $default);
         $session = $this->createMock(IUserSession::class);
@@ -41,7 +41,7 @@ final class ScopeRoutesTest extends TestCase {
         };
         $time = $this->createMock(ITimeFactory::class);
         $time->method('getTime')->willReturn(1760000123);
-        return new ScopeController('mcp', $request, $this->fx->scopes, $this->fx->enumerator(), $this->fx->writer($open), $this->fx->state,
+        return new ScopeController('mcp', $request, $reads ?? $this->fx->scopes, $resources ?? $this->fx->enumerator(), $this->fx->writer($open, $resources), $this->fx->state,
             $open ? new ScopeActivation(['files' => true, 'calendar' => true, 'tasks' => true]) : new ScopeActivation(),
             $this->fx->userManager(), $session, $logger, $time);
     }
@@ -110,6 +110,36 @@ final class ScopeRoutesTest extends TestCase {
 
         $tooMany = $this->controller(['expectedRevision' => $before['revision'], 'mode' => 'restricted', 'items' => array_map('strval', range(1, 201))], true)->update('alice', 'files');
         $this->assertSame([422, ['error' => 'TooManyResources', 'limit' => 200]], [$tooMany->getStatus(), self::body($tooMany)]);
+        $this->assertSame($before, $this->fx->snapshot());
+    }
+
+    /** Review F1: once the save committed, a failing re-read never answers "nothing was written". */
+    public function testASummaryThatFailsAfterTheCommitAnswersUncertainWithTheReceipt(): void {
+        $reads = $this->createMock(\OCA\Mcp\Db\ResourceScopeMapper::class);
+        $reads->method('forModule')->willThrowException(new \UnexpectedValueException('Invalid stored resource scope'));
+        $revision = $this->fx->revision();
+
+        $response = $this->controller(['expectedRevision' => $revision, 'mode' => 'restricted', 'items' => ['11']], true, $reads)->update('alice', 'calendar');
+
+        $body = self::body($response);
+        $this->assertSame(503, $response->getStatus());
+        $this->assertSame(['error' => 'Unavailable', 'uncertain' => true, 'revision' => (string)((int)$revision + 1), 'changed' => true], array_diff_key($body, ['receiptId' => 1]));
+        $this->assertIsString($body['receiptId']);
+        $this->assertSame(['11'], $this->fx->scopes->forModule('alice', 'calendar')['items'], 'the scope is saved');
+        $this->assertSame(['uncertain', 503], [end($this->logged)[1]['result'], end($this->logged)[1]['status']]);
+        $this->fx->writer()->restoreReceipt($body['receiptId'], $body['revision'], 'root');
+        $this->assertNull($this->fx->scopes->forModule('alice', 'calendar'), 'the receipt of the uncertain answer undoes the save');
+    }
+
+    /** Review F2: native resources that cannot be read refuse the save as unavailable, not as inaccessible. */
+    public function testAnUnreadableTreeRefusesTheSaveWith503NotInaccessible(): void {
+        $resources = $this->createMock(\OCA\Mcp\Service\Scope\NativeResourceEnumerator::class);
+        $resources->method('inaccessible')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable('Native resources unavailable'));
+        $before = $this->fx->snapshot();
+
+        $response = $this->controller(['expectedRevision' => $before['revision'], 'mode' => 'restricted', 'items' => [$this->fx->projects]], true, null, $resources)->update('alice', 'files');
+
+        $this->assertSame([503, ['error' => 'Unavailable', 'uncertain' => false]], [$response->getStatus(), self::body($response)]);
         $this->assertSame($before, $this->fx->snapshot());
     }
 

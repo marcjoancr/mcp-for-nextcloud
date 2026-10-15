@@ -46,7 +46,7 @@ class GrantMatrix {
         private IGroupManager $groupManager,
         private IAppManager $appManager,
         private LogsAccess $logs,
-        private ?ResourceScopeMapper $scopes = null,
+        private ResourceScopeMapper $scopes,
     ) {}
 
     /**
@@ -105,9 +105,7 @@ class GrantMatrix {
                 'enabled' => $user->isEnabled(),
                 'appsEnabled' => $appsEnabled,
             ] + $state[$user->getUID()];
-            if ($scopes !== null) {
-                $row['scope'] = $scopes[$user->getUID()];
-            }
+            $row['scope'] = $scopes[$user->getUID()];
             return $row;
         }, $users);
     }
@@ -117,13 +115,10 @@ class GrantMatrix {
      * when restricted, how many resources it keeps. No id and no name (contracts B.6).
      *
      * @param list<IUser> $users users of the page
-     * @return array<string, array<string, array{mode:string, count:?int}>>|null by uid and module; null without a mapper
+     * @return array<string, array<string, array{mode:string, count:?int}>> by uid and module
      * @throws PolicyUnavailable when the scopes cannot be read: the matrix never shows a scope as unrestricted by default
      */
-    private function scopes(array $users): ?array {
-        if ($this->scopes === null) {
-            return null;
-        }
+    private function scopes(array $users): array {
         $uids = array_map(static fn (IUser $user) => $user->getUID(), $users);
         try {
             $counts = $this->scopes->counts($uids);

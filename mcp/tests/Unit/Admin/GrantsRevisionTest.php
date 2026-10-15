@@ -51,6 +51,41 @@ final class GrantsRevisionTest extends TestCase {
             $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session);
     }
 
+    /** Review F1 of B2: a re-read for the response that fails after the commit answers uncertain, with the receipt. */
+    public function testAReReadThatFailsAfterTheCommitAnswersUncertainWithTheRevisionAndReceipt(): void {
+        $failing = $this->createMock(\OCA\Mcp\Service\GrantMatrix::class);
+        $failing->method('rows')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable('Resource scopes unavailable'));
+        $failing->method('groups')->willThrowException(new \RuntimeException('Groups unavailable'));
+        $policy = $this->createMock(\OCA\Mcp\Service\GrantPolicy::class);
+        $policy->method('globalEnabled')->willThrowException(new \RuntimeException('Config unavailable'));
+        $build = function (array $body) use ($failing, $policy): GrantsController {
+            $body['expectedRevision'] = $this->revision();
+            $request = $this->createMock(IRequest::class);
+            $request->method('getParam')->willReturnCallback(fn (string $key, $default = null) => $body[$key] ?? $default);
+            $user = $this->createMock(IUser::class);
+            $user->method('getUID')->willReturn('root');
+            $session = $this->createMock(IUserSession::class);
+            $session->method('getUser')->willReturn($user);
+            return new GrantsController('mcp', $request, $failing, $policy, $this->fx->userManager(),
+                $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session);
+        };
+
+        $revision = $this->revision();
+        $update = $build(['eligible' => true])->update('ana');
+        self::assertStatus(503, $update);
+        $this->assertSame(['error' => 'Unavailable', 'uncertain' => true, 'revision' => (string)((int)$revision + 1)], array_diff_key($update->getData(), ['receiptId' => 1]));
+        $this->assertIsString($update->getData()['receiptId']);
+        $this->assertSame('1', $this->raw('ana')['eligible'], 'the cell is saved');
+
+        $service = $build(['enabled' => false])->service();
+        self::assertStatus(503, $service);
+        $this->assertSame(['error' => 'Unavailable', 'uncertain' => true, 'revision' => $this->revision()], $service->getData());
+
+        $logs = $build(['groups' => ['sales'], 'previous' => [], 'version' => 0])->updateLogsAccess();
+        self::assertStatus(503, $logs);
+        $this->assertTrue($logs->getData()['uncertain']);
+    }
+
     private function revision(): string {
         return (string)$this->fx->config->revision;
     }

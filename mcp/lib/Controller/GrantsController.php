@@ -88,10 +88,10 @@ class GrantsController extends Controller {
      *
      * @param string $uid existing Nextcloud user id
      * @return JSONResponse the user's updated row with {revision, receiptId} (receiptId null when nothing changed),
-     *     or 400/409/428/503
+     *     503 {uncertain: true, revision, receiptId} when the row cannot be read back after the commit, or 400/409/428/503
      */
     public function update(string $uid): JSONResponse {
-        return $this->guard(function () use ($uid): array {
+        return $this->guard(function () use ($uid): array|JSONResponse {
             $user = $this->user($uid);
             $expected = $this->expectedRevision();
             $eligible = $this->request->getParam('eligible');
@@ -108,7 +108,7 @@ class GrantsController extends Controller {
             }
             $result = $this->writer->applyCells($expected, $this->actor(), PolicyEventPayload::ACTION_UPDATE,
                 [['uid' => $uid, 'key' => $key, 'value' => $value ? '1' : '0']]);
-            return $this->matrix->rows([$user])[0] + ['revision' => $result['revision'], 'receiptId' => $result['receiptId']];
+            return self::afterCommit(['revision' => $result['revision'], 'receiptId' => $result['receiptId']], fn (): array => $this->matrix->rows([$user])[0]);
         }, fn (): array => $this->usersState([$uid]));
     }
 
@@ -212,10 +212,10 @@ class GrantsController extends Controller {
      * @return JSONResponse {enabled: bool, revision}, or 400/409/428/503
      */
     public function service(): JSONResponse {
-        return $this->guard(function (): array {
+        return $this->guard(function (): array|JSONResponse {
             $enabled = self::bool($this->request->getParam('enabled'));
             $result = $this->writer->adminSetGlobalEnabled($this->expectedRevision(), $this->actor(), $enabled);
-            return ['enabled' => $this->policy->globalEnabled(), 'revision' => $result['revision']];
+            return self::afterCommit(['revision' => $result['revision']], fn (): array => ['enabled' => $this->policy->globalEnabled()]);
         }, fn (): array => ['enabled' => $this->policy->globalEnabled()]);
     }
 
@@ -299,7 +299,7 @@ class GrantsController extends Controller {
             } catch (LogsGroupsConflict) {
                 throw new PolicyConflict();
             }
-            return $this->logsState();
+            return self::afterCommit([], fn (): array => $this->logsState());
         }, fn (): array => $this->logsState());
     }
 
@@ -377,6 +377,23 @@ class GrantsController extends Controller {
             return self::unavailable($e);
         } catch (InvalidArgumentException) {
             return new JSONResponse(['error' => 'Invalid request'], Http::STATUS_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * The answer of a write that already committed. A re-read for the response that fails afterwards (the user row,
+     * the switch, the logs state) must not turn into "nothing was written": the answer is 503 with uncertain=true, so
+     * the page reloads instead of repeating the write, and it still carries the writer's revision and receiptId, so
+     * the undo stays reachable.
+     *
+     * @param array<string, mixed> $result what the writer returned for the response
+     * @param callable():array<string, mixed> $read the state read after the commit
+     */
+    private static function afterCommit(array $result, callable $read): array|JSONResponse {
+        try {
+            return $read() + $result;
+        } catch (\Throwable) {
+            return new JSONResponse(['error' => 'Unavailable', 'uncertain' => true] + $result, Http::STATUS_SERVICE_UNAVAILABLE);
         }
     }
 
