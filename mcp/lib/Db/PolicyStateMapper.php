@@ -19,7 +19,13 @@ class PolicyStateMapper {
 
     public function __construct(private IDBConnection $db) {}
 
-    /** @return array{revision:string, lock_seq:string, auth_epoch:string} */
+    /**
+     * Reads the single state row; counters stay canonical decimal strings, never platform integers.
+     *
+     * @return array{revision:string, lock_seq:string, auth_epoch:string}
+     * @throws PolicyUnavailable when the row is missing or a counter is not canonical; runtime never re-seeds
+     * @throws \OCP\DB\Exception when the query fails
+     */
     public function state(): array {
         $qb = $this->db->getQueryBuilder();
         $result = $qb->select('revision', 'lock_seq', 'auth_epoch')->from(self::TABLE)
@@ -44,7 +50,12 @@ class PolicyStateMapper {
         return $state;
     }
 
-    /** Acquires a write lock before any local read, including on SQLite. */
+    /**
+     * Acquires a write lock before any local read, including on SQLite. Call only inside the writer's transaction.
+     *
+     * @throws PolicyUnavailable when the row is missing or the mutex counter is exhausted
+     * @throws \OCP\DB\Exception when the update fails, including deadlock and lock-wait timeouts
+     */
     public function acquire(): void {
         $qb = $this->db->getQueryBuilder();
         $count = $qb->update(self::TABLE)->set('lock_seq', $qb->createFunction('lock_seq + 1'))
@@ -56,6 +67,14 @@ class PolicyStateMapper {
         }
     }
 
+    /**
+     * Advances the revision by one, only from the revision the caller read under the mutex.
+     *
+     * @param string $expected canonical decimal revision read under the mutex
+     * @throws \InvalidArgumentException when $expected is not a canonical counter below the maximum
+     * @throws PolicyConflict when the stored revision is no longer $expected
+     * @throws \OCP\DB\Exception when the update fails
+     */
     public function compareAndSet(string $expected): void {
         DecimalCounter::validate($expected);
         $qb = $this->db->getQueryBuilder();

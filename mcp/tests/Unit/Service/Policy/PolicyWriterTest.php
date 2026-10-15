@@ -318,4 +318,68 @@ final class PolicyWriterTest extends TestCase {
         }
         $this->assertSame([], $this->database->rows('unit_policy'));
     }
+
+    /** clearCache fails on the given call: 1 before admission, 2 under the mutex, 3 after the attempt. */
+    private function appsFailingCacheClearOnCall(int $failing, \Throwable $error): IAppConfig {
+        $calls = 0;
+        $apps = $this->createMock(IAppConfig::class);
+        $apps->method('clearCache')->willReturnCallback(function () use (&$calls, $failing, $error): void {
+            if (++$calls === $failing) {
+                throw $error;
+            }
+        });
+        return $apps;
+    }
+
+    public function testCacheClearFailureAfterCommitReportsAnUncertainOutcomeAndKeepsTheCause(): void {
+        $cause = new \RuntimeException('cache unavailable');
+        $writer = $this->writer(apps: $this->appsFailingCacheClearOnCall(3, $cause));
+        try {
+            $writer->runInternal([], fn () => null, $this->write(1));
+            $this->fail('Post-commit cache failure hidden');
+        } catch (PolicyUnavailable $e) {
+            $this->assertTrue($e->uncertain);
+            $this->assertSame($cause, $e->getPrevious());
+        }
+        // The write is durable: the admin must reload, not retry a write that already happened.
+        $this->assertCount(1, $this->database->rows('unit_policy'));
+        $this->assertSame('1', $this->state->state()['revision']);
+        $this->expectException(PolicyUnavailable::class);
+        $writer->runInternal([], fn () => $this->fail('Abandoned writer reused'), $this->write(2));
+    }
+
+    public function testCacheClearFailureAfterAFailedAttemptChainsTheAttemptsOwnError(): void {
+        $failure = new \LogicException('command failed');
+        $writer = $this->writer(apps: $this->appsFailingCacheClearOnCall(3, new \RuntimeException('cache unavailable')));
+        try {
+            $writer->runInternal([], fn () => null, function () use ($failure): bool {
+                $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'new']);
+                throw $failure;
+            });
+            $this->fail('Failed attempt accepted');
+        } catch (PolicyUnavailable $e) {
+            $this->assertFalse($e->uncertain);
+            $this->assertSame($failure, $e->getPrevious());
+        }
+        $this->assertSame([], $this->database->rows('unit_policy'));
+        $this->assertSame('0', $this->state->state()['revision']);
+    }
+
+    public function testCacheClearFailureAfterAnUnknownCommitStaysUncertain(): void {
+        $db = $this->boundaryConnection(function (): void {
+            $this->db->commit();
+            throw new \RuntimeException('connection lost');
+        });
+        $writer = new PolicyWriter($db, new PolicyStateMapper($db), (new InMemoryConfig())->mock($this),
+            $this->createMock(IUserConfig::class), $this->appsFailingCacheClearOnCall(3, new \RuntimeException('cache unavailable')),
+            $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+        try {
+            $writer->runInternal([], fn () => null, $this->write(1));
+            $this->fail('Unknown commit accepted');
+        } catch (PolicyUnavailable $e) {
+            $this->assertTrue($e->uncertain);
+            $this->assertInstanceOf(PolicyUnavailable::class, $e->getPrevious());
+            $this->assertTrue($e->getPrevious()->uncertain);
+        }
+    }
 }

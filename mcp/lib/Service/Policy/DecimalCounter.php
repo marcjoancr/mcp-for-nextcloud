@@ -12,6 +12,12 @@ final class DecimalCounter {
     public const MAX = '9223372036854775807';
     public const MAX_EXPECTED = '9223372036854775806';
 
+    /**
+     * @param string $value candidate counter, exactly as stored or received
+     * @param string $maximum inclusive upper bound, itself canonical
+     * @return string $value unchanged, once proven canonical
+     * @throws \InvalidArgumentException for leading zeros, signs, spaces, exponents, non-ASCII digits or overflow
+     */
     public static function validate(string $value, string $maximum = self::MAX_EXPECTED): string {
         if (!preg_match('/^(0|[1-9][0-9]*)$/D', $value)
             || strlen($value) > strlen($maximum)

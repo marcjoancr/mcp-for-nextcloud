@@ -44,6 +44,8 @@ class PolicyWriter {
      * @param Closure(array,string):mixed $prepare remote work, outside any transaction
      * @param Closure(mixed,array,string):bool $apply local work only, under the global mutex
      * @return array{revision:string, changed:bool, commandId:string}
+     * @throws PolicyConflict when the expected revision is stale, before or after the retries
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
     public function runAdmin(string $expectedRevision, array $uids, Closure $prepare, Closure $apply): array {
         DecimalCounter::validate($expectedRevision);
@@ -60,23 +62,52 @@ class PolicyWriter {
      * @param Closure(array,string):mixed $prepare
      * @param Closure(mixed,array,string):bool $apply
      * @return array{revision:string, changed:bool, commandId:string}
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
     public function runInternal(array $uids, Closure $prepare, Closure $apply): array {
         return $this->run($uids, $prepare, $apply, null);
     }
 
+    /**
+     * Turns the service switch on or off; a repeated disable still revokes every connection.
+     *
+     * @param bool $enabled new state of the global service switch
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
     public function setGlobalEnabled(bool $enabled): void {
         $this->change(null, GrantPolicy::SERVICE_KEY, $enabled ? '1' : '0');
     }
 
+    /**
+     * @param string $uid Nextcloud user id
+     * @param bool $enabled new eligibility; false also revokes the user's connections
+     * @throws \InvalidArgumentException for a user the server does not know
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
     public function setEligible(string $uid, bool $enabled): void {
         $this->change($uid, GrantPolicy::ELIGIBLE_KEY, $enabled ? '1' : '0');
     }
 
+    /**
+     * @param string $uid Nextcloud user id
+     * @param bool $enabled new personal connection state
+     * @throws \InvalidArgumentException for a user the server does not know
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
     public function setConnected(string $uid, bool $enabled): void {
         $this->change($uid, GrantPolicy::CONNECTED_KEY, $enabled ? '1' : '0');
     }
 
+    /**
+     * Stores an explicit individual allow or deny, which differs from an absent override.
+     *
+     * @param string $uid Nextcloud user id
+     * @param string $module catalog module
+     * @param string $operation catalog operation of that module
+     * @param bool $enabled explicit allow (true) or deny (false)
+     * @throws \InvalidArgumentException for an unknown user, module or operation
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
     public function setGrant(string $uid, string $module, string $operation, bool $enabled): void {
         if (!GrantPolicy::inCatalog($module, $operation)) {
             throw new \InvalidArgumentException('Unknown module or operation');
@@ -84,7 +115,15 @@ class PolicyWriter {
         $this->change($uid, 'grant_' . $module . '_' . $operation, $enabled ? '1' : '0');
     }
 
-    /** Removes an individual override through the same transaction; absence remains absence. */
+    /**
+     * Removes an individual override through the same transaction; absence remains absence.
+     *
+     * @param string $uid Nextcloud user id
+     * @param string $module catalog module
+     * @param string $operation catalog operation of that module
+     * @throws \InvalidArgumentException for an unknown user, module or operation
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
     public function resetOverride(string $uid, string $module, string $operation): void {
         if (!GrantPolicy::inCatalog($module, $operation)) {
             throw new \InvalidArgumentException('Unknown module or operation');
@@ -140,7 +179,9 @@ class PolicyWriter {
         for ($attempt = 0; ; ++$attempt) {
             $owned = false;
             $committing = false;
-            $retry = false;
+            $committed = false;
+            $result = null;
+            $failure = null;
             try {
                 $this->clearCaches($uids);
                 $observed = $this->state->state();
@@ -176,41 +217,78 @@ class PolicyWriter {
                 $revision = $this->state->state()['revision'];
                 $committing = true;
                 $this->db->commit();
+                $committed = true;
                 $owned = false;
-                return ['revision' => $revision, 'changed' => $changed, 'commandId' => $commandId];
+                $result = ['revision' => $revision, 'changed' => $changed, 'commandId' => $commandId];
             } catch (Throwable $e) {
-                $retry = $e instanceof SnapshotInvalidated || ($owned && self::retryable($e));
-                if ($owned) {
-                    try {
-                        if ($this->db->inTransaction()) {
-                            $this->db->rollBack();
-                        }
-                    } catch (Throwable $rollback) {
-                        $this->usable = false;
-                        throw new PolicyUnavailable('Policy rollback failed', $committing, $rollback);
-                    }
-                }
-                if ($committing && !$retry) {
-                    $this->usable = false;
-                    throw new PolicyUnavailable('Policy commit outcome is uncertain; reload state', true, $e);
-                }
-                if (!$retry) {
-                    if ($e instanceof DatabaseException || $e instanceof \Doctrine\DBAL\Exception || $e instanceof \Doctrine\DBAL\Driver\Exception) {
-                        throw new PolicyUnavailable(previous: $e);
-                    }
-                    throw $e;
-                }
-                if ($attempt >= 2) {
-                    if ($e instanceof SnapshotInvalidated && $expected !== null) {
-                        throw new PolicyConflict();
-                    }
-                    throw new PolicyUnavailable('Policy storage busy; retry later', previous: $e);
-                }
-            } finally {
-                $this->clearCaches($uids);
+                $failure = $this->failure($e, $owned, $committing, $attempt, $expected);
+            }
+            $this->settle($uids, $committed, $failure);
+            if ($result !== null) {
+                return $result;
+            }
+            if ($failure !== null) {
+                throw $failure;
             }
             // At most two waits of 100 ms: total app-owned waiting stays below the 1 s budget.
             usleep(random_int(25000, 100000));
+        }
+    }
+
+    /**
+     * Rolls back an attempt the writer owns and classifies its failure.
+     *
+     * @return Throwable|null the exception to surface, or null when the whole attempt may be replayed
+     */
+    private function failure(Throwable $e, bool $owned, bool $committing, int $attempt, ?string $expected): ?Throwable {
+        $retry = $e instanceof SnapshotInvalidated || ($owned && self::retryable($e));
+        if ($owned) {
+            try {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+            } catch (Throwable $rollback) {
+                $this->usable = false;
+                return new PolicyUnavailable('Policy rollback failed', $committing, $rollback);
+            }
+        }
+        if ($committing && !$retry) {
+            $this->usable = false;
+            return new PolicyUnavailable('Policy commit outcome is uncertain; reload state', true, $e);
+        }
+        if (!$retry) {
+            if ($e instanceof DatabaseException || $e instanceof \Doctrine\DBAL\Exception || $e instanceof \Doctrine\DBAL\Driver\Exception) {
+                return new PolicyUnavailable(previous: $e);
+            }
+            return $e;
+        }
+        if ($attempt >= 2) {
+            if ($e instanceof SnapshotInvalidated && $expected !== null) {
+                return new PolicyConflict();
+            }
+            return new PolicyUnavailable('Policy storage busy; retry later', previous: $e);
+        }
+        return null;
+    }
+
+    /**
+     * The cache clear that closes every attempt. If it fails the context is abandoned, but the outcome it reports
+     * stays honest: after a commit the write is durable, so the caller is told the state is uncertain (reload), never
+     * merely unavailable; and an attempt's own failure stays chained instead of being replaced by the cache error.
+     *
+     * @throws PolicyUnavailable when the caches cannot be cleared
+     */
+    private function settle(array $uids, bool $committed, ?Throwable $failure): void {
+        try {
+            $this->clearCaches($uids);
+        } catch (PolicyUnavailable $cache) {
+            if ($committed) {
+                throw new PolicyUnavailable('Policy committed, but its caches could not be cleared; reload state', true, $cache->getPrevious() ?? $cache);
+            }
+            if ($failure !== null) {
+                throw new PolicyUnavailable($cache->getMessage(), $failure instanceof PolicyUnavailable && $failure->uncertain, $failure);
+            }
+            throw $cache;
         }
     }
 
