@@ -14,6 +14,7 @@ use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Policy\Resolution\ScopeResolution;
 use OCA\Mcp\Service\Scope\ScopeReader;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
@@ -296,8 +297,23 @@ class GrantPolicy implements ScopeReader {
     }
 
     /**
+     * Whether the resource scope of a module can be read in the open operation's snapshot, before any native lookup.
+     *
+     * @param string $userId authenticated user of the operation
+     * @param string $module scope module (decision D1)
+     * @throws PolicyUnavailable when the scope of the module, or the policy, cannot be read
+     */
+    public function assertReadable(string $userId, string $module): void {
+        $this->read($userId, static function (PolicyOperationContext $context) use ($module): void {
+            if ($context->scope()->resolution($module)->mode === ScopeResolution::UNAVAILABLE) {
+                throw new PolicyUnavailable('Resource scope unavailable');
+            }
+        });
+    }
+
+    /**
      * The resource scope of the open operation's snapshot (contract B.5), read once with it like every other policy
-     * value of the operation.
+     * value of the operation; assertReadable() comes first wherever a native lookup could tell existence apart.
      *
      * @param string $userId authenticated user of the operation
      * @param string $module scope module (decision D1)

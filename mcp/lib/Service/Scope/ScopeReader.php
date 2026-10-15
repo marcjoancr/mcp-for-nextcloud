@@ -24,4 +24,14 @@ interface ScopeReader {
      * @throws PolicyUnavailable when the scope cannot be read: never answered as "unrestricted"
      */
     public function inScope(string $userId, string $module, string $resourceId): bool;
+
+    /**
+     * Asked before anything about a resource is looked up natively, so that an unreadable scope answers the same
+     * whether the resource exists or not (B6-R1): existence is never told apart by a 503 against a "not found".
+     *
+     * @param string $userId authenticated user of the operation
+     * @param string $module scope module (decision D1)
+     * @throws PolicyUnavailable when the scope of the module, or the policy, cannot be read
+     */
+    public function assertReadable(string $userId, string $module): void;
 }

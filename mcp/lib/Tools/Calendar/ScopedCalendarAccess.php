@@ -44,6 +44,8 @@ class ScopedCalendarAccess {
      */
     public function visible(string $userId, string $component = 'VEVENT'): array {
         $module = self::module($component);
+        // Before the native list: an unreadable scope fails even a user with no calendar of this kind.
+        $this->scope->assertReadable($userId, $module);
         $out = [];
         foreach ($this->native->visible($userId, $component) as $calendar) {
             if ($this->scope->inScope($userId, $module, (string)$calendar->id)) {
@@ -63,6 +65,8 @@ class ScopedCalendarAccess {
      */
     public function resolve(string $userId, string $path, string $component = 'VEVENT'): Calendar {
         $module = self::module($component);
+        // Before the native lookup: with an unreadable scope a missing and an existing calendar answer alike (503).
+        $this->scope->assertReadable($userId, $module);
         $calendar = $this->native->resolve($userId, $path, $component);
         if (!$this->scope->inScope($userId, $module, (string)$calendar->id)) {
             throw CalendarException::notFound();

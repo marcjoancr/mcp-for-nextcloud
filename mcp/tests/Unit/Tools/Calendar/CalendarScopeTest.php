@@ -130,6 +130,34 @@ final class CalendarScopeTest extends CalendarTestCase {
         $this->assertSame(self::WORK, $moved['to']);
     }
 
+    /**
+     * B6-R1: with the scope unreadable every call answers the same 503, whether the calendar it names exists, is
+     * outside the saved scope or does not exist at all, and even when alice has no calendar of the kind.
+     */
+    #[DataProvider('calls')]
+    public function testS11AnUnreadableScopeAnswersAlikeForAnExistingAndAMissingCalendar(string $name, array $arguments): void {
+        $this->scope->restrict('calendar', ['1']);
+        $this->scope->unavailable = true;
+        $outcomes = [];
+        foreach ([self::PERSONAL, self::WORK, self::MISSING] as $path) {
+            try {
+                $this->tool($name, self::naming($arguments, $path));
+                $outcomes[] = 'answered';
+            } catch (PolicyUnavailable $e) {
+                $outcomes[] = $e->getMessage();
+            }
+        }
+        $this->assertSame(array_fill(0, 3, 'Resource scope unavailable'), $outcomes);
+        $this->assertNoWrites();
+    }
+
+    public function testS11AnUnreadableScopeFailsAUserWithoutAnyCalendarToo(): void {
+        $this->store->calendars = [];
+        $this->scope->unavailable = true;
+        $this->expectException(PolicyUnavailable::class);
+        $this->tool('calendar_list_calendars', []);
+    }
+
     public function testS11AnUnreadableScopeFailsTheCallInsteadOfListingEverything(): void {
         $this->scope->unavailable = true;
         foreach ([['calendar_list_calendars', []], ['calendar_list_events', ['from' => '2026-03-12', 'to' => '2026-03-13']],
