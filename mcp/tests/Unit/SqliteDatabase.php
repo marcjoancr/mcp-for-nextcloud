@@ -65,6 +65,8 @@ final class SqliteDatabase {
         $db->method('rollBack')->willReturnCallback(fn () => $this->dbal->rollBack());
         $db->method('inTransaction')->willReturnCallback(fn (): bool => $this->dbal->isTransactionActive());
         $db->method('insertIfNotExist')->willReturnCallback(function (string $table, array $input, ?array $compare = null): int {
+            // Core replaces the placeholder with the instance prefix; the test schema has none.
+            $table = str_replace('*PREFIX*', '', $table);
             $criteria = array_intersect_key($input, array_flip($compare ?? array_keys($input)));
             $where = implode(' AND ', array_map(static fn ($key): string => $key . ' = ?', array_keys($criteria)));
             if ($this->dbal->fetchOne('SELECT 1 FROM ' . $table . ' WHERE ' . $where, array_values($criteria)) !== false) {

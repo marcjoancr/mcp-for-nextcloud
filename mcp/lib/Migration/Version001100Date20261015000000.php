@@ -35,7 +35,8 @@ class Version001100Date20261015000000 extends SimpleMigrationStep {
 
     public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
         // Core's portable insert-if-absent handles concurrent initialization without replacing existing state.
-        $this->db->insertIfNotExist(PolicyStateMapper::TABLE,
+        // Unlike the query builder, it takes the raw table name, so the prefix placeholder must be explicit.
+        $this->db->insertIfNotExist('*PREFIX*' . PolicyStateMapper::TABLE,
             ['id' => 1, 'revision' => 0, 'lock_seq' => 0, 'auth_epoch' => 0], ['id']);
     }
 }
