@@ -39,6 +39,7 @@ final class NextcloudApiUsage {
         'OCP\\FilesMetadata\\Model\\IFilesMetadata',
         'OCA\\DAV\\CalDAV\\Schedule\\Plugin',
         'OCP\\Log\\IWriter',
+        'OCP\\Group\\Backend\\IIsAdminBackend',
     ];
 
     /**
@@ -48,6 +49,8 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        // Fresh native administration follows the manager's public optional backend contract.
+        'OCP\\Group\\Backend\\IIsAdminBackend::isAdmin' => ['uid'],
         // Talk, held untyped by OCA\Mcp\Tools\Talk.
         'OCA\\Talk\\Manager::getRoomForUserByToken' => ['token', 'userId'],
         'OCA\\Talk\\Manager::getRoomsForUser' => ['userId'],

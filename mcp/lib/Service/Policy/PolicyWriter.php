@@ -55,6 +55,13 @@ class PolicyWriter {
         private ScopeActivation $activation = new ScopeActivation(),
     ) {}
 
+    /** Read admission must share the writer's abandoned-context gate. */
+    public function assertUsable(): void {
+        if (!$this->usable) {
+            throw new PolicyUnavailable('Policy context was abandoned');
+        }
+    }
+
     /**
      * Administrative admission; the HTTP adapter supplies the required canonical revision.
      * The local callback returns whether raw policy changed; it may throw SnapshotInvalidated when an epoch,
@@ -576,9 +583,7 @@ class PolicyWriter {
     }
 
     private function run(array $uids, Closure $prepare, Closure $apply, ?string $expected): array {
-        if (!$this->usable) {
-            throw new PolicyUnavailable('Policy context was abandoned');
-        }
+        $this->assertUsable();
         if ($this->db->inTransaction()) {
             throw new PolicyUnavailable('Policy writer requires a top-level transaction');
         }

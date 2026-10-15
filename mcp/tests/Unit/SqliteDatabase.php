@@ -33,6 +33,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class SqliteDatabase {
     public readonly Connection $dbal;
+    /** SELECT statements executed through the public app mapper surface (excludes schema setup). */
+    public int $queryCount = 0;
     /** One-shot interleaving hook, invoked just before a database write. */
     public $beforeStatement = null;
 
@@ -131,7 +133,10 @@ final class SqliteDatabase {
                 };
             }
         });
-        $qb->method('executeQuery')->willReturnCallback(fn (): IResult => $this->result($inner));
+        $qb->method('executeQuery')->willReturnCallback(function () use ($inner): IResult {
+            ++$this->queryCount;
+            return $this->result($inner);
+        });
         return $qb;
     }
 
