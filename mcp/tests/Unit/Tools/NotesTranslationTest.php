@@ -70,7 +70,7 @@ final class NotesTranslationTest extends TestCase {
 
     public function testWithoutTranslatorOrWithUnknownLanguageTheMessagesAreEnglish(): void {
         self::assertSame('A note with this title already exists in this category.', NotesMessages::titleExistsInCategory());
-        Translator::use(new JsonL10n('de'));
+        Translator::use(new JsonL10n('fr'));
         self::assertSame('A note with this title already exists in this category.', NotesMessages::titleExistsInCategory());
     }
 

@@ -2,6 +2,12 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## Unreleased
+
+### Added
+
+- l10n: German translation (`de`) of the whole interface and of the messages shown by the tools. German translation by @matt-ek ([#10](https://github.com/sintax-tech/mcp-for-nextcloud/issues/10)).
+
 ## 1.0.8
 
 ### Changed

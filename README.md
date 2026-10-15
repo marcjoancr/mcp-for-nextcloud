@@ -72,7 +72,7 @@ Plus:
 - **Friendly tool titles** in the client ("Search files", "List calendars") and MCP annotations (`readOnlyHint`, `destructiveHint`) so clients can ask before risky actions.
 - **Safety confirmations** for resources that belong to someone else: shared folders, team folders, other people's Deck boards and calendars. The server refuses the first call and returns a ready-made message, and the assistant must ask the user before repeating it with `confirm_shared: true`. *(Deck and Calendar since 0.6.6; Files and Notes since 0.7.0)*
 - **Optional apps respected**: tools and admin matrix columns of an app that is disabled (for everyone or for a given user) are hidden.
-- **Localized UI**: admin matrix, personal page, consent screen and every message a tool shows follow the language of the user's Nextcloud account. All modules are covered (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, the shared messages, the checkout pages and the calendar selftest). English, Brazilian Portuguese and Spanish are included (Spanish is a first translation and still needs a native review); tool descriptions stay English, because the model is what reads them.
+- **Localized UI**: admin matrix, personal page, consent screen and every message a tool shows follow the language of the user's Nextcloud account. All modules are covered (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, the shared messages, the checkout pages and the calendar selftest). English, Brazilian Portuguese, Spanish and German are included (German by @matt-ek; Spanish is a first translation and still needs a native review); tool descriptions stay English, because the model is what reads them.
 - **Both MCP eras**: stateless MCP `2026-07-28` (`server/discover`) and the classic `initialize` flow (`2025-06-18` and earlier) on the same endpoint.
 
 ## Contacts and tasks
@@ -252,7 +252,7 @@ AGPL-3.0-or-later, with the additional section 7(b) attribution term in [NOTICE]
 
 The package includes Smalot PdfParser, Symfony Polyfill Mbstring and the Composer autoloader. See versions, licenses, copyright and development dependencies in [THIRD-PARTY-NOTICES.md](mcp/THIRD-PARTY-NOTICES.md).
 
-**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit.
+**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit and (#10) for the German translation.
 
 ## About Sintax
 

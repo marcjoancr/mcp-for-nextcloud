@@ -48,7 +48,7 @@ final class L10nLanguagesTest extends TestCase {
         $this->assertNotEmpty($files, 'the app ships at least one language');
         $languages = array_map(static fn (string $file): string => basename($file, '.json'), $files);
         sort($languages);
-        $this->assertSame(['es', 'pt_BR'], $languages, 'English is the source text, not a file');
+        $this->assertSame(['de', 'es', 'pt_BR'], $languages, 'English is the source text, not a file');
 
         foreach ($languages as $language) {
             $translations = $this->translations($language);
@@ -88,6 +88,37 @@ final class L10nLanguagesTest extends TestCase {
         $this->assertSame($portuguese, $spanish, 'es.json and pt_BR.json must list the same keys');
     }
 
+    /** German carries the same keys as Portuguese, the same placeholders in every text, and two plural forms. */
+    public function testGermanHasTheKeysAndPlaceholdersOfPortuguese(): void {
+        $portuguese = $this->translations('pt_BR');
+        $german = $this->translations('de');
+        $keys = array_keys($portuguese);
+        $germanKeys = array_keys($german);
+        sort($keys);
+        sort($germanKeys);
+        $this->assertSame($keys, $germanKeys, 'de.json and pt_BR.json must list the same keys');
+
+        $placeholders = static function (string $text): array {
+            preg_match_all('/%(?:\\d+\\$)?[sdn]|\{[^}]*\}/', $text, $found);
+            sort($found[0]);
+            return $found[0];
+        };
+        foreach ($german as $key => $value) {
+            if (is_array($value)) {
+                $this->assertCount(2, $value, 'de: "' . $key . '" needs the two German plural forms');
+            }
+            foreach ((array)$value as $form) {
+                $this->assertSame(
+                    array_values(array_unique($placeholders($key))),
+                    array_values(array_unique($placeholders($form))),
+                    'de: placeholders of "' . $key . '" must match the source',
+                );
+            }
+        }
+        $decoded = json_decode((string)file_get_contents(self::APP_ROOT . '/l10n/de.json'), true);
+        $this->assertSame('nplurals=2; plural=(n != 1);', $decoded['pluralForm']);
+    }
+
     /** Without a translator the English source text comes out as it is, placeholders resolved. */
     public function testWithoutTranslatorTheEnglishSourceComesOut(): void {
         Translator::reset();
@@ -101,7 +132,7 @@ final class L10nLanguagesTest extends TestCase {
 
     /** A language the app does not ship falls back to English instead of showing nothing or a key. */
     public function testALanguageWithoutAFileFallsBackToEnglish(): void {
-        Translator::use(new JsonL10n('de'));
+        Translator::use(new JsonL10n('fr'));
         self::assertSame('Search files', ToolPresentation::title('files_search'));
         self::assertSame('Note exceeds the limit of 10 bytes.', NotesMessages::noteTooLarge(10));
         self::assertSame('A note with this title already exists in this category.', NotesMessages::titleExistsInCategory());
