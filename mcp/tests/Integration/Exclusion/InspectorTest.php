@@ -71,10 +71,13 @@ final class InspectorTest extends ExclusionTestCase {
             $this->inspector()->path(self::ALICE, $this->path('home', 'nowhere.md')));
 
         // bob receives a subfolder of the excluded folder: its origin in alice's tree is what excludes it.
-        $share = $this->shareToUser($deep, self::ALICE, self::BOB);
-        $target = rtrim($share->getTarget(), '/');
+        $this->shareToUser($deep, self::ALICE, self::BOB);
         // An administrator asks in a request of their own; this long process set bob's mounts up before the share.
         Server::get(\OC\Files\SetupManager::class)->tearDown();
+        // Where the share is mounted in bob's tree is the server's choice (it differs between majors): ask the tree.
+        $mounted = $this->userFolder(self::BOB)->getById($deep->getId());
+        $this->assertNotSame([], $mounted, 'the share is mounted for bob');
+        $target = rtrim((string)$this->userFolder(self::BOB)->getRelativePath($mounted[0]->getPath()), '/');
         $answer = $this->inspector()->path(self::BOB, $target . '/inner.md');
         $this->assertSame(VisibilityGuard::EXPLAINED_TAG_SHARE_ORIGIN, $answer['exclusion'], json_encode($answer));
         $this->assertHiddenFromRead($this->mcp(self::BOB), $target . '/inner.md', 'a shared file whose origin is excluded');
