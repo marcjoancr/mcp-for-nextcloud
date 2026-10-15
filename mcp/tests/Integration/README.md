@@ -4,10 +4,31 @@
 -->
 # Integration suite
 
-Runs only on GitHub Actions (`.github/workflows/integration.yml`): `ci/harness.sh` starts a disposable official
-Nextcloud container and database, pinned by digest, installs or upgrades the app through the server and runs this
-suite inside the container with `phpunit.xml` here. It never runs locally; `vendor/bin/phpunit` in `mcp/` runs the
-unit suite only, which excludes this folder.
+Runs on GitHub Actions (`.github/workflows/integration.yml`) or, one cell at a time, on a Mac through `ci/run-local.sh`
+(below): `ci/harness.sh` starts a disposable official Nextcloud container and database, pinned by digest, installs or
+upgrades the app through the server and runs this suite inside the container with `phpunit.xml` here. Nothing is ever
+installed on the host outside a container; `vendor/bin/phpunit` in `mcp/` runs the unit suite only, which excludes this
+folder.
+
+## Running a cell on a Mac (`ci/run-local.sh`)
+
+Needs `brew install colima docker` (Colima, not Docker Desktop), plus the PHP and Composer the packaging script uses.
+
+    mcp/tests/Integration/ci/run-local.sh <nc 32|33|34|35> <mariadb|pgsql|sqlite> <fresh|upgrade> [--prune-images]
+
+It runs the same steps as the workflow (packages, tools, start-db, start-nextcloud, install-app, fixtures, provision,
+report, test, collect) for that one cell, with the image digests, the cell and the baseline tag read from
+`.github/workflows/integration.yml`. The container engine is started for the run and always stopped again: on success,
+on error and on INT/TERM a trap removes the test containers, their network and volumes, the baseline worktree of the
+upgrade mode, and runs `colima stop`, but only when the script itself started Colima (an engine that was already
+running is left running). Images stay cached as files unless `--prune-images` is given. The pinned images are
+multi-architecture and run natively as arm64 on Apple silicon; the script prints the architecture it got.
+
+Logs and artifacts (`run.log` is the terminal output, `resources.log` the memory samples, `mcp-it/artifacts/` the junit,
+Nextcloud and database logs, `observations.txt` and `provision.log`) land in
+`mcp/tests/Integration/.local-runs/<cell>-<timestamp>/`, which is git-ignored. The exit status is the suite's.
+A cell takes about 1.5 to 3 minutes once the images are pulled and the engine (a Linux VM with 4 CPUs and 8 GiB) uses
+up to roughly 2 to 3 GiB of host memory while it runs.
 
 What the suite gives later tests:
 

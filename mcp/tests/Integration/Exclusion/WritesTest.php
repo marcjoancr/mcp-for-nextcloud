@@ -290,7 +290,7 @@ final class WritesTest extends ExclusionTestCase {
      * Folders bob received as shares: moving one into another received share is refused without effect (by core across
      * two share storages, or by the D7 gate); renaming it where it is stays allowed.
      */
-    public function testAReceivedFolderCannotBeMovedIntoAnotherReceivedShareButCanBeRenamed(): void {
+    public function testAReceivedFolderCannotBeMovedIntoAnotherReceivedShare(): void {
         $p = 'P-' . $this->run;
         $s = 'S-' . $this->run;
         $this->makeFile('home', $p . '/p.txt', 'in P');
@@ -314,9 +314,20 @@ final class WritesTest extends ExclusionTestCase {
         $this->assertFalse($this->exists(self::ALICE, $this->path('home', $p, $s)), 'nothing was created in the shared P');
         $this->assertContains($s, $this->listNames($bob, '/') ?? [], 'S is still where it was received');
 
-        $rename = $bob->write('files_move', ['from' => '/' . $s, 'to' => '/' . $s . '-renamed']);
-        $this->assertTrue($rename->ok(), 'renaming a received share inside bob\'s own folder stays allowed: ' . $rename->describe());
-        $this->assertContains($s . '-renamed', $this->listNames($bob, '/') ?? [], 'the renamed share is listed');
+        // Core does not rename the mount point of a received share through a move (it answers that it would cross
+        // storages); that is what happens without any exclusion too, so it is recorded, not asserted.
+        $renameShare = $bob->write('files_move', ['from' => '/' . $s, 'to' => '/' . $s . '-renamed']);
+        $this->observe('renaming the mount point of a received share through files_move -> ' . ($renameShare->ok() ? 'allowed' : substr($renameShare->text(), 0, 160)));
+
+        // A folder of bob's own is renamed in place, with the exclusion configured, as the gate allows.
+        $own = 'own-' . $this->run;
+        $this->later(fn () => $this->deleteQuietly(self::BOB, $own));
+        $this->later(fn () => $this->deleteQuietly(self::BOB, $own . '-renamed'));
+        $this->dav(self::BOB)->mkcol('/' . $own);
+        $this->dav(self::BOB)->put('/' . $own . '/o.txt', 'own');
+        $rename = $bob->write('files_move', ['from' => '/' . $own, 'to' => '/' . $own . '-renamed']);
+        $this->assertTrue($rename->ok(), "renaming bob's own folder in place stays allowed: " . $rename->describe());
+        $this->assertContains($own . '-renamed', $this->listNames($bob, '/') ?? [], 'the renamed folder is listed');
     }
 
     public function testWithoutAnyExclusionFoldersBehaveAsBefore(): void {

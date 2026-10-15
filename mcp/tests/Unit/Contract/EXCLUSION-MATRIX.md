@@ -121,7 +121,11 @@ of a mount root):
   "Moving across different storages is not supported in this version". The D7 gate stands in front of it too
   (unit-tested), and the test now accepts either answer and records which one came.
 
-**Not re-proven for real after the last edits.** The GitHub Actions minutes of the organization ran out of budget, so the
-workflows were disabled and the last corrections (file-share permissions, the retry of the groupfolder restore, the
-relaxed move assertion) have only unit-suite and syntax checks. The scenarios they touch are therefore *not* claimed as
-proven: the moved file share, the restore of a groupfolder version, and the rename of a received share.
+**Re-proven locally after the last edits.** The GitHub Actions minutes ran out, so the corrections were run with
+`mcp/tests/Integration/ci/run-local.sh` (Colima, arm64, the same pinned images): NC 35 on PostgreSQL, fresh, passed in full
+(96 tests, 1227 assertions), including the file share moved into a tagged folder of the recipient. Findings of that
+run: core refuses to rename or move the mount point of a received share through `files_move` ("Moving across different
+storages"), with or without an exclusion, so the D7 gate is not what answers there (recorded, not asserted); a version
+restore of a groupfolder file is accepted on PostgreSQL but answers "Resource locked by another operation" on SQLite
+with no exclusion configured at all (recorded, the test skips there instead of blaming the guard). The other cells were
+not re-run after these edits.
