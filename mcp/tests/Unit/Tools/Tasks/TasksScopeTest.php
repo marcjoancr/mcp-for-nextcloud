@@ -132,6 +132,22 @@ final class TasksScopeTest extends TestCase {
         $this->assertSame('update', $this->dav->calls[0][0]);
     }
 
+    /** B6-R1: an existing, an out-of-scope and a missing list answer the same 503 when the scope is unreadable. */
+    #[DataProvider('calls')]
+    public function testS11AnUnreadableScopeAnswersAlikeForAnExistingAndAMissingList(string $name, array $arguments): void {
+        $this->scope->restrict('tasks', ['21']);
+        $this->scope->unavailable = true;
+        $outcomes = array_map(fn (string $path): array => $this->outcome($name, self::naming($arguments, $path)), [self::TODO, self::BOTH, self::MISSING]);
+        $this->assertSame(array_fill(0, 3, [PolicyUnavailable::class, 'Resource scope unavailable']), $outcomes);
+        $this->assertSame([], $this->dav->calls);
+    }
+
+    public function testS11AnUnreadableScopeFailsAUserWithoutAnyTaskListToo(): void {
+        $this->store->calendars = [];
+        $this->scope->unavailable = true;
+        $this->assertSame(PolicyUnavailable::class, $this->outcome('tasks_list_calendars', [])[0]);
+    }
+
     public function testS11AnUnreadableScopeFailsInsteadOfListingEverything(): void {
         $this->scope->unavailable = true;
         foreach ([['tasks_list_calendars', []], ['tasks_list_tasks', ['calendar' => self::TODO]]] as [$name, $arguments]) {

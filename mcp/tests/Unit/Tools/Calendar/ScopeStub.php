@@ -38,6 +38,12 @@ final class ScopeStub implements ScopeReader {
         return !isset($this->restricted[$module]) || in_array($resourceId, $this->restricted[$module], true);
     }
 
+    public function assertReadable(string $userId, string $module): void {
+        if ($this->unavailable) {
+            throw new PolicyUnavailable('Resource scope unavailable');
+        }
+    }
+
     /** The tools' calendar access over a store, narrowed by $scope (unrestricted by default). */
     public static function access(CalendarStore $store, ?self $scope = null): ScopedCalendarAccess {
         return new ScopedCalendarAccess(new CalendarAccess($store), $scope ?? new self());
