@@ -34,7 +34,10 @@ final class LoginFactory {
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
         $redirect = NativeClient::REDIRECT_URIS[0];
         $service = Server::get(TokenService::class);
-        $code = $service->createCode(new AuthorizationRequest(NativeClient::metadata(), $redirect, 'it', $challenge, self::RESOURCE, 'mcp'), $uid);
+        $code = $service->consent(new AuthorizationRequest(NativeClient::metadata(), $redirect, 'it', $challenge, self::RESOURCE, 'mcp'), $uid);
+        if ($code === null) {
+            throw new \RuntimeException("$uid cannot consent: the service is off, the account is disabled or not eligible");
+        }
         $body = $service->exchangeCode(['code' => $code, 'code_verifier' => $verifier, 'client_id' => NativeClient::CLIENT_ID,
             'redirect_uri' => $redirect, 'resource' => self::RESOURCE]);
         return Credential::bearer($uid, (string)$body['access_token']);

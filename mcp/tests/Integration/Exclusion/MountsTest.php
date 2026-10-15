@@ -172,16 +172,22 @@ final class MountsTest extends ExclusionTestCase {
 
         $versions = $alice->tool('files_versions_list', ['path' => $path]);
         $this->assertTrue($versions->ok(), 'files_versions_list: ' . $versions->describe());
-        $revision = $versions->json()['versions'][0]['revision'] ?? null;
+        // The oldest version: the newest entry of the list can be the current content itself, which would prove nothing.
+        $list = $versions->json()['versions'] ?? [];
+        $revision = $list === [] ? null : $list[count($list) - 1]['revision'];
         $this->assertIsString($revision, 'the groupfolder file has a version: ' . $versions->describe());
+        $stored = $alice->tool('files_version_read', ['path' => $path, 'version' => $revision]);
+        $this->assertTrue($stored->ok(), 'files_version_read: ' . $stored->describe());
+        $expected = $stored->json()['text'] ?? null;
+        $this->assertIsString($expected);
+        $this->assertNotSame('third', $expected, 'the oldest version is not the last write');
+
         // Regression of the restore refused with "Resource locked by another operation" where files_lock is installed
         // (NC 34 and 35): the tool wrote the version over the file while the version's own stream was still open. It
         // must work at the first attempt, with no retry and no skip, on every cell.
         $restore = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
         $this->assertTrue($restore->ok(), 'files_version_restore in the groupfolder: ' . $restore->describe());
-        $read = $alice->tool('files_read', ['path' => $path]);
-        $this->assertTrue($read->ok(), $read->describe());
-        $this->assertStringNotContainsString('third', explode("\n", $read->text())[0], 'the file holds the restored version, not the last write');
+        $this->assertReadable($alice, $path, $expected, 'the file holds the restored version');
     }
 
     public function testRecordsWhetherAnExternalStorageKeepsVersions(): void {
