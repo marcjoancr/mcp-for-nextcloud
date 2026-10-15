@@ -26,4 +26,18 @@ final class DecimalCounter {
         }
         return $value;
     }
+
+    /**
+     * Orders two canonical counters by length, then bytes: no platform integer or float is ever involved.
+     *
+     * @param string $a canonical counter
+     * @param string $b canonical counter
+     * @return int negative, zero or positive, as $a is below, equal to or above $b
+     * @throws \InvalidArgumentException when either value is not canonical
+     */
+    public static function compare(string $a, string $b): int {
+        self::validate($a, self::MAX);
+        self::validate($b, self::MAX);
+        return strlen($a) <=> strlen($b) ?: strcmp($a, $b) <=> 0;
+    }
 }

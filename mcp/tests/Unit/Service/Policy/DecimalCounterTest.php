@@ -27,4 +27,20 @@ final class DecimalCounterTest extends TestCase {
         }
         $this->assertSame(DecimalCounter::MAX, DecimalCounter::validate(DecimalCounter::MAX, DecimalCounter::MAX));
     }
+
+    public function testCompareOrdersByMagnitudeAboveEveryPlatformLimitAndRejectsNonCanonicalValues(): void {
+        $this->assertSame(0, DecimalCounter::compare('0', '0'));
+        $this->assertSame(-1, DecimalCounter::compare('9', '10'));
+        $this->assertSame(1, DecimalCounter::compare('10', '9'));
+        $this->assertSame(1, DecimalCounter::compare('9007199254740993', '9007199254740992'));
+        $this->assertSame(-1, DecimalCounter::compare(DecimalCounter::MAX_EXPECTED, DecimalCounter::MAX));
+        foreach ([['01', '1'], ['1', '-1'], ['1', '9223372036854775808']] as [$a, $b]) {
+            try {
+                DecimalCounter::compare($a, $b);
+                $this->fail("Compared $a with $b");
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
 }
