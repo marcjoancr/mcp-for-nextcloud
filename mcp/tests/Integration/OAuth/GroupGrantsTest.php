@@ -100,8 +100,8 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
     }
 
     /**
-     * The same for the exchange: until ticket 09 the credential owner gate reads the individual flag too, so it stays
-     * granted from the consent through the exchange and is taken back only afterwards.
+     * The same for the exchange: the individual flag stays granted from the consent through the exchange and is
+     * taken back only afterwards, so the group is the only source of the issued credential from then on.
      *
      * @return array<string, string|int>
      */
