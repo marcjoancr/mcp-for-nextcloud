@@ -34,7 +34,9 @@ final class LoginFactory {
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
         $redirect = NativeClient::REDIRECT_URIS[0];
         $service = Server::get(TokenService::class);
-        $code = $service->createCode(new AuthorizationRequest(NativeClient::metadata(), $redirect, 'it', $challenge, self::RESOURCE, 'mcp'), $uid);
+        // The consent of 1.1.0 issues the code only through the policy writer, behind the same admission as the page.
+        $code = $service->consent(new AuthorizationRequest(NativeClient::metadata(), $redirect, 'it', $challenge, self::RESOURCE, 'mcp'), $uid)
+            ?? throw new \RuntimeException('The consent of ' . $uid . ' was refused: service off, account disabled or not eligible');
         $body = $service->exchangeCode(['code' => $code, 'code_verifier' => $verifier, 'client_id' => NativeClient::CLIENT_ID,
             'redirect_uri' => $redirect, 'resource' => self::RESOURCE]);
         return Credential::bearer($uid, (string)$body['access_token']);
