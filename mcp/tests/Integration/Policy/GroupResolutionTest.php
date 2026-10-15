@@ -9,7 +9,9 @@ namespace OCA\Mcp\Tests\Integration\Policy;
 use OC\Group\Database;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
+use OCA\Mcp\Service\LogsAccess;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
+use OCA\Mcp\Service\Policy\LogsRoleReader;
 use OCA\Mcp\Service\Policy\MembershipReader;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyWriter;
@@ -47,6 +49,56 @@ final class GroupResolutionTest extends IntegrationTestCase {
         $group->addUser(Server::get(IUserManager::class)->get(Fixtures::ALICE));
     }
 
+    /** Lists the group as granting eligibility, active, through the writer like an administrator would. */
+    private function grantEligibility(): GroupLifeMapper {
+        $db = $this->official();
+        $life = new GroupLifeMapper($db);
+        Server::get(PolicyWriter::class)->runInternal([], fn () => null, function ($snapshot, $state) use ($db, $life): bool {
+            $qb = $db->getQueryBuilder();
+            $qb->insert('mcp_group_grants')
+                ->setValue('group_key', $qb->createNamedParameter(IdentityKey::group($this->gid)))
+                ->setValue('group_id', $qb->createNamedParameter($this->gid))
+                ->setValue('module', $qb->createNamedParameter('_system'))
+                ->setValue('operation', $qb->createNamedParameter('eligible'))->executeStatement();
+            $life->put($this->gid, 'active', bin2hex(random_bytes(16)), $state['revision']);
+            return true;
+        });
+        return $life;
+    }
+
+    public function testActiveDatabaseGroupGrantsEligibilityThroughTheRealManager(): void {
+        $this->group();
+        $this->grantEligibility();
+        $context = Server::get(PolicyResolver::class)->begin(Fixtures::ALICE);
+        try {
+            $eligible = $context->eligible();
+            $this->assertTrue($eligible->allowed);
+            $this->assertSame('group', $eligible->source);
+            $this->assertSame([$this->gid], $eligible->groupIds);
+        } finally { $context->close(); }
+    }
+
+    /** M1: the fresh logs role matches LogsAccess over the real OC\Group\Manager for admins and non-admins. */
+    public function testLogsRoleReaderMatchesLegacyGateOnTheRealManager(): void {
+        $manager = Server::get(IGroupManager::class);
+        $users = Server::get(IUserManager::class);
+        $legacy = Server::get(LogsAccess::class);
+        $reader = Server::get(LogsRoleReader::class);
+        $membership = new MembershipReader($manager);
+        $uids = [Fixtures::ALICE, Fixtures::BOB];
+        foreach ($manager->get('admin')?->getUsers() ?? [] as $admin) {
+            $uids[] = $admin->getUID();
+            break;
+        }
+        $this->assertGreaterThan(2, count($uids), 'the instance needs an administrator to compare');
+        foreach ($uids as $uid) {
+            $user = $users->get($uid);
+            $this->assertNotNull($user);
+            $this->assertSame(['available' => $legacy->available(), 'permitted' => $legacy->permits($uid)],
+                $reader->read($uid, $membership->read($user)), $uid);
+        }
+    }
+
     public function testFreshMembershipBypassesAPreloadedManagerAcrossOperations(): void {
         $this->group();
         $manager = Server::get(IGroupManager::class);
@@ -69,18 +121,7 @@ final class GroupResolutionTest extends IntegrationTestCase {
         $manager->get($this->gid); // Cached IGroup must not be used for classification.
         $classifier = new GroupSourceClassifier($manager);
         $this->assertTrue($classifier->trusted($this->gid));
-        $db = $this->official();
-        $life = new GroupLifeMapper($db);
-        Server::get(PolicyWriter::class)->runInternal([], fn () => null, function ($snapshot, $state) use ($db, $life): bool {
-            $qb = $db->getQueryBuilder();
-            $qb->insert('mcp_group_grants')
-                ->setValue('group_key', $qb->createNamedParameter(IdentityKey::group($this->gid)))
-                ->setValue('group_id', $qb->createNamedParameter($this->gid))
-                ->setValue('module', $qb->createNamedParameter('_system'))
-                ->setValue('operation', $qb->createNamedParameter('eligible'))->executeStatement();
-            $life->put($this->gid, 'active', bin2hex(random_bytes(16)), $state['revision']);
-            return true;
-        });
+        $life = $this->grantEligibility();
         // removeBackend is new in NC35. Keep this test backend registered but inert after the test,
         // using only APIs available across NC32–35; never clear the real manager's backends or caches.
         $extra = $this->createMockForIntersectionOfInterfaces([GroupInterface::class, INamedBackend::class]);

@@ -104,7 +104,7 @@ final class ResolutionCoreTest extends TestCase {
             $this->appConfig, $this->users, new MembershipReader($this->manager), new GroupSourceClassifier($this->manager),
             new GroupGrantsMapper($this->db), $this->life,
             new GroupTrustObserver($this->db, $this->writer, $this->life, $this->createMock(LoggerInterface::class)),
-            $this->apps, new LogsRoleReader($this->logs, $this->manager, $this->createMock(\OCP\Security\Ip\IRemoteAddress::class)));
+            $this->apps, new LogsRoleReader($this->logs, $this->manager, $this->createMock(\OCP\Security\Ip\IRemoteAddress::class), $this->createMock(\OCP\IUserSession::class)));
     }
 
     private function backend(?string $name = 'Database', array $gids = ['team']): GroupInterface {
@@ -379,10 +379,36 @@ final class ResolutionCoreTest extends TestCase {
         $this->backends = [$this->backend()];
         $this->seed('team', 'active', 'files', 'read');
         $this->database->dbal->delete('mcp_group_life', ['group_key' => IdentityKey::group('team')]);
+        $this->seed('team', 'active', 'files', 'edit');
+        $this->database->dbal->delete('mcp_group_life', ['group_key' => IdentityKey::group('team')]);
         $context = $this->resolver->begin('alice');
-        $this->assertNull($context->granted('files', 'read')->allowed);
+        // Group rows only grant: an allowing default does not depend on the indeterminate group (§3.3.5).
+        $read = $context->granted('files', 'read');
+        $this->assertTrue($read->allowed);
+        $this->assertSame('default', $read->source);
+        $this->assertSame(['team'], array_column($context->candidates(), 'groupId'));
+        // A denying default depended on the group alone, so it stays unknown instead of denied.
+        $edit = $context->granted('files', 'edit');
+        $this->assertNull($edit->allowed);
+        $this->assertSame(['team'], $edit->groupIds);
         $this->assertFalse($context->eligible()->allowed);
         $context->close();
+    }
+
+    public function testIndividualAllowWithAGroupNeedingConfirmationStaysAllowed(): void {
+        $this->backends = [$this->backend()];
+        $this->seed('team', GroupLifeMapper::NEEDS_CONFIRM);
+        $this->seed('team', GroupLifeMapper::NEEDS_CONFIRM, 'files', 'read');
+        $this->data->user['alice']['mcp']['eligible'] = '1';
+        $context = $this->resolver->begin('alice');
+        try {
+            $this->assertTrue($context->eligible()->allowed);
+            $this->assertSame('individual_allow', $context->eligible()->source);
+            $read = $context->resolveEffective('files', 'read');
+            $this->assertTrue($read->allowed);
+            $this->assertNull($read->blockingGate);
+            $this->assertSame(['team'], array_column($context->candidates(), 'groupId'));
+        } finally { $context->close(); }
     }
 
     public function testUnknownEligibilityNeverCutsCredentialsAndExplicitDenyWins(): void {

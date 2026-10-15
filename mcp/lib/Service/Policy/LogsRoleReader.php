@@ -9,11 +9,23 @@ namespace OCA\Mcp\Service\Policy;
 use OCA\Mcp\Service\LogsAccess;
 use OCP\GroupInterface;
 use OCP\IGroupManager;
+use OCP\IUserSession;
 use OCP\Security\Ip\IRemoteAddress;
 
-/** Fresh equivalent of the logs role gate; the existing LogsAccess consumer stays unchanged until ticket 09. */
+/**
+ * Fresh equivalent of the logs role gate; the existing LogsAccess consumer stays unchanged until ticket 09.
+ *
+ * One intentional divergence: group ids compare strictly. IGroupManager::isInGroup compares loosely on
+ * NC32–34 ('01' == '1') and strictly on NC35. LogsGroupsMapper already treats "1" and "01" as distinct
+ * groups, so the strict comparison is the fail-closed reading of the listed role on every version.
+ */
 class LogsRoleReader {
-    public function __construct(private LogsAccess $logs, private IGroupManager $groups, private IRemoteAddress $remote) {}
+    public function __construct(
+        private LogsAccess $logs,
+        private IGroupManager $groups,
+        private IRemoteAddress $remote,
+        private IUserSession $session,
+    ) {}
 
     /**
      * @param list<string> $groupIds fresh membership, including any delivered event overlay
@@ -24,8 +36,9 @@ class LogsRoleReader {
         if (!$available || $uid === null) {
             return ['available' => $available, 'permitted' => false];
         }
-        // Match IGroupManager::isAdmin: remote-address restriction applies to native administration only.
-        if ($this->remote->allowsAdminActions()) {
+        // Match IGroupManager::isAdmin (NC32–35): the remote-address restriction denies native administration
+        // only when the uid asked about is the session user; any other uid keeps its administrator role.
+        if ($this->remote->allowsAdminActions() || $uid !== $this->session->getUser()?->getUID()) {
             foreach ($this->groups->getBackends() as $backend) {
                 if ($backend->implementsActions(GroupInterface::IS_ADMIN) && $backend->isAdmin($uid)) {
                     return ['available' => true, 'permitted' => true];

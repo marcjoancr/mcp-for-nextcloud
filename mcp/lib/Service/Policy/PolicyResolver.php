@@ -21,7 +21,15 @@ use OCP\IConfig;
 use OCP\IUserManager;
 use Throwable;
 
-/** Standalone resolution core. Consumer integration is deliberately deferred to ticket 09. */
+/**
+ * Standalone resolution core. Consumer integration is deliberately deferred to ticket 09.
+ *
+ * Fresh reads clear only the official IUserConfig and IAppConfig caches. Declared limits, deliberately not
+ * cleared (§4.2): Database::groupExists keeps a positive cache and getBackends() reflects the backends registered
+ * in this process; AppManager keeps its own enabled/installed apps cache, so AppEnablement may miss an app
+ * enabled or disabled elsewhere; IUserManager::get returns memoized IUser objects. HTTP and cron processes are
+ * short; a long-running worker or occ process can observe these stale values.
+ */
 class PolicyResolver {
     public function __construct(
         private PolicyStateMapper $state,

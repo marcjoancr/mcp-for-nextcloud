@@ -102,7 +102,10 @@ final class PolicyOperationContext {
         if ($sources !== []) {
             return new GrantResolution(true, 'group', $sources, $raw);
         }
-        if ($unknown !== []) {
+        // Group rows only grant. With an allowing default no answer from an indeterminate group can change the
+        // outcome, so the result is unknown only when it depended on that group alone (§3.3.5); the group stays
+        // visible through candidates() for diagnosis.
+        if ($unknown !== [] && !$default) {
             return new GrantResolution(null, 'unknown', $unknown, $raw);
         }
         return new GrantResolution($default, 'default', [], $raw);
