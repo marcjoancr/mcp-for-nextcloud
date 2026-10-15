@@ -206,9 +206,11 @@ class GroupLifeMapper {
      * next one reads pending_delete and the group no longer grants. A writer command that compares only the revision
      * (and its other snapshots) cannot see this transition. Every command whose decision relied on a group's lifecycle
      * must compare the gen it read in its external phase again under the mutex: the group save and confirm of ticket 08
-     * (and its H0/H1 holders rule), and every issuance a group admitted: consent, exchange and refresh compare the gens
-     * of the groups that admitted the user (PolicyWriter::assertLifecycles()). A page built on expectedRevision (the
-     * matrix) may still show such a group as active.
+     * (and its H0/H1 holders rule), and every issuance a group admitted: consent, exchange and refresh find the groups
+     * that admitted the user still active and renew their gens (PolicyWriter::holdLifecycles()), as does a reset that
+     * leaves a user eligible through a group. That renewal is what orders them with this transition: a Before that read
+     * the gen before such a commit loses its expected gen here and judges the holders again (F1 of the second reading
+     * of 1.1.0). A page built on expectedRevision (the matrix) may still show such a group as active.
      *
      * The row is read first and its original id compared byte for byte, so a digest collision fails closed before the
      * update; the update is conditioned on the gen verified by that read.

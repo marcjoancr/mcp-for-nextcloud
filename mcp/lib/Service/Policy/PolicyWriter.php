@@ -207,8 +207,10 @@ class PolicyWriter {
      *
      * The eligibility is decided by $admit in the external phase (it may read group backends); under the mutex the
      * service and the user's individual value are read again, and every group that made the user eligible must still
-     * have the lifecycle gen $admit read (assertLifecycles()): a pending_delete between the phases does not move the
-     * revision, so without that comparison a consent could issue on the policy of a group being deleted.
+     * be active, its gen renewed by this commit (holdLifecycles()): a pending_delete between the phases does not move
+     * the revision, so without that comparison a consent could issue on the policy of a group being deleted, and a
+     * deletion's Before that read the old gen must lose its transition and see the code this consent issues.
+
      *
      * @param string $uid the consenting user
      * @param Closure(): (list<array{groupId:string, gen:string}>|null) $admit GrantPolicy::admission() of an enabled
@@ -235,7 +237,7 @@ class PolicyWriter {
             if (!$allowed) {
                 return false;
             }
-            $this->assertLifecycles($lifecycles);
+            $this->holdLifecycles($lifecycles);
             $changed = $this->writeCell($uid, GrantPolicy::CONNECTED_KEY, '1') !== null;
             $insertCode($this->authUsers->issue($uid), $current['auth_epoch']);
             return $changed;
@@ -244,26 +246,40 @@ class PolicyWriter {
     }
 
     /**
-     * Under the mutex of a command whose decision relied on group lifecycles read in its external phase: each of
-     * them must still be active with the same gen, or the attempt is replayed (and its external phase reads the new
-     * state, where such a group no longer grants). A lifecycle transition that does not move the revision
-     * (pending_delete, contracts §3.3.5) is caught here.
+     * Under the mutex of a command whose decision relied on group lifecycles read in its external phase: an issuance
+     * a group admitted (consent, exchange, refresh), or a reset that leaves a user eligible through a group. Each of
+     * them must still be active, and this commit renews its gen by a compare-and-set, so the command and a deletion
+     * of the group are ordered (F1 of the second reading of 1.1.0), without the pre-event ever taking the mutex:
+     * - a deletion's Before that read the gen before this commit loses its pending_delete transition and judges the
+     *   holders again, now seeing what this command issued or left (GroupLifecycleListener::markPending());
+     * - a pending_delete committed after the read below makes the renewal match nothing, and the attempt is replayed,
+     *   so its external phase reads pending_delete and refuses; one waiting on this row's lock matches nothing once
+     *   this transaction commits.
+     *
+     * A gen other than the one the external phase read is accepted while the row is still active: the revision did
+     * not move between the phases (run() checks it), and the only lifecycle change that keeps a group active without
+     * moving the revision is this renewal by another command, so the policy the decision relied on still holds and
+     * concurrent issuances admitted by one group do not replay each other.
      *
      * @param list<array{groupId:string, gen:string}> $lifecycles what the external phase read
-     * @throws SnapshotInvalidated when one of them changed
-     * @throws \OCP\DB\Exception when the read fails
+     * @throws SnapshotInvalidated when one of them is no longer active, or moved before its renewal
+     * @throws \LogicException outside the local phase of an attempt
+     * @throws \OCP\DB\Exception when a statement fails
      */
-    public function assertLifecycles(array $lifecycles): void {
+    public function holdLifecycles(array $lifecycles): void {
+        $this->localPhase();
         if ($lifecycles === []) {
             return;
         }
+        $groupIds = array_values(array_unique(array_column($lifecycles, 'groupId')));
         $current = [];
-        foreach ($this->life->forGroups(array_column($lifecycles, 'groupId')) as $row) {
+        foreach ($this->life->forGroups($groupIds) as $row) {
             $current[$row['groupId']] = $row;
         }
-        foreach ($lifecycles as $lifecycle) {
-            $row = $current[$lifecycle['groupId']] ?? null;
-            if ($row === null || $row['state'] !== GroupLifeMapper::ACTIVE || $row['gen'] !== $lifecycle['gen']) {
+        foreach ($groupIds as $gid) {
+            $row = $current[$gid] ?? null;
+            if ($row === null || $row['state'] !== GroupLifeMapper::ACTIVE
+                || !$this->life->transition($gid, $row['gen'], GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16)))) {
                 throw new SnapshotInvalidated();
             }
         }

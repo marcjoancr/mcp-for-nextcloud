@@ -148,11 +148,11 @@ final class GroupLifecycleListenerTest extends TestCase {
     }
 
     /**
-     * T6: deleting a group that grants eligibility. Its Before records causes only for the credential holders in G who
-     * would not be eligible without it, then pending_delete, without the mutex; its After purges under the mutex and
+     * T6: deleting a group that grants eligibility. Its Before writes pending_delete, without the mutex, then records
+     * causes only for the credential holders in G who would not be eligible without it; its After purges under the mutex and
      * runs the protocol for exactly those causes, with their gens, after the purge.
      */
-    public function testADeletionRecordsTheHoldersCausesThenPendingDeleteAndItsAfterPurges(): void {
+    public function testADeletionMarksPendingDeleteThenRecordsTheHoldersCausesAndItsAfterPurges(): void {
         $this->policy('staff');
         [$revision, $lock] = [$this->revision(), $this->lockSeq()];
         $listener = $this->listener();
@@ -348,19 +348,43 @@ final class GroupLifecycleListenerTest extends TestCase {
         $this->addToAssertionCount(1);
     }
 
-    /** Review F1: a failure while listing the holders never stops pending_delete; it is logged. */
-    public function testAFailedHolderListingStillMarksPendingDelete(): void {
-        $this->policy('staff');
+    /**
+     * Review F1 and condition 1 of the coordinator on F1 of the second reading: the capture runs after the mark; when it
+     * fails (holders unreadable, or a cause that cannot be written), G is never left pending_delete without its causes:
+     * the Before keeps no gen and the After suspends G (needs_confirm) instead of purging it.
+     */
+    public function testAFailedCaptureAfterTheMarkSuspendsTheGroupInsteadOfPurgingIt(): void {
         $store = $this->createMock(OAuthStore::class);
         $store->method('liveHolders')->willThrowException(new \RuntimeException('tokens unreadable'));
-        $listener = $this->listener(store: $store);
-        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
-        $this->assertSame('pending_delete', $this->life->get('staff')['state']);
-        $this->assertSame([], $this->causedUsers('staff'));
-        $this->assertContains(['Credential holders of a deleted group not listed; their causes are left to observed use', 'staff'], $this->warnings);
-        // The After still purges with the gen the Before wrote.
-        $this->handle($listener, new GroupDeletedEvent($this->group()));
-        $this->assertNull($this->life->get('staff'));
+        $rechecks = $this->createMock(RecheckMapper::class);
+        $rechecks->method('record')->willThrowException(new \RuntimeException('insert failed'));
+        foreach ([$this->listener(store: $store), $this->listener(rechecks: $rechecks)] as $listener) {
+            $this->policy('staff');
+            $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+            $this->assertSame('pending_delete', $this->life->get('staff')['state'], 'the mark comes first');
+            $this->assertSame([], $this->causedUsers('staff'));
+            $this->handle($listener, new GroupDeletedEvent($this->group()));
+            $this->assertSame('needs_confirm', $this->life->get('staff')['state'], 'suspended, never purged without causes');
+            $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
+            $this->database->dbal->executeStatement('DELETE FROM mcp_group_grants');
+            $this->database->dbal->executeStatement('DELETE FROM mcp_group_life');
+        }
+        $this->assertContains(['Credential holders of a deleted group not listed; the group is suspended instead of purged', 'staff'], $this->warnings);
+        $this->assertContains(['Recheck cause of a group deletion not recorded', 'alice'], $this->warnings);
+    }
+
+    /** F1 of the second reading: the holders are judged after pending_delete is written, never before. */
+    public function testTheHoldersAreJudgedAfterTheMark(): void {
+        $this->policy('staff');
+        $states = [];
+        $this->eligibility = function (string $uid, array $without) use (&$states): ?bool {
+            $states[] = $this->life->get('staff')['state'];
+            return $uid === 'bob' || !in_array('staff', $without, true);
+        };
+        $this->handle($this->listener(), new BeforeGroupDeletedEvent($this->group()));
+        $this->assertNotSame([], $states);
+        $this->assertSame(['pending_delete'], array_values(array_unique($states)));
+        $this->assertSame(['alice'], $this->causedUsers('staff'));
     }
 
     /**
