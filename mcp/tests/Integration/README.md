@@ -68,6 +68,8 @@ service switched off revoke by a cut or by the global epoch, as another session 
 commit removes the revoked rows, and repeating it never removes a credential issued after the cut. A consent whose
 code fails to store leaves the official `connected` value, the generation and the revision exactly as they were. The
 daily cleanup job must be registered by the app (install and upgrade) and must not remove a valid credential. The
-global epoch is moved only in the fresh cells (its cleanup would remove the baseline credentials an upgrade cell still
-has to check) and is put back afterwards.
+global epoch is proven by `Last/GlobalEpochTest.php`, in the `last` suite of `phpunit.xml`, which runs after every
+other test because its cleanup removes every credential of the old epoch, the baseline ones of an upgrade cell
+included. It runs in every cell; in the upgrade cells it also covers a row that takes (epoch 0, generation 1) from the
+defaults the upgrade ALTER added. The epoch is put back afterwards.
 Recheck causes are not covered here: they belong to ticket 06.

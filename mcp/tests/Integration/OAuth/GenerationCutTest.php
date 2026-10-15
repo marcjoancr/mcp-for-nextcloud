@@ -34,86 +34,11 @@ use OCP\Server;
 use RuntimeException;
 
 /**
- * Ticket 04 on the real server: the cut by generation and the global epoch through the production services, the
- * consent as one transaction with the official config, the account listener, and the cleanup job registered by the
- * app. Every test works on its own account, created and deleted here. The global epoch is moved only in the fresh
- * cells, and put back afterwards, so credentials other tests issue at the starting epoch stay valid.
+ * Ticket 04 on the real server: the cut by generation through the production services, the consent as one
+ * transaction with the official config, the account listener, and the cleanup job registered by the app. The global
+ * epoch runs last, in Last/GlobalEpochTest.php, after the baseline credentials of the upgrade cells are checked.
  */
-final class GenerationCutTest extends IntegrationTestCase {
-    private const CLIENT = 'https://claude.ai/oauth/mcp-client-metadata';
-    private const REDIRECT = 'https://claude.ai/api/mcp/auth_callback';
-    private const RESOURCE = 'https://cloud.example.org/apps/mcp/';
-    private const VERIFIER = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
-    private const CHALLENGE = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
-
-    private string $uid = '';
-    private ?IUser $user = null;
-    private string $epoch = '0';
-    private ?string $service = null;
-
-    protected function setUp(): void {
-        parent::setUp();
-        $this->uid = 'mcp-it-gen-' . bin2hex(random_bytes(6));
-        $this->user = Server::get(IUserManager::class)->createUser($this->uid, bin2hex(random_bytes(24))) ?: null;
-        $this->assertInstanceOf(IUser::class, $this->user);
-        $this->epoch = Server::get(PolicyStateMapper::class)->state()['auth_epoch'];
-        Server::get(\OCP\IAppConfig::class)->clearCache(false);
-        $this->service = Server::get(\OCP\IAppConfig::class)->hasKey('mcp', GrantPolicy::SERVICE_KEY)
-            ? Server::get(IConfig::class)->getAppValue('mcp', GrantPolicy::SERVICE_KEY) : null;
-        $policy = Server::get(GrantPolicy::class);
-        $policy->setGlobalEnabled(true);
-        $policy->setEligible($this->uid, true);
-    }
-
-    protected function tearDown(): void {
-        $this->user?->delete();
-        $db = $this->official();
-        foreach (['mcp_auth_users', 'mcp_auth_recheck'] as $table) {
-            $qb = $db->getQueryBuilder();
-            $qb->delete($table)->where($qb->expr()->eq('user_key', $qb->createNamedParameter(IdentityKey::user($this->uid))))->executeStatement();
-        }
-        Server::get(OAuthStore::class)->deleteUpToGeneration($this->uid, DecimalCounter::MAX);
-        // Test-only reset of the app's own counter, so later tests (and the baseline credentials) keep their epoch.
-        $qb = $db->getQueryBuilder();
-        $qb->update('mcp_policy_state')->set('auth_epoch', $qb->createNamedParameter($this->epoch))
-            ->where($qb->expr()->eq('id', $qb->createNamedParameter(1)))->executeStatement();
-        $config = Server::get(IConfig::class);
-        $this->service === null ? $config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY) : $config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, $this->service);
-        Server::get(\OCP\IAppConfig::class)->clearCache(false);
-        parent::tearDown();
-    }
-
-    private function request(): AuthorizationRequest {
-        return new AuthorizationRequest(new ClientMetadata(self::CLIENT, 'Claude', [self::REDIRECT]), self::REDIRECT, 'xyz',
-            self::CHALLENGE, self::RESOURCE, 'mcp');
-    }
-
-    private function consent(?TokenService $tokens = null): string {
-        $code = ($tokens ?? Server::get(TokenService::class))->consent($this->request(), $this->uid);
-        $this->assertIsString($code);
-        return $code;
-    }
-
-    /** @return array<string, string|int> */
-    private function exchange(string $code): array {
-        return Server::get(TokenService::class)->exchangeCode(['code' => $code, 'code_verifier' => self::VERIFIER,
-            'client_id' => self::CLIENT, 'redirect_uri' => self::REDIRECT, 'resource' => self::RESOURCE]);
-    }
-
-    private function bearer(array $tokens): ?string {
-        return Server::get(AccessTokenAuthenticator::class)->authenticate('Bearer ' . $tokens['access_token'], self::RESOURCE)?->getUID();
-    }
-
-    /** @return list<array{string, string}> (auth_global_epoch, auth_gen) of the user's rows in one table, as another session reads them */
-    private function stamps(IDBConnection $db, string $table): array {
-        $qb = $db->getQueryBuilder();
-        $result = $qb->select('auth_global_epoch', 'auth_gen')->from($table)->where($qb->expr()->eq('user_id', $qb->createNamedParameter($this->uid)))
-            ->orderBy('auth_gen')->executeQuery();
-        $rows = array_map(static fn (array $row): array => [(string)$row['auth_global_epoch'], (string)$row['auth_gen']], $result->fetchAll());
-        $result->closeCursor();
-        return $rows;
-    }
-
+final class GenerationCutTest extends OAuthAccountTestCase {
     public function testTheLineageKeepsItsGenerationAndADisconnectCutsEverythingIssuedBefore(): void {
         $second = $this->openIndependentConnection();
         $first = $this->exchange($this->consent());
@@ -169,29 +94,6 @@ final class GenerationCutTest extends IntegrationTestCase {
         $this->assertSame(['issue_seq' => '1', 'revoked_below' => '0'], (new AuthUsersMapper($second))->generations($this->uid));
         $this->assertSame([], $this->stamps($second, 'mcp_oauth_codes'));
         $this->assertSame($state, (new PolicyStateMapper($second))->state());
-    }
-
-    /**
-     * Fresh cells only: the cleanup of a global revocation removes every credential of the old epoch, by design, and
-     * in the upgrade cells that would include the baseline credentials LegacyCredentialsTest still has to check.
-     */
-    public function testSwitchingTheServiceOffMovesTheGlobalEpochAndOnlyLaterCredentialsWork(): void {
-        if (getenv('MCP_IT_MODE') === 'upgrade') {
-            $this->markTestSkipped('The global cleanup would remove the baseline credentials of the upgrade cell');
-        }
-        $second = $this->openIndependentConnection();
-        $grant = $this->exchange($this->consent());
-        $policy = Server::get(GrantPolicy::class);
-        $policy->setGlobalEnabled(false);
-        $moved = DecimalCounter::increment($this->epoch);
-        $this->assertSame($moved, (new PolicyStateMapper($second))->state()['auth_epoch']);
-        $this->assertSame([], $this->stamps($second, 'mcp_oauth_tokens'));
-        $policy->setGlobalEnabled(true);
-        $this->assertNull($this->bearer($grant));
-        $policy->setConnected($this->uid, true);
-        $fresh = $this->exchange($this->consent());
-        $this->assertSame([[$moved, '3']], $this->stamps($second, 'mcp_oauth_tokens'));
-        $this->assertSame($this->uid, $this->bearer($fresh));
     }
 
     /** Disabling the account in Nextcloud cuts through the app's listener, in the same request. */

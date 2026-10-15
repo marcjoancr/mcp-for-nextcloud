@@ -8,5 +8,10 @@
 -->
 <phpunit bootstrap="bootstrap.php" colors="false" cacheResult="false" failOnWarning="true" failOnRisky="true"
          beStrictAboutOutputDuringTests="true">
-    <testsuites><testsuite name="integration"><directory>.</directory></testsuite></testsuites>
+    <!-- Suites run in this order. "last" holds what changes state for every later test (the global auth epoch), so
+         it runs after the baseline credentials of the upgrade cells are checked. -->
+    <testsuites>
+        <testsuite name="integration"><directory>.</directory><exclude>Last</exclude></testsuite>
+        <testsuite name="last"><directory>Last</directory></testsuite>
+    </testsuites>
 </phpunit>
