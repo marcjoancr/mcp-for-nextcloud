@@ -25,3 +25,18 @@ prove that a listener of the app runs no query inside the caller's transaction (
 T19/F5). The app's listeners are registered at the default priority 0, which they share with core and other apps'
 listeners that do run queries. Tickets 06/07 must delimit the app's real handler without changing its registration
 or order, and also assert the caller's next query and its commit/rollback.
+
+## Transactional policy coverage (T1/T2)
+
+`Policy/PolicyTransactionTest.php` binds the production writer and official `IConfig`, `IUserConfig`, and
+`IAppConfig` to the server connection. It checks that core config and OAuth storage actually hold that same
+connection. A second real session observes config through test-only clones of core config services with their
+connection rebound; app tables are read through production mappers. The tests issue no SQL against core tables.
+
+Failures after user set, user delete, app set, group write, and revision CAS must leave all values and counters
+unchanged. Each stage is observed from the independent session before commit, and the original config services
+are reused after rollback. The success case must make every write visible together. Native migration seed
+reexecution must preserve existing counters, and a second writer must reject a stale revision.
+
+The event/outbox schema belongs to a later ticket; its rollback injection must be added when that schema exists.
+These tests do not certify OAuth generation/cause handling or the full T19 concurrency matrix.

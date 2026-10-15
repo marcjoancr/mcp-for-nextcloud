@@ -60,6 +60,18 @@ final class SqliteDatabase {
     public function connection(): IDBConnection {
         $db = $this->mock(IDBConnection::class);
         $db->method('getQueryBuilder')->willReturnCallback(fn (): IQueryBuilder => $this->builder());
+        $db->method('beginTransaction')->willReturnCallback(fn () => $this->dbal->beginTransaction());
+        $db->method('commit')->willReturnCallback(fn () => $this->dbal->commit());
+        $db->method('rollBack')->willReturnCallback(fn () => $this->dbal->rollBack());
+        $db->method('inTransaction')->willReturnCallback(fn (): bool => $this->dbal->isTransactionActive());
+        $db->method('insertIfNotExist')->willReturnCallback(function (string $table, array $input, ?array $compare = null): int {
+            $criteria = array_intersect_key($input, array_flip($compare ?? array_keys($input)));
+            $where = implode(' AND ', array_map(static fn ($key): string => $key . ' = ?', array_keys($criteria)));
+            if ($this->dbal->fetchOne('SELECT 1 FROM ' . $table . ' WHERE ' . $where, array_values($criteria)) !== false) {
+                return 0;
+            }
+            return (int)$this->dbal->insert($table, $input);
+        });
         $db->method('lastInsertId')->willReturnCallback(fn (): int => (int)$this->dbal->lastInsertId());
         return $db;
     }

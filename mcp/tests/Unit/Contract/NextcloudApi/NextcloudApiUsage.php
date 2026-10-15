@@ -267,11 +267,6 @@ final class NextcloudApiUsage {
             'fallback' => 'OCA\\DAV\\CalDAV\\InvitationResponse\\InvitationResponseServer',
             'by' => \OCA\Mcp\Tools\Calendar\EmbeddedCalDavServerFactory::class,
         ],
-        'OCP\\Config\\IUserConfig' => [
-            'missing' => ['31'],
-            'fallback' => 'OCP\\IConfig::getUsersForUserValue',
-            'by' => \OCA\Mcp\Service\GrantPolicy::class,
-        ],
         'OCP\\App\\IAppManager::isEnabledForAnyone' => [
             'missing' => ['31'],
             'fallback' => 'OCP\\App\\IAppManager::isInstalled',

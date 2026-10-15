@@ -1,0 +1,321 @@
+<?php
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+declare(strict_types=1);
+namespace OCA\Mcp\Tests\Unit\Service\Policy;
+
+use OCA\Mcp\Db\PolicyStateMapper;
+use OCA\Mcp\Migration\Version001100Date20261015000000;
+use OCA\Mcp\Service\Policy\DecimalCounter;
+use OCA\Mcp\Service\Policy\PolicyConflict;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
+use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Policy\SnapshotInvalidated;
+use OCA\Mcp\Tests\Unit\InMemoryConfig;
+use OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore;
+use OCA\Mcp\Tests\Unit\SqliteDatabase;
+use OCP\Config\IUserConfig;
+use OCP\DB\Exception as DatabaseException;
+use OCP\IAppConfig;
+use OCP\IConfig;
+use OCP\IDBConnection;
+use OCP\IUser;
+use OCP\IUserManager;
+use OCP\Migration\IOutput;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+final class PolicyWriterTest extends TestCase {
+    private SqliteDatabase $database;
+    private IDBConnection $db;
+    private PolicyStateMapper $state;
+    private PolicyWriter $writer;
+
+    protected function setUp(): void {
+        $migration = new Version001100Date20261015000000($this->createMock(IDBConnection::class));
+        $this->database = new SqliteDatabase($this, [$migration]);
+        $this->db = $this->database->connection();
+        $this->state = new PolicyStateMapper($this->db);
+        (new Version001100Date20261015000000($this->db))->postSchemaChange($this->createMock(IOutput::class), fn () => null, []);
+        // An app-owned scratch table models all local writes (groups, epochs and outbox) without core SQL.
+        $this->database->dbal->executeStatement('CREATE TABLE unit_policy (id INTEGER PRIMARY KEY, value TEXT)');
+        $this->writer = $this->writer();
+    }
+
+    private function writer(?PolicyStateMapper $state = null, ?IUserConfig $users = null, ?IAppConfig $apps = null): PolicyWriter {
+        return new PolicyWriter($this->db, $state ?? $this->state,
+            (new InMemoryConfig())->mock($this), $users ?? $this->createMock(IUserConfig::class),
+            $apps ?? $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+    }
+
+    private function write(int $id): \Closure {
+        return function () use ($id): bool {
+            $this->database->dbal->insert('unit_policy', ['id' => $id, 'value' => 'new']);
+            return true;
+        };
+    }
+
+    public function testStaleWorkerAndAbaOnDifferentTargetsCannotOverwriteCommittedState(): void {
+        $stale = $this->state->state()['revision'];
+        $this->assertSame('1', $this->writer->runAdmin('0', [], fn () => null, $this->write(1))['revision']);
+        $this->writer->runAdmin('1', [], fn () => null, $this->write(2));
+        try {
+            $this->writer->runAdmin($stale, [], fn () => null, $this->write(3));
+            $this->fail('Stale revision accepted');
+        } catch (PolicyConflict $e) {
+            $this->assertSame(409, $e->getCode());
+        }
+        $this->assertSame([1, 2], array_column($this->database->rows('unit_policy'), 'id'));
+        $this->assertSame('2', $this->state->state()['revision']);
+        $this->assertFalse($this->db->inTransaction());
+    }
+
+    public function testExternalObservationRunsOutsideTransactionAndRetriesWithTheSameCommandId(): void {
+        $ids = [];
+        $attempts = 0;
+        $result = $this->writer->runInternal([], function ($state, $id) use (&$ids): string {
+            $this->assertFalse($this->db->inTransaction());
+            $ids[] = $id;
+            return $state['revision'];
+        }, function ($snapshot) use (&$attempts): bool {
+            $this->assertTrue($this->db->inTransaction());
+            $this->assertSame('0', $snapshot);
+            $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'new']);
+            if (++$attempts < 3) {
+                throw new SnapshotInvalidated();
+            }
+            return true;
+        });
+        $this->assertCount(3, $ids);
+        $this->assertCount(1, array_unique($ids));
+        $this->assertSame($ids[0], $result['commandId']);
+        $this->assertCount(1, $this->database->rows('unit_policy'));
+        $this->assertSame(['revision' => '1', 'lock_seq' => '1', 'auth_epoch' => '0'], $this->state->state());
+    }
+
+    public function testRevisionChangedBetweenPhasesRepeatsAdmissionBeforeAnyLocalMutation(): void {
+        $attempts = 0;
+        $result = $this->writer->runInternal([], function () use (&$attempts): void {
+            if (++$attempts === 1) {
+                $this->writer->runInternal([], fn () => null, $this->write(1));
+            }
+        }, $this->write(2));
+        $this->assertSame(2, $attempts);
+        $this->assertSame('2', $result['revision']);
+    }
+
+    public function testDirectoryObservationWithoutAppWriteDoesNotAdvanceRevision(): void {
+        $result = $this->writer->runInternal([], fn () => 'directory changed', fn () => false);
+        $this->assertFalse($result['changed']);
+        $this->assertSame('0', $result['revision']);
+        $this->assertSame('1', $this->writer->runInternal([], fn () => 'processed event', $this->write(1))['revision']);
+    }
+
+    public function testCasFailureRollsBackEveryLocalWriteAndMutex(): void {
+        $state = $this->createMock(PolicyStateMapper::class);
+        $state->method('state')->willReturn(['revision' => '0', 'lock_seq' => '0', 'auth_epoch' => '0']);
+        $state->method('compareAndSet')->willThrowException(new PolicyConflict());
+        try {
+            $this->writer($state)->runAdmin('0', [], fn () => null, $this->write(1));
+            $this->fail('CAS failure accepted');
+        } catch (PolicyConflict) {
+        }
+        $this->assertSame([], $this->database->rows('unit_policy'));
+        $this->assertSame('0', $this->state->state()['lock_seq']);
+    }
+
+    #[DataProvider('retryReasons')]
+    public function testRetryableDatabaseErrorsRollbackFullyAndStopAfterTwoRetries(int $reason): void {
+        $error = new class($reason) extends DatabaseException {
+            public function __construct(private int $reason) { parent::__construct('injected'); }
+            public function getReason(): ?int { return $this->reason; }
+        };
+        $attempts = 0;
+        $started = hrtime(true);
+        try {
+            $this->writer->runInternal([], fn () => null, function () use (&$attempts, $error): bool {
+                ++$attempts;
+                $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'new']);
+                throw $error;
+            });
+            $this->fail('Retry exhaustion accepted');
+        } catch (PolicyUnavailable $e) {
+            $this->assertSame(503, $e->getCode());
+        }
+        $this->assertSame(3, $attempts);
+        $this->assertLessThan(1.0, (hrtime(true) - $started) / 1e9);
+        $this->assertSame([], $this->database->rows('unit_policy'));
+        $this->assertSame('0', $this->state->state()['lock_seq']);
+    }
+
+    public static function retryReasons(): array {
+        return [[DatabaseException::REASON_DEADLOCK], [DatabaseException::REASON_LOCK_WAIT_TIMEOUT]];
+    }
+
+    public function testForeignTransactionIsRefusedWithoutAnyStatementOrRollback(): void {
+        $this->db->beginTransaction();
+        $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'owner']);
+        try {
+            $this->writer->runInternal([], fn () => $this->fail('Admission called'), $this->write(2));
+            $this->fail('Foreign transaction accepted');
+        } catch (PolicyUnavailable) {
+        }
+        $this->assertTrue($this->db->inTransaction());
+        $this->db->commit();
+        $this->assertCount(1, $this->database->rows('unit_policy'));
+    }
+
+    public function testMissingStateFailsClosedAndSeedNeverOverwritesExistingRevision(): void {
+        $this->writer->runInternal([], fn () => null, $this->write(1));
+        (new Version001100Date20261015000000($this->db))->postSchemaChange($this->createMock(IOutput::class), fn () => null, []);
+        $this->assertSame('1', $this->state->state()['revision']);
+        $this->database->dbal->delete('mcp_policy_state', ['id' => 1]);
+        $this->expectException(PolicyUnavailable::class);
+        $this->writer->runInternal([], fn () => null, $this->write(2));
+    }
+
+    public function testExhaustedMutexAndRevisionRollbackRatherThanWrappingCounters(): void {
+        foreach (['lock_seq', 'revision'] as $counter) {
+            $this->database->dbal->update('mcp_policy_state', ['revision' => '0', 'lock_seq' => '0', $counter => DecimalCounter::MAX], ['id' => 1]);
+            try {
+                $this->writer->runInternal([], fn () => null, $this->write(1));
+                $this->fail('Exhausted counter accepted');
+            } catch (PolicyUnavailable) {
+            }
+            $this->assertSame([], $this->database->rows('unit_policy'));
+            $this->assertSame(DecimalCounter::MAX, $this->state->state()[$counter]);
+        }
+    }
+
+    public function testSettersPreserveRawPresenceAndSkipOnlyIdenticalRawValues(): void {
+        $data = new InMemoryConfig();
+        $config = $data->mock($this);
+        $users = $this->createMock(IUserManager::class);
+        $users->method('get')->willReturn($this->createMock(IUser::class));
+        $apps = $this->createMock(IAppConfig::class);
+        $apps->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $data->app[$app] ?? []));
+        $writer = new PolicyWriter($this->db, $this->state, $config, $this->createMock(IUserConfig::class), $apps, $users, new InMemoryOAuthStore());
+        // Absence/default false -> explicit deny is a real raw change.
+        $writer->setGrant('alice', 'notes', 'edit', false);
+        $this->assertSame('0', $data->user['alice']['mcp']['grant_notes_edit']);
+        $this->assertSame('1', $this->state->state()['revision']);
+        $writer->setGrant('alice', 'notes', 'edit', false);
+        $this->assertSame('1', $this->state->state()['revision']);
+        $writer->resetOverride('alice', 'notes', 'edit');
+        $this->assertArrayNotHasKey('grant_notes_edit', $data->user['alice']['mcp']);
+        $this->assertSame('2', $this->state->state()['revision']);
+        $writer->resetOverride('alice', 'notes', 'edit');
+        $this->assertSame('2', $this->state->state()['revision']);
+        $writer->setGlobalEnabled(true);
+        $writer->setGlobalEnabled(true);
+        $writer->setEligible('alice', true);
+        $writer->setConnected('alice', true);
+        $this->assertSame('5', $this->state->state()['revision']);
+        $this->assertSame('1', $data->app['mcp']['service_enabled']);
+        $this->assertSame('1', $data->user['alice']['mcp']['eligible']);
+        $this->assertSame('1', $data->user['alice']['mcp']['connected']);
+    }
+
+    public function testUnknownUserAndInvalidCatalogFailBeforeAnyTransactionWrite(): void {
+        $writer = $this->writer();
+        foreach ([fn () => $writer->setEligible('missing', true), fn () => $writer->setGrant('alice', 'files', 'delete', true)] as $command) {
+            try {
+                $command();
+                $this->fail('Invalid input accepted');
+            } catch (\InvalidArgumentException) {
+            }
+            $this->assertSame('0', $this->state->state()['lock_seq']);
+            $this->assertFalse($this->db->inTransaction());
+        }
+    }
+
+    public function testUnknownCommitOutcomeIsNeverReplayedAndAbandonsContext(): void {
+        $commits = 0;
+        $db = $this->boundaryConnection(function () use (&$commits): void {
+            ++$commits;
+            $this->db->commit(); // The server committed, but the client lost its acknowledgement.
+            throw new \RuntimeException('connection lost');
+        });
+        $writer = $this->writerOn($db);
+        try {
+            $writer->runInternal([], fn () => null, $this->write(1));
+            $this->fail('Unknown commit accepted');
+        } catch (PolicyUnavailable $e) {
+            $this->assertTrue($e->uncertain);
+        }
+        $this->assertSame(1, $commits);
+        $this->assertCount(1, $this->database->rows('unit_policy'));
+        $this->assertSame('1', $this->state->state()['revision']);
+        $this->expectException(PolicyUnavailable::class);
+        $writer->runInternal([], fn () => $this->fail('Abandoned writer reused'), $this->write(2));
+    }
+
+    public function testKnownCommitDeadlockRollsBackBeforeRetryingTheEntireAdmission(): void {
+        $commits = 0;
+        $db = $this->boundaryConnection(function () use (&$commits): void {
+            if (++$commits === 1) {
+                throw new class('deadlock') extends DatabaseException {
+                    public function getReason(): ?int { return self::REASON_DEADLOCK; }
+                };
+            }
+            $this->db->commit();
+        });
+        $result = $this->writerOn($db)->runInternal([], fn () => null, $this->write(1));
+        $this->assertSame(2, $commits);
+        $this->assertSame('1', $result['revision']);
+        $this->assertCount(1, $this->database->rows('unit_policy'));
+        $this->assertSame('1', $this->state->state()['lock_seq']);
+    }
+
+    public function testUnwrappedSqliteBusyIsRetriedButOrdinaryDriverErrorIsNot(): void {
+        foreach ([5 => 3, 1 => 1] as $code => $expectedAttempts) {
+            $attempts = 0;
+            $error = new class('sqlite driver', $code) extends \RuntimeException implements \Doctrine\DBAL\Driver\Exception {
+                public function getSQLState(): ?string { return 'HY000'; }
+            };
+            try {
+                $this->writer->runInternal([], fn () => null, function () use ($error, &$attempts): bool {
+                    ++$attempts;
+                    $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'new']);
+                    throw $error;
+                });
+                $this->fail('Driver error accepted');
+            } catch (PolicyUnavailable) {
+            }
+            $this->assertSame($expectedAttempts, $attempts);
+            $this->assertSame([], $this->database->rows('unit_policy'));
+        }
+    }
+
+    private function boundaryConnection(\Closure $commit): IDBConnection {
+        $db = $this->createMock(IDBConnection::class);
+        $db->method('getQueryBuilder')->willReturnCallback(fn () => $this->db->getQueryBuilder());
+        $db->method('inTransaction')->willReturnCallback(fn () => $this->db->inTransaction());
+        $db->method('beginTransaction')->willReturnCallback(fn () => $this->db->beginTransaction());
+        $db->method('rollBack')->willReturnCallback(fn () => $this->db->rollBack());
+        $db->method('commit')->willReturnCallback($commit);
+        return $db;
+    }
+
+    private function writerOn(IDBConnection $db): PolicyWriter {
+        return new PolicyWriter($db, new PolicyStateMapper($db), (new InMemoryConfig())->mock($this),
+            $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class),
+            $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+    }
+
+    public function testCacheClearFailureAbandonsTheWholeWriterContext(): void {
+        $apps = $this->createMock(IAppConfig::class);
+        $apps->method('clearCache')->willThrowException(new \RuntimeException('cache unavailable'));
+        $writer = $this->writer(apps: $apps);
+        foreach ([1, 2] as $id) {
+            try {
+                $writer->runInternal([], fn () => null, $this->write($id));
+                $this->fail('Abandoned context accepted');
+            } catch (PolicyUnavailable) {
+            }
+        }
+        $this->assertSame([], $this->database->rows('unit_policy'));
+    }
+}

@@ -10,7 +10,7 @@ namespace OCA\Mcp\Service;
 use InvalidArgumentException;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
-use OCA\Mcp\OAuth\OAuthStore;
+use OCA\Mcp\Service\Policy\PolicyWriter;
 
 /**
  * Persisted MCP access policy: global switch, per-user admin eligibility, per-user personal
@@ -59,13 +59,7 @@ class GrantPolicy {
      */
     public const RESERVED_APP_KEYS = ['enabled', 'installed_version', 'types', 'levels', 'ocsid'];
 
-    /**
-     * @param IConfig $config Nextcloud configuration, where every value of the policy lives
-     * @param OAuthStore $oauth OAuth tokens, revoked when a switch closes
-     * @param IUserConfig|null $userConfig the user config service of Nextcloud 32 and later; Nextcloud 31 has no such
-     *     interface, so its container falls back to the null default and the policy searches through IConfig
-     */
-    public function __construct(private IConfig $config, private OAuthStore $oauth, private ?IUserConfig $userConfig = null) {}
+    public function __construct(private IConfig $config, private IUserConfig $userConfig, private PolicyWriter $writer) {}
 
     /** @return bool whether the administrator enabled the MCP service (off by default) */
     public function globalEnabled(): bool {
@@ -74,10 +68,7 @@ class GrantPolicy {
 
     /** @param bool $enabled new state of the global service switch */
     public function setGlobalEnabled(bool $enabled): void {
-        $this->config->setAppValue(self::APP, self::SERVICE_KEY, $enabled ? '1' : '0');
-        if (!$enabled) {
-            $this->oauth->deleteAll();
-        }
+        $this->writer->setGlobalEnabled($enabled);
     }
 
     /**
@@ -93,10 +84,7 @@ class GrantPolicy {
      * @param bool $enabled new eligibility
      */
     public function setEligible(string $uid, bool $enabled): void {
-        $this->config->setUserValue($uid, self::APP, self::ELIGIBLE_KEY, $enabled ? '1' : '0');
-        if (!$enabled) {
-            $this->oauth->deleteForUser($uid);
-        }
+        $this->writer->setEligible($uid, $enabled);
     }
 
     /**
@@ -112,7 +100,7 @@ class GrantPolicy {
      * @param bool $enabled new personal connection state
      */
     public function setConnected(string $uid, bool $enabled): void {
-        $this->config->setUserValue($uid, self::APP, self::CONNECTED_KEY, $enabled ? '1' : '0');
+        $this->writer->setConnected($uid, $enabled);
     }
 
     /**
@@ -126,10 +114,7 @@ class GrantPolicy {
         if (!in_array($key, [self::ELIGIBLE_KEY, self::CONNECTED_KEY], true)) {
             throw new InvalidArgumentException('Invalid request');
         }
-        // IConfig::getUsersForUserValue is the only search Nextcloud 31 has; 33 deprecates it in favour of IUserConfig.
-        $found = $this->userConfig === null
-            ? $this->config->getUsersForUserValue(self::APP, $key, '1')
-            : iterator_to_array($this->userConfig->searchUsersByValueString(self::APP, $key, '1'), false);
+        $found = iterator_to_array($this->userConfig->searchUsersByValueString(self::APP, $key, '1'), false);
         $uids = array_map('strval', $found);
         sort($uids);
         return array_values(array_unique($uids));
@@ -185,7 +170,7 @@ class GrantPolicy {
      * @throws InvalidArgumentException for a module or operation outside CATALOG
      */
     public function setGrant(string $uid, string $module, string $operation, bool $enabled): void {
-        $this->config->setUserValue($uid, self::APP, self::grantKey($module, $operation), $enabled ? '1' : '0');
+        $this->writer->setGrant($uid, $module, $operation, $enabled);
     }
 
     /**
