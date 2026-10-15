@@ -13,6 +13,8 @@ final class Fixtures {
     public const ALICE = 'mcp-it-alice';
     /** In no fixture group. */
     public const BOB = 'mcp-it-bob';
+    /** Owner of the OAuth credentials the baseline issues before an upgrade (OAuth/LegacyCredentialsTest). */
+    public const LEGACY = 'mcp-it-legacy';
     /** Database-backend group holding ALICE only. */
     public const STAFF = 'mcp-it-staff';
     /** Database-backend group without members. */

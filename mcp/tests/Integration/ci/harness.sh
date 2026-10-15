@@ -170,6 +170,8 @@ cmd_install_app() {
         occ app:enable mcp
         assert_installed_version "$baseline_version"
         occ migrations:status mcp || true
+        # Credentials issued by the baseline itself, checked after the upgrade (validation T12).
+        docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
     fi
 
     mkdir -p "$WORK/branch-pkg"
@@ -206,7 +208,7 @@ cmd_fixtures() {
         *"- password_policy:"*) occ app:disable password_policy ;;
     esac
     password=$(openssl rand -hex 24)
-    for uid in mcp-it-alice mcp-it-bob; do
+    for uid in mcp-it-alice mcp-it-bob mcp-it-legacy; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
     occ group:add mcp-it-staff
@@ -262,7 +264,7 @@ REPORT
 cmd_test() {
     expected=$(cat "$WORK/expected-version")
     set -- -e NEXTCLOUD_ROOT=/var/www/html -e MCP_IT_NC="$MCP_IT_NC" -e MCP_IT_DB="$MCP_IT_DB" \
-        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected"
+        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json
     if [ "$MCP_IT_DB" = pgsql ]; then
         set -- "$@" -e MCP_IT_PG_LOG=/mcp-it-pglog/postgresql.log
     fi

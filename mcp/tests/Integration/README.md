@@ -38,5 +38,15 @@ unchanged. Each stage is observed from the independent session before commit, an
 are reused after rollback. The success case must make every write visible together. Native migration seed
 reexecution must preserve existing counters, and a second writer must reject a stale revision.
 
-The event/outbox schema belongs to a later ticket; its rollback injection must be added when that schema exists.
-These tests do not certify OAuth generation/cause handling or the full T19 concurrency matrix.
+The policy outbox is one more injection point: an event the command emits is written after the revision CAS, in the
+same transaction, and must be invisible to the second session until the commit.
+
+## Authorization schema (T12/T18)
+
+`Policy/AuthStateTest.php` checks the B2b tables and the OAuth generation columns on the real database of each cell,
+and that generations, recheck causes and group lifecycles written by the composition mappers commit or roll back with
+the policy writer. In the upgrade cells, `ci/legacy-credentials.php` runs while the baseline release is still
+installed and issues a code, a rotated grant (with its spent record) and a second grant through that release's own
+store; `OAuth/LegacyCredentialsTest.php` then checks after `occ upgrade` that every row, id and hash is unchanged,
+that they carry epoch 0 and generation 1, and that they still authenticate, exchange, rotate and detect the replay.
+It is skipped in fresh cells. These tests do not certify how later tickets use the columns, nor the full T19 matrix.

@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Policy;
 
 use OCA\Mcp\Db\GroupGrantsMapper;
+use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\PolicyStateSeeder;
 use OCA\Mcp\Migration\PolicyStateSeedStep;
@@ -14,9 +15,11 @@ use OCA\Mcp\Migration\Version001100Date20261015000000;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\Policy\PolicyConflict;
+use OCA\Mcp\Service\Policy\PolicyOutbox;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Tests\Integration\Fixtures;
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IAppConfig;
@@ -33,6 +36,8 @@ final class PolicyTransactionTest extends IntegrationTestCase {
     private const SET_KEY = 'grant_notes_edit';
     private const DELETE_KEY = 'grant_deck_move';
     private string $gid = '';
+    /** @var list<string> */
+    private array $eventIds = [];
 
     protected function tearDown(): void {
         parent::tearDown();
@@ -43,6 +48,10 @@ final class PolicyTransactionTest extends IntegrationTestCase {
         $config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY);
         Server::get(IUserConfig::class)->clearCache(Fixtures::ALICE, false);
         Server::get(IAppConfig::class)->clearCache(false);
+        foreach ($this->eventIds as $id) {
+            $qb = $this->official()->getQueryBuilder();
+            $qb->delete('mcp_policy_events')->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))->executeStatement();
+        }
         if ($this->gid !== '') {
             $qb = $this->official()->getQueryBuilder();
             $qb->delete('mcp_group_grants')->where($qb->expr()->eq('group_key', $qb->createNamedParameter(hash('sha256', "group\0" . $this->gid))))->executeStatement();
@@ -50,7 +59,7 @@ final class PolicyTransactionTest extends IntegrationTestCase {
     }
 
     public static function failurePoints(): array {
-        return array_map(static fn ($point): array => [$point], ['set', 'delete', 'app', 'group', 'cas', 'none']);
+        return array_map(static fn ($point): array => [$point], ['set', 'delete', 'app', 'group', 'cas', 'outbox', 'none']);
     }
 
     #[DataProvider('failurePoints')]
@@ -83,7 +92,12 @@ final class PolicyTransactionTest extends IntegrationTestCase {
         (new \ReflectionProperty($otherUsers, 'connection'))->setValue($otherUsers, $second);
         $otherApps = clone $apps;
         (new \ReflectionProperty($otherApps, 'connection'))->setValue($otherApps, $second);
-        $observeOld = function () use ($otherUsers, $otherApps, $second, $before): void {
+        $eventId = null;
+        $otherEvents = new PolicyEventsMapper($second, Server::get(ITimeFactory::class));
+        $observeOld = function () use ($otherUsers, $otherApps, $second, $before, &$eventId, $otherEvents): void {
+            if ($eventId !== null) {
+                $this->assertNull($otherEvents->find($eventId));
+            }
             $otherUsers->clearCache(Fixtures::ALICE, false);
             $otherApps->clearCache(false);
             $this->assertSame([Fixtures::ALICE => '0'], $otherUsers->getValuesByUsers('mcp', self::SET_KEY, null, [Fixtures::ALICE]));
@@ -105,12 +119,21 @@ final class PolicyTransactionTest extends IntegrationTestCase {
                 ($this->after)('cas');
             }
         };
-        $writer = new PolicyWriter($db, $mapper, $config, $users, $apps, Server::get(IUserManager::class), Server::get(OAuthStore::class));
+        $events = new class($db, Server::get(ITimeFactory::class), $after) extends PolicyEventsMapper {
+            public function __construct(IDBConnection $db, ITimeFactory $time, private \Closure $after) { parent::__construct($db, $time); }
+            public function append(string $id, string $kind, array $payload): void {
+                parent::append($id, $kind, $payload);
+                ($this->after)('outbox');
+            }
+        };
+        $writer = new PolicyWriter($db, $mapper, $events, $config, $users, $apps, Server::get(IUserManager::class), Server::get(OAuthStore::class));
         try {
             $result = $writer->runAdmin($before['revision'], [Fixtures::ALICE], function () use ($db): void {
                 $this->assertFalse($db->inTransaction());
                 $this->assertNotNull(Server::get(IUserManager::class)->get(Fixtures::ALICE));
-            }, function () use ($config, $db, $after): bool {
+            }, function ($snapshot, $current, $commandId, PolicyOutbox $outbox) use ($config, $db, $after, &$eventId): bool {
+                $eventId = $outbox->add(PolicyEventsMapper::KIND_AUDIT, ['test' => 'policy-transaction']);
+                $this->eventIds[] = $eventId;
                 $config->setUserValue(Fixtures::ALICE, 'mcp', self::SET_KEY, '1');
                 $after('set');
                 $config->deleteUserValue(Fixtures::ALICE, 'mcp', self::DELETE_KEY);
@@ -151,6 +174,8 @@ final class PolicyTransactionTest extends IntegrationTestCase {
             $this->assertSame('1', $otherApps->getValueString('mcp', GrantPolicy::SERVICE_KEY));
             $this->assertNotSame($before['revision'], (new PolicyStateMapper($second))->state()['revision']);
             $this->assertSame([['groupId' => $this->gid, 'grants' => ['notes' => ['edit']]]], (new GroupGrantsMapper($second))->forGroups([$this->gid]));
+            $this->assertSame(['test' => 'policy-transaction'], $otherEvents->find($eventId)['payload']);
+            $this->assertSame($result['commandId'] . '-1', $eventId);
             $this->assertSame('1', $config->getUserValue(Fixtures::ALICE, 'mcp', self::SET_KEY));
             $this->assertFalse($users->hasKey(Fixtures::ALICE, 'mcp', self::DELETE_KEY));
         }
@@ -233,7 +258,7 @@ final class PolicyTransactionTest extends IntegrationTestCase {
                 throw new RuntimeException('Injected inside change()');
             }
         };
-        $failing = new GrantPolicy($config, $users, new PolicyWriter($db, $mapper, $config, $users, $apps,
+        $failing = new GrantPolicy($config, $users, new PolicyWriter($db, $mapper, Server::get(PolicyEventsMapper::class), $config, $users, $apps,
             Server::get(IUserManager::class), Server::get(OAuthStore::class)));
         try {
             $failing->setGrant(Fixtures::ALICE, 'notes', 'edit', false);
