@@ -6,16 +6,20 @@
 declare(strict_types=1);
 namespace OCA\Mcp\Tests\Unit\Service\Policy;
 
+use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Migration\Version001100Date20261015000000;
+use OCA\Mcp\Migration\Version001100Date20261015010000;
 use OCA\Mcp\Service\Policy\DecimalCounter;
 use OCA\Mcp\Service\Policy\PolicyConflict;
+use OCA\Mcp\Service\Policy\PolicyOutbox;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Service\Policy\SnapshotInvalidated;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore;
 use OCA\Mcp\Tests\Unit\SqliteDatabase;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\DB\Exception as DatabaseException;
 use OCP\IAppConfig;
@@ -35,7 +39,7 @@ final class PolicyWriterTest extends TestCase {
 
     protected function setUp(): void {
         $migration = new Version001100Date20261015000000($this->createMock(IDBConnection::class));
-        $this->database = new SqliteDatabase($this, [$migration]);
+        $this->database = new SqliteDatabase($this, [$migration, new Version001100Date20261015010000()]);
         $this->db = $this->database->connection();
         $this->state = new PolicyStateMapper($this->db);
         (new Version001100Date20261015000000($this->db))->postSchemaChange($this->createMock(IOutput::class), fn () => null, []);
@@ -44,8 +48,14 @@ final class PolicyWriterTest extends TestCase {
         $this->writer = $this->writer();
     }
 
+    private function events(?IDBConnection $db = null): PolicyEventsMapper {
+        $time = $this->createMock(ITimeFactory::class);
+        $time->method('getTime')->willReturn(1760000000);
+        return new PolicyEventsMapper($db ?? $this->db, $time);
+    }
+
     private function writer(?PolicyStateMapper $state = null, ?IUserConfig $users = null, ?IAppConfig $apps = null): PolicyWriter {
-        return new PolicyWriter($this->db, $state ?? $this->state,
+        return new PolicyWriter($this->db, $state ?? $this->state, $this->events(),
             (new InMemoryConfig())->mock($this), $users ?? $this->createMock(IUserConfig::class),
             $apps ?? $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), new InMemoryOAuthStore());
     }
@@ -196,7 +206,7 @@ final class PolicyWriterTest extends TestCase {
         $users->method('get')->willReturn($this->createMock(IUser::class));
         $apps = $this->createMock(IAppConfig::class);
         $apps->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $data->app[$app] ?? []));
-        $writer = new PolicyWriter($this->db, $this->state, $config, $this->createMock(IUserConfig::class), $apps, $users, new InMemoryOAuthStore());
+        $writer = new PolicyWriter($this->db, $this->state, $this->events(), $config, $this->createMock(IUserConfig::class), $apps, $users, new InMemoryOAuthStore());
         // Absence/default false -> explicit deny is a real raw change.
         $writer->setGrant('alice', 'notes', 'edit', false);
         $this->assertSame('0', $data->user['alice']['mcp']['grant_notes_edit']);
@@ -300,7 +310,7 @@ final class PolicyWriterTest extends TestCase {
     }
 
     private function writerOn(IDBConnection $db): PolicyWriter {
-        return new PolicyWriter($db, new PolicyStateMapper($db), (new InMemoryConfig())->mock($this),
+        return new PolicyWriter($db, new PolicyStateMapper($db), $this->events($db), (new InMemoryConfig())->mock($this),
             $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class),
             $this->createMock(IUserManager::class), new InMemoryOAuthStore());
     }
@@ -370,7 +380,7 @@ final class PolicyWriterTest extends TestCase {
             $this->db->commit();
             throw new \RuntimeException('connection lost');
         });
-        $writer = new PolicyWriter($db, new PolicyStateMapper($db), (new InMemoryConfig())->mock($this),
+        $writer = new PolicyWriter($db, new PolicyStateMapper($db), $this->events($db), (new InMemoryConfig())->mock($this),
             $this->createMock(IUserConfig::class), $this->appsFailingCacheClearOnCall(3, new \RuntimeException('cache unavailable')),
             $this->createMock(IUserManager::class), new InMemoryOAuthStore());
         try {
@@ -380,6 +390,63 @@ final class PolicyWriterTest extends TestCase {
             $this->assertTrue($e->uncertain);
             $this->assertInstanceOf(PolicyUnavailable::class, $e->getPrevious());
             $this->assertTrue($e->getPrevious()->uncertain);
+        }
+    }
+
+    public function testOutboxEventsCommitWithTheChangeAndKeepTheirIdsAcrossRetries(): void {
+        $attempts = 0;
+        $ids = [];
+        $result = $this->writer->runInternal([], fn () => null, function ($snapshot, $state, $commandId, PolicyOutbox $outbox) use (&$attempts, &$ids): bool {
+            $ids[] = [$outbox->add(PolicyEventsMapper::KIND_AUDIT, ['n' => 1]), $outbox->add(PolicyEventsMapper::KIND_CLEANUP, ['uid' => 'alice'])];
+            $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'new']);
+            if (++$attempts < 2) {
+                throw new SnapshotInvalidated();
+            }
+            return true;
+        });
+        $this->assertSame($ids[0], $ids[1]);
+        $this->assertSame([$result['commandId'] . '-1', $result['commandId'] . '-2'], $ids[0]);
+        $rows = $this->database->rows('mcp_policy_events');
+        $this->assertSame($ids[0], array_column($rows, 'id'));
+        $this->assertSame(['audit', 'cleanup'], array_column($rows, 'kind'));
+        $this->assertSame(['pending', 'pending'], array_column($rows, 'status'));
+        $this->assertSame(['n' => 1], $this->events()->find($ids[0][0])['payload']);
+    }
+
+    public function testFailureAfterTheOutboxWriteRollsBackTheEventsWithTheChange(): void {
+        $events = new class($this->db, $this->createMock(ITimeFactory::class)) extends PolicyEventsMapper {
+            public function append(string $id, string $kind, array $payload): void {
+                parent::append($id, $kind, $payload);
+                throw new \RuntimeException('injected after outbox');
+            }
+        };
+        $writer = new PolicyWriter($this->db, $this->state, $events, (new InMemoryConfig())->mock($this),
+            $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), new InMemoryOAuthStore());
+        try {
+            $writer->runInternal([], fn () => null, function ($s, $c, $id, PolicyOutbox $outbox): bool {
+                $outbox->add(PolicyEventsMapper::KIND_AUDIT, []);
+                $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'new']);
+                return true;
+            });
+            $this->fail('Injected failure swallowed');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('injected after outbox', $e->getMessage());
+        }
+        $this->assertSame([], $this->database->rows('mcp_policy_events'));
+        $this->assertSame([], $this->database->rows('unit_policy'));
+        $this->assertSame(['revision' => '0', 'lock_seq' => '0', 'auth_epoch' => '0'], $this->state->state());
+    }
+
+    public function testAnUnknownOutboxKindFailsTheCommandBeforeAnyWrite(): void {
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            $this->writer->runInternal([], fn () => null, function ($s, $c, $id, PolicyOutbox $outbox): bool {
+                $outbox->add('intent', []);
+                return true;
+            });
+        } finally {
+            $this->assertSame([], $this->database->rows('mcp_policy_events'));
+            $this->assertSame('0', $this->state->state()['revision']);
         }
     }
 }

@@ -47,7 +47,10 @@ final class InMemoryConfig {
         $users->method('get')->willReturn($mock(\OCP\IUser::class));
         $appConfig = $mock(\OCP\IAppConfig::class);
         $appConfig->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $data->app[$app] ?? []));
-        $writer = new \OCA\Mcp\Service\Policy\PolicyWriter($db, $state, $config, self::$userConfigs[$config], $appConfig, $users, $store);
+        // Setters emit no events yet; a command that does would fail loudly against this mock.
+        $events = $mock(\OCA\Mcp\Db\PolicyEventsMapper::class);
+        $events->method('append')->willThrowException(new \LogicException('Unexpected policy event'));
+        $writer = new \OCA\Mcp\Service\Policy\PolicyWriter($db, $state, $events, $config, self::$userConfigs[$config], $appConfig, $users, $store);
         return new \OCA\Mcp\Service\GrantPolicy($config, self::$userConfigs[$config], $writer);
     }
 

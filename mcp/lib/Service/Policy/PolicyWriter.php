@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Service\Policy;
 
 use Closure;
+use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\GrantPolicy;
@@ -21,7 +22,9 @@ use Throwable;
 
 /**
  * Owns the top-level transaction. Trusted app commands prepare remote observations outside the mutex and
- * perform only local statements inside it. All participants use the server's singleton IDBConnection.
+ * perform only local statements inside it. All participants use the server's singleton IDBConnection. Events the
+ * command emits through its PolicyOutbox are persisted in the same transaction, after the revision CAS (the lock
+ * order of contracts §2.1: mutex, app state, official config, then epochs/outbox/recheck).
  */
 class PolicyWriter {
     private bool $usable = true;
@@ -29,6 +32,7 @@ class PolicyWriter {
     public function __construct(
         private IDBConnection $db,
         private PolicyStateMapper $state,
+        private PolicyEventsMapper $events,
         private IConfig $config,
         private IUserConfig $userConfig,
         private IAppConfig $appConfig,
@@ -42,7 +46,7 @@ class PolicyWriter {
      * cause set or single-use row differs from its external observation. A logical command id survives retries.
      * @param list<string> $uids every user whose official config cache may be touched
      * @param Closure(array,string):mixed $prepare remote work, outside any transaction
-     * @param Closure(mixed,array,string):bool $apply local work only, under the global mutex
+     * @param Closure(mixed,array,string,PolicyOutbox):bool $apply local work only, under the global mutex
      * @return array{revision:string, changed:bool, commandId:string}
      * @throws PolicyConflict when the expected revision is stale, before or after the retries
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
@@ -60,7 +64,7 @@ class PolicyWriter {
      * Directory observations alone return false and never advance revision.
      * @param list<string> $uids
      * @param Closure(array,string):mixed $prepare
-     * @param Closure(mixed,array,string):bool $apply
+     * @param Closure(mixed,array,string,PolicyOutbox):bool $apply
      * @return array{revision:string, changed:bool, commandId:string}
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
@@ -202,7 +206,9 @@ class PolicyWriter {
                 }
                 // Local reads must not reuse config populated by remote admission.
                 $this->clearCaches($uids);
-                $changed = $apply($snapshot, $current, $commandId);
+                // A fresh outbox per attempt: a rolled-back attempt leaves no event behind, and ids repeat on retry.
+                $outbox = new PolicyOutbox($commandId);
+                $changed = $apply($snapshot, $current, $commandId, $outbox);
                 if (!is_bool($changed)) {
                     throw new \LogicException('Policy command must report whether raw policy changed');
                 }
@@ -213,6 +219,9 @@ class PolicyWriter {
                         throw new PolicyUnavailable('Policy revision exhausted', previous: $e);
                     }
                     $this->state->compareAndSet($current['revision']);
+                }
+                foreach ($outbox->events() as $event) {
+                    $this->events->append($event['id'], $event['kind'], $event['payload']);
                 }
                 $revision = $this->state->state()['revision'];
                 $committing = true;
