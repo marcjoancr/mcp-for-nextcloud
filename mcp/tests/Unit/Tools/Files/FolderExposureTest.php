@@ -352,17 +352,15 @@ final class FolderExposureTest extends FilesToolsTestCase {
         \OCA\Mcp\Tools\Files\FolderExposureGate::assertMove($parent, $source, '/renamed', $this->visibilityGuard);
     }
 
-    public function testD7MessageIsTranslatedWithEnglishFallbackForGerman(): void {
+    public function testD7MessageIsTranslatedInEveryShippedLanguage(): void {
         $english = FilesMessages::folderExposureRefused();
         try {
-            foreach (['pt_BR', 'es'] as $lang) {
+            foreach (['pt_BR', 'es', 'de'] as $lang) {
                 \OCA\Mcp\L10n\Translator::use(new \OCA\Mcp\Tests\Unit\L10n\JsonL10n($lang));
                 $translated = FilesMessages::folderExposureRefused();
-                $this->assertNotSame($english, $translated);
-                $this->assertStringContainsString('Nextcloud', $translated);
+                $this->assertNotSame($english, $translated, $lang);
+                $this->assertStringContainsString('Nextcloud', $translated, $lang);
             }
-            \OCA\Mcp\L10n\Translator::use(new \OCA\Mcp\Tests\Unit\L10n\JsonL10n('de'));
-            $this->assertSame($english, FilesMessages::folderExposureRefused());
         } finally {
             \OCA\Mcp\L10n\Translator::reset();
         }
