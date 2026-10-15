@@ -135,7 +135,9 @@ final class CauseProcessingTest extends TestCase {
     private static function context(PolicyWriter $writer, ?bool $eligible): PolicyOperationContext {
         $raw = ['eligible' => $eligible === null ? ['present' => false] : ['present' => true, 'value' => $eligible ? '1' : '0']];
         $candidates = $eligible === null ? [['groupId' => 'lost', 'grants' => ['_system' => ['eligible']], 'trusted' => false, 'state' => 'active']] : [];
-        return new PolicyOperationContext('0', $writer, $raw, $candidates, true, true, [], true, true);
+        return new PolicyOperationContext('0', $writer, $raw, $candidates, true, true, [], true, true,
+                // No account: the guard is unrestricted and never reads its mapper.
+                \OCA\Mcp\Service\Scope\ScopeGuard::read((new \ReflectionClass(\OCA\Mcp\Db\ResourceScopeMapper::class))->newInstanceWithoutConstructor(), null));
     }
 
     private static function gen(string $seed): string {

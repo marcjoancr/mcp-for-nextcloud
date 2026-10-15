@@ -40,7 +40,8 @@ final class GroupGrantsServiceTest extends TestCase {
             $this->resolutions[] = [$uid, $removed];
             $holder = $this->holders[$uid];
             $candidates = array_values(array_filter($holder['candidates'], static fn (array $c): bool => !in_array($c['groupId'], $removed, true)));
-            return new PolicyOperationContext('0', $writer, $holder['raw'], $candidates, true, true, [], true, true);
+            return new PolicyOperationContext('0', $writer, $holder['raw'], $candidates, true, true, [], true, true,
+                \OCA\Mcp\Service\Scope\ScopeGuard::read($this->createMock(\OCA\Mcp\Db\ResourceScopeMapper::class), null));
         });
         if ($classifier === null) {
             $classifier = $this->createMock(GroupSourceClassifier::class);

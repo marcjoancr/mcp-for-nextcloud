@@ -110,7 +110,8 @@ final class GroupGrantsWriterTest extends TestCase {
             }
             $flag = $this->configData->user[$uid]['mcp']['eligible'] ?? null;
             $raw = $flag === null ? [] : ['eligible' => ['present' => true, 'value' => $flag]];
-            return new PolicyOperationContext($this->revision(), $this->writer, $raw, $candidates, true, true, [], true, true);
+            return new PolicyOperationContext($this->revision(), $this->writer, $raw, $candidates, true, true, [], true, true,
+                \OCA\Mcp\Service\Scope\ScopeGuard::read($this->createMock(\OCA\Mcp\Db\ResourceScopeMapper::class), null));
         });
         return $resolver;
     }

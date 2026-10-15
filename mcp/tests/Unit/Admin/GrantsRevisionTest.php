@@ -68,7 +68,8 @@ final class GrantsRevisionTest extends TestCase {
             $session = $this->createMock(IUserSession::class);
             $session->method('getUser')->willReturn($user);
             return new GrantsController('mcp', $request, $failing, $policy, $this->fx->userManager(),
-                $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session);
+                $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session,
+                $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class));
         };
 
         $revision = $this->revision();

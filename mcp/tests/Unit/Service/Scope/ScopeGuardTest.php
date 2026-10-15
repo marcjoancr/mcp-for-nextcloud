@@ -11,7 +11,6 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\ResourceScopeMapper;
 use OCA\Mcp\Service\GrantPolicy;
-use OCA\Mcp\Service\LogsAccess;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
 use OCA\Mcp\Service\Policy\GroupTrustObserver;
 use OCA\Mcp\Service\Policy\LogsRoleReader;
@@ -64,16 +63,14 @@ final class ScopeGuardTest extends TestCase {
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
         $apps->method('getAppVersion')->willReturn('99.0.0');
-        $logs = $this->createMock(LogsAccess::class);
-        $logs->method('available')->willReturn(true);
-        $logs->method('permits')->willReturn(true);
+        $logs = $this->createMock(LogsRoleReader::class);
+        $logs->method('read')->willReturn(['available' => true, 'permitted' => true]);
         $config = $this->fx->config->mock($this);
         return new PolicyResolver($this->fx->state, $this->writer, $config, $this->createMock(IUserConfig::class),
             $this->createMock(IAppConfig::class), $this->fx->userManager(), new MembershipReader($manager),
             new GroupSourceClassifier($manager), new GroupGrantsMapper($this->fx->db), $this->life,
             new GroupTrustObserver($this->fx->db, $this->writer, $this->life, $this->createMock(LoggerInterface::class)),
-            $apps, new LogsRoleReader($logs, $manager, $this->createMock(\OCP\Security\Ip\IRemoteAddress::class),
-                $this->createMock(\OCP\IUserSession::class)), $scopes);
+            $apps, $logs, $scopes);
     }
 
     /** An active Database group of alice granting one operation; alice has no individual value for it. */

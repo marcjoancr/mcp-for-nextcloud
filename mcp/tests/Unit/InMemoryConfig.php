@@ -99,7 +99,8 @@ final class InMemoryConfig {
         [$data, $test] = self::$stores[$config];
         $mock = fn (string $class) => (new \ReflectionMethod($test, 'createMock'))->invoke($test, $class);
         $groups = self::$groupDatabases[$config] = new SqliteDatabase($test, [
-            new \OCA\Mcp\Migration\Version001100Date20261014000000(), new \OCA\Mcp\Migration\Version001100Date20261015010000()]);
+            new \OCA\Mcp\Migration\Version001100Date20261014000000(), new \OCA\Mcp\Migration\Version001100Date20261015010000(),
+            new \OCA\Mcp\Migration\Version001100Date20261015020000()]);
         $users = $mock(\OCP\IUserManager::class);
         $users->method('get')->willReturnCallback(static function (string $uid) use ($data, $mock): ?\OCP\IUser {
             if ($data->userExists !== null && !($data->userExists)($uid)) {
@@ -134,7 +135,7 @@ final class InMemoryConfig {
             new \OCA\Mcp\Service\Policy\MembershipReader($manager), new \OCA\Mcp\Service\Policy\GroupSourceClassifier($manager),
             new \OCA\Mcp\Db\GroupGrantsMapper($db), $life,
             new \OCA\Mcp\Service\Policy\GroupTrustObserver($db, $writer, $life, new \Psr\Log\NullLogger()),
-            $mock(\OCP\App\IAppManager::class), $logs);
+            $mock(\OCP\App\IAppManager::class), $logs, new \OCA\Mcp\Db\ResourceScopeMapper($db));
     }
 
     /**

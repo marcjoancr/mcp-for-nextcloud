@@ -112,7 +112,10 @@ final class ScopeFixture {
         $time = $this->mock(ITimeFactory::class);
         $time->method('getTime')->willReturnCallback(fn () => $this->now);
         return new PolicyWriter($this->db, $this->state, $this->events, $this->config->mock($this->test),
-            $this->mock(IUserConfig::class), $this->mock(IAppConfig::class), $this->userManager(), $this->oauth, $time,
+            $this->mock(IUserConfig::class), $this->mock(IAppConfig::class), $this->userManager(), $time,
+            new \OCA\Mcp\Db\AuthUsersMapper($this->db), new \OCA\Mcp\Db\RecheckMapper($this->db),
+            new \OCA\Mcp\Service\Policy\PolicyEventProcessor($this->events, $this->oauth, new \Psr\Log\NullLogger(), $time),
+            new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), $this->oauth,
             $this->scopes, $resources ?? $this->enumerator(),
             $open ? new ScopeActivation(['files' => true, 'calendar' => true, 'tasks' => true]) : new ScopeActivation());
     }
