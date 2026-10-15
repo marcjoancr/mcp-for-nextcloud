@@ -27,6 +27,8 @@ final class VisibilityGuardMountBoundaryTest extends TestCase {
     private array $tags = [];
     /** @var list<list<string>> ids of every tag lookup */
     private array $lookups = [];
+    /** @var array<string, list<string>> tags assigned to backups, by destination id */
+    private array $assigned = [];
     /** @var array<string, Node|\Throwable> what IRootFolder::get() answers by path */
     private array $byPath = [];
     /** @var array<string, Folder> user folders by uid */
@@ -61,6 +63,9 @@ final class VisibilityGuardMountBoundaryTest extends TestCase {
                 $result[(string)$id] = $this->tags[(string)$id] ?? [];
             }
             return $result;
+        });
+        $mapper->method('assignTags')->willReturnCallback(function (string $id, string $type, array $tags): void {
+            $this->assigned[$id] = array_map('strval', $tags);
         });
         return new VisibilityGuard($config->mock($this), $mapper, $this->root);
     }
@@ -206,7 +211,7 @@ final class VisibilityGuardMountBoundaryTest extends TestCase {
         self::assertFalse($this->guard()->isVisible($file));
     }
 
-    public function testTheSamePathWithDifferentIdsSharesOneCachedAnswer(): void {
+    public function testATagOnTheRealUserFolderHidesBothExternalAndGroupfolderFiles(): void {
         $guard = $this->guard();
         self::assertTrue($guard->isVisible($this->externalFile()));
         self::assertTrue($guard->isVisible($this->groupfolderFile()));
@@ -215,5 +220,99 @@ final class VisibilityGuardMountBoundaryTest extends TestCase {
         $guard->clearCache();
         self::assertFalse($guard->isVisible($this->externalFile()));
         self::assertFalse($guard->isVisible($this->groupfolderFile()));
+    }
+
+    public function testTheRealUserFolderIsCheckedOnceAcrossMountsOfOneRequest(): void {
+        $guard = $this->guard();
+        self::assertTrue($guard->isVisible($this->externalFile()));
+        self::assertTrue($guard->isVisible($this->groupfolderFile()));
+
+        // Both walks reach /alice/files as the same id and path, so the clean ancestry of the first is reused.
+        $ids = array_merge(...$this->lookups);
+        self::assertSame(1, count(array_keys($ids, '91', true)));
+        self::assertNotContains('-1', $ids);
+        self::assertNotContains('84', $ids);
+    }
+
+    /** Groupfolder B mounted inside groupfolder A: two boundaries in a row, each with a borrowed parent id. */
+    private function nestedGroupfolderFile(): Folder {
+        $files = $this->home('alice', 90, 91);
+        $this->byPath['/alice'] = $files->getParent();
+        $outer = $this->node(60, '/alice/files/A', '/alice/files/A/', $this->lazyFiles('alice', 84));
+        $this->byPath['/alice/files/A'] = $outer;
+        $lazyOuter = $this->node(70, '/alice/files/A', '/alice/files/A/', $outer->getParent());
+        $inner = $this->node(61, '/alice/files/A/B', '/alice/files/A/B/', $lazyOuter);
+        return $this->node(62, '/alice/files/A/B/doc.txt', '/alice/files/A/B/', $inner);
+    }
+
+    public function testTwoMountBoundariesInARowAreBothResolvedAgain(): void {
+        self::assertTrue($this->guard()->isVisible($this->nestedGroupfolderFile()));
+        $ids = array_merge(...$this->lookups);
+        self::assertContains('60', $ids);
+        self::assertContains('91', $ids);
+        self::assertNotContains('70', $ids, 'the inner boundary lends the outer folder an id of another storage');
+        self::assertNotContains('84', $ids);
+
+        foreach (['62', '61', '60', '91'] as $tagged) {
+            $this->tags = [$tagged => [self::TAG]];
+            self::assertFalse($this->guard()->isVisible($this->nestedGroupfolderFile()), "tag on $tagged");
+        }
+    }
+
+    public function testBackupCopiesTagsOfRealAncestorsAcrossMountBoundaries(): void {
+        $backup = $this->node(500, '/alice/files/MCP backups/diag.txt.bak', '/alice/', $this->root);
+        foreach ([
+            'external, nothing tagged' => [fn () => $this->externalFile(), [], null],
+            'external, real mount root' => [fn () => $this->externalFile(), ['88' => [self::TAG]], [self::TAG]],
+            'external, real user folder' => [fn () => $this->externalFile(), ['91' => [self::TAG]], [self::TAG]],
+            'groupfolder, borrowed id ignored' => [fn () => $this->groupfolderFile(), ['84' => [self::TAG]], null],
+            'groupfolder, real user folder' => [fn () => $this->groupfolderFile(), ['91' => [self::TAG]], [self::TAG]],
+            'nested, outer root' => [fn () => $this->nestedGroupfolderFile(), ['60' => [self::TAG]], [self::TAG]],
+        ] as $case => [$source, $tags, $expected]) {
+            $this->tags = $tags;
+            $this->assigned = [];
+            $this->guard()->copyHiddenTags($source(), $backup);
+            self::assertSame($expected, $this->assigned['500'] ?? null, $case);
+        }
+    }
+
+    public function testBackupRefusesWhenTheParentCannotBeResolvedAgain(): void {
+        $file = $this->externalFile();
+        $this->byPath['/alice/files'] = new \OCP\Files\NotFoundException();
+
+        $this->expectException(\OCA\Mcp\Tools\ToolFailure::class);
+        $this->guard()->copyHiddenTags($file, $this->node(500, '/alice/files/b', '/alice/', $this->root));
+    }
+
+    /**
+     * D7 allows a folder rename only inside its real parent. bob's received folder S is a mount root whose parent
+     * core reports with alice's id of its source parent: if that id equals another folder bob can name, the borrowed
+     * id must not make a move into that folder look like a rename in place.
+     *
+     * @return array{Folder, Folder} bob's folder and the received folder S whose parent carries alice's id 300 */
+    private function receivedFolderBesideP(): array {
+        $bobFiles = $this->home('bob', 98, 99);
+        $this->byPath['/bob'] = $bobFiles->getParent();
+        $sharedParent = $this->node(300, '/bob/files/P', '/bob/files/P/', $bobFiles, true);
+        $received = $this->node(301, '/bob/files/S', '/bob/files/S/', $this->lazyFiles('bob', 300), true);
+        $bobFiles->method('get')->willReturnCallback(fn (string $path) => match ($path) {
+            'P' => $sharedParent,
+            default => throw new \OCP\Files\NotFoundException(),
+        });
+        return [$bobFiles, $received];
+    }
+
+    public function testFolderRenameGateRefusesAMoveIntoTheFolderWhoseIdTheMountRootBorrows(): void {
+        [$bobFiles, $received] = $this->receivedFolderBesideP();
+
+        $this->expectException(\OCA\Mcp\Tools\ToolFailure::class);
+        \OCA\Mcp\Tools\Files\FolderExposureGate::assertMove($bobFiles, $received, '/P/S', $this->guard());
+    }
+
+    public function testFolderRenameGateAllowsARenameOfAMountRootInItsRealParent(): void {
+        [$bobFiles, $received] = $this->receivedFolderBesideP();
+
+        \OCA\Mcp\Tools\Files\FolderExposureGate::assertMove($bobFiles, $received, '/S-renamed', $this->guard());
+        $this->addToAssertionCount(1);
     }
 }

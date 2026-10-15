@@ -344,12 +344,13 @@ class VisibilityGuard {
      * groupfolder, the source folder's id for a share. That folder is resolved again by its path, so its own tags are
      * the ones checked and the walk meets the real user folder. Inside a mount the parent id is the storage's own and
      * is kept. A parent that cannot be resolved again, or resolves to another path or to no id, is a failure.
+     * Every walk up a chain and every comparison of a parent's id uses this, never Node::getParent() alone.
      *
      * @param Node $node node whose parent is needed
      * @return Node the parent; the root folder above the top of the tree
      * @throws \Throwable when the parent cannot be resolved
      */
-    private function parentOf(Node $node): Node {
+    public function parentOf(Node $node): Node {
         $parent = $node->getParent();
         if ($parent instanceof IRootFolder || $this->rootFolder === null || !$this->isMountRoot($node)) {
             return $parent;
@@ -365,7 +366,11 @@ class VisibilityGuard {
 
     /** Whether the node is the root of the mount it lives in, where core's parent id belongs to another storage. */
     private function isMountRoot(Node $node): bool {
-        $mount = rtrim((string)$node->getMountPoint()->getMountPoint(), '/');
+        $mountPoint = $node->getMountPoint();
+        if (!is_object($mountPoint)) {
+            return false; // nothing marks a boundary, so the parent core gives is kept, as before
+        }
+        $mount = rtrim((string)$mountPoint->getMountPoint(), '/');
         return $mount !== '' && $mount === rtrim((string)$node->getPath(), '/');
     }
 
@@ -505,7 +510,7 @@ class VisibilityGuard {
                         $tagsToAssign[(string)$tagId] = true;
                     }
                 }
-                $parent = $current->getParent();
+                $parent = $this->parentOf($current);
                 if (!$parent instanceof Node || $parent === $current || (int)$parent->getId() === $cid) {
                     throw new \RuntimeException();
                 }
@@ -669,7 +674,7 @@ class VisibilityGuard {
             }
             array_unshift($segmentsBelowBackup, $current->getName());
             try {
-                $parent = $current->getParent();
+                $parent = $this->parentOf($current);
                 if (!$parent instanceof Node || (int)$parent->getId() === (int)$current->getId()) {
                     break;
                 }
@@ -685,7 +690,7 @@ class VisibilityGuard {
         }
 
         try {
-            $userFolder = $backupAncestor->getParent();
+            $userFolder = $this->parentOf($backupAncestor);
         } catch (\Throwable) {
             $this->warnVisibilityFailure();
             return true;

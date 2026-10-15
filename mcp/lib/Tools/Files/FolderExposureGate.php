@@ -34,7 +34,8 @@ final class FolderExposureGate {
         try {
             $parentPath = dirname(PathGuard::normalize($to));
             $targetParent = $parentPath === '/' ? $root : $root->get(ltrim($parentPath, '/'));
-            $sourceParent = $source->getParent();
+            // Above a mount root core lends the parent another storage's id; the guard resolves the real one.
+            $sourceParent = $guard->parentOf($source);
             $sameParent = $targetParent instanceof Folder && $sourceParent instanceof Folder
                 && (int)$sourceParent->getId() > 0
                 && (int)$sourceParent->getId() === (int)$targetParent->getId();
