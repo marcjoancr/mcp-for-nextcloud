@@ -33,7 +33,7 @@ class ConversationReaderTest extends TestCase {
         $this->resolver = $this->createMock(ConversationResolver::class);
         $this->userManager = $this->createMock(IUserManager::class);
         // The real ActorNames over the mocked accounts: the reader still owns the reading, not the naming rule.
-        $this->reader = new ConversationReader($this->talkServices, $this->resolver, new ActorNames($this->userManager));
+        $this->reader = new ConversationReader($this->talkServices, $this->resolver, new ActorNames($this->userManager), \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this));
     }
 
     public function testLimitZeroIsAnArgumentErrorBeforeAnyTalkCall(): void {
