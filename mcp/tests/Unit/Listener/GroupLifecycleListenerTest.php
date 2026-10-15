@@ -212,6 +212,31 @@ final class GroupLifecycleListenerTest extends TestCase {
         $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
     }
 
+    /**
+     * Re-review R1: a Before whose transition keeps losing (the lifecycle moves after every read) gives up after
+     * MARK_ROUNDS rounds and records a cause for every live holder in G, the relevance filter dropped (Q1); its After
+     * suspends G and processes them all. One gen per holder across the rounds.
+     */
+    public function testABeforeThatKeepsLosingItsTransitionRecordsACauseForEveryLiveHolderInTheGroup(): void {
+        $this->policy('staff');
+        $rounds = 0;
+        $life = new class($this->db, $rounds) extends GroupLifeMapper {
+            public function __construct(IDBConnection $db, private int &$rounds) { parent::__construct($db); }
+            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+                ++$this->rounds;
+                return false;
+            }
+        };
+        $listener = $this->listener(life: $life);
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->assertSame(GroupLifecycleListener::MARK_ROUNDS, $rounds);
+        $this->assertSame(['alice', 'bob'], $this->causedUsers('staff'), 'bob too: nothing judged him; carol is no member');
+        $gens = [$this->rechecks->causes('alice')[0]['gen'], $this->rechecks->causes('bob')[0]['gen']];
+        $this->handle($listener, new GroupDeletedEvent($this->group()));
+        $this->assertSame('needs_confirm', $this->life->get('staff')['state']);
+        $this->assertSame([['alice', IdentityKey::group('staff'), $gens[0]], ['bob', IdentityKey::group('staff'), $gens[1]]], $this->afters);
+    }
+
     /** T6: a policy saved between the Before and the After of a deletion has a new gen; the After purges nothing. */
     public function testAPolicySavedDuringTheDeletionIsNeverPurgedByItsAfter(): void {
         $this->policy('staff');

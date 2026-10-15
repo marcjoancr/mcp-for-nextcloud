@@ -159,5 +159,11 @@ the real deletion the withdrawal cuts it. With two real sessions (MariaDB, Postg
 window), a pre-event committed by the other session after the read under the mutex makes the conditional lifecycle
 write touch no row: replay, 409, the other session's pending_delete intact.
 
+Not covered here (unit only, `GroupGrantsWriterTest::testADeletionBeforeThatLosesItsTransitionToAWithdrawalJudgesTheHoldersAgain`):
+a withdrawal committing between a deletion Before's judgement of the holders and its pending_delete transition, which
+then fails (the save renewed the gen) and makes the Before judge the holders again. The real server offers no point
+between those two steps of the app's own handler; the order is reproduced with the production listener, writer,
+cause processor and mappers.
+
 These tests were written while the integration workflow was disabled (Actions minutes, until 1 November): they have
 not run yet.

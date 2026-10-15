@@ -71,6 +71,28 @@ final class GroupGrantsWriterTest extends TestCase {
      * eligibility flag; the source predicate is true and the members are $this->members.
      */
     private function realAdmit(): \Closure {
+        $service = new GroupGrantsService($this->writer, $this->classifier(), $this->resolver(), $this->grants, $this->life);
+        return function (array $command) use ($service): array {
+            $this->assertFalse($this->db->inTransaction(), 'no directory read under the mutex');
+            $this->admitted[] = $command;
+            $admission = $service->admit($command);
+            if ($this->after !== []) {
+                (array_shift($this->after))();
+            }
+            return $admission;
+        };
+    }
+
+    /** Members of every group are $this->members; every group can grant. */
+    private function classifier(): GroupSourceClassifier {
+        $classifier = $this->createMock(GroupSourceClassifier::class);
+        $classifier->method('trusted')->willReturn(true);
+        $classifier->method('members')->willReturnCallback(fn (): array => array_combine(array_map(static fn (string $uid): string => hash('sha256', $uid), $this->members), $this->members));
+        return $classifier;
+    }
+
+    /** Resolutions as PolicyOperationContext over the stored rows and lifecycles of the user's groups ($this->memberOf). */
+    private function resolver(): PolicyResolver {
         $resolver = $this->createMock(PolicyResolver::class);
         $resolver->method('begin')->willReturnCallback(function (string $uid, array $added, array $removed, bool $observe): PolicyOperationContext {
             $gids = array_values(array_diff($this->memberOf[$uid] ?? [], $removed));
@@ -88,19 +110,7 @@ final class GroupGrantsWriterTest extends TestCase {
             $raw = $flag === null ? [] : ['eligible' => ['present' => true, 'value' => $flag]];
             return new PolicyOperationContext($this->revision(), $this->writer, $raw, $candidates, true, true, [], true, true);
         });
-        $classifier = $this->createMock(GroupSourceClassifier::class);
-        $classifier->method('trusted')->willReturn(true);
-        $classifier->method('members')->willReturnCallback(fn (): array => array_combine(array_map('sha1', $this->members), $this->members));
-        $service = new GroupGrantsService($this->writer, $classifier, $resolver, $this->grants, $this->life);
-        return function (array $command) use ($service): array {
-            $this->assertFalse($this->db->inTransaction(), 'no directory read under the mutex');
-            $this->admitted[] = $command;
-            $admission = $service->admit($command);
-            if ($this->after !== []) {
-                (array_shift($this->after))();
-            }
-            return $admission;
-        };
+        return $resolver;
     }
 
     private function realSave(string $gid, array $grants): array {
@@ -517,5 +527,63 @@ final class GroupGrantsWriterTest extends TestCase {
         $this->assertTrue($this->injected);
         $this->assertCount(2, $this->admitted, 'the conditional write refused the moved lifecycle');
         $this->assertTrue($result['changed']);
+    }
+
+    /**
+     * Re-review R1, the probe of the review: G2's deletion Before judges the holder while G1 still grants it (no
+     * cause), then a withdrawal of G1 commits, keeps the holder through G2 and renews G2's gen, so the Before loses its
+     * conditional transition. The Before judges the holders again against the new state: the holder now depends on G2
+     * alone and gets its cause; the After purges G2 and cuts it. Granting G1 again never brings the old credential back.
+     */
+    public function testADeletionBeforeThatLosesItsTransitionToAWithdrawalJudgesTheHoldersAgain(): void {
+        $this->policy('staff');
+        $this->policy('team');
+        $this->holder('ana', '2');
+        $this->memberOf['ana'] = ['staff', 'team'];
+        $this->members = ['ana'];
+        [$preview, $save] = $this->realSave('staff', []);
+        $this->assertSame(0, $preview['revokes'], 'team keeps ana');
+        $life = new class($this->db, $save) extends GroupLifeMapper {
+            public function __construct(\OCP\IDBConnection $db, private ?\Closure $between) { parent::__construct($db); }
+            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+                if ($this->between !== null) {
+                    // The withdrawal commits between the Before's judgement of the holders and its transition.
+                    [$between, $this->between] = [$this->between, null];
+                    \PHPUnit\Framework\Assert::assertSame(0, $between()['revoked']);
+                }
+                return parent::markPendingDelete($gid, $expectedGen, $gen);
+            }
+        };
+        $users = $this->createMock(\OCP\IUserManager::class);
+        $users->method('get')->willReturnCallback(function (string $uid): \OCP\IUser {
+            $user = $this->createMock(\OCP\IUser::class);
+            $user->method('getUID')->willReturn($uid);
+            $user->method('isEnabled')->willReturn(true);
+            return $user;
+        });
+        $time = $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        $causes = new \OCA\Mcp\Service\Policy\CauseProcessor($this->writer, $this->rechecks,
+            new \OCA\Mcp\Service\Policy\CauseClassifier($users, $this->resolver()), $this->createMock(\OCA\Mcp\Service\Policy\DeferredQueue::class),
+            $this->db, new \Psr\Log\NullLogger(), $this->apps->worker($this), $this->lifecycle);
+        $listener = new \OCA\Mcp\Listener\GroupLifecycleListener($this->lifecycle, $causes, $life, $this->grants, $this->rechecks,
+            $this->state, new OAuthStore($this->db), new AuthUsersMapper($this->db), $this->classifier(), $this->resolver(), $users,
+            $this->db, $time, new \Psr\Log\NullLogger());
+        $group = $this->createMock(\OCP\IGroup::class);
+        $group->method('getGID')->willReturn('team');
+
+        $listener->handle(new \OCP\Group\Events\BeforeGroupDeletedEvent($group));
+        $this->assertSame([], $this->rows('staff'), 'the withdrawal committed');
+        $this->assertSame('pending_delete', $this->life->get('team')['state'], 'the second round marked it');
+        $this->assertSame([IdentityKey::group('team')], array_column($this->rechecks->causes('ana'), 'causeKey'));
+        $this->memberOf['ana'] = ['staff'];
+        $listener->handle(new \OCP\Group\Events\GroupDeletedEvent($group));
+
+        $this->assertNull($this->life->get('team'));
+        $this->assertSame([], $this->rechecks->causes('ana'));
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->generations('ana'), 'cut by its cause');
+        [, $save] = $this->realSave('staff', ['_system' => ['eligible']]);
+        $save();
+        $this->assertSame('2', $this->generations('ana')['revoked_below'], 'the regrant leaves the old generation 2 cut');
     }
 }

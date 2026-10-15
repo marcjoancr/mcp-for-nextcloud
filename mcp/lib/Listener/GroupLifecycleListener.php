@@ -40,7 +40,13 @@ use Throwable;
  *
  * - BeforeGroupDeletedEvent(G), when G has a lifecycle: first the causes (U, G) of the credential holders who are in G
  *   and would not be eligible without it (a new random gen per cause), then pending_delete with a new gen, written
- *   without the mutex (GroupLifeMapper::markPendingDelete() explains why that is safe).
+ *   without the mutex (GroupLifeMapper::markPendingDelete() explains why that is safe). That transition is conditioned
+ *   on the gen read with the causes; losing it means the lifecycle moved in between, typically a group save that
+ *   relied on G to keep a holder and renewed G's gen (PolicyWriter::setGroupGrants()), so the causes were judged
+ *   against a policy that no longer holds. The Before then judges the holders again against the new state and retries
+ *   (at most MARK_ROUNDS rounds, the same gen per holder, one native operation); if it still cannot mark, it records a
+ *   cause for every live holder in G, without the relevance filter (Q1: an ambiguous removal revokes), and the After
+ *   suspends G.
  * - GroupDeletedEvent(G): purges G's rows and lifecycle under the mutex only if it still carries the gen the Before
  *   wrote (a policy saved since keeps its new gen), then the protocol for each cause the Before recorded. When the
  *   Before could not record its gen, the lifecycle goes to needs_confirm instead of being left active.
@@ -52,6 +58,9 @@ use Throwable;
  * Creating another group while one is being deleted is never refused: the handlers only observe.
  */
 class GroupLifecycleListener implements IEventListener {
+    /** Rounds a deletion's Before judges the holders and tries to mark pending_delete. */
+    public const MARK_ROUNDS = 3;
+
     /**
      * group_key => what the Before of a deletion in this process left: the gen it wrote (string), false when G had a
      * lifecycle but the gen could not be written, null when G had none; and the causes it recorded.
@@ -108,34 +117,72 @@ class GroupLifecycleListener implements IEventListener {
         }
         // No flush here: it may take the mutex.
         $this->deleting[$key] = ['gid' => $gid, 'gen' => false, 'causes' => []];
-        $row = $this->life->get($gid);
-        if ($row === null) {
-            $this->deleting[$key]['gen'] = null;
-            return;
+        /** @var array<string, array{uid:string, gen:string}> one gen per holder for this native operation */
+        $causes = [];
+        try {
+            $this->markPending($group, $key, $causes);
+        } finally {
+            // Recorded causes reach the After even when a write below throws.
+            $this->deleting[$key]['causes'] = array_values($causes);
         }
-        // Causes first: once pending_delete is written, G no longer grants and "eligible without G" tells nothing.
-        // A failure while collecting them never stops the transition: pending_delete must be written regardless.
-        if ($row['state'] === GroupLifeMapper::ACTIVE && $this->grantsEligibility($gid)) {
+    }
+
+    /** @param array<string, array{uid:string, gen:string}> $causes receives every cause recorded */
+    private function markPending(IGroup $group, string $key, array &$causes): void {
+        $gid = $group->getGID();
+        $row = null;
+        for ($round = 0; $round < self::MARK_ROUNDS; ++$round) {
+            $row = $this->life->get($gid);
+            if ($row === null) {
+                $this->deleting[$key]['gen'] = $causes === [] ? null : false;
+                break;
+            }
+            // Causes first: once pending_delete is written, G no longer grants and "eligible without G" tells nothing.
+            // A failure while collecting them never stops the transition: pending_delete must be written regardless.
+            if ($row['state'] === GroupLifeMapper::ACTIVE && $this->grantsEligibility($gid)) {
+                try {
+                    $holders = $this->holders($group);
+                } catch (Throwable $e) {
+                    $holders = [];
+                    $this->logger->warning('Credential holders of a deleted group not listed; their causes are left to observed use',
+                        ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
+                }
+                $this->record($gid, $holders, $causes);
+            }
+            $gen = bin2hex(random_bytes(16));
+            if ($this->life->markPendingDelete($gid, $row['gen'], $gen)) {
+                $this->deleting[$key]['gen'] = $gen;
+                break;
+            }
+        }
+        if ($this->deleting[$key]['gen'] === false && $row !== null) {
+            // The lifecycle kept moving: every live holder in G, judged by nothing, so its After revokes by Q1.
             try {
-                $holders = $this->holders($group);
+                $this->record($gid, $this->holders($group, false), $causes);
             } catch (Throwable $e) {
-                $holders = [];
                 $this->logger->warning('Credential holders of a deleted group not listed; their causes are left to observed use',
                     ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
             }
-            foreach ($holders as $uid) {
-                try {
-                    $gen = bin2hex(random_bytes(16));
-                    $this->rechecks->record($uid, RecheckMapper::REASON_GROUP, $gid, $gen, $this->time->getTime());
-                    $this->deleting[$key]['causes'][] = ['uid' => $uid, 'gen' => $gen];
-                } catch (Throwable $e) {
-                    $this->logger->warning('Recheck cause of a group deletion not recorded', ['app' => 'mcp', 'target' => $uid, 'exception' => $e]);
-                }
-            }
         }
-        $gen = bin2hex(random_bytes(16));
-        if ($this->life->markPendingDelete($gid, $row['gen'], $gen)) {
-            $this->deleting[$key]['gen'] = $gen;
+    }
+
+    /**
+     * Records the cause (U, G) of each holder, keeping one gen per holder across the rounds of one Before (the same
+     * native operation, contracts §3.3.1); a failing holder is logged and left to observed use.
+     *
+     * @param list<string> $holders uids
+     * @param array<string, array{uid:string, gen:string}> $causes the causes recorded so far, by a digest of the uid
+     */
+    private function record(string $gid, array $holders, array &$causes): void {
+        foreach ($holders as $uid) {
+            $key = hash('sha256', $uid);
+            $gen = $causes[$key]['gen'] ?? bin2hex(random_bytes(16));
+            try {
+                $this->rechecks->record($uid, RecheckMapper::REASON_GROUP, $gid, $gen, $this->time->getTime());
+                $causes[$key] = ['uid' => $uid, 'gen' => $gen];
+            } catch (Throwable $e) {
+                $this->logger->warning('Recheck cause of a group deletion not recorded', ['app' => 'mcp', 'target' => $uid, 'exception' => $e]);
+            }
         }
     }
 
@@ -217,10 +264,11 @@ class GroupLifecycleListener implements IEventListener {
      * failed member list keeps every live holder; a failed read for one holder records its cause anyway; an account
      * already gone is the account cause's business.
      *
+     * @param bool $relevant false keeps every live, uncut holder in G with an account, without the two resolutions
      * @return list<string> their uids
      * @throws \Throwable when the live holders cannot be listed (the caller logs it and still writes pending_delete)
      */
-    private function holders(IGroup $group): array {
+    private function holders(IGroup $group, bool $relevant = true): array {
         $gid = $group->getGID();
         $live = $this->store->liveHolders($this->time->getTime(), $this->state->state()['auth_epoch']);
         if ($live === []) {
@@ -231,7 +279,7 @@ class GroupLifecycleListener implements IEventListener {
         } catch (Throwable) {
             // Unknown membership: the resolutions below decide; over-report rather than omit.
         }
-        $relevant = [];
+        $kept = [];
         foreach ($live as ['uid' => $uid, 'gen' => $highest]) {
             try {
                 if (self::cutBelow($highest, $this->authUsers->generations($uid)['revoked_below'])) {
@@ -240,14 +288,14 @@ class GroupLifecycleListener implements IEventListener {
                 if ($this->users->get($uid) === null) {
                     continue;
                 }
-                if ($this->eligible($uid, []) !== false && $this->eligible($uid, [$gid]) !== true) {
-                    $relevant[] = $uid;
+                if (!$relevant || ($this->eligible($uid, []) !== false && $this->eligible($uid, [$gid]) !== true)) {
+                    $kept[] = $uid;
                 }
             } catch (Throwable) {
-                $relevant[] = $uid;
+                $kept[] = $uid;
             }
         }
-        return $relevant;
+        return $kept;
     }
 
     /** Whether every credential of the holder is already cut (its highest generation is at or below revoked_below). */
