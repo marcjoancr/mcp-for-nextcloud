@@ -62,13 +62,20 @@ info_version() {
 
 # Builds the branch package, and the baseline package for the upgrade mode, each with its own official script.
 cmd_packages() {
-    archive=$(cd "$REPO_ROOT/mcp" && sh scripts/package.sh | tail -n 1)
-    cp "$REPO_ROOT/mcp/$archive" "$WORK/mcp-branch.tar.gz"
+    build_package "$REPO_ROOT/mcp" "$WORK/mcp-branch.tar.gz"
     if [ "$MCP_IT_MODE" = upgrade ]; then
         git -C "$REPO_ROOT" worktree add --detach "$WORK/baseline" "$MCP_IT_BASELINE"
-        archive=$(cd "$WORK/baseline/mcp" && sh scripts/package.sh | tail -n 1)
-        cp "$WORK/baseline/mcp/$archive" "$WORK/mcp-baseline.tar.gz"
+        build_package "$WORK/baseline/mcp" "$WORK/mcp-baseline.tar.gz"
     fi
+}
+
+# build_package <app dir> <destination>: the script's last output line is the archive path. Its output goes through
+# a file, not a pipe, so a failing package.sh fails the step.
+build_package() {
+    (cd "$1" && sh scripts/package.sh) > "$WORK/package.out"
+    cat "$WORK/package.out"
+    archive=$(tail -n 1 "$WORK/package.out")
+    cp "$1/$archive" "$2"
 }
 
 # PHPUnit runs inside the Nextcloud container as a PHAR, so none of its dependencies shadow the server's own.
@@ -192,6 +199,12 @@ cmd_install_app() {
 
 # Fixture accounts the integration tests rely on (tests/Integration/Fixtures.php).
 cmd_fixtures() {
+    # Only on this throwaway instance: the default password_policy app would check the fixture passwords against
+    # the external HIBP service, which makes this step depend on the network. Nothing in the suite relies on it.
+    enabled=$(occ app:list --enabled)
+    case "$enabled" in
+        *"- password_policy:"*) occ app:disable password_policy ;;
+    esac
     password=$(openssl rand -hex 24)
     for uid in mcp-it-alice mcp-it-bob; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
@@ -209,26 +222,47 @@ db_version() {
     esac
 }
 
-# Records what actually ran: image digests, PHP, Nextcloud and database versions, app version.
+image_digests() {
+    docker image inspect --format '{{join .RepoDigests ", "}}' "$1"
+}
+
+# Records what actually ran: image digests, PHP, Nextcloud and database versions, app version. Each value is
+# captured by its own assignment, so a failing command fails the step (set -e) before anything is published,
+# instead of leaving a green step with a partial summary. The report is also kept with the uploaded logs.
 cmd_report() {
-    {
-        echo "### NC $MCP_IT_NC · $MCP_IT_DB · $MCP_IT_MODE"
-        echo '```'
-        echo "Nextcloud image: $(docker image inspect --format '{{join .RepoDigests ", "}}' "$MCP_IT_NC_IMAGE")"
-        if [ -n "${MCP_IT_DB_IMAGE:-}" ]; then
-            echo "Database image: $(docker image inspect --format '{{join .RepoDigests ", "}}' "$MCP_IT_DB_IMAGE")"
-        fi
-        echo "Database: $(db_version)"
-        docker exec "$NC" php -v
-        occ status
-        echo "mcp installed_version: $(occ config:app:get mcp installed_version)"
-        echo '```'
-    } | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+    nc_digests=$(image_digests "$MCP_IT_NC_IMAGE")
+    db_digests=none
+    if [ -n "${MCP_IT_DB_IMAGE:-}" ]; then
+        db_digests=$(image_digests "$MCP_IT_DB_IMAGE")
+    fi
+    database=$(db_version)
+    php_version=$(docker exec "$NC" php -v)
+    status=$(occ status)
+    installed=$(occ config:app:get mcp installed_version)
+    expected=$(cat "$WORK/expected-version")
+    fence='```'
+    report="$ARTIFACTS/runtime.md"
+    cat > "$report" <<REPORT
+### NC $MCP_IT_NC · $MCP_IT_DB · $MCP_IT_MODE
+$fence
+Nextcloud image: $nc_digests
+Database image: $db_digests
+Database: $database
+$php_version
+$status
+mcp installed_version: $installed (expected $expected)
+$fence
+REPORT
+    cat "$report"
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+    fi
 }
 
 cmd_test() {
+    expected=$(cat "$WORK/expected-version")
     set -- -e NEXTCLOUD_ROOT=/var/www/html -e MCP_IT_NC="$MCP_IT_NC" -e MCP_IT_DB="$MCP_IT_DB" \
-        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$(cat "$WORK/expected-version")"
+        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected"
     if [ "$MCP_IT_DB" = pgsql ]; then
         set -- "$@" -e MCP_IT_PG_LOG=/mcp-it-pglog/postgresql.log
     fi

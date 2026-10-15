@@ -22,6 +22,9 @@ use OCP\Server;
  * The PostgreSQL statement log captures what each session runs, so a later test can prove that a listener ran no
  * query inside the caller's transaction (contracts §3.3.6, validation T19/F5). Positive controls show the capture
  * works before an empty window is trusted, and a negative control shows a listener query is caught.
+ *
+ * Harness smoke only: the bracket covers a test closure, not the app's listeners, which share priority 0 with core
+ * listeners that run queries. Tickets 06/07 must delimit the real handler (see tests/Integration/README.md).
  */
 final class PostgresQueryLogTest extends IntegrationTestCase {
     private PostgresQueryLog $log;

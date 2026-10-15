@@ -4,20 +4,28 @@
 # Verification-only CI: installs the app into a disposable official Nextcloud container next to a disposable
 # database, through the server's own installer (fresh) or upgrade (from the released baseline), and runs the
 # integration suite in mcp/tests/Integration with two real database sessions and real core events.
-# Images are pinned by digest. It never publishes, releases or uploads anything but test logs.
+# Images, actions and the PHPUnit PHAR are pinned by digest, commit or checksum. It never publishes, releases or uploads anything but test logs.
 
 name: Integration
 
+# Twelve jobs per run: pushes run only on main and, temporarily, on the 1.1.0 feature branches (feat/1-1-0-*) while
+# the harness and the 1.1.0 slices are proven; drop that pattern once 1.1.0 is merged. Other branches run through a
+# pull request or by hand.
 on:
   push:
+    branches:
+      - main
+      - 'feat/1-1-0-*'
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# One group per branch, whether the run comes from a push or from a pull request of that branch, so the two events
+# never run the matrix twice for the same work.
 concurrency:
-  group: integration-${{ github.ref }}
+  group: integration-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -64,11 +72,12 @@ jobs:
       HARNESS: mcp/tests/Integration/ci/harness.sh
     steps:
       - name: Check out the repository with its tags
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Set up PHP for packaging
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2 (2.40.0)
         with:
           php-version: '8.2'
           extensions: mbstring, intl, gd, zip, sqlite3
@@ -94,7 +103,7 @@ jobs:
         run: sh "$HARNESS" collect
       - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: integration-nc${{ matrix.cell.nc }}-${{ matrix.cell.db }}-${{ matrix.mode }}
           path: ${{ runner.temp }}/mcp-it/artifacts
