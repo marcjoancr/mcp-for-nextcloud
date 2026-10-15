@@ -50,3 +50,11 @@ installed and issues a code, a rotated grant (with its spent record) and a secon
 store; `OAuth/LegacyCredentialsTest.php` then checks after `occ upgrade` that every row, id and hash is unchanged,
 that they carry epoch 0 and generation 1, and that they still authenticate, exchange, rotate and detect the replay.
 It is skipped in fresh cells. These tests do not certify how later tickets use the columns, nor the full T19 matrix.
+
+## Resource scope schema (issue #4, B1)
+
+`Policy/ResourceScopeTest.php` checks that `mcp_scope_modes` and `mcp_scope_items` exist and hold no row after the
+fresh install and after the upgrade from the baseline release, so every user stays unrestricted; that the BIGINT
+`policy_rev` holds the largest counter; and that scopes written by `ResourceScopeMapper` commit or roll back with the
+policy writer, seen from a second session, with ids never case-folded. The revision these tests store is arbitrary:
+which revision the scope writer records is B2's contract, not the schema's.
