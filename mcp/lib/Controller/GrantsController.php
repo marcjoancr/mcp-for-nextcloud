@@ -17,6 +17,8 @@ use OCA\Mcp\Service\GrantMatrix;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\LogsAccess;
 use OCA\Mcp\Service\LogsGroupsConflict;
+use OCA\Mcp\Service\Policy\GroupGrantsService;
+use OCA\Mcp\Service\Policy\GroupSourceUntrusted;
 use OCA\Mcp\Service\Policy\MissingRevision;
 use OCA\Mcp\Service\Policy\PolicyConflict;
 use OCA\Mcp\Service\Policy\PolicyEventPayload;
@@ -44,7 +46,9 @@ use OCP\IUserSession;
  * - stale: 409 {"error":"Conflict", "revision", "state"}, nothing written; revision and state are read after the
  *   rollback, so the page can show what is saved now;
  * - storage failure: 503 {"error":"Unavailable", "uncertain"}; uncertain=true means the write may have committed, so
- *   the page reloads instead of repeating it. No route falls back to defaults on either error.
+ *   the page reloads instead of repeating it. No route falls back to defaults on either error;
+ * - a group policy on a group that cannot grant (contracts §3.3.5): 422 {"error":"group_source_untrusted"}, nothing
+ *   written.
  * Booleans keep their 1.0.8 meaning: true is Allow and false is Deny, never Inherit.
  */
 class GrantsController extends Controller {
@@ -64,6 +68,7 @@ class GrantsController extends Controller {
         private PolicyWriter $writer,
         private PolicyStateMapper $state,
         private IUserSession $session,
+        private GroupGrantsService $groups,
     ) {
         parent::__construct($appName, $request);
     }
@@ -216,6 +221,69 @@ class GrantsController extends Controller {
     }
 
     /**
+     * The stored policy of one group, as the group page shows it before a preview.
+     *
+     * @param string $gid group id, exact bytes
+     * @return JSONResponse {groupId, trusted, state, grants, revision}: state is the lifecycle (active, pending_delete,
+     *     needs_confirm) or null without a policy; trusted says whether the group can grant now; or 400/503
+     */
+    public function group(string $gid = ''): JSONResponse {
+        return $this->guard(function () use ($gid): array {
+            $revision = $this->revision();
+            return $this->groups->state($gid) + ['revision' => $revision];
+        });
+    }
+
+    /**
+     * Body {expectedRevision, gid, grants: {module: list<operation>}}: the preview of a group's whole policy, with
+     * "_system": ["eligible"] for eligibility. Nothing changes; the answer's previewId is what the save presents, for
+     * PolicyWriter::PREVIEW_TTL seconds. The set is saved for the live group, future members included.
+     *
+     * @return JSONResponse {previewId, revision, groupId, grants, current, state, members, trusted, withdraws, revokes}:
+     *     members is the member count enumerated now, withdraws whether eligibility is taken away and revokes how many
+     *     credential holders lose their last source (they are signed out, and undo does not reconnect them); or
+     *     400/409/422/428/503
+     */
+    public function previewGroup(): JSONResponse {
+        $gid = $this->request->getParam('gid');
+        return $this->guard(function () use ($gid): array {
+            if (!is_string($gid)) {
+                throw new InvalidArgumentException('Invalid request');
+            }
+            $expected = $this->expectedRevision();
+            return $this->groups->preview($expected, $this->actor(), $gid, $this->request->getParam('grants'));
+        }, fn (): ?array => is_string($gid) ? ['group' => $this->groups->state($gid)] : null);
+    }
+
+    /**
+     * Body {expectedRevision, previewId, gid, grants}: saves the previewed set as the group's whole policy. Saving the
+     * current set of a group in needs_confirm is "Confirm current policy". expectedRevision is the preview's revision;
+     * gid and grants must be the preview's.
+     *
+     * @return JSONResponse {revision, changed, state, revoked}; 409 {error, revision, state: {group, preview}} with a
+     *     new preview when the revision, the member set or the group's lifecycle changed since (nothing written); 404
+     *     for an unknown or another administrator's preview, 410 when it expired; or 400/422/428/503
+     */
+    public function saveGroup(): JSONResponse {
+        $gid = $this->request->getParam('gid');
+        $grants = $this->request->getParam('grants');
+        return $this->guard(function () use ($gid, $grants): array|JSONResponse {
+            $previewId = $this->request->getParam('previewId');
+            if (!is_string($gid) || !is_string($previewId)) {
+                throw new InvalidArgumentException('Invalid request');
+            }
+            $expected = $this->expectedRevision();
+            try {
+                return $this->groups->save($expected, $this->actor(), $gid, $grants, $previewId);
+            } catch (ReceiptNotFound) {
+                return new JSONResponse(['error' => 'NotFound'], Http::STATUS_NOT_FOUND);
+            } catch (ReceiptExpired) {
+                return new JSONResponse(['error' => 'Gone'], Http::STATUS_GONE);
+            }
+        }, fn (): ?array => $this->groupConflictState($gid, $grants));
+    }
+
+    /**
      * Current OAuth client settings for the admin page.
      *
      * @return JSONResponse {hosts, hostsDefault, nativeClientEnabled, nativeClientId, nativeRedirectUris}
@@ -300,6 +368,25 @@ class GrantsController extends Controller {
         }, fn (): array => $this->logsState());
     }
 
+    /**
+     * The body of a refused group save: the group as stored now and a new preview of the same set, so the page can
+     * show what changed and save again. The new preview is null when it cannot be taken (the group can no longer
+     * grant, the set is invalid, or the state moved again).
+     *
+     * @return array{group: array, preview: ?array}|null null for a request without a group id
+     */
+    private function groupConflictState(mixed $gid, mixed $grants): ?array {
+        if (!is_string($gid)) {
+            return null;
+        }
+        $state = ['group' => $this->groups->state($gid), 'preview' => null];
+        try {
+            $state['preview'] = $this->groups->preview($this->revision(), $this->actor(), $gid, $grants);
+        } catch (InvalidArgumentException|GroupSourceUntrusted|PolicyConflict|PolicyUnavailable) {
+        }
+        return $state;
+    }
+
     /** @return array{groups:list<string>, version:int, revision:string, missing:list<string>, allGroups:list<array{id:string, displayName:string}>, available:bool, logType:string} */
     private function logsState(): array {
         $revision = $this->revision();
@@ -372,6 +459,8 @@ class GrantsController extends Controller {
             }
         } catch (PolicyUnavailable $e) {
             return self::unavailable($e);
+        } catch (GroupSourceUntrusted) {
+            return new JSONResponse(['error' => 'group_source_untrusted'], Http::STATUS_UNPROCESSABLE_ENTITY);
         } catch (InvalidArgumentException) {
             return new JSONResponse(['error' => 'Invalid request'], Http::STATUS_BAD_REQUEST);
         }

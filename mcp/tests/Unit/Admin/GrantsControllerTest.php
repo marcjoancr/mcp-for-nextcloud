@@ -38,7 +38,7 @@ final class GrantsControllerTest extends TestCase {
         $request = $this->createMock(IRequest::class);
         $request->method('getParam')->willReturnCallback(fn (string $key, $default = null) => array_key_exists($key, $this->body) ? $this->body[$key] : $default);
         return new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(), $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(),
-            $this->fx->writer(), $this->fx->state(), $this->session('root'));
+            $this->fx->writer(), $this->fx->state(), $this->session('root'), $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class));
     }
 
     private function session(string $uid): \OCP\IUserSession {

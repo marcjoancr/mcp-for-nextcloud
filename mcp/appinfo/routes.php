@@ -23,6 +23,10 @@ return ['routes' => [
     ['name' => 'grants#undo', 'url' => '/api/grants/undo', 'verb' => 'POST'],
     ['name' => 'grants#update', 'url' => '/api/grants/{uid}', 'verb' => 'PUT'],
     ['name' => 'grants#service', 'url' => '/api/service', 'verb' => 'PUT'],
+    // Group ids are opaque and may hold any byte but NUL, so they travel in the query or the body, never in the path.
+    ['name' => 'grants#group', 'url' => '/api/group-grants', 'verb' => 'GET'],
+    ['name' => 'grants#previewGroup', 'url' => '/api/group-grants/preview', 'verb' => 'POST'],
+    ['name' => 'grants#saveGroup', 'url' => '/api/group-grants', 'verb' => 'PUT'],
     ['name' => 'grants#oauthClients', 'url' => '/api/oauth-clients', 'verb' => 'GET'],
     ['name' => 'grants#updateOauthClients', 'url' => '/api/oauth-clients', 'verb' => 'PUT'],
     ['name' => 'grants#logsAccess', 'url' => '/api/logs-access', 'verb' => 'GET'],
