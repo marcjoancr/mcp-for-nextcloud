@@ -121,11 +121,34 @@ of a mount root):
   "Moving across different storages is not supported in this version". The D7 gate stands in front of it too
   (unit-tested), and the test now accepts either answer and records which one came.
 
-**Re-proven locally after the last edits.** The GitHub Actions minutes ran out, so the corrections were run with
-`mcp/tests/Integration/ci/run-local.sh` (Colima, arm64, the same pinned images): NC 35 on PostgreSQL, fresh, passed in full
-(96 tests, 1227 assertions), including the file share moved into a tagged folder of the recipient. Findings of that
-run: core refuses to rename or move the mount point of a received share through `files_move` ("Moving across different
-storages"), with or without an exclusion, so the D7 gate is not what answers there (recorded, not asserted); a version
-restore of a groupfolder file is accepted on PostgreSQL but answers "Resource locked by another operation" on SQLite
-with no exclusion configured at all (recorded, the test skips there instead of blaming the guard). The other cells were
-not re-run after these edits.
+**Re-proven locally after the last edits (final status).** The GitHub Actions minutes ran out, so the whole suite was
+run with `mcp/tests/Integration/ci/run-local.sh` (Colima on an Apple-silicon Mac, native arm64 images with the same pinned
+digests), HEAD 5c9686c. Every cell below passed in full (96 tests, no failure):
+
+| Cell | Result | Assertions | Skipped |
+| --- | --- | --- | --- |
+| NC 35, PostgreSQL, fresh | OK | 1226 | 1 |
+| NC 35, PostgreSQL, upgrade | OK | 1226 | 1 |
+| NC 35, MariaDB, fresh | OK | 1203 | 4 |
+| NC 35, SQLite, fresh | OK | 1208 | 4 |
+| NC 34, MariaDB, fresh | OK | 1203 | 4 |
+| NC 33, MariaDB, fresh | OK | 1204 | 3 |
+| NC 32, MariaDB, fresh | OK | 1204 | 3 |
+| NC 32, MariaDB, upgrade | OK | 1204 | 3 |
+
+The skips are the three PostgreSQL-only smoke tests (every cell but PostgreSQL) and, where marked below, the groupfolder
+version restore. Not run in this pass: the upgrade mode of NC 33 and NC 34, and of NC 35 on MariaDB and SQLite.
+
+What this adds to the real proof:
+
+- The file share moved by its recipient into a tagged folder of their own is hidden (folder share and file share), and the
+  received folder moved into another received share is refused without effect, in every cell above.
+- A received share's mount point cannot be renamed or moved by `files_move`: core answers "Moving across different
+  storages is not supported in this version", with or without an exclusion, so the D7 gate is not what answers there. A
+  folder of the recipient's own is renamed in place with an exclusion configured.
+- **Stale window of the exclusion list**, measured again with the cache on: 2.82 s to 3.86 s in these seven cells, on top of
+  the 2.66 s to 3.94 s of the GitHub run (the core TTL is 3 s).
+- **Version restore of a groupfolder file** (not an exclusion matter): accepted at the first attempt on NC 32 and NC 33
+  (groupfolders 20 and 21), but refused with "Resource locked by another operation; try again" on NC 34 and NC 35
+  (groupfolders 22 and 23) on every database, even with no exclusion configured at all, and after four retries. The test
+  therefore skips there instead of blaming the guard. It is a product or groupfolders question to follow up on its own.
