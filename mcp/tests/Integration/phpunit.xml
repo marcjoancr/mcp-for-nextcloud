@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!--
+  SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  Integration suite: runs only inside the disposable Nextcloud container of .github/workflows/integration.yml
+  (tests/Integration/ci/harness.sh test), never with the unit suite.
+-->
+<phpunit bootstrap="bootstrap.php" colors="false" cacheResult="false" failOnWarning="true" failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites><testsuite name="integration"><directory>.</directory></testsuite></testsuites>
+</phpunit>
