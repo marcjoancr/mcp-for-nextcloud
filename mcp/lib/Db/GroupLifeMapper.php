@@ -18,7 +18,8 @@ use UnexpectedValueException;
  * count. gen changes on every transition, so a delayed cleanup conditioned on the gen it read never removes a policy
  * saved later; policy_rev is the revision of the commit that saved the group's policy. mcp_group_grants is untouched.
  *
- * Composition mapper: writes run only inside the policy writer's transaction, under its global mutex.
+ * Composition mapper: writes run only inside the policy writer's transaction, under its global mutex, with one
+ * exception: markPendingDelete(), the pre-event transition, which never takes the mutex (see there).
  */
 class GroupLifeMapper {
     public const TABLE = 'mcp_group_life';
@@ -153,6 +154,82 @@ class GroupLifeMapper {
             ->where($qb->expr()->eq('group_key', $qb->createNamedParameter(IdentityKey::group($gid))))
             ->andWhere($qb->expr()->eq('gen', $qb->createNamedParameter($expectedGen)))
             ->executeStatement() === 1;
+    }
+
+    /**
+     * BeforeGroupDeletedEvent (contracts §3.3.5): any state -> pending_delete with a new gen (a new deletion renews
+     * the gen of an earlier one that failed), only if the row still carries $expectedGen, as one conditional statement
+     * outside any transaction.
+     *
+     * This is the one lifecycle transition that runs without the policy mutex and does not move the revision: a
+     * pre-event handler never takes the mutex (contracts §3.3), and the native deletion is not confirmed yet. It is
+     * safe because pending_delete grants nothing (only active does) and deletes nothing: every final transition
+     * (purge, needs_confirm, the job's decision) still goes through the writer, under the mutex, with revision + 1.
+     * Readers that snapshot by revision are affected as follows. A resolution that read the row as active just before
+     * this statement used the state the group had while it still existed, as it would have without this signal; the
+     * next one reads pending_delete and the group no longer grants. A writer command that compares only the revision
+     * cannot see this transition; one that relies on the lifecycle (the group save of ticket 08) must compare the gen
+     * it read in its external phase again under the mutex.
+     *
+     * The row is read first and its original id compared byte for byte, so a digest collision fails closed before the
+     * update; the update is conditioned on the gen verified by that read.
+     *
+     * @param string $gid Nextcloud group id
+     * @param string $expectedGen gen read before the transition
+     * @param string $gen new random gen, different from $expectedGen
+     * @return bool whether this call moved it; false when the row is gone or carries another gen
+     * @throws LogicException inside a transaction: a pre-event handler runs no SQL there (contracts §3.3.6)
+     * @throws InvalidArgumentException for an invalid id or gen
+     * @throws UnexpectedValueException for a digest collision or an invalid stored row
+     * @throws \OCP\DB\Exception when a statement fails
+     */
+    public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+        if ($this->db->inTransaction()) {
+            throw new LogicException('The pre-event lifecycle transition never runs inside a transaction');
+        }
+        self::validate(self::PENDING_DELETE, $gen);
+        if (!self::validGen($expectedGen) || $expectedGen === $gen) {
+            throw new InvalidArgumentException('A transition needs a new gen');
+        }
+        $row = $this->get($gid);
+        if ($row === null || $row['gen'] !== $expectedGen) {
+            return false;
+        }
+        $qb = $this->db->getQueryBuilder();
+        return $qb->update(self::TABLE)
+            ->set('state', $qb->createNamedParameter(self::PENDING_DELETE))
+            ->set('gen', $qb->createNamedParameter($gen))
+            ->where($qb->expr()->eq('group_key', $qb->createNamedParameter(IdentityKey::group($gid))))
+            ->andWhere($qb->expr()->eq('gen', $qb->createNamedParameter($expectedGen)))
+            ->executeStatement() === 1;
+    }
+
+    /**
+     * Lifecycles waiting for their deletion to be confirmed, for the reconciler job: at most $limit, by group_key.
+     *
+     * @param int $limit most rows returned
+     * @return list<array{groupId:string, state:string, gen:string, policyRev:string}>
+     * @throws UnexpectedValueException for an invalid stored row
+     * @throws \OCP\DB\Exception when the query fails
+     */
+    public function pendingDeletes(int $limit): array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('group_id')->from(self::TABLE)
+            ->where($qb->expr()->eq('state', $qb->createNamedParameter(self::PENDING_DELETE)))
+            ->orderBy('group_key')->setMaxResults(max(1, $limit))->executeQuery();
+        $ids = [];
+        try {
+            while (($row = $result->fetch()) !== false) {
+                if (!is_string($row['group_id'] ?? null)) {
+                    throw new UnexpectedValueException('Invalid stored group lifecycle');
+                }
+                $ids[] = $row['group_id'];
+            }
+        } finally {
+            $result->closeCursor();
+        }
+        // Re-read through forGroups(), which verifies every digest against the original id.
+        return array_values(array_filter($this->forGroups($ids), static fn (array $row): bool => $row['state'] === self::PENDING_DELETE));
     }
 
     /**

@@ -23,6 +23,7 @@ use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\Policy\CauseClassifier;
 use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\DeferredQueue;
+use OCA\Mcp\Service\Policy\GroupLifecycle;
 use OCA\Mcp\Service\Policy\PolicyEventProcessor;
 use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
@@ -69,6 +70,7 @@ final class CauseProcessingTest extends TestCase {
     private ?\Closure $duringRead = null;
     private int $reads = 0;
     private InMemoryAppConfig $apps;
+    private GroupLifecycle $groups;
 
     protected function setUp(): void {
         $this->database = new SqliteDatabase($this, [new Version000500Date20260930000000(), new Version000700Date20261001000000(),
@@ -116,8 +118,9 @@ final class CauseProcessingTest extends TestCase {
             protected function register(callable $onShutdown): void { $this->registered[] = $onShutdown; }
         };
         $this->apps = new InMemoryAppConfig();
+        $this->groups = $this->createMock(GroupLifecycle::class);
         $this->processor = new CauseProcessor($this->writer, $this->rechecks, $this->classifier, $this->queue, $this->db, $logger,
-            $this->apps->worker($this));
+            $this->apps->worker($this), $this->groups);
     }
 
     private function logger(): AbstractLogger {

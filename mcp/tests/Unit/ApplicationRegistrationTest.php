@@ -72,6 +72,11 @@ final class ApplicationRegistrationTest extends TestCase {
             \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class] as $event) {
             $this->assertSame([[\OCA\Mcp\Listener\UserCauseListener::class, 0]], $events[$event], $event);
         }
+        // The GID lifecycle observes deletion and creation of groups, at the default priority.
+        foreach ([\OCP\Group\Events\BeforeGroupDeletedEvent::class, \OCP\Group\Events\GroupDeletedEvent::class,
+            \OCP\Group\Events\BeforeGroupCreatedEvent::class, \OCP\Group\Events\GroupCreatedEvent::class] as $event) {
+            $this->assertSame([[\OCA\Mcp\Listener\GroupLifecycleListener::class, 0]], $events[$event], $event);
+        }
         // The opportunistic flush of deferred facts runs at the entry of the app's own routes only.
         $this->assertSame([[\OCA\Mcp\Middleware\DeferredFlushMiddleware::class, false]], $middlewares);
     }

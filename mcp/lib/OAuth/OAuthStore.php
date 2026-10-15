@@ -95,6 +95,30 @@ class OAuthStore {
         return false;
     }
 
+    /**
+     * Users holding any code or grant row, valid or not: the credential holders a group deletion must re-check
+     * (contracts §3.3.2). It may over-report, never miss one.
+     *
+     * @return list<string> distinct owners, in no particular order
+     */
+    public function holders(): array {
+        $holders = [];
+        foreach ([self::TOKENS, self::CODES] as $table) {
+            $qb = $this->db->getQueryBuilder();
+            $result = $qb->selectDistinct('user_id')->from($table)->executeQuery();
+            try {
+                while (($row = $result->fetch()) !== false) {
+                    if (is_string($row['user_id'] ?? null) && $row['user_id'] !== '') {
+                        $holders[hash('sha256', $row['user_id'])] = $row['user_id'];
+                    }
+                }
+            } finally {
+                $result->closeCursor();
+            }
+        }
+        return array_values($holders);
+    }
+
     /** @return array<string,mixed>|null the grant owning this access token hash */
     public function findByAccess(string $accessHash): ?array {
         return $this->findOne(self::TOKENS, 'access_hash', $accessHash);

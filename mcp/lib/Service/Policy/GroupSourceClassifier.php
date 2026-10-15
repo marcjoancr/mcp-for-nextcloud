@@ -16,7 +16,32 @@ use Throwable;
 class GroupSourceClassifier {
     public function __construct(private IGroupManager $groups) {}
 
+    /**
+     * Whether the group may grant (contracts §3.3.5): served by exactly one backend, named 'Database'.
+     *
+     * @throws PolicyUnavailable when a backend cannot be read
+     */
     public function trusted(string $gid): bool {
+        $serving = $this->serving($gid);
+        return count($serving) === 1 && $serving[0] instanceof INamedBackend
+            && $serving[0]->getBackendName() === 'Database';
+    }
+
+    /**
+     * Whether any backend registered in this process serves the group: the fresh existence read of the lifecycle
+     * job. Database::groupExists keeps a positive cache, so a long process may still see a group deleted elsewhere.
+     *
+     * @throws PolicyUnavailable when a backend cannot be read
+     */
+    public function exists(string $gid): bool {
+        return $this->serving($gid) !== [];
+    }
+
+    /**
+     * @return list<GroupInterface> the backends that answer groupExists($gid) with true
+     * @throws PolicyUnavailable when a backend is invalid or cannot be read
+     */
+    private function serving(string $gid): array {
         try {
             $serving = [];
             foreach ($this->groups->getBackends() as $backend) {
@@ -31,8 +56,7 @@ class GroupSourceClassifier {
                     $serving[] = $backend;
                 }
             }
-            return count($serving) === 1 && $serving[0] instanceof INamedBackend
-                && $serving[0]->getBackendName() === 'Database';
+            return $serving;
         } catch (Throwable $e) {
             throw new PolicyUnavailable('Cannot classify group source', previous: $e);
         }

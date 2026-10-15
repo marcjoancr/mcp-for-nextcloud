@@ -76,6 +76,11 @@ class Application extends App implements IBootstrap {
             \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class] as $event) {
             $context->registerEventListener($event, \OCA\Mcp\Listener\UserCauseListener::class);
         }
+        // The GID lifecycle (contracts §3.3.5): pending_delete, purge by gen and by the revision read at creation.
+        foreach ([\OCP\Group\Events\BeforeGroupDeletedEvent::class, \OCP\Group\Events\GroupDeletedEvent::class,
+            \OCP\Group\Events\BeforeGroupCreatedEvent::class, \OCP\Group\Events\GroupCreatedEvent::class] as $event) {
+            $context->registerEventListener($event, \OCA\Mcp\Listener\GroupLifecycleListener::class);
+        }
         $context->registerMiddleware(\OCA\Mcp\Middleware\DeferredFlushMiddleware::class);
         // Production dependencies (smalot/pdfparser) are bundled in the package's vendor/.
         $autoload = __DIR__ . '/../../vendor/autoload.php';

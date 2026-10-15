@@ -23,7 +23,8 @@ use Throwable;
  * It also owns the processing of the facts captured inside a caller's transaction (contracts §3.3.6): never a query
  * while the connection is inside a transaction; at the first safe point of the process (flush(), called at the entry
  * of the app's listeners, routes and jobs) or, as a last resort, at shutdown. Every Throwable of that processing is
- * contained and logged; it writes no output, never exits and never changes the exit code.
+ * contained and logged; it writes no output, never exits and never changes the exit code. A group deletion or creation
+ * captured there is processed the same way, as needs_confirm of its lifecycle (GroupLifecycle::needsConfirm()).
  */
 class CauseProcessor {
     /** Users the reconciler processes per run; the rest wait for the next run or for their own preflight. */
@@ -41,6 +42,7 @@ class CauseProcessor {
         private IDBConnection $db,
         private LoggerInterface $logger,
         private IAppConfig $appConfig,
+        private GroupLifecycle $groups,
     ) {}
 
     /** @return Closure(string, list<array>): array<string, bool> the classification issuance consumes causes with */
@@ -88,6 +90,14 @@ class CauseProcessor {
      */
     public function deferUndated(string $uid): void {
         $this->deferred->undated($uid, $this->shutdown(...));
+    }
+
+    /**
+     * A group deletion or creation seen inside a caller's transaction: at the next safe point its lifecycle, if any,
+     * goes to needs_confirm; nothing is deleted and no GroupDeletedEvent is simulated (contracts §3.3.6).
+     */
+    public function deferGroup(string $gid): void {
+        $this->deferred->group($gid, $this->shutdown(...));
     }
 
     /**
@@ -141,9 +151,9 @@ class CauseProcessor {
                     $this->process($item);
                 } catch (PolicyUnavailable $e) {
                     $this->deferred->keep($item);
-                    $this->logger->info('Deferred recheck kept for the next safe point', ['app' => 'mcp', 'target' => $item['uid'], 'exception' => $e]);
+                    $this->logger->info('Deferred recheck kept for the next safe point', ['app' => 'mcp', 'target' => self::target($item), 'exception' => $e]);
                 } catch (Throwable $e) {
-                    $this->logger->error('Deferred recheck dropped', ['app' => 'mcp', 'target' => $item['uid'], 'exception' => $e]);
+                    $this->logger->error('Deferred recheck dropped', ['app' => 'mcp', 'target' => self::target($item), 'exception' => $e]);
                 }
             }
         } catch (Throwable $e) {
@@ -163,13 +173,13 @@ class CauseProcessor {
         try {
             if ($this->db->inTransaction()) {
                 foreach ($this->deferred->take() as $item) {
-                    $this->logger->warning('deferred_dropped_open_transaction', ['app' => 'mcp', 'target' => $item['uid']]);
+                    $this->logger->warning('deferred_dropped_open_transaction', ['app' => 'mcp', 'target' => self::target($item)]);
                 }
                 return;
             }
             $this->flush();
             foreach ($this->deferred->take() as $item) {
-                $this->logger->warning('deferred_dropped_unavailable', ['app' => 'mcp', 'target' => $item['uid']]);
+                $this->logger->warning('deferred_dropped_unavailable', ['app' => 'mcp', 'target' => self::target($item)]);
             }
         } catch (Throwable $e) {
             try {
@@ -180,10 +190,15 @@ class CauseProcessor {
     }
 
     /**
-     * @param array{kind:string, uid:string, causeKey:?string, gen:?string} $item
+     * @param array{kind:string, uid:string, causeKey:?string, gen:?string, gid?:string} $item
      * @throws PolicyUnavailable when the state cannot be read; the item is kept
      */
     private function process(array $item): void {
+        if ($item['kind'] === DeferredQueue::GROUP) {
+            // Committed or rolled back, the app cannot tell: suspend the group's policy, never delete it.
+            $this->groups->needsConfirm((string)$item['gid']);
+            return;
+        }
         if ($item['kind'] === DeferredQueue::DATED) {
             // A cause stored on time, whose After came inside the transaction: the dated protocol (Q1 applies).
             $this->after($item['uid'], (string)$item['causeKey'], (string)$item['gen']);
@@ -195,5 +210,10 @@ class CauseProcessor {
             return;
         }
         $this->writer->revokeCredentials($item['uid']);
+    }
+
+    /** @return string the user or group an item is about, for the log */
+    private static function target(array $item): string {
+        return $item['kind'] === DeferredQueue::GROUP ? (string)($item['gid'] ?? '') : $item['uid'];
     }
 }

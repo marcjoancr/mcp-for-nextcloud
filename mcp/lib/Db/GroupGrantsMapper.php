@@ -13,8 +13,9 @@ use OCP\IDBConnection;
 use UnexpectedValueException;
 
 /**
- * Read-only group-grant storage, deliberately not a QBMapper: its inherited write methods must not be exposed.
- * A row means Allow; no row means no grant. This store does not resolve user access or group membership.
+ * Group-grant storage, deliberately not a QBMapper: its inherited write methods must not be exposed. A row means
+ * Allow; no row means no grant. This store does not resolve user access or group membership. Its only write, the
+ * purge of a group's rows, runs inside the policy writer's transaction (group lifecycle, contracts §3.3.5).
  */
 final class GroupGrantsMapper {
     /** Leaves room below the parameter limits of the supported database engines. */
@@ -79,5 +80,27 @@ final class GroupGrantsMapper {
         }
         unset($group);
         return array_values($groups);
+    }
+
+    /**
+     * Removes every grant row of one group, as the purge of its lifecycle does. The rows are read first through
+     * forGroups(), which compares each stored id byte for byte, so a digest collision fails closed before the delete.
+     *
+     * @param string $gid Nextcloud group id
+     * @return int rows removed
+     * @throws \LogicException outside the policy writer's transaction
+     * @throws InvalidArgumentException for an invalid id
+     * @throws UnexpectedValueException for a digest collision or an invalid stored grant; nothing is deleted
+     * @throws \OCP\DB\Exception when a statement fails
+     */
+    public function deleteGroup(string $gid): int {
+        if (!$this->db->inTransaction()) {
+            throw new \LogicException('Group grants change only inside the policy writer transaction');
+        }
+        $this->forGroups([$gid]);
+        $qb = $this->db->getQueryBuilder();
+        return $qb->delete('mcp_group_grants')
+            ->where($qb->expr()->eq('group_key', $qb->createNamedParameter(hash('sha256', "group\0" . $gid))))
+            ->executeStatement();
     }
 }
