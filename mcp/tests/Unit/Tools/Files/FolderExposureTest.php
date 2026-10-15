@@ -34,7 +34,7 @@ final class FolderExposureTest extends FilesToolsTestCase {
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturnCallback(fn (array $ids): array => array_combine($ids,
             array_map(fn ($id): array => in_array((int)$id, $this->tagged, true) ? ['999'] : [], $ids)));
-        $this->visibilityGuard = new VisibilityGuard($config, $mapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($config, $mapper, $this->visibilityRoot());
         parent::setUp();
         $this->tree->addFolder('/alice/files/Destination');
         $this->sharePolicy->setGrant('alice', 'files', 'share', true);

@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tools\Files\Sharing;
 
 use OCA\Mcp\Service\GrantPolicy;
-use OCA\Mcp\Service\VisibilityGuard;
+use OCA\Mcp\Service\Scope\FilesAccessGuard;
 use OCA\Mcp\Tools\Common\NodeAccess;
 use OCA\Mcp\Tools\Common\PathGuard;
 use OCA\Mcp\Tools\Files\FilesMessages;
@@ -48,7 +48,7 @@ final class ShareAccess {
         private IShareManager $shareManager,
         private GrantPolicy $policy,
         // Required on purpose (invariant 1): without it a hidden node would be listed and shareable.
-        private VisibilityGuard $visibilityGuard,
+        private FilesAccessGuard $visibilityGuard,
     ) {}
 
     /** D6 visibility is checked by ownNode before a writer applies D7. */

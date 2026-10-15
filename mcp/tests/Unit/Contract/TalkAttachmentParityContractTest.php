@@ -56,6 +56,8 @@ final class TalkAttachmentParityContractTest extends TestCase {
     private VisibilityGuard $guard;
     /** @var list<string> messages the chat manager was asked to publish */
     private array $published = [];
+    /** The Files scope step; null is a user without a Files scope. */
+    private ?\OCA\Mcp\Tools\Common\FileReferenceScope $scope = null;
 
     /**
      * @return array<string, array{list<string>}> paths at which the participant's tree holds the shared file
@@ -113,7 +115,7 @@ final class TalkAttachmentParityContractTest extends TestCase {
     }
 
     private function filter(IShareManager $shares): OutputReferenceFilter {
-        return OutputReferenceFilters::over($this, $this->caller->filesystemRoot(), $this->guard, $shares);
+        return OutputReferenceFilters::over($this, $this->caller->filesystemRoot(), $this->guard, $shares, $this->scope);
     }
 
     private function conversation(): Conversation {
@@ -251,6 +253,40 @@ final class TalkAttachmentParityContractTest extends TestCase {
         $resolver = new UserFileResolver($this->caller->filesystemRoot(), $this->guard, $this->filter($this->shares()));
 
         self::assertSame(self::FILE_ID, (int)$resolver->resolveShareableFile('alice', 'Docs/plan.pdf')->getId());
+    }
+
+    /**
+     * V9 with the real Files scope (B5): a file only outside alice's Files scope, untagged, is read, quoted and attached
+     * exactly like a missing one, in the plan and in the confirmation; nothing is published.
+     */
+    public function testAFileOnlyOutsideTheFilesScopeAnswersAsAMissingAttachment(): void {
+        $this->given(['/alice/files/Docs/plan.pdf']);
+        $selected = [(string)$this->caller->nodes['/alice/files/Secret']['id']];
+        $this->scope = new \OCA\Mcp\Service\Scope\FilesReferenceScope(\OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes::over(
+            $this, $this->guard, $this->caller->filesystemRoot(), static fn (): array => $selected));
+        $shares = $this->shares();
+
+        self::assertNull($this->readAttachmentId($shares, self::SHARE));
+        self::assertSame($this->quotePreview($shares, self::MISSING_SHARE), $this->quotePreview($shares, self::SHARE));
+        self::assertSame($this->quoteConfirm($shares, self::MISSING_SHARE), $this->quoteConfirm($shares, self::SHARE));
+        $resolver = new UserFileResolver($this->caller->filesystemRoot(), $this->guard, $this->filter($shares));
+        $refusal = static function (callable $resolve): string {
+            try {
+                $resolve();
+            } catch (FileAccessException $e) {
+                return $e->getMessage();
+            }
+            return 'resolved';
+        };
+        self::assertNotSame('resolved', $refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/plan.pdf')));
+        self::assertSame($refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/missing.pdf')),
+            $refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/plan.pdf')));
+        self::assertSame([], $this->published, 'nothing is published');
+
+        $selected = [(string)$this->caller->nodes['/alice/files/Docs']['id']];
+        $this->scope = new \OCA\Mcp\Service\Scope\FilesReferenceScope(\OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes::over(
+            $this, $this->guard, $this->caller->filesystemRoot(), static fn (): array => $selected));
+        self::assertSame(self::SHARE, $this->readAttachmentId($shares, self::SHARE), 'inside the scope it reads as before');
     }
 }
 

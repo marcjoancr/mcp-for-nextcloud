@@ -106,34 +106,63 @@ final class NodeAccess {
     /**
      * Folder below $root, created segment by segment when missing.
      *
+     * With a guard, the folders that already exist are crossed by metadata only ({@see VisibilityGuard::isTraversable()}):
+     * an excluded one refuses the whole path like one that does not exist. The deepest one that exists is the
+     * boundary (contract B.5, F5): it must be reachable itself ({@see VisibilityGuard::isVisible()}, which for Files
+     * includes the resource scope), since it receives the first new segment or is the folder returned. All of this
+     * is decided before the first newFolder, so a refusal never leaves folders behind.
+     *
      * @param Folder $root base folder
      * @param string $relative path below $root ('' or '/' returns $root)
-     * @param \OCA\Mcp\Service\VisibilityGuard|null $guard when given, the root and every ancestor that
-     *        already exists are checked before anything is created: a hidden one refuses the whole path
-     *        like one that does not exist, and no folder is built on the way to a refusal
+     * @param \OCA\Mcp\Service\VisibilityGuard|null $guard the gate of the caller's module; null checks nothing
      * @return Folder existing or newly created folder
      * @throws InvalidArgumentException for traversal or control characters
-     * @throws ToolFailure when a file already uses one of the folder names
+     * @throws ToolFailure when a file already uses one of the folder names, or not found for a refused path
      */
     public static function ensureFolder(Folder $root, string $relative, ?\OCA\Mcp\Service\VisibilityGuard $guard = null): Folder {
-        // Checked before the first newFolder: a refusal after creating segments would leave folders behind
-        // for a path the caller was never allowed to reach.
-        $guard?->assertVisible($root);
+        $guard?->assertTraversable($root);
         $folder = $root;
+        $missing = [];
         foreach (PathGuard::segments(PathGuard::normalize($relative)) as $segment) {
-            if ($folder->nodeExists($segment)) {
+            if ($missing === [] && $folder->nodeExists($segment)) {
                 $next = $folder->get($segment);
-                $guard?->assertVisible($next);
+                $guard?->assertTraversable($next);
                 if (!$next instanceof Folder) {
                     throw new ToolFailure(CommonMessages::fileInTargetFolderPath());
                 }
                 $folder = $next;
             } else {
-                $folder = self::mutate(fn () => $folder->newFolder($segment), $guard);
-                $guard?->assertVisible($folder);
+                $missing[] = $segment;
             }
         }
+        $guard?->assertVisible($folder);
+        foreach ($missing as $segment) {
+            $folder = self::mutate(fn () => $folder->newFolder($segment), $guard);
+            $guard?->assertVisible($folder);
+        }
         return $folder;
+    }
+
+    /**
+     * The folder a search or a walk starts from. The user's root is crossed by metadata only: below it the guard
+     * still filters every result, so a Files scope narrows what is found without the root itself being reachable.
+     *
+     * @param Folder $root the user's folder
+     * @param string $path user-relative path
+     * @return Node the node at the path, readable
+     * @throws InvalidArgumentException for traversal or control characters
+     * @throws \OCP\Files\NotFoundException when the node does not exist
+     * @throws ToolFailure when the node may not be reached or read
+     */
+    public static function getBase(Folder $root, string $path, ?\OCA\Mcp\Service\VisibilityGuard $guard = null): Node {
+        if (PathGuard::normalize($path) !== '/') {
+            return self::get($root, $path, $guard);
+        }
+        $guard?->assertTraversable($root);
+        if (!$root->isReadable()) {
+            throw new ToolFailure(CommonMessages::forbidden());
+        }
+        return $root;
     }
 
     /**

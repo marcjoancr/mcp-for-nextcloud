@@ -37,12 +37,14 @@ use OCP\Share\IManager as IShareManager;
 use OCP\Share\IShare;
 use OCP\SystemTag\ISystemTagObjectMapper;
 use PHPUnit\Framework\Attributes\DataProvider;
+use OCA\Mcp\Service\Scope\FilesReferenceScope;
+use OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
 
 /**
  * V9 and V10: structured references to Files nodes in Talk messages and task calendars, for a file excluded by tag
- * and for a file only outside the Files scope (with a scope double, until the Files scope slice wires the real one).
+ * and for a file only outside the user's Files scope, the real one of B5.
  * The source DAV object is never what is sanitized.
  */
 final class StructuredReferenceContractTest extends TestCase {
@@ -99,16 +101,10 @@ final class StructuredReferenceContractTest extends TestCase {
         return OutputReferenceFilters::over($this, $this->tree->filesystemRoot(), $this->guard, $shares, $this->scope);
     }
 
-    /** Files scope double: /Docs and /Secret are inside it, /Other is not. */
+    /** The real Files scope of alice: /Docs and /Secret are selected, /Other is not. */
     private function useScope(): void {
-        $this->scope = new class implements FileReferenceScope {
-            public function restricts(string $userId): bool {
-                return true;
-            }
-            public function allows(string $userId, Node $node): bool {
-                return !str_starts_with($node->getPath(), '/alice/files/Other/');
-            }
-        };
+        $selected = [(string)$this->tree->nodes['/alice/files/Docs']['id'], (string)$this->tree->nodes['/alice/files/Secret']['id']];
+        $this->scope = new FilesReferenceScope(FilesScopes::over($this, $this->guard, $this->tree->filesystemRoot(), static fn (): array => $selected));
     }
 
     // V9 — Talk

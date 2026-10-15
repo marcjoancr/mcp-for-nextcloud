@@ -46,7 +46,7 @@ final class MovePlanner {
         private Reorganization $reorganization,
         private NodeAccessInfo $access,
         private SharedWriteGuard $guard,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private ?\OCA\Mcp\Service\Scope\FilesAccessGuard $visibilityGuard = null,
     ) {}
 
     /**

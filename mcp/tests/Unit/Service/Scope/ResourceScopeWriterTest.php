@@ -31,10 +31,11 @@ final class ResourceScopeWriterTest extends TestCase {
         return ['files' => ['files'], 'calendar' => ['calendar'], 'tasks' => ['tasks']];
     }
 
-    public function testTheShippedBarrierIsClosedForEveryModuleAndTheContainerDefaultUsesIt(): void {
-        $this->assertSame(['files' => false, 'calendar' => false, 'tasks' => false], ScopeActivation::MODULES);
+    /** B5 opened files with the Files gate on every Files consumer; calendar and tasks wait for B6. */
+    public function testTheShippedBarrierOpensFilesAndKeepsCalendarAndTasksClosed(): void {
+        $this->assertSame(['files' => true, 'calendar' => false, 'tasks' => false], ScopeActivation::MODULES);
         $this->assertSame(ResourceScopeMapper::MODULES, array_keys(ScopeActivation::MODULES));
-        $this->assertSame(['files' => false, 'calendar' => false, 'tasks' => false], (new ScopeActivation())->modules());
+        $this->assertSame(['files' => true, 'calendar' => false, 'tasks' => false], (new ScopeActivation())->modules());
         $this->assertFalse((new ScopeActivation())->isActive('notes'));
     }
 

@@ -125,7 +125,7 @@ final class VisibilityContractTest extends TestCase {
         $this->tagManager->method('getTagsByIds')->willReturn([self::HIDDEN_TAG => $hiddenTag]);
 
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode([self::HIDDEN_TAG]);
-        $this->guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), $this->tagManager);
+        $this->guard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), $this->tagManager);
     }
 
     private function build(string $class): object {
@@ -138,7 +138,7 @@ final class VisibilityContractTest extends TestCase {
                 $args[] = $parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : ($name === 'string' ? 'mcp' : null);
                 continue;
             }
-            if ($name === VisibilityGuard::class) {
+            if ($name === VisibilityGuard::class || $name === \OCA\Mcp\Service\Scope\FilesAccessGuard::class) {
                 $args[] = $this->guard;
                 continue;
             }

@@ -401,6 +401,28 @@ class VisibilityGuard {
     }
 
     /**
+     * Whether a node may be crossed by metadata on the way to another one: an existing ancestor of a write
+     * destination, the root a search starts from. Here that is visibility itself; {@see \OCA\Mcp\Service\Scope\FilesAccessGuard}
+     * leaves the resource scope out of it, since the ancestors of a selected folder are traversed, never shown.
+     *
+     * @param Node $node file or folder
+     * @return bool false when the node may not be crossed
+     */
+    public function isTraversable(Node $node): bool {
+        return $this->isVisible($node);
+    }
+
+    /**
+     * @param Node $node file or folder about to be crossed
+     * @throws ToolFailure with CommonMessages::notFound() when it may not be
+     */
+    public function assertTraversable(Node $node): void {
+        if (!$this->isTraversable($node)) {
+            throw new ToolFailure(CommonMessages::notFound());
+        }
+    }
+
+    /**
      * Filters a collection of nodes, keeping only visible ones while preserving order.
      *
      * @param iterable<Node> $nodes

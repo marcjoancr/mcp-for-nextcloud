@@ -632,4 +632,39 @@ final class ResourceRegistryTest extends TestCase {
         $config->method('getAppValue')->willReturnCallback(static fn (string $app, string $key, string $default = '') => $default);
         return new VisibilityGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
     }
+
+    /**
+     * nc://files answers to the Files gate (contract B.5): outside alice's Files scope a file is "not found" exactly
+     * like a missing one, and a scope that cannot be read is 503. nc://notes keeps the plain guard (decision D4).
+     */
+    public function testFilesResourcesFollowTheFilesScopeAndNotesDoNot(): void {
+        $items = [(string)$this->tree->addFolder('/alice/files/Projects')];
+        $plain = $this->openGuard();
+        $scope = \OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes::over($this, $plain, $this->tree->filesystemRoot(),
+            static function () use (&$items): array|false { return $items; });
+        $files = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class),
+            $this->tree->filesystemRoot(), null, null, null, $scope);
+        $registry = new ResourceRegistry($this->toolRegistry, $this->policy, $this->appManager, $this->userManager, $this->rootFolder,
+            $plain, $this->extractor, $this->notesRepo, new ToolGuide([]), $files);
+        $this->tree->addFile('/alice/files/Projects/plan.txt', 'inside', 'text/plain');
+
+        $this->assertSame('inside', $registry->read('nc://files/Projects/plan.txt', 'alice')['contents'][0]['text']);
+        $outside = null;
+        try {
+            $registry->read('nc://files/Documentos/texto.txt', 'alice');
+        } catch (ToolFailure $e) {
+            $outside = json_encode([$e::class, $e->getCode(), $e->getMessage()]);
+        }
+        try {
+            $registry->read('nc://files/Documentos/missing.txt', 'alice');
+            $this->fail('a missing file was served');
+        } catch (ToolFailure $e) {
+            $this->assertSame(json_encode([$e::class, $e->getCode(), $e->getMessage()]), $outside);
+        }
+        $this->assertSame('# Ideia', $registry->read('nc://notes/' . $this->noteId, 'alice')['contents'][0]['text'], 'Notes is never scoped (D4)');
+
+        $items = false;
+        $this->expectException(\OCA\Mcp\Service\Policy\PolicyUnavailable::class);
+        $registry->read('nc://files/Projects/plan.txt', 'alice');
+    }
 }

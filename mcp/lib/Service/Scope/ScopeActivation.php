@@ -15,9 +15,13 @@ namespace OCA\Mcp\Service\Scope;
  * configuration or administrator flag for it. Reads stay available, since nothing can be saved to read yet.
  */
 class ScopeActivation {
-    /** Whether saving a scope is open, by scope module (decision D1). */
+    /**
+     * Whether saving a scope is open, by scope module (decision D1). files opened with B5, which narrows every Files
+     * consumer through the Files gate (tools, nc://files, checkout) and the structured references through the Files
+     * scope step; calendar and tasks stay closed until B6 wires theirs.
+     */
     public const MODULES = [
-        'files' => false,
+        'files' => true,
         'calendar' => false,
         'tasks' => false,
     ];

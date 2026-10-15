@@ -26,8 +26,9 @@ use OCP\IUserManager;
 use OCP\Server;
 
 /**
- * setResourceScope (issue #4, B2) on the real databases: the container's writer refuses every module while the
- * activation barrier is closed, leaving revision, events and tables as they were; behind an open barrier the scope
+ * setResourceScope (issue #4, B2) on the real databases: the container's writer refuses calendar and tasks while their
+ * activation barrier is closed (B6 opens it), leaving revision, events and tables as they were, and saves files,
+ * opened by B5; behind an open barrier the scope
  * carries policy_rev = the committed revision, another session reads mode and items in one statement, the matrix
  * count is grouped by the real database and undo restores the absence of the mode. The open writer is built by hand
  * with a stand-in enumerator: native folders and calendars are not provisioned here.
@@ -52,17 +53,17 @@ final class ResourceScopeWriterTest extends IntegrationTestCase {
         }
     }
 
-    public function testTheContainerWiresTheScopeAndKeepsEveryModuleClosed(): void {
+    public function testTheContainerWiresTheScopeOpensFilesAndKeepsCalendarAndTasksClosed(): void {
         $writer = Server::get(PolicyWriter::class);
         foreach (['scopes' => ResourceScopeMapper::class, 'resources' => NativeResourceEnumerator::class, 'activation' => ScopeActivation::class] as $property => $class) {
             $this->assertInstanceOf($class, (new \ReflectionProperty(PolicyWriter::class, $property))->getValue($writer), $property);
         }
         $this->assertInstanceOf(ResourceScopeMapper::class, (new \ReflectionProperty(GrantMatrix::class, 'scopes'))->getValue(Server::get(GrantMatrix::class)));
-        $this->assertSame(['files' => false, 'calendar' => false, 'tasks' => false], Server::get(ScopeActivation::class)->modules());
+        $this->assertSame(['files' => true, 'calendar' => false, 'tasks' => false], Server::get(ScopeActivation::class)->modules());
 
         $state = Server::get(PolicyStateMapper::class)->state();
         $events = $this->eventCount();
-        foreach (ResourceScopeMapper::MODULES as $module) {
+        foreach (['calendar', 'tasks'] as $module) {
             try {
                 $writer->setResourceScope($state['revision'], 'admin', Fixtures::ALICE, $module, []);
                 $this->fail("Closed barrier accepted for $module");
@@ -72,6 +73,13 @@ final class ResourceScopeWriterTest extends IntegrationTestCase {
         $this->assertSame($state, (new PolicyStateMapper($this->openIndependentConnection()))->state());
         $this->assertSame($events, $this->eventCount());
         $this->assertSame([], (new ResourceScopeMapper($this->openIndependentConnection()))->forUser(Fixtures::ALICE));
+
+        // Restricted to nothing needs no native lookup, so the container's own enumerator accepts it.
+        $saved = $writer->setResourceScope($state['revision'], 'admin', Fixtures::ALICE, 'files', []);
+        $this->assertTrue($saved['changed']);
+        $other = new ResourceScopeMapper($this->openIndependentConnection());
+        $this->assertSame([], $other->forModule(Fixtures::ALICE, 'files')['items']);
+        $this->assertNull($other->forModule(Fixtures::ALICE, 'calendar'));
     }
 
     public function testAnOpenWriterCommitsTheScopeWithItsRevisionAndUndoRestoresAbsence(): void {

@@ -14,6 +14,7 @@ use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Policy\Resolution\ScopeResolution;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
 
@@ -108,6 +109,41 @@ class GrantPolicy {
             unset($this->operations[$key]);
             $context?->close();
         }
+    }
+
+    /**
+     * The user of the one operation open now ({@see within()}): the user whose resource scope a gate that is not
+     * handed a user applies, the Files gate of the tools and of checkout. The endpoint and checkout each open exactly
+     * one operation, for the authenticated user, around everything they run.
+     *
+     * @return string|null the user; null when no operation, or more than one, is open: the caller must fail closed
+     */
+    public function operationUser(): ?string {
+        if (count($this->operations) !== 1) {
+            return null;
+        }
+        return substr((string)array_key_first($this->operations), 1);
+    }
+
+    /**
+     * The resource scope of one module, from the open operation's snapshot (contract B.5), read once with it like
+     * every other policy value of the operation. Callers ask only after the tool was admitted by its grant (F3 of the
+     * B4 review): the scope narrows what the grant allows.
+     *
+     * @param string $userId authenticated user of the operation
+     * @param string $module scope module (decision D1); a module without scope is never restricted
+     * @return list<string>|null the allowed resource ids, possibly none, when the module is restricted; null when not
+     * @throws PolicyUnavailable when the scope or the policy cannot be read: never answered as "unrestricted"
+     */
+    public function scopeItems(string $userId, string $module): ?array {
+        return $this->read($userId, static function (PolicyOperationContext $context) use ($module): ?array {
+            $scope = $context->scope()->resolution($module);
+            return match ($scope->mode) {
+                ScopeResolution::UNRESTRICTED => null,
+                ScopeResolution::RESTRICTED => $scope->items,
+                default => throw new PolicyUnavailable('Resource scope unavailable'),
+            };
+        });
     }
 
     /**

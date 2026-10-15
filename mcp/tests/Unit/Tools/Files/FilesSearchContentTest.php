@@ -124,7 +124,7 @@ final class FilesSearchContentTest extends FilesToolsTestCase {
         $ftsManager->method('isProviderIndexed')->with('files')->willReturn(true);
         $ftsManager->method('search')->willReturn([$searchResult]);
 
-        $guard = $this->createMock(VisibilityGuard::class);
+        $guard = $this->createMock(\OCA\Mcp\Service\Scope\FilesAccessGuard::class);
         $guard->method('filter')->willReturn([]); // hides all nodes
 
         $root = $this->createMock(IRootFolder::class);
@@ -146,7 +146,7 @@ final class FilesSearchContentTest extends FilesToolsTestCase {
     private function buildModuleWithFts(
         IRootFolder $root,
         IFullTextSearchManager $ftsManager,
-        ?VisibilityGuard $guard = null,
+        ?\OCA\Mcp\Service\Scope\FilesAccessGuard $guard = null,
     ): FilesModule {
         $extractor = new \OCA\Mcp\Tools\Files\TextExtractor($this->temp);
         $backup = new \OCA\Mcp\Tools\Files\FileBackup($this->apps, $this->users, $this->time, $this->config->mock($this));

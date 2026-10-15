@@ -215,8 +215,8 @@ which revision the scope writer records is B2's contract, not the schema's.
 
 `Policy/ResourceScopeWriterTest.php` checks that the container wires the scope mapper, the native enumerator and the
 activation barrier into the policy writer and the matrix, and that the container's writer refuses `setResourceScope`
-for files, calendar and tasks while their barrier is closed, leaving the revision, the events and both tables as they
-were. Behind an open barrier (built by hand, with a stand-in enumerator, since native folders and calendars are not
+for calendar and tasks while their barrier is closed (B6 opens it), leaving the revision, the events and both tables
+as they were, and saves files, whose barrier B5 opened. Behind an open barrier (built by hand, with a stand-in enumerator, since native folders and calendars are not
 provisioned here) the saved scope carries `policy_rev` = the committed revision, another session reads the mode and
 its items through the one-statement join and the grouped count, no epoch moves, and undo restores the absence of the
 mode. The native resource checks themselves are unit contracts; the real Files and CalDAV enumeration belongs to B8.
@@ -228,6 +228,17 @@ mount (R4 of the plan review) and scans uncached sub-storages. It also materiali
 before the folder filter and the page of 50, so there is no width cap yet; measuring a folder with thousands of
 children belongs to B7, and if that fails the mitigation is a recoverable refusal above a fixed width, not a
 cache-based listing (which would lose the mounts and diverge from the native view).
+
+## Files scope (issue #4, B5)
+
+`Policy/FilesScopeTest.php` creates folders in alice's tree and saves her Files scope with the container's writer,
+which checks each folder against her native tree; the tools, `nc://files` and a checkout link are then used over HTTP
+through the MCP endpoint, which opens alice's policy operation. "/" lists the selected folders at their real paths;
+a file, a folder or a resource outside the scope answers exactly like a missing one, and a download link issued before
+the scope is refused (S2). `files_mkdir` creates a level inside a nested selected folder without its ancestors becoming
+listable, and a destination above the boundary or outside the scope is refused with no folder created; a file moved
+into the scope outside MCP is reachable on the next call (S5). Restricted to nothing reaches nothing (S6). Shares
+across users (S4) and the V9 proof with a file only outside the scope are B8's.
 
 ## Exclusion proof (issue #4, A4)
 
