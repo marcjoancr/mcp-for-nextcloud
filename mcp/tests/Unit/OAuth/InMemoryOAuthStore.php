@@ -26,6 +26,10 @@ final class InMemoryOAuthStore extends OAuthStore {
 
     public function insertCode(array $row, int $now): void { $this->codes[$this->nextId] = $row + ['id' => $this->nextId++]; }
 
+    public function hasCredentials(string $uid): bool {
+        return in_array($uid, [...array_column($this->tokens, 'user_id'), ...array_column($this->codes, 'user_id')], true);
+    }
+
     public function findCode(string $codeHash): ?array {
         foreach ($this->codes as $row) {
             if ($row['code_hash'] === $codeHash) { return $row; }

@@ -72,6 +72,29 @@ class OAuthStore {
         $this->insert(self::TOKENS, $row);
     }
 
+    /**
+     * Whether the user holds any code or grant row, valid or not: the relevance test of an account deletion
+     * (contracts §3.3.2), which may over-report but never misses a credential that could still authenticate.
+     *
+     * @param string $uid owner
+     * @return bool true when at least one code or grant row of $uid exists
+     */
+    public function hasCredentials(string $uid): bool {
+        foreach ([self::TOKENS, self::CODES] as $table) {
+            $qb = $this->db->getQueryBuilder();
+            $result = $qb->select('id')->from($table)->where($qb->expr()->eq('user_id', $qb->createNamedParameter($uid)))
+                ->setMaxResults(1)->executeQuery();
+            try {
+                if ($result->fetch() !== false) {
+                    return true;
+                }
+            } finally {
+                $result->closeCursor();
+            }
+        }
+        return false;
+    }
+
     /** @return array<string,mixed>|null the grant owning this access token hash */
     public function findByAccess(string $accessHash): ?array {
         return $this->findOne(self::TOKENS, 'access_hash', $accessHash);

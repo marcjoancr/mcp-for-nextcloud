@@ -33,6 +33,8 @@ final class McpControllerTest extends TestCase {
     private array $headers = [];
     /** @var AccessTokenAuthenticator&\PHPUnit\Framework\MockObject\MockObject */
     private AccessTokenAuthenticator $authenticator;
+    /** @var \OCA\Mcp\Service\Policy\CauseProcessor&\PHPUnit\Framework\MockObject\MockObject */
+    private \OCA\Mcp\Service\Policy\CauseProcessor $causes;
     private ?IUser $volatileUser = null;
     /** @var string|null `user_id` of the simulated ISession, the value the DI container hands out as `userId` */
     private ?string $sessionUid = null;
@@ -55,6 +57,7 @@ final class McpControllerTest extends TestCase {
         }
         $this->login('alice');
         $this->authenticator = $this->createMock(AccessTokenAuthenticator::class);
+        $this->causes = $this->createMock(\OCA\Mcp\Service\Policy\CauseProcessor::class);
         $this->headers = [
             'Content-Type' => 'application/json',
             'Accept' => 'application/json, text/event-stream',
@@ -92,7 +95,8 @@ final class McpControllerTest extends TestCase {
         $resourceRequest->method('getServerHost')->willReturn('cloud.example.org');
         $controller = new TestableMcpController('mcp', $request, $session, $urls, $this->policy, $protocol ?? McpProtocolTest::protocol($this),
             new ResourceUrl($resourceRequest), $this->authenticator,
-            new UserL10n(JsonL10n::wire($this->createMock(\OCP\L10N\IFactory::class), $this->languages)));
+            new UserL10n(JsonL10n::wire($this->createMock(\OCP\L10N\IFactory::class), $this->languages)),
+            $this->causes);
         $controller->body = $body;
         return $controller;
     }
@@ -256,6 +260,29 @@ final class McpControllerTest extends TestCase {
         $this->assertSame(503, $response->getStatus());
         $this->assertSame('1', self::headers($response)['Retry-After']);
         $this->assertArrayNotHasKey('WWW-Authenticate', self::headers($response));
+    }
+
+    /** Basic and session identities process the user's pending recheck causes first; an unreadable cause is a 503. */
+    public function testBasicProcessesTheUsersCausesAndAnUnreadableOneIsATemporaryFailure(): void {
+        $this->headers['Authorization'] = 'Basic Zm9vOmJhcg==';
+        $this->causes->expects($this->exactly(2))->method('preflight')->with('alice')->willReturnOnConsecutiveCalls(
+            null, $this->throwException(new \OCA\Mcp\Service\Policy\PolicyUnavailable()));
+        $this->assertSame(405, $this->controller()->get()->getStatus());
+        $response = $this->controller('{}')->post();
+        $this->assertSame(503, $response->getStatus());
+        $this->assertSame('1', self::headers($response)['Retry-After']);
+    }
+
+    /** A Bearer request had its owner's causes processed by the token validation: no second preflight. */
+    public function testBearerLeavesThePreflightToTheTokenValidation(): void {
+        $this->login(null);
+        $this->headers['Authorization'] = 'Bearer ncmcp_at_valid';
+        $owner = $this->createMock(IUser::class);
+        $owner->method('getUID')->willReturn('alice');
+        $owner->method('isEnabled')->willReturn(true);
+        $this->authenticator->method('authenticate')->willReturn($owner);
+        $this->causes->expects($this->never())->method('preflight');
+        $this->assertSame(405, $this->controller()->get()->getStatus());
     }
 
     public function testBasicRequestTranslatesInTheLanguageOfTheAccount(): void {

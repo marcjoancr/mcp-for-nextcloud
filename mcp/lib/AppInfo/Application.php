@@ -70,7 +70,13 @@ class Application extends App implements IBootstrap {
     /** @param IRegistrationContext $context registration context of the app */
     public function register(IRegistrationContext $context): void {
         $context->registerEventListener(\OCP\User\Events\UserChangedEvent::class, \OCA\Mcp\OAuth\UserRevocationListener::class);
-        $context->registerEventListener(\OCP\User\Events\UserDeletedEvent::class, \OCA\Mcp\OAuth\UserRevocationListener::class);
+        // Recheck causes of account deletion and group removal (contracts §3.3.2); the deletion's cut comes from its
+        // account cause, so a late UserDeletedEvent never cuts a consent made after the cause was consumed.
+        foreach ([\OCP\User\Events\BeforeUserDeletedEvent::class, \OCP\User\Events\UserDeletedEvent::class,
+            \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class] as $event) {
+            $context->registerEventListener($event, \OCA\Mcp\Listener\UserCauseListener::class);
+        }
+        $context->registerMiddleware(\OCA\Mcp\Middleware\DeferredFlushMiddleware::class);
         // Production dependencies (smalot/pdfparser) are bundled in the package's vendor/.
         $autoload = __DIR__ . '/../../vendor/autoload.php';
         if (is_file($autoload)) {

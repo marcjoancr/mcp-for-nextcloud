@@ -51,9 +51,12 @@ class PolicyResolver {
      * A bounded snapshot assembly: one repeat on concurrent revision change. No directory I/O under a mutex.
      * @param list<string> $added delivered event overlay
      * @param list<string> $removed delivered event overlay
+     * @param bool $observe whether an observed loss of group trust is persisted (needs_confirm) by a writer command;
+     *     false where no command may run: a pre-event handler, which never takes the mutex, and the external phase of
+     *     a writer command. The group then simply does not grant in this read.
      * @throws PolicyUnavailable read failure, unusable writer, or repeated concurrent change; never falls back
      */
-    public function begin(string $uid, array $added = [], array $removed = []): PolicyOperationContext {
+    public function begin(string $uid, array $added = [], array $removed = [], bool $observe = true): PolicyOperationContext {
         try {
             for ($attempt = 0; $attempt < 2; ++$attempt) {
                 $this->writer->assertUsable();
@@ -77,7 +80,9 @@ class PolicyResolver {
                         $lost[] = ['groupId' => $row['groupId'], 'gen' => $life['gen']];
                     }
                 }
-                $this->trust->observe($lost);
+                if ($observe) {
+                    $this->trust->observe($lost);
+                }
                 $keys = [GrantPolicy::ELIGIBLE_KEY, GrantPolicy::CONNECTED_KEY];
                 foreach (GrantPolicy::CATALOG as $module => $operations) {
                     foreach ($operations as $operation) {

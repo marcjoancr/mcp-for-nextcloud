@@ -92,6 +92,10 @@ final class SqliteDatabase {
         foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'orderBy', 'addOrderBy'] as $method) {
             $chain($method);
         }
+        $qb->method('selectDistinct')->willReturnCallback(function ($columns) use ($qb, $inner): IQueryBuilder {
+            $inner->select(...(array)$columns)->distinct();
+            return $qb;
+        });
         $qb->method('createNamedParameter')->willReturnCallback(function ($value, $type = IQueryBuilder::PARAM_STR, $placeHolder = null) use ($inner): IParameter {
             $parameter = $this->mock(IParameter::class);
             $parameter->method('__toString')->willReturn($inner->createNamedParameter($value, $type, $placeHolder));

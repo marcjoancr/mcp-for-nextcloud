@@ -111,24 +111,79 @@ class PolicyWriter {
      * replayed (at most twice, then PolicyUnavailable, which OAuth answers with temporarily_unavailable). $apply runs
      * the local statements of the unit with the state row and the generations read under the mutex.
      *
+     * With $classify, the unit is an issuance (contracts §3.3.4): the pending causes read before the external phase
+     * are classified there and, under the mutex, consumed (with their cut) before $apply, which therefore sees the
+     * generations after that cut. A credential issued by $apply is above the cut, and no After, retry or job of a
+     * consumed cause finds it again; a cause recorded between the phases changes the set and replays the attempt.
+     *
      * @param string $uid owner of the credential
      * @param Closure(array):mixed $prepare external phase; its result is passed to $apply
      * @param Closure(mixed, array{revision:string, lock_seq:string, auth_epoch:string}, array{issue_seq:string, revoked_below:string}):bool $apply
      *     local phase; returns whether policy changed (only consent's connected flag does)
+     * @param (Closure(string, list<array>): array<string, bool>)|null $classify CauseClassifier::classify(), for an
+     *     issuance; null for a unit that issues nothing
      * @return array{revision:string, changed:bool, commandId:string, cleanupPending:bool}
-     * @throws PolicyUnavailable when the storage fails, the snapshot keeps changing, or the outcome is uncertain
+     * @throws PolicyUnavailable when the storage fails, the snapshot keeps changing, a cause cannot be classified, or
+     *     the outcome is uncertain
      */
-    public function runCredential(string $uid, Closure $prepare, Closure $apply): array {
-        return $this->runInternal([$uid], function (array $observed) use ($uid, $prepare): array {
-            $before = ['generations' => $this->authUsers->generations($uid), 'causes' => $this->rechecks->causes($uid)];
-            return ['before' => $before, 'snapshot' => $prepare($observed)];
+    public function runCredential(string $uid, Closure $prepare, Closure $apply, ?Closure $classify = null): array {
+        return $this->runInternal([$uid], function (array $observed) use ($uid, $prepare, $classify): array {
+            $causes = $this->rechecks->causes($uid);
+            $before = ['generations' => $this->authUsers->generations($uid), 'causes' => $causes];
+            $classified = $classify === null || $causes === [] ? [] : self::classified($causes, $classify($uid, $causes));
+            return ['before' => $before, 'classified' => $classified, 'snapshot' => $prepare($observed)];
         }, function (array $prepared, array $current) use ($uid, $apply): bool {
-            $generations = $this->authUsers->generations($uid);
-            if ($generations !== $prepared['before']['generations'] || $this->rechecks->causes($uid) !== $prepared['before']['causes']) {
+            if ($this->authUsers->generations($uid) !== $prepared['before']['generations']
+                || $this->rechecks->causes($uid) !== $prepared['before']['causes']) {
                 throw new SnapshotInvalidated();
             }
-            return $apply($prepared['snapshot'], $current, $generations);
+            $consumed = $this->consumeLocal($uid, $prepared['classified']) > 0;
+            return $apply($prepared['snapshot'], $current, $this->authUsers->generations($uid)) || $consumed;
         });
+    }
+
+    /**
+     * The cause protocol of contracts §3.3.1 for one user, outside issuance: an After event, a deferred After, the
+     * preflight of a request and the reconciler. The whole cause set R0 is read before the external phase; the
+     * selected causes are classified there; under the mutex the set must still be R0 (else the attempt is replayed,
+     * at most twice), and each selected cause is consumed with its exact gen, after the cut its classification
+     * demands, in one transaction that advances the revision. Causes not selected are compared but never touched.
+     *
+     * @param string $uid owner of the causes
+     * @param Closure(string, list<array>): array<string, bool> $classify CauseClassifier::classify()
+     * @param (Closure(array): bool)|null $select keeps a cause row of R0; null processes all of them
+     * @return int causes consumed by this call; 0 also when nothing was selected (no transaction is opened then)
+     * @throws \InvalidArgumentException for an invalid user id
+     * @throws PolicyUnavailable when the storage fails, the set keeps changing, a cause cannot be classified, or the
+     *     outcome is uncertain
+     */
+    public function processCauses(string $uid, Closure $classify, ?Closure $select = null): int {
+        if (!PolicyEventPayload::validUid($uid)) {
+            throw new \InvalidArgumentException('Invalid user');
+        }
+        $choose = static fn (array $causes): array => $select === null ? $causes : array_values(array_filter($causes, $select));
+        try {
+            if ($choose($this->rechecks->causes($uid)) === []) {
+                return 0;
+            }
+        } catch (PolicyUnavailable $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new PolicyUnavailable('Cannot read recheck causes', previous: $e);
+        }
+        $consumed = 0;
+        $this->runInternal([$uid], function () use ($uid, $classify, $choose): array {
+            $causes = $this->rechecks->causes($uid);
+            $chosen = $choose($causes);
+            return ['causes' => $causes, 'classified' => self::classified($chosen, $chosen === [] ? [] : $classify($uid, $chosen))];
+        }, function (array $prepared) use ($uid, &$consumed): bool {
+            if ($this->rechecks->causes($uid) !== $prepared['causes']) {
+                throw new SnapshotInvalidated();
+            }
+            $consumed = $this->consumeLocal($uid, $prepared['classified']);
+            return $consumed > 0;
+        });
+        return $consumed;
     }
 
     /**
@@ -138,11 +193,13 @@ class PolicyWriter {
      *
      * @param string $uid the consenting user
      * @param Closure(string, string): void $insertCode stores the code with (generation, epoch); runs under the mutex
+     * @param (Closure(string, list<array>): array<string, bool>)|null $classify consumes the pending causes before the
+     *     code is issued (runCredential())
      * @return bool false when the account is disabled, the service is off or the user is not eligible: nothing written
      * @throws \InvalidArgumentException for a user the server does not know
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
-    public function consent(string $uid, Closure $insertCode): bool {
+    public function consent(string $uid, Closure $insertCode, ?Closure $classify = null): bool {
         $allowed = false;
         $this->runCredential($uid, function () use ($uid): bool {
             $this->assertUser($uid);
@@ -156,7 +213,7 @@ class PolicyWriter {
             $changed = $this->writeCell($uid, GrantPolicy::CONNECTED_KEY, '1') !== null;
             $insertCode($this->authUsers->issue($uid), $current['auth_epoch']);
             return $changed;
-        });
+        }, $classify);
         return $allowed;
     }
 
@@ -514,6 +571,51 @@ class PolicyWriter {
             $this->revokeUserLocal($uid);
         }
         return $changed ? ['uid' => $uid, 'key' => $key, 'before' => $before, 'after' => $value] : null;
+    }
+
+    /**
+     * Pairs each selected cause with its classification; a classification that misses a cause is a programming error.
+     *
+     * @param list<array{causeKey:string, gen:string}> $causes
+     * @param array<string, bool> $classification cause_key => cut
+     * @return list<array{causeKey:string, gen:string, cut:bool}>
+     */
+    private static function classified(array $causes, array $classification): array {
+        $classified = [];
+        foreach ($causes as $cause) {
+            if (!is_bool($classification[$cause['causeKey']] ?? null)) {
+                throw new \LogicException('Every recheck cause must be classified');
+            }
+            $classified[] = ['causeKey' => $cause['causeKey'], 'gen' => $cause['gen'], 'cut' => $classification[$cause['causeKey']]];
+        }
+        return $classified;
+    }
+
+    /**
+     * Step 4 of the cause protocol, under the mutex: the cut demanded by any classified cause (at issue_seq read now),
+     * then the delete of each cause by user, cause and gen. A consumed cause is a policy write (coordinator
+     * clarification 1), so the attempt advances the revision.
+     *
+     * @param list<array{causeKey:string, gen:string, cut:bool}> $classified
+     * @return int causes deleted
+     */
+    private function consumeLocal(string $uid, array $classified): int {
+        if ($classified === []) {
+            return 0;
+        }
+        if (in_array(true, array_column($classified, 'cut'), true)) {
+            $this->revokeUserLocal($uid);
+        }
+        $consumed = 0;
+        foreach ($classified as $cause) {
+            if ($this->rechecks->consume($uid, $cause['causeKey'], $cause['gen'])) {
+                ++$consumed;
+            }
+        }
+        if ($consumed > 0) {
+            $this->local['cut'] = true;
+        }
+        return $consumed;
     }
 
     /**

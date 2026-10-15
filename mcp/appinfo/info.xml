@@ -113,6 +113,7 @@ Nextcloud 32–35 y PHP 8.2 o superior. Deck y Talk son opcionales: sus herramie
     </dependencies>
     <background-jobs>
         <job>OCA\Mcp\BackgroundJob\PolicyCleanupJob</job>
+        <job>OCA\Mcp\BackgroundJob\ReconcileJob</job>
     </background-jobs>
     <repair-steps>
         <post-migration>

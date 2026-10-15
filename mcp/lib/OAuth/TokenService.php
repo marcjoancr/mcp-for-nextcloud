@@ -21,7 +21,9 @@ use Throwable;
  *
  * Every unit that writes OAuth state is one PolicyWriter command (contracts §2.1.1, §3.1): the owner is checked in the
  * external phase; under the global mutex the user's generations and causes are compared with what was read before,
- * and consumption and issuance commit together. A code carries the user's new generation, a grant inherits it from
+ * and consumption and issuance commit together. Consent, exchange and refresh first consume the owner's pending
+ * recheck causes in that same transaction, with the cut each demands (contracts §3.3.4), so nothing they issue can be
+ * cut later by an older cause. A code carries the user's new generation, a grant inherits it from
  * its code and rotation keeps it, so one revocation by cut reaches the whole lineage and nothing issued after it.
  * Storage failures surface as PolicyUnavailable, which the token endpoint answers with temporarily_unavailable.
  */
@@ -68,7 +70,7 @@ class TokenService {
                 'auth_global_epoch' => $epoch,
                 'auth_gen' => $generation,
             ], $now);
-        });
+        }, $this->gate->causes());
         return $allowed ? $code : null;
     }
 
@@ -225,7 +227,7 @@ class TokenService {
             }, function ($snapshot, array $state, array $generations) use ($local): bool {
                 $local($state, $generations);
                 return false;
-            });
+            }, $this->gate->causes());
         } catch (OwnerNotUsable) {
             $this->gate->revokeObserved($uid, $observed);
             throw new OAuthException('invalid_grant', 'MCP access is not allowed for this account');

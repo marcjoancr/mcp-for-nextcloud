@@ -63,6 +63,16 @@ final class InMemoryConfig {
     }
 
     /**
+     * A cause processor for a test whose users have no recheck causes: the preflight does nothing and issuance gets a
+     * classification that would cut every cause (none is ever read). Causes are proven in CauseProcessingTest.
+     */
+    public static function noCauses(TestCase $test): \OCA\Mcp\Service\Policy\CauseProcessor {
+        $causes = (new \ReflectionMethod($test, 'createMock'))->invoke($test, \OCA\Mcp\Service\Policy\CauseProcessor::class);
+        $causes->method('classifier')->willReturn(static fn (string $uid, array $rows): array => array_fill_keys(array_column($rows, 'causeKey'), true));
+        return $causes;
+    }
+
+    /**
      * A GrantPolicy over an IConfig mock of this class and the IUserConfig double that goes with it
      * (the policy lists flagged users through IUserConfig::searchUsersByValueString).
      */

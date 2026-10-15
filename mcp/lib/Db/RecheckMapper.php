@@ -72,6 +72,32 @@ class RecheckMapper {
     }
 
     /**
+     * Users with at least one pending cause, for the reconciler: a bounded page ordered by user_key, so a run that
+     * cannot finish resumes with the users it did not reach (consumed users leave the set).
+     *
+     * @param int $limit most users returned, at least 1
+     * @return list<string> user ids as stored; causes() verifies each identity before anything is consumed
+     * @throws Exception when the query fails
+     */
+    public function pendingUsers(int $limit): array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->selectDistinct(['user_key', 'user_id'])->from(self::TABLE)
+            ->orderBy('user_key')->setMaxResults(max(1, $limit))
+            ->executeQuery();
+        $users = [];
+        try {
+            while (($row = $result->fetch()) !== false) {
+                if (is_string($row['user_id'] ?? null)) {
+                    $users[] = $row['user_id'];
+                }
+            }
+        } finally {
+            $result->closeCursor();
+        }
+        return $users;
+    }
+
+    /**
      * Records a cause, replacing the gen of the same (user, cause): a new native operation always gets a new gen.
      *
      * Every write is preceded by a read of the exact row, whose original ids are compared byte for byte in PHP (never

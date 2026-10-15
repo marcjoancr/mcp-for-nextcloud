@@ -114,7 +114,7 @@ final class GenerationCutTest extends TestCase {
         $this->writer = new PolicyWriter($this->db, $this->state, $events, $config, $userConfig, $apps, $users, $time,
             $this->authUsers, new RecheckMapper($this->db), $processor);
         $this->policy = new GrantPolicy($config, $userConfig, $this->writer);
-        $gate = new TokenOwnerGate($users, $this->policy, $this->writer, $userConfig, $apps, new NullLogger());
+        $gate = new TokenOwnerGate($users, $this->policy, $this->writer, $userConfig, $apps, new NullLogger(), InMemoryConfig::noCauses($this));
         $hasher = $this->hasher;
         $this->service = new TokenService($this->store, $hasher, $time, $gate, $config, $this->writer, $this->authUsers, $processor);
         $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate, $config, $this->authUsers, $this->state);

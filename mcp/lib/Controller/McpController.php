@@ -14,6 +14,7 @@ use OCA\Mcp\OAuth\AccessTokenAuthenticator;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\McpProtocol;
+use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -44,6 +45,7 @@ class McpController extends Controller {
         private ResourceUrl $resourceUrl,
         private AccessTokenAuthenticator $tokens,
         private UserL10n $l10n,
+        private CauseProcessor $causes,
     ) {
         parent::__construct($appName, $request);
     }
@@ -152,6 +154,17 @@ class McpController extends Controller {
             return $this->unauthorized(str_starts_with($authorization, 'Basic ')
                 ? 'Basic realm="MCP for Cloud"'
                 : 'Bearer ' . $this->bearerParameters());
+        }
+        if (!$bearer) {
+            // Basic and session identities use no epoch, but the user's pending recheck causes are processed before
+            // the live policy is checked (contracts §3.1); a Bearer token had them processed by its validation.
+            try {
+                $this->causes->preflight($user->getUID());
+            } catch (PolicyUnavailable) {
+                $response = new McpResponse('', 503);
+                $response->addHeader('Retry-After', '1');
+                return $response;
+            }
         }
         if (!$this->policy->canConnect($user->getUID())) {
             return new McpResponse('', 403);

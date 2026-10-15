@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Unit\OAuth;
 
 use OCA\Mcp\OAuth\UserRevocationListener;
+use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCP\IDBConnection;
@@ -18,31 +19,35 @@ use OCP\User\Events\UserDeletedEvent;
 use PHPUnit\Framework\TestCase;
 
 final class UserRevocationListenerTest extends TestCase {
-    public function testDisableAndDeletionCutTheUserButOtherChangesDoNot(): void {
+    public function testDisableCutsTheUserButOtherChangesAndDeletionDoNot(): void {
         $data = new InMemoryConfig();
         $store = new InMemoryOAuthStore();
-        $listener = new UserRevocationListener(InMemoryConfig::writer($data->mock($this), $store), $this->createMock(IDBConnection::class), new NullLogger());
+        $causes = $this->createMock(CauseProcessor::class);
+        $causes->expects($this->once())->method('flush');
+        $listener = new UserRevocationListener(InMemoryConfig::writer($data->mock($this), $store), $this->createMock(IDBConnection::class), new NullLogger(), $causes);
         $user = $this->createMock(IUser::class);
         $user->method('getUID')->willReturn('alice');
-        foreach ([new UserChangedEvent($user, 'enabled', false, true), new UserDeletedEvent($user)] as $event) {
-            $store->insertToken(['user_id' => 'alice', 'auth_gen' => '1'], 0);
-            $store->insertCode(['user_id' => 'alice', 'auth_gen' => '1'], 0);
-            $listener->handle(new UserChangedEvent($user, 'displayName', 'Alice'));
-            $listener->handle(new UserChangedEvent($user, 'enabled', true, false));
-            $this->assertCount(1, $store->tokens);
-            $listener->handle($event);
-            // A cut at the last issued generation; the tombstone stays for a recreated account.
-            $this->assertSame('1', $data->generations['alice']['revoked_below']);
-            $this->assertSame([], $store->tokens);
-            $this->assertSame([], $store->codes);
-        }
+        $store->insertToken(['user_id' => 'alice', 'auth_gen' => '1'], 0);
+        $store->insertCode(['user_id' => 'alice', 'auth_gen' => '1'], 0);
+        $listener->handle(new UserChangedEvent($user, 'displayName', 'Alice'));
+        $listener->handle(new UserChangedEvent($user, 'enabled', true, false));
+        // The deletion is revoked by its account cause (UserCauseListener), never by an unconditional cut here.
+        $listener->handle(new UserDeletedEvent($user));
+        $this->assertCount(1, $store->tokens);
+        $this->assertArrayNotHasKey('alice', $data->generations);
+        $listener->handle(new UserChangedEvent($user, 'enabled', false, true));
+        // A cut at the last issued generation; the tombstone stays for a recreated account.
+        $this->assertSame('1', $data->generations['alice']['revoked_below']);
+        $this->assertSame([], $store->tokens);
+        $this->assertSame([], $store->codes);
     }
 
     public function testACutNeverOutlivesTheGenerationsIssuedAfterIt(): void {
         $data = new InMemoryConfig();
         $data->generations['alice'] = ['issue_seq' => '3', 'revoked_below' => '0'];
         $store = new InMemoryOAuthStore();
-        $listener = new UserRevocationListener(InMemoryConfig::writer($data->mock($this), $store), $this->createMock(IDBConnection::class), new NullLogger());
+        $listener = new UserRevocationListener(InMemoryConfig::writer($data->mock($this), $store), $this->createMock(IDBConnection::class), new NullLogger(),
+            $this->createMock(CauseProcessor::class));
         $user = $this->createMock(IUser::class);
         $user->method('getUID')->willReturn('alice');
         $store->insertToken(['user_id' => 'alice', 'auth_gen' => '3'], 0);
@@ -67,7 +72,9 @@ final class UserRevocationListenerTest extends TestCase {
         $logger->expects($this->once())->method('info');
         $logger->expects($this->once())->method('warning');
 
-        (new UserRevocationListener($writer, $inTransaction, $logger))->handle(new UserDeletedEvent($user));
-        (new UserRevocationListener($writer, $this->createMock(IDBConnection::class), $logger))->handle(new UserDeletedEvent($user));
+        $causes = $this->createMock(CauseProcessor::class);
+        $disabled = new UserChangedEvent($user, 'enabled', false, true);
+        (new UserRevocationListener($writer, $inTransaction, $logger, $causes))->handle($disabled);
+        (new UserRevocationListener($writer, $this->createMock(IDBConnection::class), $logger, $causes))->handle($disabled);
     }
 }

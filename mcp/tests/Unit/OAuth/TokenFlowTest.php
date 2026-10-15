@@ -62,7 +62,7 @@ final class TokenFlowTest extends TestCase {
         $users->method('get')->willReturnCallback(fn (string $uid) => $uid === 'alice' && $this->aliceExists ? $alice : null);
         $writer = InMemoryConfig::writer($appConfigMock, $this->store);
         $gate = new TokenOwnerGate($users, $this->policy, $writer, $this->createMock(IUserConfig::class),
-            $this->createMock(IAppConfig::class), new NullLogger());
+            $this->createMock(IAppConfig::class), new NullLogger(), InMemoryConfig::noCauses($this));
         $this->service = new TokenService($this->store, $hasher, $time, $gate, $appConfigMock, $writer,
             InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::processor($appConfigMock));
         $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate, $appConfigMock,

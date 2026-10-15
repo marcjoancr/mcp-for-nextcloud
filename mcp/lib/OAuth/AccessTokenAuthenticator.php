@@ -19,7 +19,8 @@ use Throwable;
  * Resolves an `Authorization: Bearer` access token issued by this app into its user: the hash must exist, the token
  * must not be expired, a native-client token needs the native client enabled, its audience must be this MCP server,
  * its (epoch, generation) must still be valid (CredentialGeneration) and the owner must pass the TokenOwnerGate.
- * Validation takes no lock and writes nothing, except the cut of an owner observed unusable.
+ * Validation takes no lock and writes nothing, except the consumption of the owner's pending recheck causes and the
+ * cut of an owner observed unusable.
  */
 class AccessTokenAuthenticator {
     public function __construct(
@@ -58,6 +59,8 @@ class AccessTokenAuthenticator {
                 return null;
             }
             $uid = (string)$row['user_id'];
+            // Pending causes first (contracts §3.3.4): a cut they demand is part of the generations read below.
+            $this->gate->preflight($uid);
             // s0 of contracts §3.1 (iii): read before the owner check, and the only cut that check may apply.
             $generations = $this->authUsers->generations($uid);
             if (!CredentialGeneration::live($row, $generations, $this->state->state()['auth_epoch'])) {

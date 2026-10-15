@@ -7,28 +7,29 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\OAuth;
 
+use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IDBConnection;
 use OCP\User\Events\UserChangedEvent;
-use OCP\User\Events\UserDeletedEvent;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Revokes OAuth credentials as soon as Nextcloud disables or deletes the account: a cut at the user's issue_seq
- * (contracts §3.1, cut point (i)), never an unqualified delete. It never throws into the core and never runs SQL
- * inside a caller's transaction (contracts §3.3.6); when it cannot cut, the credentials still fail on their next use,
- * because validation checks the account and observes the revocation itself.
+ * Revokes OAuth credentials as soon as Nextcloud disables the account: a cut at the user's issue_seq (contracts §3.1,
+ * cut point (i)), never an unqualified delete. It never throws into the core and never runs SQL inside a caller's
+ * transaction (contracts §3.3.6); when it cannot cut, the credentials still fail on their next use, because validation
+ * checks the account and observes the revocation itself. An account deletion is revoked by its recheck cause instead
+ * (UserCauseListener), so a late deletion event never cuts the consent of a recreated account.
  */
 class UserRevocationListener implements IEventListener {
-    public function __construct(private PolicyWriter $writer, private IDBConnection $db, private LoggerInterface $logger) {}
+    public function __construct(private PolicyWriter $writer, private IDBConnection $db, private LoggerInterface $logger,
+        private CauseProcessor $causes) {}
 
     public function handle(Event $event): void {
-        if (!($event instanceof UserDeletedEvent
-            || ($event instanceof UserChangedEvent && $event->getFeature() === 'enabled'
-                && in_array($event->getValue(), [false, 0, '0', 'false'], true)))) {
+        if (!($event instanceof UserChangedEvent && $event->getFeature() === 'enabled'
+            && in_array($event->getValue(), [false, 0, '0', 'false'], true))) {
             return;
         }
         try {
@@ -36,9 +37,10 @@ class UserRevocationListener implements IEventListener {
                 $this->logger->info('Account revocation left to the next use: the event came inside a transaction', ['app' => 'mcp']);
                 return;
             }
+            $this->causes->flush();
             $this->writer->revokeCredentials($event->getUser()->getUID());
         } catch (Throwable $e) {
-            $this->logger->warning('Cannot revoke the OAuth credentials of a disabled or deleted account', ['app' => 'mcp', 'exception' => $e]);
+            $this->logger->warning('Cannot revoke the OAuth credentials of a disabled account', ['app' => 'mcp', 'exception' => $e]);
         }
     }
 }
