@@ -3,7 +3,8 @@
 #
 # Verification-only CI: installs the app into a disposable official Nextcloud container next to a disposable
 # database, through the server's own installer (fresh) or upgrade (from the released baseline), and runs the
-# integration suite in mcp/tests/Integration with two real database sessions and real core events.
+# integration suite in mcp/tests/Integration with two real database sessions and real core events. Groupfolders, local
+# external storage, Talk and Notes are provisioned in the same container for the exclusion proof (issue #4, A4).
 # Images, actions and the PHPUnit PHAR are pinned by digest, commit or checksum. It never publishes, releases or uploads anything but test logs.
 
 name: Integration
@@ -94,6 +95,8 @@ jobs:
         run: sh "$HARNESS" install-app
       - name: Create fixture users and groups
         run: sh "$HARNESS" fixtures
+      - name: Provision groupfolders, local external storage, Talk and Notes
+        run: sh "$HARNESS" provision
       - name: Record the runtime
         run: sh "$HARNESS" report
       - name: Run the integration suite
