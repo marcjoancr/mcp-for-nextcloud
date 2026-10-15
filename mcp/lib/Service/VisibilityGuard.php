@@ -143,7 +143,7 @@ class VisibilityGuard {
 
             $chain[$cid] = $current;
             try {
-                $parent = $current->getParent();
+                $parent = $this->parentOf($current);
                 if (!$parent instanceof Node || $parent === $current || (int)$parent->getId() === $cid) {
                     throw new \RuntimeException();
                 }
@@ -256,7 +256,7 @@ class VisibilityGuard {
                 }
                 // Nodes without an id cannot be memoized or resolved by id;
                 // continue to their parent so an enclosing share is still checked.
-                $parent = $current->getParent();
+                $parent = $this->parentOf($current);
                 if (!$parent instanceof Node || $parent === $current
                     || ($id > 0 && (int)$parent->getId() === $id)) {
                     throw new \RuntimeException();
@@ -318,7 +318,7 @@ class VisibilityGuard {
                     if ($cid === $folderId) {
                         break; // do not call Root::getParent()
                     }
-                    $current = $current->getParent();
+                    $current = $this->parentOf($current);
                 }
             }
             $tagsByObject = $this->tagMapper->getTagIdsForObjects(array_values($ids), 'files');
@@ -334,6 +334,39 @@ class VisibilityGuard {
             $this->warnVisibilityFailure();
             return false; // resolution failures are retried, never cached as visible
         }
+    }
+
+    /**
+     * The parent of a node, with the file id the tag lookup must see.
+     *
+     * Above the root of a mount, core answers a lazy folder carrying the parent id the mounted storage records, not
+     * the id of the folder the user sees there: -1 for an external storage root, an id of another storage for a
+     * groupfolder, the source folder's id for a share. That folder is resolved again by its path, so its own tags are
+     * the ones checked and the walk meets the real user folder. Inside a mount the parent id is the storage's own and
+     * is kept. A parent that cannot be resolved again, or resolves to another path or to no id, is a failure.
+     *
+     * @param Node $node node whose parent is needed
+     * @return Node the parent; the root folder above the top of the tree
+     * @throws \Throwable when the parent cannot be resolved
+     */
+    private function parentOf(Node $node): Node {
+        $parent = $node->getParent();
+        if ($parent instanceof IRootFolder || $this->rootFolder === null || !$this->isMountRoot($node)) {
+            return $parent;
+        }
+        $path = dirname((string)$node->getPath());
+        $resolved = $this->rootFolder->get($path);
+        if (!$resolved instanceof Node || $resolved instanceof IRootFolder
+            || $resolved->getPath() !== $path || (int)$resolved->getId() <= 0) {
+            throw new \RuntimeException();
+        }
+        return $resolved;
+    }
+
+    /** Whether the node is the root of the mount it lives in, where core's parent id belongs to another storage. */
+    private function isMountRoot(Node $node): bool {
+        $mount = rtrim((string)$node->getMountPoint()->getMountPoint(), '/');
+        return $mount !== '' && $mount === rtrim((string)$node->getPath(), '/');
     }
 
     /** Logs a privacy refusal without node names, paths or exception details. */

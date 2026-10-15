@@ -918,7 +918,9 @@ final class VisibilityGuardTest extends TestCase {
         $secret = $this->ancestryNode(10, $ownerFolder, $owner);
         $canonicalSub = $this->ancestryNode(20, $secret, $owner);
         $canonicalFile = $this->ancestryNode(30, $canonicalSub, $owner);
-        $recipient = $this->ancestryNode(90, $root, $owner);
+        $recipient = $this->ancestryNode(90, $root, $owner, false, '/bob/files');
+        // Above the share mount root the guard asks the root for the recipient folder by its path.
+        $root->method('get')->willReturnCallback(static fn (string $path) => $path === '/bob/files' ? $recipient : throw new \OCP\Files\NotFoundException());
         $aliasSub = $this->ancestryNode(20, $recipient, $owner, !$fileShare, '/bob/files/share');
         $alias = $this->ancestryNode(30, $aliasSub, $owner, $sharedLeaf, '/bob/files/share/file');
         $visibleOwnerAlias = $this->ancestryNode(30, $ownerFolder, $owner);
