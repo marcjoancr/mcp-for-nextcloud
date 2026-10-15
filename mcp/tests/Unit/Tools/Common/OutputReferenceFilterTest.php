@@ -175,6 +175,17 @@ final class OutputReferenceFilterTest extends TestCase {
             'external dav of another user' => ['https://files.example.org/remote.php/dav/files/bruno/x.pdf', true],
             'external unknown token' => ['https://files.example.org/s/unknownToken', true],
             'external without shape' => ['https://files.example.org/wiki/Secret/plan.pdf', true],
+            'code browser tree' => ['https://github.com/nextcloud/server/tree/master/apps/files', true],
+            'code browser blob' => ['https://github.com/nextcloud/server/blob/master/apps/files/lib/App.php', true],
+            'external path inside unknown share' => ['https://example.org/s/abc?path=/x', true],
+            'external path inside a share of this server' => ['https://example.org/s/okToken?path=/x', false],
+            'external non-numeric fileid' => ['https://example.org/apps/files/?fileid=abc', true],
+            'external files app root' => ['https://other.example/index.php/apps/files/', true],
+            'external dir list' => ['https://other.example/apps/files/?dir[]=x', true],
+            'external non-numeric fileid beside hidden dir' => ['https://other.example/apps/files/?dir=/Secret&fileid=abc', false],
+            'external missing short link' => ['https://blog.example/f/987654', true],
+            'local dir list' => ['https://cloud.example.com/apps/files/?dir[]=x', false],
+            'local files app root' => ['https://cloud.example.com/apps/files/', false],
             'mail reference' => ['mailto:someone@example.org', true],
             'content id' => ['cid:part1@example.org', true],
         ];
@@ -182,6 +193,7 @@ final class OutputReferenceFilterTest extends TestCase {
 
     #[DataProvider('urls')]
     public function testAttachIsKeptOnlyWhenEveryNamedNodeIsAllowed(string $url, bool $kept): void {
+        $this->publicLink('okToken', $this->okId);
         $url = $this->ids($url);
         $original = $this->calendar(':' . $url);
         $before = $original->serialize();
@@ -240,6 +252,16 @@ final class OutputReferenceFilterTest extends TestCase {
 
         // The link is a capability over the subtree; the short link of the same folder is not.
         self::assertSame([$kept, 'https://cloud.example.com/f/' . $clean], self::attaches($output));
+    }
+
+    public function testShareWhoseTypeCannotBeReadIsRemoved(): void {
+        $this->publicLink('unknownType', $this->okId, new \OCP\Files\NotFoundException());
+        $this->publicLink('okToken', $this->okId);
+        $kept = 'https://cloud.example.com/s/okToken';
+
+        $output = $this->filter()->outputCalendar('alice', $this->calendar(':https://cloud.example.com/s/unknownType', ':' . $kept));
+
+        self::assertSame([$kept], self::attaches($output), 'a share of an allowed file whose type cannot be read is not shown');
     }
 
     public function testPublicFolderLinkStaysWithoutAnExclusionTag(): void {

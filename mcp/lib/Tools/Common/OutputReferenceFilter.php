@@ -143,7 +143,7 @@ class OutputReferenceFilter {
      * Supported shapes: /f/{fileid}, /apps/files/files/{fileid}, /apps/files/?fileid=&dir=, /s/{token},
      * /remote.php/dav/files/{uid}/… and /remote.php/webdav/…, with or without /index.php and the web root, relative
      * or absolute. On a host of this server, a URL of any other shape, or one naming a node missing from the user's
-     * tree, is removed; on another host it stays.
+     * tree or no checkable node, is removed; on another host only a node of this server that is refused removes it.
      */
     private function urlVerdict(string $userId, string $url): bool {
         $parts = parse_url($url);
@@ -164,7 +164,7 @@ class OutputReferenceFilter {
             return !$local; // no supported shape: on this server it cannot be checked, elsewhere it names no node
         }
         if ($references === []) {
-            return false; // a Nextcloud shape whose node cannot be named cannot be checked
+            return !$local; // a shape naming no node: on this server it cannot be checked, elsewhere it names none here
         }
         foreach ($references as $reference) {
             $verdict = match (true) {
@@ -193,7 +193,7 @@ class OutputReferenceFilter {
      *
      * @param array<mixed> $query parsed query string
      * @return list<array{id:int}|array{path:string, uid?:string}|array{verdict:bool|null}>|null null when no shape
-     *         matches; an empty list for a shape that names no checkable node
+     *         matches; an empty list for a shape that names no node; a null verdict for a part that cannot be checked
      */
     private function shapeReferences(string $path, array $query, bool $local): ?array {
         $references = $this->matchShape($path, $query);
@@ -222,9 +222,7 @@ class OutputReferenceFilter {
             $references[] = ['id' => (int)$match[1]];
         } elseif (preg_match('#^/s/([^/]+)(?:/download)?/?$#', $path, $match) === 1) {
             // A path or file list inside a shared folder names a descendant the share root does not stand for.
-            $references[] = isset($query['path']) || isset($query['files'])
-                ? ['verdict' => false]
-                : $this->shareTokenReference(rawurldecode($match[1]));
+            $references[] = $this->shareTokenReference(rawurldecode($match[1]), isset($query['path']) || isset($query['files']));
         } elseif (preg_match('#^/remote\.php/dav/files/([^/]+)(/.*)?$#', $path, $match) === 1) {
             $references[] = ['uid' => rawurldecode($match[1]), 'path' => rawurldecode($match[2] ?? '/')];
         } elseif (preg_match('#^/remote\.php/webdav(/.*)?$#', $path, $match) === 1) {
@@ -233,17 +231,11 @@ class OutputReferenceFilter {
             return null;
         } elseif (isset($query['dir'])) {
             // The folder the Files app opens is named by the URL as well.
-            if (!is_string($query['dir'])) {
-                return [];
-            }
-            $references[] = ['path' => $query['dir']];
+            $references[] = is_string($query['dir']) ? ['path' => $query['dir']] : ['verdict' => null];
         }
         // A fileid in the query names a node too, whatever the path says; every node named has to pass.
         if (isset($query['fileid'])) {
-            if (!is_string($query['fileid']) || !ctype_digit($query['fileid'])) {
-                return [];
-            }
-            $references[] = ['id' => (int)$query['fileid']];
+            $references[] = is_string($query['fileid']) && ctype_digit($query['fileid']) ? ['id' => (int)$query['fileid']] : ['verdict' => null];
         }
         return $references;
     }
@@ -253,13 +245,17 @@ class OutputReferenceFilter {
      * unreadable configuration, a folder link is refused whatever its root shows: it is an anonymous capability over
      * the whole subtree, hidden descendants included (D7).
      *
-     * @return array{id:int}|array{verdict:bool|null}
+     * @param bool $descendant whether the URL names a path or files inside the share, which cannot be checked
+     * @return array{id:int}|array{verdict:bool|null} a null verdict when no share of this server has the token
      */
-    private function shareTokenReference(string $token): array {
+    private function shareTokenReference(string $token, bool $descendant): array {
         try {
             $share = $this->shareManager->getShareByToken($token);
         } catch (Throwable) {
             return ['verdict' => null];
+        }
+        if ($descendant) {
+            return ['verdict' => false];
         }
         try {
             $exclusion = !$this->guard->isConfigurationValid() || $this->guard->getHiddenTagIds() !== [];
