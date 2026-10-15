@@ -99,7 +99,8 @@ final class TasksModuleTest extends TestCase {
             new TaskData(),
             new SharedGuard($this->createMock(IUserManager::class)),
             new TrashPolicy($config),
-            $time
+            $time,
+            \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this)
         );
     }
 
