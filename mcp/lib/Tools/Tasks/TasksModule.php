@@ -428,7 +428,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @throws ToolFailure when no task object has that UID
      */
     private function row(int $id, string $uid): array {
-        return $this->store->objectByUid($id, $uid) ?? throw new ToolFailure(CommonMessages::notFound());
+        return $this->store->objectByUid($id, $uid, 'VTODO') ?? throw new ToolFailure(CommonMessages::notFound());
     }
 
     /**
