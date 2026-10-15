@@ -10,6 +10,7 @@ namespace OCA\Mcp\Tests\Integration\Smoke;
 use OC\DB\ConnectionAdapter;
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
 /**
@@ -28,7 +29,7 @@ final class TwoConnectionsTest extends IntegrationTestCase {
             $qb->delete('mcp_group_grants')
                 ->where($qb->expr()->in('group_key', $qb->createNamedParameter(
                     array_map(static fn (string $gid): string => hash('sha256', "group\0" . $gid), $this->gids),
-                    IDBConnection::PARAM_STR_ARRAY)))
+                    IQueryBuilder::PARAM_STR_ARRAY)))
                 ->executeStatement();
         }
     }
