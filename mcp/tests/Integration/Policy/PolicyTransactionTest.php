@@ -8,6 +8,8 @@ namespace OCA\Mcp\Tests\Integration\Policy;
 
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
+use OCA\Mcp\Db\PolicyStateSeeder;
+use OCA\Mcp\Migration\PolicyStateSeedStep;
 use OCA\Mcp\Migration\Version001100Date20261015000000;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\GrantPolicy;
@@ -162,6 +164,9 @@ final class PolicyTransactionTest extends IntegrationTestCase {
         $writer->runAdmin($revision, [], fn () => null, fn () => true);
         $after = $state->state();
         (new Version001100Date20261015000000($this->official()))->postSchemaChange($this->createMock(IOutput::class), fn () => null, []);
+        // The step the server runs on install and after a migration, over the same live row.
+        $step = new PolicyStateSeedStep(new PolicyStateSeeder($this->official()));
+        $step->run($this->createMock(IOutput::class));
         $this->assertSame($after, $state->state());
         try {
             $writer->runAdmin($revision, [], fn () => null, fn () => $this->fail('Stale writer applied'));

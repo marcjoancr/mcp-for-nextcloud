@@ -111,6 +111,14 @@ Nextcloud 32–35 y PHP 8.2 o superior. Deck y Talk son opcionales: sus herramie
         <php min-version="8.2"/>
         <nextcloud min-version="32" max-version="35"/>
     </dependencies>
+    <repair-steps>
+        <post-migration>
+            <step>OCA\Mcp\Migration\PolicyStateSeedStep</step>
+        </post-migration>
+        <install>
+            <step>OCA\Mcp\Migration\PolicyStateSeedStep</step>
+        </install>
+    </repair-steps>
     <commands><command>OCA\Mcp\Command\CalendarSelftest</command></commands>
     <settings>
         <admin>OCA\Mcp\Settings\AdminSettings</admin>

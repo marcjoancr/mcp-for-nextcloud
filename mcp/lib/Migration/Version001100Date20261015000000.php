@@ -9,6 +9,7 @@ namespace OCA\Mcp\Migration;
 
 use Closure;
 use OCA\Mcp\Db\PolicyStateMapper;
+use OCA\Mcp\Db\PolicyStateSeeder;
 use OCP\DB\ISchemaWrapper;
 use OCP\DB\Types;
 use OCP\IDBConnection;
@@ -34,9 +35,8 @@ class Version001100Date20261015000000 extends SimpleMigrationStep {
     }
 
     public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
-        // Core's portable insert-if-absent handles concurrent initialization without replacing existing state.
-        // Unlike the query builder, it takes the raw table name, so the prefix placeholder must be explicit.
-        $this->db->insertIfNotExist('*PREFIX*' . PolicyStateMapper::TABLE,
-            ['id' => 1, 'revision' => 0, 'lock_seq' => 0, 'auth_epoch' => 0], ['id']);
+        // An upgrade comes through here; a fresh install gets the same seed from the declared install step, because the
+        // server runs schema only when it installs an app that starts empty.
+        (new PolicyStateSeeder($this->db))->seed();
     }
 }

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Integration\Smoke;
 
+use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Tests\Integration\Fixtures;
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
 use OCP\App\IAppManager;
@@ -42,6 +43,16 @@ final class HarnessEnvironmentTest extends IntegrationTestCase {
         $this->assertSame($expected, Server::get(IAppConfig::class)->getValueString('mcp', 'installed_version'));
         // Created by the B1 migration, which only runs when the server installs or upgrades the app.
         $this->assertTrue($this->official()->tableExists('mcp_group_grants'));
+    }
+
+    /**
+     * The single policy state row is there after a fresh install and after an upgrade alike. The server runs no
+     * migration postSchemaChange() when it installs an app on an empty instance, so this cell proves the install
+     * path the declared step exists for.
+     */
+    public function testPolicyStateIsSeededByTheServerOnInstallAndOnUpgrade(): void {
+        $this->assertTrue($this->official()->tableExists('mcp_policy_state'));
+        $this->assertSame(['revision', 'lock_seq', 'auth_epoch'], array_keys(Server::get(PolicyStateMapper::class)->state()));
     }
 
     public function testFixtureAccountsExist(): void {
