@@ -218,6 +218,84 @@ final class UserCausesTest extends OAuthAccountTestCase {
         $this->assertNull($this->bearer($old));
     }
 
+    /**
+     * Review F1: the Before of a deletion cannot store its cause and the id is recreated before the old token is ever
+     * used. The After reconciled the deletion without a date (account gone: cut), so the old token never authenticates
+     * on the new account, while the new holder's own consent works.
+     */
+    public function testAFailedAccountCauseStillCutsSoARecreatedAccountNeverInheritsTheOldToken(): void {
+        $old = $this->exchange($this->consent());
+        $this->failAppHandlerDuring(BeforeUserDeletedEvent::class);
+        $this->assertTrue($this->user->delete());
+        $this->probe?->detach();
+        $this->assertSame([], $this->causes(), 'the Before stored nothing');
+        $this->user = Server::get(IUserManager::class)->createUser($this->uid, bin2hex(random_bytes(24))) ?: null;
+        $this->assertNotNull($this->user);
+        $writer = Server::get(PolicyWriter::class);
+        $writer->setEligible($this->uid, true);
+        $writer->setConnected($this->uid, true);
+        $this->assertNull($this->bearer($old));
+        $this->assertSame($this->uid, $this->bearer($this->exchange($this->consent())));
+    }
+
+    /**
+     * Review F5: the account deletion and the account disable inside a caller's transaction. The app's real handlers
+     * of both deletion events, called between statement-log markers inside the transaction, run no query (PostgreSQL
+     * cell); core's User::delete and setEnabled with their real dispatch touch no app table there; the caller commits.
+     * The deletion is then reconciled without a date at the next safe point (account gone: cut). The disable inside a
+     * transaction is left to the next use, as before this ticket (the account check refuses the credential).
+     */
+    public function testAnAccountDeletionAndDisableInsideACallersTransactionRunNoAppQuery(): void {
+        $tokens = $this->exchange($this->consent());
+        $log = $this->cellDatabase() === 'pgsql' ? PostgresQueryLog::fromEnvironment() : null;
+        if ($this->cellDatabase() === 'pgsql') {
+            $this->assertNotNull($log, 'MCP_IT_PG_LOG is not set in the PostgreSQL cell');
+        }
+        $db = $this->official();
+        $pid = $log?->backendPid($db);
+        $windows = [];
+        $listener = Server::get(UserCauseListener::class);
+
+        $db->beginTransaction();
+        $begin = $log?->mark($db, 'disable-begin');
+        $this->user->setEnabled(false);
+        $windows['core disable'] = [$begin, $log?->mark($db, 'disable-end')];
+        $db->rollBack();
+        // The rollback restored the stored flag; the account object still holds the value it set in memory.
+        $this->user->setEnabled(true);
+
+        $before = $this->generations();
+        $db->beginTransaction();
+        $begin = $log?->mark($db, 'handlers-begin');
+        $listener->handle(new BeforeUserDeletedEvent($this->user));
+        $listener->handle(new UserDeletedEvent($this->user));
+        $windows['app handlers'] = [$begin, $log?->mark($db, 'handlers-end')];
+        $begin = $log?->mark($db, 'delete-begin');
+        $this->assertTrue($this->user->delete());
+        $windows['core delete'] = [$begin, $log?->mark($db, 'delete-end')];
+        $db->executeQuery('SELECT 1 AS mcp_it_next_query')->closeCursor();
+        $db->commit();
+        $this->user = null;
+        $this->assertFalse($db->inTransaction());
+        if ($log !== null) {
+            $this->assertSame([], $log->statementsBetween($pid, ...$windows['app handlers']), 'an app handler ran a query inside the transaction');
+            foreach (['core disable', 'core delete'] as $window) {
+                $statements = $log->statementsBetween($pid, ...$windows[$window]);
+                $this->assertNotSame([], $statements, $window . ' is captured');
+                foreach ($statements as $statement) {
+                    $this->assertStringNotContainsString('mcp_', $statement, $window . ': an app table was touched inside the transaction');
+                    $this->assertStringStartsNotWith('ERROR:', $statement, $window);
+                }
+            }
+        }
+        $this->assertSame([], $this->causes(), 'nothing was stored inside the transaction');
+        $this->assertSame($before, $this->generations(), 'nothing changes before the safe point');
+        Server::get(CauseProcessor::class)->flush();
+        $after = $this->generations();
+        $this->assertSame($after['issue_seq'], $after['revoked_below']);
+        $this->assertNull($this->bearer($tokens));
+    }
+
     /** T5: removal from the last eligible group, After delivered: cut in the same request, cause consumed. */
     public function testARemovalWithItsAfterCutsInTheSameRequest(): void {
         $tokens = $this->exchange($this->consent());

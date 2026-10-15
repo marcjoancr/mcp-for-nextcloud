@@ -28,6 +28,7 @@ use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Tests\Unit\InMemoryAppConfig;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCA\Mcp\Tests\Unit\SqliteDatabase;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -67,6 +68,7 @@ final class CauseProcessingTest extends TestCase {
     /** @var (\Closure(): void)|null runs once inside the next eligibility read, in the external phase */
     private ?\Closure $duringRead = null;
     private int $reads = 0;
+    private InMemoryAppConfig $apps;
 
     protected function setUp(): void {
         $this->database = new SqliteDatabase($this, [new Version000500Date20260930000000(), new Version000700Date20261001000000(),
@@ -113,7 +115,9 @@ final class CauseProcessingTest extends TestCase {
             public function __construct(private array &$registered) {}
             protected function register(callable $onShutdown): void { $this->registered[] = $onShutdown; }
         };
-        $this->processor = new CauseProcessor($this->writer, $this->rechecks, $this->classifier, $this->queue, $this->db, $logger);
+        $this->apps = new InMemoryAppConfig();
+        $this->processor = new CauseProcessor($this->writer, $this->rechecks, $this->classifier, $this->queue, $this->db, $logger,
+            $this->apps->worker($this));
     }
 
     private function logger(): AbstractLogger {
@@ -301,6 +305,26 @@ final class CauseProcessingTest extends TestCase {
         $this->assertCount(1, $this->rechecks->causes('bob'));
         $this->assertSame([], $this->rechecks->causes('carol'));
         $this->assertSame(['bob'], $this->rechecks->pendingUsers(10));
+    }
+
+    /** Review F4: users whose causes stay unclassifiable cannot hold every batch; the cursor moves past them. */
+    public function testTheReconcilerCursorMovesPastUsersItCannotClassify(): void {
+        $uids = ['u1', 'u2', 'u3'];
+        usort($uids, static fn (string $a, string $b): int => strcmp(IdentityKey::user($a), IdentityKey::user($b)));
+        $this->accounts = array_fill_keys($uids, true);
+        foreach ($uids as $uid) {
+            $this->record(RecheckMapper::REASON_ACCOUNT, null, self::gen($uid), $uid);
+        }
+        // The two first users by user_key are stuck (unknown eligibility); only the last one can be classified.
+        $last = $uids[2];
+        $this->eligibility = static fn (string $uid): ?bool => $uid === $last ? true : null;
+        $this->assertSame(0, $this->processor->reconcile(2));
+        $this->assertSame(IdentityKey::user($uids[1]), $this->apps->stored['mcp'][CauseProcessor::CURSOR_KEY]);
+        $this->assertSame(1, $this->processor->reconcile(2), 'the next run starts after the stuck users');
+        $this->assertSame([], $this->rechecks->causes($last));
+        $this->assertSame('', $this->apps->stored['mcp'][CauseProcessor::CURSOR_KEY], 'a short page wraps around');
+        $this->assertSame(0, $this->processor->reconcile(2));
+        $this->assertCount(1, $this->rechecks->causes($uids[0]));
     }
 
     /** §3.3.6 / §6.2.1: no query inside a caller's transaction; undated causes never cut an eligible user. */

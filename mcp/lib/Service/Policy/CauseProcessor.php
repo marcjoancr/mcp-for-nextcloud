@@ -8,7 +8,9 @@ declare(strict_types=1);
 namespace OCA\Mcp\Service\Policy;
 
 use Closure;
+use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\RecheckMapper;
+use OCP\IAppConfig;
 use OCP\IDBConnection;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -26,6 +28,8 @@ use Throwable;
 class CauseProcessor {
     /** Users the reconciler processes per run; the rest wait for the next run or for their own preflight. */
     public const RECONCILE_BATCH = 200;
+    /** App config key (lazy) holding the user_key after which the next reconciler run starts. */
+    public const CURSOR_KEY = 'reconcile_cursor';
 
     private bool $flushing = false;
 
@@ -36,6 +40,7 @@ class CauseProcessor {
         private DeferredQueue $deferred,
         private IDBConnection $db,
         private LoggerInterface $logger,
+        private IAppConfig $appConfig,
     ) {}
 
     /** @return Closure(string, list<array>): array<string, bool> the classification issuance consumes causes with */
@@ -86,8 +91,9 @@ class CauseProcessor {
     }
 
     /**
-     * The reconciler: every user with pending causes, up to $limit, each in its own commands. A user whose causes
-     * cannot be classified keeps them for the next run; one failing user never stops the others.
+     * The reconciler: up to $limit users with pending causes, after the cursor the previous run left, each in its own
+     * commands. A user whose causes cannot be classified keeps them; the cursor still moves past it, so such users
+     * never hold the batch, and it wraps around when a page comes back short. One failing user never stops the others.
      *
      * @param int $limit most users processed
      * @return int causes consumed
@@ -95,7 +101,13 @@ class CauseProcessor {
     public function reconcile(int $limit = self::RECONCILE_BATCH): int {
         $this->flush();
         try {
-            $users = $this->rechecks->pendingUsers($limit);
+            $cursor = $this->appConfig->getValueString('mcp', self::CURSOR_KEY, '', true);
+            $users = $this->rechecks->pendingUsers($limit, $cursor);
+            if ($users === [] && $cursor !== '') {
+                $users = $this->rechecks->pendingUsers($limit);
+            }
+            $this->appConfig->setValueString('mcp', self::CURSOR_KEY,
+                count($users) < $limit ? '' : IdentityKey::user($users[count($users) - 1]), true);
         } catch (Throwable $e) {
             $this->logger->warning('Cannot list the pending recheck causes', ['app' => 'mcp', 'exception' => $e]);
             return 0;

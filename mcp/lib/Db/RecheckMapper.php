@@ -72,18 +72,22 @@ class RecheckMapper {
     }
 
     /**
-     * Users with at least one pending cause, for the reconciler: a bounded page ordered by user_key, so a run that
-     * cannot finish resumes with the users it did not reach (consumed users leave the set).
+     * Users with at least one pending cause, for the reconciler: a bounded page in user_key order, after a cursor. The
+     * reconciler moves the cursor past the users it just processed, so users whose causes stay pending (unknown
+     * eligibility) cannot hold every page: the next run continues after them and wraps around at the end.
      *
      * @param int $limit most users returned, at least 1
+     * @param string $after user_key of the last user of the previous page; '' starts at the beginning
      * @return list<string> user ids as stored; causes() verifies each identity before anything is consumed
      * @throws Exception when the query fails
      */
-    public function pendingUsers(int $limit): array {
+    public function pendingUsers(int $limit, string $after = ''): array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->selectDistinct(['user_key', 'user_id'])->from(self::TABLE)
-            ->orderBy('user_key')->setMaxResults(max(1, $limit))
-            ->executeQuery();
+        $qb->selectDistinct(['user_key', 'user_id'])->from(self::TABLE);
+        if ($after !== '') {
+            $qb->where($qb->expr()->gt('user_key', $qb->createNamedParameter($after)));
+        }
+        $result = $qb->orderBy('user_key')->setMaxResults(max(1, $limit))->executeQuery();
         $users = [];
         try {
             while (($row = $result->fetch()) !== false) {

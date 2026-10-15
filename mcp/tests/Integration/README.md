@@ -91,8 +91,16 @@ the official connection, the test calls the registered listener instance itself 
 (PostgreSQL cell: the window must be empty), then lets core remove the member with its real dispatch (no statement of
 that window may touch an app table or fail), runs the caller's next query and commits or rolls back. The deferred fact
 is reconciled at the next safe point without a date: committed and no longer eligible, cut; rolled back and still
-eligible, nothing cut. Group eligibility is not wired into consent and validation until ticket 09, so those cases read
-the effect on the user's generations, not through a Bearer request.
+eligible, nothing cut. The same is done for an account deletion (both deletion handlers called between markers, then
+`User::delete` itself, committed, reconciled later: account gone, cut) and for an account disable (`setEnabled(false)`,
+rolled back; inside a transaction the disable is left to the next use, which refuses the disabled account). Group
+eligibility is not wired into consent and validation until ticket 09, so those cases read the effect on the user's
+generations, not through a Bearer request. Limit: the listener instance and its dependency graph are built before the
+caller's transaction opens (the dispatcher resolves the service on its first event in the process); none of their
+constructors runs SQL, but that construction is not itself bracketed by the log.
+
+A deletion whose Before could not store its cause is reconciled by its After without a date, so a recreated account
+never inherits the old token (review F1 of ticket 06).
 
 Two pending proofs of earlier tickets run here too: a `record()` of one cause interleaved by another session between
 its read and its insert (an adapter on the first session runs the other session's record at its second query

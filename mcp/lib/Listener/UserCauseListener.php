@@ -30,22 +30,29 @@ use Throwable;
 
 /**
  * Observes the user events of contracts §3.3.2 without ever being a fence: it never throws into the core, never
- * takes the policy mutex in a pre-event and never refuses or delays a native operation. Inside a caller's transaction
- * it runs no SQL at all: the fact is kept in memory and reconciled later without a date (§3.3.6).
+ * takes the policy mutex in a pre-event (no deferred work is flushed there either: that runs writer commands) and
+ * never refuses or delays a native operation. Inside a caller's transaction it runs no SQL at all: the fact is kept
+ * in memory and reconciled later without a date (§3.3.6).
  *
  * - BeforeUserDeletedEvent(U), when U holds a credential or may be eligible: records the account cause with a new
  *   random gen, and marks U as being deleted in this process.
- * - BeforeUserRemovedEvent(G, U), unless U is being deleted: when G is a trusted group whose active policy grants
- *   eligibility, U is still in G and would not be eligible without G, records the cause (U, G) with a new gen. The
- *   duplicate Before of the same native operation (User::delete wraps Group::removeUser) reuses that gen.
+ * - BeforeUserRemovedEvent(G, U), unless U is being deleted with its account cause still pending: when G is a trusted
+ *   group whose active policy grants eligibility, U is still in G, may be eligible now and would not be eligible
+ *   without G, records the cause (U, G) with a new gen. The duplicate Before of User::delete wrapping Group::removeUser keeps that gen.
  * - UserRemovedEvent(G, U): the protocol for the cause (U, G) with the captured gen, and nothing else.
- * - UserDeletedEvent(U): the protocol for the account cause with the captured gen (account gone: cut).
+ * - UserDeletedEvent(U): the protocol for the account cause with the captured gen (account gone: cut). When its Before
+ *   could not store the cause, the deletion is reconciled without a date instead (account gone: cut), never dropped.
  *
  * A read that fails while testing relevance records the cause anyway: the reconciler repeats the test. A cause whose
  * After never arrives (a failed or interrupted operation) stays pending for the preflight and the reconciler (Q1).
  */
 class UserCauseListener implements IEventListener {
-    /** @var array<string, ?string> uid => gen of the account cause recorded by its Before (null: none recorded) */
+    /**
+     * uid => the account cause of a deletion in this process: its gen; false when U was relevant but the cause could not
+     * be stored; null when U was irrelevant or the Before came inside a transaction (already deferred).
+     *
+     * @var array<string, string|false|null>
+     */
     private array $deleting = [];
     /** @var array<string, array{uid:string, gid:string, gen:string}> pair => the cause recorded by its Before */
     private array $removals = [];
@@ -89,12 +96,13 @@ class UserCauseListener implements IEventListener {
             $this->causes->deferUndated($uid);
             return;
         }
-        $this->causes->flush();
-        // A new native operation: always a new gen (contracts §3.3.1).
+        // A new native operation: always a new gen (contracts §3.3.1). No flush here: it may take the mutex.
         $this->deleting[$uid] = null;
         if (!$this->accountRelevant($uid)) {
             return;
         }
+        // Relevant: if the record below fails, the After must still revoke (reconciled without a date).
+        $this->deleting[$uid] = false;
         $gen = bin2hex(random_bytes(16));
         $this->rechecks->record($uid, RecheckMapper::REASON_ACCOUNT, null, $gen, $this->time->getTime());
         $this->deleting[$uid] = $gen;
@@ -102,20 +110,23 @@ class UserCauseListener implements IEventListener {
 
     private function beforeRemove(IGroup $group, IUser $user): void {
         $uid = $user->getUID();
-        if (array_key_exists($uid, $this->deleting)) {
-            // Part of the account deletion, whose account cause covers it (§3.3.3).
-            return;
-        }
         if ($this->db->inTransaction()) {
             $this->causes->deferUndated($uid);
             return;
         }
-        $this->causes->flush();
+        // No flush here: it may take the mutex. Part of an account deletion whose account cause is still pending is
+        // covered by it (§3.3.3); a mark left by a deletion that failed or stored nothing silences nothing.
+        $deleting = $this->deleting[$uid] ?? null;
+        if (is_string($deleting) && $this->stillPending($uid, IdentityKey::accountCause(), $deleting)) {
+            return;
+        }
         $gid = $group->getGID();
         $pair = self::pair($uid, $gid);
         $open = $this->removals[$pair]['gen'] ?? null;
-        if ($open !== null && $this->stillPending($uid, $gid, $open)) {
-            // The duplicate Before of the same native operation reuses its gen; nothing consumed it in between.
+        if ($open !== null && $this->stillPending($uid, IdentityKey::group($gid), $open)) {
+            // The gen recorded for this pair is still the stored one and nothing consumed it: the nested Before of the
+            // same native operation, or a later removal whose earlier After was lost. Either way no credential was
+            // issued since (issuance would have consumed the cause), so keeping the gen protects nothing less.
             return;
         }
         unset($this->removals[$pair]);
@@ -148,6 +159,12 @@ class UserCauseListener implements IEventListener {
         if (!$this->db->inTransaction()) {
             $this->causes->flush();
         }
+        if ($gen === false) {
+            // Relevant, but its Before could not store the cause: reconcile without a date (account gone: cut).
+            $this->causes->deferUndated($uid);
+            $this->causes->flush();
+            return;
+        }
         if ($gen === null) {
             // Irrelevant at its Before, or captured inside a transaction (already deferred): nothing dated to do.
             return;
@@ -165,8 +182,8 @@ class UserCauseListener implements IEventListener {
     }
 
     /**
-     * G grants eligibility through an active, trusted policy, U is still in G (or that is unknown) and U would not
-     * be eligible without G. A failed read is relevant.
+     * G grants eligibility through an active, trusted policy, U is still in G (or that is unknown), U is not known to
+     * be ineligible, and U would not be eligible without G. A failed read is relevant.
      */
     private function removalRelevant(IGroup $group, IUser $user): bool {
         $gid = $group->getGID();
@@ -178,7 +195,9 @@ class UserCauseListener implements IEventListener {
                 || $group->inGroup($user) === false) {
                 return false;
             }
-            return $this->eligible($user->getUID(), [$gid]) !== true;
+            // G matters only if U may be eligible with it and would not be without it; a user ineligible either way
+            // (an account already gone from its backend, for instance) cannot consent, so nothing needs re-checking.
+            return $this->eligible($user->getUID(), []) !== false && $this->eligible($user->getUID(), [$gid]) !== true;
         } catch (Throwable) {
             return true;
         }
@@ -194,9 +213,8 @@ class UserCauseListener implements IEventListener {
         }
     }
 
-    /** Whether the stored cause (U, G) still carries the gen this process recorded for it. */
-    private function stillPending(string $uid, string $gid, string $gen): bool {
-        $key = IdentityKey::group($gid);
+    /** Whether the stored cause still carries the gen this process recorded for it. */
+    private function stillPending(string $uid, string $key, string $gen): bool {
         foreach ($this->rechecks->causes($uid) as $cause) {
             if ($cause['causeKey'] === $key) {
                 return $cause['gen'] === $gen;

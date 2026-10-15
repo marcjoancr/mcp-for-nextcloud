@@ -46,6 +46,9 @@ final class UserCauseListenerTest extends TestCase {
     private array $afters = [];
     /** @var list<string> deferUndated() calls */
     private array $undated = [];
+    /** @var list<string> events during which flush() was called */
+    private array $flushes = [];
+    private string $current = '';
     /** Resolved eligibility of alice without the given groups; null = unknown. */
     private \Closure $eligibility;
     private bool $member = true;
@@ -73,6 +76,9 @@ final class UserCauseListenerTest extends TestCase {
             });
             $causes->method('deferUndated')->willReturnCallback(function (string $uid): void {
                 $this->undated[] = $uid;
+            });
+            $causes->method('flush')->willReturnCallback(function (): void {
+                $this->flushes[] = $this->current;
             });
         }
         $grants = new GroupGrantsMapper($this->db);
@@ -147,6 +153,59 @@ final class UserCauseListenerTest extends TestCase {
         $this->assertNotSame($gen, $this->rechecks->causes('alice')[0]['gen']);
     }
 
+    /** Review F2: a pre-event never flushes the deferred work (writer commands, mutex); the After events do. */
+    public function testNoPreEventFlushesTheDeferredWork(): void {
+        $listener = $this->listener();
+        $user = $this->user();
+        foreach ([new BeforeUserDeletedEvent($user), new BeforeUserRemovedEvent($this->group(), $this->user('bob')),
+            new UserRemovedEvent($this->group(), $this->user('bob')), new UserDeletedEvent($user)] as $event) {
+            $this->current = $event::class;
+            $listener->handle($event);
+        }
+        $this->assertSame([UserRemovedEvent::class, UserDeletedEvent::class], array_values(array_unique($this->flushes)));
+    }
+
+    /** Review F1: the Before of a relevant deletion fails to store its cause; the After still revokes, without a date. */
+    public function testAFailedAccountRecordIsReconciledWithoutADateByItsAfter(): void {
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '2'], 0);
+        $rechecks = $this->createMock(RecheckMapper::class);
+        $rechecks->method('record')->willThrowException(new \RuntimeException('insert failed'));
+        $listener = $this->listener(null, $rechecks);
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $this->assertSame([], $this->undated);
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame(['alice'], $this->undated);
+        $this->assertContains('', $this->flushes, 'processed at once: the account is gone, so it is cut');
+        $this->assertSame([], $this->afters);
+    }
+
+    /**
+     * Review F3: a deletion mark silences the removals of U only while its account cause is pending; a deletion that
+     * failed and was consumed since, or one that stored nothing, does not silence later removals in this process.
+     */
+    public function testAStaleDeletionMarkSilencesNothing(): void {
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '2'], 0);
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        // The backend refused the deletion: no more events. While the account cause is pending, it covers removals.
+        $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
+        $this->assertSame(['account_delete:'], $this->causes());
+        // Once a consent or the reconciler consumed it, a removal of the last eligible group records its own cause.
+        $this->database->dbal->executeStatement('DELETE FROM mcp_auth_recheck');
+        $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
+        $this->assertSame(['group_removal:staff'], $this->causes());
+        // An irrelevant deletion (nothing stored) silences nothing either.
+        $this->database->dbal->executeStatement('DELETE FROM mcp_auth_recheck');
+        $this->store->tokens = [];
+        $this->eligibility = static fn (array $without): ?bool => false;
+        $other = $this->listener();
+        $other->handle(new BeforeUserDeletedEvent($this->user()));
+        $this->assertSame([], $this->causes());
+        $this->eligibility = static fn (array $without): ?bool => !in_array('staff', $without, true);
+        $other->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
+        $this->assertSame(['group_removal:staff'], $this->causes());
+    }
+
     public function testAnIrrelevantAccountRecordsNothingAndItsDeletionEventCutsNothing(): void {
         $this->eligibility = static fn (): bool => false;
         $listener = $this->listener();
@@ -217,7 +276,7 @@ final class UserCauseListenerTest extends TestCase {
         $this->deletion($listener, $this->user());
         $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user('bob')));
         $listener->handle(new UserRemovedEvent($this->group(), $this->user('bob')));
-        $this->assertSame(['alice', 'bob'], $this->undated);
+        $this->assertSame(['alice', 'bob'], array_values(array_unique($this->undated)), 'the queue keeps one item per user');
         $this->assertSame([], $this->afters);
     }
 
