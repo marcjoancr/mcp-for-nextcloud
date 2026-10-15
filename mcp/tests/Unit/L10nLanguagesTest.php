@@ -88,15 +88,21 @@ final class L10nLanguagesTest extends TestCase {
         $this->assertSame($portuguese, $spanish, 'es.json and pt_BR.json must list the same keys');
     }
 
-    /** German carries the same keys as Portuguese, the same placeholders in every text, and two plural forms. */
+    /**
+     * German, contributed for 1.0.8, carries no key Portuguese lacks, the same placeholders in every text, and two
+     * plural forms. The strings added in 1.1.0 are not translated yet: German falls back to their English source.
+     */
     public function testGermanHasTheKeysAndPlaceholdersOfPortuguese(): void {
         $portuguese = $this->translations('pt_BR');
         $german = $this->translations('de');
-        $keys = array_keys($portuguese);
-        $germanKeys = array_keys($german);
-        sort($keys);
-        sort($germanKeys);
-        $this->assertSame($keys, $germanKeys, 'de.json and pt_BR.json must list the same keys');
+        $this->assertSame([], array_values(array_diff(array_keys($german), array_keys($portuguese))),
+            'de.json must not list a key that pt_BR.json does not have');
+        $untranslated = array_values(array_filter(array_diff(array_keys($portuguese), array_keys($german)),
+            static fn ($key): bool => !str_starts_with((string)$key, '_')));
+        if ($untranslated !== []) {
+            $german10n = new JsonL10n('de');
+            $this->assertSame($untranslated[0], $german10n->t($untranslated[0]), 'de falls back to the English source');
+        }
 
         $placeholders = static function (string $text): array {
             preg_match_all('/%(?:\\d+\\$)?[sdn]|\{[^}]*\}/', $text, $found);

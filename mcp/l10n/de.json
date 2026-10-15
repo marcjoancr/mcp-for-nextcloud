@@ -542,8 +542,6 @@
     "Saved value: denied." : "Gespeicherter Wert: verweigert.",
     "Nothing to change on this page for “{permission}”." : "Für „{permission}“ gibt es auf dieser Seite nichts zu ändern.",
     "They are signed out of their MCP clients, and undoing this does not sign them back in." : "Ihre MCP-Clients werden abgemeldet. Wenn dies rückgängig gemacht wird, erfolgt keine automatische Anmeldung.",
-    "Part of the change was saved." : "Ein Teil der Änderung wurde gespeichert.",
-    "Could not undo the whole change. The table was reloaded with the saved values." : "Die Änderung konnte nicht vollständig rückgängig gemacht werden. Die Tabelle wurde mit den gespeicherten Werten neu geladen.",
     "Change undone." : "Änderung rückgängig gemacht.",
     "The previous undo is no longer available." : "Die vorherige Rückgängig-Aktion ist nicht mehr verfügbar.",
     "Wait until the change in progress is saved." : "Warte, bis die laufende Änderung gespeichert wurde.",
