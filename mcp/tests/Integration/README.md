@@ -52,6 +52,20 @@ What the suite gives later tests:
 - `Support\PostgresQueryLog`: the statements each PostgreSQL session ran between two markers, in the PostgreSQL cell.
 - Fixture users and groups (`Fixtures`), created by the harness.
 
+## Calendar over the real endpoint
+
+`ci/harness.sh provision` installs the Calendar release pinned per Nextcloud major (`v6.6.2`, whose `info.xml`
+declares `min-version 32` and `max-version 35`, so one build serves the whole matrix) next to groupfolders, external
+storage, Talk and Notes; a part that cannot be installed is recorded in `MCP_IT_PROVISION_FAILURES` and reported by
+`Exclusion/ProvisioningTest`, never swallowed.
+
+`Calendar/CalendarToolsTest.php` calls `calendar_list_calendars` over the MCP endpoint with a real app password and
+checks the answer is the list of the caller's own calendars. The personal calendar it expects is the server's own
+provisioning on the first login, driven by the event the dav app listens to (the fixture users never log in through
+the web UI), so what the tool reads was written by the server, not by the test. The Calendar app is optional: a cell
+that could not provision it skips the test with the reason, and the provisioning failure stays visible through the
+env var.
+
 ## Limit of the smoke tests
 
 `Smoke/PostgresQueryLogTest` brackets a test closure registered at priority 500 with marker listeners at 501 and 499.
