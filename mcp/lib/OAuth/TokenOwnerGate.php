@@ -79,7 +79,7 @@ class TokenOwnerGate {
     /**
      * The check of an issuance (consent, exchange, refresh), in the external phase of its writer command: the account
      * exists and is enabled, and GrantPolicy::admission() admits the user. The groups that admitted the user come
-     * back with their lifecycle gens, for PolicyWriter::assertLifecycles() under the mutex.
+     * back with their lifecycle gens, for PolicyWriter::holdLifecycles() under the mutex.
      *
      * @param string $uid the user a credential is issued to
      * @param bool $connection also require the personal connection (exchange, refresh); a consent sets it itself

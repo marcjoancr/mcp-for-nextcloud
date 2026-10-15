@@ -410,6 +410,27 @@ final class ResolutionCoreTest extends TestCase {
         $context->close();
     }
 
+    /** F2 of the second reading: what removing an individual Allow leaves, without changing eligible() itself. */
+    public function testInheritedEligibilityIgnoresTheIndividualValue(): void {
+        $this->data->user['alice']['mcp']['eligible'] = '1';
+        foreach ([['Database', 'active', true, 'group'], [null, null, false, 'default'], ['LDAP', 'active', null, 'unknown'],
+            ['Database', 'needs_confirm', null, 'unknown']] as [$backend, $state, $allowed, $source]) {
+            $this->database->dbal->executeStatement('DELETE FROM mcp_group_grants');
+            $this->database->dbal->executeStatement('DELETE FROM mcp_group_life');
+            $this->backends = $backend === null ? [] : [$this->backend($backend)];
+            if ($state !== null) {
+                $this->seed('team', $state);
+            }
+            $context = $this->resolver->begin('alice');
+            try {
+                $this->assertTrue($context->eligible()->allowed, 'the individual Allow still decides eligible()');
+                $inherited = $context->inheritedEligibility();
+                $this->assertSame($allowed, $inherited->allowed, (string)$backend . '/' . (string)$state);
+                $this->assertSame($source, $inherited->source);
+            } finally { $context->close(); }
+        }
+    }
+
     public function testIndividualAllowWithAGroupNeedingConfirmationStaysAllowed(): void {
         $this->backends = [$this->backend()];
         $this->seed('team', GroupLifeMapper::NEEDS_CONFIRM);

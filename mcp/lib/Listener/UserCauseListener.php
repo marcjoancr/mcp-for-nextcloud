@@ -37,8 +37,13 @@ use Throwable;
  * - BeforeUserDeletedEvent(U), when U holds a credential or may be eligible: records the account cause with a new
  *   random gen, and marks U as being deleted in this process.
  * - BeforeUserRemovedEvent(G, U), unless U is being deleted with its account cause still pending: when G is a trusted
- *   group whose active policy grants eligibility, U is still in G, may be eligible now and would not be eligible
- *   without G, records the cause (U, G) with a new gen. The duplicate Before of User::delete wrapping Group::removeUser keeps that gen.
+ *   group whose active policy grants eligibility, U is still in G, may be eligible now and would not inherit
+ *   eligibility without G, records the cause (U, G) with a new gen. The duplicate Before of User::delete wrapping Group::removeUser keeps that gen.
+ *   "Inherit" ignores an individual Allow (RF2 of the re-reading of F2, 15/10/2026): the Allow may be removed by a reset
+ *   whose external phase already read G as the source U inherits from, and the cause is what makes that reset see the
+ *   removal. Processing the cause re-reads eligibility: while the Allow exists it consumes the cause without a cut,
+ *   which advances the revision and so replays a reset prepared before it (the replay reads U outside G and cuts);
+ *   once the Allow is gone it cuts. A user who stays eligible is never cut.
  * - UserRemovedEvent(G, U): the protocol for the cause (U, G) with the captured gen, and nothing else.
  * - UserDeletedEvent(U): the protocol for the account cause with the captured gen (account gone: cut). When its Before
  *   could not store the cause, the deletion is reconciled without a date instead (account gone: cut), never dropped.
@@ -183,7 +188,8 @@ class UserCauseListener implements IEventListener {
 
     /**
      * G grants eligibility through an active, trusted policy, U is still in G (or that is unknown), U is not known to
-     * be ineligible, and U would not be eligible without G. A failed read is relevant.
+     * be ineligible, and U would not inherit eligibility without G, whatever its individual value (see the class). A
+     * failed read is relevant.
      */
     private function removalRelevant(IGroup $group, IUser $user): bool {
         $gid = $group->getGID();
@@ -197,7 +203,7 @@ class UserCauseListener implements IEventListener {
             }
             // G matters only if U may be eligible with it and would not be without it; a user ineligible either way
             // (an account already gone from its backend, for instance) cannot consent, so nothing needs re-checking.
-            return $this->eligible($user->getUID(), []) !== false && $this->eligible($user->getUID(), [$gid]) !== true;
+            return $this->eligible($user->getUID(), []) !== false && $this->eligibilityWithoutOwnValue($user->getUID(), [$gid]) !== true;
         } catch (Throwable) {
             return true;
         }
@@ -208,6 +214,16 @@ class UserCauseListener implements IEventListener {
         $context = $this->resolver->begin($uid, [], $without, false);
         try {
             return $context->eligible()->allowed;
+        } finally {
+            $context->close();
+        }
+    }
+
+    /** @return bool|null the eligibility inherited without the given groups, ignoring the individual value; null when unknown */
+    private function eligibilityWithoutOwnValue(string $uid, array $without): ?bool {
+        $context = $this->resolver->begin($uid, [], $without, false);
+        try {
+            return $context->inheritedEligibility()->allowed;
         } finally {
             $context->close();
         }
