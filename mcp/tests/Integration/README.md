@@ -54,8 +54,10 @@ controls; `Unit/Contract/EXCLUSION-MATRIX.md` holds the verdict and the limits.
 - **Real logins**: an app password (HTTP Basic, created through the core token provider) and an OAuth access token from the
   app's own `TokenService` (Bearer, PKCE), used over HTTP against the container's Apache. Files change from outside the
   tools through WebDAV and the server's Files API; tags, shares and links through the core services.
-- **`cache_app_config` is off** in the cell: the suite writes settings from the PHP CLI and the web server reads them, and
-  core's local app-config cache cannot be invalidated across the two.
+- **`cache_app_config` is off** in the cell, except inside `AppConfigCacheWindowTest`: core serves the app config from the
+  web server's local cache for 3 seconds and the CLI that writes the settings cannot invalidate it. That test turns the
+  cache on and measures the stale window of the exclusion list (2.66 s to 3.94 s in the eleven cells measured); the result
+  and its meaning are in `EXCLUSION-MATRIX.md`.
 - **Diagnostics**: `DiagnosticsTest` records, in `observations.txt` of the artifact, how each kind of mount looks to the guard
   (including the ancestor walk in a fresh process, `Support/chain-probe.php`) and the answers of the tools for it. Behavior
   that is documented rather than asserted (the narrow mount of a subdirectory is a separate storage) is recorded there too.

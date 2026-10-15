@@ -287,8 +287,8 @@ final class WritesTest extends ExclusionTestCase {
     }
 
     /**
-     * Folders bob received as shares: moving one into another received share is a move to another directory (D7), even
-     * though both live at the top of bob's tree and share a parent there; renaming it where it is stays allowed.
+     * Folders bob received as shares: moving one into another received share is refused without effect (by core across
+     * two share storages, or by the D7 gate); renaming it where it is stays allowed.
      */
     public function testAReceivedFolderCannotBeMovedIntoAnotherReceivedShareButCanBeRenamed(): void {
         $p = 'P-' . $this->run;
@@ -305,8 +305,12 @@ final class WritesTest extends ExclusionTestCase {
         $this->assertContains($p, $this->listNames($bob, '/') ?? [], 'bob received P');
 
         $into = ['from' => '/' . $s, 'to' => '/' . $p . '/' . $s];
-        $this->assertD7($bob->tool('files_move', $into), 'moving a received share into another one, plan');
-        $this->assertD7($bob->write('files_move', $into), 'moving a received share into another one, confirmed');
+        // Refused before any effect. Core refuses a move across two share storages on its own, and the D7 gate also
+        // stands in front of the move; whichever answers first, the move must not happen. The answer is recorded.
+        foreach (['plan' => $bob->tool('files_move', $into), 'confirmed' => $bob->write('files_move', $into)] as $step => $reply) {
+            $this->assertTrue($reply->isError(), "moving a received share into another one, $step, must be refused: " . $reply->describe());
+            $this->observe("received folder moved into another received share, $step -> " . substr($reply->text(), 0, 160));
+        }
         $this->assertFalse($this->exists(self::ALICE, $this->path('home', $p, $s)), 'nothing was created in the shared P');
         $this->assertContains($s, $this->listNames($bob, '/') ?? [], 'S is still where it was received');
 

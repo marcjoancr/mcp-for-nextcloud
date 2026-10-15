@@ -170,7 +170,15 @@ final class MountsTest extends ExclusionTestCase {
         $this->assertTrue($versions->ok(), 'files_versions_list: ' . $versions->describe());
         $revision = $versions->json()['versions'][0]['revision'] ?? null;
         $this->assertIsString($revision, 'the groupfolder file has a version: ' . $versions->describe());
-        $restore = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
+        // The groupfolder takes a lock for the rollback; a refusal that says to try again is retried, like a client would.
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $restore = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
+            if ($restore->ok() || !str_contains($restore->text(), 'try again')) {
+                break;
+            }
+            sleep(2);
+        }
+        $this->observe("V7 restore in the groupfolder: attempts used $attempt");
         $this->assertTrue($restore->ok(), 'files_version_restore in the groupfolder: ' . $restore->describe());
     }
 

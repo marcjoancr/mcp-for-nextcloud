@@ -243,12 +243,18 @@ abstract class ExclusionTestCase extends IntegrationTestCase {
         $manager = Server::get(IManager::class);
         $share = $manager->newShare();
         $share->setNode($node)->setShareType(IShare::TYPE_USER)->setSharedWith($with)->setSharedBy($by)
-            ->setPermissions($everyPermission ? ($node->getPermissions() & \OCP\Constants::PERMISSION_ALL) : \OCP\Constants::PERMISSION_READ);
+            ->setPermissions($everyPermission ? $this->everyPermissionOf($node) : \OCP\Constants::PERMISSION_READ);
         $created = $manager->createShare($share);
         $this->later(static function () use ($manager, $created): void {
             $manager->deleteShare($created);
         });
         return $created;
+    }
+
+    /** Every permission a share of this node may carry: a file share cannot have create or delete. */
+    private function everyPermissionOf(Node $node): int {
+        $permissions = $node->getPermissions() & \OCP\Constants::PERMISSION_ALL;
+        return $node instanceof File ? $permissions & ~(\OCP\Constants::PERMISSION_CREATE | \OCP\Constants::PERMISSION_DELETE) : $permissions;
     }
 
     /** Public link of a node, through the server's share manager. */

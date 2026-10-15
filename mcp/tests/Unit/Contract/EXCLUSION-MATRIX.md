@@ -82,9 +82,46 @@ mount root is resolved again by its path. The same scenarios, unchanged, turned 
   through the narrow mount (recorded in the cell's `observations.txt`, not asserted as expected). A tag has to be placed
   where the file is read; an administrator who mounts the same directory twice with different roots has two resources.
   Two mounts of the *same* directory share their ids and are protected together (alias).
-- The proof runs in a runner-only configuration: `cache_app_config` is off, because core keeps the app config in the web
-  server's local cache and the PHP CLI that writes the settings cannot invalidate it. A real web pool that writes and reads
-  is unaffected.
+- **Stale window of the exclusion list (measured, F5).** Core keeps the app config in the web server's local cache
+  (APCu) for 3 seconds (`AppConfig::LOCAL_CACHE_TTL`, identical in NC 32, 33, 34 and 35) and drops it only for writes made
+  through that same cache. A list written by another process (an `occ config:app:set` of `hidden_system_tags`) or by
+  another web node is therefore served stale by a node that loaded its cache before the write, for at most the TTL. With
+  `cache_app_config` on, `AppConfigCacheWindowTest` warmed the web server, wrote the list from the CLI and read at once:
+  in every one of the eleven cells measured (NC 32 to 35, MariaDB, PostgreSQL, SQLite, fresh and upgraded) the first read
+  still served the old list and the exclusion took effect after 2.66 s to 3.94 s (the test bounds it at 6 s). So the
+  window exists, is bounded by the 3-second TTL plus the time of one request, and a tag *added* to the exclusion
+  list may leave its files readable on a node for up to about 3 to 4 seconds. A write made through the web server's own
+  cache (the admin screen on the same node) clears that node's cache at once. The rest of the suite runs with the cache
+  off (`harness.sh provision`), because it writes the settings from the CLI and reads them back immediately.
+  Whether that window is acceptable, or the guard should read the list without the local cache, is a product decision.
 - V6 (federated shares) stays documental plus contract; V8, V10, V11, V12 and V13 are covered by the local contracts above
   and were not repeated against the real server here (V10 real CalDAV objects with `ATTACH` are not part of A4's list).
 - Groupfolders are provisioned without advanced permissions (ACL rules); native groupfolder ACLs are not exercised.
+
+## A4 review adjustments (post-review round)
+
+After the review of the A4 proof, with the guard follow-up 83489c4 (backups and the folder gate resolve the real parent
+of a mount root):
+
+- **Whole-result comparison (F4).** Every "answers like a path that does not exist" check now compares the HTTP status and
+  the whole `result` (content, `structuredContent`, `_meta`, `isError`), not only the text blocks (`ToolReply::fingerprint()`).
+  Creating into a destination that does not exist, which the contract allows to succeed or to answer with its own hint, is
+  compared with the plan of the same tool for a missing folder; the generic refusal prefix is asserted for the rest.
+  Run 79a413b (12 cells, partly cancelled) passed every such comparison.
+- **Edit, replace and restore inside mounts.** With an exclusion configured and nothing tagged, `files_edit` and
+  `files_replace` work in a groupfolder, in external storage, in its alias and in the narrow mount, and leave the backup
+  of the previous content (`MountsTest`, passed in run 79a413b). Version restore of a groupfolder file: the first
+  attempt answered "Resource locked by another operation; try again" in 7 of the 11 cells that ran; the test now retries
+  as a client would. Whether local external storage keeps versions was recorded only in a truncated observation, so version restore there is
+  not claimed.
+- **A share moved by its recipient into a tagged folder of their own** is hidden: proven for a folder share
+  (`SharedOriginTest`, run 79a413b, every cell); the same test for a file share only failed on the test's own share
+  permissions (a file share cannot carry create or delete) and was corrected.
+- **A received folder moved into another received share** is refused without effect; in run 79a413b core answered first,
+  "Moving across different storages is not supported in this version". The D7 gate stands in front of it too
+  (unit-tested), and the test now accepts either answer and records which one came.
+
+**Not re-proven for real after the last edits.** The GitHub Actions minutes of the organization ran out of budget, so the
+workflows were disabled and the last corrections (file-share permissions, the retry of the groupfolder restore, the
+relaxed move assertion) have only unit-suite and syntax checks. The scenarios they touch are therefore *not* claimed as
+proven: the moved file share, the restore of a groupfolder version, and the rename of a received share.
