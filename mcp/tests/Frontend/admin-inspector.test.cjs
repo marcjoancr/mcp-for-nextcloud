@@ -110,3 +110,30 @@ test('a refused or unavailable inspection shows no stale matrix', async () => {
 		assert.equal(ui.ids['mcp-inspector-resources'].hidden, true)
 	}
 })
+
+test('B3: an answer that arrives after another user was inspected is dropped, never shown under that user', async () => {
+	let release
+	const late = new Promise((resolve) => { release = resolve })
+	const ui = await app(async (url) => url.startsWith('/apps/mcp/api/inspector/path') && url.includes('uid=alice')
+		? (await late, [200, { reason: 'excluded', gate: 'exclusion', exclusion: 'tag_direct' }]) : undefined)
+	ui.ids['mcp-inspector-user'].value = 'alice'
+	await ui.submit('mcp-inspector-form')
+	ui.ids['mcp-inspector-path'].value = '/Secret'
+	await ui.submit('mcp-inspector-path-form')
+	ui.ids['mcp-inspector-user'].value = 'bob'
+	await ui.submit('mcp-inspector-form')
+	release()
+	await tick()
+	assert.equal(ui.ids['mcp-inspector-path-result'].textContent, '', "alice's answer is not written under bob")
+	assert.equal(ui.ids['mcp-inspector-status'].textContent, 'Access of bob as the tools see it now.')
+})
+
+test('B4: a failed explanation is announced in the alert region', async () => {
+	const ui = await app((url) => url.startsWith('/apps/mcp/api/inspector/path') ? [503, { error: 'Unavailable' }] : undefined)
+	ui.ids['mcp-inspector-user'].value = 'alice'
+	await ui.submit('mcp-inspector-form')
+	ui.ids['mcp-inspector-path'].value = '/Projects'
+	await ui.submit('mcp-inspector-path-form')
+	assert.equal(ui.ids['mcp-inspector-alert'].textContent, 'The MCP policy cannot be read right now, so nothing can be confirmed. Try again shortly.')
+	assert.equal(ui.ids['mcp-inspector-path-result'].textContent, '')
+})

@@ -1028,6 +1028,25 @@ final class VisibilityGuardTest extends TestCase {
         $this->assertSame(VisibilityGuard::EXPLAINED_TAG_DIRECT, $guard->explain($this->tree->node('/alice/files/docs/secret.txt'))['reason']);
     }
 
+    /** M1 of the 13/A5 review: a backup whose original could not be checked is not evaluated, not "a backup of an excluded file". */
+    public function testA5ABackupWhoseOriginalCannotBeEvaluatedIsNotEvaluated(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $original = (string)$this->tree->addFile('/alice/files/docs/plain.txt', 'plain');
+        $backup = '/alice/files/' . FileBackup::FOLDER . '/docs/plain.txt.20261001-120000.bak';
+        $this->tree->addFile($backup, 'plain');
+        $mapper = $this->createMock(ISystemTagObjectMapper::class);
+        $mapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use ($original): array {
+            if (in_array($original, array_map('strval', $ids), true)) {
+                throw new \RuntimeException('tag read of the original failed');
+            }
+            return array_fill_keys(array_map('strval', $ids), []);
+        });
+        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+
+        $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($this->tree->node($backup))['reason']);
+        $this->assertFalse($guard->isVisible($this->tree->node($backup)), 'still refused');
+    }
+
     public function testA5AnInvalidConfigurationAndAFailedTagReadAreNamed(): void {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '{"0":"42"}';
         $this->tree->addFile('/alice/files/plain.txt', 'plain');

@@ -70,9 +70,18 @@ class InspectorController extends Controller {
         } catch (PolicyUnavailable) {
             $outcome = 'unavailable';
             $response = new JSONResponse(['error' => 'Unavailable'], 503);
+        } catch (\Throwable $e) {
+            // Audited before the generic 500, with the class of the failure only: never its message, a path or a name.
+            $outcome = 'error';
+            $response = new JSONResponse(['error' => 'Unexpected error'], 500);
         }
-        $this->logger->info('MCP access inspection', ['app' => 'mcp', 'admin' => $admin->getUID(), 'target' => $uid,
-            'action' => $action, 'module' => $module, 'result' => $outcome, 'timestamp' => $this->time->getTime()]);
+        $context = ['app' => 'mcp', 'admin' => $admin->getUID(), 'target' => $uid,
+            'action' => $action, 'module' => $module, 'result' => $outcome, 'timestamp' => $this->time->getTime()];
+        if ($outcome === 'error') {
+            $this->logger->error('MCP access inspection failed', $context + ['exception_class' => $e::class]);
+        } else {
+            $this->logger->info('MCP access inspection', $context);
+        }
         return $response;
     }
 

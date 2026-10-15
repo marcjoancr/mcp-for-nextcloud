@@ -12,6 +12,7 @@ use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Scope\CalendarAccessExplainer;
+use OCA\Mcp\Tools\Common\PathGuard;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
@@ -78,8 +79,9 @@ class AccessInspector {
     }
 
     /**
-     * Why the Files tools of a user can or cannot read one path (contract A.4): the policy gates and files.read, then
-     * the native access to the path, then the scope, then the exclusion tags.
+     * Why the Files tools of a user can or cannot read one path (contract A.4), in the order the tools decide it
+     * (NodeAccess::get, contract A.5): the policy gates and files.read, the path normalized like the tools and
+     * resolved, then the scope, then the exclusion tags, then the native read permission.
      *
      * @param string $uid the inspected user
      * @param string $path absolute path in the user's own tree ("/Projects/plan.md")
@@ -88,7 +90,10 @@ class AccessInspector {
      * @throws InvalidArgumentException for a path outside the contract
      */
     public function path(string $uid, string $path): array {
-        if ($path === '' || $path[0] !== '/' || str_contains($path, "\0") || in_array('..', explode('/', $path), true)) {
+        try {
+            // The tools' own rule (control characters, '..', '.', empty segments, backslashes).
+            $path = PathGuard::normalize($path);
+        } catch (InvalidArgumentException) {
             throw new InvalidArgumentException('Invalid request');
         }
         try {
@@ -117,29 +122,37 @@ class AccessInspector {
         }
         try {
             $home = $this->root->getUserFolder($uid);
-            $node = $home->get($path);
-            if (!$node->isReadable()) {
-                return self::answer(self::NO_NATIVE_ACCESS, 'native_acl');
-            }
-            $ids = $this->mountedChain($node, (int)$home->getId());
+            $node = $path === '/' ? $home : $home->get(ltrim($path, '/'));
         } catch (NotFoundException) {
             return self::answer(self::NOT_FOUND, 'native_acl');
         } catch (Throwable) {
             return self::answer(self::NOT_EVALUATED, 'native_acl');
+        }
+        try {
+            $ids = $this->mountedChain($node, (int)$home->getId());
+        } catch (Throwable) {
+            // The candidates of the scope could not be built: the scope gate is the one not evaluated.
+            return self::answer(self::NOT_EVALUATED, 'resource_scope');
         }
         $scoped = $context->resolveEffective('files', 'read', $ids);
         if ($scoped->allowed !== true) {
             return self::answer($scoped->allowed === null ? self::NOT_EVALUATED : self::OUT_OF_SCOPE, $scoped->blockingGate);
         }
         $why = $this->guard->explain($node);
-        if ($why['reason'] === VisibilityGuard::EXPLAINED_VISIBLE) {
-            return self::answer(self::ALLOWED, null);
-        }
         if ($why['reason'] === VisibilityGuard::EXPLAINED_NOT_EVALUATED) {
             return self::answer(self::NOT_EVALUATED, 'exclusion');
         }
-        $folder = $why['folder'] === null ? null : $home->getRelativePath($why['folder']->getPath());
-        return self::answer(self::EXCLUDED, 'exclusion', $why['reason'], $folder);
+        if ($why['reason'] !== VisibilityGuard::EXPLAINED_VISIBLE) {
+            $folder = $why['folder'] === null ? null : $home->getRelativePath($why['folder']->getPath());
+            return self::answer(self::EXCLUDED, 'exclusion', $why['reason'], $folder);
+        }
+        // Last, as NodeAccess::get checks it after the exclusion guard.
+        try {
+            $readable = $node->isReadable();
+        } catch (Throwable) {
+            return self::answer(self::NOT_EVALUATED, 'native_acl');
+        }
+        return $readable ? self::answer(self::ALLOWED, null) : self::answer(self::NO_NATIVE_ACCESS, 'native_acl');
     }
 
     /**
