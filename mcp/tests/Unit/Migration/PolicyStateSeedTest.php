@@ -11,6 +11,8 @@ use OCA\Mcp\Db\PolicyStateSeeder;
 use OCA\Mcp\Migration\PolicyStateSeedStep;
 use OCA\Mcp\Migration\Version001100Date20261015000000;
 use OCA\Mcp\Tests\Unit\SqliteDatabase;
+use OCP\DB\Exception;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
@@ -70,5 +72,34 @@ final class PolicyStateSeedTest extends TestCase {
 
         $this->assertSame(['revision' => '1', 'lock_seq' => '1', 'auth_epoch' => '0'], $state->state());
         $this->assertSame([['id' => 1, 'revision' => 1, 'lock_seq' => 1, 'auth_epoch' => 0]], $this->database->rows('mcp_policy_state'));
+    }
+
+    public function testASeedRacingAnotherInitialisationKeepsTheRowTheOtherCommitted(): void {
+        // The other initialisation inserts and commits a write between this seed's build and its insert.
+        $this->database->beforeStatement = function (): void {
+            (new PolicyStateSeeder($this->db))->seed();
+            $this->database->dbal->update('mcp_policy_state', ['revision' => 7], ['id' => 1]);
+        };
+
+        (new PolicyStateSeeder($this->db))->seed();
+
+        $this->assertNull($this->database->beforeStatement, 'the competing seed must have run first');
+        $this->assertSame([['id' => 1, 'revision' => 7, 'lock_seq' => 0, 'auth_epoch' => 0]], $this->database->rows('mcp_policy_state'));
+    }
+
+    public function testOnlyTheUniqueViolationIsTreatedAsAlreadySeeded(): void {
+        $error = new class('missing table') extends Exception {
+            public function getReason(): ?int { return self::REASON_DATABASE_OBJECT_NOT_FOUND; }
+        };
+        $qb = $this->createMock(IQueryBuilder::class);
+        foreach (['insert', 'setValue'] as $method) {
+            $qb->method($method)->willReturnSelf();
+        }
+        $qb->method('executeStatement')->willThrowException($error);
+        $db = $this->createMock(IDBConnection::class);
+        $db->method('getQueryBuilder')->willReturn($qb);
+
+        $this->expectExceptionObject($error);
+        (new PolicyStateSeeder($db))->seed();
     }
 }
