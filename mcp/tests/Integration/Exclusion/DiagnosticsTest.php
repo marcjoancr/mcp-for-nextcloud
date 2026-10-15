@@ -84,6 +84,16 @@ final class DiagnosticsTest extends ExclusionTestCase {
             $reply = $client->tool('files_read', ['path' => $path]);
             $this->observe('files_read ' . $client->uid() . ' ' . $path . ' (exclusion configured, nothing tagged) -> ' . substr(preg_replace('/\s+/', ' ', $reply->raw), 0, 200));
         }
+
+        // The same walk in a fresh process, the way a web request meets the tree for the first time.
+        $probe = dirname(__DIR__) . '/Support/chain-probe.php';
+        $probes = [['alice', self::ALICE, $this->path('external', 'diag.txt')], ['alice', self::ALICE, $this->path('groupfolder', 'diag.txt')],
+            ['alice', self::ALICE, $this->path('home', 'diag.txt')], ['bob', self::BOB, $shareName], ['bob', self::BOB, 'diag.txt']];
+        foreach ($probes as [$who, $uid, $path]) {
+            $output = [];
+            exec('php -d memory_limit=512M ' . escapeshellarg($probe) . ' ' . escapeshellarg($uid) . ' ' . escapeshellarg(trim($path, '/')) . ' 2>&1', $output);
+            $this->observe("fresh process, $who, " . trim($path, '/') . ":\n    " . implode("\n    ", array_map(static fn (string $l): string => substr($l, 0, 300), $output)));
+        }
         $this->addToAssertionCount(1);
     }
 
