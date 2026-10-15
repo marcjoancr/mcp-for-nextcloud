@@ -6,7 +6,10 @@
  * Admin permission matrix (users × permissions) for the MCP app.
  *
  * Loads one page of users from GET /apps/mcp/api/grants and saves each checkbox immediately through
- * PUT /apps/mcp/api/grants/{uid}, POST /apps/mcp/api/grants/bulk and PUT /apps/mcp/api/service.
+ * PUT /apps/mcp/api/grants/{uid}, POST /apps/mcp/api/grants/commands and PUT /apps/mcp/api/service.
+ * Every save carries the policy revision the page was built from (a decimal string, never parsed as a
+ * number); when the server answers 409 or 428 someone else saved first, so the page reloads instead
+ * of repeating the write.
  * Plain browser JavaScript, no build step; strings go through t('mcp', …) for translation.
  */
 (function () {
@@ -116,9 +119,43 @@
 			body: body === undefined ? undefined : JSON.stringify(body),
 		})
 		if (!response.ok) {
-			throw new Error(String(response.status))
+			const error = new Error(String(response.status))
+			error.data = await response.json().catch(() => null)
+			keepRevision(error.data)
+			throw error
 		}
-		return response.json()
+		const data = await response.json()
+		keepRevision(data)
+		return data
+	}
+
+	/** Policy revision of the saved state the page shows; sent with every save as expectedRevision. */
+	let revision = null
+
+	/** @param {object|null} data a response that may carry the current revision, success or conflict */
+	function keepRevision(data) {
+		if (data && typeof data.revision === 'string') {
+			revision = data.revision
+		}
+	}
+
+	/**
+	 * Tells the admin what a failed save means when the policy moved or the storage failed, and reloads
+	 * the matrix in those cases so nothing is written twice.
+	 *
+	 * @param {Error} e error thrown by api()
+	 * @return {boolean} whether the error was handled here
+	 */
+	function policyError(e) {
+		if (e.message === '409' || e.message === '428') {
+			notifyError(t('mcp', 'The permissions were changed in another window or by another administrator. The table was reloaded with the saved values; nothing was overwritten.'))
+		} else if (e.message === '503' && e.data && e.data.uncertain) {
+			notifyError(t('mcp', 'The server could not confirm whether the change was saved. The table was reloaded with the saved values.'))
+		} else {
+			return false
+		}
+		load()
+		return true
 	}
 
 	/** @param {string} message error shown to the admin */
@@ -353,6 +390,10 @@
 	/** Renders header and rows from state.data. */
 	function render() {
 		const data = state.data
+		// After a conflict the saved switch may differ from what this page last showed.
+		if (!serviceBox.disabled) {
+			serviceBox.checked = data.serviceEnabled
+		}
 		renderGroups()
 		renderApps()
 		const modules = moduleLabels()
@@ -576,7 +617,7 @@
 			const focusStayed = () => hadFocus && (document.activeElement === null || document.activeElement === document.body || document.activeElement === box)
 			box.disabled = true
 			try {
-				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), payload)
+				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: revision })
 				const index = state.data.users.findIndex((u) => u.uid === user.uid)
 				state.data.users[index] = updated
 				const restore = focusStayed()
@@ -595,7 +636,9 @@
 					box.focus()
 				}
 				flash(cell, false)
-				notifyError(t('mcp', 'Could not save the permission for {user}.', { user: user.displayName }))
+				if (!policyError(e)) {
+					notifyError(t('mcp', 'Could not save the permission for {user}.', { user: user.displayName }))
+				}
 			}
 		})
 		cell.append(box)
@@ -723,42 +766,21 @@
 	}
 
 	/**
-	 * Saves a bulk change through the bulk endpoint, one request per operation and saved value.
+	 * Saves a bulk change as one command: the server writes every cell or none, and returns the
+	 * receipt that undoes exactly these cells.
 	 *
 	 * @param {string|null} module module id, null for eligibility
-	 * @param {Array<{operation: string, uids: string[], granted: boolean}>} requests requests to send in order
-	 * @return {Promise<number>} how many requests were saved before a failure (all of them on success)
+	 * @param {Array<{operation: string, uids: string[], granted: boolean}>} requests cells to save
+	 * @return {Promise<object>} the saved command: {revision, changed, receiptId}
 	 */
-	async function sendBulk(module, requests) {
-		let saved = 0
-		try {
-			for (const request of requests) {
-				await api('POST', '/api/grants/bulk', { uids: request.uids, module, operation: request.operation, granted: request.granted })
-				saved++
-			}
-		} catch (e) {
-			// The caller reports how far it got.
-		}
-		return saved
-	}
-
-	/**
-	 * Requests that put back the previous values, grouped by operation and previous value.
-	 *
-	 * @param {Array<{operation: string, previous: Map<string, boolean>}>} changes changes that were saved
-	 * @return {Array<{operation: string, uids: string[], granted: boolean}>}
-	 */
-	function undoRequests(changes) {
-		const requests = []
-		for (const change of changes) {
-			for (const value of [true, false]) {
-				const uids = [...change.previous].filter(([, previous]) => previous === value).map(([uid]) => uid)
-				if (uids.length > 0) {
-					requests.push({ operation: change.operation, uids, granted: value })
-				}
-			}
-		}
-		return requests
+	function sendCommand(module, requests) {
+		const commands = requests.flatMap((request) => request.uids.map((uid) => ({
+			uid,
+			module,
+			operation: request.operation,
+			state: request.granted ? 'allow' : 'deny',
+		})))
+		return api('POST', '/api/grants/commands', { expectedRevision: revision, commands })
 	}
 
 	/**
@@ -801,18 +823,17 @@
 		let undo = null
 		setBulkBusy(true)
 		try {
-			const saved = await sendBulk(module, requests)
-			const done = plan.changes.slice(0, saved)
-			undo = done.length === 0 ? null : () => undoBulk(module, done)
-			if (saved < requests.length) {
-				notifyError(t('mcp', 'Could not update the users on this page.'))
-				if (undo) {
-					showNotice(t('mcp', 'Part of the change was saved.'), undo)
-				}
-			} else {
+			try {
+				const saved = await sendCommand(module, requests)
+				undo = saved.receiptId === null ? null : () => undoBulk(saved.receiptId, saved.revision)
 				showNotice(granted
 					? n('mcp', 'Allowed “{permission}” for %n user.', 'Allowed “{permission}” for %n users.', plan.users, vars, { escape: false })
 					: n('mcp', 'Denied “{permission}” for %n user.', 'Denied “{permission}” for %n users.', plan.users, vars, { escape: false }), undo)
+			} catch (e) {
+				// Nothing was saved: the command is all or nothing.
+				if (!policyError(e)) {
+					notifyError(t('mcp', 'Could not update the users on this page.'))
+				}
 			}
 			await load()
 		} finally {
@@ -826,24 +847,26 @@
 	}
 
 	/**
-	 * Puts back the values a bulk change replaced; a failure part way is reported and the matrix reloaded.
-	 * It restores what the bulk saw, so a change someone else made in between is overwritten (last write
-	 * wins): grants have no versioning yet, which is left for 1.1.0.
+	 * Undoes a bulk change through its receipt: the server puts back each cell's exact saved value,
+	 * absence included, and refuses when anything changed since that change.
 	 *
-	 * @param {string|null} module module id, null for eligibility
-	 * @param {Array<{operation: string, previous: Map<string, boolean>}>} changes changes that were saved
+	 * @param {string} receiptId receipt of the saved command
+	 * @param {string} savedRevision revision that command committed
 	 */
-	async function undoBulk(module, changes) {
-		const requests = undoRequests(changes)
+	async function undoBulk(receiptId, savedRevision) {
 		setBulkBusy(true)
 		try {
-			const saved = await sendBulk(module, requests)
-			if (saved < requests.length) {
-				const failure = t('mcp', 'Could not undo the whole change. The table was reloaded with the saved values.')
+			try {
+				await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })
+				showNotice(t('mcp', 'Change undone.'), null)
+			} catch (e) {
+				const failure = e.message === '409'
+					? t('mcp', 'The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.')
+					: e.message === '410'
+						? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
+						: t('mcp', 'Could not undo the change. The table was reloaded with the saved values.')
 				notifyError(failure)
 				showNotice(failure, null)
-			} else {
-				showNotice(t('mcp', 'Change undone.'), null)
 			}
 			await load()
 		} finally {
@@ -855,7 +878,7 @@
 		const value = serviceBox.checked
 		serviceBox.disabled = true
 		try {
-			const result = await api('PUT', '/api/service', { enabled: value })
+			const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: revision })
 			serviceBox.checked = result.enabled
 			serviceStatus.textContent = t('mcp', 'Saved')
 			flash(serviceStatus, true)
@@ -863,7 +886,9 @@
 			serviceBox.checked = !value
 			serviceStatus.textContent = t('mcp', 'Not saved')
 			flash(serviceStatus, false)
-			notifyError(t('mcp', 'Could not change the MCP service.'))
+			if (!policyError(e)) {
+				notifyError(t('mcp', 'Could not change the MCP service.'))
+			}
 		} finally {
 			serviceBox.disabled = false
 		}
@@ -1245,7 +1270,7 @@
 					emptyOptionsText: t('mcp', 'No groups found; only administrators can read the log.'),
 					noMatchText: t('mcp', 'No match.'),
 					save: async (nextIds, previousIds) => {
-						return api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version })
+						return api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version, expectedRevision: revision })
 					},
 					onSaved: async (data) => {
 						show(data)
@@ -1253,7 +1278,7 @@
 						load()
 					},
 					onError: async (e) => {
-						if (e.message === '409') {
+						if (e.message === '409' || e.message === '428') {
 							notifyError(t('mcp', 'The groups were changed in another window or by another administrator; the current list was loaded.'))
 							load()
 						} else {

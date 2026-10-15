@@ -209,7 +209,10 @@ final class AdminAssetsTest extends TestCase {
         }
         $this->assertStringContainsString("textContent: '⊘'", $script);
         $this->assertStringContainsString("mark.setAttribute('aria-hidden', 'true')", $script);
-        $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/bulk'"), 'bulk and undo share one request');
+        // A bulk change is one all-or-nothing command, undone by its server receipt, never by replaying old values.
+        $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/commands'"), 'the bulk menu sends one command');
+        $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })"));
+        $this->assertStringNotContainsString("'/api/grants/bulk'", $script);
         $this->assertStringContainsString('async function undoBulk(', $script);
         $this->assertStringNotContainsString('innerHTML', $script);
         $this->assertStringContainsString('const FIXED_COLUMNS = 3', $script);
@@ -320,11 +323,35 @@ final class AdminAssetsTest extends TestCase {
      * while a save runs, the save carries the list it changed, a 409 reloads the list and says so,
      * and a deleted group is shown so it can be removed.
      */
+    /**
+     * Every save names the revision the page was built from, as the string the server sent, and a 409/428 or an
+     * uncertain 503 reloads the saved state instead of repeating the write (contracts §2.3, minimal page change).
+     */
+    public function testEverySaveCarriesTheRevisionAndAConflictReloadsInsteadOfRetrying(): void {
+        $script = (string)file_get_contents(dirname(__DIR__, 3) . '/js/admin-grants.js');
+        $this->assertStringContainsString("if (data && typeof data.revision === 'string') {", $script, 'kept as a string, never parsed');
+        $this->assertDoesNotMatchRegularExpression('/(Number|parseInt|parseFloat)\([^)]*revision/i', $script);
+        $this->assertMatchesRegularExpression('/keepRevision\(error\.data\)\s+throw error/', $script, 'a conflict body refreshes it');
+        $this->assertMatchesRegularExpression('/keepRevision\(data\)\s+return data/', $script, 'a success body refreshes it');
+        foreach ([
+            "{ ...payload, expectedRevision: revision }",
+            "{ expectedRevision: revision, commands }",
+            "{ enabled: value, expectedRevision: revision }",
+            "version: version, expectedRevision: revision",
+        ] as $body) {
+            $this->assertStringContainsString($body, $script);
+        }
+        $this->assertStringContainsString("if (e.message === '409' || e.message === '428') {", $script);
+        $this->assertStringContainsString("e.message === '503' && e.data && e.data.uncertain", $script);
+        $policyError = substr($script, (int)strpos($script, 'function policyError(e)'), 900);
+        $this->assertStringContainsString('load()', $policyError, 'the table is reloaded, the write is not repeated');
+    }
+
     public function testTheLogGroupsAreSavedOneAtATimeWithTheListTheyChanged(): void {
         $app = dirname(__DIR__, 3);
         $script = (string)file_get_contents($app . '/js/admin-grants.js');
         $logs = substr($script, (int)strpos($script, 'async function initLogsAccess'));
-        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: version', $logs);
+        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: version, expectedRevision: revision', $logs);
         $this->assertStringContainsString("version = data.version", $logs);
         $this->assertStringContainsString("e.message === '409'", $logs);
         $this->assertStringContainsString("t('mcp', 'The groups were changed in another window or by another administrator; the current list was loaded.')", $logs);
