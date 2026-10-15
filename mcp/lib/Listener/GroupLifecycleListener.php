@@ -44,7 +44,7 @@ use Throwable;
  *   pending_delete with a new gen (markPendingDelete(), conditioned on the gen of the first step). The first step is
  *   conditioned on the gen just read; losing it means the lifecycle moved in between (a group save that relied on G,
  *   or an issuance or reset G admitted, each of which renews G's gen in its commit: PolicyWriter::holdLifecycles()),
- *   and the Before reads again and retries, at most MARK_ROUNDS rounds.
+ *   and the Before reads again and retries, at most MARK_ROUNDS rounds in all.
  *
  *   Suspend first, then capture (F1 of the second reading of 1.1.0, 15/10/2026; ticket 07 recorded the opposite
  *   order): with the issuance renewing G's gen under its mutex, every issuance G admitted either committed before the
@@ -53,6 +53,12 @@ use Throwable;
  *   overlay and reads the same before or after the suspension, and a user eligible only through G reads unknown now,
  *   which the relevance filter keeps. No cause exists before the suspension, so no issuance can consume one while G
  *   still admits, and a cause recorded here is never written again (review R2 of ticket 08).
+ *
+ *   A mark that loses its gen to a lifecycle that still exists (the administrator confirmed G's policy during the
+ *   capture, or something G admitted renewed its gen) is not the end of the Before: it goes back to the round, suspends
+ *   G again by its new gen and captures again only the holders still without a cause (M1 of the final confirmation of
+ *   F1/F2, 15/10/2026); a cleared policy is the only loss it accepts. Exhausting MARK_ROUNDS rounds, in either step,
+ *   falls to the Q1 capture below, so the Before never gives up in silence.
  *
  *   Only a complete capture moves G on to pending_delete, the one state the job purges (RF1 of the re-reading): when
  *   the capture fails (the live holders cannot be listed, or a cause cannot be written), or the process dies first, G
@@ -147,56 +153,65 @@ class GroupLifecycleListener implements IEventListener {
     /** @param array<string, array{uid:string, gen:string}> $causes receives every cause recorded */
     private function markPending(IGroup $group, string $key, array &$causes): void {
         $gid = $group->getGID();
-        $row = null;
-        $suspended = null;
+        // One round: read the lifecycle, suspend it, capture the holders still without a cause, mark pending_delete.
+        // Losing the suspension or the mark means the lifecycle moved in between (a policy save or confirmation, or an
+        // issuance or reset G admitted), and the next round starts again from what is stored (at most MARK_ROUNDS).
         for ($round = 0; $round < self::MARK_ROUNDS; ++$round) {
             $row = $this->life->get($gid);
             if ($row === null) {
-                $this->deleting[$key]['gen'] = null;
+                // No lifecycle (any more). Causes already recorded must still reach the After, which skips a null gen.
+                $this->deleting[$key]['gen'] = $causes === [] ? null : bin2hex(random_bytes(16));
                 return;
             }
-            $gen = bin2hex(random_bytes(16));
-            if ($this->life->markSuspended($gid, $row['gen'], $gen)) {
-                $suspended = $gen;
-                break;
+            $suspended = bin2hex(random_bytes(16));
+            if (!$this->life->markSuspended($gid, $row['gen'], $suspended)) {
+                continue;
             }
-        }
-        if ($suspended === null) {
-            // The lifecycle kept moving: every live holder in G, judged by nothing, so its After revokes by Q1.
+            // Suspended (durable): an issuance G admitted committed before (and is listed here) or refuses after it.
+            $complete = true;
+            if ($row['state'] === GroupLifeMapper::ACTIVE && $this->grantsEligibility($gid)) {
+                try {
+                    $complete = $this->record($gid, $this->holders($group), $causes);
+                } catch (Throwable $e) {
+                    $complete = false;
+                    $this->logger->warning('Credential holders of a deleted group not listed; the group stays suspended',
+                        ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
+                }
+            }
+            if (!$complete) {
+                // needs_confirm stays in storage: neither the job nor the After purges it without the holders' causes.
+                return;
+            }
+            $pending = bin2hex(random_bytes(16));
             try {
-                $this->record($gid, $this->holders($group, false), $causes);
+                $moved = $this->life->markPendingDelete($gid, $suspended, $pending);
             } catch (Throwable $e) {
-                $this->logger->warning('Credential holders of a deleted group not listed; their causes are left to observed use',
-                    ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
+                $this->logger->warning('Captured group deletion left suspended', ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
+                return;
             }
-            return;
-        }
-        // Suspended (durable): an issuance G admitted committed before (and is listed here) or refuses after it.
-        $complete = true;
-        if ($row['state'] === GroupLifeMapper::ACTIVE && $this->grantsEligibility($gid)) {
-            try {
-                $complete = $this->record($gid, $this->holders($group), $causes);
-            } catch (Throwable $e) {
-                $complete = false;
-                $this->logger->warning('Credential holders of a deleted group not listed; the group stays suspended',
-                    ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
+            if ($moved) {
+                $this->deleting[$key]['gen'] = $pending;
+                return;
             }
+            if ($this->life->get($gid) === null) {
+                // The policy was cleared since: no row carries this gen, so the After purges nothing and still
+                // processes the causes recorded here.
+                $this->deleting[$key]['gen'] = $pending;
+                $this->logger->info('Group policy cleared during its deletion is kept', ['app' => 'mcp', 'target' => $gid]);
+                return;
+            }
+            // Another gen or state is stored (an administrator confirmed the policy during the capture, say): G admits
+            // again, so a credential it admitted since has no cause. Suspend it again and capture again, only those
+            // without one (a recorded cause is never written twice, review R2 of ticket 08).
+            $this->logger->info('Group policy changed during its capture; capturing again', ['app' => 'mcp', 'target' => $gid]);
         }
-        if (!$complete) {
-            // needs_confirm stays in storage: neither the job nor the After purges it without the holders' causes.
-            return;
-        }
-        $pending = bin2hex(random_bytes(16));
+        // The lifecycle kept moving: every live holder in G, judged by nothing, so its After revokes by Q1. Never a
+        // silent give-up: a cause already recorded stays, the rest are added, and the After suspends G.
         try {
-            $moved = $this->life->markPendingDelete($gid, $suspended, $pending);
+            $this->record($gid, $this->holders($group, false), $causes);
         } catch (Throwable $e) {
-            $this->logger->warning('Captured group deletion left suspended', ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
-            return;
-        }
-        // Not moved: an administrator saved the policy since; the After purges nothing (no row carries this gen).
-        $this->deleting[$key]['gen'] = $pending;
-        if (!$moved) {
-            $this->logger->info('Group policy saved during its deletion is kept', ['app' => 'mcp', 'target' => $gid]);
+            $this->logger->warning('Credential holders of a deleted group not listed; their causes are left to observed use',
+                ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
         }
     }
 
