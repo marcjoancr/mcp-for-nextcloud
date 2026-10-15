@@ -413,6 +413,24 @@ final class OutputReferenceFilterTest extends TestCase {
         self::assertNull($filter->attachmentId('alice', 'room1', 17));
     }
 
+    /** The write-side checks of quote and attach run through the same gates, the Files scope step included. */
+    public function testWriteChecksFollowTheScopeAndTheExclusionInTheCallersTree(): void {
+        $this->roomShare(11, $this->okId);
+        $this->roomShare(13, $this->hiddenId);
+        $filter = $this->filter();
+        self::assertTrue($filter->allowsRoomShare('alice', $this->shares['ocRoomShare:11']));
+        self::assertFalse($filter->allowsRoomShare('alice', $this->shares['ocRoomShare:13']));
+        self::assertTrue($filter->allowsUserNode('alice', $this->tree->node('/alice/files/Docs/ok.pdf')));
+        self::assertFalse($filter->allowsUserNode('alice', $this->tree->node('/alice/files/Secret/plan.pdf')));
+
+        $this->tags = [];
+        $this->roomShare(17, $this->otherId);
+        $scoped = $this->filter($this->docsScope());
+        self::assertFalse($scoped->allowsRoomShare('alice', $this->shares['ocRoomShare:17']));
+        self::assertFalse($scoped->allowsUserNode('alice', $this->tree->node('/alice/files/Other/out.pdf')));
+        self::assertTrue($scoped->allowsUserNode('alice', $this->tree->node('/alice/files/Docs/ok.pdf')));
+    }
+
     public function testAttachmentOfANonRoomShareIsNull(): void {
         $share = $this->createMock(IShare::class);
         $share->method('getShareType')->willReturn(IShare::TYPE_LINK);

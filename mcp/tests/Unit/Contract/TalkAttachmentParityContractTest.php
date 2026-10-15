@@ -1,0 +1,281 @@
+<?php
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+declare(strict_types=1);
+
+namespace OCA\Mcp\Tests\Unit\Contract;
+
+use DateTime;
+use DateTimeImmutable;
+use OCA\Mcp\Service\VisibilityGuard;
+use OCA\Mcp\Tests\Unit\InMemoryConfig;
+use OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters;
+use OCA\Mcp\Tests\Unit\Tools\FakeTree;
+use OCA\Mcp\Tools\Common\OutputReferenceFilter;
+use OCA\Mcp\Tools\Talk\ActorNames;
+use OCA\Mcp\Tools\Talk\AttachmentAccess;
+use OCA\Mcp\Tools\Talk\AttachmentMessage;
+use OCA\Mcp\Tools\Talk\Conversation;
+use OCA\Mcp\Tools\Talk\ConversationAccessException;
+use OCA\Mcp\Tools\Talk\ConversationReader;
+use OCA\Mcp\Tools\Talk\ConversationResolver;
+use OCA\Mcp\Tools\Talk\ConversationWriter;
+use OCA\Mcp\Tools\Talk\FileAccessException;
+use OCA\Mcp\Tools\Talk\FileSharer;
+use OCA\Mcp\Tools\Talk\TalkServices;
+use OCA\Mcp\Tools\Talk\UserFileResolver;
+use OCA\Mcp\Tools\Talk\WritePreview;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Comments\IComment;
+use OCP\IUserManager;
+use OCP\Share\IManager as IShareManager;
+use OCP\Share\IShare;
+use OCP\SystemTag\ISystemTagObjectMapper;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * Talk reads and writes follow one reference rule (A.5, D6). The node a room share hands back belongs to the owner's
+ * tree and can be clean while the file, where the participant sees it, sits under an excluded folder, or has a second
+ * alias there. talk_read_messages, the talk_quote_file draft and its confirmation must then all answer exactly as for
+ * an attachment that does not exist, and talk_attach_file must refuse a clean path whose other alias is excluded.
+ */
+final class TalkAttachmentParityContractTest extends TestCase {
+    private const HIDDEN_TAG = '999';
+    private const FILE_ID = 4242;
+    private const SHARE = 30;
+    private const MISSING_SHARE = 404;
+
+    private FakeTree $caller;
+    private FakeTree $owner;
+    /** @var array<string, list<string>> */
+    private array $tags = [];
+    private InMemoryConfig $config;
+    private VisibilityGuard $guard;
+    /** @var list<string> messages the chat manager was asked to publish */
+    private array $published = [];
+
+    /**
+     * @return array<string, array{list<string>}> paths at which the participant's tree holds the shared file
+     */
+    public static function participantViews(): array {
+        return [
+            'only under an excluded folder' => [['/alice/files/Secret/plan.pdf']],
+            'two aliases, one excluded' => [['/alice/files/Docs/plan.pdf', '/alice/files/Secret/plan.pdf']],
+        ];
+    }
+
+    /** @param list<string> $callerPaths */
+    private function given(array $callerPaths): void {
+        $this->caller = new FakeTree($this, '/alice/files');
+        $secret = $this->caller->addFolder('/alice/files/Secret');
+        $this->caller->addFolder('/alice/files/Docs');
+        foreach ($callerPaths as $path) {
+            $this->caller->addFile($path, 'the plan');
+            $this->caller->nodes[$path]['id'] = self::FILE_ID;
+        }
+        // The owner's tree: the very same file id, on a clean path, with ids of its own for the folders.
+        $this->owner = new FakeTree($this, '/owner/files');
+        $this->owner->addFile('/owner/files/Public/plan.pdf', 'the plan');
+        $this->owner->nodes['/owner/files']['id'] = 9001;
+        $this->owner->nodes['/owner/files/Public']['id'] = 9002;
+        $this->owner->nodes['/owner/files/Public/plan.pdf']['id'] = self::FILE_ID;
+        $this->tags = [(string)$secret => [self::HIDDEN_TAG]];
+
+        $this->config = new InMemoryConfig();
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode([self::HIDDEN_TAG]);
+        $mapper = $this->createMock(ISystemTagObjectMapper::class);
+        $mapper->method('getTagIdsForObjects')->willReturnCallback(function (array $ids): array {
+            $result = [];
+            foreach ($ids as $id) {
+                $result[(string)$id] = $this->tags[(string)$id] ?? [];
+            }
+            return $result;
+        });
+        $this->guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->caller->filesystemRoot());
+        self::assertTrue($this->guard->isVisible($this->owner->node('/owner/files/Public/plan.pdf')), 'the owner node is clean');
+    }
+
+    private function shares(): IShareManager {
+        $share = $this->createMock(IShare::class);
+        $share->method('getId')->willReturn((string)self::SHARE);
+        $share->method('getShareType')->willReturn(IShare::TYPE_ROOM);
+        $share->method('getSharedWith')->willReturn('room1');
+        $share->method('getNodeId')->willReturn(self::FILE_ID);
+        $share->method('getNode')->willReturnCallback(fn () => $this->owner->node('/owner/files/Public/plan.pdf'));
+        $shares = $this->createMock(IShareManager::class);
+        $shares->method('getShareById')->willReturnCallback(fn (string $id) => $id === 'ocRoomShare:' . self::SHARE
+            ? $share
+            : throw new \OCP\Share\Exceptions\ShareNotFound());
+        return $shares;
+    }
+
+    private function filter(IShareManager $shares): OutputReferenceFilter {
+        return OutputReferenceFilters::over($this, $this->caller->filesystemRoot(), $this->guard, $shares);
+    }
+
+    private function conversation(): Conversation {
+        return new Conversation(new TalkParityRoomStub('room1'), new TalkParityParticipantStub());
+    }
+
+    private function talkServices(array $history = []): TalkServices {
+        $chat = $this->createMock(TalkParityChat::class);
+        $chat->method('getHistory')->willReturn($history);
+        $chat->method('addSystemMessage')->willReturnCallback(function ($room, $participant, $actorType, $actorId, string $message): IComment {
+            $this->published[] = $message;
+            $comment = $this->createMock(IComment::class);
+            $comment->method('getId')->willReturn('77');
+            return $comment;
+        });
+        $services = $this->createMock(TalkServices::class);
+        $services->method('chatManager')->willReturn($chat);
+        $services->method('conversationConstants')->willReturn(['actorUsers' => 'users']);
+        return $services;
+    }
+
+    private function access(IShareManager $shares): AttachmentAccess {
+        return new AttachmentAccess($shares, $this->guard, $this->filter($shares));
+    }
+
+    private function writer(IShareManager $shares): ConversationWriter {
+        $time = $this->createMock(ITimeFactory::class);
+        $time->method('getDateTime')->willReturn(new DateTime('2026-10-15 12:00:00'));
+        return new ConversationWriter($this->talkServices(), $time, new AttachmentMessage(), $this->access($shares));
+    }
+
+    private function preview(IShareManager $shares): WritePreview {
+        return new WritePreview(
+            $this->writer($shares),
+            $this->createMock(FileSharer::class),
+            $this->access($shares),
+            new ActorNames($this->createMock(IUserManager::class)),
+        );
+    }
+
+    private function readAttachmentId(IShareManager $shares, int $share): ?int {
+        $comment = $this->createMock(IComment::class);
+        $comment->method('getId')->willReturn('5');
+        $comment->method('getVerb')->willReturn('object_shared');
+        $comment->method('getMessage')->willReturn((string)json_encode(['message' => 'file_shared', 'parameters' => ['share' => (string)$share]]));
+        $comment->method('getActorType')->willReturn('users');
+        $comment->method('getActorId')->willReturn('owner');
+        $comment->method('getParentId')->willReturn('0');
+        $comment->method('getCreationDateTime')->willReturn(new DateTimeImmutable('@1700000000'));
+        $resolver = $this->createMock(ConversationResolver::class);
+        $resolver->method('resolveForReading')->willReturn($this->conversation());
+        $reader = new ConversationReader($this->talkServices([$comment]), $resolver, new ActorNames($this->createMock(IUserManager::class)), $this->filter($shares));
+        return $reader->readMessages('alice', 'room1', 10)[0]['attachmentId'];
+    }
+
+    /** @return string|array the refusal message, or the draft when there was none */
+    private function quotePreview(IShareManager $shares, int $share): string|array {
+        try {
+            return $this->preview($shares)->quote($this->conversation(), 'alice', $share, null);
+        } catch (ConversationAccessException $e) {
+            return $e->getMessage();
+        }
+    }
+
+    /** @return string|array the refusal message, or the result when the card was published */
+    private function quoteConfirm(IShareManager $shares, int $share): string|array {
+        try {
+            return $this->writer($shares)->quoteAttachment($this->conversation(), 'alice', $share);
+        } catch (ConversationAccessException $e) {
+            return $e->getMessage();
+        }
+    }
+
+    /** @param list<string> $callerPaths */
+    #[DataProvider('participantViews')]
+    public function testReadPreviewAndConfirmationAnswerAsForAMissingAttachment(array $callerPaths): void {
+        $this->given($callerPaths);
+        $shares = $this->shares();
+
+        self::assertNull($this->readAttachmentId($shares, self::SHARE));
+        self::assertSame($this->readAttachmentId($shares, self::MISSING_SHARE), $this->readAttachmentId($shares, self::SHARE));
+
+        $missing = $this->quotePreview($shares, self::MISSING_SHARE);
+        self::assertIsString($missing);
+        self::assertSame($missing, $this->quotePreview($shares, self::SHARE), 'the draft carries no id, name, size or type');
+
+        self::assertSame($this->quoteConfirm($shares, self::MISSING_SHARE), $this->quoteConfirm($shares, self::SHARE));
+        self::assertSame([], $this->published, 'nothing is republished');
+    }
+
+    public function testACleanParticipantViewStillReadsDraftsAndQuotes(): void {
+        $this->given(['/alice/files/Docs/plan.pdf']);
+        $shares = $this->shares();
+
+        self::assertSame(self::SHARE, $this->readAttachmentId($shares, self::SHARE));
+        $draft = $this->quotePreview($shares, self::SHARE);
+        self::assertIsArray($draft);
+        self::assertSame(['attachmentId' => self::SHARE, 'name' => 'plan.pdf', 'size' => 8, 'mimeType' => 'text/plain'], $draft['draft']['file']);
+        $result = $this->quoteConfirm($shares, self::SHARE);
+        self::assertIsArray($result);
+        self::assertSame(self::SHARE, $result['attachmentId']);
+        self::assertCount(1, $this->published);
+    }
+
+    public function testWithoutExclusionTheOwnerRuleAloneDecidesAsBefore(): void {
+        $this->given(['/alice/files/Secret/plan.pdf']);
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '[]';
+        $this->guard->clearCache();
+        $shares = $this->shares();
+
+        self::assertSame(self::SHARE, $this->readAttachmentId($shares, self::SHARE));
+        self::assertIsArray($this->quotePreview($shares, self::SHARE));
+    }
+
+    public function testAttachRefusesACleanPathWhoseOtherAliasIsExcluded(): void {
+        $this->given(['/alice/files/Docs/plan.pdf', '/alice/files/Secret/plan.pdf']);
+        $resolver = new UserFileResolver($this->caller->filesystemRoot(), $this->guard, $this->filter($this->shares()));
+
+        $refusal = static function (callable $resolve): string {
+            try {
+                $resolve();
+            } catch (FileAccessException $e) {
+                return $e->getMessage();
+            }
+            return 'resolved';
+        };
+        $missing = $refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/missing.pdf'));
+
+        self::assertNotSame('resolved', $missing);
+        self::assertSame($missing, $refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/plan.pdf')));
+    }
+
+    public function testAttachOfAFileWithoutExcludedAliasStillResolves(): void {
+        $this->given(['/alice/files/Docs/plan.pdf']);
+        $resolver = new UserFileResolver($this->caller->filesystemRoot(), $this->guard, $this->filter($this->shares()));
+
+        self::assertSame(self::FILE_ID, (int)$resolver->resolveShareableFile('alice', 'Docs/plan.pdf')->getId());
+    }
+}
+
+/** Talk room double. */
+final class TalkParityRoomStub {
+    public function __construct(private string $token) {}
+    public function getToken(): string {
+        return $this->token;
+    }
+    public function getDisplayName(string $userId): string {
+        return 'Team';
+    }
+}
+
+/** Talk participant double. */
+final class TalkParityParticipantStub {
+    public function getPermissions(): int {
+        return 128;
+    }
+}
+
+/** Chat surface the reader and the writer use. */
+interface TalkParityChat {
+    /** @return array<IComment> */
+    public function getHistory(object $room, int $offset, int $limit, bool $includeLastKnown, int $threadId = 0): array;
+
+    public function addSystemMessage(object $room, object $participant, string $actorType, string $actorId, string $message, DateTime $when, bool $systemMessage = false): object;
+}

@@ -69,9 +69,47 @@ class OutputReferenceFilter {
             if ($share->getShareType() !== IShare::TYPE_ROOM || (string)$share->getSharedWith() !== $conversationToken) {
                 return null;
             }
-            return $this->allowsFileId($userId, (int)$share->getNodeId()) ? $attachmentId : null;
+            return $this->allowsRoomShare($userId, $share) ? $attachmentId : null;
         } catch (Throwable) {
             return null;
+        }
+    }
+
+    /**
+     * The rule a write naming a room share follows before it describes or republishes the file: the same one the
+     * reading applies, resolved in the caller's tree, so a refused attachment never reappears through a quote.
+     *
+     * @param string $userId authenticated user
+     * @param IShare $share room share already matched to the conversation
+     * @return bool whether its file passes the Files scope, the exclusion and the native access in the caller's tree
+     */
+    public function allowsRoomShare(string $userId, IShare $share): bool {
+        if (!$this->active($userId)) {
+            return true;
+        }
+        try {
+            return $this->allowsFileId($userId, (int)$share->getNodeId());
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * The same rule for a node the caller named by path: every alias of its id in the caller's tree must pass, so a
+     * clean path cannot publish a file whose other alias is excluded.
+     *
+     * @param string $userId authenticated user
+     * @param Node $node node resolved in the caller's tree
+     * @return bool whether a reference to it may be created and shown
+     */
+    public function allowsUserNode(string $userId, Node $node): bool {
+        if (!$this->active($userId)) {
+            return true;
+        }
+        try {
+            return $this->allowsFileId($userId, (int)$node->getId());
+        } catch (Throwable) {
+            return false;
         }
     }
 
