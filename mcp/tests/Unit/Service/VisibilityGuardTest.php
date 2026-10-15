@@ -822,6 +822,24 @@ final class VisibilityGuardTest extends TestCase {
         $this->assertFalse($guard->isVisible($file));
     }
 
+    public function testCleanTagAncestryShortensSiblingWalksWithoutCachingFinalVisibility(): void {
+        $count = 20;
+        [$guard, $files, $counts] = $this->costFixture(false, $count);
+        foreach ($files as $file) {
+            $this->assertTrue($guard->isVisible($file));
+        }
+        foreach ([20, 90] as $id) {
+            // One classification, one tag walk, and one mandatory backup walk per sibling.
+            $this->assertSame($count + 2, $counts->parentCalls[$id]);
+            $this->assertLessThan(2 * $count + 1, $counts->parentCalls[$id]);
+        }
+        $this->tagAssignments['20'] = ['42'];
+        $guard->clearCache();
+        foreach ($files as $file) {
+            $this->assertFalse($guard->isVisible($file));
+        }
+    }
+
     /** @return array{VisibilityGuard, list<Node>, object} */
     private function costFixture(bool $shared, int $count): array {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
@@ -832,11 +850,14 @@ final class VisibilityGuardTest extends TestCase {
         $root->expects($this->never())->method('getParent');
         $ownerFolder = $this->ancestryNode(1, $root, $owner);
         $canonicalRoot = $this->ancestryNode(20, $ownerFolder, $owner);
-        $counts = (object)['lookups' => 0, 'storageCalls' => []];
+        $counts = (object)['lookups' => 0, 'storageCalls' => [], 'parentCalls' => []];
         $make = function (int $id, Node $parent, bool $isShared) use ($owner, $counts): Node {
             $node = $this->createMock(Folder::class);
             $node->method('getId')->willReturn($id);
-            $node->method('getParent')->willReturn($parent);
+            $node->method('getParent')->willReturnCallback(function () use ($parent, $id, $counts): Node {
+                $counts->parentCalls[$id] = ($counts->parentCalls[$id] ?? 0) + 1;
+                return $parent;
+            });
             $node->method('getOwner')->willReturn($owner);
             $storage = $this->storage($isShared);
             $node->method('getStorage')->willReturnCallback(function () use ($storage, $id, $counts) {

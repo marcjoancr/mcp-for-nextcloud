@@ -31,3 +31,8 @@ A1 changes no tool response shape, schema or argument list. It standardizes miss
 image-batch reasons and excluded destination messages with existing translated
 `CommonMessages::notFound()` and refuses unresolved visibility checks. No new
 translation keys are introduced.
+
+A4 must also include real positive controls: an unexcluded file in the user's
+home, an internal share, a groupfolder and local external storage must remain
+visible. The guard requires ancestry terminating in `IRootFolder`; these controls
+must fail CI if a real mount violates that assumption and hides every file.

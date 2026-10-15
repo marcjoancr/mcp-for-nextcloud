@@ -851,6 +851,8 @@ final class VisibilityContractTest extends TestCase {
                 ['files_mkdir', ['path' => '/private.txt']],
                 ['files_copy', ['from' => '/source.txt', 'to' => '/private.txt']],
                 ['files_move', ['from' => '/source.txt', 'to' => '/private.txt']],
+                ['files_create', ['path' => '/private.txt', 'content' => 'new']],
+                ['files_upload', ['path' => '/private.txt']],
             ] as [$tool, $args]) {
                 foreach ([false, true] as $confirm) {
                     $out = $registry->call($tool, $args + ['confirm' => $confirm], 'alice');

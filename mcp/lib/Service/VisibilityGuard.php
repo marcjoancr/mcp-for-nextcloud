@@ -39,6 +39,9 @@ class VisibilityGuard {
     /** @var array<string, bool> per-request visibility by file id and mounted path */
     private array $cache = [];
 
+    /** @var array<string, true> complete mounted ancestor chains checked clean for tags, not final visibility */
+    private array $tagClean = [];
+
     /** whether the stored configuration could not be read as a list of tag IDs */
     private bool $configInvalid = false;
 
@@ -134,6 +137,10 @@ class VisibilityGuard {
                 break;
             }
 
+            if (isset($this->tagClean[$cacheKey])) {
+                break; // tag ancestry only; the node's backup check must still run
+            }
+
             $chain[$cid] = $current;
             try {
                 $parent = $current->getParent();
@@ -181,6 +188,10 @@ class VisibilityGuard {
                     $this->cache[$nodeKey] = false;
                 }
                 return false;
+            }
+            // Publish only after the entire mapper result was checked successfully.
+            foreach ($chain as $cid => $chainNode) {
+                $this->tagClean[$cid . ':' . $chainNode->getPath()] = true;
             }
         }
 
@@ -530,12 +541,12 @@ class VisibilityGuard {
      * Saves the configured hidden system tag IDs.
      * Validates that each ID is a positive integer and corresponds to an existing system tag if tagManager is set.
      *
-     * Removing every tag needs no lookup. Otherwise, when the tag manager cannot answer, nothing is saved
-     * and the previous configuration still applies.
+     * Removing every tag needs no system-tag lookup. An unreadable current configuration refuses any save;
+     * unreadable system tags refuse nonempty selections. In both cases the previous value is kept.
      *
      * @param list<string|int> $tagIds
      * @throws \InvalidArgumentException when an ID is not a positive integer
-     * @throws HiddenTagsUnavailableException when the system tags cannot be checked
+     * @throws HiddenTagsUnavailableException when the current configuration or system tags cannot be checked
      */
     public function setHiddenTagIds(array $tagIds): void {
         $sanitized = [];
@@ -574,10 +585,20 @@ class VisibilityGuard {
             }
         }
 
+        // Never replace exclusions after a failed read in this operation. Malformed
+        // but readable values remain repairable through the admin panel.
+        if ($this->hiddenTagIds === null && !$this->configInvalid) {
+            $this->getHiddenTagIds();
+        }
+        if ($this->hiddenTagIds === null && $this->configInvalid) {
+            throw new HiddenTagsUnavailableException('Hidden tags configuration could not be read');
+        }
+
         $this->config->setAppValue('mcp', self::CONFIG_KEY, json_encode($sanitized));
         $this->hiddenTagIds = $sanitized;
         $this->configInvalid = false;
         $this->cache = [];
+        $this->tagClean = [];
         $this->ownerCache = [];
         $this->shareRootCache = [];
     }
@@ -587,6 +608,7 @@ class VisibilityGuard {
         $this->hiddenTagIds = null;
         $this->configInvalid = false;
         $this->cache = [];
+        $this->tagClean = [];
         $this->ownerCache = [];
         $this->shareRootCache = [];
     }
