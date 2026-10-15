@@ -387,6 +387,8 @@ final class UserCausesTest extends OAuthAccountTestCase {
         $elapsed = microtime(true) - $started;
         fwrite(STDERR, sprintf("T19 lock wait (%s): consent refused after %.2f s\n", $this->cellDatabase(), $elapsed));
         $this->assertLessThan(15.0, $elapsed, 'at most three attempts of one lock timeout each');
+        // Three attempts of one lock timeout each (1 s; SQLite 0.2 s): the lock wait was replayed twice on every engine.
+        $this->assertGreaterThan($this->cellDatabase() === 'sqlite' ? 0.5 : 2.5, $elapsed, 'the lock wait was not retried');
         $this->assertFalse($db->inTransaction());
         $this->assertSame($state, (new PolicyStateMapper($this->openIndependentConnection()))->state());
         $this->assertSame($generations, $this->generations());

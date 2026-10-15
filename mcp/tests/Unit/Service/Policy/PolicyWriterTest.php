@@ -310,6 +310,36 @@ final class PolicyWriterTest extends TestCase {
         }
     }
 
+    /**
+     * PostgreSQL lock_timeout (SQLSTATE 55P03) reaches the writer as a core database exception with no reason, wrapping
+     * the Doctrine and driver errors; found by the real lock-wait proof of T19. It is a lock wait: replayed, at most
+     * twice. A wrapped ordinary error (unique violation, 23505) is not.
+     */
+    public function testAWrappedLockTimeoutWithoutAReasonIsRetriedButAWrappedOrdinaryErrorIsNot(): void {
+        foreach ([['55P03', 3], ['23505', 1]] as [$sqlState, $expectedAttempts]) {
+            $driver = new class('driver', 0, $sqlState) extends \RuntimeException implements \Doctrine\DBAL\Driver\Exception {
+                public function __construct(string $message, int $code, private string $state) { parent::__construct($message, $code); }
+                public function getSQLState(): ?string { return $this->state; }
+            };
+            $doctrine = new \Doctrine\DBAL\Exception\DriverException($driver, null);
+            $core = new class('wrapped', 0, $doctrine) extends DatabaseException {
+                public function getReason(): ?int { return null; }
+            };
+            $attempts = 0;
+            try {
+                $this->writer->runInternal([], fn () => null, function () use ($core, &$attempts): bool {
+                    ++$attempts;
+                    $this->database->dbal->insert('unit_policy', ['id' => 1, 'value' => 'new']);
+                    throw $core;
+                });
+                $this->fail('Wrapped driver error accepted');
+            } catch (PolicyUnavailable) {
+            }
+            $this->assertSame($expectedAttempts, $attempts, $sqlState);
+            $this->assertSame([], $this->database->rows('unit_policy'));
+        }
+    }
+
     private function boundaryConnection(\Closure $commit): IDBConnection {
         $db = $this->createMock(IDBConnection::class);
         $db->method('getQueryBuilder')->willReturnCallback(fn () => $this->db->getQueryBuilder());
