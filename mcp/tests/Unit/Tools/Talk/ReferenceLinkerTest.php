@@ -205,6 +205,28 @@ class ReferenceLinkerTest extends TestCase {
         $this->assertSame([], $store->rangesAsked);
     }
 
+    /** B6-S1: a task of a calendar that holds both components is no calendar_event, as unknown as a missing UID. */
+    public function testATaskUidIsRefusedExactlyLikeAMissingEvent(): void {
+        $store = new \OCA\Mcp\Tests\Unit\Tools\Calendar\FakeCalendarStore();
+        $store->addCalendar('principals/users/alice', 3, 'pessoal', 'principals/users/alice');
+        $store->addObject(3, 'todo1.ics', "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nBEGIN:VTODO\r\nUID:todo1\r\n"
+            . "DTSTAMP:20261001T100000Z\r\nSUMMARY:A task\r\nEND:VTODO\r\nEND:VCALENDAR\r\n");
+        $scope = (new \OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub())->restrict('calendar', ['3'])->restrict('tasks', []);
+        $classification = new Classification();
+        $linker = new ReferenceLinker($this->deck, \OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub::access($store, $scope), $store,
+            new EventRepository($store, $classification), $classification, $this->appManager, $this->users, $this->grants, $this->urls);
+        $outcomes = [];
+        foreach (['todo1', 'no-such-uid'] as $uid) {
+            try {
+                $outcomes[] = ['linked', $linker->resolve('alice', ['type' => 'calendar_event', 'calendar' => self::CALENDAR_PATH, 'uid' => $uid])];
+            } catch (\Throwable $e) {
+                $outcomes[] = [$e::class, $e->getMessage()];
+            }
+        }
+        $this->assertSame([ConversationAccessException::class, Messages::referenceNotFound()], $outcomes[0]);
+        $this->assertSame($outcomes[1], $outcomes[0]);
+    }
+
     public function testACalendarTheCallerCannotSeeIsRefusedWithoutReadingEvents(): void {
         $this->calendars->method('resolve')->willThrowException(CalendarException::notFound());
         $this->store->expects($this->never())->method('objectByUid');
