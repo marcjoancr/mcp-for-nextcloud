@@ -18,9 +18,13 @@ use UnexpectedValueException;
  * A change is {uid, key, before, after}: uid is null for an app-wide setting; before/after hold the exact raw value,
  * and null means the key was absent. Presence and value are therefore one field, and absent stays distinct from '0'.
  *
- * - receipt (version 1): {v, actor, action, fromRevision, revision, changes}. Only grant commands from the admin
- *   matrix write one; revision is the revision the command committed, fromRevision + 1; changes are user cells only,
- *   1..PolicyWriter::MAX_CELLS of them, each with before !== after.
+ * - receipt (version 1): {v, actor, action, fromRevision, revision, changes}. Grant commands from the admin matrix
+ *   and resource scope writes write one; revision is the revision the command committed, fromRevision + 1; changes
+ *   are user cells only, 1..PolicyWriter::MAX_CELLS of them, each with before !== after.
+ *
+ * A resource scope change is a user cell too, under the key scope_<module> (contracts B.4): before/after hold the raw
+ * scope, null for unrestricted (no mode row) or the canonical JSON list of its resource ids in ascending numeric
+ * order ('[]' is restricted to nothing). Undo writes that raw scope back, absence included.
  * - audit (version 1): {v, actor, action, fromRevision, revision, receiptId, undoOf, changes}. One per committed
  *   administrative command. A command that has a receipt links it and leaves changes empty (the receipt holds them);
  *   undo links the receipt it restored in undoOf; service and logs-access changes carry their single app-wide change.
@@ -43,6 +47,7 @@ final class PolicyEventPayload {
     public const ACTION_UNDO = 'grants.undo';
     public const ACTION_SERVICE = 'service';
     public const ACTION_LOGS = 'logs_access';
+    public const ACTION_SCOPE = 'scope.update';
     /** A group policy save (ticket 08); its audit carries one group change and no receipt. */
     public const ACTION_GROUP = 'group_grants';
     /** Key of the group change an ACTION_GROUP audit carries. */
@@ -50,8 +55,12 @@ final class PolicyEventPayload {
     /** The system pseudo-grant a group row may carry besides the CATALOG: eligibility. */
     public const SYSTEM_MODULE = '_system';
     public const SYSTEM_ELIGIBLE = 'eligible';
-    /** Commands whose changes the matrix can undo through a receipt. */
-    public const RECEIPT_ACTIONS = [self::ACTION_UPDATE, self::ACTION_BULK, self::ACTION_COMMANDS];
+    /** Grant commands of the matrix, written through PolicyWriter::applyCells(). */
+    public const GRANT_ACTIONS = [self::ACTION_UPDATE, self::ACTION_BULK, self::ACTION_COMMANDS];
+    /** Commands whose changes can be undone through a receipt: the grant commands and the scope write. */
+    public const RECEIPT_ACTIONS = [...self::GRANT_ACTIONS, self::ACTION_SCOPE];
+    /** Prefix of the user cell holding the resource scope of one module. */
+    public const SCOPE_PREFIX = 'scope_';
     public const ACTIONS = [...self::RECEIPT_ACTIONS, self::ACTION_UNDO, self::ACTION_SERVICE, self::ACTION_LOGS, self::ACTION_GROUP];
     public const SCOPE_USER = 'user';
     public const SCOPE_GLOBAL = 'global';
@@ -244,6 +253,14 @@ final class PolicyEventPayload {
         if ($action === self::ACTION_GROUP && count($payload['changes']) !== 1) {
             throw new UnexpectedValueException('Invalid policy event payload');
         }
+        if ($receipt) {
+            // A scope receipt holds exactly one scope cell, and a grant receipt holds none.
+            $scopeCells = count(array_filter($payload['changes'], static fn (array $change): bool => self::scopeModule((string)$change['key']) !== null));
+            $scope = $action === self::ACTION_SCOPE;
+            if ($scope ? ($scopeCells !== 1 || count($payload['changes']) !== 1) : $scopeCells !== 0) {
+                throw new UnexpectedValueException('Invalid policy event payload');
+            }
+        }
         return $payload;
     }
 
@@ -272,6 +289,52 @@ final class PolicyEventPayload {
             }
         }
         return false;
+    }
+
+    /** @return string|null the module of a scope cell key, or null for any other key */
+    public static function scopeModule(string $key): ?string {
+        if (!str_starts_with($key, self::SCOPE_PREFIX)) {
+            return null;
+        }
+        $module = substr($key, strlen(self::SCOPE_PREFIX));
+        return in_array($module, \OCA\Mcp\Db\ResourceScopeMapper::MODULES, true) ? $module : null;
+    }
+
+    /**
+     * @param list<string>|null $items canonical ids, unique, or null for unrestricted
+     * @return string|null the raw scope a receipt stores: null, or the JSON list in ascending numeric order
+     */
+    public static function scopeValue(?array $items): ?string {
+        if ($items === null) {
+            return null;
+        }
+        usort($items, DecimalCounter::compare(...));
+        return json_encode(array_values($items), JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @param string|null $value raw scope as stored in a receipt
+     * @return list<string>|null|false the ids (null for unrestricted), or false when the value is not a canonical scope
+     */
+    public static function scopeItems(?string $value): array|null|false {
+        if ($value === null) {
+            return null;
+        }
+        $items = json_decode($value, true);
+        if (!is_array($items) || !array_is_list($items) || count($items) > \OCA\Mcp\Db\ResourceScopeMapper::MAX_ITEMS) {
+            return false;
+        }
+        foreach ($items as $id) {
+            try {
+                if (!is_string($id) || DecimalCounter::validate($id, DecimalCounter::MAX) === '0') {
+                    return false;
+                }
+            } catch (\InvalidArgumentException) {
+                return false;
+            }
+        }
+        // Canonical form only: sorted, unique and encoded exactly as scopeValue() does.
+        return count(array_unique($items)) === count($items) && self::scopeValue($items) === $value ? $items : false;
     }
 
     /** @return bool a user id the official user config accepts: non-empty, valid UTF-8, without NUL */
@@ -364,6 +427,9 @@ final class PolicyEventPayload {
         }
         if ($uid === null) {
             return !$receipt && in_array($key, self::APP_KEYS, true);
+        }
+        if (self::scopeModule($key) !== null) {
+            return is_string($uid) && self::validUid($uid) && self::scopeItems($before) !== false && self::scopeItems($after) !== false;
         }
         return is_string($uid) && self::validUid($uid) && self::validUserKey($key);
     }

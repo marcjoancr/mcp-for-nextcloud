@@ -12,6 +12,8 @@ use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\Policy\Resolution\EffectiveResult;
 use OCA\Mcp\Service\Policy\Resolution\EligibilityResolution;
 use OCA\Mcp\Service\Policy\Resolution\GrantResolution;
+use OCA\Mcp\Service\Policy\Resolution\ScopeResolution;
+use OCA\Mcp\Service\Scope\ScopeGuard;
 
 /** Explicitly owned by one operation; close in finally. Never register this snapshot as a shared service. */
 final class PolicyOperationContext {
@@ -32,11 +34,19 @@ final class PolicyOperationContext {
         private array $apps,
         private bool $logsAvailable,
         private bool $logsPermitted,
+        private ?ScopeGuard $scope,
     ) {}
 
     public function close(): void {
         $this->closed = true;
         $this->raw = $this->candidates = $this->apps = [];
+        $this->scope = null;
+    }
+
+    /** The resource scope read with this snapshot; consumers ask it about each resource after the grant. */
+    public function scope(): ScopeGuard {
+        $this->check();
+        return $this->scope ?? throw new PolicyUnavailable('Policy operation is closed');
     }
 
     /** Candidates retain untrusted/non-active policies for diagnosis, independently of granting sources. */
@@ -88,9 +98,16 @@ final class PolicyOperationContext {
             GrantPolicy::defaultGranted($module, $operation));
     }
 
-    public function resolveEffective(string $module, string $operation): EffectiveResult {
+    /**
+     * @param string $module catalog module
+     * @param string $operation catalog operation
+     * @param list<string>|null $resourceIds the resource and, for Files, its ancestors; null evaluates the module
+     *        only, where a restriction narrows resources later and never blocks the module itself
+     */
+    public function resolveEffective(string $module, string $operation, ?array $resourceIds = null): EffectiveResult {
         $grant = $this->granted($module, $operation);
         $eligibility = $this->eligible();
+        $scope = $this->scope()->resolution($module);
         $gate = match (true) {
             !$this->accountEnabled => 'account',
             !$this->serviceEnabled => 'service',
@@ -102,10 +119,13 @@ final class PolicyOperationContext {
             $module === 'logs' && !$this->logsPermitted => 'logs_role',
             $grant->allowed === null => 'grant_unknown',
             !$grant->allowed => 'grant',
+            // The scope only narrows what the grant allows, so a missing grant is always the first block.
+            $scope->mode === ScopeResolution::UNAVAILABLE => 'resource_scope_unknown',
+            $resourceIds !== null && !$this->scope()->allows($module, $resourceIds) => 'resource_scope',
             default => null,
         };
         return new EffectiveResult($gate === null ? true : (str_ends_with($gate, '_unknown') ? null : false),
-            $gate ?? 'allowed', $grant, $gate);
+            $gate === 'resource_scope' ? 'out_of_scope' : ($gate ?? 'allowed'), $grant, $gate, $scope);
     }
 
     private function resolve(string $key, string $module, string $operation, bool $default): GrantResolution {

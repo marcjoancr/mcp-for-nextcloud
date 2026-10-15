@@ -196,3 +196,29 @@ cause processor and mappers.
 
 These tests were written while the integration workflow was disabled (Actions minutes, until 1 November): they have
 not run yet.
+
+## Resource scope schema (issue #4, B1)
+
+`Policy/ResourceScopeTest.php` checks that `mcp_scope_modes` and `mcp_scope_items` exist and hold no row after the
+fresh install and after the upgrade from the baseline release, so every user stays unrestricted; that the BIGINT
+`policy_rev` holds the largest counter; and that scopes written by `ResourceScopeMapper` commit or roll back with the
+policy writer, seen from a second session, with ids never case-folded. The revision these tests store is arbitrary:
+which revision the scope writer records is B2's contract, not the schema's.
+
+## Resource scope writer (issue #4, B2)
+
+`Policy/ResourceScopeWriterTest.php` checks that the container wires the scope mapper, the native enumerator and the
+activation barrier into the policy writer and the matrix, and that the container's writer refuses `setResourceScope`
+for files, calendar and tasks while their barrier is closed, leaving the revision, the events and both tables as they
+were. Behind an open barrier (built by hand, with a stand-in enumerator, since native folders and calendars are not
+provisioned here) the saved scope carries `policy_rev` = the committed revision, another session reads the mode and
+its items through the one-statement join and the grouped count, no epoch moves, and undo restores the absence of the
+mode. The native resource checks themselves are unit contracts; the real Files and CalDAV enumeration belongs to B8.
+
+The candidate listing of Files uses the native API on purpose (contracts F4), with its native side effects, which
+these tests neither suppress nor certify: `getUserFolder()` creates the home of a user who never signed in, and
+`getDirectoryListing()` (`View::getDirectoryContent` in stable32–35) may create the missing parent folder of a nested
+mount (R4 of the plan review) and scans uncached sub-storages. It also materializes every child of the listed folder
+before the folder filter and the page of 50, so there is no width cap yet; measuring a folder with thousands of
+children belongs to B7, and if that fails the mitigation is a recoverable refusal above a fixed width, not a
+cache-based listing (which would lose the mounts and diverge from the native view).

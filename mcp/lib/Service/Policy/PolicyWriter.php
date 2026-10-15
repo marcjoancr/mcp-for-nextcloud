@@ -14,8 +14,11 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\RecheckMapper;
+use OCA\Mcp\Db\ResourceScopeMapper;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\GrantPolicy;
+use OCA\Mcp\Service\Scope\NativeResourceEnumerator;
+use OCA\Mcp\Service\Scope\ScopeActivation;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\DB\Exception as DatabaseException;
@@ -70,6 +73,9 @@ class PolicyWriter {
         private GroupGrantsMapper $groupGrants,
         private GroupLifeMapper $life,
         private OAuthStore $oauth,
+        private ?ResourceScopeMapper $scopes = null,
+        private ?NativeResourceEnumerator $resources = null,
+        private ScopeActivation $activation = new ScopeActivation(),
     ) {}
 
     /** Read admission must share the writer's abandoned-context gate. */
@@ -395,7 +401,7 @@ class PolicyWriter {
      *
      * @param string $expectedRevision the revision the administrator's page was built from
      * @param string $actor uid of the administrator who sent the command
-     * @param string $action PolicyEventPayload::RECEIPT_ACTIONS member naming the route
+     * @param string $action PolicyEventPayload::GRANT_ACTIONS member naming the route
      * @param list<array{uid:string, key:string, value:?string}> $cells key from PolicyEventPayload::userKey(); value
      *     '1' (allow), '0' (deny) or null (inherit: remove the override). An exact duplicate is dropped; the same cell
      *     with two values is refused.
@@ -406,7 +412,7 @@ class PolicyWriter {
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
      */
     public function applyCells(string $expectedRevision, string $actor, string $action, array $cells): array {
-        if (!in_array($action, PolicyEventPayload::RECEIPT_ACTIONS, true) || !PolicyEventPayload::validUid($actor)) {
+        if (!in_array($action, PolicyEventPayload::GRANT_ACTIONS, true) || !PolicyEventPayload::validUid($actor)) {
             throw new \InvalidArgumentException('Invalid command');
         }
         $cells = self::cells($cells);
@@ -457,6 +463,14 @@ class PolicyWriter {
         }
         $cells = array_map(static fn (array $change): array => ['uid' => $change['uid'], 'key' => $change['key'], 'value' => $change['before']], $receipt['changes']);
         $uids = array_values(array_unique(array_column($cells, 'uid')));
+        // Scope cells go back to the scope tables, grant cells to the preferences.
+        $scopeCells = array_values(array_filter($cells, static fn (array $cell): bool => PolicyEventPayload::scopeModule($cell['key']) !== null));
+        $grantCells = array_values(array_filter($cells, static fn (array $cell): bool => PolicyEventPayload::scopeModule($cell['key']) === null));
+        foreach ($scopeCells as $cell) {
+            if (!$this->activation->isActive((string)PolicyEventPayload::scopeModule($cell['key']))) {
+                throw new ScopeInactive('Resource scope is not active for this module');
+            }
+        }
         $changed = 0;
         $result = $this->runAdmin($expectedRevision, $uids, function () use ($uids): void {
             foreach ($uids as $uid) {
@@ -465,8 +479,17 @@ class PolicyWriter {
                     throw new PolicyConflict();
                 }
             }
-        }, function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($cells, $actor, $receiptId, &$changed): bool {
-            $changes = $this->applyLocal($cells);
+        }, function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($grantCells, $scopeCells, $actor, $receiptId, &$changed): bool {
+            $changes = $grantCells === [] ? [] : $this->applyLocal($grantCells);
+            $revision = self::next($current['revision']);
+            foreach ($scopeCells as $cell) {
+                $items = PolicyEventPayload::scopeItems($cell['value']);
+                $change = $items === false ? throw new PolicyUnavailable('Invalid stored receipt')
+                    : $this->writeScope($cell['uid'], (string)PolicyEventPayload::scopeModule($cell['key']), $items, $revision);
+                if ($change !== null) {
+                    $changes[] = $change;
+                }
+            }
             $changed = count($changes);
             if ($changes === []) {
                 return false;
@@ -599,6 +622,66 @@ class PolicyWriter {
             throw new PolicyConflict();
         }
         return $this->groupCommand($expectedRevision, $actor, $gid, $grants, $preview, $admit);
+    }
+
+    /**
+     * Saves the resource scope of one module for one user (contracts B.4): null makes the module unrestricted, a list
+     * restricts it to exactly those resources, and an empty list restricts it to nothing. Same transaction as every
+     * policy command: expected revision, global mutex, CAS, one receipt (undoable for RECEIPT_TTL seconds by the same
+     * administrator) and one audit event; the scope rows carry policy_rev = the revision this commit produces. It
+     * touches no credential, epoch or generation: a new scope applies from the user's next operation.
+     *
+     * The module's activation barrier is checked first, before anything else is read: while it is closed the command
+     * is refused with no write, no receipt and no revision. Outside the mutex the user must exist and every resource
+     * must be reachable natively by that user (NativeResourceEnumerator, never the MCP view); duplicates are dropped
+     * and the limit applies to the distinct set. Saving the scope already stored commits nothing.
+     *
+     * @param string $expectedRevision the revision the administrator's page was built from
+     * @param string $actor uid of the administrator who sent the command
+     * @param string $uid target user
+     * @param string $module one of ResourceScopeMapper::MODULES
+     * @param list<string>|null $items canonical decimal ids, or null for unrestricted
+     * @return array{revision:string, changed:bool, receiptId:?string}
+     * @throws ScopeInactive while the module's activation barrier is closed
+     * @throws \InvalidArgumentException for an invalid actor, module, revision, id, or an unknown user
+     * @throws ScopeTooLarge for more than ResourceScopeMapper::MAX_ITEMS distinct resources
+     * @throws ScopeItemsInaccessible for a resource the user cannot reach natively
+     * @throws PolicyConflict when the expected revision is stale
+     * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
+     */
+    public function setResourceScope(string $expectedRevision, string $actor, string $uid, string $module, ?array $items): array {
+        if (!PolicyEventPayload::validUid($actor) || !in_array($module, ResourceScopeMapper::MODULES, true)) {
+            throw new \InvalidArgumentException('Invalid command');
+        }
+        if (!$this->activation->isActive($module)) {
+            throw new ScopeInactive('Resource scope is not active for this module');
+        }
+        $items = $items === null ? null : self::scopeItems($items);
+        $scopes = $this->scopes;
+        $resources = $this->resources;
+        if ($scopes === null || $resources === null) {
+            throw new PolicyUnavailable('Resource scope storage unavailable');
+        }
+        $receiptId = null;
+        $result = $this->runAdmin($expectedRevision, [$uid], function () use ($uid, $module, $items, $resources): void {
+            $this->assertUser($uid);
+            $missing = $items === null ? [] : $resources->inaccessible($uid, $module, $items);
+            if ($missing !== []) {
+                usort($missing, DecimalCounter::compare(...));
+                throw new ScopeItemsInaccessible($missing);
+            }
+        }, function ($snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($actor, $uid, $module, $items, &$receiptId): bool {
+            $receiptId = null;
+            $revision = self::next($current['revision']);
+            $change = $this->writeScope($uid, $module, $items, $revision);
+            if ($change === null) {
+                return false;
+            }
+            $receiptId = $outbox->add(PolicyEventsMapper::KIND_RECEIPT, PolicyEventPayload::receipt($actor, PolicyEventPayload::ACTION_SCOPE, $current['revision'], $revision, [$change]));
+            $outbox->add(PolicyEventsMapper::KIND_AUDIT, PolicyEventPayload::audit($actor, PolicyEventPayload::ACTION_SCOPE, $current['revision'], $revision, $receiptId, null, []));
+            return true;
+        });
+        return ['revision' => $result['revision'], 'changed' => $result['changed'], 'receiptId' => $receiptId];
     }
 
     /**
@@ -821,6 +904,60 @@ class PolicyWriter {
             throw new ReceiptExpired();
         }
         return $payload;
+    }
+
+    /**
+     * Replaces one scope under the mutex when it differs from the stored one, reading the stored scope in this same
+     * transaction (never a read made outside it).
+     *
+     * @param list<string>|null $items canonical ids in ascending order, or null for unrestricted
+     * @param string $revision the revision this commit produces, stored as policy_rev
+     * @return array{uid:string, key:string, before:?string, after:?string}|null the change, or null for a no-op
+     * @throws PolicyUnavailable when the stored scope cannot be read or verified
+     */
+    private function writeScope(string $uid, string $module, ?array $items, string $revision): ?array {
+        $scopes = $this->scopes ?? throw new PolicyUnavailable('Resource scope storage unavailable');
+        try {
+            $stored = $scopes->forModule($uid, $module);
+            $before = PolicyEventPayload::scopeValue($stored === null ? null : $stored['items']);
+            $after = PolicyEventPayload::scopeValue($items);
+            if ($before === $after) {
+                return null;
+            }
+            $scopes->replace($uid, $module, $items, $revision);
+        } catch (\UnexpectedValueException $e) {
+            throw new PolicyUnavailable('Invalid stored resource scope', previous: $e);
+        }
+        return ['uid' => $uid, 'key' => PolicyEventPayload::SCOPE_PREFIX . $module, 'before' => $before, 'after' => $after];
+    }
+
+    /**
+     * @param array<mixed> $items candidate ids
+     * @return list<string> the distinct ids, in ascending numeric order
+     * @throws \InvalidArgumentException for a non-list or an id that is not a positive canonical decimal string
+     * @throws ScopeTooLarge for more than ResourceScopeMapper::MAX_ITEMS distinct ids
+     */
+    private static function scopeItems(array $items): array {
+        if (!array_is_list($items)) {
+            throw new \InvalidArgumentException('Invalid command');
+        }
+        $unique = [];
+        foreach ($items as $id) {
+            try {
+                if (!is_string($id) || DecimalCounter::validate($id, DecimalCounter::MAX) === '0') {
+                    throw new \InvalidArgumentException('Invalid command');
+                }
+            } catch (\InvalidArgumentException $e) {
+                throw new \InvalidArgumentException('Invalid command', 0, $e);
+            }
+            $unique[$id] = true;
+            if (count($unique) > ResourceScopeMapper::MAX_ITEMS) {
+                throw new ScopeTooLarge('Too many resources in one scope');
+            }
+        }
+        $ids = array_map('strval', array_keys($unique));
+        usort($ids, DecimalCounter::compare(...));
+        return $ids;
     }
 
     private function change(?string $uid, string $key, ?string $value): void {

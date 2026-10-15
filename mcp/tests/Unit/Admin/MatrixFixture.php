@@ -28,6 +28,8 @@ final class MatrixFixture {
     public \OCA\Mcp\Tests\Unit\InMemoryAppConfig $appConfig;
     public \OCA\Mcp\Tests\Unit\InMemoryLocks $locks;
     public \OCA\Mcp\Tests\Unit\SqliteDatabase $logsDb;
+    /** Resource scope tables the matrix reads its {mode, count} cells from. */
+    public \OCA\Mcp\Tests\Unit\SqliteDatabase $scopeDb;
     public GrantPolicy $policy;
     /** The IConfig mock the policy, its writer and the logs gate share. */
     public \OCP\IConfig $policyConfig;
@@ -49,6 +51,7 @@ final class MatrixFixture {
         $this->appConfig = new \OCA\Mcp\Tests\Unit\InMemoryAppConfig();
         $this->locks = new \OCA\Mcp\Tests\Unit\InMemoryLocks();
         $this->logsDb = new \OCA\Mcp\Tests\Unit\SqliteDatabase($test, [new \OCA\Mcp\Migration\Version001002Date20261008000000()]);
+        $this->scopeDb = new \OCA\Mcp\Tests\Unit\SqliteDatabase($test, [new \OCA\Mcp\Migration\Version001100Date20261015020000()]);
         $this->oauth = new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore();
         $this->config->userExists = fn (string $uid): bool => isset($this->users[$uid]);
         $this->policyConfig = $this->config->mock($test);
@@ -63,7 +66,8 @@ final class MatrixFixture {
     }
 
     public function matrix(): GrantMatrix {
-        return new GrantMatrix($this->policy, $this->userManager(), $this->groupManager(), $this->appManager(), $this->logsAccess());
+        return new GrantMatrix($this->policy, $this->userManager(), $this->groupManager(), $this->appManager(), $this->logsAccess(),
+            new \OCA\Mcp\Db\ResourceScopeMapper($this->scopeDb->connection()));
     }
 
     /** The role gate of the logs module over the same config and groups; members of 'admin' are the administrators. */

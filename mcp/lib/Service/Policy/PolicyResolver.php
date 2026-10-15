@@ -11,9 +11,11 @@ use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyStateMapper;
+use OCA\Mcp\Db\ResourceScopeMapper;
 use OCA\Mcp\Service\Compat\AppEnablement;
 use OCA\Mcp\Service\GrantMatrix;
 use OCA\Mcp\Service\GrantPolicy;
+use OCA\Mcp\Service\Scope\ScopeGuard;
 use OCP\App\IAppManager;
 use OCP\Config\IUserConfig;
 use OCP\IAppConfig;
@@ -46,6 +48,7 @@ class PolicyResolver {
         private GroupTrustObserver $trust,
         private IAppManager $apps,
         private LogsRoleReader $logs,
+        private ResourceScopeMapper $scopes,
     ) {}
 
     /**
@@ -212,15 +215,19 @@ class PolicyResolver {
                         }
                     }
                     $logs = $this->logs->read($user === null ? null : $uid, $ids[$uid]);
-                    $parts[$uid] = [$raw[$uid], $candidates, $user !== null && $user->isEnabled(), $enabled, $logs];
+                    // Read inside the revision window: every scope write bumps the revision, so a scope saved while
+                    // the snapshot was assembled repeats it instead of pairing new rows with old grants. A failed read
+                    // is kept as unavailable for the scope modules only.
+                    $scope = ScopeGuard::read($this->scopes, $user === null ? null : $uid);
+                    $parts[$uid] = [$raw[$uid], $candidates, $user !== null && $user->isEnabled(), $enabled, $logs, $scope];
                 }
                 $after = $this->state->state();
                 $this->writer->assertUsable();
                 if ($before['revision'] === $after['revision'] && $before['auth_epoch'] === $after['auth_epoch']) {
                     $contexts = [];
-                    foreach ($parts as $uid => [$userRaw, $candidates, $account, $enabled, $logs]) {
+                    foreach ($parts as $uid => [$userRaw, $candidates, $account, $enabled, $logs, $scope]) {
                         $contexts[$uid] = new PolicyOperationContext($after['revision'], $this->writer, $userRaw, $candidates,
-                            $account, $service, $enabled, $logs['available'], $logs['permitted']);
+                            $account, $service, $enabled, $logs['available'], $logs['permitted'], $scope);
                     }
                     return $contexts;
                 }

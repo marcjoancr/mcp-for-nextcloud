@@ -14,6 +14,9 @@ use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Migration\Version001100Date20261014000000;
 use OCA\Mcp\Migration\Version001100Date20261015000000;
 use OCA\Mcp\Migration\Version001100Date20261015010000;
+use OCA\Mcp\Migration\Version001100Date20261015020000;
+use OCA\Mcp\Db\ResourceScopeMapper;
+use OCA\Mcp\Service\Scope\ScopeGuard;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\LogsAccess;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
@@ -67,7 +70,7 @@ final class ResolutionCoreTest extends TestCase {
     protected function setUp(): void {
         $this->database = new SqliteDatabase($this, [new Version001100Date20261014000000(),
             new Version001100Date20261015000000($this->createMock(IDBConnection::class)),
-            new Version001100Date20261015010000()]);
+            new Version001100Date20261015010000(), new Version001100Date20261015020000()]);
         $this->db = $this->database->connection();
         (new Version001100Date20261015000000($this->db))->postSchemaChange($this->createMock(IOutput::class), fn () => null, []);
         $this->state = new PolicyStateMapper($this->db);
@@ -107,7 +110,8 @@ final class ResolutionCoreTest extends TestCase {
             $this->appConfig, $this->users, new MembershipReader($this->manager), new GroupSourceClassifier($this->manager),
             new GroupGrantsMapper($this->db), $this->life,
             new GroupTrustObserver($this->db, $this->writer, $this->life, $this->createMock(LoggerInterface::class)),
-            $this->apps, new LogsRoleReader($this->config, $this->logsGroups(), $this->manager, $this->createMock(\OCP\Security\Ip\IRemoteAddress::class), $this->createMock(\OCP\IUserSession::class)));
+            $this->apps, new LogsRoleReader($this->config, $this->logsGroups(), $this->manager, $this->createMock(\OCP\Security\Ip\IRemoteAddress::class), $this->createMock(\OCP\IUserSession::class)),
+            new ResourceScopeMapper($this->db));
     }
 
     /** No group listed for the logs role: only administrators hold it. */
@@ -300,7 +304,8 @@ final class ResolutionCoreTest extends TestCase {
         $context = new PolicyOperationContext('0', $this->writer,
             ['grant_' . $module . '_' . $op => $raw === 'inherit' ? ['present' => false] : ['present' => true, 'value' => $raw]],
             $group ? [['groupId' => 'team', 'grants' => [$module => [$op]], 'trusted' => true, 'state' => 'active']] : [],
-            true, true, array_fill_keys(array_keys(GrantPolicy::CATALOG), true), true, true);
+            true, true, array_fill_keys(array_keys(GrantPolicy::CATALOG), true), true, true,
+            ScopeGuard::read(new ResourceScopeMapper($this->db), 'alice'));
         $expected = $raw === 'inherit' ? ($group || GrantPolicy::defaultGranted($module, $op)) : $raw === '1';
         $this->assertSame($expected, $context->granted($module, $op)->allowed);
         $context->close();
@@ -377,7 +382,7 @@ final class ResolutionCoreTest extends TestCase {
             'eligible' => ['present' => true, 'value' => $eligible],
             'connected' => ['present' => true, 'value' => $connected],
             'grant_logs_read' => ['present' => true, 'value' => $grant],
-        ], [], $account, $service, ['logs' => $app], $available, $role);
+        ], [], $account, $service, ['logs' => $app], $available, $role, ScopeGuard::read(new ResourceScopeMapper($this->db), 'alice'));
         $result = $context->resolveEffective('logs', 'read');
         $this->assertSame($allowed, $result->allowed);
         $this->assertSame($gate, $result->blockingGate);
@@ -480,7 +485,8 @@ final class ResolutionCoreTest extends TestCase {
         $elapsed = (hrtime(true) - $started) / 1e6;
         $cells = array_sum(array_map('count', GrantPolicy::CATALOG)) + 2;
         $this->assertSame(50 * $cells, $this->data->batchCalls);
-        $this->assertSame(200, $this->database->queryCount);
+        // Four policy SELECTs per unit plus the one resource scope read of B4.
+        $this->assertSame(250, $this->database->queryCount);
         $this->assertSame(50, $this->membershipReads);
         $this->assertSame(50, $this->classifications);
         fwrite(STDERR, sprintf("T15 core: 50 units, %d app SELECTs, %d official config batch reads, 50 membership reads, 50 classifications, %.3f ms (SQLite memory + backend doubles; no member enumeration)\n",
