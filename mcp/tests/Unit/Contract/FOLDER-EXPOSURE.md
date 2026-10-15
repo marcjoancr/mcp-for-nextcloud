@@ -45,9 +45,9 @@ One new source string is defined by `FilesMessages::folderExposureRefused`:
 > Folders cannot be shared, copied or moved to another directory through this connector while files are excluded from MCP access. Use the Nextcloud Files interface for these folder operations.
 
 Portuguese and Spanish entries are added together in their JSON and JS catalogs.
-German intentionally uses the English fallback during development, as approved;
-a reviewed German translation belongs to B2/C ticket 16. The local translation
-contract checks Portuguese, Spanish and German fallback. There is no new tool or
+The German entry arrived with the reviewed translation of the 1.1.0 strings (it used the
+English fallback until then). The local translation contract checks Portuguese, Spanish
+and German. There is no new tool or
 argument schema. The approved output change is the nullable `url` on folder link
 list items when exclusions are configured; no share is revoked or modified by listing.
 

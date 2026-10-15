@@ -148,11 +148,11 @@ final class GroupLifecycleListenerTest extends TestCase {
     }
 
     /**
-     * T6: deleting a group that grants eligibility. Its Before records causes only for the credential holders in G who
-     * would not be eligible without it, then pending_delete, without the mutex; its After purges under the mutex and
+     * T6: deleting a group that grants eligibility. Its Before writes pending_delete, without the mutex, then records
+     * causes only for the credential holders in G who would not be eligible without it; its After purges under the mutex and
      * runs the protocol for exactly those causes, with their gens, after the purge.
      */
-    public function testADeletionRecordsTheHoldersCausesThenPendingDeleteAndItsAfterPurges(): void {
+    public function testADeletionMarksPendingDeleteThenRecordsTheHoldersCausesAndItsAfterPurges(): void {
         $this->policy('staff');
         [$revision, $lock] = [$this->revision(), $this->lockSeq()];
         $listener = $this->listener();
@@ -223,7 +223,7 @@ final class GroupLifecycleListenerTest extends TestCase {
         $rounds = 0;
         $life = new class($this->db, $rounds) extends GroupLifeMapper {
             public function __construct(IDBConnection $db, private int &$rounds) { parent::__construct($db); }
-            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+            public function markSuspended(string $gid, string $expectedGen, string $gen): bool {
                 ++$this->rounds;
                 return false;
             }
@@ -236,6 +236,116 @@ final class GroupLifecycleListenerTest extends TestCase {
         $this->handle($listener, new GroupDeletedEvent($this->group()));
         $this->assertSame('needs_confirm', $this->life->get('staff')['state']);
         $this->assertSame([['alice', IdentityKey::group('staff'), $gens[0]], ['bob', IdentityKey::group('staff'), $gens[1]]], $this->afters);
+    }
+
+    /**
+     * A GroupLifeMapper whose mark of pending_delete first runs $during once: what happens to G between the capture
+     * and the third step of the Before.
+     */
+    private function lifeThatRuns(\Closure $during): GroupLifeMapper {
+        return new class($this->db, $during) extends GroupLifeMapper {
+            public function __construct(IDBConnection $db, private \Closure $during) { parent::__construct($db); }
+            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+                ($this->during)();
+                return parent::markPendingDelete($gid, $expectedGen, $gen);
+            }
+        };
+    }
+
+    /** An issuance G admitted, as TokenService::asOwner() runs it: the admission outside the mutex, the hold and the credential under it. */
+    private function issueAdmittedBy(string $gid, string $uid): bool {
+        $issued = false;
+        $this->writer->runCredential($uid, fn (): array => [['groupId' => $gid, 'gen' => $this->life->get($gid)['gen']]],
+            function (?array $lifecycles) use ($uid, &$issued): bool {
+                $this->writer->holdLifecycles($lifecycles ?? []);
+                $this->store->insertToken(['user_id' => $uid, 'auth_gen' => (new AuthUsersMapper($this->db))->issue($uid)], 0);
+                $issued = true;
+                return false;
+            });
+        return $issued;
+    }
+
+    /**
+     * M1 of the final confirmation of F1/F2: G grants eligibility to alice and bob; only alice holds a credential when the
+     * Before captures. During the capture an administrator who saw G as needs_confirm confirms its policy (G is active
+     * again with a new gen) and bob consents through G. The third step loses its gen; the Before must not give up
+     * there: it suspends G again and captures the holder it missed, so the After finds a cause for bob as well.
+     */
+    public function testAConfirmationDuringTheCaptureMakesTheBeforeSuspendAndCaptureAgain(): void {
+        $this->policy('staff');
+        $this->store = new InMemoryOAuthStore();
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '1'], 0);
+        // alice and bob are eligible only through staff.
+        $this->eligibility = static fn (string $uid, array $without): ?bool => !in_array('staff', $without, true);
+        $injected = 0;
+        $life = $this->lifeThatRuns(function () use (&$injected): void {
+            if (++$injected > 1) {
+                return;
+            }
+            $this->save('staff');
+            $this->assertTrue($this->issueAdmittedBy('staff', 'bob'), 'bob consents through the group once it is active again');
+        });
+        $listener = $this->listener(life: $life);
+
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->assertSame(['alice', 'bob'], $this->causedUsers('staff'), 'bob has a cause although he consented after the confirmation');
+        $this->assertSame('pending_delete', $this->life->get('staff')['state']);
+        $causes = [$this->rechecks->causes('alice')[0]['gen'], $this->rechecks->causes('bob')[0]['gen']];
+
+        $this->handle($listener, new GroupDeletedEvent($this->group()));
+        $this->assertNull($this->life->get('staff'));
+        $this->assertSame([['alice', IdentityKey::group('staff'), $causes[0]], ['bob', IdentityKey::group('staff'), $causes[1]]], $this->afters);
+    }
+
+    /**
+     * R2 across rounds: a holder the first round recorded is not recorded again by the second, so a cause an
+     * issuance consumed in between is never written back.
+     */
+    public function testTheSecondCaptureNeverWritesARecordedCauseAgain(): void {
+        $this->policy('staff');
+        $this->store = new InMemoryOAuthStore();
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '1'], 0);
+        $this->eligibility = static fn (string $uid, array $without): ?bool => !in_array('staff', $without, true);
+        $injected = 0;
+        $life = $this->lifeThatRuns(function () use (&$injected): void {
+            if (++$injected === 1) {
+                $this->save('staff');
+            }
+        });
+        $listener = $this->listener(life: $life);
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->assertSame(1, count($this->rechecks->causes('alice')), 'alice has one cause, from the first round');
+        $this->assertSame('pending_delete', $this->life->get('staff')['state']);
+    }
+
+    /**
+     * If the lifecycle keeps moving at the third step until the rounds run out, the Before falls to the Q1 capture of
+     * every live holder in G and the After suspends G: it never gives up in silence.
+     */
+    public function testAThirdStepThatKeepsLosingFallsToTheQ1CaptureAndSuspends(): void {
+        $this->policy('staff');
+        $listener = $this->listener(life: $this->lifeThatRuns(function (): void {
+            $this->save('staff');
+        }));
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->assertSame(['alice', 'bob'], $this->causedUsers('staff'), 'bob too: nothing judged him on the fallback; carol is no member');
+        $gens = [$this->rechecks->causes('alice')[0]['gen'], $this->rechecks->causes('bob')[0]['gen']];
+        $this->handle($listener, new GroupDeletedEvent($this->group()));
+        $this->assertSame('needs_confirm', $this->life->get('staff')['state']);
+        $this->assertSame([['alice', IdentityKey::group('staff'), $gens[0]], ['bob', IdentityKey::group('staff'), $gens[1]]], $this->afters);
+    }
+
+    /** A policy cleared during the capture is the one loss the Before accepts: the causes it recorded still reach the After. */
+    public function testAPolicyClearedDuringTheCaptureStillDeliversTheCausesToTheAfter(): void {
+        $this->policy('staff');
+        $listener = $this->listener(life: $this->lifeThatRuns(function (): void {
+            $this->database->dbal->executeStatement('DELETE FROM mcp_group_life WHERE group_key = ?', [IdentityKey::group('staff')]);
+        }));
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->assertSame(['alice'], $this->causedUsers('staff'));
+        $gen = $this->rechecks->causes('alice')[0]['gen'];
+        $this->handle($listener, new GroupDeletedEvent($this->group()));
+        $this->assertSame([['alice', IdentityKey::group('staff'), $gen]], $this->afters);
     }
 
     /** T6: a policy saved between the Before and the After of a deletion has a new gen; the After purges nothing. */
@@ -348,19 +458,72 @@ final class GroupLifecycleListenerTest extends TestCase {
         $this->addToAssertionCount(1);
     }
 
-    /** Review F1: a failure while listing the holders never stops pending_delete; it is logged. */
-    public function testAFailedHolderListingStillMarksPendingDelete(): void {
+    /**
+     * Review F1, condition 1 of the coordinator on F1 and RF1 of the re-reading: the capture runs after the suspension;
+     * when it fails (holders unreadable, or a cause that cannot be written), G stays needs_confirm in storage, never
+     * pending_delete, and the After leaves it suspended instead of purging it.
+     */
+    public function testAFailedCaptureLeavesTheGroupSuspendedInsteadOfPurgingIt(): void {
+        $store = $this->createMock(OAuthStore::class);
+        $store->method('liveHolders')->willThrowException(new \RuntimeException('tokens unreadable'));
+        $rechecks = $this->createMock(RecheckMapper::class);
+        $rechecks->method('record')->willThrowException(new \RuntimeException('insert failed'));
+        foreach ([$this->listener(store: $store), $this->listener(rechecks: $rechecks)] as $listener) {
+            $this->policy('staff');
+            $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+            $this->assertSame('needs_confirm', $this->life->get('staff')['state'], 'durably suspended before the Before returns');
+            $this->assertSame([], $this->causedUsers('staff'));
+            $this->handle($listener, new GroupDeletedEvent($this->group()));
+            $this->assertSame('needs_confirm', $this->life->get('staff')['state'], 'suspended, never purged without causes');
+            $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
+            $this->database->dbal->executeStatement('DELETE FROM mcp_group_grants');
+            $this->database->dbal->executeStatement('DELETE FROM mcp_group_life');
+        }
+        $this->assertContains(['Credential holders of a deleted group not listed; the group stays suspended', 'staff'], $this->warnings);
+        $this->assertContains(['Recheck cause of a group deletion not recorded', 'alice'], $this->warnings);
+    }
+
+    /**
+     * RF1 of the re-reading of F1: the Before's capture fails, the backend deletes G, and the job runs before the After
+     * arrives. The suspension is in storage, so the job (which purges only pending_delete) leaves it, and the After
+     * finds it suspended: rows and lifecycle kept, never purged without the holders' causes. A complete capture is
+     * still purged by the job when its After is lost.
+     */
+    public function testTheJobBetweenAFailedCaptureAndTheAfterNeverPurges(): void {
         $this->policy('staff');
         $store = $this->createMock(OAuthStore::class);
         $store->method('liveHolders')->willThrowException(new \RuntimeException('tokens unreadable'));
         $listener = $this->listener(store: $store);
         $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
-        $this->assertSame('pending_delete', $this->life->get('staff')['state']);
-        $this->assertSame([], $this->causedUsers('staff'));
-        $this->assertContains(['Credential holders of a deleted group not listed; their causes are left to observed use', 'staff'], $this->warnings);
-        // The After still purges with the gen the Before wrote.
+        $this->exists['staff'] = false;
+        $this->assertSame(0, $this->lifecycle->reconcile());
+        $this->assertSame('needs_confirm', $this->life->get('staff')['state']);
         $this->handle($listener, new GroupDeletedEvent($this->group()));
-        $this->assertNull($this->life->get('staff'));
+        $this->assertSame('needs_confirm', $this->life->get('staff')['state']);
+        $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
+
+        // Control: a complete capture whose After is lost is purged by the job.
+        $this->policy('team');
+        $this->handle($this->listener(), new BeforeGroupDeletedEvent($this->group('team')));
+        $this->assertSame('pending_delete', $this->life->get('team')['state']);
+        $this->exists['team'] = false;
+        $this->assertSame(1, $this->lifecycle->reconcile());
+        $this->assertNull($this->life->get('team'));
+    }
+
+    /** F1 of the second reading: the holders are judged after G is suspended, never while it is active. */
+    public function testTheHoldersAreJudgedAfterTheSuspension(): void {
+        $this->policy('staff');
+        $states = [];
+        $this->eligibility = function (string $uid, array $without) use (&$states): ?bool {
+            $states[] = $this->life->get('staff')['state'];
+            return $uid === 'bob' || !in_array('staff', $without, true);
+        };
+        $this->handle($this->listener(), new BeforeGroupDeletedEvent($this->group()));
+        $this->assertNotSame([], $states);
+        $this->assertSame(['needs_confirm'], array_values(array_unique($states)), 'suspended, not active, while judged');
+        $this->assertSame('pending_delete', $this->life->get('staff')['state'], 'promoted once the capture completed');
+        $this->assertSame(['alice'], $this->causedUsers('staff'));
     }
 
     /**
