@@ -73,3 +73,30 @@ other test because its cleanup removes every credential of the old epoch, the ba
 included. It runs in every cell; in the upgrade cells it also covers a row that takes (epoch 0, generation 1) from the
 defaults the upgrade ALTER added. The epoch is put back afterwards.
 Recheck causes are not covered here: they belong to ticket 06.
+
+## Recheck causes, deferred work and the issuance mutex (T5, T7, T8, T19)
+
+`OAuth/UserCausesTest.php` (ticket 06) deletes accounts and removes members through the core itself, so the events
+arrive in core's order, with the duplicate pairs `User::delete` dispatches around `Group::removeUser`, to the app's
+listener as registered (default priority). It checks that one deletion records one account cause, cuts once (one
+revision) and consumes the cause; that a failure of each one of the app's handlers, injected by renaming the app's
+recheck table only while core dispatches that event (probe listeners at priority 1 and -1 around it), never stops the
+deletion and the credential still dies (reconciler or observed use); that a lost After of a deletion is consumed by
+the next consent of a recreated account, whose code and grant then survive the late After; that a removal with its
+After cuts in the same request, one without it (another listener throws first) is revoked by the next pass even when
+the user is added back (Q1), and one that keeps eligibility through another source touches nothing.
+
+The F5 case delimits the app's real handler without changing its registration: inside the caller's transaction on
+the official connection, the test calls the registered listener instance itself between two statement-log markers
+(PostgreSQL cell: the window must be empty), then lets core remove the member with its real dispatch (no statement of
+that window may touch an app table or fail), runs the caller's next query and commits or rolls back. The deferred fact
+is reconciled at the next safe point without a date: committed and no longer eligible, cut; rolled back and still
+eligible, nothing cut. Group eligibility is not wired into consent and validation until ticket 09, so those cases read
+the effect on the user's generations, not through a Bearer request.
+
+Two pending proofs of earlier tickets run here too: a `record()` of one cause interleaved by another session between
+its read and its insert (an adapter on the first session runs the other session's record at its second query
+builder), and a real lock wait on the issuance mutex held by another session, with the engine's lock timeout
+shortened for the test session (MariaDB `innodb_lock_wait_timeout`, PostgreSQL `lock_timeout`, SQLite
+`busy_timeout`); the elapsed time is printed to stderr. A real deadlock (MariaDB 1213, PostgreSQL 40P01) is not
+produced here.

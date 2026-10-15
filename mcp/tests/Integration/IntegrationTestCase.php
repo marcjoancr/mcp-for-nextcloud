@@ -49,13 +49,15 @@ abstract class IntegrationTestCase extends TestCase {
      * Opens a separate database session (its own PDO handle) to the database the instance uses: the same SQLite
      * file, or the same MariaDB/PostgreSQL database. Closed after the test.
      *
+     * @param (\Closure(\OC\DB\Connection): ConnectionAdapter)|null $adapter builds the adapter around the new
+     *     session, for a test that needs to interleave work at a precise point of a production class's statements
      * @return ConnectionAdapter an IDBConnection that shares no state with the official connection
      */
-    protected function openIndependentConnection(): ConnectionAdapter {
+    protected function openIndependentConnection(?\Closure $adapter = null): ConnectionAdapter {
         $config = Server::get(SystemConfig::class);
         $factory = new ConnectionFactory($config);
         $inner = $factory->getConnection((string)$config->getValue('dbtype', 'sqlite'), []);
-        $connection = new ConnectionAdapter($inner);
+        $connection = $adapter === null ? new ConnectionAdapter($inner) : $adapter($inner);
         $this->independent[] = $connection;
         // Doctrine connects lazily; connect now so a broken session fails here and not inside an assertion.
         $connection->executeQuery('SELECT 1')->closeCursor();
