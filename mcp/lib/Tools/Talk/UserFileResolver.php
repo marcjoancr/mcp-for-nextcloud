@@ -23,6 +23,7 @@ class UserFileResolver {
     public function __construct(
         private IRootFolder $rootFolder,
         private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private ?\OCA\Mcp\Tools\Common\OutputReferenceFilter $references = null,
     ) {}
 
     /**
@@ -47,7 +48,10 @@ class UserFileResolver {
         if (!$node instanceof File
             || !$node->isReadable()
             || ($node->getPermissions() & Constants::PERMISSION_SHARE) !== Constants::PERMISSION_SHARE
-            || ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($node))) {
+            || ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($node))
+            // Every alias of the file in the user's tree, by the rule talk_read_messages applies to the attachment
+            // this share becomes: a clean path must not publish a file the reading would then hide.
+            || ($this->references !== null && !$this->references->allowsUserNode($userId, $node))) {
             throw new FileAccessException(Messages::fileNotFound());
         }
 

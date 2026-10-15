@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools\Talk;
 
+use OCA\Mcp\Tools\Common\OutputReferenceFilter;
 use OCP\Files\File;
 use OCP\Share\IManager as IShareManager;
 use OCP\Share\IShare;
@@ -24,6 +25,7 @@ class AttachmentAccess {
     public function __construct(
         private IShareManager $shareManager,
         private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private ?OutputReferenceFilter $references = null,
     ) {}
 
     /**
@@ -41,7 +43,7 @@ class AttachmentAccess {
 
     /**
      * Checks that the id really is a room share of this conversation, and not a link share, a file of another
-     * conversation or something the user cannot see. All of them are the same answer, so the module never reveals
+     * conversation or something the user cannot see, neither in the owner's tree nor in the caller's. All of them are the same answer, so the module never reveals
      * that an id exists elsewhere.
      *
      * @param Conversation $conversation Conversation the card would be published in
@@ -74,6 +76,11 @@ class AttachmentAccess {
             if (!$node instanceof \OCP\Files\Node || !$this->visibilityGuard->isVisible($node)) {
                 throw new ConversationAccessException(Messages::attachmentNotFound());
             }
+        }
+        // The owner's node is not enough: the file is checked again where the caller sees it, by the rule
+        // talk_read_messages applies, so a draft never names an attachment the reading hides.
+        if ($this->references !== null && !$this->references->allowsRoomShare($userId, $share)) {
+            throw new ConversationAccessException(Messages::attachmentNotFound());
         }
 
         return $share;

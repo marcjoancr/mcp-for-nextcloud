@@ -75,6 +75,44 @@ final class TalkReferenceTest extends ExclusionTestCase {
         }
     }
 
+    /**
+     * The node a room share hands back is the owner's, and it is clean here; the participant sees the file under a
+     * folder of their own that is excluded. Reading, the quote draft and the confirmed quote of that participant all
+     * follow the participant's tree, and answer as for an attachment that does not exist; the owner is unaffected.
+     */
+    public function testAParticipantWhoseViewOfTheFileIsExcludedCannotQuoteIt(): void {
+        $alice = $this->mcp();
+        $bob = $this->mcp(self::BOB);
+        [$token, $id] = $this->conversationWithAttachment($alice);
+        $file = $this->node(self::ALICE, $this->path('home', 'open', 'talk.txt'));
+        $this->assertSame([$id], $this->attachmentIds($this->messages($bob, $token)), 'bob sees the attachment before the tag');
+        $views = $this->userFolder(self::BOB)->getById((int)$file->getId());
+        $this->assertNotSame([], $views, 'the room share is mounted in bob\'s tree');
+        $bobFolder = $views[0]->getParent();
+        $this->assertNotSame((int)$this->userFolder(self::BOB)->getId(), (int)$bobFolder->getId(), 'bob sees the file inside a folder of his own (the Talk folder)');
+        $before = count($this->messages($alice, $token));
+        $this->exclude();
+        $this->tag($bobFolder);
+        $this->later(fn () => $this->untag($bobFolder));
+        $this->assertTrue($this->newGuard()->isVisible($file), 'the owner node stays clean');
+
+        $this->assertSame([$id], $this->attachmentIds($this->messages($alice, $token)), 'alice, whose view is clean, still sees the id');
+        $this->assertSame([], $this->attachmentIds($this->messages($bob, $token)), 'bob does not');
+
+        $bogus = $bob->tool('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => 2000000000]);
+        $this->assertTrue($bogus->isError(), 'quoting an attachment that does not exist is refused: ' . $bogus->describe());
+        foreach (['draft' => $bob->tool('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => $id]),
+            'confirmed' => $bob->write('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => $id])] as $step => $reply) {
+            $this->assertTrue($reply->isError(), "$step: bob cannot quote the file his tree excludes: " . $reply->describe());
+            $this->assertSame($bogus->fingerprint(), $reply->fingerprint(), "$step: and the answer is that of an attachment that does not exist");
+            $this->assertStringNotContainsString('talk.txt', $reply->raw, "$step: no file name");
+        }
+        $this->assertCount($before, $this->messages($alice, $token), 'nothing was posted');
+
+        $draft = $alice->tool('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => $id]);
+        $this->assertTrue($draft->ok(), 'alice can still draft the quote: ' . $draft->describe());
+    }
+
     public function testAttachingOrQuotingAnExcludedFileIsRefusedLikeAMissingOneAndPostsNothing(): void {
         $alice = $this->mcp();
         [$token, $id] = $this->conversationWithAttachment($alice);
