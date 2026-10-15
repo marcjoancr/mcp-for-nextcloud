@@ -156,8 +156,9 @@ final class ScopeSchemaTest extends TestCase {
     /**
      * A rollback to 1.0.8 before any scope is adopted leaves two empty tables that nothing of 1.0.8 reads, and the
      * 1.0.8 steps neither touch nor need them. Only the mapper names the tables; besides it, only the scope writer,
-     * the matrix summary, the admin and personal scope routes and the native enumerator use the mapper. No tool does
-     * until the scope guard ships: a new reader has to be added here on purpose.
+     * the matrix summary, the admin and personal scope routes, the native enumerator and the scope guard, read by the
+     * resolution core into each operation's snapshot, use the mapper. No tool reads it directly: tools ask the operation
+     * context, and a new reader has to be added here on purpose.
      */
     public function testThe108StepsIgnoreTheTablesAndOnlyTheScopeAdministrationReadsThem(): void {
         [$schema, $closure] = $this->schema();
@@ -182,8 +183,10 @@ final class ScopeSchemaTest extends TestCase {
             'Migration/Version001100Date20261015020000.php',
             'Service/GrantMatrix.php',
             'Service/Policy/PolicyEventPayload.php',
+            'Service/Policy/PolicyResolver.php',
             'Service/Policy/PolicyWriter.php',
             'Service/Scope/NativeResourceEnumerator.php',
+            'Service/Scope/ScopeGuard.php',
         ], $readers);
         $tables = array_values(array_filter($readers, static fn (string $file): bool
             => str_contains((string)file_get_contents($root . '/' . $file), 'mcp_scope_')));

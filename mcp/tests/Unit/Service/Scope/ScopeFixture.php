@@ -9,6 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Service\Scope;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\ResourceScopeMapper;
+use OCA\Mcp\Migration\Version001100Date20261014000000;
 use OCA\Mcp\Migration\Version001100Date20261015000000;
 use OCA\Mcp\Migration\Version001100Date20261015010000;
 use OCA\Mcp\Migration\Version001100Date20261015020000;
@@ -63,7 +64,8 @@ final class ScopeFixture {
 
     public function __construct(private TestCase $test) {
         $migration = new Version001100Date20261015000000($this->mock(IDBConnection::class));
-        $this->database = new SqliteDatabase($test, [$migration, new Version001100Date20261015010000(), new Version001100Date20261015020000()]);
+        // The group grants table too, so the resolution core can read a snapshot over the same database.
+        $this->database = new SqliteDatabase($test, [new Version001100Date20261014000000(), $migration, new Version001100Date20261015010000(), new Version001100Date20261015020000()]);
         $this->db = $this->database->connection();
         (new Version001100Date20261015000000($this->db))->postSchemaChange($this->mock(IOutput::class), fn () => null, []);
         $this->state = new PolicyStateMapper($this->db);
