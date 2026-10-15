@@ -36,6 +36,16 @@ final class IdentityKey {
         return hash('sha256', "group\0" . self::checked($gid));
     }
 
+    /**
+     * @param string $module scope module the resource belongs to
+     * @param string $id resource id, exactly as stored
+     * @return string the resource_key: the same id in two modules gives two keys
+     * @throws InvalidArgumentException for an empty id or module, a NUL byte or invalid UTF-8
+     */
+    public static function resource(string $module, string $id): string {
+        return hash('sha256', self::checked($module) . "\0" . self::checked($id));
+    }
+
     /** @return string the cause_key of an account deletion */
     public static function accountCause(): string {
         return hash('sha256', self::ACCOUNT_CAUSE);
