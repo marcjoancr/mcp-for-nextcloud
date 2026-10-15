@@ -62,7 +62,9 @@ final class AdminCommandsTest extends IntegrationTestCase {
             $other->clearCache($uid, false);
         }
         foreach (self::KEYS as $key) {
+            // The row order is the database's (PostgreSQL differs): compare by user, not by position.
             $seen[$key] = $other->getValuesByUsers('mcp', $key, null, [Fixtures::ALICE, Fixtures::BOB]);
+            ksort($seen[$key], SORT_STRING);
         }
         return $seen;
     }
@@ -137,7 +139,7 @@ final class AdminCommandsTest extends IntegrationTestCase {
             ['uid' => Fixtures::BOB, 'key' => 'grant_notes_edit', 'value' => '1'],
         ]);
         $this->assertSame(2, $saved['changed']);
-        $this->assertSame([Fixtures::ALICE => '1', Fixtures::BOB => '1'], $this->seenBy($other)['grant_notes_edit']);
+        $this->assertSame([Fixtures::ALICE => '1', Fixtures::BOB => '1'], $this->seenBy($other)['grant_notes_edit']); // alice < bob
         $receipt = Server::get(PolicyEventsMapper::class)->find((string)$saved['receiptId']);
         $this->assertSame([null, '0'], array_column($receipt['payload']['changes'], 'before'));
 
