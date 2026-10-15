@@ -11,6 +11,8 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\OAuth\OAuthStore;
+use OCA\Mcp\Listener\GroupLifecycleListener;
+use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\GroupGrantsService;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
 use OCA\Mcp\Service\Policy\GroupSourceUntrusted;
@@ -116,6 +118,45 @@ final class GroupGrantsWriterTest extends TestCase {
     private function realSave(string $gid, array $grants): array {
         $preview = $this->writer->previewGroupGrants($this->revision(), 'root', $gid, $grants, $this->realAdmit());
         return [$preview, fn (): array => $this->writer->setGroupGrants($preview['revision'], 'root', $gid, $preview['grants'], $preview['previewId'], $this->realAdmit())];
+    }
+
+    /**
+     * The production GroupLifecycleListener and CauseProcessor (with the real CauseClassifier over resolver()) on this
+     * database, the lifecycle mapper being $life.
+     *
+     * @return array{GroupLifecycleListener, CauseProcessor}
+     */
+    private function listener(GroupLifeMapper $life): array {
+        $users = $this->createMock(\OCP\IUserManager::class);
+        $users->method('get')->willReturnCallback(function (string $uid): \OCP\IUser {
+            $user = $this->createMock(\OCP\IUser::class);
+            $user->method('getUID')->willReturn($uid);
+            $user->method('isEnabled')->willReturn(true);
+            return $user;
+        });
+        $time = $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        $causes = new \OCA\Mcp\Service\Policy\CauseProcessor($this->writer, $this->rechecks,
+            new \OCA\Mcp\Service\Policy\CauseClassifier($users, $this->resolver()), $this->createMock(\OCA\Mcp\Service\Policy\DeferredQueue::class),
+            $this->db, new \Psr\Log\NullLogger(), $this->apps->worker($this), $this->lifecycle);
+        $listener = new \OCA\Mcp\Listener\GroupLifecycleListener($this->lifecycle, $causes, $life, $this->grants, $this->rechecks,
+            $this->state, new OAuthStore($this->db), new AuthUsersMapper($this->db), $this->classifier(), $this->resolver(), $users,
+            $this->db, $time, new \Psr\Log\NullLogger());
+        return [$listener, $causes];
+    }
+
+    /** A mapper that runs $between once, inside the first markPendingDelete, before the real conditional transition. */
+    private function interleaved(\Closure $between): GroupLifeMapper {
+        return new class($this->db, $between) extends GroupLifeMapper {
+            public function __construct(\OCP\IDBConnection $db, private ?\Closure $between) { parent::__construct($db); }
+            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+                if ($this->between !== null) {
+                    [$between, $this->between] = [$this->between, null];
+                    $between();
+                }
+                return parent::markPendingDelete($gid, $expectedGen, $gen);
+            }
+        };
     }
 
     private function preview(mixed $grants, string $gid = 'staff', string $actor = 'root'): array {
@@ -554,21 +595,7 @@ final class GroupGrantsWriterTest extends TestCase {
                 return parent::markPendingDelete($gid, $expectedGen, $gen);
             }
         };
-        $users = $this->createMock(\OCP\IUserManager::class);
-        $users->method('get')->willReturnCallback(function (string $uid): \OCP\IUser {
-            $user = $this->createMock(\OCP\IUser::class);
-            $user->method('getUID')->willReturn($uid);
-            $user->method('isEnabled')->willReturn(true);
-            return $user;
-        });
-        $time = $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class);
-        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
-        $causes = new \OCA\Mcp\Service\Policy\CauseProcessor($this->writer, $this->rechecks,
-            new \OCA\Mcp\Service\Policy\CauseClassifier($users, $this->resolver()), $this->createMock(\OCA\Mcp\Service\Policy\DeferredQueue::class),
-            $this->db, new \Psr\Log\NullLogger(), $this->apps->worker($this), $this->lifecycle);
-        $listener = new \OCA\Mcp\Listener\GroupLifecycleListener($this->lifecycle, $causes, $life, $this->grants, $this->rechecks,
-            $this->state, new OAuthStore($this->db), new AuthUsersMapper($this->db), $this->classifier(), $this->resolver(), $users,
-            $this->db, $time, new \Psr\Log\NullLogger());
+        [$listener] = $this->listener($life);
         $group = $this->createMock(\OCP\IGroup::class);
         $group->method('getGID')->willReturn('team');
 
@@ -585,5 +612,42 @@ final class GroupGrantsWriterTest extends TestCase {
         [, $save] = $this->realSave('staff', ['_system' => ['eligible']]);
         $save();
         $this->assertSame('2', $this->generations('ana')['revoked_below'], 'the regrant leaves the old generation 2 cut');
+    }
+
+    /**
+     * Re-review 2, R2: the first round of a deletion Before records the holder's cause C; before its transition an
+     * issuance (runCredential with the real classifier) consumes C, cuts generation 2 and issues 3, and a renewal of the
+     * group's gen makes the transition lose. The second round never writes C back, so the After finds nothing to do
+     * and the new credential (generation 3) survives.
+     */
+    public function testACauseAnIssuanceConsumedBetweenTheRoundsIsNeverWrittenBack(): void {
+        $this->policy('team');
+        $this->holder('ana', '2');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $causes = null;
+        $life = $this->interleaved(function () use (&$causes): void {
+            $this->assertCount(1, $this->rechecks->causes('ana'), 'the first round recorded C');
+            $this->writer->runCredential('ana', fn () => null, function (): bool {
+                $this->token('ana', (new AuthUsersMapper($this->db))->issue('ana'));
+                return false;
+            }, $causes->classifier());
+            $this->assertSame([], $this->rechecks->causes('ana'), 'the issuance consumed C');
+            $this->assertSame(['issue_seq' => '3', 'revoked_below' => '2'], $this->generations('ana'));
+            $this->writer->runInternal([], fn () => null, fn (): bool => $this->life->transition('team',
+                $this->life->get('team')['gen'], GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16))));
+        });
+        [$listener, $causes] = $this->listener($life);
+        $group = $this->createMock(\OCP\IGroup::class);
+        $group->method('getGID')->willReturn('team');
+
+        $listener->handle(new \OCP\Group\Events\BeforeGroupDeletedEvent($group));
+        $this->assertSame('pending_delete', $this->life->get('team')['state'], 'the second round marked it');
+        $this->assertSame([], $this->rechecks->causes('ana'), 'C is never written back');
+        $this->memberOf['ana'] = [];
+        $listener->handle(new \OCP\Group\Events\GroupDeletedEvent($group));
+
+        $this->assertNull($this->life->get('team'));
+        $this->assertSame(['issue_seq' => '3', 'revoked_below' => '2'], $this->generations('ana'), 'generation 3 survives');
     }
 }

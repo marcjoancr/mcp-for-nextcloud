@@ -44,9 +44,9 @@ use Throwable;
  *   on the gen read with the causes; losing it means the lifecycle moved in between, typically a group save that
  *   relied on G to keep a holder and renewed G's gen (PolicyWriter::setGroupGrants()), so the causes were judged
  *   against a policy that no longer holds. The Before then judges the holders again against the new state and retries
- *   (at most MARK_ROUNDS rounds, the same gen per holder, one native operation); if it still cannot mark, it records a
- *   cause for every live holder in G, without the relevance filter (Q1: an ambiguous removal revokes), and the After
- *   suspends G.
+ *   (at most MARK_ROUNDS rounds; only holders without a cause recorded in this Before get one, so a cause an issuance
+ *   consumed in between is never written back); if it still cannot mark, it records a cause for every live holder in
+ *   G not recorded yet, without the relevance filter (Q1: an ambiguous removal revokes), and the After suspends G.
  * - GroupDeletedEvent(G): purges G's rows and lifecycle under the mutex only if it still carries the gen the Before
  *   wrote (a policy saved since keeps its new gen), then the protocol for each cause the Before recorded. When the
  *   Before could not record its gen, the lifecycle goes to needs_confirm instead of being left active.
@@ -167,8 +167,11 @@ class GroupLifecycleListener implements IEventListener {
     }
 
     /**
-     * Records the cause (U, G) of each holder, keeping one gen per holder across the rounds of one Before (the same
-     * native operation, contracts §3.3.1); a failing holder is logged and left to observed use.
+     * Records the cause (U, G) of each holder not recorded yet in this Before (the same native operation, contracts
+     * §3.3.1). A cause recorded in an earlier round is never written again: an issuance may have consumed it since
+     * (cutting the old generations and issuing a new one), and writing it back would let the After cut the new
+     * credential. Its gen stays in the context for the After, which finds nothing to do once it is consumed. A holder
+     * whose write failed is retried in the next round; a failing holder is logged and left to observed use.
      *
      * @param list<string> $holders uids
      * @param array<string, array{uid:string, gen:string}> $causes the causes recorded so far, by a digest of the uid
@@ -176,7 +179,10 @@ class GroupLifecycleListener implements IEventListener {
     private function record(string $gid, array $holders, array &$causes): void {
         foreach ($holders as $uid) {
             $key = hash('sha256', $uid);
-            $gen = $causes[$key]['gen'] ?? bin2hex(random_bytes(16));
+            if (isset($causes[$key])) {
+                continue;
+            }
+            $gen = bin2hex(random_bytes(16));
             try {
                 $this->rechecks->record($uid, RecheckMapper::REASON_GROUP, $gid, $gen, $this->time->getTime());
                 $causes[$key] = ['uid' => $uid, 'gen' => $gen];
