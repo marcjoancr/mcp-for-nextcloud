@@ -241,6 +241,16 @@ owner's calendar id through a rename, a withdrawal and a new share, and its recr
 id that the old scope does not reach (S15). The calendar tools need the Calendar app, which the harness does not
 install, so they run through the container's `CalendarModule` inside one policy operation, as the endpoint runs them.
 
+## Access inspector (ticket 13; issue #4 A5, B6)
+
+`Exclusion/InspectorTest.php` checks the inspector against what the tools really do: each reason it gives for a path
+(direct tag, tagged folder named by its path, share origin for the recipient, unreadable configuration) comes with
+`files_read` refusing that path exactly like a missing one, and a path it reports as reached is read; the effective
+access of `notes.delete` and `files.create` is whether the endpoint's `tools/list` holds `notes_delete` and
+`files_mkdir`, and with the service off every operation is blocked by the service and the endpoint admits nothing; the
+container's inspector explains a task list through its scope; and a non-administrator gets a refusal before anything is
+inspected on each route.
+
 ## Exclusion proof (issue #4, A4)
 
 `Exclusion/` runs the real scenarios of the exclusion by tags (V2, V3, V4, V5, V7, V9 phase 1, V14) and the positive
