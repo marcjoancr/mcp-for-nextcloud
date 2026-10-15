@@ -95,7 +95,8 @@ final class ResolutionCoreTest extends TestCase {
         $this->logs->method('available')->willReturn(true);
         $this->logs->method('permits')->willReturn(true);
         $this->writer = new PolicyWriter($this->db, $this->state, $this->createMock(PolicyEventsMapper::class),
-            $this->config, $this->userConfig, $this->appConfig, $this->users, new InMemoryOAuthStore());
+            $this->config, $this->userConfig, $this->appConfig, $this->users, new InMemoryOAuthStore(),
+            $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
         $this->resolver = $this->resolver();
     }
 

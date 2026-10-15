@@ -89,7 +89,7 @@ final class LogsRoleReaderTest extends TestCase {
         $remote->method('allowsAdminActions')->willReturn($remoteAllowed);
         $session = $this->session($sessionUid);
         $manager = $this->coreManager($remote, $session, [$backend], $strict);
-        $logs = new LogsAccess($config, $manager, $mapper, $this->createMock(ILockingProvider::class));
+        $logs = new LogsAccess($config, $manager, $mapper, $this->createMock(ILockingProvider::class), InMemoryConfig::writer($config));
         return [$logs, new LogsRoleReader($logs, $manager, $remote, $session)];
     }
 
