@@ -83,6 +83,8 @@ final class FakeTree {
     public ?\Closure $afterCreate = null;
     /** @var (\Closure(string): void)|null runs after each successful putContent() with the path written */
     public ?\Closure $afterWrite = null;
+    /** @var (\Closure(string, mixed): void)|null runs at the start of each putContent() with the path and the data it received */
+    public ?\Closure $beforeWrite = null;
     /** @var (\Closure(string): void)|null hook after deleting an empty directory */
     public ?\Closure $afterDelete = null;
     /** @var list<\OCP\Files\Search\ISearchQuery> queries received by Folder::search */
@@ -239,6 +241,9 @@ final class FakeTree {
         });
         $file->method('putContent')->willReturnCallback(function ($data) use ($path): void {
             $this->ops[] = "write $path";
+            if ($this->beforeWrite !== null) {
+                ($this->beforeWrite)($path, $data);
+            }
             $isBackup = str_starts_with($path, $this->root . '/MCP backups/');
             if (($isBackup && $this->failBackupWrite) || (!$isBackup && $this->failWrite)) {
                 throw new NotPermittedException();

@@ -174,27 +174,14 @@ final class MountsTest extends ExclusionTestCase {
         $this->assertTrue($versions->ok(), 'files_versions_list: ' . $versions->describe());
         $revision = $versions->json()['versions'][0]['revision'] ?? null;
         $this->assertIsString($revision, 'the groupfolder file has a version: ' . $versions->describe());
-        // The groupfolder takes a lock for the rollback; a refusal that says to try again is retried, like a client would.
-        for ($attempt = 1; $attempt <= 4; $attempt++) {
-            $restore = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
-            if ($restore->ok() || !str_contains($restore->text(), 'try again')) {
-                break;
-            }
-            sleep(2);
-        }
-        $this->observe("V7 restore in the groupfolder: attempts used $attempt");
-        if (!$restore->ok()) {
-            // Is the refusal the exclusion's? The same restore with no exclusion configured at all tells.
-            $this->setHidden([]);
-            $without = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
-            $this->exclude();
-            if (!$without->ok()) {
-                $this->observe('V7 restore in the groupfolder is refused with no exclusion configured too (core/groupfolders on this cell, not an '
-                    . 'exclusion matter): ' . substr($without->text(), 0, 160));
-                $this->markTestSkipped('The groupfolder version restore is refused here without any exclusion as well; nothing to attribute to the guard.');
-            }
-        }
+        // Regression of the restore refused with "Resource locked by another operation" where files_lock is installed
+        // (NC 34 and 35): the tool wrote the version over the file while the version's own stream was still open. It
+        // must work at the first attempt, with no retry and no skip, on every cell.
+        $restore = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
         $this->assertTrue($restore->ok(), 'files_version_restore in the groupfolder: ' . $restore->describe());
+        $read = $alice->tool('files_read', ['path' => $path]);
+        $this->assertTrue($read->ok(), $read->describe());
+        $this->assertStringNotContainsString('third', explode("\n", $read->text())[0], 'the file holds the restored version, not the last write');
     }
 
     public function testRecordsWhetherAnExternalStorageKeepsVersions(): void {

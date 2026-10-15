@@ -8,6 +8,10 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 - l10n: German translation (`de`) of the whole interface and of the messages shown by the tools. German translation by @matt-ek ([#10](https://github.com/sintax-tech/mcp-for-nextcloud/issues/10)).
 
+### Fixed
+
+- files: restoring a file version in a team folder failed with "Resource locked by another operation" when the files_lock app is installed (Nextcloud 34 and 35). The tool wrote the version over the file while the stream it had read from the version was still open; it now copies the version first, closes its stream and then writes the copy, with the same lock checks and the same backup as before.
+
 ## 1.0.8
 
 ### Changed
