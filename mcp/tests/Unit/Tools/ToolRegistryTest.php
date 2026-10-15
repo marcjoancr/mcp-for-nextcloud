@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Unit\Tools;
 
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCA\Mcp\Tools\ToolFailure;
@@ -30,8 +31,15 @@ final class ToolRegistryTest extends TestCase {
     public ?\Throwable $throw = null;
     private LoggerInterface $logger;
 
+    /** @var list<string> the alternatives of s_share, in the order the definition lists them */
+    public array $shareAnyOf = ['share', 'link'];
+    private InMemoryConfig $data;
+    private \OCP\IConfig $config;
+
     protected function setUp(): void {
-        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy((new InMemoryConfig())->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $this->data = new InMemoryConfig();
+        $this->config = $this->data->mock($this);
+        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->config, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $this->logger = $this->createMock(LoggerInterface::class);
     }
 
@@ -51,7 +59,7 @@ final class ToolRegistryTest extends TestCase {
                     ['name' => 'c_read', 'description' => 'c', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'calendar', 'operation' => 'read', 'app' => 'calendar'],
                     ['name' => 'd_read', 'description' => 'd', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'deck', 'operation' => 'read', 'app' => 'deck'],
                     ['name' => 't_read', 'description' => 't', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'talk', 'operation' => 'read', 'app' => 'spreed'],
-                    ['name' => 's_share', 'description' => 's', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'share', 'grantAnyOf' => ['share', 'link']],
+                    ['name' => 's_share', 'description' => 's', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'share', 'grantAnyOf' => $this->test->shareAnyOf],
                 ];
             }
             public function call(string $name, array $arguments, string $userId): array {
@@ -193,6 +201,49 @@ final class ToolRegistryTest extends TestCase {
         $this->assertSame('share', array_column($this->registry()->definitions('alice'), null, 'name')['s_share']['operation']);
         $guide = $this->registry()->call('mcp_guide', ['tool' => 's_share'], 'alice')['content'][0]['text'];
         $this->assertStringContainsString('Grant operation: `share` or `link`.', $guide);
+    }
+
+    public static function alternativeOrders(): iterable {
+        yield 'share, link' => [['share', 'link']];
+        yield 'link, share' => [['link', 'share']];
+    }
+
+    /**
+     * Finding F1 of the review of ticket 09: "any of" is three-valued, so the order of the alternatives never changes the
+     * answer. A known Allow of link admits the tool even while share is unknown (its only source is a group in
+     * needs_confirm); without that Allow the unknown makes the listing and the call unavailable, never a denial; with
+     * every alternative known and denied the tool is hidden.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('alternativeOrders')]
+    public function testAnUnknownAlternativeNeverHidesAKnownAllowInEitherOrder(array $order): void {
+        $this->shareAnyOf = $order;
+        $this->data->groupBackends = [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn (): array => ['paused' => ['alice']])];
+        InMemoryConfig::groupPolicy($this->config, 'paused', ['files' => ['share']], 'needs_confirm');
+        $this->policy->setGrant('alice', 'files', 'link', true);
+        $this->assertContains('s_share', array_column($this->registry()->list('alice'), 'name'));
+        $this->registry()->call('s_share', ['confirm' => true], 'alice');
+        $this->assertSame('s_share', $this->calls[0][0], 'the link Allow lets the call in; the module checks the concrete type');
+        $this->assertTrue($this->policy->granted('alice', 'files', 'link'));
+        try {
+            $this->policy->granted('alice', 'files', 'share');
+            $this->fail('The person share became known through the link Allow');
+        } catch (PolicyUnavailable) {
+        }
+
+        $this->policy->setGrant('alice', 'files', 'link', false);
+        foreach ([fn () => $this->registry()->list('alice'), fn () => $this->registry()->call('s_share', ['confirm' => true], 'alice')] as $use) {
+            try {
+                $use();
+                $this->fail('Unknown and denied alternatives answered without the unknown one');
+            } catch (PolicyUnavailable) {
+            }
+        }
+        $this->assertCount(1, $this->calls);
+
+        InMemoryConfig::groupPolicy($this->config, 'paused', ['files' => ['share']]);
+        $this->policy->setGrant('alice', 'files', 'share', false);
+        $this->assertNotContains('s_share', array_column($this->registry()->list('alice'), 'name'), 'every alternative known and denied');
+        $this->assertUnknown('s_share');
     }
 
     public function testListedDefinitionsExposeOnlyMcpFields(): void {

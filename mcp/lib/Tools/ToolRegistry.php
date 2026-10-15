@@ -260,18 +260,17 @@ class ToolRegistry {
      * The grant decides first: the tool's operation, or any of the alternatives it lists in `grantAnyOf` when the kind
      * of write depends on the arguments (files_share shares with a person under `share` and creates a public link
      * under `link`). A tool listing alternatives must check the one each call needs itself, before planning and again
-     * before writing; the registry only lets the call in.
+     * before writing; the registry only lets the call in. With no alternative granted and one unknown, the answer is
+     * unknown (PolicyUnavailable, 503), never a denial.
      *
      * @param array{module:string, operation:string, grantAnyOf?:list<string>, app?:string} $definition
      */
     private function allowed(array $definition, string $userId): bool {
-        $granted = false;
-        foreach ($definition['grantAnyOf'] ?? [$definition['operation']] as $operation) {
-            try {
-                $granted = $granted || $this->policy->granted($userId, $definition['module'], $operation);
-            } catch (InvalidArgumentException) {
-                return false;
-            }
+        try {
+            // Three-valued "any of": a known Allow wins over an unknown alternative, whatever their order.
+            $granted = $this->policy->grantedAny($userId, $definition['module'], $definition['grantAnyOf'] ?? [$definition['operation']]);
+        } catch (InvalidArgumentException) {
+            return false;
         }
         if (!$granted) {
             return false;

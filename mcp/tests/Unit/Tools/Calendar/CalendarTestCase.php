@@ -178,6 +178,8 @@ abstract class CalendarTestCase extends TestCase {
         );
         $policy = $this->createMock(\OCA\Mcp\Service\GrantPolicy::class);
         $policy->method('granted')->willReturn(true);
+        // The registry admits a tool through grantedAny (its operation, or its grantAnyOf alternatives).
+        $policy->method('grantedAny')->willReturn(true);
         $apps = $this->createMock(\OCP\App\IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
         $this->registry = new \OCA\Mcp\Tools\ToolRegistry(

@@ -259,6 +259,40 @@ class GrantPolicy {
     }
 
     /**
+     * Whether any of the operations is granted, as the admission of a tool whose kind of write depends on its
+     * arguments (files_share: `share` for a person, `link` for a public link). Three-valued, so the order of the
+     * alternatives never changes the answer: a known Allow of any of them is true, even when another one is unknown;
+     * without an Allow, an unknown one makes the answer unknown; only when every one is known and denied is it false.
+     * The call itself still checks the concrete operation it needs (ShareAccess::assertGranted).
+     *
+     * @param string $uid Nextcloud user id
+     * @param string $module key of CATALOG
+     * @param non-empty-list<string> $operations operations of the module
+     * @return bool whether at least one of them is granted
+     * @throws InvalidArgumentException for an empty list, or a module or operation outside CATALOG
+     * @throws PolicyUnavailable when no alternative is granted and one is unknown, or the policy cannot be read
+     */
+    public function grantedAny(string $uid, string $module, array $operations): bool {
+        if ($operations === []) {
+            throw new InvalidArgumentException('No operation');
+        }
+        foreach ($operations as $operation) {
+            self::grantKey($module, $operation);
+        }
+        return $this->read($uid, static function (PolicyOperationContext $context) use ($module, $operations): bool {
+            $unknown = false;
+            foreach ($operations as $operation) {
+                $allowed = $context->granted($module, $operation)->allowed;
+                if ($allowed === true) {
+                    return true;
+                }
+                $unknown = $unknown || $allowed === null;
+            }
+            return $unknown ? self::known(null) : false;
+        });
+    }
+
+    /**
      * What a user who was never given nor denied the grant gets: read is allowed, except in DENIED_READS, and every
      * other operation is denied.
      *

@@ -224,4 +224,26 @@ final class GrantPolicyGroupsTest extends TestCase {
         $this->alice([], '0');
         $this->assertNull($this->policy->admission('alice', false));
     }
+
+    /** grantedAny is three-valued: a known Allow wins in any order; unknown without Allow throws; all denied is false. */
+    public function testGrantedAnyIsThreeValuedAndOrderFree(): void {
+        $this->groups = ['paused' => ['alice']];
+        InMemoryConfig::groupPolicy($this->config, 'paused', ['files' => ['share']], 'needs_confirm');
+        $this->alice(['eligible' => '1', 'connected' => '1', 'grant_files_link' => '1'], '1');
+        $this->assertTrue($this->policy->grantedAny('alice', 'files', ['share', 'link']));
+        $this->assertTrue($this->policy->grantedAny('alice', 'files', ['link', 'share']));
+        $this->alice(['eligible' => '1', 'connected' => '1', 'grant_files_link' => '0'], '1');
+        foreach ([['share', 'link'], ['link', 'share'], ['share']] as $operations) {
+            try {
+                $this->policy->grantedAny('alice', 'files', $operations);
+                $this->fail('An unknown alternative was answered as a denial');
+            } catch (PolicyUnavailable) {
+                $this->addToAssertionCount(1);
+            }
+        }
+        $this->alice(['eligible' => '1', 'connected' => '1', 'grant_files_link' => '0', 'grant_files_share' => '0'], '1');
+        $this->assertFalse($this->policy->grantedAny('alice', 'files', ['share', 'link']));
+        $this->expectException(\InvalidArgumentException::class);
+        $this->policy->grantedAny('alice', 'files', ['share', 'delete']);
+    }
 }
