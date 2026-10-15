@@ -36,3 +36,6 @@ A4 must also include real positive controls: an unexcluded file in the user's
 home, an internal share, a groupfolder and local external storage must remain
 visible. The guard requires ancestry terminating in `IRootFolder`; these controls
 must fail CI if a real mount violates that assumption and hides every file.
+
+The implemented A3 gate, its D6 precedence, URL nullability and translation fallback
+are specified in [the D7 contract map](FOLDER-EXPOSURE.md) and `FolderExposureTest`.

@@ -330,14 +330,16 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
             $this->plan('files_copy', $arguments);
             $this->fail('o plano aceitou copiar uma pasta com arquivo oculto');
         } catch (\OCA\Mcp\Tools\ToolFailure $e) {
-            $this->assertSame(CommonMessages::forbidden(), $e->getMessage());
+            $this->assertSame(FilesMessages::folderExposureRefused(), $e->getMessage());
         }
-        $this->assertSame(CommonMessages::forbidden(), $this->failure('files_copy', $arguments + ['confirm' => true]));
+        $this->assertSame(FilesMessages::folderExposureRefused(), $this->failure('files_copy', $arguments + ['confirm' => true]));
         $this->assertSame([], $this->tree->ops, 'nada copiado');
         $this->assertArrayNotHasKey('/alice/files/Copia/Pasta', $this->tree->nodes);
 
-        $out = $this->json('files_copy', ['from' => '/Documentos/2026', 'to' => '/Copia/2026', 'confirm' => true]);
-        $this->assertSame(2, $out['nodes'], 'uma pasta sem oculto continua sendo copiada');
+        $this->assertSame(FilesMessages::folderExposureRefused(),
+            $this->failure('files_copy', ['from' => '/Documentos/2026', 'to' => '/Copia/2026', 'confirm' => true]));
+        $out = $this->json('files_copy', ['from' => '/Documentos/2026/plano.md', 'to' => '/Copia/plano.md', 'confirm' => true]);
+        $this->assertSame(1, $out['nodes'], 'An individual visible file can still be copied');
     }
     public function testMoveMutationCannotReturnReceiptForNewlyHiddenItem(): void {
         $hidden = [];

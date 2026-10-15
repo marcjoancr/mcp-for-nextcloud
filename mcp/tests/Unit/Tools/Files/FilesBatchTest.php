@@ -37,7 +37,7 @@ final class FilesBatchTest extends FilesToolsTestCase {
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = '["999"]';
         $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $mapper, $this->visibilityRoot());
         $this->setUp();
-        $this->tree->addFolder('/alice/files/Incoming');
+        $this->tree->addFile('/alice/files/Incoming', 'visible source');
         $this->tree->addFile('/alice/files/Arquivado/item-secret.txt', 'x');
         // Simulate a privacy hook setting a tag after the first move. The plan
         // has already verified/cached the child, whose id survives the move.

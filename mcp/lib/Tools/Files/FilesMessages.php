@@ -15,6 +15,11 @@ use OCA\Mcp\Tools\Common\CommonMessages;
  * messages. Handlers hold no text literal; this is the single entry point for IL10N.
  */
 final class FilesMessages {
+    /** D7 refusal for folder operations that could expose an unverified subtree. */
+    public static function folderExposureRefused(): string {
+        return Translator::t('Folders cannot be shared, copied or moved to another directory through this connector while files are excluded from MCP access. Use the Nextcloud Files interface for these folder operations.');
+    }
+
     /** Folder in the user's root that receives a copy of every file before an edit writes it. */
     public const BACKUP_FOLDER = FileBackup::FOLDER;
 

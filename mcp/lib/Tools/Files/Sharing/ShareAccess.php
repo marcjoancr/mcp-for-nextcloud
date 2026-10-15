@@ -51,6 +51,16 @@ final class ShareAccess {
         private VisibilityGuard $visibilityGuard,
     ) {}
 
+    /** D6 visibility is checked by ownNode before a writer applies D7. */
+    public function assertFolderExposure(\OCP\Files\Node $node): void {
+        \OCA\Mcp\Tools\Files\FolderExposureGate::assertExposure($node, $this->visibilityGuard);
+    }
+
+    public function hideFolderUrl(\OCP\Files\Node $node): bool {
+        return NodeAccess::isFolder($node)
+            && \OCA\Mcp\Tools\Files\FolderExposureGate::active($this->visibilityGuard);
+    }
+
     /**
      * The node at a path, when the user may share it: it exists, is visible, is readable, is not the user
      * folder itself and belongs to the user.

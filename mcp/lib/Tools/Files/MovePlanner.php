@@ -58,6 +58,7 @@ final class MovePlanner {
      * @throws \InvalidArgumentException for a malformed folder path
      */
     public function plan(Folder $root, string $userId, array $moves, array $mkdirs): MovePlan {
+        $this->reorganization->assertFolderMoves($root, $moves);
         $planned = [];
         $personal = [];
         $conflicts = [];
