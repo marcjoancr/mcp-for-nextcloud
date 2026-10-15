@@ -24,11 +24,11 @@ use OCP\Server;
 /** T6/T14: the real manager/backend and lifecycle storage, with repeated operations in one process. */
 final class GroupResolutionTest extends IntegrationTestCase {
     private string $gid = '';
-    private ?GroupInterface $extra = null;
+    private ?\stdClass $extraState = null;
 
     protected function tearDown(): void {
-        if ($this->extra !== null) {
-            Server::get(IGroupManager::class)->removeBackend($this->extra);
+        if ($this->extraState !== null) {
+            $this->extraState->serves = false;
         }
         parent::tearDown();
         if ($this->gid !== '') {
@@ -81,11 +81,15 @@ final class GroupResolutionTest extends IntegrationTestCase {
             $life->put($this->gid, 'active', bin2hex(random_bytes(16)), $state['revision']);
             return true;
         });
-        $this->extra = $this->createMockForIntersectionOfInterfaces([GroupInterface::class, INamedBackend::class]);
-        $this->extra->method('getBackendName')->willReturn('Database');
-        $this->extra->method('groupExists')->willReturnCallback(fn ($gid) => $gid === $this->gid);
-        $this->extra->method('getUserGroups')->willReturnCallback(fn ($uid) => $uid === Fixtures::ALICE ? [$this->gid] : []);
-        $manager->addBackend($this->extra);
+        // removeBackend is new in NC35. Keep this test backend registered but inert after the test,
+        // using only APIs available across NC32–35; never clear the real manager's backends or caches.
+        $extra = $this->createMockForIntersectionOfInterfaces([GroupInterface::class, INamedBackend::class]);
+        $state = $this->extraState = (object)['serves' => true, 'gid' => $this->gid];
+        $extra->method('getBackendName')->willReturn('Database');
+        $extra->method('groupExists')->willReturnCallback(static fn ($gid) => $state->serves && $gid === $state->gid);
+        $extra->method('getUserGroups')->willReturnCallback(static fn ($uid) => $state->serves && $uid === Fixtures::ALICE ? [$state->gid] : []);
+        $extra->method('getGroups')->willReturn([]);
+        $manager->addBackend($extra);
         $this->assertFalse($classifier->trusted($this->gid));
         $resolver = Server::get(PolicyResolver::class);
         $context = $resolver->begin(Fixtures::ALICE);
@@ -93,8 +97,7 @@ final class GroupResolutionTest extends IntegrationTestCase {
             $this->assertNull($context->eligible()->allowed);
             $this->assertSame('needs_confirm', $life->get($this->gid)['state']);
         } finally { $context->close(); }
-        $manager->removeBackend($this->extra);
-        $this->extra = null;
+        $state->serves = false;
         $this->assertTrue($classifier->trusted($this->gid));
         $context = $resolver->begin(Fixtures::ALICE);
         try { $this->assertNull($context->eligible()->allowed); }
