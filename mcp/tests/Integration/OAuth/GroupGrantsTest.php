@@ -99,6 +99,20 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
         return $code;
     }
 
+    /**
+     * The same for the exchange: until ticket 09 the credential owner gate reads the individual flag too, so it stays
+     * granted from the consent through the exchange and is taken back only afterwards.
+     *
+     * @return array<string, string|int>
+     */
+    private function exchangeGroupOnly(): array {
+        Server::get(IConfig::class)->setUserValue($this->uid, 'mcp', 'eligible', '1');
+        Server::get(IUserConfig::class)->clearCache($this->uid, false);
+        $tokens = $this->exchange($this->consent());
+        $this->groupOnly();
+        return $tokens;
+    }
+
     private function refreshFails(array $tokens): bool {
         try {
             Server::get(TokenService::class)->refresh(['refresh_token' => $tokens['refresh_token'], 'client_id' => self::CLIENT]);
@@ -319,7 +333,7 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
         $tokens = $code = null;
         $hooks = [function () use ($group, &$tokens, &$code): void {
             $group->addUser($this->user);
-            $tokens = $this->exchange($this->consentGroupOnly());
+            $tokens = $this->exchangeGroupOnly();
             $code = $this->consentGroupOnly();
         }];
         try {
