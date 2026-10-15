@@ -24,6 +24,15 @@ baseline worktree of the upgrade mode, and runs `colima stop`, but only when the
 that was already running is left running). Images stay cached as files unless `--prune-images` is given. The pinned
 images are multi-architecture and run natively as arm64 on Apple silicon; the script prints the architecture it got.
 
+Several runs can be started from different places: each names its containers and network with its own id and removes
+only those, and they take the engine in turn through `~/.colima/mcp-it.lock` (waiting runs queue in
+`~/.colima/mcp-it.queue`; a lock whose owner is gone is taken over). The run that started Colima stops it only when
+no other run is waiting, otherwise the next run takes over stopping it.
+
+**Never run `colima stop` (or `docker rm` on the `mcp-it-*` containers) by hand while a run may exist**: it cuts the run
+in progress. To shut the engine down yourself use `ci/run-local.sh --shutdown`: it waits its turn in the same queue,
+removes what dead runs left behind, and stops Colima only when no run is waiting.
+
 Logs and artifacts (`resources.log` holds the memory samples; `mcp-it/artifacts/` the junit, Nextcloud and database
 logs) land in `mcp/tests/Integration/.local-runs/<cell>-<timestamp>/`, which is git-ignored. The exit status is the
 suite's. A cell takes about 1.5 to 3 minutes once the images are pulled and the engine (a Linux VM with 4 CPUs and
