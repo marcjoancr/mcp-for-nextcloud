@@ -38,7 +38,31 @@ final class DiagnosticsTest extends ExclusionTestCase {
 
         $home = $this->makeFile('home', 'diag.txt', 'diag');
         $this->shareToUser($home, self::ALICE, self::BOB);
-        $this->record('home file shared to bob, as bob sees it', $this->userFolder(self::BOB)->get('diag.txt'));
+        try {
+            $this->record('home file shared to bob, as bob sees it', $this->userFolder(self::BOB)->get('diag.txt'));
+        } catch (Throwable $e) {
+            $this->observe('home file shared to bob, as bob sees it: ' . $e::class . ': ' . $e->getMessage());
+        }
+
+        // The steps a files_read of the external file takes, replayed one by one for alice with their exceptions.
+        $relative = trim($this->path('external', 'diag.txt'), '/');
+        $steps = [
+            'get' => fn () => $this->userFolder(self::ALICE)->get($relative),
+            'isReadable' => fn () => $this->userFolder(self::ALICE)->get($relative)->isReadable(),
+            'describe' => fn () => \OCP\Server::get(\OCA\Mcp\Tools\Common\NodeAccessInfo::class)->describe($this->userFolder(self::ALICE)->get($relative), self::ALICE),
+            'getContent' => fn () => $this->userFolder(self::ALICE)->get($relative)->getContent(),
+            'guard' => fn () => $this->newGuard()->isVisible($this->userFolder(self::ALICE)->get($relative)),
+        ];
+        foreach ($steps as $name => $step) {
+            try {
+                $this->observe("replay $name: " . substr(json_encode($step()), 0, 300));
+            } catch (Throwable $e) {
+                $this->observe("replay $name FAILED: " . $e::class . ': ' . $e->getMessage() . ' at ' . basename($e->getFile()) . ':' . $e->getLine());
+            }
+        }
+        $dav = \OCA\Mcp\Tests\Integration\Support\Http::request('GET', \OCA\Mcp\Tests\Integration\Support\Http::BASE . '/remote.php/dav/files/' . self::ALICE . '/' . $relative,
+            ['Authorization: ' . $this->login(self::ALICE)->authorization()]);
+        $this->observe('WebDAV GET of the external file as alice -> HTTP ' . $dav['status']);
 
         // What the server's own HTTP endpoints answer for the same places, without any exclusion configured.
         $alice = $this->mcp();
