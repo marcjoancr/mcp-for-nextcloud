@@ -20,6 +20,9 @@ use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCA\Mcp\Tools\Calendar\CalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarModule;
 use OCA\Mcp\Tools\Tasks\TasksModule;
+use OCP\Config\IUserConfig;
+use OCP\IAppConfig;
+use OCP\IConfig;
 use OCP\Server;
 use RuntimeException;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
@@ -40,10 +43,20 @@ final class CalendarScopeTest extends IntegrationTestCase {
     private string $run = '';
     /** @var list<int> calendars to delete */
     private array $created = [];
+    /** @var array{service:?string, eligible:?string, connected:?string} raw values before the test; null = absent */
+    private array $before = [];
 
     protected function setUp(): void {
         parent::setUp();
         $this->run = bin2hex(random_bytes(4));
+        // Other tests read alice's eligibility from groups only, so the individual values set here are put back.
+        $apps = Server::get(IAppConfig::class);
+        $users = Server::get(IUserConfig::class);
+        $this->before = [
+            'service' => $apps->hasKey('mcp', GrantPolicy::SERVICE_KEY) ? $apps->getValueString('mcp', GrantPolicy::SERVICE_KEY) : null,
+            'eligible' => $users->hasKey(Fixtures::ALICE, 'mcp', GrantPolicy::ELIGIBLE_KEY) ? $users->getValueString(Fixtures::ALICE, 'mcp', GrantPolicy::ELIGIBLE_KEY) : null,
+            'connected' => $users->hasKey(Fixtures::ALICE, 'mcp', GrantPolicy::CONNECTED_KEY) ? $users->getValueString(Fixtures::ALICE, 'mcp', GrantPolicy::CONNECTED_KEY) : null,
+        ];
         $policy = Server::get(GrantPolicy::class);
         $policy->setGlobalEnabled(true);
         $policy->setEligible(Fixtures::ALICE, true);
@@ -56,6 +69,13 @@ final class CalendarScopeTest extends IntegrationTestCase {
             $qb = $db->getQueryBuilder();
             $qb->delete($table)->where($qb->expr()->eq('user_key', $qb->createNamedParameter(IdentityKey::user(Fixtures::ALICE))))->executeStatement();
         }
+        $config = Server::get(IConfig::class);
+        $this->before['service'] === null ? $config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY) : $config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, $this->before['service']);
+        foreach (['eligible' => GrantPolicy::ELIGIBLE_KEY, 'connected' => GrantPolicy::CONNECTED_KEY] as $name => $key) {
+            $this->before[$name] === null ? $config->deleteUserValue(Fixtures::ALICE, 'mcp', $key) : $config->setUserValue(Fixtures::ALICE, 'mcp', $key, $this->before[$name]);
+        }
+        Server::get(IUserConfig::class)->clearCache(Fixtures::ALICE, false);
+        Server::get(IAppConfig::class)->clearCache(false);
         foreach ($this->created as $id) {
             try {
                 $this->backend()->deleteCalendar($id, true);
