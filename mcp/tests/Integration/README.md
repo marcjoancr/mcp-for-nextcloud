@@ -33,6 +33,11 @@ no other run is waiting, otherwise the next run takes over stopping it.
 in progress. To shut the engine down yourself use `ci/run-local.sh --shutdown`: it waits its turn in the same queue,
 removes what dead runs left behind, and stops Colima only when no run is waiting.
 
+Diagnostics: mode `baseline` installs the released baseline (the tag in the workflow) and never upgrades it, so a scenario can
+be run against the published code; `MCP_IT_PHPUNIT_ARGS="--filter SomeTest"` limits the suite to one test. They exist for
+`Exclusion/GroupfolderRestoreDiagnosticTest`, which records in `observations.txt` where a groupfolder version restore is
+refused (see `EXCLUSION-MATRIX.md`).
+
 Logs and artifacts (`run.log` is the terminal output, `resources.log` the memory samples, `mcp-it/artifacts/` the junit,
 Nextcloud and database logs, `observations.txt` and `provision.log`) land in
 `mcp/tests/Integration/.local-runs/<cell>-<timestamp>/`, which is git-ignored. The exit status is the suite's.

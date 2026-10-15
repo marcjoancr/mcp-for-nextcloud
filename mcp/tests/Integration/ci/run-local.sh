@@ -13,8 +13,9 @@
 # started the engine stops it only when no other run is waiting; otherwise the engine stays up and the next run takes
 # over the duty to stop it (~/.colima/mcp-it.engine).
 #
-# Usage: run-local.sh <nc 32|33|34|35> <db mariadb|pgsql|sqlite> <mode fresh|upgrade> [--prune-images]
+# Usage: run-local.sh <nc 32|33|34|35> <db mariadb|pgsql|sqlite> <mode fresh|upgrade|baseline> [--prune-images]
 #        run-local.sh --shutdown   (the only safe way to stop the engine by hand; see above)
+#   baseline        diagnostics: the released baseline stays installed, never upgraded (use with MCP_IT_PHPUNIT_ARGS)
 #   --prune-images  also removes the images this run pulled (default: kept, they are only files on disk)
 #
 # Logs and artifacts (run.log, resources.log, mcp-it/artifacts/: junit.xml, nextcloud.log, observations.txt,
@@ -102,7 +103,7 @@ if [ "${1:-}" = "--shutdown" ]; then
 fi
 
 usage() {
-    echo "Usage: $0 <nc 32|33|34|35> <db mariadb|pgsql|sqlite> <mode fresh|upgrade> [--prune-images] | $0 --shutdown" >&2
+    echo "Usage: $0 <nc 32|33|34|35> <db mariadb|pgsql|sqlite> <mode fresh|upgrade|baseline> [--prune-images] | $0 --shutdown" >&2
     exit 2
 }
 
@@ -112,7 +113,7 @@ CELL_DB=$2
 CELL_MODE=$3
 PRUNE_IMAGES=0
 [ "${4:-}" = "--prune-images" ] && PRUNE_IMAGES=1
-case "$CELL_MODE" in fresh|upgrade) ;; *) usage ;; esac
+case "$CELL_MODE" in fresh|upgrade|baseline) ;; *) usage ;; esac
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO_ROOT=$(cd "$HERE/../../../.." && pwd)

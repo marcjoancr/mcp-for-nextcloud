@@ -148,7 +148,11 @@ What this adds to the real proof:
   folder of the recipient's own is renamed in place with an exclusion configured.
 - **Stale window of the exclusion list**, measured again with the cache on: 2.82 s to 3.86 s in these seven cells, on top of
   the 2.66 s to 3.94 s of the GitHub run (the core TTL is 3 s).
-- **Version restore of a groupfolder file** (not an exclusion matter): accepted at the first attempt on NC 32 and NC 33
-  (groupfolders 20 and 21), but refused with "Resource locked by another operation; try again" on NC 34 and NC 35
-  (groupfolders 22 and 23) on every database, even with no exclusion configured at all, and after four retries. The test
-  therefore skips there instead of blaming the guard. It is a product or groupfolders question to follow up on its own.
+- **Version restore of a groupfolder file** (not an exclusion matter, diagnosed with
+  `Exclusion/GroupfolderRestoreDiagnosticTest`): refused with "Resource locked by another operation; try again" where the
+  `files_lock` app is installed (the NC 34 and NC 35 images; not NC 32 and NC 33), also with the released v1.0.8 code and
+  with no exclusion configured. There the tool writes the version over the file with `putContent` while the version stream
+  it read is still open (`VersionTools::writeVersion`); the lock on the file cannot be raised while that stream is open.
+  The same sequence in one process fails on every NC from 32 to 35, and writing the bytes after closing the stream works on
+  all of them, as does the server's own restore (WebDAV MOVE of the version). Without `files_lock` the tool calls the
+  version manager's `rollback` instead, which works. The test skips on the cells where the tool is refused.
