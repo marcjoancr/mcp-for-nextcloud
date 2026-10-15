@@ -57,6 +57,8 @@ final class StructuredReferenceContractTest extends TestCase {
     private array $tags = [];
     /** @var array<string, IShare> */
     private array $shares = [];
+    /** @var array<string, IShare> public shares by token */
+    private array $tokens = [];
     private VisibilityGuard $guard;
     private ?FileReferenceScope $scope = null;
     private int $okId;
@@ -93,6 +95,7 @@ final class StructuredReferenceContractTest extends TestCase {
     private function filter(): OutputReferenceFilter {
         $shares = $this->createMock(IShareManager::class);
         $shares->method('getShareById')->willReturnCallback(fn (string $id) => $this->shares[$id] ?? throw new \OCP\Share\Exceptions\ShareNotFound());
+        $shares->method('getShareByToken')->willReturnCallback(fn (string $token) => $this->tokens[$token] ?? throw new \OCP\Share\Exceptions\ShareNotFound());
         return OutputReferenceFilters::over($this, $this->tree->filesystemRoot(), $this->guard, $shares, $this->scope);
     }
 
@@ -349,6 +352,86 @@ final class StructuredReferenceContractTest extends TestCase {
 
         self::assertSame($stored, self::attaches($this->data));
         self::assertSame($this->expected(false), self::attaches($result['icalendar']));
+    }
+
+    /** @return list<string> ATTACH values tasks_read_task shows for a stored task carrying the given ATTACH lines */
+    private function readAttach(string ...$lines): array {
+        $this->data = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nBEGIN:VTODO\r\nUID:t1\r\nDTSTAMP:20261001T100000Z\r\n"
+            . "SUMMARY:Work\r\n" . implode('', array_map(static fn (string $line) => $line . "\r\n", $lines)) . "END:VTODO\r\nEND:VCALENDAR\r\n";
+        $task = self::json($this->module()->call('tasks_read_task', ['calendar' => self::PATH, 'uid' => 't1'], 'alice'));
+        return self::attaches($task['icalendar']);
+    }
+
+    private function publicLink(string $token, int $nodeId, string $type): string {
+        $share = $this->createMock(IShare::class);
+        $share->method('getNodeId')->willReturn($nodeId);
+        $share->method('getNodeType')->willReturn($type);
+        $this->tokens[$token] = $share;
+        return self::HOST . '/s/' . $token;
+    }
+
+    /** @return array<string, array{string, list<string>}> exclusion state and the links that stay */
+    public static function folderLinkStates(): array {
+        return [
+            'exclusion tag configured' => ['tag', ['file']],
+            // An unreadable configuration removes every local reference, the file link included.
+            'unreadable exclusion configuration' => ['invalid', []],
+            'no tag, scope only' => ['scope', ['folder', 'file']],
+        ];
+    }
+
+    #[DataProvider('folderLinkStates')]
+    public function testA6PublicFolderLinkIsRemovedWhileAnExclusionIsConfigured(string $state, array $kept): void {
+        $clean = $this->tree->addFolder('/alice/files/Docs/Clean');
+        match ($state) {
+            'invalid' => $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '{"broken":',
+            'scope' => [$this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '[]', $this->useScope()],
+            default => null,
+        };
+        $links = ['folder' => $this->publicLink('folderToken', $clean, 'folder'), 'file' => $this->publicLink('fileToken', $this->okId, 'file')];
+
+        $shown = $this->readAttach('ATTACH:' . $links['folder'], 'ATTACH:' . $links['file']);
+
+        // A folder link is an anonymous capability over the whole subtree, whatever its root shows.
+        self::assertSame(array_values(array_intersect_key($links, array_flip($kept))), $shown);
+        self::assertSame(array_values($links), self::attaches($this->data), 'the DAV object keeps both');
+    }
+
+    public function testA6NextcloudShapesAreCheckedOnLoopbackIpAndAliasHosts(): void {
+        $hidden = [
+            'http://localhost/remote.php/dav/files/alice/Secret/plan.pdf',
+            'http://127.0.0.1/f/' . $this->taggedId,
+            'http://[::1]:8080/index.php/apps/files/?fileid=' . $this->inheritedId,
+            'http://192.168.0.10/f/' . $this->taggedId,
+            'https://alias.example.net/nextcloud/index.php/f/' . $this->inheritedId,
+            'https://alias.example.net/cloud/remote.php/webdav/Secret/plan.pdf',
+            'http://localhost/apps/whatever/42',
+        ];
+        $kept = [
+            'http://192.168.0.10/f/' . $this->okId,
+            'https://alias.example.net/nextcloud/apps/files/files/' . $this->okId,
+            'https://other.example.org/wiki/page',
+        ];
+
+        $shown = $this->readAttach(...array_map(static fn (string $url) => 'ATTACH:' . $url, [...$hidden, ...$kept]));
+
+        self::assertSame($kept, $shown);
+    }
+
+    public function testA6CalendarAppParametersAreCheckedOnAKeptAttach(): void {
+        $okLink = $this->publicLink('okToken', $this->okId, 'file');
+        $shown = $this->readAttach(
+            // As the Calendar app writes it, for an allowed file.
+            'ATTACH;FMTTYPE=application/pdf;FILENAME=/Docs/ok.pdf;X-NC-FILE-ID=' . $this->okId . ';X-NC-HAS-PREVIEW=false:' . $okLink,
+            // Value classified as external, parameters naming a tagged file.
+            'ATTACH;FILENAME=/Docs/tagged.pdf;X-NC-FILE-ID=' . $this->taggedId . ':https://files.example.org/f/1',
+            // A stale X-NC-FILE-ID of a hidden file behind a link to an allowed one.
+            'ATTACH;X-NC-FILE-ID=' . $this->inheritedId . ':' . $okLink,
+            'ATTACH;FILENAME=/Secret/plan.pdf:https://files.example.org/x',
+            'ATTACH;X-NC-FILE-ID=abc:https://files.example.org/y',
+        );
+
+        self::assertSame([$okLink], $shown);
     }
 
     public function testV10NoUrlIsFetched(): void {

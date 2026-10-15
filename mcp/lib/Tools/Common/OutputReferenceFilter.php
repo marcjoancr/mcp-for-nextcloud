@@ -11,6 +11,7 @@ use OCA\Mcp\Service\VisibilityGuard;
 use OCA\Mcp\Tools\Talk\AttachmentAccess;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
+use OCP\Files\NotFoundException;
 use OCP\IConfig;
 use OCP\IURLGenerator;
 use OCP\Share\IManager as IShareManager;
@@ -27,8 +28,9 @@ use Throwable;
  * Files scope, the exclusion tags and the native access. A reference that fails any of them, or that cannot be
  * resolved, is omitted. Free text is never redacted.
  *
- * Nothing here fetches a URL: a local URL is mapped to a file id or a user path by its shape alone, and an external
- * one is kept as it is. With no exclusion configured and no Files scope, every reference passes untouched, as before.
+ * Nothing here fetches a URL: a URL in a Nextcloud shape is mapped to a file id or a user path by its shape alone, on
+ * any host, and a URL in no such shape on another host is kept as it is. With no exclusion configured and no Files
+ * scope, every reference passes untouched, as before.
  */
 class OutputReferenceFilter {
     public function __construct(
@@ -104,85 +106,137 @@ class OutputReferenceFilter {
     }
 
     /**
-     * @return bool whether an ATTACH may stay in the output: inline content and external URLs stay; a local URL stays
-     *              only when every node it names is allowed
+     * Decides an ATTACH of the copy, and drops from it a FILENAME that cannot be checked.
+     *
+     * @return bool whether the ATTACH may stay in the output: its X-NC-FILE-ID and FILENAME parameters, written by the
+     *              Calendar app, must name allowed nodes; then inline content and URLs naming no node stay, and a URL
+     *              in a Nextcloud shape stays only when every node it names is allowed
      */
     private function keepsAttach(string $userId, Property $attach): bool {
+        if (isset($attach['X-NC-FILE-ID'])) {
+            $fileId = trim((string)$attach['X-NC-FILE-ID']);
+            if (!ctype_digit($fileId) || $this->fileIdVerdict($userId, (int)$fileId) !== true) {
+                return false;
+            }
+        }
+        if (isset($attach['FILENAME'])) {
+            $verdict = $this->pathVerdict($userId, (string)$attach['FILENAME']);
+            if ($verdict === false) {
+                return false;
+            }
+            if ($verdict === null) {
+                unset($attach['FILENAME']); // a name the user's tree does not have cannot be checked, so it is not shown
+            }
+        }
         // Inline content is the data itself, not a reference to a node.
         if (strtoupper((string)($attach['VALUE'] ?? '')) === 'BINARY' || strtoupper((string)($attach['ENCODING'] ?? '')) === 'BASE64') {
             return true;
         }
-        $references = $this->localReferences(trim((string)$attach->getValue()));
+        return $this->urlVerdict($userId, trim((string)$attach->getValue()));
+    }
+
+    /**
+     * Whether a URL may be shown. The Nextcloud shapes are mapped on any host, since a loopback address, an IP or an
+     * alias missing from trusted_domains still reaches this server and the text alone would reveal the node; a link
+     * to another server that happens to name a refused node of the user is removed too, on the safe side.
+     *
+     * Supported shapes: /f/{fileid}, /apps/files/files/{fileid}, /apps/files/?fileid=&dir=, /s/{token},
+     * /remote.php/dav/files/{uid}/… and /remote.php/webdav/…, with or without /index.php and the web root, relative
+     * or absolute. On a host of this server, a URL of any other shape, or one naming a node missing from the user's
+     * tree, is removed; on another host it stays.
+     */
+    private function urlVerdict(string $userId, string $url): bool {
+        $parts = parse_url($url);
+        if ($parts === false) {
+            return false;
+        }
+        $scheme = isset($parts['scheme']) ? strtolower($parts['scheme']) : null;
+        if (!isset($parts['host']) && $scheme !== null) {
+            return true; // cid:, mailto:, urn: and the like do not name a node
+        }
+        $local = !isset($parts['host']) || $this->isLocalHost($parts['host'], $parts['port'] ?? null);
+        if ($local && $scheme !== null && $scheme !== 'http' && $scheme !== 'https') {
+            return false;
+        }
+        parse_str($parts['query'] ?? '', $query);
+        $references = $this->shapeReferences($this->withoutWebroot($parts['path'] ?? ''), $query, $local);
         if ($references === null) {
-            return true;
+            return !$local; // no supported shape: on this server it cannot be checked, elsewhere it names no node
         }
         if ($references === []) {
-            return false; // local, but no supported shape: it cannot be checked, so it is not shown
+            return false; // a Nextcloud shape whose node cannot be named cannot be checked
         }
         foreach ($references as $reference) {
-            $allowed = isset($reference['id'])
-                ? $this->allowsFileId($userId, $reference['id'])
-                : $this->allowsPath($userId, $reference['path'], $reference['uid'] ?? null);
-            if (!$allowed) {
+            $verdict = match (true) {
+                array_key_exists('verdict', $reference) => $reference['verdict'],
+                isset($reference['id']) => $this->fileIdVerdict($userId, $reference['id']),
+                default => $this->pathVerdict($userId, $reference['path'], $reference['uid'] ?? null),
+            };
+            if ($verdict === false || ($verdict === null && $local)) {
                 return false;
             }
         }
         return true;
     }
 
-    /**
-     * Maps a URL to the nodes it names on this server, by its shape only.
-     *
-     * Supported local shapes: /f/{fileid}, /apps/files/files/{fileid}, /apps/files/?fileid=, /s/{token},
-     * /remote.php/dav/files/{uid}/… and /remote.php/webdav/…, with or without /index.php and the web root, relative
-     * or on a trusted domain.
-     *
-     * @return list<array{id:int}|array{path:string, uid?:string}>|null null for a URL that is not on this server; an empty list
-     *         for a local URL of an unsupported or unresolvable shape
-     */
-    private function localReferences(string $url): ?array {
-        $parts = parse_url($url);
-        if ($parts === false) {
-            return [];
-        }
-        $scheme = isset($parts['scheme']) ? strtolower($parts['scheme']) : null;
-        if (isset($parts['host'])) {
-            if (!$this->isLocalHost($parts['host'], $parts['port'] ?? null)) {
-                return null;
-            }
-            if ($scheme !== null && $scheme !== 'http' && $scheme !== 'https') {
-                return [];
-            }
-        } elseif ($scheme !== null) {
-            return null; // cid:, mailto:, urn: and the like do not name a node of this server
-        }
-
-        $path = $parts['path'] ?? '';
+    private function withoutWebroot(string $path): string {
         $webroot = rtrim($this->urlGenerator->getWebroot(), '/');
         if ($webroot !== '' && ($path === $webroot || str_starts_with($path, $webroot . '/'))) {
             $path = substr($path, strlen($webroot));
         }
+        return $path;
+    }
+
+    /**
+     * The nodes a URL path names, by its shape only. On another host the web root is unknown, so the shape may follow
+     * any prefix.
+     *
+     * @param array<mixed> $query parsed query string
+     * @return list<array{id:int}|array{path:string, uid?:string}|array{verdict:bool|null}>|null null when no shape
+     *         matches; an empty list for a shape that names no checkable node
+     */
+    private function shapeReferences(string $path, array $query, bool $local): ?array {
+        $references = $this->matchShape($path, $query);
+        if ($references !== null || $local) {
+            return $references;
+        }
+        for ($offset = strpos($path, '/', 1); $offset !== false; $offset = strpos($path, '/', $offset + 1)) {
+            $references = $this->matchShape(substr($path, $offset), $query);
+            if ($references !== null) {
+                return $references;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param array<mixed> $query parsed query string
+     * @return list<array{id:int}|array{path:string, uid?:string}|array{verdict:bool|null}>|null
+     */
+    private function matchShape(string $path, array $query): ?array {
         if ($path === '/index.php' || str_starts_with($path, '/index.php/')) {
             $path = substr($path, strlen('/index.php'));
         }
-        parse_str($parts['query'] ?? '', $query);
-
         $references = [];
         if (preg_match('#^/(?:f|apps/files/files)/(\d+)/?$#', $path, $match) === 1) {
             $references[] = ['id' => (int)$match[1]];
         } elseif (preg_match('#^/s/([^/]+)(?:/download)?/?$#', $path, $match) === 1) {
             // A path or file list inside a shared folder names a descendant the share root does not stand for.
-            $id = isset($query['path']) || isset($query['files']) ? null : $this->shareTokenNodeId(rawurldecode($match[1]));
-            if ($id === null) {
-                return [];
-            }
-            $references[] = ['id' => $id];
+            $references[] = isset($query['path']) || isset($query['files'])
+                ? ['verdict' => false]
+                : $this->shareTokenReference(rawurldecode($match[1]));
         } elseif (preg_match('#^/remote\.php/dav/files/([^/]+)(/.*)?$#', $path, $match) === 1) {
             $references[] = ['uid' => rawurldecode($match[1]), 'path' => rawurldecode($match[2] ?? '/')];
         } elseif (preg_match('#^/remote\.php/webdav(/.*)?$#', $path, $match) === 1) {
             $references[] = ['path' => rawurldecode($match[1] ?? '/')];
         } elseif (preg_match('#^/apps/files(?:/.*)?$#', $path) !== 1) {
-            return [];
+            return null;
+        } elseif (isset($query['dir'])) {
+            // The folder the Files app opens is named by the URL as well.
+            if (!is_string($query['dir'])) {
+                return [];
+            }
+            $references[] = ['path' => $query['dir']];
         }
         // A fileid in the query names a node too, whatever the path says; every node named has to pass.
         if (isset($query['fileid'])) {
@@ -194,19 +248,42 @@ class OutputReferenceFilter {
         return $references;
     }
 
-    /** @return int|null the node id behind a public share token, without following the link */
-    private function shareTokenNodeId(string $token): ?int {
+    /**
+     * The node behind a public share token, without following the link. With an exclusion configured, or an
+     * unreadable configuration, a folder link is refused whatever its root shows: it is an anonymous capability over
+     * the whole subtree, hidden descendants included (D7).
+     *
+     * @return array{id:int}|array{verdict:bool|null}
+     */
+    private function shareTokenReference(string $token): array {
         try {
-            return (int)$this->shareManager->getShareByToken($token)->getNodeId();
+            $share = $this->shareManager->getShareByToken($token);
         } catch (Throwable) {
-            return null;
+            return ['verdict' => null];
+        }
+        try {
+            $exclusion = !$this->guard->isConfigurationValid() || $this->guard->getHiddenTagIds() !== [];
+            if ($exclusion && $share->getNodeType() !== 'file') {
+                return ['verdict' => false];
+            }
+            return ['id' => (int)$share->getNodeId()];
+        } catch (Throwable) {
+            return ['verdict' => false];
         }
     }
 
-    /** Whether a host is this server: one of trusted_domains (with their wildcards), overwrite.cli.url or the URL generator's own. */
+    /**
+     * Whether a host is this server: loopback, one of trusted_domains (with their wildcards), overwrite.cli.url or the
+     * URL generator's own. ITrustedDomainHelper is not used: with overwritehost set it trusts every host, which would
+     * remove every external link.
+     */
     private function isLocalHost(string $host, ?int $port): bool {
         // A trailing dot or an escaped letter still reaches this server, so neither makes a URL external.
         $host = rtrim(strtolower(trim(rawurldecode($host), '[]')), '.');
+        if ($host === 'localhost' || str_ends_with($host, '.localhost') || $host === '::1'
+            || (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false && str_starts_with($host, '127.'))) {
+            return true;
+        }
         $candidates = [$host];
         if ($port !== null) {
             $candidates[] = $host . ':' . $port;
@@ -234,16 +311,23 @@ class OutputReferenceFilter {
         return false;
     }
 
+    private function allowsFileId(string $userId, int $id): bool {
+        return $this->fileIdVerdict($userId, $id) === true;
+    }
+
     /**
      * Every alias of the id in the user's tree must pass the scope and the exclusion, and one must be readable.
+     *
+     * @return bool|null whether the node is allowed; null when the user's tree has no node with that id
      */
-    private function allowsFileId(string $userId, int $id): bool {
+    private function fileIdVerdict(string $userId, int $id): ?bool {
         if ($id <= 0) {
             return false;
         }
         try {
             $folder = $this->rootFolder->getUserFolder($userId);
-            return $this->allowsNodes($userId, (int)$folder->getId() === $id ? [$folder] : $folder->getById($id), $id);
+            $nodes = (int)$folder->getId() === $id ? [$folder] : $folder->getById($id);
+            return $nodes === [] ? null : $this->allowsNodes($userId, $nodes, $id);
         } catch (Throwable) {
             return false;
         }
@@ -253,15 +337,22 @@ class OutputReferenceFilter {
      * The node at a path of the user's own tree; a path of another user's DAV tree is never resolved.
      *
      * @param string|null $uid owner the DAV URL names, when it names one
+     * @return bool|null whether the node is allowed; null when the user's tree has no node at that path
      */
-    private function allowsPath(string $userId, string $path, ?string $uid = null): bool {
+    private function pathVerdict(string $userId, string $path, ?string $uid = null): ?bool {
         if ($uid !== null && $uid !== $userId) {
-            return false; // another user's DAV tree is not resolvable in this user's context
+            return null; // another user's DAV tree is not resolvable in this user's context
         }
         try {
             $normalized = PathGuard::normalize($path);
             $folder = $this->rootFolder->getUserFolder($userId);
             $node = $normalized === '/' ? $folder : $folder->get(ltrim($normalized, '/'));
+        } catch (NotFoundException) {
+            return null;
+        } catch (Throwable) {
+            return false;
+        }
+        try {
             return $this->allowsNodes($userId, [$node], null);
         } catch (Throwable) {
             return false;
@@ -273,9 +364,6 @@ class OutputReferenceFilter {
      * @param int|null $id the id they must carry, when they were resolved by id
      */
     private function allowsNodes(string $userId, array $nodes, ?int $id): bool {
-        if ($nodes === []) {
-            return false;
-        }
         $readable = false;
         foreach ($nodes as $node) {
             if (!$node instanceof Node || ($id !== null && (int)$node->getId() !== $id)) {

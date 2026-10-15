@@ -89,6 +89,17 @@ final class OutputReferenceFilterTest extends TestCase {
         };
     }
 
+    private function publicLink(string $token, int $nodeId, mixed $type = 'file'): void {
+        $share = $this->createMock(IShare::class);
+        $share->method('getNodeId')->willReturn($nodeId);
+        if ($type instanceof \Throwable) {
+            $share->method('getNodeType')->willThrowException($type);
+        } else {
+            $share->method('getNodeType')->willReturn($type);
+        }
+        $this->tokens[$token] = $share;
+    }
+
     private function calendar(string ...$attach): VCalendar {
         $lines = array_map(static fn (string $line) => 'ATTACH' . $line, $attach);
         return Reader::read("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//t//EN\r\nBEGIN:VTODO\r\nUID:t\r\nSUMMARY:S\r\n"
@@ -143,8 +154,27 @@ final class OutputReferenceFilterTest extends TestCase {
             'local non-numeric fileid' => ['https://cloud.example.com/apps/files/?fileid=OK,HIDDEN', false],
             'path and query both named' => ['https://cloud.example.com/apps/files/files/OK?fileid=HIDDEN', false],
             'local webdav scheme' => ['webdav://cloud.example.com/f/OK', false],
-            'external same path' => ['https://files.example.org/f/HIDDEN', true],
-            'external dav' => ['https://files.example.org/remote.php/dav/files/alice/Secret/plan.pdf', true],
+            'files app dir hidden' => ['https://cloud.example.com/apps/files/?dir=/Secret', false],
+            'files app dir allowed' => ['https://cloud.example.com/apps/files/?dir=/Docs', true],
+            'files app dir hidden beside allowed fileid' => ['https://cloud.example.com/apps/files/?dir=/Secret&fileid=OK', false],
+            'loopback name' => ['http://localhost/remote.php/dav/files/alice/Secret/plan.pdf', false],
+            'loopback ipv4' => ['http://127.0.0.1/f/HIDDEN', false],
+            'loopback ipv4 range' => ['http://127.0.1.1:8080/index.php/f/HIDDEN', false],
+            'loopback ipv6' => ['http://[::1]/apps/files/?fileid=INHERITED', false],
+            'loopback unsupported shape' => ['http://localhost/apps/deck/board/1', false],
+            'loopback missing id' => ['http://127.0.0.1/f/987654', false],
+            'ip alias tagged' => ['http://192.168.0.10/f/HIDDEN', false],
+            'ip alias allowed' => ['http://192.168.0.10/f/OK', true],
+            'alias under another web root' => ['https://alias.example.net/nextcloud/index.php/apps/files/?fileid=HIDDEN', false],
+            'alias dav under another web root' => ['https://alias.example.net/cloud/remote.php/dav/files/alice/Secret/plan.pdf', false],
+            'alias files app dir hidden' => ['https://alias.example.net/apps/files/?dir=/Secret', false],
+            'alias allowed' => ['https://alias.example.net/nextcloud/f/OK', true],
+            'external same path' => ['https://files.example.org/f/HIDDEN', false],
+            'external dav' => ['https://files.example.org/remote.php/dav/files/alice/Secret/plan.pdf', false],
+            'external shape of a node the user lacks' => ['https://files.example.org/f/987654', true],
+            'external dav of another user' => ['https://files.example.org/remote.php/dav/files/bruno/x.pdf', true],
+            'external unknown token' => ['https://files.example.org/s/unknownToken', true],
+            'external without shape' => ['https://files.example.org/wiki/Secret/plan.pdf', true],
             'mail reference' => ['mailto:someone@example.org', true],
             'content id' => ['cid:part1@example.org', true],
         ];
@@ -181,11 +211,8 @@ final class OutputReferenceFilterTest extends TestCase {
     }
 
     public function testPublicLinkResolvesThroughItsShareWithoutFollowingIt(): void {
-        foreach (['okToken' => $this->okId, 'secretToken' => $this->inheritedId] as $token => $node) {
-            $share = $this->createMock(IShare::class);
-            $share->method('getNodeId')->willReturn($node);
-            $this->tokens[$token] = $share;
-        }
+        $this->publicLink('okToken', $this->okId);
+        $this->publicLink('secretToken', $this->inheritedId);
         $kept = 'https://cloud.example.com/s/okToken';
         $output = $this->filter()->outputCalendar('alice', $this->calendar(
             ':' . $kept,
@@ -195,6 +222,78 @@ final class OutputReferenceFilterTest extends TestCase {
         ));
 
         self::assertSame([$kept], self::attaches($output));
+    }
+
+    public function testPublicFolderLinkIsRemovedWhileAnExclusionIsConfigured(): void {
+        $clean = $this->tree->addFolder('/alice/files/Docs/Clean');
+        $this->publicLink('folderToken', $clean, 'folder');
+        $this->publicLink('unknownType', $this->okId, new \OCP\Files\NotFoundException());
+        $this->publicLink('okToken', $this->okId);
+        $kept = 'https://cloud.example.com/s/okToken';
+
+        $output = $this->filter()->outputCalendar('alice', $this->calendar(
+            ':https://cloud.example.com/s/folderToken',
+            ':https://cloud.example.com/s/unknownType',
+            ':' . $kept,
+            ':https://cloud.example.com/f/' . $clean,
+        ));
+
+        // The link is a capability over the subtree; the short link of the same folder is not.
+        self::assertSame([$kept, 'https://cloud.example.com/f/' . $clean], self::attaches($output));
+    }
+
+    public function testPublicFolderLinkStaysWithoutAnExclusionTag(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '[]';
+        $clean = $this->tree->addFolder('/alice/files/Docs/Clean');
+        $this->publicLink('folderToken', $clean, 'folder');
+        $url = 'https://cloud.example.com/s/folderToken';
+
+        $output = $this->filter($this->docsScope())->outputCalendar('alice', $this->calendar(':' . $url));
+
+        self::assertSame($url, self::attaches($output)[0], 'only the exclusion makes a folder link a leak');
+    }
+
+    public function testCalendarAttachParametersAreCheckedAndAnUncheckableFilenameIsDropped(): void {
+        $this->publicLink('okToken', $this->okId);
+        $link = 'https://cloud.example.com/s/okToken';
+        $calendarApp = ';FMTTYPE=application/pdf;FILENAME=/Docs/ok.pdf;X-NC-FILE-ID=' . $this->okId . ';X-NC-HAS-PREVIEW=false;X-NC-SHARED-TYPES=3:';
+        $original = $this->calendar(
+            $calendarApp . $link,
+            ';X-NC-FILE-ID=' . $this->hiddenId . ';FILENAME=/Docs/direct.pdf:http://localhost/f/' . $this->hiddenId,
+            ';X-NC-FILE-ID=' . $this->hiddenId . ':https://files.example.org/doc',
+            ';X-NC-FILE-ID=' . $this->inheritedId . ':' . $link,
+            ';X-NC-FILE-ID=987654:https://files.example.org/missing',
+            ';X-NC-FILE-ID=12a:https://files.example.org/malformed',
+            ';FILENAME=/Secret/plan.pdf:https://files.example.org/named',
+            ';FILENAME=/Gone/old.pdf;FMTTYPE=application/pdf:https://files.example.org/stale',
+            ';X-NC-FILE-ID=' . $this->hiddenId . ';ENCODING=BASE64;VALUE=BINARY:aGVsbG8=',
+        );
+        $before = $original->serialize();
+
+        $output = $this->filter()->outputCalendar('alice', $original);
+
+        $kept = array_values($output->VTODO->select('ATTACH'));
+        self::assertSame([$link, 'https://files.example.org/stale'], array_map(static fn ($a) => (string)$a->getValue(), $kept));
+        self::assertSame('/Docs/ok.pdf', (string)$kept[0]['FILENAME'], 'an allowed name stays as the Calendar app wrote it');
+        self::assertSame((string)$this->okId, (string)$kept[0]['X-NC-FILE-ID']);
+        self::assertFalse(isset($kept[1]['FILENAME']), 'a name the tree does not have cannot be checked');
+        self::assertSame('application/pdf', (string)$kept[1]['FMTTYPE']);
+        self::assertSame($before, $original->serialize(), 'the object written to DAV never changes');
+    }
+
+    public function testEveryAliasOfAnIdMustPassNotJustOne(): void {
+        $this->tree->addFile('/alice/files/Docs/shared.pdf', 'visible alias');
+        $this->tree->addFile('/alice/files/Secret/shared.pdf', 'alias under an excluded folder');
+        $id = $this->tree->nodes['/alice/files/Docs/shared.pdf']['id'];
+        $this->tree->nodes['/alice/files/Secret/shared.pdf']['id'] = $id;
+        $this->roomShare(30, $id);
+        $url = 'https://cloud.example.com/f/' . $id;
+
+        self::assertSame([], self::attaches($this->filter()->outputCalendar('alice', $this->calendar(':' . $url))));
+        self::assertNull($this->filter()->attachmentId('alice', 'room1', 30));
+
+        $this->tree->nodes['/alice/files/Secret/shared.pdf']['id'] = $id + 1000;
+        self::assertSame([$url], self::attaches($this->filter()->outputCalendar('alice', $this->calendar(':' . $url))), 'the visible alias alone passes');
     }
 
     public function testUnreadableFileIsRemovedLikeAMissingOne(): void {
