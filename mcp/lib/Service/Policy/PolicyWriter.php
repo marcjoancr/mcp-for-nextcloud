@@ -212,7 +212,9 @@ class PolicyWriter {
     }
 
     /**
-     * Turns the service switch on or off; a repeated disable still revokes every connection.
+     * Turns the service switch on or off. Every explicit disable moves the global auth epoch, also when the stored
+     * value was already off (set outside the app, for instance): every credential issued so far stays invalid, even
+     * after the service is switched on again. Nothing valid can exist while the service is off, so this is safe.
      *
      * @param bool $enabled new state of the global service switch
      * @throws PolicyUnavailable when the policy storage fails, or the outcome is uncertain ($uncertain = true)
@@ -470,7 +472,7 @@ class PolicyWriter {
     /**
      * Writes one raw value (null removes the key) when it differs from the stored one, and applies the legacy
      * revocation scope: switching the service off revokes everyone (global epoch), and a user left without explicit
-     * eligibility, or disconnecting, is signed out (cut), including on an explicit repeated disable.
+     * eligibility, or disconnecting, is signed out (cut), including on an explicit repeated disable of either.
      *
      * @param string|false|null $before the raw value already read in this transaction (null = absent), or false to
      *     read it here
@@ -497,8 +499,9 @@ class PolicyWriter {
             }
         }
         if ($key === GrantPolicy::SERVICE_KEY && $value === '0') {
-            // On -> off moves the global epoch; a repeated disable only repeats the physical cleanup.
-            $this->revokeAllLocal($before === '1');
+            // Every explicit disable moves the epoch, as 1.0.8 deleted everything on every disable: an off value
+            // written outside the app must not leave credentials that come back when the service is switched on.
+            $this->revokeAllLocal();
         } elseif ($uid !== null && (($key === GrantPolicy::ELIGIBLE_KEY && ($value === '0' || ($changed && $value !== '1')))
             || ($key === GrantPolicy::CONNECTED_KEY && $value === '0'))) {
             $this->revokeUserLocal($uid);
@@ -521,18 +524,15 @@ class PolicyWriter {
     }
 
     /**
-     * Global revocation: advances the auth epoch when $advance, and writes the cleanup event of the current epoch.
+     * Global revocation: advances the auth epoch and writes the cleanup event of the new one.
      *
      * @throws \LogicException outside the local phase of an attempt
      */
-    private function revokeAllLocal(bool $advance): void {
+    private function revokeAllLocal(): void {
         $local = $this->localPhase();
-        $epoch = $local['state']['auth_epoch'];
-        if ($advance) {
-            $epoch = $this->state->advanceAuthEpoch($epoch);
-            $this->local['state']['auth_epoch'] = $epoch;
-            $this->local['cut'] = true;
-        }
+        $epoch = $this->state->advanceAuthEpoch($local['state']['auth_epoch']);
+        $this->local['state']['auth_epoch'] = $epoch;
+        $this->local['cut'] = true;
         $local['outbox']->add(PolicyEventsMapper::KIND_CLEANUP, PolicyEventPayload::cleanupGlobal($epoch));
     }
 

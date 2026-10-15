@@ -244,7 +244,7 @@ final class GenerationCutTest extends TestCase {
         $this->policy->setGlobalEnabled(true);
         $this->policy->setGlobalEnabled(false);
         $this->policy->setGlobalEnabled(true);
-        $this->assertSame('2', $this->state->state()['auth_epoch'], 'only an on -> off switch moves it');
+        $this->assertSame('2', $this->state->state()['auth_epoch'], 'each explicit disable moves it');
 
         $this->assertNull($this->bearer($grant));
         $this->refused(fn () => $this->refresh($grant['refresh_token']));
@@ -253,6 +253,25 @@ final class GenerationCutTest extends TestCase {
         $this->policy->setConnected('alice', true);
         $fresh = $this->exchange($this->consent());
         $this->assertSame('alice', $this->bearer($fresh));
+    }
+
+    /**
+     * Review F1: the service was switched off outside the app (occ writes the raw value, no epoch moves) while grants
+     * existed and nobody used them. Disabling it again from the app still revokes them, as 1.0.8 deleted them.
+     */
+    public function testDisablingAnAlreadyOffServiceStillRevokesEveryEarlierCredential(): void {
+        $grant = $this->exchange($this->consent());
+        $this->data->app['mcp'][GrantPolicy::SERVICE_KEY] = '0';
+        $this->cleanupFails = true; // only the logical revocation counts
+
+        $this->policy->setGlobalEnabled(false);
+        $this->assertSame('1', $this->state->state()['auth_epoch']);
+        $this->policy->setGlobalEnabled(true);
+
+        $this->assertNull($this->bearer($grant));
+        $this->refused(fn () => $this->refresh($grant['refresh_token']));
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '0'], $this->authUsers->generations('alice'),
+            'the epoch alone revoked it, no per-user cut was needed');
     }
 
     /** Cut point (iii): an owner observed unusable is cut at the generation read before the check, never above. */
