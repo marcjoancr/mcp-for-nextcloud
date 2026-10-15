@@ -73,7 +73,10 @@ final class InspectorTest extends ExclusionTestCase {
         // bob receives a subfolder of the excluded folder: its origin in alice's tree is what excludes it.
         $share = $this->shareToUser($deep, self::ALICE, self::BOB);
         $target = rtrim($share->getTarget(), '/');
-        $this->assertSame(VisibilityGuard::EXPLAINED_TAG_SHARE_ORIGIN, $this->inspector()->path(self::BOB, $target . '/inner.md')['exclusion']);
+        // An administrator asks in a request of their own; this long process set bob's mounts up before the share.
+        Server::get(\OC\Files\SetupManager::class)->tearDown();
+        $answer = $this->inspector()->path(self::BOB, $target . '/inner.md');
+        $this->assertSame(VisibilityGuard::EXPLAINED_TAG_SHARE_ORIGIN, $answer['exclusion'], json_encode($answer));
         $this->assertHiddenFromRead($this->mcp(self::BOB), $target . '/inner.md', 'a shared file whose origin is excluded');
 
         // A stored value that cannot be read refuses every file, and the inspector says why.
@@ -113,12 +116,14 @@ final class InspectorTest extends ExclusionTestCase {
             $this->assertTrue($this->effective(self::ALICE)['files.create']);
             $this->assertContains('files_mkdir', $this->listed($mcp));
 
-            $policy->setGlobalEnabled(false);
+            // The raw switch only: the writer's disable would revoke every credential of the instance, the baseline's
+            // ones included, which a later test checks.
+            Server::get(IConfig::class)->setAppValue('mcp', GrantPolicy::SERVICE_KEY, '0');
             $rows = $this->inspector()->effective(self::ALICE)['operations'];
             $this->assertSame(['service'], array_values(array_unique(array_column($rows, 'blockingGate'))));
             $this->assertNotSame(200, $mcp->listStatus(), 'with the service off the endpoint admits nothing');
         } finally {
-            $policy->setGlobalEnabled(true);
+            Server::get(IConfig::class)->setAppValue('mcp', GrantPolicy::SERVICE_KEY, '1');
             $policy->setGrant(self::ALICE, 'notes', 'delete', true);
         }
     }
@@ -129,7 +134,8 @@ final class InspectorTest extends ExclusionTestCase {
         ]);
         $this->calendars[] = $id;
         $this->assertSame(['reason' => AccessInspector::ALLOWED, 'gate' => null], $this->inspector()->calendar(self::ALICE, 'tasks', (string)$id, 'read'));
-        $this->assertSame(['reason' => AccessInspector::NO_NATIVE_ACCESS, 'gate' => 'native_acl'], $this->inspector()->calendar(self::ALICE, 'calendar', (string)$id, 'read'));
+        // The calendar tools need the Calendar app, which the harness does not install: the app gate comes first.
+        $this->assertSame(['reason' => AccessInspector::BLOCKED, 'gate' => 'app'], $this->inspector()->calendar(self::ALICE, 'calendar', (string)$id, 'read'));
         Server::get(PolicyWriter::class)->setResourceScope(Server::get(PolicyStateMapper::class)->state()['revision'], 'admin', self::ALICE, 'tasks', []);
         $this->assertSame(['reason' => AccessInspector::OUT_OF_SCOPE, 'gate' => 'resource_scope'], $this->inspector()->calendar(self::ALICE, 'tasks', (string)$id, 'read'));
     }
