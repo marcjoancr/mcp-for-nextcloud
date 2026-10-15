@@ -81,6 +81,19 @@ final class GroupLifecycleTest extends OAuthAccountTestCase {
     }
 
     /**
+     * The failed deletion above ends the request in production, and the recreation is another request. In this single
+     * process the group manager still holds the deleted group: NC 32 to 34 drop it from their cache on the post-delete
+     * hook, which a throwing listener of the Deleted event never lets run (NC 35 drops it on the pre-delete hook), and
+     * createGroup() returns a cached group without creating anything. The cache is emptied the way a new request
+     * starts.
+     */
+    private function forgetTheDeletedGroupLikeTheNextRequestWould(): void {
+        $manager = Server::get(IGroupManager::class);
+        $clear = new \ReflectionMethod($manager, 'clearCaches');
+        $clear->invoke($manager);
+    }
+
+    /**
      * Saves a group policy granting eligibility, as an administrator's save will (ticket 08): rows, a new gen, active,
      * and policy_rev = the revision this very commit produces.
      *
@@ -254,6 +267,7 @@ final class GroupLifecycleTest extends OAuthAccountTestCase {
         $this->probe?->detach();
         $this->assertSame(GroupLifeMapper::PENDING_DELETE, $this->life($gid)['state']);
 
+        $this->forgetTheDeletedGroupLikeTheNextRequestWould();
         $recreated = $this->group(false, $gid);
         $this->assertNull($this->life($gid), 'policy_rev <= R_c: the residual policy is purged');
         $this->assertSame([], $this->grants($gid));
