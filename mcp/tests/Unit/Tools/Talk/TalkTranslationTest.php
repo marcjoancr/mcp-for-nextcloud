@@ -122,7 +122,7 @@ final class TalkTranslationTest extends TestCase {
 
     public function testWithoutTranslatorOrWithUnknownLanguageTheMessagesAreEnglish(): void {
         self::assertSame('invalid path', Messages::invalidPath());
-        Translator::use(new JsonL10n('de'));
+        Translator::use(new JsonL10n('fr'));
         self::assertSame('invalid path', Messages::invalidPath());
     }
 

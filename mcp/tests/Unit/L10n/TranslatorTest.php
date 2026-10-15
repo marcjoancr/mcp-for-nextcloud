@@ -43,7 +43,7 @@ final class TranslatorTest extends TestCase {
     }
 
     public function testALanguageWithoutFileFallsBackToEnglishWithoutError(): void {
-        Translator::use(new JsonL10n('de'));
+        Translator::use(new JsonL10n('fr'));
         $this->assertSame('Disconnect', Translator::t('Disconnect'));
     }
 

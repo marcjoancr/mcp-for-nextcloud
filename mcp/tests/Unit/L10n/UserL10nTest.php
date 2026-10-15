@@ -46,18 +46,18 @@ final class UserL10nTest extends TestCase {
     public function testUnsupportedAccountLanguageFallsBackToServerDefault(): void {
         $factory = JsonL10n::wire(
             $this->createMock(IFactory::class),
-            ['alice' => 'de'], // German is not shipped in mcp
+            ['alice' => 'fr'], // French is not shipped in mcp
             'pt_BR',            // Server default is Brazilian Portuguese
         );
         $l10n = new UserL10n($factory);
-        // Alice account has "de", which mcp lacks -> falls back to server default "pt_BR"
+        // Alice account has "fr", which mcp lacks -> falls back to server default "pt_BR"
         $this->assertSame('pt_BR', $l10n->forUser($this->user('alice'))->getLanguageCode());
     }
 
     public function testUnsupportedAccountAndServerDefaultFallBackToEnglish(): void {
         $factory = JsonL10n::wire(
             $this->createMock(IFactory::class),
-            ['alice' => 'de'], // German not shipped
+            ['alice' => 'fr'], // French not shipped
             'it',              // Italian not shipped
         );
         $l10n = new UserL10n($factory);

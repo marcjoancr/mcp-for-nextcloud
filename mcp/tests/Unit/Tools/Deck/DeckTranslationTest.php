@@ -89,7 +89,7 @@ final class DeckTranslationTest extends TestCase {
 
 	public function testWithoutTranslatorOrWithUnknownLanguageTheMessagesAreEnglish(): void {
 		self::assertSame('Invalid data for Deck.', DeckMessages::errorInvalid());
-		Translator::use(new JsonL10n('de'));
+		Translator::use(new JsonL10n('fr'));
 		self::assertSame('Invalid data for Deck.', DeckMessages::errorInvalid());
 	}
 
