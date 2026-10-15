@@ -37,6 +37,58 @@ final class TagsControllerTest extends TestCase {
         return new TagsController('mcp', $this->request, $this->guard, $this->tagManager);
     }
 
+    public function testIndexDoesNotReportAnEmptyValidSelectionAfterTransientReadFailure(): void {
+        $config = $this->createMock(\OCP\IConfig::class);
+        $reads = 0;
+        $config->method('getAppValue')->willReturnCallback(function () use (&$reads): string {
+            if (++$reads === 1) {
+                throw new \RuntimeException('temporarily unavailable');
+            }
+            return '["10"]';
+        });
+        $config->expects($this->never())->method('setAppValue');
+        $guard = new VisibilityGuard($config, $this->tagMapper);
+        $controller = new TagsController('mcp', $this->request, $guard);
+        $data = $controller->index()->getData();
+        $this->assertSame(1, $reads);
+        $this->assertTrue($data['invalid']);
+        $this->assertSame([], $data['selected']);
+
+        // Even a save in this failed operation must not silently erase exclusions.
+        $this->request->method('getParam')->with('tagIds')->willReturn([]);
+        $this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $controller->update()->getStatus());
+        $this->assertSame(1, $reads);
+        $guard->clearCache(); // next request can read the real selection again
+        $data = $controller->index()->getData();
+        $this->assertFalse($data['invalid']);
+        $this->assertSame(['10'], $data['selected']);
+    }
+
+    public function testUpdateRefusesUnreadableConfigurationAndCanRetryInANewRequest(): void {
+        $config = $this->createMock(\OCP\IConfig::class);
+        $stored = '["10"]';
+        $reads = 0;
+        $config->method('getAppValue')->willReturnCallback(function () use (&$reads, &$stored): string {
+            if (++$reads === 1) {
+                throw new \RuntimeException('temporarily unavailable');
+            }
+            return $stored;
+        });
+        $config->expects($this->once())->method('setAppValue')->willReturnCallback(function ($app, $key, $value) use (&$stored): void {
+            $stored = $value;
+        });
+        $guard = new VisibilityGuard($config, $this->tagMapper);
+        $controller = new TagsController('mcp', $this->request, $guard);
+        $this->request->method('getParam')->with('tagIds')->willReturn([]);
+        $response = $controller->update();
+        $this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $response->getStatus());
+        $this->assertSame(['error' => 'tags_unavailable'], $response->getData());
+        $this->assertSame('["10"]', $stored);
+        $guard->clearCache();
+        $this->assertSame(Http::STATUS_OK, $controller->update()->getStatus());
+        $this->assertSame('[]', $stored);
+    }
+
     public function testIndexReturnsTagsWithTypesAndSelected(): void {
         $this->guard->setHiddenTagIds(['10']);
 

@@ -16,13 +16,13 @@ Needs `brew install colima docker` (Colima, not Docker Desktop), plus the PHP an
 
     mcp/tests/Integration/ci/run-local.sh <nc 32|33|34|35> <mariadb|pgsql|sqlite> <fresh|upgrade> [--prune-images]
 
-It runs the same steps as the workflow (packages, tools, start-db, start-nextcloud, install-app, fixtures, report, test,
-collect; also provision where the harness has that step) for that one cell, with the image digests, the cell and the
-baseline tag read from `.github/workflows/integration.yml`. The container engine is started for the run and always
-stopped again: on success, on error and on INT/TERM a trap removes the test containers, their network and volumes, the
-baseline worktree of the upgrade mode, and runs `colima stop`, but only when the script itself started Colima (an engine
-that was already running is left running). Images stay cached as files unless `--prune-images` is given. The pinned
-images are multi-architecture and run natively as arm64 on Apple silicon; the script prints the architecture it got.
+It runs the same steps as the workflow (packages, tools, start-db, start-nextcloud, install-app, fixtures, provision,
+report, test, collect) for that one cell, with the image digests, the cell and the baseline tag read from
+`.github/workflows/integration.yml`. The container engine is started for the run and always stopped again: on success,
+on error and on INT/TERM a trap removes the test containers, their network and volumes, the baseline worktree of the
+upgrade mode, and runs `colima stop`, but only when the script itself started Colima (an engine that was already
+running is left running). Images stay cached as files unless `--prune-images` is given. The pinned images are
+multi-architecture and run natively as arm64 on Apple silicon; the script prints the architecture it got.
 
 Several runs can be started from different places: each names its containers and network with its own id and removes
 only those, and they take the engine in turn through `~/.colima/mcp-it.lock` (waiting runs queue in
@@ -33,10 +33,11 @@ no other run is waiting, otherwise the next run takes over stopping it.
 in progress. To shut the engine down yourself use `ci/run-local.sh --shutdown`: it waits its turn in the same queue,
 removes what dead runs left behind, and stops Colima only when no run is waiting.
 
-Logs and artifacts (`resources.log` holds the memory samples; `mcp-it/artifacts/` the junit, Nextcloud and database
-logs) land in `mcp/tests/Integration/.local-runs/<cell>-<timestamp>/`, which is git-ignored. The exit status is the
-suite's. A cell takes about 1.5 to 3 minutes once the images are pulled and the engine (a Linux VM with 4 CPUs and
-8 GiB) uses up to roughly 2 to 3 GiB of host memory while it runs.
+Logs and artifacts (`run.log` is the terminal output, `resources.log` the memory samples, `mcp-it/artifacts/` the junit,
+Nextcloud and database logs, `observations.txt` and `provision.log`) land in
+`mcp/tests/Integration/.local-runs/<cell>-<timestamp>/`, which is git-ignored. The exit status is the suite's.
+A cell takes about 1.5 to 3 minutes once the images are pulled and the engine (a Linux VM with 4 CPUs and 8 GiB) uses
+up to roughly 2 to 3 GiB of host memory while it runs.
 
 What the suite gives later tests:
 
@@ -222,3 +223,25 @@ mount (R4 of the plan review) and scans uncached sub-storages. It also materiali
 before the folder filter and the page of 50, so there is no width cap yet; measuring a folder with thousands of
 children belongs to B7, and if that fails the mitigation is a recoverable refusal above a fixed width, not a
 cache-based listing (which would lose the mounts and diverge from the native view).
+
+## Exclusion proof (issue #4, A4)
+
+`Exclusion/` runs the real scenarios of the exclusion by tags (V2, V3, V4, V5, V7, V9 phase 1, V14) and the positive
+controls; `Unit/Contract/EXCLUSION-MATRIX.md` holds the verdict and the limits.
+
+- **Provisioning** (`harness.sh provision`, after the fixtures): groupfolders (`mcp-it-gf`, group `mcp-it-staff`), Talk
+  and Notes from the project release repositories, pinned per Nextcloud major by tag and SHA-256, and three global local
+  external mounts for both fixture users: `mcp-it-ext-wide` (`/mcp-it-ext`), `mcp-it-ext-alias` (the same directory) and
+  `mcp-it-ext-narrow` (`/mcp-it-ext/Open`). Each part is attempted on its own; a failure is recorded and
+  `ProvisioningTest` fails by name, with `provision.log` in the cell's artifact. Nothing is left silently uncovered.
+- **Real logins**: an app password (HTTP Basic, created through the core token provider) and an OAuth access token from the
+  app's own `TokenService` (Bearer, PKCE), used over HTTP against the container's Apache. Files change from outside the
+  tools through WebDAV and the server's Files API; tags, shares and links through the core services.
+- **`cache_app_config` is off** in the cell, except inside `AppConfigCacheWindowTest`: core serves the app config from the
+  web server's local cache for 3 seconds and the CLI that writes the settings cannot invalidate it. That test turns the
+  cache on and measures the stale window of the exclusion list (2.66 s to 3.94 s in the eleven cells measured); the result
+  and its meaning are in `EXCLUSION-MATRIX.md`.
+- **Diagnostics**: `DiagnosticsTest` records, in `observations.txt` of the artifact, how each kind of mount looks to the guard
+  (including the ancestor walk in a fresh process, `Support/chain-probe.php`) and the answers of the tools for it. Behavior
+  that is documented rather than asserted (the narrow mount of a subdirectory is a separate storage) is recorded there too.
+- Not covered here: V9 phase 2 (B8), V6 (federated), groupfolder ACL rules, S-scenarios of part B.

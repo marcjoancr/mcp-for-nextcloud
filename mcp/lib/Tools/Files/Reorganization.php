@@ -127,11 +127,13 @@ final class Reorganization {
                 try {
                     $existing = $root->get($relPath);
                     if (!$this->visibilityGuard->isVisible($existing)) {
-                        throw new ToolFailure(CommonMessages::forbidden());
+                        throw new ToolFailure(CommonMessages::notFound());
                     }
                 } catch (ToolFailure $e) {
                     throw $e;
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                    throw new ToolFailure(CommonMessages::notFound());
+                }
             }
             throw new ToolFailure(FilesMessages::destinationExists());
         }
@@ -232,6 +234,7 @@ final class Reorganization {
      */
     public function copy(Folder $root, string $userId, string $from, string $to, ?string $etag, bool $confirmedShared): array {
         $source = $this->writable($root, $from);
+        FolderExposureGate::assertExposure($source, $this->visibilityGuard);
         NodeAccess::checkEtag($source, $etag);
         $to = self::notBackup(PathGuard::normalize($to, 'to'));
         $this->assertFree($root, $to);
@@ -272,6 +275,7 @@ final class Reorganization {
      */
     public function move(Folder $root, string $userId, string $from, string $to, ?string $etag, bool $confirmedShared): array {
         $check = $this->inspect($root, $from, $to, $etag);
+        FolderExposureGate::assertMove($root, $check->source, $check->to, $this->visibilityGuard);
         $this->assertUnlocked($check->source, $userId);
         if (($payload = $this->confirmBoth($check->source, $from, $check->destination, $check->to, $userId, $confirmedShared)) !== null) {
             return $payload;
@@ -353,6 +357,27 @@ final class Reorganization {
         return new Inspection($source, $destination, $to);
     }
 
+    /** Classify the whole batch before any lock checks, folder creation or mutation. */
+    public function assertFolderMoves(Folder $root, array $moves, bool $undo = false): void {
+        if ($this->visibilityGuard !== null && !$this->visibilityGuard->isConfigurationValid()) {
+            throw new ToolFailure(CommonMessages::notFound());
+        }
+        if (!FolderExposureGate::active($this->visibilityGuard)) {
+            return;
+        }
+        foreach ($moves as $item) {
+            $from = $undo ? $item['to'] : $item['from'];
+            $to = $undo ? $item['from'] : $item['to'];
+            try {
+                $source = NodeAccess::run(fn (): Node => NodeAccess::get($root, $from, $this->visibilityGuard));
+            } catch (ToolFailure) {
+                // Existing planning/undo checks retain their normal missing/hidden/ACL refusals.
+                continue;
+            }
+            FolderExposureGate::assertMove($root, $source, $to, $this->visibilityGuard);
+        }
+    }
+
     /**
      * Validates an ordered batch of folder creations and moves, then runs it. The plan is always rebuilt
      * here, so a stale plan can never run. A plan that touches shared nodes is returned as a confirmation
@@ -405,6 +430,7 @@ final class Reorganization {
         foreach ($result->planned as $index => $item) {
             try {
                 $check = $this->inspect($root, $item['from'], $item['to']);
+                FolderExposureGate::assertMove($root, $check->source, $check->to, $this->visibilityGuard);
                 $movedNode = NodeAccess::run(fn () => $this->locked(fn (): Node => $check->source->move($this->absolute($root, $check->to)), $check->source, $userId));
                 $moved[] = ['from' => $item['from'], 'to' => $check->to, 'toId' => (int)$movedNode->getId()];
                 $this->visibilityGuard?->assertVisible($movedNode);
@@ -456,11 +482,13 @@ final class Reorganization {
                 try {
                     $existing = $root->get($rel);
                     if (!$this->visibilityGuard->isVisible($existing)) {
-                        throw new ToolFailure(CommonMessages::forbidden());
+                        throw new ToolFailure(CommonMessages::notFound());
                     }
                 } catch (ToolFailure $e) {
                     throw $e;
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                    throw new ToolFailure(CommonMessages::notFound());
+                }
             }
             throw new ToolFailure(FilesMessages::destinationExists());
         }
@@ -497,6 +525,7 @@ final class Reorganization {
      */
     public function planCopy(Folder $root, string $userId, string $from, string $to, ?string $etag): array {
         $source = $this->writable($root, $from);
+        FolderExposureGate::assertExposure($source, $this->visibilityGuard);
         NodeAccess::checkEtag($source, $etag);
         $to = self::notBackup(PathGuard::normalize($to, 'to'));
         $this->assertFree($root, $to);
@@ -531,6 +560,7 @@ final class Reorganization {
      */
     public function planMove(Folder $root, string $userId, string $from, string $to, ?string $etag): array {
         $check = $this->inspect($root, $from, $to, $etag);
+        FolderExposureGate::assertMove($root, $check->source, $check->to, $this->visibilityGuard);
         return [
             'action' => 'files_move',
             'from' => $root->getRelativePath($check->source->getPath()) ?? '',
@@ -587,6 +617,7 @@ final class Reorganization {
         if ($batch->isUndone()) {
             throw new ToolFailure(FilesMessages::batchAlreadyUndone());
         }
+        $this->assertFolderMoves($root, $batch->moves, undo: true);
         $this->assertUndoVisible($root, $batch);
         $conflicts = $this->undoConflicts($root, $batch, $userId);
         [$removed, $kept] = $this->emptyDirs($root, $batch);
@@ -635,6 +666,7 @@ final class Reorganization {
             throw new ToolFailure(FilesMessages::batchAlreadyUndone());
         }
         // Before the conflicts: they carry paths and reasons, and none may be published for a hidden item.
+        $this->assertFolderMoves($root, $batch->moves, undo: true);
         $this->assertUndoVisible($root, $batch);
         $conflicts = $this->undoConflicts($root, $batch, $userId);
         if ($conflicts !== []) {
@@ -648,6 +680,7 @@ final class Reorganization {
             try {
                 $this->assertPathsVisible($root, [$move['to'], $move['from']]);
                 $node = NodeAccess::run(fn () => NodeAccess::get($root, $move['to']));
+                FolderExposureGate::assertMove($root, $node, $move['from'], $this->visibilityGuard);
                 NodeAccess::run(fn () => $this->locked(fn (): Node => $node->move($this->absolute($root, $move['from'])), $node, $userId));
                 $undone++;
                 $this->assertPathsVisible($root, [$move['to'], $move['from']]);
@@ -956,8 +989,8 @@ final class Reorganization {
             }
             $existing = $root->get($below);
             if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($existing)) {
-                // Same answers as files_mkdir: the folder itself is taken, a folder under it is not found.
-                throw new ToolFailure($below === $relative ? CommonMessages::forbidden() : CommonMessages::notFound());
+                // Excluded destinations always use the same generic resource refusal.
+                throw new ToolFailure(CommonMessages::notFound());
             }
             if (!$existing instanceof Folder) {
                 throw new ToolFailure(FilesMessages::destinationExists());
@@ -1091,11 +1124,13 @@ final class Reorganization {
                 try {
                     $existing = $root->get($rel);
                     if (!$this->visibilityGuard->isVisible($existing)) {
-                        throw new ToolFailure(CommonMessages::forbidden());
+                        throw new ToolFailure(CommonMessages::notFound());
                     }
                 } catch (ToolFailure $e) {
                     throw $e;
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                    throw new ToolFailure(CommonMessages::notFound());
+                }
             }
             throw new MoveConflict(FilesMessages::destinationExists());
         }

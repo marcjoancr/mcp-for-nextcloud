@@ -6,7 +6,7 @@
 # It starts containers, so it refuses to run anywhere but a GitHub Actions runner or an explicit local run
 # (MCP_IT_LOCAL=1, which only run-local.sh sets: it brings the container engine up and always takes it down again).
 #
-# Usage: harness.sh <packages|tools|start-db|start-nextcloud|install-app|fixtures|report|test|collect>
+# Usage: harness.sh <packages|tools|start-db|start-nextcloud|install-app|fixtures|provision|report|test|collect>
 # Cell, from the workflow matrix:
 #   MCP_IT_NC          Nextcloud major (32..35)
 #   MCP_IT_NC_IMAGE    official Nextcloud Apache image, pinned as tag@digest
@@ -43,6 +43,11 @@ DB=${MCP_IT_DB_NAME:-mcp-it-db}
 DB_PASSWORD=mcp-it-db-password
 DB_ROOT_PASSWORD=mcp-it-db-root-password
 ADMIN_PASSWORD=mcp-it-admin-password
+# Real mounts of the exclusion proof (issue #4, A4): the groupfolder and the three local external storages the
+# tests rely on (tests/Integration/Exclusion/ExclusionTestCase.php). Both external aliases point at the same directory; the
+# narrow one at a subdirectory of it.
+GF_NAME=mcp-it-gf
+EXT_ROOT=/mcp-it-ext
 PHPUNIT_VERSION=10.5.65
 PHPUNIT_SHA256=ce85745a2ec7d8e536621ebed69dfa36a8d504daf73be6750e93bb8c5b088835
 
@@ -228,6 +233,118 @@ cmd_fixtures() {
     occ group:adduser mcp-it-staff mcp-it-alice
 }
 
+# Downloads a release archive from the project's release repository, checks it against the pinned checksum and
+# unpacks it into custom_apps, then enables the app through the server. The archive is read inside the container
+# from the read-only tools mount, so nothing else is copied.
+install_release_app() {
+    app=$1
+    repo=$2
+    tag=$3
+    sha=$4
+    archive="$TOOLS_DIR/$app.tar.gz"
+    curl -fsSL -o "$archive" "https://github.com/nextcloud-releases/$repo/releases/download/$tag/$app-$tag.tar.gz"
+    echo "$sha  $archive" | sha256_check
+    docker exec -u www-data "$NC" tar -xzf "/mcp-it-tools/$app.tar.gz" -C /var/www/html/custom_apps
+    occ app:enable "$app"
+}
+
+# Release pinned per Nextcloud major: groupfolders, Talk and Notes each have one build per supported major.
+pin_releases() {
+    case "$MCP_IT_NC" in
+        32)
+            GF_TAG=v20.1.19; GF_SHA=e59e6a11a50f60bf3bd23c243b7ec4b01af371c89e4ad65d4ec7e788058f50ff
+            TALK_TAG=v22.0.19; TALK_SHA=c053dbce9c2a4a76c42e937d4d095502ba48a38c2e6fa02d46c36762573d6bff
+            NOTES_TAG=v5.0.2; NOTES_SHA=1bf9e97a92bae5901a17c93666c4ac0f36ddfe68c69caa5d2368b18be6af7fdc
+            ;;
+        33)
+            GF_TAG=v21.0.15; GF_SHA=1ecdd644a2e913de8b333560717660f0ba75836309c4463af858e886cdc3a68c
+            TALK_TAG=v23.0.12; TALK_SHA=a907070cb8c0eb69a0ef808f62ea6eea822365c97a1c0e6f4a86aa748eda6c79
+            NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
+            ;;
+        34)
+            GF_TAG=v22.0.6; GF_SHA=bfff357b12bbd24257d8d127cf30e83a72256e7659f1cc3e32bd09fe647d2f9b
+            TALK_TAG=v24.0.6; TALK_SHA=4a8d5cf52ed42223ea9937860f70c2e9dca1df8bfd5f75b871ae7569d2106110
+            NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
+            ;;
+        35)
+            GF_TAG=v23.0.1; GF_SHA=3949e6a45947188090c170c6983aae11a1d66134ec317ffe7b7609062f3aecf3
+            TALK_TAG=v25.0.6; TALK_SHA=2b3e3eae42d9bf8ba8da2ab244d16347a3cfacbb8bff346bd99cf32cd6f9c65e
+            NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
+            ;;
+        *)
+            echo "No pinned releases for Nextcloud $MCP_IT_NC" >&2
+            return 1
+            ;;
+    esac
+}
+
+provision_groupfolders() {
+    install_release_app groupfolders groupfolders "$GF_TAG" "$GF_SHA"
+    # The last line of the command is the new folder's id.
+    folder_id=$(occ groupfolders:create "$GF_NAME" | tail -n 1)
+    case "$folder_id" in
+        ''|*[!0-9]*) echo "groupfolders:create gave no folder id: '$folder_id'" >&2; return 1 ;;
+    esac
+    occ groupfolders:group "$folder_id" mcp-it-staff read write share delete
+    occ groupfolders:list
+}
+
+# One global mount per name, applicable to both fixture users. "alias" reaches the same directory as "wide"; "narrow"
+# a subdirectory of it, which Nextcloud treats as a separate storage.
+provision_files_external() {
+    occ app:enable files_external
+    occ config:system:set files_external_allow_create_new_local --value=true --type=boolean
+    docker exec -u root "$NC" sh -c "mkdir -p '$EXT_ROOT/Open' && chown -R www-data:www-data '$EXT_ROOT' && chmod -R 0770 '$EXT_ROOT'"
+    for spec in "wide:$EXT_ROOT" "alias:$EXT_ROOT" "narrow:$EXT_ROOT/Open"; do
+        name=${spec%%:*}
+        dir=${spec#*:}
+        mount_id=$(occ files_external:create --output=json "/mcp-it-ext-$name" local null::null -c "datadir=$dir" | tail -n 1)
+        case "$mount_id" in
+            ''|*[!0-9]*) echo "files_external:create gave no mount id for $name: '$mount_id'" >&2; return 1 ;;
+        esac
+        occ files_external:applicable "$mount_id" --add-user=mcp-it-alice --add-user=mcp-it-bob
+        occ files_external:option "$mount_id" filesystem_check_changes 1
+    done
+    occ files_external:list
+}
+
+# Each part is attempted on its own and a failure is recorded, never fatal here: the suite then fails by name at
+# the scenario that needs the part (Exclusion/ProvisioningTest), with this log next to it in the uploaded artifact.
+cmd_provision() {
+    pin_releases
+    # Core keeps the app config in the web server's local cache (APCu) for 3 seconds (AppConfig::LOCAL_CACHE_TTL, NC 32 to
+    # 35) and invalidates it only for writes made through that same cache; the PHP CLI that writes the settings in this
+    # suite has no such cache. Most scenarios change the exclusion list and read it back at once, so the cache is off
+    # here. Its real window is measured, with the cache on, by Exclusion/AppConfigCacheWindowTest.
+    occ config:system:set cache_app_config --value=false --type=boolean
+    log="$ARTIFACTS/provision.log"
+    : > "$log"
+    : > "$WORK/provision-failures"
+    for part in groupfolders files_external talk notes; do
+        echo "=== provisioning $part" | tee -a "$log"
+        case "$part" in
+            groupfolders) step=provision_groupfolders ;;
+            files_external) step=provision_files_external ;;
+            talk) step="install_release_app spreed spreed $TALK_TAG $TALK_SHA" ;;
+            notes) step="install_release_app notes notes $NOTES_TAG $NOTES_SHA" ;;
+        esac
+        # Not inside an if or ||: there errexit would be ignored in the subshell and a failing command would not
+        # fail the part.
+        set +e
+        (set -e; $step) >> "$log" 2>&1
+        status=$?
+        set -e
+        if [ "$status" -eq 0 ]; then
+            echo "$part: provisioned" | tee -a "$log"
+        else
+            echo "$part: FAILED (exit $status)" | tee -a "$log"
+            echo "$part" >> "$WORK/provision-failures"
+        fi
+    done
+    occ app:list --enabled >> "$log" 2>&1 || true
+    cat "$log"
+}
+
 db_version() {
     case "$MCP_IT_DB" in
         mariadb) docker exec "$DB" mariadb -h 127.0.0.1 -u root -p"$DB_ROOT_PASSWORD" -N -e 'SELECT VERSION()' ;;
@@ -276,7 +393,9 @@ REPORT
 cmd_test() {
     expected=$(cat "$WORK/expected-version")
     set -- -e NEXTCLOUD_ROOT=/var/www/html -e MCP_IT_NC="$MCP_IT_NC" -e MCP_IT_DB="$MCP_IT_DB" \
-        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json
+        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json \
+        -e MCP_IT_PROVISION_FAILURES="$(tr '\n' ' ' < "$WORK/provision-failures" 2>/dev/null || true)" \
+        -e MCP_IT_GF_NAME="$GF_NAME"
     if [ "$MCP_IT_DB" = pgsql ]; then
         set -- "$@" -e MCP_IT_PG_LOG=/mcp-it-pglog/postgresql.log
     fi
@@ -290,6 +409,7 @@ cmd_collect() {
     docker logs "$DB" > "$ARTIFACTS/database-container.log" 2>&1 || true
     docker cp "$NC:/var/www/html/data/nextcloud.log" "$ARTIFACTS/nextcloud.log" 2>/dev/null || true
     docker cp "$NC:/tmp/mcp-it-junit.xml" "$ARTIFACTS/junit.xml" 2>/dev/null || true
+    docker cp "$NC:/tmp/mcp-it-observations.txt" "$ARTIFACTS/observations.txt" 2>/dev/null || true
     if [ -f "$PG_LOG_DIR/postgresql.log" ]; then
         cp "$PG_LOG_DIR/postgresql.log" "$ARTIFACTS/postgresql.log"
     fi
@@ -302,11 +422,12 @@ case "${1:-}" in
     start-nextcloud) cmd_start_nextcloud ;;
     install-app) cmd_install_app ;;
     fixtures) cmd_fixtures ;;
+    provision) cmd_provision ;;
     report) cmd_report ;;
     test) cmd_test ;;
     collect) cmd_collect ;;
     *)
-        echo "Usage: $0 <packages|tools|start-db|start-nextcloud|install-app|fixtures|report|test|collect>" >&2
+        echo "Usage: $0 <packages|tools|start-db|start-nextcloud|install-app|fixtures|provision|report|test|collect>" >&2
         exit 1
         ;;
 esac

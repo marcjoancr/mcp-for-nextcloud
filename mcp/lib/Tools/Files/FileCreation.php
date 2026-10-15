@@ -206,9 +206,11 @@ final class FileCreation {
         }
         $folder = $this->folder($root, $folderPath);
         if ($folder->nodeExists($name)) {
-            // As files_mkdir: a hidden node at the name is a denied write, not a name the agent may learn is taken.
-            if (!$this->visibilityGuard->isVisible($folder->get($name))) {
-                throw new ToolFailure(CommonMessages::forbidden());
+            // As files_mkdir: an excluded or unresolved collision uses the generic resource refusal.
+            try {
+                $this->visibilityGuard->assertVisible($folder->get($name));
+            } catch (\Throwable) {
+                throw new ToolFailure(CommonMessages::notFound());
             }
             throw new FileExists(FilesMessages::fileExists());
         }

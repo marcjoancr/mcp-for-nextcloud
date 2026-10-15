@@ -91,6 +91,8 @@ class Application extends App implements IBootstrap {
         $context->registerService(CalendarDav::class, static fn (ContainerInterface $c): CalendarDav => $c->get(EmbeddedDavDispatcher::class));
         $context->registerService(\OCA\Mcp\Tools\Contacts\ContactStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Contacts\DavContactStore($c));
         $context->registerService(\OCA\Mcp\Tools\Tasks\TaskStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Tasks\DavTaskStore($c));
+        // The Files scope step of the structured-reference filter narrows nothing until the Files scope exists.
+        $context->registerService(\OCA\Mcp\Tools\Common\FileReferenceScope::class, static fn (): \OCA\Mcp\Tools\Common\FileReferenceScope => new \OCA\Mcp\Tools\Common\UnrestrictedFileReferenceScope());
         $context->registerService(\OCA\Mcp\Tools\Contacts\ContactDav::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Contacts\EmbeddedCardDavDispatcher(
             static fn (): \Sabre\DAV\Server => \OCA\Mcp\Tools\Contacts\EmbeddedCardDavServer::create(),
             new Session($c->get(IUserSession::class)), $c->get(\OCP\IAppConfig::class), $c->get(LoggerInterface::class),

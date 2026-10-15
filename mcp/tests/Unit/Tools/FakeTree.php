@@ -30,6 +30,9 @@ final class FakeTree {
     /** @var list<string> */
     public array $ops = [];
     public array $opened = [];
+    /** @var list<string> directory enumerations, including calls made by lock and undo helpers */
+    public array $listings = [];
+    public ?\Closure $beforeListing = null;
     /** Paths whose copy() must fail, or produce a truncated copy. */
     public array $failCopy = [];
     /** Paths whose move() must fail, as a lock or a permission that changed since the plan. */
@@ -274,7 +277,11 @@ final class FakeTree {
             return $this->node($path . '/' . ltrim($rel, '/'));
         });
         $folder->method('nodeExists')->willReturnCallback(fn (string $rel) => isset($this->nodes[$path . '/' . ltrim($rel, '/')]));
-        $folder->method('getDirectoryListing')->willReturnCallback(fn () => array_map(fn ($p) => $this->node($p), $this->children($path)));
+        $folder->method('getDirectoryListing')->willReturnCallback(function () use ($path): array {
+            $this->listings[] = $path;
+            ($this->beforeListing)?->__invoke($path);
+            return array_map(fn ($p) => $this->node($p), $this->children($path));
+        });
         $folder->method('getRelativePath')->willReturnCallback(fn (string $abs) => $abs === $path ? '/' : (str_starts_with($abs, $path . '/') ? substr($abs, strlen($path)) : null));
         $folder->method('newFolder')->willReturnCallback(function (string $name) use ($path): Folder {
             $this->ops[] = "mkdir $path/$name";

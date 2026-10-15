@@ -336,6 +336,7 @@ final class TasksPlanRendererTest extends TestCase {
             new SharedGuard($users),
             new TrashPolicy($config),
             $time,
+            \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this),
             new UserTimezone($config)
         );
     }

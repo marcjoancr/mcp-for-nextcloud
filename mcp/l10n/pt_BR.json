@@ -1,4 +1,5 @@
 { "translations": {
+    "Folders cannot be shared, copied or moved to another directory through this connector while files are excluded from MCP access. Use the Nextcloud Files interface for these folder operations." : "Pastas não podem ser compartilhadas, copiadas ou movidas para outro diretório por este conector enquanto houver arquivos excluídos do acesso pelo MCP. Use a interface Arquivos do Nextcloud para essas operações com pastas.",
     "The file “%s” is locked by an app, usually because it is open in an editor." : "O arquivo “%s” está travado por um aplicativo, geralmente porque está aberto em um editor.",
     "The file “%s” is locked by %s." : "O arquivo “%s” está travado por %s.",
     "The file “%s” is locked by you." : "O arquivo “%s” está travado por você.",

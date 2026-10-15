@@ -227,6 +227,7 @@ final class ShareWriter {
             throw new ArgumentValidationException('Invalid argument: password', 'password', Translator::t('only for a public link'));
         }
         $node = $this->access->ownNode($userFolder, $uid, (string)$arguments['path']);
+        $this->access->assertFolderExposure($node);
         if ($recipient->kind === ShareRecipient::USER && $recipient->id === $uid) {
             throw new ToolFailure(FilesMessages::shareWithSelf());
         }
@@ -309,6 +310,7 @@ final class ShareWriter {
      */
     private function prepareLink(Folder $userFolder, string $uid, array $arguments, ShareRecipient $recipient): array {
         $node = $this->access->ownNode($userFolder, $uid, (string)$arguments['path']);
+        $this->access->assertFolderExposure($node);
         $this->assertLinksAllowed($uid);
         $level = (string)($arguments['permission'] ?? SharePermission::VIEW);
         if ($level !== SharePermission::VIEW) {

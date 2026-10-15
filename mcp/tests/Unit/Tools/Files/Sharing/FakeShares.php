@@ -30,6 +30,8 @@ final class FakeShares {
     public array $writes = [];
     /** @var list<string> ids asked of getShareById(), in order */
     public array $lookups = [];
+    public array $ruleReads = [];
+    public int $newShares = 0;
     /** Whether the room provider is missing, as when Talk is disabled: getSharesBy throws for TYPE_ROOM. */
     public bool $roomUnavailable = false;
     /** Exception createShare() or updateShare() throws instead of writing, as the core would. */
@@ -109,7 +111,10 @@ final class FakeShares {
             }
             throw new \OCP\Share\Exceptions\ShareNotFound();
         });
-        $manager->method('newShare')->willReturnCallback(fn (): IShare => $this->share([]));
+        $manager->method('newShare')->willReturnCallback(function (): IShare {
+            $this->newShares++;
+            return $this->share([]);
+        });
         $manager->method('createShare')->willReturnCallback(function (IShare $share): IShare {
             $this->writes[] = ['create', $share];
             if ($this->failWrite !== null) {
@@ -142,7 +147,10 @@ final class FakeShares {
             $this->shares = array_values(array_filter($this->shares, static fn (IShare $s): bool => $s !== $share));
         });
         foreach ($this->settings as $getter => $_) {
-            $manager->method($getter)->willReturnCallback(fn () => $this->settings[$getter]);
+            $manager->method($getter)->willReturnCallback(function () use ($getter) {
+                $this->ruleReads[] = $getter;
+                return $this->settings[$getter];
+            });
         }
         $manager->method('sharingDisabledForUser')->willReturnCallback(fn (?string $uid): bool => in_array($uid, $this->sharingDisabledFor, true));
         return $manager;
@@ -152,6 +160,7 @@ final class FakeShares {
     public function guardShowingAll(): \OCA\Mcp\Service\VisibilityGuard {
         $guard = $this->mock(\OCA\Mcp\Service\VisibilityGuard::class);
         $guard->method('isVisible')->willReturn(true);
+        $guard->method('isConfigurationValid')->willReturn(true);
         $guard->method('filter')->willReturnCallback(static fn (iterable $nodes): array => is_array($nodes) ? array_values($nodes) : iterator_to_array($nodes, false));
         return $guard;
     }

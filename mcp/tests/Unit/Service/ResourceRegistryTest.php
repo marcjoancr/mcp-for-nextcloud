@@ -526,6 +526,33 @@ final class ResourceRegistryTest extends TestCase {
         }
     }
 
+    /** V8/V12: compare the entire expected failure for the same URI when excluded and missing. */
+    public function testV8ExcludedAndMissingResourcesAreByteIdentical(): void {
+        foreach ([
+            ['nc://files/Documentos/texto.txt', '/alice/files/Documentos/texto.txt'],
+            ['nc://files/Documentos', '/alice/files/Documentos'],
+            ['nc://notes/' . $this->noteId, '/alice/files/Notes/Ideia.md'],
+        ] as [$uri, $path]) {
+            $guard = $this->guardHiding([$this->tree->nodes[$path]['id']]);
+            $registry = $this->registryWith($guard);
+            $failure = static function () use ($registry, $uri): string {
+                try {
+                    $registry->read($uri, 'alice');
+                    return 'unexpected success';
+                } catch (ToolFailure $e) {
+                    return json_encode([$e::class, $e->getCode(), $e->getMessage()]);
+                }
+            };
+            $excluded = $failure();
+            $this->assertStringContainsString(CommonMessages::notFound(), $excluded);
+            $node = $this->tree->nodes[$path];
+            unset($this->tree->nodes[$path]);
+            $guard->clearCache();
+            $this->assertSame($failure(), $excluded, $uri);
+            $this->tree->nodes[$path] = $node;
+        }
+    }
+
     public function testANoteWithAHiddenTagIsNotReadableAsAResource(): void {
         $registry = $this->registryWith($this->guardHiding([$this->noteId]));
 

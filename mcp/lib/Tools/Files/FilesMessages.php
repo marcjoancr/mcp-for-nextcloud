@@ -15,6 +15,11 @@ use OCA\Mcp\Tools\Common\CommonMessages;
  * messages. Handlers hold no text literal; this is the single entry point for IL10N.
  */
 final class FilesMessages {
+    /** D7 refusal for folder operations that could expose an unverified subtree. */
+    public static function folderExposureRefused(): string {
+        return Translator::t('Folders cannot be shared, copied or moved to another directory through this connector while files are excluded from MCP access. Use the Nextcloud Files interface for these folder operations.');
+    }
+
     /** Folder in the user's root that receives a copy of every file before an edit writes it. */
     public const BACKUP_FOLDER = FileBackup::FOLDER;
 
@@ -784,7 +789,7 @@ final class FilesMessages {
         return 'List the shares you created: with a path, the shares of that file or folder (which must be yours); '
             . 'without one, every share you created, ' . \OCA\Mcp\Tools\Files\Sharing\ShareAccess::PAGE_SIZE . ' per page '
             . 'with offset. Each item has shareId, type (user, group, link or room), with (id and display name), '
-            . 'permission (view, edit or custom), reshare, expires, hasPassword, url (links only), removable and path. '
+            . 'permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. '
             . 'Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false '
             . 'and is removed in Talk.';
     }

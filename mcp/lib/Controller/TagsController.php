@@ -38,7 +38,8 @@ class TagsController extends Controller {
      *                      invalid: the stored configuration cannot be read and every file is refused until saved again
      */
     public function index(): JSONResponse {
-        $selected = $this->visibilityGuard->getHiddenTagIds();
+        $invalid = !$this->visibilityGuard->isConfigurationValid();
+        $selected = $invalid ? [] : $this->visibilityGuard->getHiddenTagIds();
         $tags = [];
 
         if ($this->tagManager !== null) {
@@ -75,7 +76,7 @@ class TagsController extends Controller {
         return new JSONResponse([
             'tags' => $tags,
             'selected' => $selected,
-            'invalid' => !$this->visibilityGuard->isConfigurationValid(),
+            'invalid' => $invalid,
         ]);
     }
 
@@ -83,7 +84,7 @@ class TagsController extends Controller {
      * Saves the configured hidden system tag IDs.
      * Body: {tagIds: list<string|int>}
      *
-     * @return JSONResponse {selected: list<string>}, 400, or 503 {error: 'tags_unavailable'} when the system tags
+     * @return JSONResponse {selected: list<string>}, 400, or 503 {error: 'tags_unavailable'} when the configuration or system tags
      *                      cannot be checked and the previous configuration was kept
      */
     public function update(): JSONResponse {

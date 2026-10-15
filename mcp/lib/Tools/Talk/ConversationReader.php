@@ -9,6 +9,7 @@ namespace OCA\Mcp\Tools\Talk;
 
 use DateTimeInterface;
 use InvalidArgumentException;
+use OCA\Mcp\Tools\Common\OutputReferenceFilter;
 use OCP\Comments\IComment;
 use Throwable;
 
@@ -36,6 +37,7 @@ class ConversationReader {
         private TalkServices $talkServices,
         private ConversationResolver $resolver,
         private ActorNames $actorNames,
+        private OutputReferenceFilter $references,
     ) {}
 
     /**
@@ -104,7 +106,10 @@ class ConversationReader {
 
         $messages = [];
         foreach ($chatManager->getHistory($conversation->room, -$limit, $limit, false) as $comment) {
-            $messages[] = $this->normalizeMessage($comment);
+            $message = $this->normalizeMessage($comment);
+            // The card stays, with its type; only the id of a file the user may not reach is withheld.
+            $message['attachmentId'] = $this->references->attachmentId($userId, $conversation->token(), $message['attachmentId']);
+            $messages[] = $message;
         }
 
         return $messages;

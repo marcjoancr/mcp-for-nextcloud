@@ -292,7 +292,7 @@ final class VisibilityContractTest extends TestCase {
 
     /**
      * Requirement 1: Each tool scenario must hide nodes with DIRECT tag AND ANCESTRAL tag.
-     * In both cases it must return notFound/forbidden and NEVER leak the secret name in error/result.
+     * In both cases it must return notFound and NEVER leak the secret name in error/result.
      */
     public function testEveryFileTouchingToolHidesTaggedNodeDirectlyAndViaAncestralFolder(): void {
         // Setup direct tagged file and ancestor folder with tagged ancestral file
@@ -475,7 +475,7 @@ final class VisibilityContractTest extends TestCase {
         foreach ([[], ['confirm' => true]] as $confirm) {
             $res = $registry->call('files_mkdir', ['path' => '/secret_direct.txt', 'confirm_shared' => true] + $confirm, 'alice');
             $this->assertTrue($res['isError'] ?? false);
-            $this->assertSame(CommonMessages::forbidden(), $res['content'][0]['text']);
+            $this->assertSame(CommonMessages::notFound(), $res['content'][0]['text']);
             $res = $registry->call('files_mkdir', ['path' => '/SecretFolder/newdir', 'confirm_shared' => true] + $confirm, 'alice');
             $this->assertTrue($res['isError'] ?? false);
             $this->assertSame(CommonMessages::notFound(), $res['content'][0]['text']);
@@ -487,7 +487,7 @@ final class VisibilityContractTest extends TestCase {
         foreach (['files_upload' => [], 'files_create' => ['content' => 'x']] as $tool => $extra) {
             $res = $registry->call($tool, ['path' => '/secret_direct.txt', 'confirm' => true, 'confirm_shared' => true] + $extra, 'alice');
             $this->assertTrue($res['isError'] ?? false, $tool);
-            $this->assertSame(CommonMessages::forbidden(), $res['content'][0]['text'], $tool);
+            $this->assertSame(CommonMessages::notFound(), $res['content'][0]['text'], $tool);
             foreach ([true, false] as $confirm) {
                 $res = $registry->call($tool, ['path' => '/SecretFolder/novo.txt', 'confirm' => $confirm, 'confirm_shared' => true] + $extra, 'alice');
                 $this->assertTrue($res['isError'] ?? false, $tool);
@@ -512,7 +512,7 @@ final class VisibilityContractTest extends TestCase {
             $this->assertSame(CommonMessages::notFound(), $res['content'][0]['text']);
             $res = $registry->call('files_copy', ['from' => '/visible.txt', 'to' => '/secret_direct.txt', 'confirm_shared' => true] + $confirm, 'alice');
             $this->assertTrue($res['isError'] ?? false);
-            $this->assertSame(CommonMessages::forbidden(), $res['content'][0]['text']);
+            $this->assertSame(CommonMessages::notFound(), $res['content'][0]['text']);
         }
 
         // 16. files_move (source hidden, destination hidden, destination collision)
@@ -528,7 +528,7 @@ final class VisibilityContractTest extends TestCase {
             $this->assertSame(CommonMessages::notFound(), $res['content'][0]['text']);
             $res = $registry->call('files_move', ['from' => '/visible.txt', 'to' => '/secret_direct.txt', 'confirm_shared' => true] + $confirm, 'alice');
             $this->assertTrue($res['isError'] ?? false);
-            $this->assertSame(CommonMessages::forbidden(), $res['content'][0]['text']);
+            $this->assertSame(CommonMessages::notFound(), $res['content'][0]['text']);
         }
 
         // 17. files_move_batch
@@ -717,7 +717,7 @@ final class VisibilityContractTest extends TestCase {
 
     /**
      * Requirement 3: Write plans (WriteGate preview) of files and notes NEVER cite hidden nodes.
-     * The response must be generic notFound/forbidden with no secret name.
+     * The response must be generic notFound with no secret name.
      */
     public function testWritePlansNeverCiteHiddenNodes(): void {
         $hiddenFileId = $this->tree->addFile('/alice/files/secret_file.txt', 'secret');
@@ -731,12 +731,12 @@ final class VisibilityContractTest extends TestCase {
         /** @var FilesModule $filesModule */
         $filesModule = $this->build(FilesModule::class);
 
-        // Preview files_mkdir: collision on hidden folder -> forbidden
+        // Preview files_mkdir: collision on hidden folder -> notFound
         try {
             $filesModule->preview('files_mkdir', ['path' => '/SecretFolder'], 'alice');
             $this->fail('plan files_mkdir collision did not fail');
         } catch (ToolFailure $e) {
-            $this->assertSame(CommonMessages::forbidden(), $e->getMessage());
+            $this->assertSame(CommonMessages::notFound(), $e->getMessage());
         }
 
         // Preview files_mkdir: inside hidden folder -> notFound
@@ -755,12 +755,12 @@ final class VisibilityContractTest extends TestCase {
             $this->assertSame(CommonMessages::notFound(), $e->getMessage());
         }
 
-        // Preview files_move: destination collides with hidden file -> forbidden
+        // Preview files_move: destination collides with hidden file -> notFound
         try {
             $filesModule->preview('files_move', ['from' => '/visible.txt', 'to' => '/secret_file.txt'], 'alice');
             $this->fail('plan files_move collision with hidden file did not fail');
         } catch (ToolFailure $e) {
-            $this->assertSame(CommonMessages::forbidden(), $e->getMessage());
+            $this->assertSame(CommonMessages::notFound(), $e->getMessage());
         }
 
         // Preview files_move_batch: hidden item listed in denied with generic reason
@@ -776,10 +776,9 @@ final class VisibilityContractTest extends TestCase {
         foreach ($batchPlan['denied'] as $d) {
             $this->assertSame(CommonMessages::notFound(), $d['reason']);
         }
-        // mkdirs of a hidden folder answers like files_mkdir does for it: taken, without saying by what. It used to
-        // say willCreate, a folder the run would never make.
+        // Excluded mkdir destinations use the generic refusal and never promise creation.
         $this->assertSame(['path' => '/SecretFolder', 'exists' => false, 'willCreate' => false,
-            'reason' => CommonMessages::forbidden()], $batchPlan['mkdirs'][0]);
+            'reason' => CommonMessages::notFound()], $batchPlan['mkdirs'][0]);
         $this->assertFalse($batchPlan['ok']);
 
         // Notes preview
@@ -816,9 +815,9 @@ final class VisibilityContractTest extends TestCase {
     }
 
     /**
-     * Requirement 4: Collision with hidden node answers forbidden() identical to standard forbidden.
+     * V7/V12: a collision with an excluded node uses the generic resource refusal.
      */
-    public function testCollisionWithHiddenNodeReturnsIdenticalMessageToStandardForbidden(): void {
+    public function testCollisionWithHiddenNodeReturnsGenericNotFound(): void {
         $hiddenFileId = $this->tree->addFile('/alice/files/existing_secret.txt', 'secret');
         $this->tagAssignments[(string)$hiddenFileId] = [self::HIDDEN_TAG];
 
@@ -830,8 +829,8 @@ final class VisibilityContractTest extends TestCase {
             $reorg->mkdir($root, 'alice', '/existing_secret.txt', true);
             $this->fail('mkdir on hidden node did not fail');
         } catch (ToolFailure $e) {
-            // Must match CommonMessages::forbidden() exactly, no extra hint
-            $this->assertSame(CommonMessages::forbidden(), $e->getMessage());
+            // Must match CommonMessages::notFound() exactly, no extra hint
+            $this->assertSame(CommonMessages::notFound(), $e->getMessage());
         }
 
         // 2. copy collision with hidden node
@@ -840,7 +839,7 @@ final class VisibilityContractTest extends TestCase {
             $reorg->copy($root, 'alice', '/normal.txt', '/existing_secret.txt', null, true);
             $this->fail('copy on hidden node did not fail');
         } catch (ToolFailure $e) {
-            $this->assertSame(CommonMessages::forbidden(), $e->getMessage());
+            $this->assertSame(CommonMessages::notFound(), $e->getMessage());
         }
 
         // 3. move collision with hidden node
@@ -848,9 +847,121 @@ final class VisibilityContractTest extends TestCase {
             $reorg->move($root, 'alice', '/normal.txt', '/existing_secret.txt', null, true);
             $this->fail('move on hidden node did not fail');
         } catch (ToolFailure $e) {
-            $this->assertSame(CommonMessages::forbidden(), $e->getMessage());
+            $this->assertSame(CommonMessages::notFound(), $e->getMessage());
         }
     }
+    /** V7/V12: hidden collisions and failed collision resolution refuse before effects. */
+    public function testV7HiddenDestinationAndResolutionFailureUseGenericRefusal(): void {
+        $this->tree->addFile('/alice/files/source.txt', 'source');
+        $id = $this->tree->addFile('/alice/files/private.txt', 'private');
+        $this->tagAssignments[(string)$id] = [self::HIDDEN_TAG];
+        $registry = $this->registry([$this->build(FilesModule::class)]);
+        foreach ([false, true] as $resolutionFails) {
+            $this->tree->beforeGet = $resolutionFails ? static function (string $path): void {
+                if ($path === '/alice/files/private.txt') {
+                    throw new \RuntimeException('/private.txt metadata unavailable');
+                }
+            } : null;
+            foreach ([
+                ['files_mkdir', ['path' => '/private.txt']],
+                ['files_copy', ['from' => '/source.txt', 'to' => '/private.txt']],
+                ['files_move', ['from' => '/source.txt', 'to' => '/private.txt']],
+                ['files_create', ['path' => '/private.txt', 'content' => 'new']],
+                ['files_upload', ['path' => '/private.txt']],
+            ] as [$tool, $args]) {
+                foreach ([false, true] as $confirm) {
+                    $out = $registry->call($tool, $args + ['confirm' => $confirm], 'alice');
+                    $this->assertSame(\OCA\Mcp\Tools\ToolResult::error(CommonMessages::notFound()), $out, $tool);
+                }
+            }
+        }
+        $this->tree->beforeGet = null;
+        foreach (['files_create' => ['content' => 'new'], 'files_upload' => []] as $tool => $extra) {
+            foreach ([false, true] as $confirm) {
+                $out = $registry->call($tool, ['path' => '/private.txt', 'confirm' => $confirm] + $extra, 'alice');
+                $this->assertSame(\OCA\Mcp\Tools\ToolResult::error(CommonMessages::notFound()), $out, $tool);
+            }
+        }
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    /** V1/V12: identical input, first excluded, then absent; compare the complete wire result. */
+    public function testV1ExcludedAndMissingToolsAreByteIdentical(): void {
+        $id = $this->tree->addFile('/alice/files/private.jpg', 'private', 'image/jpeg');
+        $this->tagAssignments[(string)$id] = [self::HIDDEN_TAG];
+        $folderId = $this->tree->addFolder('/alice/files/private');
+        $this->tagAssignments[(string)$folderId] = [self::HIDDEN_TAG];
+        $noteId = $this->tree->addFile('/alice/files/Notes/private.md', 'private note');
+        $this->tagAssignments[(string)$noteId] = [self::HIDDEN_TAG];
+        $this->sharesById['ocinternal:private'] = $this->ownShareOf('/private.jpg', $id, 'private');
+        $registry = $this->registry([$this->build(FilesModule::class), $this->build(NotesModule::class)]);
+        $cases = [
+            ['files_read', ['path' => '/private.jpg']],
+            ['files_image_view', ['path' => '/private.jpg']],
+            ['files_images_view', ['paths' => ['/private.jpg']]],
+            ['files_versions_list', ['path' => '/private.jpg']],
+            ['files_version_read', ['path' => '/private.jpg', 'version' => '1']],
+            ['files_version_restore', ['path' => '/private.jpg', 'version' => '1']],
+            ['files_edit', ['path' => '/private.jpg', 'content' => 'x']],
+            ['files_replace', ['path' => '/private.jpg', 'old' => 'a', 'new' => 'b']],
+            ['files_checkout', ['path' => '/private.jpg']],
+            ['files_copy', ['from' => '/private.jpg', 'to' => '/new/deep/copy.jpg']],
+            ['files_move', ['from' => '/private.jpg', 'to' => '/new/deep/move.jpg']],
+            ['files_list_shares', ['path' => '/private.jpg']],
+            ['files_share', ['path' => '/private.jpg', 'with' => 'user:bruno']],
+            ['files_list', ['path' => '/private']],
+            ['files_tree', ['path' => '/private']],
+            ['files_search', ['query' => 'private', 'mode' => 'name']],
+            ['files_image_search', ['folder' => '/private']],
+            ['files_images_view', ['folder' => '/private']],
+            ['files_unshare', ['shareId' => 'ocinternal:private']],
+            ['notes_read', ['id' => $noteId]],
+            ['notes_edit', ['id' => $noteId, 'content' => 'updated']],
+            ['notes_move', ['id' => $noteId, 'category' => 'Other']],
+            ['notes_delete', ['id' => $noteId]],
+        ];
+        foreach ($cases as [$tool, $args]) {
+            foreach ([false, true] as $confirm) {
+                $write = in_array($tool, ['files_version_restore', 'files_edit', 'files_replace', 'files_checkout', 'files_copy', 'files_move', 'files_share', 'files_unshare', 'notes_edit', 'notes_move', 'notes_delete'], true);
+                $input = $write ? $args + ['confirm' => $confirm] : $args;
+                $excluded = $registry->call($tool, $input, 'alice');
+                $nodes = $this->tree->nodes;
+                unset($this->tree->nodes['/alice/files/private.jpg'], $this->tree->nodes['/alice/files/private'], $this->tree->nodes['/alice/files/Notes/private.md']);
+                $this->guard->clearCache();
+                $missing = $registry->call($tool, $input, 'alice');
+                $this->tree->nodes = $nodes;
+                $this->guard->clearCache();
+                $this->assertSame(json_encode($missing), json_encode($excluded), $tool);
+            }
+        }
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    /** V2/V3/V14 contract only: each operation uses the current tree and tag state. */
+    public function testV14RepeatedOperationsReflectTagAndMoveChanges(): void {
+        $folder = $this->tree->addFolder('/alice/files/private');
+        $this->tagAssignments[(string)$folder] = [self::HIDDEN_TAG];
+        $id = $this->tree->addFile('/alice/files/item.txt', 'public text');
+        $registry = $this->registry([$this->build(FilesModule::class)]);
+        $read = fn (string $path): array => $registry->call('files_read', ['path' => $path], 'alice');
+        $this->assertArrayNotHasKey('isError', $read('/item.txt'));
+        $this->tagAssignments[(string)$id] = [self::HIDDEN_TAG];
+        $this->guard->clearCache(); // request boundary; real auth sessions/events are certified in A4
+        $this->assertTrue($read('/item.txt')['isError']);
+        unset($this->tagAssignments[(string)$id]);
+        $this->guard->clearCache();
+        $this->assertArrayNotHasKey('isError', $read('/item.txt'));
+        $this->tree->node('/alice/files/item.txt')->move('/alice/files/private/item.txt');
+        $this->guard->clearCache();
+        $this->assertTrue($read('/private/item.txt')['isError']);
+        $this->tree->node('/alice/files/private/item.txt')->move('/alice/files/item.txt');
+        $this->guard->clearCache();
+        $this->assertArrayNotHasKey('isError', $read('/item.txt'));
+        $this->tree->addFile('/alice/files/private/new/deep/item.txt', 'created outside MCP');
+        $this->guard->clearCache();
+        $this->assertTrue($read('/private/new/deep/item.txt')['isError']);
+    }
+
 }
 
 final class ContractTalkRoomStub {
