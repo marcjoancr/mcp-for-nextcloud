@@ -11,6 +11,7 @@
 	const list = document.getElementById('mcp-group-list')
 	const detail = document.getElementById('mcp-group-detail')
 	const status = document.getElementById('mcp-group-status')
+	const alert = document.getElementById('mcp-group-alert')
 	const prev = document.getElementById('mcp-group-prev')
 	const next = document.getElementById('mcp-group-next')
 	let page = 1
@@ -29,9 +30,10 @@
 		return node
 	}
 	function say(message, error = false) {
-		status.setAttribute('role', error ? 'alert' : 'status')
-		status.setAttribute('aria-live', error ? 'assertive' : 'polite')
-		status.textContent = message
+		status.textContent = ''
+		alert.textContent = ''
+		const region = error ? alert : status
+		region.textContent = message
 	}
 	async function api(method, path, body) {
 		const response = await fetch(OC.generateUrl('/apps/mcp' + path), {
@@ -39,7 +41,7 @@
 			headers: { 'Content-Type': 'application/json', Accept: 'application/json', requesttoken: OC.requestToken },
 			body: body === undefined ? undefined : JSON.stringify(body),
 		})
-		const data = await response.json()
+		const data = await response.json().catch(() => ({}))
 		if (!response.ok) throw Object.assign(new Error(String(response.status)), { data })
 		return data
 	}
@@ -53,7 +55,23 @@
 	function operationName(operation) {
 		return { read: t('mcp', 'read'), edit: t('mcp', 'edit'), create: t('mcp', 'create'), move: t('mcp', 'move'), delete: t('mcp', 'delete'), transfer: t('mcp', 'transfer'), reply: t('mcp', 'reply'), attach: t('mcp', 'attach'), quote: t('mcp', 'quote'), share: t('mcp', 'share'), link: t('mcp', 'link'), restore: t('mcp', 'restore') }[operation] || operation
 	}
+	function grantKeys(grants) {
+		return Object.entries(grants).flatMap(([module, operations]) => operations.map((operation) => module + ':' + operation)).sort()
+	}
+	function dirty() {
+		return current && JSON.stringify(grantKeys(draft)) !== JSON.stringify(grantKeys(current.grants))
+	}
+	function discardDraft() {
+		return !dirty() || window.confirm(t('mcp', 'Discard the unsaved group changes?'))
+	}
+	function names(keys) {
+		return keys.map((key) => {
+			const [module, operation] = key.split(':')
+			return module === '_system' ? t('mcp', 'Can connect') : moduleName(module) + ': ' + operationName(operation)
+		}).join(', ') || '—'
+	}
 	function diagnosis(group) {
+		if (group.invalidId) return t('mcp', 'The directory returned an invalid group ID. This group cannot be edited.')
 		if (group.trusted === null) return t('mcp', 'The group source is unavailable. Retry before editing.')
 		if (group.exists === false) return t('mcp', 'This group no longer exists. Its saved policy does not grant access; you can clear it.')
 		if (!group.trusted) return untrusted()
@@ -70,12 +88,13 @@
 			if (seq !== listSeq) return
 			list.replaceChildren(...data.groups.map((group) => {
 				const reason = diagnosis(group)
-				const button = el('button', { type: 'button', textContent: group.displayName + ' (' + group.groupId + ')', onclick: () => open(group.groupId), })
+				const button = el('button', { type: 'button', textContent: group.groupId === null ? group.displayName : group.displayName + ' (' + group.groupId + ')', disabled: group.invalidId === true, onclick: () => open(group.groupId), })
 				return el('li', {}, [button, el('span', { className: 'mcp-hint', textContent: reason })])
 			}))
 			if (!data.groups.length) list.append(el('li', { textContent: t('mcp', 'No groups found.') }))
 			prev.disabled = page <= 1
 			next.disabled = !data.hasMore
+			say('')
 		} catch (e) {
 			if (seq !== listSeq) return
 			list.replaceChildren(el('li', {}, [t('mcp', 'Could not load groups.'), retry(loadList)]))
@@ -87,10 +106,10 @@
 	function retry(action) {
 		return el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: action })
 	}
-	async function open(gid, preserve = false) {
-		if (busy) return
+	async function open(gid, preserve = false, keepMessage = false) {
+		if (busy || (!preserve && !discardDraft())) return
 		const seq = ++detailSeq
-		current = null
+		// Keep the draft's base until a read succeeds, including after a failed refresh.
 		preview = null
 		detail.replaceChildren(el('p', { textContent: t('mcp', 'Loading…') }))
 		try {
@@ -98,6 +117,7 @@
 			if (seq !== detailSeq) return
 			current = data
 			if (!preserve) draft = copyGrants(data.grants)
+			if (!keepMessage) say('')
 			render()
 			detail.querySelector('h3').focus()
 		} catch (e) {
@@ -108,10 +128,22 @@
 	}
 	function render() {
 		const heading = el('h3', { tabIndex: -1, textContent: current.groupId })
+		heading.setAttribute('aria-describedby', 'mcp-group-alert mcp-group-diagnosis')
 		const fields = el('fieldset', { disabled: busy || current.trusted !== true })
+		fields.setAttribute('aria-describedby', 'mcp-group-diagnosis')
 		fields.append(el('legend', { textContent: t('mcp', 'Group grants') }))
 		const stats = current.counts
 		const summary = el('p', { textContent: t('mcp', 'Members: {members}. Members with any individual override: {overrides}.', { members: count(stats.members), overrides: count(stats.overrides) }) })
+		const comparison = el('div')
+		function updateComparison() {
+			const before = grantKeys(current.grants)
+			const after = grantKeys(draft)
+			comparison.replaceChildren()
+			if (!dirty()) return
+			comparison.append(el('p', { textContent: t('mcp', 'Only in draft, not saved: {permissions}.', { permissions: names(after.filter((key) => !before.includes(key))) }) }),
+				el('p', { textContent: t('mcp', 'Saved, outside the draft: {permissions}.', { permissions: names(before.filter((key) => !after.includes(key))) }) }))
+		}
+		updateComparison()
 		const table = el('table', { className: 'mcp-group-counts' })
 		table.append(el('caption', { textContent: t('mcp', 'Individual overrides count even when they match inheritance. Different results are counted separately.') }),
 			el('thead', {}, [el('tr', {}, [t('mcp', 'Permission'), t('mcp', 'Members with overrides'), t('mcp', 'Different results')].map((textContent) => el('th', { scope: 'col', textContent }))) ]))
@@ -129,6 +161,7 @@
 					preview = null
 					save.disabled = true
 					impact.replaceChildren()
+					updateComparison()
 				})
 				section.append(el('label', {}, [box, ' ' + name]))
 				const values = stats.permissions?.[module]?.[operation]
@@ -139,12 +172,10 @@
 		table.append(body)
 		const impact = el('div', { className: 'mcp-group-impact' })
 		if (preview) {
-			const names = (grants) => Object.entries(grants).flatMap(([module, operations]) => operations.map((operation) =>
-				module === '_system' ? t('mcp', 'Can connect') : moduleName(module) + ': ' + operationName(operation)))
-			const before = names(preview.current || current.grants)
-			const after = names(preview.grants || draft)
-			impact.append(el('p', { textContent: t('mcp', 'Permissions added: {permissions}.', { permissions: after.filter((name) => !before.includes(name)).join(', ') || '—' }) }),
-				el('p', { textContent: t('mcp', 'Permissions removed: {permissions}.', { permissions: before.filter((name) => !after.includes(name)).join(', ') || '—' }) }),
+			const before = grantKeys(preview.current || current.grants)
+			const after = grantKeys(preview.grants || draft)
+			impact.append(el('p', { textContent: t('mcp', 'Permissions added: {permissions}.', { permissions: names(after.filter((key) => !before.includes(key))) }) }),
+				el('p', { textContent: t('mcp', 'Permissions removed: {permissions}.', { permissions: names(before.filter((key) => !after.includes(key))) }) }),
 				el('p', { textContent: t('mcp', 'Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.') }))
 			impact.append(el('p', { textContent: t('mcp', 'Preview: {members} current members; {revokes} credential holders will be signed out.', { members: count(preview.members), revokes: count(preview.revokes) }) }))
 			if (preview.withdraws) impact.append(el('p', { textContent: t('mcp', 'Losing the last source of eligibility revokes connections. Restoring this policy does not reconnect users.') }))
@@ -152,15 +183,18 @@
 		const review = el('button', { type: 'button', textContent: t('mcp', 'Preview group changes'), disabled: busy || current.trusted !== true, onclick: () => run('preview') })
 		const save = el('button', { type: 'button', textContent: t('mcp', 'Save group policy'), disabled: busy || !preview, onclick: () => run('save') })
 		const confirm = el('button', { type: 'button', textContent: t('mcp', 'Confirm current policy'), disabled: busy || current.trusted !== true, onclick: () => {
+			if (!discardDraft()) return
 			draft = copyGrants(current.grants)
 			run('preview')
 		} })
 		confirm.hidden = !['needs_confirm', 'pending_delete'].includes(current.state)
 		const clear = el('button', { type: 'button', textContent: t('mcp', 'Preview clearing group policy'), disabled: busy || Object.keys(current.grants).length === 0, onclick: () => {
+			if (!discardDraft()) return
 			draft = {}
 			run('preview')
 		} })
-		detail.replaceChildren(heading, el('p', { className: 'mcp-hint', textContent: diagnosis(current) }), summary, fields, table, review, confirm, clear, impact, save)
+		for (const button of [review, confirm, clear, save]) button.setAttribute('aria-describedby', 'mcp-group-diagnosis')
+		detail.replaceChildren(heading, el('p', { id: 'mcp-group-diagnosis', className: 'mcp-hint', textContent: diagnosis(current) }), summary, fields, comparison, table, review, confirm, clear, impact, save)
 	}
 	async function run(action) {
 		if (busy || !current || (action === 'save' && !preview)) return
@@ -190,7 +224,7 @@
 				say(t('mcp', 'The policy or group members changed. Your draft is kept. Review a new preview before saving again.'), true)
 			} else if (e.message === '503') {
 				refresh = true
-				say(t('mcp', 'The change could not be confirmed. Your draft is kept. Unknown credential holders prevent saving; retry after checking the group.'), true)
+				say(t('mcp', 'The change could not be confirmed. Your draft is kept. Retry after checking the group.'), true)
 			} else if (e.message === '422') {
 				refresh = true
 				say(untrusted(), true)
@@ -200,7 +234,7 @@
 		} finally {
 			busy = false
 			root.setAttribute('aria-busy', 'false')
-			if (refresh) await open(gid, true)
+			if (refresh) await open(gid, true, true)
 			else {
 				render()
 				const target = action === 'preview' && preview ? detail.querySelector('button:last-child') : detail.querySelector('h3')

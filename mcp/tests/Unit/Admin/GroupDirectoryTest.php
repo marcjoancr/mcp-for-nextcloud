@@ -11,7 +11,6 @@ use OCA\Mcp\Controller\GroupDirectoryController;
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Service\GroupDirectory;
-use OCA\Mcp\Service\Policy\GroupGrantsService;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Tests\Unit\ArrayGroupBackend;
@@ -33,12 +32,14 @@ final class GroupDirectoryTest extends TestCase {
     private array $names = [];
     private bool $knownCount = true;
     private bool $brokenCount = false;
+    private int $sourceReads = 0;
     private IGroupManager $manager;
     private GroupDirectory $directory;
 
     protected function setUp(): void {
         $this->data = new InMemoryConfig();
-        $this->data->groupBackends = [new ArrayGroupBackend(fn () => $this->native), new ArrayGroupBackend(fn () => $this->ldap, 'LDAP')];
+        $this->data->groupBackends = [new ArrayGroupBackend(fn () => $this->native, 'Database', function () { ++$this->sourceReads; }),
+            new ArrayGroupBackend(fn () => $this->ldap, 'LDAP', function () { ++$this->sourceReads; })];
         $this->config = $this->data->mock($this);
         $writer = InMemoryConfig::writer($this->config, new InMemoryOAuthStore());
         $resolver = InMemoryConfig::resolver($this->config);
@@ -60,8 +61,45 @@ final class GroupDirectoryTest extends TestCase {
         $this->manager->method('search')->with('')->willReturnCallback(fn () => array_map($group, array_map('strval', array_keys($this->native + $this->ldap))));
         $this->manager->method('get')->willReturnCallback(fn (string $gid) => isset($this->native[$gid]) || isset($this->ldap[$gid]) ? $group($gid) : null);
         $classifier = new GroupSourceClassifier($this->manager);
-        $service = new GroupGrantsService($writer, $classifier, $resolver, $grants, $life);
-        $this->directory = new GroupDirectory($this->manager, $db, $service, $classifier, $resolver, InMemoryConfig::state($this->config));
+        $this->directory = new GroupDirectory($this->manager, $db, $grants, $life, $classifier, $resolver, InMemoryConfig::state($this->config));
+    }
+
+    public function testFiftyGroupPageUsesBatchSqlAndOneClassificationPerGroup(): void {
+        for ($i = 0; $i < 50; ++$i) $this->native['group-' . $i] = [];
+        $database = InMemoryConfig::groupDatabase($this->config);
+        $database->queryCount = $this->sourceReads = 0;
+        $start = hrtime(true);
+        $rows = $this->directory->page()['groups'];
+        $ms = (hrtime(true) - $start) / 1e6;
+        $this->assertCount(50, $rows);
+        $this->assertSame(4, $database->queryCount, 'two app scans plus two batched policy reads');
+        $this->assertSame(100, $this->sourceReads, 'one existence read per backend per displayed group');
+        fwrite(STDERR, sprintf("T17 page 50: %d app SELECTs, %d backend existence calls, %.3f ms (SQLite memory + directory doubles; state reads mocked)\n",
+            $database->queryCount, $this->sourceReads, $ms));
+    }
+
+    public function testOrdinaryContextCannotBypassIndividualDenyThroughInheritance(): void {
+        $this->data->user['ana']['mcp']['grant_notes_read'] = '0';
+        $context = InMemoryConfig::resolver($this->config)->begin('ana');
+        try {
+            $this->assertFalse($context->granted('notes', 'read')->allowed);
+            $this->expectException(\LogicException::class);
+            $context->inherited('notes', 'read');
+        } finally {
+            $context->close();
+        }
+    }
+
+    public function testInvalidDirectoryIdIsDiagnosedWithoutBlockingValidRowsOrInventingAnIdentity(): void {
+        $this->native["bad\xff"] = [];
+        $this->native['valid'] = [];
+        $rows = $this->directory->page()['groups'];
+        $this->assertCount(2, $rows);
+        $this->assertNull($rows[0]['groupId']);
+        $this->assertTrue($rows[0]['invalidId']);
+        $this->assertNull($rows[0]['trusted']);
+        $this->assertSame('valid', $rows[1]['groupId']);
+        $this->assertIsString(json_encode($rows, JSON_THROW_ON_ERROR));
     }
 
     public function testPagingHasNoTwoHundredGroupCutoffAndSearchesNameOrId(): void {
@@ -89,7 +127,7 @@ final class GroupDirectoryTest extends TestCase {
         $this->assertFalse($rows[1]['exists']);
         $this->assertSame('needs_confirm', $rows[1]['state']);
         $this->assertSame(['members' => 1, 'overrides' => null, 'permissions' => null], $this->directory->detail('external')['counts']);
-        $this->assertNull($this->directory->detail('gone')['counts']['members']);
+        $this->assertSame(0, $this->directory->detail('gone')['counts']['members']);
     }
 
     public function testOverridesCountPresenceEvenWhenEqualToInheritanceAndMembersAreUnique(): void {

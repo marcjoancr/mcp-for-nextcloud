@@ -633,7 +633,9 @@
 		paintState(cell, checked ? 'allowed' : 'denied')
 		const origin = module === null ? user.origins?.eligible : user.origins?.grants?.[module]?.[body.operation]
 		if (origin?.source === 'group') {
-			cell.title += ' — ' + t('mcp', 'Granted by groups: {groups}', { groups: origin.groupIds.join(', ') })
+			const source = t('mcp', 'Granted by groups: {groups}', { groups: origin.groupIds.join(', ') })
+			cell.title += ' — ' + source
+			box.setAttribute('aria-label', user.displayName + ' — ' + label + ' — ' + source)
 		}
 		box.addEventListener('change', async () => {
 			const value = box.checked

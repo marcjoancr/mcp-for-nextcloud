@@ -42,14 +42,20 @@ const stored = (extra = {}) => ({
 })
 async function app(handler, group = stored()) {
 	const document = { activeElement: null }
-	const ids = Object.fromEntries(['editor', 'search', 'list', 'detail', 'status', 'prev', 'next'].map((id) => ['mcp-group-' + id, new Element('div', document)]))
+	const ids = Object.fromEntries(['editor', 'search', 'list', 'detail', 'status', 'alert', 'prev', 'next'].map((id) => ['mcp-group-' + id, new Element('div', document)]))
+	const template = fs.readFileSync(path.join(__dirname, '../../templates/admin.php'), 'utf8')
+	for (const id of ['status', 'alert']) {
+		const markup = template.match(new RegExp('<p id="mcp-group-' + id + '"[^>]+>'))[0]
+		for (const name of ['role', 'aria-live']) ids['mcp-group-' + id].attributes[name] = markup.match(new RegExp(name + '="([^"]+)"'))[1]
+	}
 	document.getElementById = (id) => ids[id]
 	document.createElement = (tag) => new Element(tag, document)
 	const calls = []
 	const events = []
+	const confirmations = { allow: true, messages: [] }
 	const context = {
 		document, URLSearchParams, structuredClone, Event,
-		window: { dispatchEvent: (event) => events.push(event.type) },
+		window: { dispatchEvent: (event) => events.push(event.type), confirm: (message) => { confirmations.messages.push(message); return confirmations.allow } },
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		t: (_, text, params = {}) => text.replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
 		setTimeout: (fn) => { fn(); return 1 }, clearTimeout: () => {},
@@ -58,14 +64,14 @@ async function app(handler, group = stored()) {
 			calls.push(call)
 			const result = await handler?.(call)
 			const [status, body] = result || [200, url.includes('/detail?') ? group : { groups: [{ displayName: 'Staff', ...group }], hasMore: true }]
-			return { ok: status < 400, status, json: async () => body }
+			return { ok: status < 400, status, json: async () => { if (body instanceof Error) throw body; return body } }
 		},
 	}
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-groups.js'), 'utf8'), context)
 	await tick()
 	const open = async () => { await ids['mcp-group-list'].all('button')[0].click(); await tick() }
 	const button = (text) => ids['mcp-group-detail'].all('button').find((node) => node.textContent === text)
-	return { ids, calls, events, document, open, button }
+	return { ids, calls, events, document, open, button, confirmations }
 }
 const preview = { previewId: 'receipt', revision: '9007199254740993', members: 51, revokes: 2, withdraws: true }
 
@@ -118,8 +124,11 @@ test('T16: a membership conflict keeps the draft, reloads, and never repeats the
 	assert.equal(ui.calls.filter((call) => call.method === 'PUT').length, 1)
 	assert.equal(ui.ids['mcp-group-detail'].all('input')[2].checked, true)
 	assert.equal(ui.button('Save group policy').disabled, true)
-	assert.match(ui.ids['mcp-group-status'].textContent, /Your draft is kept/)
-	assert.equal(ui.ids['mcp-group-status'].attributes.role, 'alert')
+	assert.match(ui.ids['mcp-group-alert'].textContent, /Your draft is kept/)
+	assert.equal(ui.ids['mcp-group-status'].attributes.role, 'status')
+	assert.equal(ui.ids['mcp-group-alert'].attributes.role, 'alert')
+	assert.equal(ui.document.activeElement.attributes['aria-describedby'], 'mcp-group-alert mcp-group-diagnosis')
+	assert.match(ui.ids['mcp-group-detail'].textContent, /Only in draft, not saved: Notes: edit/)
 })
 test('T17: non-native and orphaned groups expose diagnosis, disabled grants and a clearing preview', async () => {
 	const ui = await app(undefined, stored({ trusted: false, exists: false, grants: { notes: ['edit'] } }))
@@ -137,7 +146,8 @@ test('T17: 503 refuses the save, preserves draft and demands an explicit new pre
 	assert.equal(ui.calls.filter((call) => call.method === 'POST').length, 1)
 	assert.equal(ui.calls.filter((call) => call.method === 'PUT').length, 0)
 	assert.equal(ui.button('Save group policy').disabled, true)
-	assert.match(ui.ids['mcp-group-status'].textContent, /Unknown credential holders prevent saving/)
+	assert.match(ui.ids['mcp-group-alert'].textContent, /Retry after checking the group/)
+	assert.doesNotMatch(ui.ids['mcp-group-alert'].textContent, /credential holders/)
 })
 test('T17: group search and pagination use their own endpoint and page state', async () => {
 	const ui = await app()
@@ -180,4 +190,62 @@ test('T10/T17: unknown eligibility is neither denied nor included in a bulk writ
 	const plan = matrix.bulkPlan(null, ['eligible'], true)
 	assert.equal(plan.changes.length, 0)
 	assert.equal(plan.unavailable, 1)
+})
+
+test('I2: fixed polite/status and assertive/alert regions survive errors; successful retry clears the old error', async () => {
+	let failed = false
+	const ui = await app((call) => {
+		if (!call.url.includes('/detail?') && !failed) { failed = true; return [503, {}] }
+	})
+	assert.equal(ui.ids['mcp-group-alert'].attributes.role, 'alert')
+	assert.equal(ui.ids['mcp-group-alert'].attributes['aria-live'], 'assertive')
+	assert.equal(ui.ids['mcp-group-status'].attributes.role, 'status')
+	assert.equal(ui.ids['mcp-group-status'].attributes['aria-live'], 'polite')
+	assert.match(ui.ids['mcp-group-alert'].textContent, /Could not load groups/)
+	await ui.ids['mcp-group-list'].all('button')[0].click()
+	await tick()
+	assert.equal(ui.ids['mcp-group-alert'].textContent, '')
+	assert.equal(ui.ids['mcp-group-status'].attributes.role, 'status')
+	assert.equal(ui.ids['mcp-group-alert'].attributes.role, 'alert')
+})
+test('M1/M2: abandoning edits requires confirmation and draft differences are visible before a preview', async () => {
+	const ui = await app(undefined, stored({ state: 'needs_confirm', grants: { notes: ['read'] } }))
+	await ui.open()
+	const checkbox = ui.ids['mcp-group-detail'].all('input')[2]
+	checkbox.checked = true
+	checkbox.listeners.change()
+	assert.match(ui.ids['mcp-group-detail'].textContent, /Only in draft, not saved: Notes: edit/)
+	ui.confirmations.allow = false
+	await ui.button('Confirm current policy').click()
+	await ui.button('Preview clearing group policy').click()
+	await ui.open()
+	assert.equal(ui.calls.filter((call) => call.method === 'POST').length, 0)
+	assert.equal(ui.ids['mcp-group-detail'].all('input')[2].checked, true)
+	assert.equal(ui.confirmations.messages.length, 3)
+})
+test('M3/M8: an HTML 503 retains its status, reloads the policy and gives a generic error', async () => {
+	const ui = await app((call) => call.method === 'POST' ? [503, new SyntaxError('HTML error page')] : undefined)
+	await ui.open()
+	await ui.button('Preview group changes').click()
+	await tick()
+	assert.equal(ui.calls.filter((call) => call.url.includes('/detail?')).length, 2)
+	assert.match(ui.ids['mcp-group-alert'].textContent, /The change could not be confirmed/)
+	assert.equal(ui.button('Save group policy').disabled, true)
+})
+test('M5: group origin is part of the permission checkbox accessible name', () => {
+	const matrix = matrixFunctions()
+	const user = { displayName: 'Ana', enabled: true, eligible: true, origins: { eligible: { source: 'group', groupIds: ['staff'] } } }
+	const cell = matrix.permissionCell(user, null, true, 'Can connect', { eligible: null })
+	assert.match(cell.all('input')[0].attributes['aria-label'], /Granted by groups/)
+})
+test('M6: disabled group grant fields and actions describe their source diagnosis', async () => {
+	const ui = await app(undefined, stored({ trusted: false }))
+	await ui.open()
+	assert.equal(ui.ids['mcp-group-detail'].all('fieldset')[0].attributes['aria-describedby'], 'mcp-group-diagnosis')
+	assert.equal(ui.button('Preview group changes').attributes['aria-describedby'], 'mcp-group-diagnosis')
+})
+test('M7: an invalid directory identity has a diagnostic row without an editable replacement ID', async () => {
+	const ui = await app(undefined, stored({ groupId: null, invalidId: true, trusted: null }))
+	assert.equal(ui.ids['mcp-group-list'].all('button')[0].disabled, true)
+	assert.match(ui.ids['mcp-group-list'].textContent, /invalid group ID/)
 })

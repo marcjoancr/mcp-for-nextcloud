@@ -241,7 +241,7 @@ class PolicyResolver {
                     $contexts = [];
                     foreach ($parts as $uid => [$userRaw, $candidates, $account, $enabled, $logs, $scope]) {
                         $contexts[$uid] = new PolicyOperationContext($after['revision'], $this->writer, $userRaw, $candidates,
-                            $account, $service, $enabled, $logs['available'], $logs['permitted'], $scope);
+                            $account, $service, $enabled, $logs['available'], $logs['permitted'], $scope, $grantsOnly);
                     }
                     return $contexts;
                 }

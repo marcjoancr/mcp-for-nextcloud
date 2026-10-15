@@ -35,6 +35,7 @@ final class PolicyOperationContext {
         private bool $logsAvailable,
         private bool $logsPermitted,
         private ?ScopeGuard $scope,
+        private bool $grantsOnly = false,
     ) {}
 
     public function close(): void {
@@ -128,8 +129,12 @@ final class PolicyOperationContext {
             $gate === 'resource_scope' ? 'out_of_scope' : ($gate ?? 'allowed'), $grant, $gate, $scope);
     }
 
-    /** The same resolution without this permission's individual override, for admin difference counters only. */
+    /** Same resolution without the override: admin counting only, not an access decision. */
     public function inherited(string $module, string $operation): GrantResolution {
+        $this->check();
+        if (!$this->grantsOnly) {
+            throw new \LogicException('Inherited resolution is restricted to admin counting contexts');
+        }
         if ($module === '_system' && $operation === 'eligible') {
             return $this->resolve(GrantPolicy::ELIGIBLE_KEY, $module, $operation, false, true);
         }

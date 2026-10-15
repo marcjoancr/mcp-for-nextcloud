@@ -1,4 +1,12 @@
 { "translations": {
+    "Removing group eligibility is refused when remaining access is unknown for a credential holder. Check the sources and retry." : "Se rechaza retirar la elegibilidad del grupo cuando se desconoce el acceso restante de algún titular de credenciales. Compruebe las fuentes y vuelva a intentarlo.",
+
+    "Discard the unsaved group changes?" : "¿Descartar los cambios del grupo sin guardar?",
+    "Only in draft, not saved: {permissions}." : "Solo en el borrador, sin guardar: {permissions}.",
+    "Saved, outside the draft: {permissions}." : "Guardado, fuera del borrador: {permissions}.",
+    "The change could not be confirmed. Your draft is kept. Retry after checking the group." : "No se pudo confirmar el cambio. Se conserva su borrador. Compruebe el grupo y vuelva a intentarlo.",
+    "The directory returned an invalid group ID. This group cannot be edited." : "El directorio devolvió un ID de grupo no válido. Este grupo no se puede editar.",
+
     "Permissions added: {permissions}." : "Permisos añadidos: {permissions}.",
     "Permissions removed: {permissions}." : "Permisos eliminados: {permissions}.",
 
@@ -11,7 +19,7 @@
     "Granted by groups: {groups}" : "Concedido por los grupos: {groups}",
     "Group deletion is pending. This policy does not grant access. Check the group before confirming it." : "La eliminación del grupo está pendiente. Esta política no concede acceso. Compruebe el grupo antes de confirmarla.",
     "Group grants" : "Permisos de grupo",
-    "Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply." : "Los permisos se aplican al grupo actual, incluidos los miembros futuros. Las definiciones individuales tienen prioridad. Los permisos de Nextcloud siguen aplicándose.",
+    "Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply." : "Los permisos se aplican al grupo tal como esté en cada uso, incluidos los miembros futuros. Las definiciones individuales tienen prioridad. Los permisos de Nextcloud siguen aplicándose.",
     "Individual overrides count even when they match inheritance. Different results are counted separately." : "Las definiciones individuales cuentan aunque coincidan con la herencia. Los resultados diferentes se cuentan por separado.",
     "Losing the last source of eligibility revokes connections. Restoring this policy does not reconnect users." : "Perder la última fuente de elegibilidad revoca las conexiones. Restaurar esta política no vuelve a conectar a los usuarios.",
     "Members with overrides" : "Miembros con definiciones individuales",
@@ -25,7 +33,6 @@
     "Review the impact, then save the group policy." : "Revise el impacto y guarde la política del grupo.",
     "Save group policy" : "Guardar la política del grupo",
     "Search groups by name or ID" : "Buscar grupos por nombre o ID",
-    "The change could not be confirmed. Your draft is kept. Unknown credential holders prevent saving; retry after checking the group." : "No se pudo confirmar el cambio. Se conserva su borrador. Los titulares de credenciales con acceso desconocido impiden guardar; compruebe el grupo y vuelva a intentarlo.",
     "The group source is unavailable. Retry before editing." : "La fuente del grupo no está disponible. Vuelva a intentarlo antes de editar.",
     "The policy or group members changed. Your draft is kept. Review a new preview before saving again." : "La política o los miembros del grupo cambiaron. Se conserva su borrador. Revise una nueva vista previa antes de volver a guardar.",
     "This group comes from a source that cannot guarantee group identity (for example LDAP). Grant MCP access to its members individually." : "Este grupo procede de una fuente que no puede garantizar la identidad del grupo (por ejemplo, LDAP). Conceda acceso MCP a sus miembros individualmente.",

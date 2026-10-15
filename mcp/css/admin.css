@@ -757,5 +757,5 @@
 .mcp-group-permissions label { display: inline-flex; align-items: center; gap: 4px; }
 .mcp-group-counts { width: 100%; margin-block: 16px; }
 .mcp-group-counts th, .mcp-group-counts td { text-align: start; padding: 6px; }
-[id="mcp-group-status"][role="alert"] { color: var(--color-error); }
+[id="mcp-group-alert"] { color: var(--color-error); }
 [id="mcp-group-detail"] :focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }

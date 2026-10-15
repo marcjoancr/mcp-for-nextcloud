@@ -7,10 +7,12 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Service;
 
+use OCA\Mcp\Db\GroupGrantsMapper;
+use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyStateMapper;
-use OCA\Mcp\Service\Policy\GroupGrantsService;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
+use OCA\Mcp\Service\Policy\PolicyEventPayload;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\IDBConnection;
@@ -20,16 +22,18 @@ use Throwable;
 /**
  * Read-only admin group directory. Public directory APIs run outside transactions and mutexes. Listing assembles
  * names before sorting/paging (50 rows); there is no 200-group cutoff. Classification costs one backend existence
- * call per backend per displayed group. Detail enumerates a trusted group's members once, then resolves grants in blocks of 200
- * (one official membership read per member, batched app SQL/raw overrides, no scope or log reads), independently of
- * the user matrix's page. This is linear
- * in the full member set, intentionally not a subtotal of the first page. Unknown counts remain null.
+ * call per backend per displayed group, shared by trusted/exists. Each page uses two app scans for policy-only IDs
+ * and two batched SELECTs for grants/lifecycles (not per-row SQL). Detail enumerates a trusted group's members once,
+ * then resolves grants in blocks of 200 (one official membership read per member, batched app SQL/raw overrides,
+ * no scope or log reads), independently of the user matrix's page. This is linear in the full member set,
+ * intentionally not a subtotal of the first page. Unknown counts remain null.
  */
 class GroupDirectory {
     public function __construct(
         private IGroupManager $groups,
         private IDBConnection $db,
-        private GroupGrantsService $policies,
+        private GroupGrantsMapper $grants,
+        private GroupLifeMapper $life,
         private GroupSourceClassifier $classifier,
         private PolicyResolver $resolver,
         private PolicyStateMapper $state,
@@ -44,6 +48,13 @@ class GroupDirectory {
             // Query all directory names for stable global ordering; policy-only GIDs are merged below.
             foreach ($this->groups->search('') as $group) {
                 $gid = $group->getGID();
+                if (!PolicyEventPayload::validUid($gid)) {
+                    // Keep the diagnostic row JSON-safe without inventing a writable replacement identity.
+                    $all['invalid:' . hash('sha256', $gid)] = ['groupId' => null,
+                        'displayName' => mb_convert_encoding($group->getDisplayName(), 'UTF-8', 'UTF-8'),
+                        'invalidId' => true, 'trusted' => null, 'exists' => null, 'state' => null, 'grants' => null];
+                    continue;
+                }
                 $all[IdentityKey::group($gid)] = ['groupId' => $gid, 'displayName' => $group->getDisplayName()];
             }
             foreach (['mcp_group_grants', 'mcp_group_life'] as $table) {
@@ -60,33 +71,27 @@ class GroupDirectory {
                 }
             }
             $all = array_values(array_filter($all, static fn (array $row): bool => $search === ''
-                || mb_stripos($row['groupId'], trim($search)) !== false || mb_stripos($row['displayName'], trim($search)) !== false));
+                || mb_stripos((string)$row['groupId'], trim($search)) !== false || mb_stripos($row['displayName'], trim($search)) !== false));
             usort($all, static fn (array $a, array $b): int => strnatcasecmp($a['displayName'], $b['displayName'])
-                ?: strcmp($a['groupId'], $b['groupId']));
-            $rows = [];
-            foreach (array_slice($all, ($page - 1) * 50, 50) as $row) {
-                try {
-                    $row += $this->policies->state($row['groupId']);
-                    $row['exists'] = $this->classifier->exists($row['groupId']);
-                } catch (PolicyUnavailable) {
-                    $row += ['trusted' => null, 'state' => null, 'exists' => null, 'grants' => null];
-                }
-                $rows[] = $row;
-            }
+                ?: strcmp((string)$a['groupId'], (string)$b['groupId']));
+            $pageRows = array_slice($all, ($page - 1) * 50, 50);
+            $gids = array_values(array_filter(array_column($pageRows, 'groupId'), static fn ($gid): bool => $gid !== null));
+            $states = $this->states($gids);
+            $rows = array_map(static fn (array $row): array => $row['groupId'] === null
+                ? $row : $row + $states[IdentityKey::group($row['groupId'])], $pageRows);
             return ['groups' => $rows, 'page' => $page, 'pageSize' => 50, 'hasMore' => count($all) > $page * 50];
         });
     }
 
     public function detail(string $gid): array {
         return $this->read(function () use ($gid): array {
-            $policy = $this->policies->state($gid);
-            $policy['exists'] = $this->classifier->exists($gid);
+            $policy = $this->states([$gid])[IdentityKey::group($gid)];
             $policy['catalog'] = ['_system' => ['eligible']] + GrantPolicy::CATALOG;
             $counts = ['members' => null, 'overrides' => null, 'permissions' => null];
             try {
                 $group = $this->groups->get($gid);
                 $count = $group?->count();
-                $counts['members'] = is_int($count) && $count >= 0 ? $count : null;
+                $counts['members'] = $policy['exists'] === false ? 0 : (is_int($count) && $count >= 0 ? $count : null);
                 if ($policy['trusted']) {
                     $members = $this->classifier->members($gid);
                     // A backend without a reliable total cannot prove complete enumeration for statistics.
@@ -102,6 +107,26 @@ class GroupDirectory {
             }
             return $policy + ['counts' => $counts];
         });
+    }
+
+    /** Stored policy reads are batched; each source classification supplies both trusted and exists. */
+    private function states(array $gids): array {
+        $lifecycles = [];
+        foreach ($this->life->forGroups($gids) as $life) {
+            $lifecycles[IdentityKey::group($life['groupId'])] = $life['state'];
+        }
+        $states = [];
+        foreach ($this->grants->forGroups($gids) as $policy) {
+            $gid = $policy['groupId'];
+            $key = IdentityKey::group($gid);
+            try {
+                $classification = $this->classifier->classify($gid);
+            } catch (PolicyUnavailable|\InvalidArgumentException) {
+                $classification = ['trusted' => null, 'exists' => null];
+            }
+            $states[$key] = $policy + $classification + ['state' => $lifecycles[$key] ?? null];
+        }
+        return $states;
     }
 
     private function statisticsForMembers(array $members): array {

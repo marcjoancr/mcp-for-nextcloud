@@ -11,18 +11,71 @@ use PHPUnit\Framework\TestCase;
 
 /** T17: every shipped group-editor source string has matching pt_BR/es JSON and browser translations. */
 final class AdminGroupAssetsTest extends TestCase {
-    public function testGrantOnlyBatchIsUsedOnlyByTheAdminCountingReadModel(): void {
+    /** Token scanning covers literal method references even when invoked indirectly, plus unknown dynamic calls. */
+    private static function countingReferences(string $source): array {
+        $tokens = array_values(array_filter(token_get_all($source), static fn ($token): bool => !is_array($token)
+            || !in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)));
+        $references = [];
+        foreach ($tokens as $i => $token) {
+            if (!is_array($token)) continue;
+            if (in_array($token[0], [T_STRING, T_CONSTANT_ENCAPSED_STRING], true)) {
+                $value = $token[0] === T_STRING ? $token[1] : stripcslashes(substr($token[1], 1, -1));
+                $previous = $tokens[$i - 1] ?? null;
+                if (is_array($previous) && $previous[0] === T_FUNCTION) continue;
+                if (in_array($value, ['beginManyGrants', 'inherited'], true)) $references[] = $value;
+            }
+            if (in_array($token[0], [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR], true)) {
+                $next = $tokens[$i + 1] ?? null;
+                if (is_array($next) && $next[0] === T_VARIABLE && ($tokens[$i + 2] ?? null) === '(') {
+                    $references[] = 'dynamic method';
+                } elseif ($next === '{') {
+                    // Reject dynamically computed callable names; dynamic property access remains allowed.
+                    $end = $i + 2;
+                    $depth = 1;
+                    for (; $end < count($tokens) && $depth > 0; ++$end) {
+                        if ($tokens[$end] === '{') ++$depth;
+                        if ($tokens[$end] === '}') --$depth;
+                    }
+                    if (($tokens[$end] ?? null) === '(') $references[] = 'dynamic method';
+                }
+            }
+        }
+        return array_values(array_unique($references));
+    }
+
+    public function testCountingBoundaryDetectsIndirectAndDynamicCalls(): void {
+        foreach (['beginManyGrants', 'inherited'] as $method) {
+            foreach ([
+                '$obj->' . $method . '();',
+                '[$obj, "' . $method . '"]();',
+                'call_user_func([$obj, "' . $method . '"]);',
+                '$m = "' . $method . '"; $obj->$m();',
+                '$obj->{"' . $method . '"}();',
+            ] as $source) {
+                $this->assertContains($method, self::countingReferences('<?php ' . $source));
+            }
+        }
+        $this->assertContains('dynamic method', self::countingReferences('<?php $obj->$m();'));
+        $this->assertContains('dynamic method', self::countingReferences('<?php $obj->{$m}();'));
+        $this->assertSame([], self::countingReferences('<?php function inherited() {} // beginManyGrants'));
+    }
+
+    public function testGrantOnlyMethodsAreReferencedOnlyByTheAdminCountingReadModel(): void {
         $lib = dirname(__DIR__, 3) . '/lib';
         $callers = [];
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($lib)) as $file) {
             if ($file->getExtension() !== 'php') continue;
-            if (preg_match('/->beginManyGrants\s*\(/', file_get_contents($file->getPathname()))) {
-                $callers[] = substr($file->getPathname(), strlen($lib) + 1);
+            foreach (self::countingReferences(file_get_contents($file->getPathname())) as $method) {
+                $callers[$method][] = substr($file->getPathname(), strlen($lib) + 1);
             }
         }
-        $this->assertSame(['Service/GroupDirectory.php'], $callers, 'Grant-only contexts must never decide access');
-        $this->assertStringContainsString('admin counting only, not an access decision',
-            file_get_contents($lib . '/Service/Policy/PolicyResolver.php'));
+        ksort($callers);
+        $this->assertSame(['beginManyGrants' => ['Service/GroupDirectory.php'], 'inherited' => ['Service/GroupDirectory.php']],
+            $callers, 'Grant-only references and dynamic methods must never escape the admin read model');
+        foreach (['PolicyResolver.php', 'PolicyOperationContext.php'] as $file) {
+            $this->assertStringContainsString('admin counting only, not an access decision',
+                file_get_contents($lib . '/Service/Policy/' . $file));
+        }
     }
 
     public function testGroupStringsAndPlaceholdersAreCompleteInBothFormats(): void {
