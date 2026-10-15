@@ -539,13 +539,13 @@ class CheckoutController extends Controller {
         try {
             $file = NodeAccess::requireFile(NodeAccess::get($this->rootFolder->getUserFolder($uid), $row->path, $this->visibilityGuard));
         } catch (\Throwable) {
-            return $this->refuse(Http::STATUS_NOT_FOUND, FilesMessages::tokenInvalid());
+            return $this->refuse(Http::STATUS_NOT_FOUND, CommonMessages::notFound());
         }
         if ((int)$file->getId() !== $row->fileId) {
             return $this->refuse(Http::STATUS_NOT_FOUND, FilesMessages::tokenInvalid());
         }
         if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($file)) {
-            return $this->refuse(Http::STATUS_NOT_FOUND, FilesMessages::tokenInvalid());
+            return $this->refuse(Http::STATUS_NOT_FOUND, CommonMessages::notFound());
         }
         return [$row, $file];
     }

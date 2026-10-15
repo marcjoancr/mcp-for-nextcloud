@@ -127,11 +127,13 @@ final class Reorganization {
                 try {
                     $existing = $root->get($relPath);
                     if (!$this->visibilityGuard->isVisible($existing)) {
-                        throw new ToolFailure(CommonMessages::forbidden());
+                        throw new ToolFailure(CommonMessages::notFound());
                     }
                 } catch (ToolFailure $e) {
                     throw $e;
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                    throw new ToolFailure(CommonMessages::notFound());
+                }
             }
             throw new ToolFailure(FilesMessages::destinationExists());
         }
@@ -456,11 +458,13 @@ final class Reorganization {
                 try {
                     $existing = $root->get($rel);
                     if (!$this->visibilityGuard->isVisible($existing)) {
-                        throw new ToolFailure(CommonMessages::forbidden());
+                        throw new ToolFailure(CommonMessages::notFound());
                     }
                 } catch (ToolFailure $e) {
                     throw $e;
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                    throw new ToolFailure(CommonMessages::notFound());
+                }
             }
             throw new ToolFailure(FilesMessages::destinationExists());
         }
@@ -956,8 +960,8 @@ final class Reorganization {
             }
             $existing = $root->get($below);
             if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($existing)) {
-                // Same answers as files_mkdir: the folder itself is taken, a folder under it is not found.
-                throw new ToolFailure($below === $relative ? CommonMessages::forbidden() : CommonMessages::notFound());
+                // Excluded destinations always use the same generic resource refusal.
+                throw new ToolFailure(CommonMessages::notFound());
             }
             if (!$existing instanceof Folder) {
                 throw new ToolFailure(FilesMessages::destinationExists());
@@ -1091,11 +1095,13 @@ final class Reorganization {
                 try {
                     $existing = $root->get($rel);
                     if (!$this->visibilityGuard->isVisible($existing)) {
-                        throw new ToolFailure(CommonMessages::forbidden());
+                        throw new ToolFailure(CommonMessages::notFound());
                     }
                 } catch (ToolFailure $e) {
                     throw $e;
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                    throw new ToolFailure(CommonMessages::notFound());
+                }
             }
             throw new MoveConflict(FilesMessages::destinationExists());
         }

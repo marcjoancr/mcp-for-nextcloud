@@ -45,6 +45,108 @@ final class VisibilityGuardTest extends TestCase {
         });
     }
 
+    /** V13: an unavailable config is never treated as an empty exclusion list or cached. */
+    public function testV13ConfigurationReadFailureIsRefusedAndRetried(): void {
+        $config = $this->createMock(\OCP\IConfig::class);
+        $calls = 0;
+        $config->method('getAppValue')->willReturnCallback(function () use (&$calls): string {
+            if (++$calls === 1) {
+                throw new \RuntimeException('/private/config');
+            }
+            return '["42"]';
+        });
+        $this->tree->addFile('/alice/files/plain', 'x');
+        $guard = new VisibilityGuard($config, $this->tagMapper);
+        $this->assertFalse($guard->isVisible($this->tree->node('/alice/files/plain')));
+        $this->assertTrue($guard->isVisible($this->tree->node('/alice/files/plain')));
+        $this->assertSame(2, $calls);
+    }
+
+    /** V13: incomplete or cyclic ancestry must not become a visible cache entry. */
+    public function testV13UnresolvedAncestryIsRefusedOnEveryAttempt(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        foreach ([0, 20] as $id) {
+            $node = $this->createMock(Folder::class);
+            $node->method('getId')->willReturn($id);
+            $node->method('getParent')->willReturn($node);
+            $node->method('getStorage')->willReturn($this->storage(false));
+            $guard = $this->guard();
+            $this->assertFalse($guard->isVisible($node));
+            $this->assertFalse($guard->isVisible($node));
+            try {
+                $guard->copyHiddenTags($node, $this->createMock(Node::class));
+                $this->fail('Backup tagging must refuse unresolved ancestry');
+            } catch (ToolFailure $e) {
+                $this->assertSame(\OCA\Mcp\Tools\Files\FilesMessages::backupFailed(), $e->getMessage());
+            }
+        }
+    }
+
+    /** V7/V13: a directly excluded root protects even a wholly missing destination. */
+    public function testV13WritePreflightChecksRootBeforeMissingAncestors(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $this->tagAssignments[(string)$this->tree->rootFolder()->getId()] = ['42'];
+        $this->assertFalse($this->guard()->isPathAllowedForWrite($this->tree->rootFolder(), '/new/deep/item'));
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    /** V13: a visible mounted alias must not authorize another alias below an excluded parent. */
+    public function testV13VisibilityCacheIsQualifiedByMountedPath(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $root = $this->createMock(\OCP\Files\IRootFolder::class);
+        $plain = $this->ancestryNode(10, $root, null, false, '/plain');
+        $hidden = $this->ancestryNode(20, $root, null, false, '/hidden');
+        $first = $this->ancestryNode(30, $plain, null, false, '/plain/item');
+        $alias = $this->ancestryNode(30, $hidden, null, false, '/hidden/item');
+        $this->tagAssignments['20'] = ['42'];
+        $guard = $this->guard();
+        $this->assertTrue($guard->isVisible($first));
+        $this->assertFalse($guard->isVisible($alias));
+        $this->assertTrue($guard->isVisible($first));
+    }
+
+    /** V13: metadata failure after tag lookup must not leave a positive cache entry. */
+    public function testV13LateMetadataFailureNeverCachesVisible(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $root = $this->createMock(\OCP\Files\IRootFolder::class);
+        $node = $this->ancestryNode(30, $root, null, false, '/item');
+        $node->method('getName')->willThrowException(new \RuntimeException('/private/item'));
+        $guard = $this->guard();
+        $this->assertFalse($guard->isVisible($node));
+        $this->assertFalse($guard->isVisible($node));
+    }
+
+    /** V3/V14 contract: the active guard invalidates both positive and negative tag decisions. */
+    public function testV14TagEventsInvalidateTheSameGuard(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $id = $this->tree->addFile('/alice/files/item', 'x');
+        $listeners = [];
+        $events = $this->createMock(\OCP\EventDispatcher\IEventDispatcher::class);
+        $events->method('addListener')->willReturnCallback(function (string $name, callable $listener) use (&$listeners): void {
+            $listeners[$name] = $listener;
+        });
+        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
+        $node = $this->tree->node('/alice/files/item');
+        $this->assertTrue($guard->isVisible($node));
+        $this->tagAssignments[(string)$id] = ['42'];
+        $listeners[\OCP\SystemTag\MapperEvent::EVENT_ASSIGN]();
+        $this->assertFalse($guard->isVisible($node));
+        unset($this->tagAssignments[(string)$id]);
+        $listeners[\OCP\SystemTag\MapperEvent::EVENT_UNASSIGN]();
+        $this->assertTrue($guard->isVisible($node));
+    }
+
+    /** V13: failed destination existence checks are refusals, including repeated calls. */
+    public function testV13WritePreflightResolutionFailureIsRefused(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $root = $this->createMock(\OCP\Files\IRootFolder::class);
+        $folder = $this->ancestryNode(10, $root, null);
+        $folder->method('nodeExists')->willThrowException(new \RuntimeException('/private/destination'));
+        $guard = $this->guard();
+        $this->assertFalse($guard->isPathAllowedForWrite($folder, '/new/deep/file'));
+        $this->assertFalse($guard->isPathAllowedForWrite($folder, '/new/deep/file'));
+    }
+
     public function testMovingIntoHiddenFolderStaleUntilClear(): void {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $hidden = $this->tree->addFolder('/alice/files/secret');

@@ -191,7 +191,7 @@ final class FilesBatchTest extends FilesToolsTestCase {
         $tagMapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use ($hiddenId): array {
             return array_combine($ids, array_map(static fn ($id) => (string)$id === (string)$hiddenId ? ['999'] : [], $ids));
         });
-        foreach (['/Hidden/New' => CommonMessages::notFound(), '/Hidden' => CommonMessages::forbidden()] as $dir => $reason) {
+        foreach (['/Hidden/New' => CommonMessages::notFound(), '/Hidden' => CommonMessages::notFound()] as $dir => $reason) {
             $args = ['moves' => [['from' => '/Documentos/ata.md', 'to' => '/Arquivado/ata.md']], 'mkdirs' => [$dir]];
             $plan = $this->plan('files_move_batch', $args);
             $this->assertFalse($plan['ok'], "plano de $dir");

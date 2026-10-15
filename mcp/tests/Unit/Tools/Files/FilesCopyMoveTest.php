@@ -268,7 +268,7 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
         $this->assertFalse(array_key_exists('/alice/files/NaoExiste', $this->tree->nodes));
     }
 
-    public function testAMoveToExistingHiddenTargetIsRefusedWithForbiddenRatherThanDestinationExists(): void {
+    public function testAMoveToExistingHiddenTargetIsRefusedAsNotFound(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
         $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
@@ -277,11 +277,11 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
         $id = $this->tree->addFile('/alice/files/Arquivado/secret.md', 'secret');
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string)$id => ['999']]);
 
-        $this->assertSame(CommonMessages::forbidden(),
+        $this->assertSame(CommonMessages::notFound(),
             $this->failure('files_move', ['from' => self::SOURCE_PATH, 'to' => '/Arquivado/secret.md']));
     }
 
-    public function testACopyToExistingHiddenTargetIsRefusedWithForbiddenRatherThanDestinationExists(): void {
+    public function testACopyToExistingHiddenTargetIsRefusedAsNotFound(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
         $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
@@ -290,7 +290,7 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
         $id = $this->tree->addFile('/alice/files/Arquivado/secret.md', 'secret');
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string)$id => ['999']]);
 
-        $this->assertSame(CommonMessages::forbidden(),
+        $this->assertSame(CommonMessages::notFound(),
             $this->failure('files_copy', ['from' => self::SOURCE_PATH, 'to' => '/Arquivado/secret.md']));
     }
 

@@ -36,7 +36,7 @@ class VisibilityGuard {
     /** @var list<string>|null cached list of hidden system tag IDs */
     private ?array $hiddenTagIds = null;
 
-    /** @var array<int, bool> per-request node visibility cache: [nodeId => isVisible] */
+    /** @var array<string, bool> per-request visibility by file id and mounted path */
     private array $cache = [];
 
     /** whether the stored configuration could not be read as a list of tag IDs */
@@ -82,6 +82,15 @@ class VisibilityGuard {
      * @return bool false when the node or any ancestor has a hidden tag, or is a backup of a hidden file
      */
     public function isVisible(Node $node): bool {
+        try {
+            return $this->checkVisibility($node);
+        } catch (\Throwable) {
+            $this->warnVisibilityFailure();
+            return false;
+        }
+    }
+
+    private function checkVisibility(Node $node): bool {
         if (!$this->isConfigurationValid()) {
             $this->warnInvalidConfiguration();
             return false;
@@ -98,24 +107,27 @@ class VisibilityGuard {
         }
 
         $nodeId = (int)$node->getId();
-        if ($nodeId > 0 && isset($this->cache[$nodeId])) {
-            return $this->cache[$nodeId];
+        $nodeKey = $nodeId . ':' . $node->getPath();
+        if ($nodeId > 0 && isset($this->cache[$nodeKey])) {
+            return $this->cache[$nodeKey];
         }
 
         // Collect ancestors up to root
         $chain = [];
         $current = $node;
-        while ($current instanceof Node) {
+        while (!$current instanceof IRootFolder) {
             $cid = (int)$current->getId();
             if ($cid <= 0 || isset($chain[$cid])) {
-                break;
+                $this->warnVisibilityFailure();
+                return false;
             }
 
-            // If an ancestor is already cached, leverage it
-            if (isset($this->cache[$cid])) {
-                if (!$this->cache[$cid]) {
+            // Mounted aliases can have different ancestors for the same file id.
+            $cacheKey = $cid . ':' . $current->getPath();
+            if (isset($this->cache[$cacheKey])) {
+                if (!$this->cache[$cacheKey]) {
                     if ($nodeId > 0) {
-                        $this->cache[$nodeId] = false;
+                        $this->cache[$nodeKey] = false;
                     }
                     return false;
                 }
@@ -125,8 +137,8 @@ class VisibilityGuard {
             $chain[$cid] = $current;
             try {
                 $parent = $current->getParent();
-                if (!$parent instanceof Node || (int)$parent->getId() === $cid) {
-                    break;
+                if (!$parent instanceof Node || $parent === $current || (int)$parent->getId() === $cid) {
+                    throw new \RuntimeException();
                 }
                 $current = $parent;
             } catch (\Throwable) {
@@ -149,26 +161,24 @@ class VisibilityGuard {
             $reversedChain = array_reverse($chain, true);
             $foundHidden = false;
             foreach ($reversedChain as $cid => $chainNode) {
+                $cacheKey = $cid . ':' . $chainNode->getPath();
                 if ($foundHidden) {
-                    $this->cache[$cid] = false;
+                    $this->cache[$cacheKey] = false;
                     continue;
                 }
                 $nodeTags = array_map(strval(...), $tagsByObject[(string)$cid] ?? []);
                 foreach ($nodeTags as $tagId) {
                     if (in_array((string)$tagId, $hiddenTags, true)) {
                         $foundHidden = true;
-                        $this->cache[$cid] = false;
+                        $this->cache[$cacheKey] = false;
                         break;
                     }
-                }
-                if (!$foundHidden) {
-                    $this->cache[$cid] = true;
                 }
             }
 
             if ($foundHidden) {
                 if ($nodeId > 0) {
-                    $this->cache[$nodeId] = false;
+                    $this->cache[$nodeKey] = false;
                 }
                 return false;
             }
@@ -177,13 +187,13 @@ class VisibilityGuard {
         // Check /MCP backups mirror rule
         if ($this->isHiddenBackup($node, $chain)) {
             if ($nodeId > 0) {
-                $this->cache[$nodeId] = false;
+                $this->cache[$nodeKey] = false;
             }
             return false;
         }
 
         if ($nodeId > 0) {
-            $this->cache[$nodeId] = true;
+            $this->cache[$nodeKey] = true;
         }
         return true;
     }
@@ -238,7 +248,7 @@ class VisibilityGuard {
                 $parent = $current->getParent();
                 if (!$parent instanceof Node || $parent === $current
                     || ($id > 0 && (int)$parent->getId() === $id)) {
-                    break;
+                    throw new \RuntimeException();
                 }
                 $current = $parent;
             }
@@ -362,6 +372,15 @@ class VisibilityGuard {
      * Returns false if an existing target or any existing ancestor is hidden.
      */
     public function isPathAllowedForWrite(Folder $root, string $path): bool {
+        try {
+            return $this->checkPathAllowedForWrite($root, $path);
+        } catch (\Throwable) {
+            $this->warnVisibilityFailure();
+            return false;
+        }
+    }
+
+    private function checkPathAllowedForWrite(Folder $root, string $path): bool {
         if (!$this->isConfigurationValid()) {
             $this->warnInvalidConfiguration();
             return false;
@@ -371,6 +390,9 @@ class VisibilityGuard {
             return true;
         }
 
+        if (!$this->isVisible($root)) {
+            return false;
+        }
         $relative = trim($path, '/');
         if ($relative !== '' && $root->nodeExists($relative)) {
             try {
@@ -425,10 +447,11 @@ class VisibilityGuard {
         $tagsToAssign = [];
         $current = $source;
         $seen = [];
-        while ($current instanceof Node) {
+        while (!$current instanceof IRootFolder) {
             $cid = (int)$current->getId();
             if ($cid <= 0 || isset($seen[$cid])) {
-                break;
+                $this->warnVisibilityFailure();
+                throw new ToolFailure(\OCA\Mcp\Tools\Files\FilesMessages::backupFailed());
             }
             $seen[$cid] = true;
             try {
@@ -439,8 +462,8 @@ class VisibilityGuard {
                     }
                 }
                 $parent = $current->getParent();
-                if (!$parent instanceof Node || (int)$parent->getId() === $cid) {
-                    break;
+                if (!$parent instanceof Node || $parent === $current || (int)$parent->getId() === $cid) {
+                    throw new \RuntimeException();
                 }
                 $current = $parent;
             } catch (\Throwable $e) {
@@ -471,7 +494,13 @@ class VisibilityGuard {
         if ($this->hiddenTagIds !== null) {
             return $this->hiddenTagIds;
         }
-        $raw = $this->config->getAppValue('mcp', self::CONFIG_KEY, '[]');
+        try {
+            $raw = $this->config->getAppValue('mcp', self::CONFIG_KEY, '[]');
+        } catch (\Throwable) {
+            // Retry on the next check; an unavailable config never means no exclusions.
+            $this->configInvalid = true;
+            return [];
+        }
         // Objects stay objects: decoded as arrays, {} and {"0":"42"} would pass for lists.
         $decoded = json_decode($raw);
         $ids = [];

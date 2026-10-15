@@ -798,7 +798,14 @@ final class CheckoutControllerTest extends TestCase {
         $this->controller = $controller;
     }
 
-    public function testHiddenFileAfterCheckoutReturnsNotFound(): void {
+    /** @return iterable<string, array{string, string}> */
+    public static function checkoutVisibilityKinds(): iterable {
+        yield 'download' => [CheckoutToken::KIND_DOWNLOAD, 'download'];
+        yield 'upload' => [CheckoutToken::KIND_UPLOAD, 'upload'];
+    }
+
+    /** @dataProvider checkoutVisibilityKinds */
+    public function testV1CheckoutExcludedAndMissingAreByteIdentical(string $kind, string $method): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string)$this->tree->nodes['/alice/files/Documentos/ata.md']['id'] => ['999']]);
@@ -814,7 +821,7 @@ final class CheckoutControllerTest extends TestCase {
 
         $request = $this->createMock(IRequest::class);
         $request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
-        $request->method('getMethod')->willReturn('GET');
+        $request->method('getMethod')->willReturn($method === 'download' ? 'GET' : 'PUT');
 
         $controller = new TestableCheckoutController('mcp', $request, $root, $this->session,
             $this->temp, $this->time, $this->policy, $this->store, $this->hasher,
@@ -823,8 +830,17 @@ final class CheckoutControllerTest extends TestCase {
             null, $this->users, $guard);
         $controller->route = ['token' => self::TOKEN];
 
-        $this->issue(CheckoutToken::KIND_DOWNLOAD);
-        $res = $controller->download();
+        $controller->staged = 'new content';
+        $this->headers['Content-Length'] = '11';
+        $this->issue($kind);
+        $res = $controller->$method();
         $this->assertSame(404, $this->code($res));
+        unset($this->tree->nodes[self::FILE]);
+        $guard->clearCache();
+        $missing = $controller->$method();
+        $this->assertSame($this->code($missing), $this->code($res));
+        $this->assertStringContainsString(\OCA\Mcp\Tools\Common\CommonMessages::notFound(), json_encode($res->getData()));
+        $this->assertSame(json_encode($missing->getData()), json_encode($res->getData()));
+        $this->assertSame([], $this->tree->ops);
     }
 }

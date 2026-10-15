@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tools\Files;
 
 use OCA\Mcp\Tools\Common\NodeAccess;
+use OCA\Mcp\Tools\Common\CommonMessages;
 use OCA\Mcp\Tools\Common\NodeAccessInfo;
 use OCA\Mcp\Tools\Common\PathGuard;
 use OCA\Mcp\Tools\ToolFailure;
@@ -398,7 +399,7 @@ final class ImageTools {
                 }
                 $out[] = [$path, $node, null];
             } catch (NotFoundException) {
-                $out[] = [$path, null, 'not found'];
+                $out[] = [$path, null, CommonMessages::notFound()];
             } catch (ToolFailure $e) {
                 $out[] = [$path, null, $e->getMessage()];
             }

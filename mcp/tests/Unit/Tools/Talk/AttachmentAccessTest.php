@@ -243,7 +243,9 @@ class AttachmentAccessTest extends TestCase {
         $share = $this->givenShare(IShare::TYPE_ROOM, 'abcd');
         $share->method('getNode')->willReturn($node);
 
-        $access = new AttachmentAccess($this->shareManager, $this->givenGuard([], $this->createMock(\OCP\Files\IRootFolder::class)));
+        $root = $this->createMock(\OCP\Files\IRootFolder::class);
+        $node->method('getParent')->willReturn($root);
+        $access = new AttachmentAccess($this->shareManager, $this->givenGuard([], $root));
 
         $this->assertSame($share, $access->requireRoomShareOf($this->givenConversation(), 'alice', 77));
     }
