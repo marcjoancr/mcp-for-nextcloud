@@ -124,12 +124,10 @@ final class GroupResolutionTest extends IntegrationTestCase {
         $life = $this->grantEligibility();
         // removeBackend is new in NC35. Keep this test backend registered but inert after the test,
         // using only APIs available across NC32–35; never clear the real manager's backends or caches.
-        $extra = $this->createMockForIntersectionOfInterfaces([GroupInterface::class, INamedBackend::class]);
+        // A real object, not a PHPUnit double: a double answers null once its test has ended, and every later
+        // test of this process reading memberships through the manager would see an invalid backend.
         $state = $this->extraState = (object)['serves' => true, 'gid' => $this->gid];
-        $extra->method('getBackendName')->willReturn('Database');
-        $extra->method('groupExists')->willReturnCallback(static fn ($gid) => $state->serves && $gid === $state->gid);
-        $extra->method('getUserGroups')->willReturnCallback(static fn ($uid) => $state->serves && $uid === Fixtures::ALICE ? [$state->gid] : []);
-        $extra->method('getGroups')->willReturn([]);
+        $extra = new InertWhenDoneGroupBackend($state);
         $manager->addBackend($extra);
         $this->assertFalse($classifier->trusted($this->gid));
         $resolver = Server::get(PolicyResolver::class);
@@ -153,5 +151,31 @@ final class GroupResolutionTest extends IntegrationTestCase {
         $this->assertTrue($external->deleteGroup($this->gid));
         $this->assertTrue($cached->groupExists($this->gid));
         $this->assertFalse((new Database($this->official()))->groupExists($this->gid));
+    }
+}
+
+/** A second backend named Database while $state->serves; afterwards it answers like an empty backend. */
+final class InertWhenDoneGroupBackend implements GroupInterface, INamedBackend {
+    public function __construct(private \stdClass $state) {}
+    public function getBackendName(): string {
+        return 'Database';
+    }
+    public function implementsActions($actions) {
+        return false;
+    }
+    public function inGroup($uid, $gid) {
+        return $this->state->serves && $uid === Fixtures::ALICE && $gid === $this->state->gid;
+    }
+    public function getUserGroups($uid) {
+        return $this->state->serves && $uid === Fixtures::ALICE ? [$this->state->gid] : [];
+    }
+    public function getGroups(string $search = '', int $limit = -1, int $offset = 0) {
+        return [];
+    }
+    public function groupExists($gid) {
+        return $this->state->serves && $gid === $this->state->gid;
+    }
+    public function usersInGroup($gid, $search = '', $limit = -1, $offset = 0) {
+        return [];
     }
 }
