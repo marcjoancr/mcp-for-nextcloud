@@ -24,7 +24,9 @@ class PolicyEventsMapper {
     public const KIND_RECEIPT = 'receipt';
     public const KIND_AUDIT = 'audit';
     public const KIND_CLEANUP = 'cleanup';
-    public const KINDS = [self::KIND_RECEIPT, self::KIND_AUDIT, self::KIND_CLEANUP];
+    /** A group preview (contracts §2.3): what a group save must present again; never delivered, purged when expired. */
+    public const KIND_PREVIEW = 'preview';
+    public const KINDS = [self::KIND_RECEIPT, self::KIND_AUDIT, self::KIND_CLEANUP, self::KIND_PREVIEW];
     public const STATUS_PENDING = 'pending';
     /** Delivered (audit logged, cleanup done); kept for a day as a trace, then purged by the job. */
     public const STATUS_DELIVERED = 'delivered';

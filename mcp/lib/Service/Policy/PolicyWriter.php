@@ -9,9 +9,12 @@ namespace OCA\Mcp\Service\Policy;
 
 use Closure;
 use OCA\Mcp\Db\AuthUsersMapper;
+use OCA\Mcp\Db\GroupGrantsMapper;
+use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\RecheckMapper;
+use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\GrantPolicy;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
@@ -40,6 +43,8 @@ class PolicyWriter {
     public const MAX_UIDS = 50;
     /** Most distinct cells one administrative command may write. */
     public const MAX_CELLS = 2500;
+    /** Seconds a group preview may be saved (contracts §2.3). */
+    public const PREVIEW_TTL = 120;
 
     private bool $usable = true;
     /**
@@ -62,6 +67,9 @@ class PolicyWriter {
         private AuthUsersMapper $authUsers,
         private RecheckMapper $rechecks,
         private PolicyEventProcessor $processor,
+        private GroupGrantsMapper $groupGrants,
+        private GroupLifeMapper $life,
+        private OAuthStore $oauth,
     ) {}
 
     /** Read admission must share the writer's abandoned-context gate. */
@@ -478,6 +486,76 @@ class PolicyWriter {
     }
 
     /**
+     * The preview of a group policy (contracts §2.3), taken at the expected revision: what the save would change,
+     * the group's member count and whether it can grant. It writes a preview event (no policy change, no revision
+     * step) that setGroupGrants() must present again within PREVIEW_TTL seconds. A group that cannot grant gets no
+     * preview for a non-empty set (422).
+     *
+     * @param string $expectedRevision the revision the administrator's page was built from
+     * @param string $actor uid of the administrator
+     * @param string $gid the group, exact bytes
+     * @param mixed $grants target set, module => list of operations (PolicyEventPayload::groupGrants())
+     * @param Closure(array{gid:string, grants:array, current:array, withdraws:bool, holders:list<string>}): array{trusted:bool, members:list<string>, cuts:list<string>} $admit
+     *     the external phase, without any transaction: the fresh source predicate, the member list and, when the
+     *     set withdraws eligibility, which of the given holders lose their last source (GroupGrantsAdmission)
+     * @return array{previewId:string, revision:string, groupId:string, grants:array, current:array, state:?string, members:int, trusted:bool, withdraws:bool, revokes:int}
+     * @throws \InvalidArgumentException for an invalid revision, group or set
+     * @throws GroupSourceUntrusted for a non-empty set on a group that cannot grant
+     * @throws PolicyConflict when the expected revision is stale
+     * @throws PolicyUnavailable when the storage or the directory cannot be read, or the outcome is uncertain
+     */
+    public function previewGroupGrants(string $expectedRevision, string $actor, string $gid, mixed $grants, Closure $admit): array {
+        return $this->groupCommand($expectedRevision, $actor, $gid, PolicyEventPayload::groupGrants($grants), null, $admit);
+    }
+
+    /**
+     * Saves the whole policy of a group (contracts §2.3, §3.3.5) from one of the caller's previews: the grant rows are
+     * replaced by $grants, and the lifecycle becomes active with a new gen and policy_rev = the revision this commit
+     * writes; an empty set removes the rows and the lifecycle. Saving in pending_delete or needs_confirm substitutes
+     * the whole set, so "Confirm current policy" is this same call with the current set (coordinator clarification 5).
+     * Granting never touches connected or a user override.
+     *
+     * The save presents the preview's revision, group, set, member hash and lifecycle again. In the external phase the
+     * members are enumerated anew and the source predicate read fresh; a different member set (even of the same
+     * count) or lifecycle is a conflict with nothing written, and a non-empty set on a group that cannot grant is
+     * refused. Under the mutex only local state is compared: the lifecycle (whose pending_delete transition does not
+     * move the revision) and the rows, as read in the external phase.
+     *
+     * Withdrawing _system/eligible follows the holders rule: H0, every live credential holder with its generations,
+     * is read before the external phase, which decides who loses its last source; under the mutex H1 is read again,
+     * and any new holder or issue_seq (an issuance between the phases) replays the attempt, at most twice, then 409.
+     * Otherwise the rows, the lifecycle and the cuts (revoked_below = issue_seq) of the holders who lose commit
+     * together. Holders with another source keep their credentials.
+     *
+     * @param string $expectedRevision the preview's revision
+     * @param string $actor uid of the administrator; only the preview's own may save it
+     * @param string $gid the preview's group
+     * @param mixed $grants the preview's target set
+     * @param string $previewId id returned by previewGroupGrants()
+     * @param Closure $admit the external phase, as for previewGroupGrants()
+     * @return array{revision:string, changed:bool, state:?string, revoked:int} state: the lifecycle after the save
+     * @throws \InvalidArgumentException for an invalid revision, group or set, or one that differs from the preview
+     * @throws ReceiptNotFound for an unknown preview, or another administrator's
+     * @throws ReceiptExpired for the caller's preview past PREVIEW_TTL
+     * @throws GroupSourceUntrusted for a non-empty set on a group that cannot grant; nothing is written
+     * @throws PolicyConflict when the revision, the member set or the lifecycle changed since the preview, or the
+     *     holders kept changing
+     * @throws PolicyUnavailable when the storage or the directory cannot be read, or the outcome is uncertain
+     */
+    public function setGroupGrants(string $expectedRevision, string $actor, string $gid, mixed $grants, string $previewId, Closure $admit): array {
+        DecimalCounter::validate($expectedRevision);
+        $grants = PolicyEventPayload::groupGrants($grants);
+        $preview = $this->preview($previewId, $actor);
+        if ($preview['gid'] !== $gid || $preview['grants'] !== $grants) {
+            throw new \InvalidArgumentException('The save differs from its preview');
+        }
+        if ($preview['revision'] !== $expectedRevision) {
+            throw new PolicyConflict();
+        }
+        return $this->groupCommand($expectedRevision, $actor, $gid, $grants, $preview, $admit);
+    }
+
+    /**
      * The revision a command running at $revision commits; an exhausted counter is a storage failure (503).
      *
      * @throws PolicyUnavailable when $revision is already the largest one a CAS may start from
@@ -488,6 +566,176 @@ class PolicyWriter {
         } catch (\InvalidArgumentException $e) {
             throw new PolicyUnavailable('Policy revision exhausted', previous: $e);
         }
+    }
+
+    /**
+     * One group preview ($preview null) or save, as one admin command.
+     *
+     * @param array<string, list<string>> $grants canonical target set
+     * @param array{gid:string, grants:array, memberHash:string, life:?array}|null $preview the save's preview
+     */
+    private function groupCommand(string $expected, string $actor, string $gid, array $grants, ?array $preview, Closure $admit): array {
+        if (!PolicyEventPayload::validUid($actor) || !PolicyEventPayload::validUid($gid)) {
+            throw new \InvalidArgumentException('Invalid command');
+        }
+        $outcome = [];
+        $result = $this->runAdmin($expected, [], function (array $observed) use ($gid, $grants, $preview, $admit): array {
+            // Local reads first, H0 included, before anything remote (contracts §2.3).
+            $now = $this->time->getTime();
+            $life = self::life($this->life->get($gid));
+            $current = $this->groupGrants->forGroups([$gid])[0]['grants'];
+            $withdraws = PolicyEventPayload::grantsEligibility($current) && !PolicyEventPayload::grantsEligibility($grants);
+            $holders = $withdraws ? $this->holders($now, $observed['auth_epoch']) : [];
+            $candidates = [];
+            foreach ($holders as $holder) {
+                if (!self::allCut($holder['gen'], $holder['revoked_below'])) {
+                    $candidates[] = $holder['uid'];
+                }
+            }
+            $admission = self::admission($admit(['gid' => $gid, 'grants' => $grants, 'current' => $current,
+                'withdraws' => $withdraws, 'holders' => $candidates]), $withdraws ? $candidates : []);
+            if ($grants !== [] && !$admission['trusted']) {
+                throw new GroupSourceUntrusted();
+            }
+            $memberHash = PolicyEventPayload::memberHash($admission['members']);
+            if ($preview !== null && ($preview['memberHash'] !== $memberHash || $preview['life'] !== $life)) {
+                throw new PolicyConflict();
+            }
+            return ['now' => $now, 'life' => $life, 'current' => $current, 'withdraws' => $withdraws, 'holders' => $holders,
+                'admission' => $admission, 'memberHash' => $memberHash];
+        }, function (array $snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($actor, $gid, $grants, $preview, &$outcome): bool {
+            $stored = $this->life->get($gid);
+            if (self::life($stored) !== $snapshot['life'] || $this->groupGrants->forGroups([$gid])[0]['grants'] !== $snapshot['current']) {
+                throw new SnapshotInvalidated();
+            }
+            if ($snapshot['withdraws'] && $this->holders($snapshot['now'], $current['auth_epoch']) !== $snapshot['holders']) {
+                throw new SnapshotInvalidated();
+            }
+            if ($preview === null) {
+                $outcome = ['previewId' => $outbox->add(PolicyEventsMapper::KIND_PREVIEW, PolicyEventPayload::preview($actor, $gid,
+                    $current['revision'], $grants, $snapshot['memberHash'], $snapshot['life'])),
+                    'revision' => $current['revision'], 'groupId' => $gid, 'grants' => $grants, 'current' => $snapshot['current'],
+                    'state' => $stored['state'] ?? null, 'members' => count($snapshot['admission']['members']),
+                    'trusted' => $snapshot['admission']['trusted'], 'withdraws' => $snapshot['withdraws'],
+                    'revokes' => count($snapshot['admission']['cuts'])];
+                return false;
+            }
+            if ($grants === $snapshot['current'] && ($grants === [] ? $stored === null : $stored['state'] === GroupLifeMapper::ACTIVE)) {
+                $outcome = ['changed' => false, 'state' => $stored['state'] ?? null, 'revoked' => 0];
+                return false;
+            }
+            $revision = self::next($current['revision']);
+            $this->groupGrants->replaceGroup($gid, $grants);
+            $state = null;
+            if ($grants === []) {
+                if ($stored !== null && !$this->life->delete($gid, $stored['gen'])) {
+                    throw new SnapshotInvalidated();
+                }
+            } else {
+                // policy_rev is the revision this commit writes, never the one before the CAS (ticket 07).
+                $this->life->put($gid, GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16)), $revision);
+                $state = GroupLifeMapper::ACTIVE;
+            }
+            foreach ($snapshot['admission']['cuts'] as $uid) {
+                $this->revokeUserLocal($uid);
+            }
+            $outbox->add(PolicyEventsMapper::KIND_AUDIT, PolicyEventPayload::audit($actor, PolicyEventPayload::ACTION_GROUP,
+                $current['revision'], $revision, null, null, [['gid' => $gid, 'key' => PolicyEventPayload::GROUP_KEY,
+                    'before' => PolicyEventPayload::groupSnapshot($stored['state'] ?? null, $snapshot['current']),
+                    'after' => PolicyEventPayload::groupSnapshot($state, $grants)]]));
+            $outcome = ['changed' => true, 'state' => $state, 'revoked' => count($snapshot['admission']['cuts'])];
+            return true;
+        });
+        return $preview === null ? $outcome : ['revision' => $result['revision']] + $outcome;
+    }
+
+    /**
+     * H of the holders rule (contracts §2.3): every owner of a live code or grant of the current epoch, with the
+     * highest generation among those rows and the owner's issue_seq and revoked_below, sorted by a digest of the uid.
+     * Read before the external phase and again under the mutex: any difference is an issuance (or a cut) in between.
+     *
+     * @return array<string, array{uid:string, gen:string, issue_seq:string, revoked_below:string}>
+     * @throws PolicyUnavailable when a holder's generations cannot be read
+     */
+    private function holders(int $now, string $epoch): array {
+        $holders = [];
+        foreach ($this->oauth->liveHolders($now, $epoch) as $key => ['uid' => $uid, 'gen' => $gen]) {
+            try {
+                $holders[$key] = ['uid' => $uid, 'gen' => $gen] + $this->authUsers->generations($uid);
+            } catch (\InvalidArgumentException|\UnexpectedValueException $e) {
+                throw new PolicyUnavailable('Cannot read the credential holders', previous: $e);
+            }
+        }
+        ksort($holders, SORT_STRING);
+        return $holders;
+    }
+
+    /** Whether every credential of a holder is already cut; a generation that cannot be compared is not. */
+    private static function allCut(string $highest, string $revokedBelow): bool {
+        try {
+            return DecimalCounter::compare(DecimalCounter::validate($highest, DecimalCounter::MAX), $revokedBelow) <= 0;
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
+    }
+
+    /**
+     * Checks what the external phase answered: cuts only among the holders it was given.
+     *
+     * @param list<string> $holders the holders that may be cut
+     * @return array{trusted:bool, members:list<string>, cuts:list<string>}
+     */
+    private static function admission(mixed $admission, array $holders): array {
+        if (!is_array($admission) || !is_bool($admission['trusted'] ?? null)
+            || !is_array($admission['members'] ?? null) || !array_is_list($admission['members'])
+            || !is_array($admission['cuts'] ?? null) || !array_is_list($admission['cuts'])) {
+            throw new \LogicException('Invalid group admission');
+        }
+        foreach ($admission['members'] as $uid) {
+            if (!is_string($uid)) {
+                throw new \LogicException('Invalid group admission');
+            }
+        }
+        $cuts = array_values(array_unique($admission['cuts']));
+        foreach ($cuts as $uid) {
+            if (!in_array($uid, $holders, true)) {
+                throw new \LogicException('A group save may cut only the holders it was given');
+            }
+        }
+        return ['trusted' => $admission['trusted'], 'members' => array_values(array_unique($admission['members'])), 'cuts' => $cuts];
+    }
+
+    /** @return array{state:string, gen:string}|null the part of a lifecycle a preview fixes */
+    private static function life(?array $row): ?array {
+        return $row === null ? null : ['state' => $row['state'], 'gen' => $row['gen']];
+    }
+
+    /**
+     * Loads a group preview for its own administrator, with the same ownership-before-expiry rule as receipts.
+     *
+     * @return array{gid:string, grants:array, revision:string, memberHash:string, life:?array}
+     * @throws ReceiptNotFound|ReceiptExpired|PolicyUnavailable
+     */
+    private function preview(string $previewId, string $actor): array {
+        if (!PolicyEventsMapper::validId($previewId)) {
+            throw new ReceiptNotFound();
+        }
+        try {
+            $event = $this->events->find($previewId);
+            $payload = $event === null || $event['kind'] !== PolicyEventsMapper::KIND_PREVIEW ? null
+                : PolicyEventPayload::validate(PolicyEventsMapper::KIND_PREVIEW, $event['payload']);
+        } catch (\UnexpectedValueException $e) {
+            throw new PolicyUnavailable('Invalid stored preview', previous: $e);
+        } catch (DatabaseException $e) {
+            throw new PolicyUnavailable(previous: $e);
+        }
+        if ($payload === null || $payload['actor'] !== $actor) {
+            throw new ReceiptNotFound();
+        }
+        if ($this->time->getTime() >= $event['createdAt'] + self::PREVIEW_TTL) {
+            throw new ReceiptExpired();
+        }
+        return $payload;
     }
 
     private function change(?string $uid, string $key, ?string $value): void {

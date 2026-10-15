@@ -15,7 +15,8 @@ use UnexpectedValueException;
 /**
  * Group-grant storage, deliberately not a QBMapper: its inherited write methods must not be exposed. A row means
  * Allow; no row means no grant. This store does not resolve user access or group membership. Its only write, the
- * purge of a group's rows, runs inside the policy writer's transaction (group lifecycle, contracts §3.3.5).
+ * purge of a group's rows and the replacement of its whole set by a save (ticket 08), run inside the policy writer's
+ * transaction, under its mutex (group lifecycle, contracts §3.3.5).
  */
 final class GroupGrantsMapper {
     /** Leaves room below the parameter limits of the supported database engines. */
@@ -102,5 +103,35 @@ final class GroupGrantsMapper {
         return $qb->delete('mcp_group_grants')
             ->where($qb->expr()->eq('group_key', $qb->createNamedParameter(hash('sha256', "group\0" . $gid))))
             ->executeStatement();
+    }
+
+    /**
+     * Replaces every grant row of one group with $grants, as an administrator's save does (contracts §3.3.5: a save
+     * in pending_delete or needs_confirm substitutes the whole set). An empty set leaves the group without rows. The
+     * old rows go through deleteGroup(), so a digest collision fails closed before anything is written.
+     *
+     * @param string $gid Nextcloud group id
+     * @param array<string, list<string>> $grants canonical set (PolicyEventPayload::groupGrants())
+     * @throws \LogicException outside the policy writer's transaction
+     * @throws InvalidArgumentException for an invalid id or set
+     * @throws UnexpectedValueException for a digest collision or an invalid stored grant; nothing is written
+     * @throws \OCP\DB\Exception when a statement fails
+     */
+    public function replaceGroup(string $gid, array $grants): void {
+        if (\OCA\Mcp\Service\Policy\PolicyEventPayload::groupGrants($grants) !== $grants) {
+            throw new InvalidArgumentException('Group grants must be canonical');
+        }
+        $this->deleteGroup($gid);
+        foreach ($grants as $module => $operations) {
+            foreach ($operations as $operation) {
+                $qb = $this->db->getQueryBuilder();
+                $qb->insert('mcp_group_grants')
+                    ->setValue('group_key', $qb->createNamedParameter(hash('sha256', "group\0" . $gid)))
+                    ->setValue('group_id', $qb->createNamedParameter($gid))
+                    ->setValue('module', $qb->createNamedParameter((string)$module))
+                    ->setValue('operation', $qb->createNamedParameter($operation))
+                    ->executeStatement();
+            }
+        }
     }
 }

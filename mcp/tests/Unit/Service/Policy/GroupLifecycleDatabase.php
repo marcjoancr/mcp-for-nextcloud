@@ -54,6 +54,10 @@ trait GroupLifecycleDatabase {
     private array $exists = [];
     /** @var (\Closure(): void)|null runs once inside the next existence read, in the external phase */
     private ?\Closure $duringExists = null;
+    /** The clock every mapper and the writer read. */
+    private int $now = 1_760_000_000;
+    /** The user preferences and app config behind the writer. */
+    private InMemoryConfig $configData;
 
     private function lifecycleDatabase(): void {
         $this->database = new SqliteDatabase($this, [new Version000500Date20260930000000(), new Version000700Date20261001000000(),
@@ -63,14 +67,16 @@ trait GroupLifecycleDatabase {
         $this->db = $this->database->connection();
         (new PolicyStateSeeder($this->db))->seed();
         $time = $this->createMock(ITimeFactory::class);
-        $time->method('getTime')->willReturn(1_760_000_000);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
         $events = new PolicyEventsMapper($this->db, $time);
         $this->state = new PolicyStateMapper($this->db);
         $this->rechecks = new RecheckMapper($this->db);
-        $this->writer = new PolicyWriter($this->db, $this->state, $events, (new InMemoryConfig())->mock($this),
+        $this->configData = new InMemoryConfig();
+        $this->writer = new PolicyWriter($this->db, $this->state, $events, $this->configData->mock($this),
             $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class),
             $time, new AuthUsersMapper($this->db), $this->rechecks,
-            new PolicyEventProcessor($events, new OAuthStore($this->db), new NullLogger(), $time));
+            new PolicyEventProcessor($events, new OAuthStore($this->db), new NullLogger(), $time),
+            new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), new \OCA\Mcp\OAuth\OAuthStore($this->db));
         $this->life = new GroupLifeMapper($this->db);
         $this->grants = new GroupGrantsMapper($this->db);
         $classifier = $this->createMock(GroupSourceClassifier::class);

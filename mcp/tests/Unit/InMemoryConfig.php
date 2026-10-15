@@ -151,7 +151,8 @@ final class InMemoryConfig {
         self::$processors ??= new \WeakMap();
         self::$processors[$config] = $processor;
         return self::$writers[$config] = new \OCA\Mcp\Service\Policy\PolicyWriter($db, $state, $events, $config,
-            self::$userConfigs[$config], $appConfig, $users, $time, $authUsers, $rechecks, $processor);
+            self::$userConfigs[$config], $appConfig, $users, $time, $authUsers, $rechecks, $processor,
+            new \OCA\Mcp\Db\GroupGrantsMapper($db), new \OCA\Mcp\Db\GroupLifeMapper($db), new \OCA\Mcp\OAuth\OAuthStore($db));
     }
 
     public function mock(TestCase $test): IConfig {

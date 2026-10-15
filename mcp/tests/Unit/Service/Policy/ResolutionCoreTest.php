@@ -97,7 +97,8 @@ final class ResolutionCoreTest extends TestCase {
         $this->writer = new PolicyWriter($this->db, $this->state, $this->createMock(PolicyEventsMapper::class),
             $this->config, $this->userConfig, $this->appConfig, $this->users,
             $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class), $this->createMock(\OCA\Mcp\Db\AuthUsersMapper::class),
-            $this->createMock(\OCA\Mcp\Db\RecheckMapper::class), $this->createMock(PolicyEventProcessor::class));
+            $this->createMock(\OCA\Mcp\Db\RecheckMapper::class), $this->createMock(PolicyEventProcessor::class),
+            new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), new \OCA\Mcp\OAuth\OAuthStore($this->db));
         $this->resolver = $this->resolver();
     }
 

@@ -62,13 +62,15 @@ final class PolicyWriterTest extends TestCase {
     }
 
     /**
-     * The constructor tail after the user manager: clock, generations, causes and the event delivery over $oauth.
+     * The constructor tail after the user manager: clock, generations, causes, the event delivery over $oauth and
+     * the group storage on $db.
      *
      * @return list<object>
      */
     private function tail(IDBConnection $db, \OCA\Mcp\OAuth\OAuthStore $oauth, ITimeFactory $time): array {
         return [$time, new \OCA\Mcp\Db\AuthUsersMapper($db), new \OCA\Mcp\Db\RecheckMapper($db),
-            new \OCA\Mcp\Service\Policy\PolicyEventProcessor($this->events($db), $oauth, new \Psr\Log\NullLogger(), $time)];
+            new \OCA\Mcp\Service\Policy\PolicyEventProcessor($this->events($db), $oauth, new \Psr\Log\NullLogger(), $time),
+            new \OCA\Mcp\Db\GroupGrantsMapper($db), new \OCA\Mcp\Db\GroupLifeMapper($db), $oauth];
     }
 
     private function write(int $id): \Closure {
@@ -504,7 +506,8 @@ final class PolicyWriterTest extends TestCase {
         $apps->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $data->app[$app] ?? []));
         return new PolicyWriter($this->db, $this->state, new PolicyEventsMapper($this->db, $time), $config,
             $this->createMock(IUserConfig::class), $apps, $users, $time, $authUsers ?? new \OCA\Mcp\Db\AuthUsersMapper($this->db),
-            new \OCA\Mcp\Db\RecheckMapper($this->db), new PolicyEventProcessor($this->events(), new InMemoryOAuthStore(), new \Psr\Log\NullLogger(), $time));
+            new \OCA\Mcp\Db\RecheckMapper($this->db), new PolicyEventProcessor($this->events(), new InMemoryOAuthStore(), new \Psr\Log\NullLogger(), $time),
+            new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), new \OCA\Mcp\OAuth\OAuthStore($this->db));
     }
 
     /** @return list<array{id:string, kind:string, payload:array}> the stored events, decoded */

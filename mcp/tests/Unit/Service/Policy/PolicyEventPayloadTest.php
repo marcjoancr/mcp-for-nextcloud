@@ -28,6 +28,23 @@ final class PolicyEventPayloadTest extends TestCase {
         $this->assertSame($audit, PolicyEventPayload::validate(PolicyEventsMapper::KIND_AUDIT, $audit));
         $this->assertIsArray(PolicyEventPayload::audit('root', 'grants.undo', '2', '3', null, self::RECEIPT_ID, [self::change()]));
         $this->assertIsArray(PolicyEventPayload::audit('root', 'grants.bulk', '2', '3', self::RECEIPT_ID, null, []));
+        $group = PolicyEventPayload::audit('root', 'group_grants', '2', '3', null, null, [self::groupChange()]);
+        $this->assertSame($group, PolicyEventPayload::validate(PolicyEventsMapper::KIND_AUDIT, json_decode(json_encode($group), true)));
+        $preview = PolicyEventPayload::preview('root', 'staff', '7', ['_system' => ['eligible'], 'notes' => ['edit']], str_repeat('ab', 32),
+            ['state' => 'needs_confirm', 'gen' => str_repeat('c', 32)]);
+        $this->assertSame($preview, PolicyEventPayload::validate(PolicyEventsMapper::KIND_PREVIEW, json_decode(json_encode($preview), true)));
+        $this->assertIsArray(PolicyEventPayload::preview('root', 'staff', '0', [], str_repeat('ab', 32), null));
+    }
+
+    private static function groupChange(array $override = []): array {
+        return $override + ['gid' => 'staff', 'key' => 'group_grants', 'before' => null, 'after' => '{"state":"active","grants":{"notes":["edit"]}}'];
+    }
+
+    public function testTheGroupSnapshotKeepsStateAndRowsApartFromAbsence(): void {
+        $this->assertNull(PolicyEventPayload::groupSnapshot(null, []));
+        $this->assertSame('{"state":"needs_confirm","grants":{}}', PolicyEventPayload::groupSnapshot('needs_confirm', []));
+        $this->assertSame(PolicyEventPayload::memberHash(['b', 'a']), PolicyEventPayload::memberHash(['a', 'b']));
+        $this->assertNotSame(PolicyEventPayload::memberHash(['a', 'b']), PolicyEventPayload::memberHash(['a', 'c']));
     }
 
     /** @return array<string, array{string, array}> */
@@ -55,6 +72,19 @@ final class PolicyEventPayloadTest extends TestCase {
             'invalid receipt id' => ['audit', ['receiptId' => 'x', 'changes' => []] + $audit],
             'unknown app key' => ['audit', ['changes' => [['uid' => null, 'key' => 'enabled', 'before' => null, 'after' => '1']]] + $audit],
             'cleanup kind' => ['cleanup', $audit],
+            'group change on another action' => ['audit', ['changes' => [self::groupChange()]] + $audit],
+            'group save without its change' => ['audit', ['action' => 'group_grants', 'changes' => []] + $audit],
+            'group save with a user change' => ['audit', ['action' => 'group_grants', 'changes' => [self::groupChange(), self::change()]] + $audit],
+            'unchanged group' => ['audit', ['action' => 'group_grants', 'changes' => [self::groupChange(['before' => self::groupChange()['after']])]] + $audit],
+            'group change with a uid' => ['audit', ['action' => 'group_grants', 'changes' => [self::groupChange(['uid' => 'x'])]] + $audit],
+            'preview with an unknown grant' => ['preview', ['v' => 1, 'actor' => 'root', 'gid' => 'staff', 'revision' => '1',
+                'grants' => ['files' => ['nuke']], 'memberHash' => str_repeat('ab', 32), 'life' => null]],
+            'preview with an unsorted set' => ['preview', ['v' => 1, 'actor' => 'root', 'gid' => 'staff', 'revision' => '1',
+                'grants' => ['notes' => ['read', 'edit']], 'memberHash' => str_repeat('ab', 32), 'life' => null]],
+            'preview with a bad hash' => ['preview', ['v' => 1, 'actor' => 'root', 'gid' => 'staff', 'revision' => '1',
+                'grants' => [], 'memberHash' => 'x', 'life' => null]],
+            'preview with a bad lifecycle' => ['preview', ['v' => 1, 'actor' => 'root', 'gid' => 'staff', 'revision' => '1',
+                'grants' => [], 'memberHash' => str_repeat('ab', 32), 'life' => ['state' => 'gone', 'gen' => str_repeat('c', 32)]]],
         ];
     }
 

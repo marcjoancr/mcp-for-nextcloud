@@ -1,0 +1,381 @@
+<?php
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+declare(strict_types=1);
+namespace OCA\Mcp\Tests\Unit\Service\Policy;
+
+use OCA\Mcp\Db\AuthUsersMapper;
+use OCA\Mcp\Db\GroupLifeMapper;
+use OCA\Mcp\Db\IdentityKey;
+use OCA\Mcp\Db\PolicyEventsMapper;
+use OCA\Mcp\OAuth\OAuthStore;
+use OCA\Mcp\Service\Policy\GroupSourceUntrusted;
+use OCA\Mcp\Service\Policy\PolicyConflict;
+use OCA\Mcp\Service\Policy\PolicyEventPayload;
+use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Policy\ReceiptExpired;
+use OCA\Mcp\Service\Policy\ReceiptNotFound;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * The group save of ticket 08 on SQLite, with the production writer and mappers (contracts §2.3, §3.3.5): preview and
+ * save, the 422 of a group that cannot grant, the member hash, the lifecycle gen compared under the mutex, the holders
+ * rule H0/H1 and "Confirm current policy". The external phase is a double that records what it was given and answers
+ * the source predicate, the member list and who loses its last source; GroupGrantsServiceTest covers the real one.
+ * Validation T5 (part F3), T6 (422 without write) and T16 (server part).
+ */
+final class GroupGrantsWriterTest extends TestCase {
+    use GroupLifecycleDatabase;
+
+    private bool $trusted = true;
+    /** @var list<string> */
+    private array $members = ['ana', 'bob'];
+    /** @var list<string> holders the external phase decides lose their last source */
+    private array $losing = [];
+    /** @var list<\Closure(): void> run one per external phase, in order */
+    private array $during = [];
+    /** @var list<array> what each external phase was given */
+    private array $admitted = [];
+
+    protected function setUp(): void {
+        $this->lifecycleDatabase();
+    }
+
+    private function admit(): \Closure {
+        return function (array $command): array {
+            $this->assertFalse($this->db->inTransaction(), 'no directory read under the mutex');
+            $this->admitted[] = $command;
+            if ($this->during !== []) {
+                (array_shift($this->during))();
+            }
+            return ['trusted' => $this->trusted, 'members' => $this->members,
+                'cuts' => array_values(array_intersect($command['holders'], $this->losing))];
+        };
+    }
+
+    private function preview(mixed $grants, string $gid = 'staff', string $actor = 'root'): array {
+        return $this->writer->previewGroupGrants($this->revision(), $actor, $gid, $grants, $this->admit());
+    }
+
+    private function saveFrom(array $preview, string $actor = 'root'): array {
+        return $this->writer->setGroupGrants($preview['revision'], $actor, $preview['groupId'], $preview['grants'],
+            $preview['previewId'], $this->admit());
+    }
+
+    /** A credential holder: its generations and one live grant of the current epoch at its last generation. */
+    private function holder(string $uid, string $issue = '2', string $revoked = '0'): void {
+        $this->database->dbal->insert('mcp_auth_users', ['user_key' => IdentityKey::user($uid), 'user_id' => $uid,
+            'issue_seq' => $issue, 'revoked_below' => $revoked]);
+        $this->token($uid, $issue);
+    }
+
+    private function token(string $uid, string $gen): void {
+        (new OAuthStore($this->db))->insertToken(['user_id' => $uid, 'client_id' => 'client', 'resource' => 'https://cloud/', 'scope' => 'mcp',
+            'access_hash' => bin2hex(random_bytes(32)), 'access_expires' => $this->now + 3600, 'refresh_hash' => bin2hex(random_bytes(32)),
+            'refresh_expires' => $this->now + 86400, 'created_at' => $this->now, 'auth_global_epoch' => '0', 'auth_gen' => $gen], $this->now);
+    }
+
+    /** An issuance under the mutex, as consent does: issue_seq + 1 and a credential of that generation. */
+    private function issue(string $uid): void {
+        $this->writer->runInternal([], fn () => null, function () use ($uid): bool {
+            $this->token($uid, (new AuthUsersMapper($this->db))->issue($uid));
+            return false;
+        });
+    }
+
+    private function generations(string $uid): array {
+        return (new AuthUsersMapper($this->db))->generations($uid);
+    }
+
+    /** @return list<array> payloads of the stored events of one kind, in order */
+    private function stored(string $kind): array {
+        return array_map(static fn (array $row): array => json_decode($row['payload'], true),
+            $this->database->dbal->fetchAllAssociative('SELECT payload FROM mcp_policy_events WHERE kind = ? ORDER BY id', [$kind]));
+    }
+
+    public function testAPreviewChangesNothingAndItsSaveActivatesTheGroupAtThePostCommitRevision(): void {
+        $before = $this->revision();
+        $preview = $this->preview(['notes' => ['read', 'edit', 'edit'], '_system' => ['eligible']]);
+        $this->assertSame($before, $this->revision(), 'a preview is no policy change');
+        $this->assertSame(['_system' => ['eligible'], 'notes' => ['edit', 'read']], $preview['grants'], 'canonical set');
+        $this->assertSame(['revision' => $before, 'groupId' => 'staff', 'current' => [], 'state' => null, 'members' => 2,
+            'trusted' => true, 'withdraws' => false, 'revokes' => 0],
+            array_diff_key($preview, ['previewId' => 1, 'grants' => 1]));
+        $this->assertSame([], $this->rows('staff'));
+        $this->assertCount(1, $this->stored(PolicyEventsMapper::KIND_PREVIEW));
+
+        $result = $this->saveFrom($preview);
+
+        $revision = PolicyWriter::next($before);
+        $this->assertSame(['revision' => $revision, 'changed' => true, 'state' => 'active', 'revoked' => 0], $result);
+        $this->assertSame(['_system/eligible', 'notes/edit', 'notes/read'], $this->rows('staff'));
+        $life = $this->life->get('staff');
+        $this->assertSame('active', $life['state']);
+        $this->assertSame($revision, $life['policyRev'], 'policy_rev is the revision of the commit, not the one before');
+        $this->assertSame($revision, $this->revision());
+        // Granting eligibility to the group writes no user preference: neither connected nor an override.
+        $this->assertSame([], $this->configData->user);
+        [$audit] = $this->stored(PolicyEventsMapper::KIND_AUDIT);
+        $this->assertSame(['root', 'group_grants', $before, $revision], [$audit['actor'], $audit['action'], $audit['fromRevision'], $audit['revision']]);
+        $this->assertSame([['gid' => 'staff', 'key' => 'group_grants', 'before' => null,
+            'after' => '{"state":"active","grants":{"_system":["eligible"],"notes":["edit","read"]}}']], $audit['changes']);
+    }
+
+    /** T6: a group that cannot grant gets no preview and no save for a non-empty set; nothing is written. */
+    public function testAGroupThatCannotGrantIsRefusedWithoutAnyWrite(): void {
+        $revision = $this->revision();
+        $this->trusted = false;
+        try {
+            $this->preview(['notes' => ['edit']]);
+            $this->fail('An untrusted group was previewed');
+        } catch (GroupSourceUntrusted $e) {
+            $this->assertSame(422, $e->getCode());
+        }
+        $this->assertSame([], $this->stored(PolicyEventsMapper::KIND_PREVIEW));
+
+        // The source changes between the preview and the save: the save reads the predicate again.
+        $this->trusted = true;
+        $preview = $this->preview(['notes' => ['edit']]);
+        $this->trusted = false;
+        try {
+            $this->saveFrom($preview);
+            $this->fail('An untrusted group was saved');
+        } catch (GroupSourceUntrusted) {
+        }
+        $this->assertSame([], $this->rows('staff'));
+        $this->assertNull($this->life->get('staff'));
+        $this->assertSame($revision, $this->revision());
+        $this->assertSame([], $this->stored(PolicyEventsMapper::KIND_AUDIT));
+    }
+
+    /** Clarification 5: "Confirm current policy" is a save of the current set; with the predicate false it is a 422. */
+    public function testConfirmingTheCurrentSetReactivatesASuspendedGroupWithANewGen(): void {
+        $gen = $this->policy('staff', GroupLifeMapper::NEEDS_CONFIRM);
+        $preview = $this->preview(['_system' => ['eligible'], 'notes' => ['edit']]);
+        $this->assertSame('needs_confirm', $preview['state']);
+        $this->assertSame($preview['grants'], $preview['current']);
+
+        $result = $this->saveFrom($preview);
+
+        $this->assertSame(['changed' => true, 'state' => 'active', 'revoked' => 0], array_diff_key($result, ['revision' => 1]));
+        $life = $this->life->get('staff');
+        $this->assertSame('active', $life['state']);
+        $this->assertNotSame($gen, $life['gen']);
+        $this->assertSame($result['revision'], $life['policyRev']);
+        $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'), 'same rows');
+
+        $this->policy('team', GroupLifeMapper::NEEDS_CONFIRM);
+        $revision = $this->revision();
+        $this->trusted = false;
+        try {
+            $this->preview(['_system' => ['eligible'], 'notes' => ['edit']], 'team');
+            $this->fail('An untrusted group was confirmed');
+        } catch (GroupSourceUntrusted) {
+        }
+        $this->assertSame('needs_confirm', $this->life->get('team')['state']);
+        $this->assertSame($revision, $this->revision());
+    }
+
+    /** Contracts §3.3.5: a save in pending_delete or needs_confirm substitutes the whole set of rows. */
+    public function testASaveOfASuspendedGroupReplacesItsWholeSet(): void {
+        $this->policy('staff', GroupLifeMapper::PENDING_DELETE, '0', [['notes', 'edit'], ['deck', 'read']]);
+        $this->saveFrom($this->preview(['calendar' => ['read']]));
+        $this->assertSame(['calendar/read'], $this->rows('staff'));
+        $this->assertSame('active', $this->life->get('staff')['state']);
+    }
+
+    /** T16: a different member set between preview and save is a conflict, even with the same count. */
+    public function testAChangedMemberSetOfTheSameCountIsAConflictWithNothingWritten(): void {
+        $preview = $this->preview(['notes' => ['edit']]);
+        $revision = $this->revision();
+        $this->members = ['ana', 'carl'];
+        try {
+            $this->saveFrom($preview);
+            $this->fail('A changed member set was saved');
+        } catch (PolicyConflict) {
+        }
+        $this->assertSame([], $this->rows('staff'));
+        $this->assertNull($this->life->get('staff'));
+        $this->assertSame($revision, $this->revision());
+        $this->members = ['bob', 'ana'];
+        $this->assertTrue($this->saveFrom($preview)['changed'], 'the same members in another order are the same set');
+    }
+
+    /**
+     * Ticket 07 F3: pending_delete does not move the revision, so the save compares the lifecycle it read in the
+     * external phase again under the mutex. A deletion's pre-event between the phases replays the attempt, which then
+     * no longer matches its preview: 409, nothing written.
+     */
+    public function testAPendingDeleteBetweenThePhasesIsSeenUnderTheMutex(): void {
+        $gen = $this->policy('staff');
+        $preview = $this->preview(['_system' => ['eligible'], 'notes' => ['edit', 'read']]);
+        $revision = $this->revision();
+        $this->during = [function () use ($gen): void {
+            $this->assertTrue($this->life->markPendingDelete('staff', $gen, bin2hex(random_bytes(16))));
+        }];
+        $this->admitted = [];
+        try {
+            $this->saveFrom($preview);
+            $this->fail('A save ignored a pending deletion');
+        } catch (PolicyConflict) {
+        }
+        $this->assertCount(2, $this->admitted, 'the transition invalidated the first attempt under the mutex');
+        $this->assertSame('pending_delete', $this->life->get('staff')['state']);
+        $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
+        $this->assertSame($revision, $this->revision());
+    }
+
+    /** Withdrawing eligibility cuts the holders the external phase found losing their last source, and only them. */
+    public function testWithdrawingEligibilityCutsOnlyTheHoldersWhoLoseTheirLastSource(): void {
+        $this->policy('staff');
+        $this->holder('ana', '2');
+        $this->holder('bob', '3');
+        $this->holder('carl', '2', '2');
+        $this->losing = ['ana', 'carl'];
+        $preview = $this->preview(['notes' => ['edit']]);
+        $this->assertTrue($preview['withdraws']);
+        $this->assertSame(1, $preview['revokes']);
+        $holders = $this->admitted[0]['holders'];
+        sort($holders);
+        $this->assertSame(['ana', 'bob'], $holders, 'every live holder not already cut, members or not');
+
+        $result = $this->saveFrom($preview);
+
+        $this->assertSame(1, $result['revoked']);
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->generations('ana'));
+        $this->assertSame(['issue_seq' => '3', 'revoked_below' => '0'], $this->generations('bob'), 'another source keeps it');
+        $this->assertSame(['notes/edit'], $this->rows('staff'));
+        $this->assertSame([['v' => 1, 'scope' => 'user', 'uid' => 'ana', 'cut' => '2', 'epoch' => null]],
+            $this->stored(PolicyEventsMapper::KIND_CLEANUP));
+    }
+
+    /** T5 F3: a member who consents between the external phase and the commit is a new holder in H1, and is cut. */
+    public function testAConsentBetweenThePhasesReplaysTheWithdrawalAndCutsTheNewHolder(): void {
+        $this->policy('staff');
+        $this->holder('ana');
+        $this->losing = ['ana', 'ursula'];
+        $preview = $this->preview(['notes' => ['edit']]);
+        $this->during = [fn () => $this->issue('ursula')];
+        $this->admitted = [];
+
+        $result = $this->saveFrom($preview);
+
+        $this->assertCount(2, $this->admitted);
+        $this->assertSame(['ana'], $this->admitted[0]['holders']);
+        $this->assertContains('ursula', $this->admitted[1]['holders']);
+        $this->assertSame(2, $result['revoked']);
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->generations('ursula'));
+    }
+
+    /** T5 F3 with connected already true: a holder's new consent only moves its issue_seq; H1 still differs. */
+    public function testANewConsentOfAnExistingHolderBetweenThePhasesIsCutToo(): void {
+        $this->policy('staff');
+        $this->holder('ana', '2');
+        $this->losing = ['ana'];
+        $preview = $this->preview(['notes' => ['edit']]);
+        $this->during = [fn () => $this->issue('ana')];
+        $this->admitted = [];
+
+        $this->saveFrom($preview);
+
+        $this->assertCount(2, $this->admitted);
+        $this->assertSame(['issue_seq' => '3', 'revoked_below' => '3'], $this->generations('ana'), 'the new credential is cut');
+    }
+
+    /** Contracts §2.3: holders that keep changing end, after two retries, in a 409 with nothing written. */
+    public function testHoldersThatKeepChangingEndInAConflictAfterTwoRetries(): void {
+        $this->policy('staff');
+        $this->holder('ana');
+        $this->losing = ['ana'];
+        $preview = $this->preview(['notes' => ['edit']]);
+        $revision = $this->revision();
+        $this->during = [fn () => $this->issue('bob'), fn () => $this->issue('bob'), fn () => $this->issue('bob')];
+        $this->admitted = [];
+        try {
+            $this->saveFrom($preview);
+            $this->fail('A save went through changing holders');
+        } catch (PolicyConflict) {
+        }
+        $this->assertCount(3, $this->admitted);
+        $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
+        $this->assertSame('0', $this->generations('ana')['revoked_below']);
+        $this->assertSame($revision, $this->revision(), 'the issuances move no revision; the save wrote nothing');
+    }
+
+    public function testSavingTheSameSetOfAnActiveGroupIsANoOp(): void {
+        $gen = $this->policy('staff');
+        $revision = $this->revision();
+        $result = $this->saveFrom($this->preview(['_system' => ['eligible'], 'notes' => ['edit']]));
+        $this->assertSame(['revision' => $revision, 'changed' => false, 'state' => 'active', 'revoked' => 0], $result);
+        $this->assertSame($gen, $this->life->get('staff')['gen']);
+        $this->assertSame([], $this->stored(PolicyEventsMapper::KIND_AUDIT));
+    }
+
+    /** Contracts §3.3.5 ("until the administrator confirms or clears"): clearing works on a group that cannot grant. */
+    public function testClearingRemovesTheRowsAndTheLifecycleEvenOfAGroupThatCannotGrant(): void {
+        $this->policy('staff', GroupLifeMapper::NEEDS_CONFIRM);
+        $this->trusted = false;
+        $this->members = [];
+        $revision = $this->revision();
+        $preview = $this->preview([]);
+        $this->assertTrue($preview['withdraws']);
+
+        $result = $this->saveFrom($preview);
+
+        $this->assertSame(['revision' => PolicyWriter::next($revision), 'changed' => true, 'state' => null, 'revoked' => 0], $result);
+        $this->assertSame([], $this->rows('staff'));
+        $this->assertNull($this->life->get('staff'));
+        $this->assertFalse($this->saveFrom($this->preview([]))['changed'], 'nothing left: a no-op');
+    }
+
+    public function testAPreviewIsTheCallersOwnForTwoMinutesAndForItsExactCommand(): void {
+        $preview = $this->preview(['notes' => ['edit']]);
+        try {
+            $this->saveFrom($preview, 'eve');
+            $this->fail('Another administrator saved the preview');
+        } catch (ReceiptNotFound) {
+        }
+        foreach ([['staff', ['notes' => ['read']]], ['team', ['notes' => ['edit']]]] as [$gid, $grants]) {
+            try {
+                $this->writer->setGroupGrants($preview['revision'], 'root', $gid, $grants, $preview['previewId'], $this->admit());
+                $this->fail('A save differing from its preview was accepted');
+            } catch (\InvalidArgumentException) {
+            }
+        }
+        try {
+            $this->writer->setGroupGrants($preview['revision'], 'root', 'staff', $preview['grants'], bin2hex(random_bytes(16)), $this->admit());
+            $this->fail('An invented preview was accepted');
+        } catch (ReceiptNotFound) {
+        }
+        $this->now += PolicyWriter::PREVIEW_TTL;
+        try {
+            $this->saveFrom($preview);
+            $this->fail('An expired preview was saved');
+        } catch (ReceiptExpired) {
+        }
+        $this->now -= PolicyWriter::PREVIEW_TTL;
+        // Any policy change after the preview makes it stale.
+        $this->save('team');
+        try {
+            $this->saveFrom($preview);
+            $this->fail('A stale preview was saved');
+        } catch (PolicyConflict) {
+        }
+        $this->assertSame([], $this->rows('staff'));
+    }
+
+    public function testAnInvalidSetIsRefusedBeforeAnything(): void {
+        $lock = $this->lockSeq();
+        foreach ([['files' => ['nuke']], ['_system' => ['admin']], ['notes' => 'edit'], ['notes' => ['x' => 'edit']], 'notes', [['edit']]] as $grants) {
+            try {
+                $this->preview($grants);
+                $this->fail('Invalid set accepted: ' . json_encode($grants));
+            } catch (\InvalidArgumentException) {
+            }
+        }
+        $this->assertSame($lock, $this->lockSeq(), 'refused before the mutex');
+        $this->assertSame([], PolicyEventPayload::groupGrants(['notes' => []]), 'a module without operations is no grant');
+    }
+}

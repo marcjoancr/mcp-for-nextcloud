@@ -71,8 +71,8 @@ class PolicyEventProcessor {
     }
 
     /**
-     * The daily job: expired credentials, pending deliveries in bounded batches, expired receipts. Idempotent; when
-     * it does not run, validation still refuses every expired or revoked credential.
+     * The daily job: expired credentials, pending deliveries in bounded batches, expired receipts and previews.
+     * Idempotent; when it does not run, validation still refuses every expired or revoked credential.
      */
     public function maintenance(): void {
         $now = $this->time->getTime();
@@ -90,6 +90,7 @@ class PolicyEventProcessor {
         }
         try {
             $this->events->purge(PolicyEventsMapper::KIND_RECEIPT, $now - PolicyWriter::RECEIPT_TTL);
+            $this->events->purge(PolicyEventsMapper::KIND_PREVIEW, $now - PolicyWriter::PREVIEW_TTL);
             $this->events->purgeDelivered($now - self::DELIVERED_KEPT);
         } catch (Throwable $e) {
             $this->logger->warning('Cannot purge expired policy receipts', ['app' => 'mcp', 'exception' => $e]);
@@ -157,7 +158,8 @@ class PolicyEventProcessor {
             } else {
                 $this->logger->info('MCP policy changed', ['app' => 'mcp', 'eventId' => $event['id'],
                     'actor' => $payload['actor'], 'scope' => $payload['action'],
-                    'target' => array_values(array_unique(array_map(static fn (array $change): ?string => $change['uid'], $payload['changes']))),
+                    // A group save names its group; every other change names its user (null: app-wide).
+                    'target' => array_values(array_unique(array_map(static fn (array $change): ?string => $change['gid'] ?? $change['uid'], $payload['changes']))),
                     'fromRevision' => $payload['fromRevision'], 'revision' => $payload['revision'],
                     'receiptId' => $payload['receiptId'], 'undoOf' => $payload['undoOf'], 'result' => 'committed']);
             }

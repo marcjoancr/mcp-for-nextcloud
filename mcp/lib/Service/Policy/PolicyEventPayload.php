@@ -25,6 +25,11 @@ use UnexpectedValueException;
  *   administrative command. A command that has a receipt links it and leaves changes empty (the receipt holds them);
  *   undo links the receipt it restored in undoOf; service and logs-access changes carry their single app-wide change.
  *
+ *   A group save (ACTION_GROUP) carries one group change instead: {gid, key: 'group_grants', before, after}, where
+ *   before/after are groupSnapshot() strings of the group's lifecycle state and grant rows, null when it had none.
+ * - preview (version 1): {v, actor, gid, revision, grants, memberHash, life}. Written by a group preview, never
+ *   delivered: revision is the one the preview was taken at (no CAS), grants the target set, memberHash the SHA-256 of
+ *   the member list sorted by bytes as JSON, life the lifecycle {state, gen} seen then, or null.
  * - cleanup (version 1): {v, scope, uid, cut, epoch}. Written with every revocation, in its transaction; the physical
  *   delete runs after the commit and may repeat (contracts §3.2). scope 'user' names uid and the generation cut (every
  *   credential of uid with auth_gen <= cut goes) and leaves epoch null; scope 'global' names the new auth epoch (every
@@ -38,9 +43,16 @@ final class PolicyEventPayload {
     public const ACTION_UNDO = 'grants.undo';
     public const ACTION_SERVICE = 'service';
     public const ACTION_LOGS = 'logs_access';
+    /** A group policy save (ticket 08); its audit carries one group change and no receipt. */
+    public const ACTION_GROUP = 'group_grants';
+    /** Key of the group change an ACTION_GROUP audit carries. */
+    public const GROUP_KEY = 'group_grants';
+    /** The system pseudo-grant a group row may carry besides the CATALOG: eligibility. */
+    public const SYSTEM_MODULE = '_system';
+    public const SYSTEM_ELIGIBLE = 'eligible';
     /** Commands whose changes the matrix can undo through a receipt. */
     public const RECEIPT_ACTIONS = [self::ACTION_UPDATE, self::ACTION_BULK, self::ACTION_COMMANDS];
-    public const ACTIONS = [...self::RECEIPT_ACTIONS, self::ACTION_UNDO, self::ACTION_SERVICE, self::ACTION_LOGS];
+    public const ACTIONS = [...self::RECEIPT_ACTIONS, self::ACTION_UNDO, self::ACTION_SERVICE, self::ACTION_LOGS, self::ACTION_GROUP];
     public const SCOPE_USER = 'user';
     public const SCOPE_GLOBAL = 'global';
     /** App-wide keys an audit change may name, with a null uid. */
@@ -77,6 +89,86 @@ final class PolicyEventPayload {
     }
 
     /**
+     * @param string $actor uid of the administrator who asked for the preview
+     * @param string $gid the group, exact bytes
+     * @param string $revision policy revision the preview was taken at
+     * @param array<string, list<string>> $grants the target set, as groupGrants() returns it
+     * @param string $memberHash memberHash() of the member list enumerated for the preview
+     * @param array{state:string, gen:string}|null $life the group's lifecycle seen by the preview, or null
+     * @return array<string, mixed> a valid preview payload
+     * @throws UnexpectedValueException when any part is invalid
+     */
+    public static function preview(string $actor, string $gid, string $revision, array $grants, string $memberHash, ?array $life): array {
+        return self::validate(PolicyEventsMapper::KIND_PREVIEW, ['v' => self::VERSION, 'actor' => $actor, 'gid' => $gid,
+            'revision' => $revision, 'grants' => $grants, 'memberHash' => $memberHash, 'life' => $life]);
+    }
+
+    /**
+     * Validates and normalizes the grant set of a group: module => operations, each pair in the CATALOG or
+     * _system/eligible. Duplicates are dropped, modules and operations sorted bytewise; modules left without operations
+     * disappear, so an empty set is [].
+     *
+     * @param mixed $grants candidate set, as decoded from JSON
+     * @return array<string, list<string>> the canonical set
+     * @throws \InvalidArgumentException for any other shape, module or operation
+     */
+    public static function groupGrants(mixed $grants): array {
+        if (!is_array($grants)) {
+            throw new \InvalidArgumentException('Invalid group grants');
+        }
+        $set = [];
+        foreach ($grants as $module => $operations) {
+            if (!is_string($module) || !is_array($operations) || !array_is_list($operations)) {
+                throw new \InvalidArgumentException('Invalid group grants');
+            }
+            foreach ($operations as $operation) {
+                if (!is_string($operation) || !(GrantPolicy::inCatalog($module, $operation)
+                    || ($module === self::SYSTEM_MODULE && $operation === self::SYSTEM_ELIGIBLE))) {
+                    throw new \InvalidArgumentException('Invalid group grants');
+                }
+                $set[$module][$operation] = $operation;
+            }
+        }
+        ksort($set, SORT_STRING);
+        foreach ($set as $module => $operations) {
+            $operations = array_values($operations);
+            sort($operations, SORT_STRING);
+            $set[$module] = $operations;
+        }
+        return $set;
+    }
+
+    /** @return bool whether the canonical set grants eligibility */
+    public static function grantsEligibility(array $grants): bool {
+        return in_array(self::SYSTEM_ELIGIBLE, $grants[self::SYSTEM_MODULE] ?? [], true);
+    }
+
+    /**
+     * The audit form of a group's stored policy.
+     *
+     * @param string|null $state lifecycle state, or null without a lifecycle
+     * @param array<string, list<string>> $grants canonical stored rows
+     * @return string|null JSON {state, grants}, or null when the group has neither a lifecycle nor rows
+     */
+    public static function groupSnapshot(?string $state, array $grants): ?string {
+        if ($state === null && $grants === []) {
+            return null;
+        }
+        return json_encode(['state' => $state, 'grants' => (object)$grants], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * The fingerprint a preview stores and a save compares (contracts §2.3): the whole member list, not its count.
+     *
+     * @param list<string> $uids member uids, in any order, without duplicates
+     * @return string SHA-256 hex of the JSON list sorted by bytes
+     */
+    public static function memberHash(array $uids): string {
+        sort($uids, SORT_STRING);
+        return hash('sha256', json_encode(array_values($uids), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
      * @param string $uid owner of the revoked credentials
      * @param string $cut canonical generation: every credential of $uid at or below it is invalid
      * @return array<string, mixed> a valid cleanup payload
@@ -109,6 +201,9 @@ final class PolicyEventPayload {
         if ($kind === PolicyEventsMapper::KIND_CLEANUP) {
             return self::validateCleanup($payload);
         }
+        if ($kind === PolicyEventsMapper::KIND_PREVIEW) {
+            return self::validatePreview($payload);
+        }
         $receipt = $kind === PolicyEventsMapper::KIND_RECEIPT;
         if (!$receipt && $kind !== PolicyEventsMapper::KIND_AUDIT) {
             throw new UnexpectedValueException('No payload is defined for this policy event kind');
@@ -140,9 +235,14 @@ final class PolicyEventPayload {
             throw new UnexpectedValueException('Invalid policy event payload');
         }
         foreach ($payload['changes'] as $change) {
-            if (!self::validChange($change, $receipt)) {
+            $group = is_array($change) && array_key_exists('gid', $change);
+            // A group change belongs to a group save, alone; a group save carries nothing else.
+            if ($group !== ($action === self::ACTION_GROUP) || !($group ? self::validGroupChange($change) : self::validChange($change, $receipt))) {
                 throw new UnexpectedValueException('Invalid policy event payload');
             }
+        }
+        if ($action === self::ACTION_GROUP && count($payload['changes']) !== 1) {
+            throw new UnexpectedValueException('Invalid policy event payload');
         }
         return $payload;
     }
@@ -199,6 +299,53 @@ final class PolicyEventPayload {
             throw new UnexpectedValueException('Invalid policy event payload');
         }
         return $payload;
+    }
+
+    private static function validatePreview(array $payload): array {
+        $keys = array_keys($payload);
+        sort($keys);
+        $valid = $keys === ['actor', 'gid', 'grants', 'life', 'memberHash', 'revision', 'v'] && $payload['v'] === self::VERSION
+            && is_string($payload['actor']) && self::validUid($payload['actor'])
+            && is_string($payload['gid']) && self::validUid($payload['gid'])
+            && is_string($payload['revision']) && self::canonical($payload['revision'])
+            && is_string($payload['memberHash']) && preg_match('/^[0-9a-f]{64}$/D', $payload['memberHash']) === 1
+            && ($payload['life'] === null || self::validLife($payload['life']));
+        try {
+            $valid = $valid && self::groupGrants($payload['grants']) === $payload['grants'];
+        } catch (\InvalidArgumentException) {
+            $valid = false;
+        }
+        if (!$valid) {
+            throw new UnexpectedValueException('Invalid policy event payload');
+        }
+        return $payload;
+    }
+
+    private static function validLife(mixed $life): bool {
+        if (!is_array($life)) {
+            return false;
+        }
+        $keys = array_keys($life);
+        sort($keys);
+        return $keys === ['gen', 'state'] && in_array($life['state'], \OCA\Mcp\Db\GroupLifeMapper::STATES, true)
+            && is_string($life['gen']) && preg_match('/^[0-9a-f]{32}$/D', $life['gen']) === 1;
+    }
+
+    private static function validGroupChange(array $change): bool {
+        $keys = array_keys($change);
+        sort($keys);
+        $raw = static fn (mixed $value): bool => $value === null || is_string($value);
+        return $keys === ['after', 'before', 'gid', 'key'] && $change['key'] === self::GROUP_KEY
+            && is_string($change['gid']) && self::validUid($change['gid'])
+            && $raw($change['before']) && $raw($change['after']) && $change['before'] !== $change['after'];
+    }
+
+    private static function canonical(string $value): bool {
+        try {
+            return DecimalCounter::validate($value, DecimalCounter::MAX) === $value;
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
     }
 
     private static function validChange(mixed $change, bool $receipt): bool {
