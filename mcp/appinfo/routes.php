@@ -35,6 +35,10 @@ return ['routes' => [
     ['name' => 'scope#show', 'url' => '/api/scope/{uid}/{module}', 'verb' => 'GET'],
     ['name' => 'scope#candidates', 'url' => '/api/scope/{uid}/{module}/candidates', 'verb' => 'GET'],
     ['name' => 'scope#update', 'url' => '/api/scope/{uid}/{module}', 'verb' => 'PUT'],
+    // The user, the path and the calendar travel in the query: a uid or a path may hold any byte but NUL.
+    ['name' => 'inspector#access', 'url' => '/api/inspector/access', 'verb' => 'GET'],
+    ['name' => 'inspector#path', 'url' => '/api/inspector/path', 'verb' => 'GET'],
+    ['name' => 'inspector#calendar', 'url' => '/api/inspector/calendar', 'verb' => 'GET'],
     ['name' => 'grants#logsAccess', 'url' => '/api/logs-access', 'verb' => 'GET'],
     ['name' => 'grants#updateLogsAccess', 'url' => '/api/logs-access', 'verb' => 'PUT'],
     ['name' => 'logs_privacy#show', 'url' => '/api/logs-privacy', 'verb' => 'GET'],
