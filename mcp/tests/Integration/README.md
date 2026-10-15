@@ -138,3 +138,18 @@ exists grants nothing; a recreation with its signals purges it, and an administr
 policy (admin UI, ticket 11).
 
 These tests were written while the integration workflow was disabled (Actions minutes): they have not run yet.
+
+## Group save (T5 F3, T6, T16 server part)
+
+`OAuth/GroupGrantsTest.php` (ticket 08) previews and saves group policies through the container's service and writer,
+over the core group manager and its Database backend, reading every result from a second session. A save makes the
+lifecycle active with policy_rev equal to the revision it commits, and writes no user preference (connected and the
+overrides stay as they were). A second backend that serves the same id makes the group untrusted: 422 at preview and at
+save, nothing written. Replacing the only member by another one between preview and save keeps the count and is still
+a 409. A withdrawal of eligibility with a new consent of the member between the external phase and the commit is
+replayed once (H1 differs from H0) and cuts the new credential with the old one; a holder still eligible individually
+keeps its session. "Confirm current policy" brings a suspended group back to active with a new gen and the same rows,
+and a deletion's pre-event between the phases (pending_delete, no revision step) is seen under the mutex: 409.
+
+These tests were written while the integration workflow was disabled (Actions minutes, until 1 November): they have
+not run yet.
