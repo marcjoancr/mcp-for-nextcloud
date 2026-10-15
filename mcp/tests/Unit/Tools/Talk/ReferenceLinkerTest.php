@@ -13,7 +13,7 @@ use OCA\Deck\NoPermissionException;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCA\Mcp\Tools\Calendar\Calendar;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarException;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\Classification;
@@ -36,7 +36,7 @@ class ReferenceLinkerTest extends TestCase {
     private const CALENDAR_PATH = '/remote.php/dav/calendars/alice/pessoal/';
 
     private DeckGatewayInterface&MockObject $deck;
-    private CalendarAccess&MockObject $calendars;
+    private ScopedCalendarAccess&MockObject $calendars;
     private CalendarStore&MockObject $store;
     private IAppManager&MockObject $appManager;
     private GrantPolicy $grants;
@@ -47,7 +47,7 @@ class ReferenceLinkerTest extends TestCase {
     protected function setUp(): void {
         parent::setUp();
         $this->deck = $this->createMock(DeckGatewayInterface::class);
-        $this->calendars = $this->createMock(CalendarAccess::class);
+        $this->calendars = $this->createMock(ScopedCalendarAccess::class);
         $this->store = $this->createMock(CalendarStore::class);
         $this->appManager = $this->createMock(IAppManager::class);
         $this->appManager->method('isEnabledForUser')

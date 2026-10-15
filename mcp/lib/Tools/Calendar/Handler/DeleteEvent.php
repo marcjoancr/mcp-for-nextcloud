@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools\Calendar\Handler;
 
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarDav;
 use OCA\Mcp\Tools\Calendar\CalendarException;
 use OCA\Mcp\Tools\Calendar\CalendarMessages;
@@ -27,7 +27,7 @@ use OCA\Mcp\Tools\Calendar\TrashPolicy;
  */
 final class DeleteEvent implements \OCA\Mcp\Tools\Calendar\CalendarWriteTool {
     /**
-     * @param CalendarAccess $access calendar visibility and ACL
+     * @param ScopedCalendarAccess $access the calendars the tools may reach: native visibility and ACL, narrowed by the resource scope
      * @param SharedGuard $guard confirmation gate for calendars of somebody else
      * @param CalendarDav $dav the official write pipeline
      * @param CalendarStore $store calendar storage port, used to confirm the object reached the trash
@@ -36,7 +36,7 @@ final class DeleteEvent implements \OCA\Mcp\Tools\Calendar\CalendarWriteTool {
      * @param Scheduling $scheduling honest report of what was scheduled
      */
     public function __construct(
-        private CalendarAccess $access,
+        private ScopedCalendarAccess $access,
         private SharedGuard $guard,
         private CalendarDav $dav,
         private CalendarStore $store,

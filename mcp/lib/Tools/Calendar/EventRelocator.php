@@ -23,13 +23,13 @@ use Sabre\VObject\Component\VCalendar;
  */
 class EventRelocator {
     /**
-     * @param CalendarAccess $access calendar visibility and ACL
+     * @param ScopedCalendarAccess $access the calendars the tools may reach: native visibility and ACL, narrowed by the resource scope
      * @param CalendarStore $store calendar storage port, used to confirm the move landed
      * @param CalendarDav $dav the official write pipeline
      * @param EventRepository $events event lookup with classification and ETag checks
      */
     public function __construct(
-        private CalendarAccess $access,
+        private ScopedCalendarAccess $access,
         private CalendarStore $store,
         private CalendarDav $dav,
         private EventRepository $events,
