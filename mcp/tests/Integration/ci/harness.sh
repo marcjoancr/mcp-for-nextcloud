@@ -79,7 +79,7 @@ info_version() {
 # Builds the branch package, and the baseline package for the upgrade mode, each with its own official script.
 cmd_packages() {
     build_package "$REPO_ROOT/mcp" "$WORK/mcp-branch.tar.gz"
-    if [ "$MCP_IT_MODE" = upgrade ]; then
+    if [ "$MCP_IT_MODE" = upgrade ] || [ "$MCP_IT_MODE" = baseline ]; then
         git -C "$REPO_ROOT" worktree add --detach "$WORK/baseline" "$MCP_IT_BASELINE"
         build_package "$WORK/baseline/mcp" "$WORK/mcp-baseline.tar.gz"
     fi
@@ -177,7 +177,7 @@ assert_installed_version() {
 
 # Installs through the server's own installer (app:enable runs the app's migrations); upgrade goes through occ upgrade.
 cmd_install_app() {
-    if [ "$MCP_IT_MODE" = upgrade ]; then
+    if [ "$MCP_IT_MODE" = upgrade ] || [ "$MCP_IT_MODE" = baseline ]; then
         mkdir -p "$WORK/baseline-pkg"
         tar -xzf "$WORK/mcp-baseline.tar.gz" -C "$WORK/baseline-pkg"
         baseline_version=$(info_version "$WORK/baseline-pkg/mcp/appinfo/info.xml")
@@ -188,6 +188,11 @@ cmd_install_app() {
         occ migrations:status mcp || true
         # Credentials issued by the baseline itself, checked after the upgrade (validation T12).
         docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
+    fi
+    if [ "$MCP_IT_MODE" = baseline ]; then
+        # Diagnostic mode (local runs): the released baseline stays installed and is never upgraded.
+        echo "$baseline_version" > "$WORK/expected-version"
+        return 0
     fi
 
     mkdir -p "$WORK/branch-pkg"
@@ -399,8 +404,10 @@ cmd_test() {
     if [ "$MCP_IT_DB" = pgsql ]; then
         set -- "$@" -e MCP_IT_PG_LOG=/mcp-it-pglog/postgresql.log
     fi
+    # MCP_IT_PHPUNIT_ARGS (local diagnostics only), e.g. "--filter SomeTest", is passed to PHPUnit as is.
+    # shellcheck disable=SC2086
     docker exec -u www-data "$@" "$NC" php -d memory_limit=1G /mcp-it-tools/phpunit.phar \
-        -c /mcp-it-src/mcp/tests/Integration/phpunit.xml --log-junit /tmp/mcp-it-junit.xml
+        -c /mcp-it-src/mcp/tests/Integration/phpunit.xml --log-junit /tmp/mcp-it-junit.xml ${MCP_IT_PHPUNIT_ARGS:-}
 }
 
 # Best effort: gathers logs for the uploaded artifact even when an earlier step failed.

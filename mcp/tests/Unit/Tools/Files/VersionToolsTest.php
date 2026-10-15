@@ -326,6 +326,54 @@ final class VersionToolsTest extends TestCase {
         $this->assertSame("# Ata\nolá", $this->tree->nodes[self::FILE]['content']);
     }
 
+    /**
+     * The version file must not be open while the file is written (files_lock cannot raise the lock the write needs
+     * otherwise): the restore copies the version, closes its stream, and writes the copy from its first byte.
+     */
+    public function testTheVersionStreamIsClosedBeforeTheFileIsWritten(): void {
+        $version = $this->manager->versions[1]->withContent('versão antiga');
+        $seen = [];
+        $this->tree->beforeWrite = function (string $path, mixed $data) use ($version, &$seen): void {
+            if ($path === self::FILE) {
+                $seen = ['versionStreamClosed' => !is_resource($version->handles[0]), 'dataIsOtherStream' => is_resource($data)
+                    && get_resource_id($data) !== get_resource_id($version->handles[0])];
+            }
+        };
+        $this->lockedTools(new FakeLockManager())->restore($this->tree->rootFolder(), $this->file(), '/Documentos/ata.md', '1759100000', 'alice');
+        $this->assertSame(['versionStreamClosed' => true, 'dataIsOtherStream' => true], $seen);
+        $this->assertSame('versão antiga', $this->tree->nodes[self::FILE]['content'], 'the copy is written from its first byte');
+        $this->assertCount(1, $version->handles, 'the version is read once');
+    }
+
+    /** A version that cannot be copied is never written over the file, and its stream is closed. */
+    public function testAVersionThatCannotBeCopiedLeavesTheFileUntouched(): void {
+        $version = $this->manager->versions[1];
+        $version->failingRead = true;
+        try {
+            $this->lockedTools(new FakeLockManager())->restore($this->tree->rootFolder(), $this->file(), '/Documentos/ata.md', '1759100000', 'alice');
+            $this->fail('a version that could not be copied was restored');
+        } catch (ToolFailure $e) {
+            $this->assertSame(FilesMessages::versionRestoreFailed(), $e->getMessage());
+        }
+        $this->assertNotContains('write ' . self::FILE, $this->tree->ops, 'nothing was written over the file');
+        $this->assertSame("# Ata\nolá", $this->tree->nodes[self::FILE]['content']);
+        $this->assertFalse(is_resource($version->handles[0]), 'the stream of the version is closed');
+    }
+
+    /** A lock that refuses the write still tells where the original is kept, and no stream of the version stays open. */
+    public function testALockRefusalStillCarriesTheNoteAndLeavesNoStreamOpen(): void {
+        $version = $this->manager->versions[1]->withContent('versão antiga');
+        $this->tree->writeFailure = new \OCP\Lock\ManuallyLockedException('/alice/files/Documentos/ata.md', null, 'files_lock/t', 'text', -1);
+        try {
+            $this->lockedTools(new FakeLockManager())->restore($this->tree->rootFolder(), $this->file(), '/Documentos/ata.md', '1759100000', 'alice');
+            $this->fail('the restore under the lock was reported as a success');
+        } catch (LockWriteFailure $e) {
+            $this->assertMatchesRegularExpression('#The original is kept in /MCP backups/Documentos/ata\.md\.[0-9-]+\.bak\.$#', $e->getMessage());
+        }
+        $this->assertSame("# Ata\nolá", $this->tree->nodes[self::FILE]['content']);
+        $this->assertFalse(is_resource($version->handles[0]));
+    }
+
     public function testTheOwnManualLockLetsTheRestoreThrough(): void {
         $locks = new FakeLockManager();
         $locks->put(new FakeLock($this->tree->nodes[self::FILE]['id'], ILock::TYPE_USER, 'alice'));

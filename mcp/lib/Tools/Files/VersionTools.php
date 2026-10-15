@@ -34,6 +34,8 @@ final class VersionTools {
     public const APP = 'files_versions';
     /** Versions returned when the caller asks for no limit. */
     public const DEFAULT_LIMIT = 50;
+    /** Bytes of a version held in memory while it is copied for the restore; more spills to a temporary file. */
+    private const COPY_MEMORY = 8388608;
     /** Characters returned by files_version_read before the text is truncated. */
     public const MAX_CHARS = 100000;
     /** Class resolved lazily; a string so this file autoloads with files_versions absent. */
@@ -194,26 +196,48 @@ final class VersionTools {
     /**
      * Writes the content of a version over the file through the node, checking the locks right before.
      *
+     * The version is read into a copy first and its own stream is closed before the write starts. A stream open on the
+     * version while the file is written holds the version's file open on the storage; where files_lock is installed
+     * (the Nextcloud 34 and 35 images ship it), taking the lock the write needs then fails with "locked by another
+     * operation", as the restore of a team folder file showed. The copy lives in memory up to {@see self::COPY_MEMORY}
+     * bytes and spills to a temporary file beyond that, so a large version costs no more memory than that.
+     *
      * @param object $manager the files_versions manager
      * @param object $version the IVersion to bring back
      * @param File $file file to restore
      * @param string $path normalized user-relative path of $file
      * @param string $viewerUid authenticated user
      * @param string $copy user-relative path of the backup taken before
-     * @throws ToolFailure when the version cannot be read or a lock refuses the write
+     * @throws ToolFailure when the version cannot be read or copied (nothing is written then) or a lock refuses the write
      */
     private function writeVersion(object $manager, object $version, File $file, string $path, string $viewerUid, string $copy): void {
         $stream = $manager->read($version);
         if (!is_resource($stream)) {
             throw new ToolFailure(FilesMessages::versionRestoreFailed());
         }
+        $content = null;
         try {
-            NodeAccess::mutate(fn () => $this->locks->run(static fn () => $file->putContent($stream), $file, $viewerUid, $path), $this->visibilityGuard);
+            try {
+                $content = fopen('php://temp/maxmemory:' . self::COPY_MEMORY, 'w+');
+                if ($content === false || stream_copy_to_stream($stream, $content) === false) {
+                    throw new ToolFailure(FilesMessages::versionRestoreFailed());
+                }
+            } finally {
+                // Before the write: the version's file must not be open while the file is written.
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+            NodeAccess::mutate(fn () => $this->locks->run(static function () use ($file, $content): void {
+                // Rewound inside, so a repeated write by the lock check starts from the first byte.
+                rewind($content);
+                $file->putContent($content);
+            }, $file, $viewerUid, $path), $this->visibilityGuard);
         } catch (LockWriteFailure $e) {
             throw $e->withNote(FilesMessages::originalKept($copy));
         } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
+            if (is_resource($content)) {
+                fclose($content);
             }
         }
     }

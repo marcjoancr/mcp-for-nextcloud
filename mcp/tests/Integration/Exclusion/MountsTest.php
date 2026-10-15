@@ -166,35 +166,35 @@ final class MountsTest extends ExclusionTestCase {
         // The versions come from writes made through the server's web endpoint, so no lock of this CLI process is
         // left on the file when it is restored.
         foreach (['second', 'third'] as $content) {
+            // Versions are named by the second: writes in the same second would share one.
+            sleep(2);
             $edit = $alice->write('files_edit', ['path' => $path, 'content' => $content]);
             $this->assertTrue($edit->ok(), "files_edit to $content in the groupfolder: " . $edit->describe());
         }
 
         $versions = $alice->tool('files_versions_list', ['path' => $path]);
         $this->assertTrue($versions->ok(), 'files_versions_list: ' . $versions->describe());
-        $revision = $versions->json()['versions'][0]['revision'] ?? null;
-        $this->assertIsString($revision, 'the groupfolder file has a version: ' . $versions->describe());
-        // The groupfolder takes a lock for the rollback; a refusal that says to try again is retried, like a client would.
-        for ($attempt = 1; $attempt <= 4; $attempt++) {
-            $restore = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
-            if ($restore->ok() || !str_contains($restore->text(), 'try again')) {
+        // A version that differs from the current content, so the restore changes something observable.
+        $revision = null;
+        $expected = null;
+        foreach ($versions->json()['versions'] ?? [] as $entry) {
+            $stored = $alice->tool('files_version_read', ['path' => $path, 'version' => (string)$entry['revision']]);
+            $text = $stored->ok() ? ($stored->json()['text'] ?? null) : null;
+            $this->observe('groupfolder version ' . $entry['revision'] . ' reads as ' . json_encode($text));
+            if (is_string($text) && $text !== 'third') {
+                $revision = (string)$entry['revision'];
+                $expected = $text;
                 break;
             }
-            sleep(2);
         }
-        $this->observe("V7 restore in the groupfolder: attempts used $attempt");
-        if (!$restore->ok()) {
-            // Is the refusal the exclusion's? The same restore with no exclusion configured at all tells.
-            $this->setHidden([]);
-            $without = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
-            $this->exclude();
-            if (!$without->ok()) {
-                $this->observe('V7 restore in the groupfolder is refused with no exclusion configured too (core/groupfolders on this cell, not an '
-                    . 'exclusion matter): ' . substr($without->text(), 0, 160));
-                $this->markTestSkipped('The groupfolder version restore is refused here without any exclusion as well; nothing to attribute to the guard.');
-            }
-        }
+        $this->assertIsString($revision, 'the groupfolder file has a version other than its current content: ' . $versions->describe());
+
+        // Regression of the restore refused with "Resource locked by another operation" where files_lock is installed
+        // (NC 34 and 35): the tool wrote the version over the file while the version's own stream was still open. It
+        // must work at the first attempt, with no retry and no skip, on every cell.
+        $restore = $alice->write('files_version_restore', ['path' => $path, 'version' => $revision]);
         $this->assertTrue($restore->ok(), 'files_version_restore in the groupfolder: ' . $restore->describe());
+        $this->assertReadable($alice, $path, $expected, 'the file holds the restored version');
     }
 
     public function testRecordsWhetherAnExternalStorageKeepsVersions(): void {
