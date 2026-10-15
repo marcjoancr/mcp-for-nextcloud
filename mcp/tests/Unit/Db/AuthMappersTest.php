@@ -179,11 +179,8 @@ final class AuthMappersTest extends TestCase {
             $this->database->dbal->insert('mcp_auth_recheck', ['user_key' => IdentityKey::user('alice'), 'cause_key' => IdentityKey::accountCause(),
                 'user_id' => 'alice', 'reason' => 'account_delete', 'group_id' => null, 'gen' => self::gen('a'), 'created_at' => 1]);
         };
-        // Skip this call's update, then let the competing insert land just before this call's insert.
-        $this->database->beforeStatement = function () use ($competing): void {
-            $this->database->beforeStatement = $competing;
-        };
-        // The update matches nothing, the other insert lands first, this insert violates the key and updates instead.
+        // The key is absent at the read; the competing insert of the same identity lands just before this insert.
+        $this->database->beforeStatement = $competing;
         $recheck->record('alice', RecheckMapper::REASON_ACCOUNT, null, self::gen('b'), 2);
         $this->assertNull($this->database->beforeStatement, 'the competing insert must have run');
         $this->assertSame([self::gen('b')], array_column($recheck->causes('alice'), 'gen'));
@@ -252,6 +249,72 @@ final class AuthMappersTest extends TestCase {
             $this->assertSame(\OCP\DB\Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION, $e->getReason());
         }
         $this->assertCount(3, $events->pending(500));
+    }
+
+    /** A row of mallory stored under alice's digest: the simulated collision of contracts §1/T18. */
+    private function collidingCause(string $gen, ?string $groupId = null): array {
+        return ['user_key' => IdentityKey::user('alice'), 'cause_key' => $groupId === null ? IdentityKey::accountCause() : IdentityKey::group('staff'),
+            'user_id' => $groupId === null ? 'mallory' : 'alice', 'reason' => $groupId === null ? 'account_delete' : 'group_removal',
+            'group_id' => $groupId, 'gen' => $gen, 'created_at' => 1];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function recheckRows(): array {
+        return $this->database->dbal->fetchAllAssociative('SELECT user_id, group_id, gen FROM mcp_auth_recheck ORDER BY cause_key');
+    }
+
+    public function testACollidingRowInsertedBeforeTheInsertFailsClosedWithoutWriting(): void {
+        // Alice's key is absent at the read; another session inserts mallory's row under the same digest first.
+        $this->database->beforeStatement = fn () => $this->database->dbal->insert('mcp_auth_recheck', $this->collidingCause(self::gen('a')));
+        try {
+            (new RecheckMapper($this->db))->record('alice', RecheckMapper::REASON_ACCOUNT, null, self::gen('b'), 2);
+            $this->fail('A colliding identity received the gen');
+        } catch (\UnexpectedValueException) {
+        }
+        $this->assertNull($this->database->beforeStatement, 'the competing insert must have run');
+        $this->assertSame([['user_id' => 'mallory', 'group_id' => null, 'gen' => self::gen('a')]], $this->recheckRows());
+    }
+
+    public function testARowReplacedByACollidingIdentityBeforeTheUpdateFailsClosedWithoutWriting(): void {
+        $recheck = new RecheckMapper($this->db);
+        $recheck->record('alice', RecheckMapper::REASON_ACCOUNT, null, self::gen('a'), 1);
+        // Between the verified read of alice's row and the update, the row under that digest becomes mallory's.
+        $this->database->beforeStatement = function (): void {
+            $this->database->dbal->delete('mcp_auth_recheck', ['user_key' => IdentityKey::user('alice')]);
+            $this->database->dbal->insert('mcp_auth_recheck', $this->collidingCause(self::gen('c')));
+        };
+        try {
+            $recheck->record('alice', RecheckMapper::REASON_ACCOUNT, null, self::gen('b'), 2);
+            $this->fail('A colliding identity received the gen');
+        } catch (\UnexpectedValueException) {
+        }
+        $this->assertNull($this->database->beforeStatement);
+        $this->assertSame([['user_id' => 'mallory', 'group_id' => null, 'gen' => self::gen('c')]], $this->recheckRows());
+    }
+
+    public function testAGroupCauseStoredUnderAnotherGroupIdFailsClosedOnRecordAndConsume(): void {
+        // The digest of 'staff' holding the group id 'Staff': a collision on the group side of the cause.
+        $this->database->dbal->insert('mcp_auth_recheck', $this->collidingCause(self::gen('a'), 'Staff'));
+        $recheck = new RecheckMapper($this->db);
+        foreach ([fn () => $recheck->record('alice', RecheckMapper::REASON_GROUP, 'staff', self::gen('b'), 2),
+            fn () => $this->inTransaction(fn () => $recheck->consume('alice', IdentityKey::group('staff'), self::gen('a')))] as $write) {
+            try {
+                $write();
+                $this->fail('A colliding group identity was written');
+            } catch (\UnexpectedValueException) {
+            }
+        }
+        $this->assertSame([['user_id' => 'alice', 'group_id' => 'Staff', 'gen' => self::gen('a')]], $this->recheckRows());
+    }
+
+    public function testConsumeRefusesARowOfAnotherIdentityWithoutDeletingIt(): void {
+        $this->database->dbal->insert('mcp_auth_recheck', $this->collidingCause(self::gen('a')));
+        try {
+            $this->inTransaction(fn () => (new RecheckMapper($this->db))->consume('alice', IdentityKey::accountCause(), self::gen('a')));
+            $this->fail('A row of another identity was consumed');
+        } catch (\UnexpectedValueException) {
+        }
+        $this->assertSame([['user_id' => 'mallory', 'group_id' => null, 'gen' => self::gen('a')]], $this->recheckRows());
     }
 
     private function insertUser(string $uid, string $issue, string $revoked, ?string $storedId = null): void {
