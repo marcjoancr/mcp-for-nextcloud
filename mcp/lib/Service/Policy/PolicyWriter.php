@@ -756,21 +756,21 @@ class PolicyWriter {
                 throw new GroupSourceUntrusted();
             }
             $memberHash = PolicyEventPayload::memberHash($admission['members']);
-            if ($preview !== null && ($preview['memberHash'] !== $memberHash || $preview['life'] !== $life)) {
+            if ($preview !== null && ($preview['memberHash'] !== $memberHash || !self::sameLife($preview['life'], $life))) {
                 throw new PolicyConflict();
             }
             return ['now' => $now, 'life' => $life, 'current' => $current, 'withdraws' => $withdraws, 'holders' => $holders,
                 'admission' => $admission, 'memberHash' => $memberHash];
         }, function (array $snapshot, array $current, string $commandId, PolicyOutbox $outbox) use ($actor, $gid, $grants, $preview, &$outcome): bool {
             $stored = $this->life->get($gid);
-            if (self::life($stored) !== $snapshot['life'] || $this->groupGrants->forGroups([$gid])[0]['grants'] !== $snapshot['current']) {
+            if (!self::sameLife(self::life($stored), $snapshot['life']) || $this->groupGrants->forGroups([$gid])[0]['grants'] !== $snapshot['current']) {
                 throw new SnapshotInvalidated();
             }
             if ($snapshot['withdraws'] && $this->holders($snapshot['now'], $current['auth_epoch']) !== $snapshot['holders']) {
                 throw new SnapshotInvalidated();
             }
             foreach ($snapshot['admission']['sources'] as $source) {
-                if ($source['groupId'] !== $gid && self::life($this->life->get($source['groupId'])) !== self::life($source['gen'] === null ? null : $source)) {
+                if ($source['groupId'] !== $gid && !self::sameLife(self::life($this->life->get($source['groupId'])), self::life($source['gen'] === null ? null : $source))) {
                     throw new SnapshotInvalidated();
                 }
             }
@@ -806,8 +806,11 @@ class PolicyWriter {
                 $state = GroupLifeMapper::ACTIVE;
             }
             foreach ($snapshot['admission']['sources'] as $source) {
+                // Renewed from the gen read under this mutex: sameLife() above accepted a renewal since the external
+                // phase, which changes nothing this save relied on.
                 if ($source['groupId'] !== $gid && $source['state'] === GroupLifeMapper::ACTIVE
-                    && !$this->life->transition($source['groupId'], $source['gen'], GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16)))) {
+                    && !$this->life->transition($source['groupId'], (string)($this->life->get($source['groupId'])['gen'] ?? ''),
+                        GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16)))) {
                     throw new SnapshotInvalidated();
                 }
             }
@@ -905,6 +908,24 @@ class PolicyWriter {
     /** @return array{state:string, gen:string}|null the part of a lifecycle a preview fixes */
     private static function life(?array $row): ?array {
         return $row === null ? null : ['state' => $row['state'], 'gen' => $row['gen']];
+    }
+
+    /**
+     * Whether a lifecycle is the one a group command read, at the same revision (RF3 of the re-reading of F1): the
+     * same state and gen, or both active. The callers compare only at an unchanged revision (the preview's revision is
+     * the save's expected one; run() checks it between the phases), and at an unchanged revision the only change that
+     * keeps a group active with another gen is the renewal of holdLifecycles(), by an issuance or a reset the group
+     * admitted. That renewal changes neither the policy nor the members, so it never invalidates a preview or a save;
+     * every real transition (pending_delete, needs_confirm, purge, recreation) still does.
+     *
+     * @param array{state:string, gen:string}|null $a
+     * @param array{state:string, gen:string}|null $b
+     */
+    private static function sameLife(?array $a, ?array $b): bool {
+        if ($a === null || $b === null) {
+            return $a === $b;
+        }
+        return $a['state'] === $b['state'] && ($a['gen'] === $b['gen'] || $a['state'] === GroupLifeMapper::ACTIVE);
     }
 
     /**

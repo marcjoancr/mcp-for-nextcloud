@@ -906,4 +906,31 @@ final class GroupGrantsWriterTest extends TestCase {
             fn (string $uid): ?array => $this->inheritance($uid));
         $this->assertSame('2', $this->generations('ana')['revoked_below'], 'removing the Allow now cuts');
     }
+
+    /**
+     * RF3 of the re-reading of F1: an issuance the group admitted renews its gen (active to active, revision unchanged)
+     * between the preview and the save of an ordinary change; policy and members are the same, so the save succeeds.
+     * A real transition in the same place (pending_delete) still refuses it.
+     */
+    public function testAnIssuanceRenewalBetweenPreviewAndSaveNeverInvalidatesThePreview(): void {
+        $this->policy('team');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        [$preview, $save] = $this->realSave('team', ['_system' => ['eligible'], 'notes' => ['edit', 'read']]);
+        $gen = $this->life->get('team')['gen'];
+        $this->assertTrue($this->issueAdmitted('ana'), 'a refresh admitted by team');
+        $this->assertNotSame($gen, $this->life->get('team')['gen']);
+        $this->assertSame($preview['revision'], $this->revision(), 'the renewal moves no revision');
+        $this->assertTrue($save()['changed']);
+        $this->assertSame(['_system/eligible', 'notes/edit', 'notes/read'], $this->rows('team'));
+
+        [$preview, $save] = $this->realSave('team', ['_system' => ['eligible']]);
+        $this->assertTrue($this->life->markPendingDelete('team', $this->life->get('team')['gen'], bin2hex(random_bytes(16))));
+        try {
+            $save();
+            $this->fail('a real transition invalidates the preview');
+        } catch (PolicyConflict) {
+        }
+        $this->assertSame(['_system/eligible', 'notes/edit', 'notes/read'], $this->rows('team'));
+    }
 }
