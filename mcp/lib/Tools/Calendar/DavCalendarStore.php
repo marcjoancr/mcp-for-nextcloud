@@ -160,7 +160,8 @@ class DavCalendarStore implements CalendarStore {
             $qb->andWhere($qb->expr()->isNull('deleted_at'));
         }
         $result = $qb->setMaxResults(1)->executeQuery();
-        $row = $result->fetchAssociative();
+        // fetch() (OCP since 21): fetchAssociative() exists only from Nextcloud 33, and 32 is supported.
+        $row = $result->fetch();
         $result->closeCursor();
         if ($row === false || $row === null) {
             return null;

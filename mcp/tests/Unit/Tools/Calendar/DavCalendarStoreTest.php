@@ -30,7 +30,9 @@ final class DavCalendarStoreTest extends TestCase {
         $expr->method('eq')->willReturnCallback(static fn ($a, $b): string => "$a=$b");
         $expr->method('isNull')->willReturnCallback(static fn ($a): string => "$a IS NULL");
         $result = $this->createMock(\OCP\DB\IResult::class);
-        $result->method('fetchAssociative')->willReturn($fetched);
+        $result->method('fetch')->willReturn($fetched);
+        // Nextcloud 32 has no IResult::fetchAssociative() (OCP 33): calling it is an Error there.
+        $result->expects($this->never())->method('fetchAssociative');
         $result->expects($this->once())->method('closeCursor');
         $qb = $this->createMock(IQueryBuilder::class);
         $qb->method('expr')->willReturn($expr);
