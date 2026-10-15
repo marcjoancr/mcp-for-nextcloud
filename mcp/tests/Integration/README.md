@@ -131,4 +131,10 @@ failed statement), runs the next query and commits or rolls back; at the next sa
 shows the accepted window of contracts §6.3 item 3 (i): another session still reads the old lifecycle as active until
 the deferred processing, which then suspends it.
 
+Declared residue (not a failure): if the reconciler job reads a group as existing while its deletion is in flight
+(after the Before wrote `pending_delete`, before the backend delete), the lifecycle goes to `needs_confirm`, and the
+GroupDeletedEvent that follows, with the Before's gen, purges nothing. The suspended policy of a group that no longer
+exists grants nothing; a recreation with its signals purges it, and an administrator clears it by removing the group's
+policy (admin UI, ticket 11).
+
 These tests were written while the integration workflow was disabled (Actions minutes): they have not run yet.

@@ -9,6 +9,7 @@ namespace OCA\Mcp\Service\Policy;
 
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
+use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -32,6 +33,8 @@ use Throwable;
 class GroupLifecycle {
     /** Lifecycles the job decides per run; the rest wait for the next run. */
     public const RECONCILE_BATCH = 200;
+    /** App config key (lazy) holding the group_key after which the next job run starts. */
+    public const CURSOR_KEY = 'group_reconcile_cursor';
 
     public function __construct(
         private PolicyWriter $writer,
@@ -39,6 +42,7 @@ class GroupLifecycle {
         private GroupGrantsMapper $grants,
         private GroupSourceClassifier $classifier,
         private LoggerInterface $logger,
+        private IAppConfig $appConfig,
     ) {}
 
     /**
@@ -109,23 +113,42 @@ class GroupLifecycle {
     /**
      * The job's pass over pending_delete lifecycles whose GroupDeletedEvent never came: a fresh existence read in the
      * external phase, then, under the mutex and only for the gen read, a purge (the group is gone) or needs_confirm
-     * (the deletion failed, or the group was recreated with its signal lost). Idempotent by gen; one group that fails
-     * never stops the others. If the job does not run, nothing grants outside active anyway.
+     * (the deletion failed, or the group was recreated with its signal lost). Idempotent by gen; one group that fails,
+     * or a row that is invalid or collides with another id, is skipped and logged without stopping the others. Pages
+     * of $limit follow a cursor (as the cause reconciler does), so groups that keep failing never hold the batch; it
+     * wraps around when a page comes back short. If the job does not run, nothing grants outside active anyway.
+     *
+     * Declared residue: the job may read a group as existing while a deletion is in flight (between its Before, which
+     * wrote pending_delete, and the backend delete). The lifecycle then goes to needs_confirm with a new gen, and the
+     * GroupDeletedEvent that follows, carrying the Before's gen, purges nothing. The policy of a group that no longer
+     * exists stays suspended: it grants nothing, a recreation with its signals purges it (policy_rev <= R_c), and an
+     * administrator removes it by clearing the group's policy (ticket 11).
      *
      * @param int $limit most lifecycles decided
      * @return int lifecycles changed
      */
     public function reconcile(int $limit = self::RECONCILE_BATCH): int {
         try {
-            $rows = $this->life->pendingDeletes($limit);
+            $cursor = $this->appConfig->getValueString('mcp', self::CURSOR_KEY, '', true);
+            $rows = $this->life->pendingDeletes($limit, $cursor);
+            if ($rows === [] && $cursor !== '') {
+                $rows = $this->life->pendingDeletes($limit);
+            }
+            $this->appConfig->setValueString('mcp', self::CURSOR_KEY,
+                count($rows) < $limit ? '' : $rows[count($rows) - 1]['groupKey'], true);
         } catch (Throwable $e) {
             $this->logger->warning('Cannot list the pending group deletions', ['app' => 'mcp', 'exception' => $e]);
             return 0;
         }
         $changed = 0;
-        foreach ($rows as $row) {
+        foreach ($rows as ['groupId' => $gid]) {
             try {
-                $result = $this->writer->runInternal([], fn (): bool => $this->classifier->exists($row['groupId']),
+                // One row at a time: get() verifies the id against its digest; an invalid row fails alone.
+                $row = $this->life->get($gid);
+                if ($row === null || $row['state'] !== GroupLifeMapper::PENDING_DELETE) {
+                    continue;
+                }
+                $result = $this->writer->runInternal([], fn (): bool => $this->classifier->exists($gid),
                     function (bool $exists) use ($row): bool {
                         $current = $this->life->get($row['groupId']);
                         if ($current === null || $current['gen'] !== $row['gen'] || $current['state'] !== GroupLifeMapper::PENDING_DELETE) {
@@ -135,7 +158,7 @@ class GroupLifecycle {
                     });
                 $changed += $result['changed'] ? 1 : 0;
             } catch (Throwable $e) {
-                $this->logger->warning('Pending group deletion left for the next run', ['app' => 'mcp', 'target' => $row['groupId'], 'exception' => $e]);
+                $this->logger->warning('Pending group deletion left for the next run', ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
             }
         }
         return $changed;

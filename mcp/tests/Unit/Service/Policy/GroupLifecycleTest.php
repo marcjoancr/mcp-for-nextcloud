@@ -229,22 +229,74 @@ final class GroupLifecycleTest extends TestCase {
         $this->assertCount(1, $registered, 'the shutdown callback is registered once');
     }
 
-    /** The holders a group deletion re-checks: every owner of a code or grant row, valid or not, once. */
-    public function testTheCredentialHoldersAreEveryOwnerOfACodeOrGrantOnce(): void {
-        foreach ([['mcp_oauth_tokens', 'alice'], ['mcp_oauth_tokens', 'alice'], ['mcp_oauth_codes', 'bob'], ['mcp_oauth_codes', 'alice']] as $i => [$table, $uid]) {
+    /**
+     * The holders a group deletion re-checks: owners of a live code or grant (not expired, current epoch), once each,
+     * with their highest generation.
+     */
+    public function testTheLiveHoldersAreOwnersOfUnexpiredRowsOfTheCurrentEpochWithTheirHighestGeneration(): void {
+        $rows = [
+            ['mcp_oauth_tokens', 'alice', 2, 'refresh_expires', 200, 0],
+            ['mcp_oauth_tokens', 'alice', 5, 'refresh_expires', 200, 0],
+            ['mcp_oauth_codes', 'alice', 3, 'expires_at', 200, 0],
+            ['mcp_oauth_codes', 'bob', 4, 'expires_at', 200, 0],
+            ['mcp_oauth_tokens', 'carol', 9, 'refresh_expires', 99, 0],
+            ['mcp_oauth_tokens', 'dave', 9, 'refresh_expires', 200, 1],
+        ];
+        foreach ($rows as $i => [$table, $uid, $gen, $expiry, $until, $epoch]) {
             $row = [];
             foreach (array_column($this->tableColumns($table), 'name') as $column) {
                 $row[$column] = match ($column) {
                     'id' => $i + 1,
                     'user_id' => $uid,
+                    'auth_gen' => $gen,
+                    'auth_global_epoch' => $epoch,
+                    $expiry => $until,
                     default => $column . '-' . $i,
                 };
             }
             $this->database->dbal->insert($table, $row);
         }
-        $holders = (new \OCA\Mcp\OAuth\OAuthStore($this->db))->holders();
-        sort($holders);
-        $this->assertSame(['alice', 'bob'], $holders);
+        $holders = array_values((new \OCA\Mcp\OAuth\OAuthStore($this->db))->liveHolders(100, '0'));
+        usort($holders, static fn (array $a, array $b): int => strcmp($a['uid'], $b['uid']));
+        $this->assertSame([['uid' => 'alice', 'gen' => '5'], ['uid' => 'bob', 'gen' => '4']], $holders);
+    }
+
+    /**
+     * Review F5: an invalid or colliding row is skipped without stopping the others, and pages follow a cursor, so
+     * groups that keep failing never hold the batch.
+     */
+    public function testTheJobSkipsAnInvalidRowAndPagesWithACursor(): void {
+        foreach (['a-gone', 'b-gone', 'c-gone'] as $gid) {
+            $this->life->markPendingDelete($gid, $this->policy($gid), bin2hex(random_bytes(16)));
+            $this->exists[$gid] = false;
+        }
+        // A row whose id does not match its digest (a collision) sorts somewhere among them.
+        $this->database->dbal->insert('mcp_group_life', ['group_key' => IdentityKey::group('x-collision'), 'group_id' => 'X-Collision',
+            'state' => 'pending_delete', 'gen' => bin2hex(random_bytes(16)), 'policy_rev' => '0']);
+        $this->assertSame(3, $this->lifecycle->reconcile(), 'the invalid row fails alone');
+        foreach (['a-gone', 'b-gone', 'c-gone'] as $gid) {
+            $this->assertNull($this->life->get($gid));
+        }
+
+        // Pages of one: every run moves past the previous page, and wraps around at the end. The decidable group sorts
+        // last by key, so without the cursor every run would stop at the failing ones before it.
+        $failing = 'e';
+        $reached = 'd';
+        for ($i = 0; strcmp(IdentityKey::group($reached), max(IdentityKey::group($failing), IdentityKey::group('x-collision'))) < 0; ++$i) {
+            $reached = 'd' . $i;
+        }
+        foreach ([$reached, $failing] as $gid) {
+            $this->life->markPendingDelete($gid, $this->policy($gid), bin2hex(random_bytes(16)));
+        }
+        $this->exists = [$reached => false];
+        $this->assertSame(0, $this->lifecycle->reconcile(1), 'the first page holds a failing row');
+        $decided = 0;
+        for ($run = 0; $run < 3; ++$run) {
+            $decided += $this->lifecycle->reconcile(1);
+        }
+        $this->assertSame(1, $decided, 'the failing rows never hold the batch');
+        $this->assertNull($this->life->get($reached));
+        $this->assertSame('pending_delete', $this->life->get($failing)['state']);
     }
 
     /** @return list<array{name:string}> */

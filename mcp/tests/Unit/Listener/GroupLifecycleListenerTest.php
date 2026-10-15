@@ -6,6 +6,7 @@
 declare(strict_types=1);
 namespace OCA\Mcp\Tests\Unit\Listener;
 
+use OCA\Mcp\Db\AuthUsersMapper;
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
@@ -54,6 +55,12 @@ final class GroupLifecycleListenerTest extends TestCase {
     private array $members = ['alice', 'bob'];
     /** @var \Closure(string, list<string>): ?bool resolved eligibility of a user without the given groups */
     private \Closure $eligibility;
+    /** @var list<string> uids the listener loaded an account for */
+    private array $accounts = [];
+    /** @var list<string> uids the listener resolved */
+    private array $resolved = [];
+    /** @var list<array{string, string}> warnings logged: message, target */
+    private array $warnings = [];
 
     protected function setUp(): void {
         $this->lifecycleDatabase();
@@ -84,15 +91,18 @@ final class GroupLifecycleListenerTest extends TestCase {
             ?PolicyStateMapper $state = null, ?GroupGrantsMapper $grants = null): GroupLifecycleListener {
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturnCallback(function (string $uid): IUser {
+            $this->accounts[] = $uid;
             $user = $this->createMock(IUser::class);
             $user->method('getUID')->willReturn($uid);
             return $user;
         });
         $classifier = $this->createMock(GroupSourceClassifier::class);
         $classifier->method('trusted')->willReturn(true);
+        $classifier->method('members')->willReturnCallback(fn (): array => array_combine(array_map(static fn (string $uid): string => hash('sha256', $uid), $this->members), $this->members));
         $resolver = $this->createMock(PolicyResolver::class);
         $resolver->method('begin')->willReturnCallback(function (string $uid, array $added = [], array $removed = [], bool $observe = true): PolicyOperationContext {
             $this->assertFalse($observe, 'a group handler never persists an observation');
+            $this->resolved[] = $uid;
             $eligible = ($this->eligibility)($uid, $removed);
             $raw = ['eligible' => $eligible === null ? ['present' => false] : ['present' => true, 'value' => $eligible ? '1' : '0']];
             $candidates = $eligible === null ? [['groupId' => 'x', 'grants' => ['_system' => ['eligible']], 'trusted' => false, 'state' => 'active']] : [];
@@ -100,9 +110,15 @@ final class GroupLifecycleListenerTest extends TestCase {
         });
         $time = $this->createMock(ITimeFactory::class);
         $time->method('getTime')->willReturn(1_760_000_000);
+        $logger = new class($this->warnings) extends \Psr\Log\AbstractLogger {
+            public function __construct(private array &$warnings) {}
+            public function log($level, string|\Stringable $message, array $context = []): void {
+                $this->warnings[] = [(string)$message, (string)($context['target'] ?? '')];
+            }
+        };
         return new GroupLifecycleListener($lifecycle ?? $this->lifecycle, $causes ?? $this->causes(), $life ?? $this->life,
-            $grants ?? $this->grants, $rechecks ?? $this->rechecks, $state ?? $this->state, $store ?? $this->store, $classifier,
-            $resolver, $users, $db ?? $this->db, $time, new NullLogger());
+            $grants ?? $this->grants, $rechecks ?? $this->rechecks, $state ?? $this->state, $store ?? $this->store,
+            new AuthUsersMapper($db ?? $this->db), $classifier, $resolver, $users, $db ?? $this->db, $time, $logger);
     }
 
     private function group(string $gid = 'staff'): IGroup {
@@ -304,5 +320,44 @@ final class GroupLifecycleListenerTest extends TestCase {
             }
         }
         $this->addToAssertionCount(1);
+    }
+
+    /** Review F1: a failure while listing the holders never stops pending_delete; it is logged. */
+    public function testAFailedHolderListingStillMarksPendingDelete(): void {
+        $this->policy('staff');
+        $store = $this->createMock(OAuthStore::class);
+        $store->method('liveHolders')->willThrowException(new \RuntimeException('tokens unreadable'));
+        $listener = $this->listener(store: $store);
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->assertSame('pending_delete', $this->life->get('staff')['state']);
+        $this->assertSame([], $this->causedUsers('staff'));
+        $this->assertContains(['Credential holders of a deleted group not listed; their causes are left to observed use', 'staff'], $this->warnings);
+        // The After still purges with the gen the Before wrote.
+        $this->handle($listener, new GroupDeletedEvent($this->group()));
+        $this->assertNull($this->life->get('staff'));
+    }
+
+    /**
+     * Review F2: the Before resolves only the live holders who are members of G and not cut yet. Expired, old-epoch,
+     * non-member and already cut holders cost no account load and no resolution.
+     */
+    public function testTheBeforeResolvesOnlyLiveUncutHoldersWhoAreMembers(): void {
+        $this->policy('staff');
+        $this->store->tokens = [];
+        $this->members = ['alice', 'dave', 'erin', 'frank'];
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '2', 'refresh_expires' => 1_760_000_100, 'auth_global_epoch' => '0'], 0);
+        $this->store->insertToken(['user_id' => 'carol', 'auth_gen' => '2', 'refresh_expires' => 1_760_000_100, 'auth_global_epoch' => '0'], 0);
+        $this->store->insertToken(['user_id' => 'dave', 'auth_gen' => '2', 'refresh_expires' => 1_759_999_999, 'auth_global_epoch' => '0'], 0);
+        $this->store->insertToken(['user_id' => 'erin', 'auth_gen' => '2', 'refresh_expires' => 1_760_000_100, 'auth_global_epoch' => '7'], 0);
+        $this->store->insertCode(['user_id' => 'frank', 'auth_gen' => '3', 'expires_at' => 1_760_000_100, 'auth_global_epoch' => '0'], 0);
+        $this->database->dbal->insert('mcp_auth_users', ['user_key' => IdentityKey::user('frank'), 'user_id' => 'frank',
+            'issue_seq' => '3', 'revoked_below' => '3']);
+        $this->eligibility = static fn (string $uid, array $without): ?bool => !in_array('staff', $without, true);
+
+        $this->handle($this->listener(), new BeforeGroupDeletedEvent($this->group()));
+
+        $this->assertSame(['alice'], $this->accounts);
+        $this->assertSame(['alice', 'alice'], $this->resolved);
+        $this->assertSame(['alice'], $this->causedUsers('staff'));
     }
 }

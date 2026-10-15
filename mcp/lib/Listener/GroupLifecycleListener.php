@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Listener;
 
+use OCA\Mcp\Db\AuthUsersMapper;
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
@@ -14,6 +15,7 @@ use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\RecheckMapper;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\Policy\CauseProcessor;
+use OCA\Mcp\Service\Policy\DecimalCounter;
 use OCA\Mcp\Service\Policy\GroupLifecycle;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
 use OCA\Mcp\Service\Policy\PolicyResolver;
@@ -68,6 +70,7 @@ class GroupLifecycleListener implements IEventListener {
         private RecheckMapper $rechecks,
         private PolicyStateMapper $state,
         private OAuthStore $store,
+        private AuthUsersMapper $authUsers,
         private GroupSourceClassifier $classifier,
         private PolicyResolver $resolver,
         private IUserManager $users,
@@ -111,8 +114,16 @@ class GroupLifecycleListener implements IEventListener {
             return;
         }
         // Causes first: once pending_delete is written, G no longer grants and "eligible without G" tells nothing.
+        // A failure while collecting them never stops the transition: pending_delete must be written regardless.
         if ($row['state'] === GroupLifeMapper::ACTIVE && $this->grantsEligibility($gid)) {
-            foreach ($this->holders($group) as $uid) {
+            try {
+                $holders = $this->holders($group);
+            } catch (Throwable $e) {
+                $holders = [];
+                $this->logger->warning('Credential holders of a deleted group not listed; their causes are left to observed use',
+                    ['app' => 'mcp', 'target' => $gid, 'exception' => $e]);
+            }
+            foreach ($holders as $uid) {
                 try {
                     $gen = bin2hex(random_bytes(16));
                     $this->rechecks->record($uid, RecheckMapper::REASON_GROUP, $gid, $gen, $this->time->getTime());
@@ -200,18 +211,33 @@ class GroupLifecycleListener implements IEventListener {
 
     /**
      * Credential holders in G who may be eligible now and would not be without G (contracts §3.3.2): the ones whose
-     * credential a deletion of G must re-check. A failed read for one holder records its cause anyway; an account
+     * credential a deletion of G must re-check. Cheapest filters first, so the resolutions run only for the few that
+     * matter: owners of a live code or grant (not expired, current epoch), intersected with G's member list (one call
+     * per serving backend), whose highest generation is above their cut; then the account and two resolutions. A
+     * failed member list keeps every live holder; a failed read for one holder records its cause anyway; an account
      * already gone is the account cause's business.
      *
      * @return list<string> their uids
+     * @throws \Throwable when the live holders cannot be listed (the caller logs it and still writes pending_delete)
      */
     private function holders(IGroup $group): array {
         $gid = $group->getGID();
+        $live = $this->store->liveHolders($this->time->getTime(), $this->state->state()['auth_epoch']);
+        if ($live === []) {
+            return [];
+        }
+        try {
+            $live = array_intersect_key($live, $this->classifier->members($gid));
+        } catch (Throwable) {
+            // Unknown membership: the resolutions below decide; over-report rather than omit.
+        }
         $relevant = [];
-        foreach ($this->store->holders() as $uid) {
+        foreach ($live as ['uid' => $uid, 'gen' => $highest]) {
             try {
-                $user = $this->users->get($uid);
-                if ($user === null || $group->inGroup($user) === false) {
+                if (self::cutBelow($highest, $this->authUsers->generations($uid)['revoked_below'])) {
+                    continue;
+                }
+                if ($this->users->get($uid) === null) {
                     continue;
                 }
                 if ($this->eligible($uid, []) !== false && $this->eligible($uid, [$gid]) !== true) {
@@ -222,6 +248,15 @@ class GroupLifecycleListener implements IEventListener {
             }
         }
         return $relevant;
+    }
+
+    /** Whether every credential of the holder is already cut (its highest generation is at or below revoked_below). */
+    private static function cutBelow(string $highest, string $revokedBelow): bool {
+        try {
+            return DecimalCounter::compare(DecimalCounter::validate($highest, DecimalCounter::MAX), $revokedBelow) <= 0;
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
     }
 
     /** @return bool|null the resolved eligibility without the given groups; null when unknown */

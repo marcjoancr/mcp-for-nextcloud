@@ -38,6 +38,36 @@ class GroupSourceClassifier {
     }
 
     /**
+     * The uids of the group's members, from the backends that serve it (one call each, not one per user): the cheap
+     * side of the intersection a group deletion makes with the credential holders.
+     *
+     * @return array<string, string> uid by a digest of the uid, never keyed by the uid itself
+     * @throws PolicyUnavailable when a backend cannot be read or answers an invalid list
+     */
+    public function members(string $gid): array {
+        try {
+            $members = [];
+            foreach ($this->serving($gid) as $backend) {
+                $uids = $backend->usersInGroup($gid);
+                if (!is_array($uids)) {
+                    throw new \UnexpectedValueException('Invalid backend member list');
+                }
+                foreach ($uids as $uid) {
+                    if (!is_string($uid)) {
+                        throw new \UnexpectedValueException('Invalid backend member id');
+                    }
+                    $members[hash('sha256', $uid)] = $uid;
+                }
+            }
+            return $members;
+        } catch (PolicyUnavailable $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new PolicyUnavailable('Cannot list group members', previous: $e);
+        }
+    }
+
+    /**
      * @return list<GroupInterface> the backends that answer groupExists($gid) with true
      * @throws PolicyUnavailable when a backend is invalid or cannot be read
      */

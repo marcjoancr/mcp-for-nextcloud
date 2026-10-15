@@ -49,6 +49,7 @@ trait GroupLifecycleDatabase {
     private GroupGrantsMapper $grants;
     private RecheckMapper $rechecks;
     private GroupLifecycle $lifecycle;
+    private \OCA\Mcp\Tests\Unit\InMemoryAppConfig $apps;
     /** @var array<string, bool> gid => served by a backend; a missing gid makes the existence read fail */
     private array $exists = [];
     /** @var (\Closure(): void)|null runs once inside the next existence read, in the external phase */
@@ -82,7 +83,8 @@ trait GroupLifecycleDatabase {
             return $this->exists[$gid] ?? throw new \OCA\Mcp\Service\Policy\PolicyUnavailable('directory down');
         });
         $classifier->method('trusted')->willReturn(true);
-        $this->lifecycle = new GroupLifecycle($this->writer, $this->life, $this->grants, $classifier, new NullLogger());
+        $this->apps = new \OCA\Mcp\Tests\Unit\InMemoryAppConfig();
+        $this->lifecycle = new GroupLifecycle($this->writer, $this->life, $this->grants, $classifier, new NullLogger(), $this->apps->worker($this));
     }
 
     /**

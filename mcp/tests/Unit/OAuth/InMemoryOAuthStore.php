@@ -26,8 +26,20 @@ final class InMemoryOAuthStore extends OAuthStore {
 
     public function insertCode(array $row, int $now): void { $this->codes[$this->nextId] = $row + ['id' => $this->nextId++]; }
 
-    public function holders(): array {
-        return array_values(array_unique([...array_column($this->tokens, 'user_id'), ...array_column($this->codes, 'user_id')]));
+    public function liveHolders(int $now, string $epoch): array {
+        $holders = [];
+        foreach ([[$this->tokens, 'refresh_expires'], [$this->codes, 'expires_at']] as [$rows, $expiry]) {
+            foreach ($rows as $row) {
+                if (($row[$expiry] ?? PHP_INT_MAX) < $now || (string)($row['auth_global_epoch'] ?? '0') !== $epoch) {
+                    continue;
+                }
+                $key = hash('sha256', $row['user_id']);
+                if (!isset($holders[$key]) || (int)$row['auth_gen'] > (int)$holders[$key]['gen']) {
+                    $holders[$key] = ['uid' => $row['user_id'], 'gen' => (string)$row['auth_gen']];
+                }
+            }
+        }
+        return $holders;
     }
 
     public function hasCredentials(string $uid): bool {

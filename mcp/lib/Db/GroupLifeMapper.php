@@ -168,8 +168,11 @@ class GroupLifeMapper {
      * Readers that snapshot by revision are affected as follows. A resolution that read the row as active just before
      * this statement used the state the group had while it still existed, as it would have without this signal; the
      * next one reads pending_delete and the group no longer grants. A writer command that compares only the revision
-     * cannot see this transition; one that relies on the lifecycle (the group save of ticket 08) must compare the gen
-     * it read in its external phase again under the mutex.
+     * (and its other snapshots) cannot see this transition. Every command whose decision relied on a group's lifecycle
+     * must compare the gen it read in its external phase again under the mutex: the group save and confirm of ticket 08
+     * (and its H0/H1 holders rule), and issuance (PolicyWriter::runCredential(), today comparing the revision and the
+     * user's causes only) once ticket 09 lets group eligibility admit a consent. Until then issuance reads the
+     * individual flag only. A page built on expectedRevision (the matrix) may still show such a group as active.
      *
      * The row is read first and its original id compared byte for byte, so a digest collision fails closed before the
      * update; the update is conditioned on the gen verified by that read.
@@ -205,31 +208,33 @@ class GroupLifeMapper {
     }
 
     /**
-     * Lifecycles waiting for their deletion to be confirmed, for the reconciler job: at most $limit, by group_key.
+     * Group ids waiting for their deletion to be confirmed, for the reconciler job: at most $limit, by group_key, after
+     * the cursor $after. The ids are returned as stored and not verified here: the job reads each one through get(),
+     * which compares it with its digest, one row at a time, so an invalid or colliding row is skipped without stopping
+     * the others.
      *
      * @param int $limit most rows returned
-     * @return list<array{groupId:string, state:string, gen:string, policyRev:string}>
-     * @throws UnexpectedValueException for an invalid stored row
+     * @param string $after group_key the previous page ended with; '' for the first page
+     * @return list<array{groupKey:string, groupId:string}>
      * @throws \OCP\DB\Exception when the query fails
      */
-    public function pendingDeletes(int $limit): array {
+    public function pendingDeletes(int $limit, string $after = ''): array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('group_id')->from(self::TABLE)
-            ->where($qb->expr()->eq('state', $qb->createNamedParameter(self::PENDING_DELETE)))
-            ->orderBy('group_key')->setMaxResults(max(1, $limit))->executeQuery();
-        $ids = [];
+        $qb->select('group_key', 'group_id')->from(self::TABLE)
+            ->where($qb->expr()->eq('state', $qb->createNamedParameter(self::PENDING_DELETE)));
+        if ($after !== '') {
+            $qb->andWhere($qb->expr()->gt('group_key', $qb->createNamedParameter($after)));
+        }
+        $result = $qb->orderBy('group_key')->setMaxResults(max(1, $limit))->executeQuery();
+        $rows = [];
         try {
             while (($row = $result->fetch()) !== false) {
-                if (!is_string($row['group_id'] ?? null)) {
-                    throw new UnexpectedValueException('Invalid stored group lifecycle');
-                }
-                $ids[] = $row['group_id'];
+                $rows[] = ['groupKey' => (string)($row['group_key'] ?? ''), 'groupId' => (string)($row['group_id'] ?? '')];
             }
         } finally {
             $result->closeCursor();
         }
-        // Re-read through forGroups(), which verifies every digest against the original id.
-        return array_values(array_filter($this->forGroups($ids), static fn (array $row): bool => $row['state'] === self::PENDING_DELETE));
+        return $rows;
     }
 
     /**

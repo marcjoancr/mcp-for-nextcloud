@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\OAuth;
 
+use OCA\Mcp\Service\Policy\DecimalCounter;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -96,27 +97,51 @@ class OAuthStore {
     }
 
     /**
-     * Users holding any code or grant row, valid or not: the credential holders a group deletion must re-check
-     * (contracts §3.3.2). It may over-report, never miss one.
+     * Owners of a live code or grant (not expired, of the current global epoch), each with the highest generation
+     * among those rows: the credential holders a group deletion must re-check (contracts §3.3.2). The caller compares
+     * that generation with the owner's revoked_below. Expired or epoch-revoked rows can never authenticate again, so
+     * leaving them out misses no credential; the list may still over-report (a cut not compared yet).
      *
-     * @return list<string> distinct owners, in no particular order
+     * @param int $now current time
+     * @param string $epoch canonical global auth epoch
+     * @return array<string, array{uid:string, gen:string}> keyed by a digest of the uid, never by the uid itself
      */
-    public function holders(): array {
+    public function liveHolders(int $now, string $epoch): array {
         $holders = [];
-        foreach ([self::TOKENS, self::CODES] as $table) {
+        foreach ([[self::TOKENS, 'refresh_expires'], [self::CODES, 'expires_at']] as [$table, $expiry]) {
             $qb = $this->db->getQueryBuilder();
-            $result = $qb->selectDistinct('user_id')->from($table)->executeQuery();
+            $result = $qb->select('user_id', 'auth_gen')->from($table)
+                ->where($qb->expr()->gte($expiry, $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+                ->andWhere($qb->expr()->eq('auth_global_epoch', $qb->createNamedParameter($epoch, IQueryBuilder::PARAM_INT)))
+                ->executeQuery();
             try {
                 while (($row = $result->fetch()) !== false) {
-                    if (is_string($row['user_id'] ?? null) && $row['user_id'] !== '') {
-                        $holders[hash('sha256', $row['user_id'])] = $row['user_id'];
+                    $uid = $row['user_id'] ?? null;
+                    if (!is_string($uid) || $uid === '') {
+                        continue;
+                    }
+                    $gen = (string)($row['auth_gen'] ?? '');
+                    $key = hash('sha256', $uid);
+                    $known = $holders[$key]['gen'] ?? null;
+                    // A non-canonical generation is kept as the owner's (it cannot be compared): over-report, never omit.
+                    if ($known === null || !self::canonical($gen) || (self::canonical($known) && DecimalCounter::compare($gen, $known) > 0)) {
+                        $holders[$key] = ['uid' => $uid, 'gen' => $gen];
                     }
                 }
             } finally {
                 $result->closeCursor();
             }
         }
-        return array_values($holders);
+        return $holders;
+    }
+
+    private static function canonical(string $value): bool {
+        try {
+            DecimalCounter::validate($value, DecimalCounter::MAX);
+            return true;
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
     }
 
     /** @return array<string,mixed>|null the grant owning this access token hash */
