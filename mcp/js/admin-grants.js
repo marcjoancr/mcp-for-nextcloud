@@ -9,7 +9,9 @@
  * PUT /apps/mcp/api/grants/{uid}, POST /apps/mcp/api/grants/commands and PUT /apps/mcp/api/service.
  * Every save carries the policy revision the page was built from (a decimal string, never parsed as a
  * number); when the server answers 409 or 428 someone else saved first, so the page reloads instead
- * of repeating the write.
+ * of repeating the write. The matrix revision is only ever the one of the matrix on screen: from the
+ * GET that was rendered, or from a matrix save that committed from it. The server-log block keeps its
+ * own, from its own GET. A revision found in an error body is never adopted.
  * Plain browser JavaScript, no build step; strings go through t('mcp', …) for translation.
  */
 (function () {
@@ -121,21 +123,24 @@
 		if (!response.ok) {
 			const error = new Error(String(response.status))
 			error.data = await response.json().catch(() => null)
-			keepRevision(error.data)
 			throw error
 		}
-		const data = await response.json()
-		keepRevision(data)
-		return data
+		return response.json()
 	}
 
-	/** Policy revision of the saved state the page shows; sent with every save as expectedRevision. */
-	let revision = null
+	/**
+	 * True while the matrix reloads after a conflict or an uncertain save: every matrix write waits
+	 * for the reloaded table instead of going out with a page that is known to be outdated.
+	 */
+	let matrixLocked = false
 
-	/** @param {object|null} data a response that may carry the current revision, success or conflict */
-	function keepRevision(data) {
-		if (data && typeof data.revision === 'string') {
-			revision = data.revision
+	/** Reloads the matrix with every matrix write blocked until the new page is on screen. */
+	async function reloadLocked() {
+		matrixLocked = true
+		try {
+			await load()
+		} finally {
+			matrixLocked = false
 		}
 	}
 
@@ -144,9 +149,9 @@
 	 * the matrix in those cases so nothing is written twice.
 	 *
 	 * @param {Error} e error thrown by api()
-	 * @return {boolean} whether the error was handled here
+	 * @return {Promise<boolean>} whether the error was handled here (the matrix is then reloaded)
 	 */
-	function policyError(e) {
+	async function policyError(e) {
 		if (e.message === '409' || e.message === '428') {
 			notifyError(t('mcp', 'The permissions were changed in another window or by another administrator. The table was reloaded with the saved values; nothing was overwritten.'))
 		} else if (e.message === '503' && e.data && e.data.uncertain) {
@@ -154,7 +159,7 @@
 		} else {
 			return false
 		}
-		load()
+		await reloadLocked()
 		return true
 	}
 
@@ -194,20 +199,36 @@
 		return node
 	}
 
-	/** Reads the current page from the server and re-renders the table; a failure is shown in the table with a retry. */
+	/** Number of the latest load(); an older one that answers later is dropped. */
+	let loadSeq = 0
+
+	/**
+	 * Reads the current page from the server and re-renders the table; a failure is shown in the table with a retry.
+	 * The page and its revision always come from the same response, and only the newest request is rendered.
+	 */
 	async function load() {
+		const seq = ++loadSeq
 		table.setAttribute('aria-busy', 'true')
 		table.classList.add('mcp-loading')
 		const query = new URLSearchParams({ search: state.search, group: state.group, filter: state.filter, page: String(state.page) })
 		try {
-			state.data = await api('GET', '/api/grants?' + query.toString())
+			const data = await api('GET', '/api/grants?' + query.toString())
+			if (seq !== loadSeq) {
+				return
+			}
+			state.data = data
 			render()
 		} catch (e) {
+			if (seq !== loadSeq) {
+				return
+			}
 			renderError()
 			notifyError(t('mcp', 'Could not load the users.'))
 		} finally {
-			table.setAttribute('aria-busy', 'false')
-			table.classList.remove('mcp-loading')
+			if (seq === loadSeq) {
+				table.setAttribute('aria-busy', 'false')
+				table.classList.remove('mcp-loading')
+			}
 		}
 	}
 
@@ -611,13 +632,20 @@
 		paintState(cell, checked ? 'allowed' : 'denied')
 		box.addEventListener('change', async () => {
 			const value = box.checked
+			if (matrixLocked) {
+				// The table on screen is known to be outdated; the reloaded one replaces this checkbox.
+				box.checked = !value
+				return
+			}
 			const payload = Object.fromEntries(Object.entries(body).map(([key, v]) => [key, v === null ? value : v]))
 			const hadFocus = document.activeElement === box
 			// The focus comes back to this checkbox only when the admin did not move it during the save.
 			const focusStayed = () => hadFocus && (document.activeElement === null || document.activeElement === document.body || document.activeElement === box)
 			box.disabled = true
 			try {
-				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: revision })
+				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: state.data.revision })
+				// Committed from the revision on screen, so the page plus this row is exactly the new revision.
+				state.data.revision = updated.revision
 				const index = state.data.users.findIndex((u) => u.uid === user.uid)
 				state.data.users[index] = updated
 				const restore = focusStayed()
@@ -636,7 +664,7 @@
 					box.focus()
 				}
 				flash(cell, false)
-				if (!policyError(e)) {
+				if (!(await policyError(e))) {
 					notifyError(t('mcp', 'Could not save the permission for {user}.', { user: user.displayName }))
 				}
 			}
@@ -780,7 +808,7 @@
 			operation: request.operation,
 			state: request.granted ? 'allow' : 'deny',
 		})))
-		return api('POST', '/api/grants/commands', { expectedRevision: revision, commands })
+		return api('POST', '/api/grants/commands', { expectedRevision: state.data.revision, commands })
 	}
 
 	/**
@@ -792,7 +820,8 @@
 	 * @param {string} label permission name
 	 */
 	async function bulk(module, operationList, granted, label) {
-		if (bulkBusy) {
+		// The plan is computed from the table on screen, so never from one that is being replaced.
+		if (bulkBusy || matrixLocked) {
 			return
 		}
 		const plan = bulkPlan(module, operationList, granted)
@@ -821,6 +850,7 @@
 		}
 		const requests = plan.changes.map((change) => ({ operation: change.operation, uids: [...change.previous.keys()], granted }))
 		let undo = null
+		let reloaded = false
 		setBulkBusy(true)
 		try {
 			try {
@@ -831,11 +861,14 @@
 					: n('mcp', 'Denied “{permission}” for %n user.', 'Denied “{permission}” for %n users.', plan.users, vars, { escape: false }), undo)
 			} catch (e) {
 				// Nothing was saved: the command is all or nothing.
-				if (!policyError(e)) {
+				reloaded = await policyError(e)
+				if (!reloaded) {
 					notifyError(t('mcp', 'Could not update the users on this page.'))
 				}
 			}
-			await load()
+			if (!reloaded) {
+				await reloadLocked()
+			}
 		} finally {
 			setBulkBusy(false)
 		}
@@ -868,7 +901,7 @@
 				notifyError(failure)
 				showNotice(failure, null)
 			}
-			await load()
+			await reloadLocked()
 		} finally {
 			setBulkBusy(false)
 		}
@@ -876,9 +909,16 @@
 
 	serviceBox.addEventListener('change', async () => {
 		const value = serviceBox.checked
+		if (matrixLocked || state.data === null) {
+			serviceBox.checked = !value
+			return
+		}
 		serviceBox.disabled = true
 		try {
-			const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: revision })
+			const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: state.data.revision })
+			// Committed from the revision on screen: the switch is the only thing that changed.
+			state.data.revision = result.revision
+			state.data.serviceEnabled = result.enabled
 			serviceBox.checked = result.enabled
 			serviceStatus.textContent = t('mcp', 'Saved')
 			flash(serviceStatus, true)
@@ -886,7 +926,9 @@
 			serviceBox.checked = !value
 			serviceStatus.textContent = t('mcp', 'Not saved')
 			flash(serviceStatus, false)
-			if (!policyError(e)) {
+			// Enabled again first, so the reloaded page can paint the saved switch.
+			serviceBox.disabled = false
+			if (!(await policyError(e))) {
 				notifyError(t('mcp', 'Could not change the MCP service.'))
 			}
 		} finally {
@@ -1250,11 +1292,14 @@
 			return
 		}
 		let version = 0
+		// The block's own revision, from its own GET or save; never the matrix's, never an error body's.
+		let logsRevision = null
 		let picker = null
 
 		/** @param {object} data state returned by the API */
 		function show(data) {
 			version = data.version
+			logsRevision = data.revision
 			const options = data.allGroups.map((group) => ({ id: group.id, label: group.displayName }))
 			for (const id of data.missing) {
 				options.push({ id: id, label: t('mcp', '{group} (group removed)', { group: id }, undefined, { escape: false }) })
@@ -1270,7 +1315,7 @@
 					emptyOptionsText: t('mcp', 'No groups found; only administrators can read the log.'),
 					noMatchText: t('mcp', 'No match.'),
 					save: async (nextIds, previousIds) => {
-						return api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version, expectedRevision: revision })
+						return api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version, expectedRevision: logsRevision })
 					},
 					onSaved: async (data) => {
 						show(data)

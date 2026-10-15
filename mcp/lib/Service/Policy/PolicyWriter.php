@@ -236,6 +236,21 @@ class PolicyWriter {
     }
 
     /**
+     * The users a receipt names, for the state of a refused undo; the same ownership and validity rules as
+     * restoreReceipt(), but expiry does not matter for showing the current rows.
+     *
+     * @return list<string>|null its distinct uids in order, or null for an unknown, foreign or unreadable receipt
+     */
+    public function receiptUsers(string $receiptId, string $actor): ?array {
+        try {
+            $receipt = $this->receipt($receiptId, $actor, false);
+        } catch (ReceiptNotFound|PolicyUnavailable) {
+            return null;
+        }
+        return array_values(array_unique(array_column($receipt['changes'], 'uid')));
+    }
+
+    /**
      * The service switch from the admin page: same effect as setGlobalEnabled(), behind the expected revision, with
      * an audit event when it changes.
      *
@@ -397,10 +412,11 @@ class PolicyWriter {
      * Loads a receipt for its own administrator, checking ownership before expiry so another administrator's
      * receipt is indistinguishable from an unknown one.
      *
+     * @param bool $live whether an expired receipt is refused (false only to describe it)
      * @return array{revision:string, changes:list<array{uid:string, key:string, before:?string, after:?string}>}
      * @throws ReceiptNotFound|ReceiptExpired|PolicyUnavailable
      */
-    private function receipt(string $receiptId, string $actor): array {
+    private function receipt(string $receiptId, string $actor, bool $live = true): array {
         if (!PolicyEventsMapper::validId($receiptId)) {
             throw new ReceiptNotFound();
         }
@@ -416,7 +432,7 @@ class PolicyWriter {
         if ($payload === null || $payload['actor'] !== $actor) {
             throw new ReceiptNotFound();
         }
-        if ($this->time->getTime() >= $event['createdAt'] + self::RECEIPT_TTL) {
+        if ($live && $this->time->getTime() >= $event['createdAt'] + self::RECEIPT_TTL) {
             throw new ReceiptExpired();
         }
         return ['revision' => $payload['revision'], 'changes' => $payload['changes']];

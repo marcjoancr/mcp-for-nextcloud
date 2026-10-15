@@ -144,7 +144,8 @@ class GrantsController extends Controller {
      * Body {expectedRevision, commands: list<{uid, module: string|null, operation, state}>}: several users and
      * operations in one transaction (at most PolicyWriter::MAX_UIDS users and MAX_CELLS distinct cells). state is
      * "allow", "deny" or "inherit" (removes the override); operation "eligible" with module null targets eligibility.
-     * A boolean "granted" is refused here, so a cell never mixes the two forms.
+     * A boolean "granted" is refused here, so a cell never mixes the two forms, and every command names all four
+     * keys: module is null for eligibility, never left out.
      *
      * @return JSONResponse {revision, changed: int, receiptId}, or 400/409/428/503
      */
@@ -157,7 +158,9 @@ class GrantsController extends Controller {
             }
             $cells = [];
             foreach ($commands as $command) {
+                // Exactly these four keys: module is required even for eligibility, as an explicit null.
                 if (!is_array($command) || array_diff(array_keys($command), ['uid', 'module', 'operation', 'state']) !== []
+                    || !array_key_exists('module', $command)
                     || !is_string($command['uid'] ?? null) || !is_string($command['operation'] ?? null)
                     || !(is_string($command['module'] ?? null) || ($command['module'] ?? null) === null)
                     || !is_string($command['state'] ?? null) || !array_key_exists($command['state'], self::STATES)) {
@@ -183,8 +186,8 @@ class GrantsController extends Controller {
      *     it expired, 409 when anything changed since, or 400/428/503
      */
     public function undo(): JSONResponse {
-        return $this->guard(function (): array|JSONResponse {
-            $receiptId = $this->request->getParam('receiptId');
+        $receiptId = $this->request->getParam('receiptId');
+        return $this->guard(function () use ($receiptId): array|JSONResponse {
             if (!is_string($receiptId)) {
                 throw new InvalidArgumentException('Invalid request');
             }
@@ -196,7 +199,7 @@ class GrantsController extends Controller {
             } catch (ReceiptExpired) {
                 return new JSONResponse(['error' => 'Gone'], Http::STATUS_GONE);
             }
-        }, fn (): array => []);
+        }, fn (): ?array => is_string($receiptId) ? $this->receiptState($receiptId) : null);
     }
 
     /**
@@ -351,7 +354,7 @@ class GrantsController extends Controller {
      * Runs one route and maps the policy errors; nothing here falls back to defaults.
      *
      * @param callable():(array<string, mixed>|JSONResponse) $action the route body
-     * @param (callable():array<string, mixed>)|null $state fresh state for a 409 body, read after the rollback
+     * @param (callable():(array<string, mixed>|null))|null $state fresh state for a 409 body, read after the rollback
      */
     private function guard(callable $action, ?callable $state = null): JSONResponse {
         try {
@@ -405,6 +408,16 @@ class GrantsController extends Controller {
             throw new InvalidArgumentException('Invalid request');
         }
         return $user->getUID();
+    }
+
+    /**
+     * The current rows of a receipt's users for a 409 of its undo: only for the caller's own, valid receipt.
+     *
+     * @return array{users: list<array<string, mixed>>}|null null when the receipt cannot be read for the caller
+     */
+    private function receiptState(string $receiptId): ?array {
+        $uids = $this->writer->receiptUsers($receiptId, $this->actor());
+        return $uids === null ? null : $this->usersState($uids);
     }
 
     /**

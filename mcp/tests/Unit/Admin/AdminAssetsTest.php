@@ -329,29 +329,67 @@ final class AdminAssetsTest extends TestCase {
      */
     public function testEverySaveCarriesTheRevisionAndAConflictReloadsInsteadOfRetrying(): void {
         $script = (string)file_get_contents(dirname(__DIR__, 3) . '/js/admin-grants.js');
-        $this->assertStringContainsString("if (data && typeof data.revision === 'string') {", $script, 'kept as a string, never parsed');
-        $this->assertDoesNotMatchRegularExpression('/(Number|parseInt|parseFloat)\([^)]*revision/i', $script);
-        $this->assertMatchesRegularExpression('/keepRevision\(error\.data\)\s+throw error/', $script, 'a conflict body refreshes it');
-        $this->assertMatchesRegularExpression('/keepRevision\(data\)\s+return data/', $script, 'a success body refreshes it');
+        $this->assertDoesNotMatchRegularExpression('/(Number|parseInt|parseFloat|BigInt)\([^)]*[rR]evision/', $script, 'kept as the server\'s string');
         foreach ([
-            "{ ...payload, expectedRevision: revision }",
-            "{ expectedRevision: revision, commands }",
-            "{ enabled: value, expectedRevision: revision }",
-            "version: version, expectedRevision: revision",
+            "{ ...payload, expectedRevision: state.data.revision }",
+            "{ expectedRevision: state.data.revision, commands }",
+            "{ enabled: value, expectedRevision: state.data.revision }",
+            "version: version, expectedRevision: logsRevision",
+            "{ receiptId, expectedRevision: savedRevision }",
         ] as $body) {
             $this->assertStringContainsString($body, $script);
         }
         $this->assertStringContainsString("if (e.message === '409' || e.message === '428') {", $script);
         $this->assertStringContainsString("e.message === '503' && e.data && e.data.uncertain", $script);
-        $policyError = substr($script, (int)strpos($script, 'function policyError(e)'), 900);
-        $this->assertStringContainsString('load()', $policyError, 'the table is reloaded, the write is not repeated');
+    }
+
+    /**
+     * Review F1, scenario 1: the matrix revision only comes from the matrix on screen. api() adopts nothing (no error
+     * body, no logs-access answer, no load that lost the race); the matrix reads state.data.revision, set together
+     * with the rendered page or by a matrix save that committed from it; the log block keeps its own.
+     */
+    public function testTheMatrixRevisionComesOnlyFromTheMatrixOnScreen(): void {
+        $script = (string)file_get_contents(dirname(__DIR__, 3) . '/js/admin-grants.js');
+        $api = substr($script, (int)strpos($script, 'async function api('), 700);
+        $this->assertStringNotContainsString('revision', $api, 'api() never adopts a revision, from success or error');
+        $this->assertDoesNotMatchRegularExpression('/(?<![.\w])revision\s*=/', $script, 'no module-wide revision variable');
+        $this->assertSame(1, preg_match_all('/state\.data = data\b/', $script), 'the page and its revision are set together, once');
+        $this->assertMatchesRegularExpression('/if \(seq !== loadSeq\) \{\s+return\s+\}\s+state\.data = data/', $script, 'an older load is dropped');
+        $this->assertSame(['state.data.revision = updated.revision', 'state.data.revision = result.revision'],
+            array_values(array_unique(preg_match_all('/state\.data\.revision = \w+\.revision/', $script, $m) ? $m[0] : [])),
+            'only a committed matrix save advances it');
+        $logs = substr($script, (int)strpos($script, 'async function initLogsAccess'));
+        $this->assertStringContainsString('logsRevision = data.revision', $logs);
+        $this->assertStringNotContainsString('state.data.revision', $logs);
+    }
+
+    /**
+     * Review F1, scenarios 2 and 3: after a conflict or an uncertain save the reload is awaited with matrix writes
+     * blocked, so no checkbox, service switch or All menu can save the outdated page in between; the All menu plans
+     * on the table on screen only.
+     */
+    public function testAConflictBlocksMatrixWritesUntilTheReloadedPageIsOnScreen(): void {
+        $script = (string)file_get_contents(dirname(__DIR__, 3) . '/js/admin-grants.js');
+        $this->assertMatchesRegularExpression('/async function reloadLocked\(\) \{\s+matrixLocked = true\s+try \{\s+await load\(\)\s+\} finally \{\s+matrixLocked = false/', $script);
+        $policyError = substr($script, (int)strpos($script, 'async function policyError(e)'), 900);
+        $this->assertStringContainsString('await reloadLocked()', $policyError);
+        $this->assertStringNotContainsString("\t\tload()", $policyError);
+        $this->assertSame(3, substr_count($script, 'await policyError(e)'), 'cell, All menu and service wait for the reload');
+        $undo = substr($script, (int)strpos($script, 'async function undoBulk('), 1400);
+        $this->assertStringContainsString('await reloadLocked()', $undo, 'an undo, refused or not, reloads with writes blocked');
+        $cell = substr($script, (int)strpos($script, "box.addEventListener('change'"), 600);
+        $this->assertMatchesRegularExpression('/if \(matrixLocked\) \{\s+\/\/[^\n]*\n\s+box\.checked = !value\s+return/', $cell);
+        $service = substr($script, (int)strpos($script, "serviceBox.addEventListener('change'"), 300);
+        $this->assertStringContainsString('if (matrixLocked || state.data === null) {', $service);
+        $bulk = substr($script, (int)strpos($script, 'async function bulk('));
+        $this->assertLessThan(strpos($bulk, 'bulkPlan('), strpos($bulk, 'if (bulkBusy || matrixLocked) {'), 'the plan is made after the lock check');
     }
 
     public function testTheLogGroupsAreSavedOneAtATimeWithTheListTheyChanged(): void {
         $app = dirname(__DIR__, 3);
         $script = (string)file_get_contents($app . '/js/admin-grants.js');
         $logs = substr($script, (int)strpos($script, 'async function initLogsAccess'));
-        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: version, expectedRevision: revision', $logs);
+        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: version, expectedRevision: logsRevision', $logs);
         $this->assertStringContainsString("version = data.version", $logs);
         $this->assertStringContainsString("e.message === '409'", $logs);
         $this->assertStringContainsString("t('mcp', 'The groups were changed in another window or by another administrator; the current list was loaded.')", $logs);

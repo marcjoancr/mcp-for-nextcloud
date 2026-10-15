@@ -203,6 +203,7 @@ final class GrantsRevisionTest extends TestCase {
             'unknown operation' => [[self::command('ana', 'files', 'delete', 'allow')]],
             'eligible with a module' => [[self::command('ana', 'notes', 'eligible', 'allow')]],
             'grant without module' => [[self::command('ana', null, 'edit', 'allow')]],
+            'module key left out' => [[['uid' => 'ana', 'operation' => 'eligible', 'state' => 'allow']]],
             'same cell, two states' => [[self::command('ana', 'notes', 'edit', 'allow'), self::command('ana', 'notes', 'edit', 'deny')]],
             'last user unknown' => [[self::command('ana', 'notes', 'edit', 'allow'), self::command('ghost', 'notes', 'edit', 'allow')]],
             'numeric uid' => [[['uid' => 7, 'module' => 'notes', 'operation' => 'edit', 'state' => 'allow']]],
@@ -269,6 +270,9 @@ final class GrantsRevisionTest extends TestCase {
         $response = $this->undo($saved['receiptId'], $saved['revision']);
         self::assertStatus(409, $response);
         $this->assertSame('2', $response->getData()['revision']);
+        // The state holds the current rows of the receipt's users, like any other conflict.
+        $this->assertSame(['ana'], array_column($response->getData()['state']['users'], 'uid'));
+        $this->assertTrue($response->getData()['state']['users'][0]['grants']['notes']['edit']);
         // A client that sends the newest revision instead of the receipt's is refused the same way.
         self::assertStatus(409, $this->undo($saved['receiptId'], '2'));
         $this->assertSame($before, $this->snapshot());
