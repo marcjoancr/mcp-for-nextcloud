@@ -75,7 +75,8 @@ class PolicyResolver {
                     }
                     $life = $lifecycles[IdentityKey::group($row['groupId'])] ?? null;
                     $trusted = $this->classifier->trusted($row['groupId']);
-                    $candidates[] = $row + ['trusted' => $trusted, 'state' => $life['state'] ?? null];
+                    // The gen lets a writer command compare, under its mutex, the lifecycle this read relied on.
+                    $candidates[] = $row + ['trusted' => $trusted, 'state' => $life['state'] ?? null, 'gen' => $life['gen'] ?? null];
                     if (!$trusted && ($life['state'] ?? null) === GroupLifeMapper::ACTIVE) {
                         $lost[] = ['groupId' => $row['groupId'], 'gen' => $life['gen']];
                     }

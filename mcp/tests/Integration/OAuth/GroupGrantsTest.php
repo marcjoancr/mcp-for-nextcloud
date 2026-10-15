@@ -12,12 +12,15 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\OAuth\CredentialGeneration;
+use OCA\Mcp\OAuth\OAuthException;
+use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\OAuth\TokenHasher;
 use OCA\Mcp\Service\Policy\GroupGrantsService;
 use OCA\Mcp\Service\Policy\GroupLifecycle;
 use OCA\Mcp\Service\Policy\GroupSourceUntrusted;
 use OCA\Mcp\Service\Policy\PolicyConflict;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Tests\Integration\Fixtures;
@@ -59,13 +62,13 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
         parent::tearDown();
     }
 
-    /** A Database group holding the test user. */
-    private function group(): IGroup {
+    /** A Database group holding the test user, or BOB alone when !$member. */
+    private function group(bool $member = true): IGroup {
         $gid = 'mcp-it-grants-' . bin2hex(random_bytes(6));
         $this->groups[] = $gid;
         $group = Server::get(IGroupManager::class)->createGroup($gid);
         $this->assertNotNull($group);
-        $group->addUser($this->user);
+        $group->addUser($member ? $this->user : Server::get(IUserManager::class)->get(Fixtures::BOB));
         return $group;
     }
 
@@ -74,16 +77,35 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
      *
      * @param list<\Closure(): void> $hooks
      */
-    private function admit(array &$hooks = [], ?int &$attempts = null): \Closure {
+    private function admit(array &$hooks = [], ?int &$attempts = null, bool $afterDecisions = false): \Closure {
         $attempts = 0;
         $service = Server::get(GroupGrantsService::class);
-        return function (array $command) use (&$hooks, &$attempts, $service): array {
+        return function (array $command) use (&$hooks, &$attempts, $service, $afterDecisions): array {
             ++$attempts;
+            $admission = $afterDecisions ? $service->admit($command) : null;
             if ($hooks !== []) {
                 (array_shift($hooks))();
             }
-            return $service->admit($command);
+            return $admission ?? $service->admit($command);
         };
+    }
+
+    /** Consent still reads the individual flag (ticket 09): it is granted for the consent, then taken back. */
+    private function consentGroupOnly(): string {
+        Server::get(IConfig::class)->setUserValue($this->uid, 'mcp', 'eligible', '1');
+        Server::get(IUserConfig::class)->clearCache($this->uid, false);
+        $code = $this->consent();
+        $this->groupOnly();
+        return $code;
+    }
+
+    private function refreshFails(array $tokens): bool {
+        try {
+            Server::get(TokenService::class)->refresh(['refresh_token' => $tokens['refresh_token'], 'client_id' => self::CLIENT]);
+            return false;
+        } catch (OAuthException) {
+            return true;
+        }
     }
 
     private function preview(string $gid, array $grants): array {
@@ -277,6 +299,129 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
         $this->assertSame('pending_delete', $this->life($gid)['state']);
         $this->assertSame(['_system' => ['eligible']], $this->grants($gid));
         $this->assertSame($preview['revision'], $this->state()['revision']);
+    }
+
+    /**
+     * Review F3 (T5 F3): a new member enters the group and consents after the save's enumeration. H1 has a new holder,
+     * so the attempt is replayed, and the replay enumerates a different member set than the preview: 409, nothing
+     * written. The next preview counts the new holder, whose credentials the save cuts; granting eligibility again
+     * leaves the old token, its refresh and an unused code rejected.
+     */
+    public function testANewMemberWhoConsentsAfterTheEnumerationIsAConflictThenCutAndStaysCutOnRegrant(): void {
+        $group = $this->group(false);
+        $gid = $group->getGID();
+        $this->saveFrom($this->preview($gid, ['_system' => ['eligible']]));
+        $this->groupOnly();
+        // Connected already on (test setup), so the consent changes no policy and moves no revision.
+        Server::get(IConfig::class)->setUserValue($this->uid, 'mcp', 'connected', '1');
+        $preview = $this->preview($gid, []);
+        $this->assertSame(0, $preview['revokes']);
+        $tokens = $code = null;
+        $hooks = [function () use ($group, &$tokens, &$code): void {
+            $group->addUser($this->user);
+            $tokens = $this->exchange($this->consentGroupOnly());
+            $code = $this->consentGroupOnly();
+        }];
+        try {
+            $this->saveFrom($preview, $this->admit($hooks, $attempts, true));
+            $this->fail('A save went through a member who joined after the enumeration');
+        } catch (PolicyConflict) {
+        }
+        $this->assertSame(2, $attempts, 'H1 had a new holder: replayed, then the member set differed');
+        $this->assertSame(['_system' => ['eligible']], $this->grants($gid));
+        $this->assertSame('0', $this->generations()['revoked_below']);
+
+        $preview = $this->preview($gid, []);
+        $this->assertSame(1, $preview['revokes']);
+        $this->assertSame(1, $this->saveFrom($preview)['revoked']);
+        $this->saveFrom($this->preview($gid, ['_system' => ['eligible']]));
+        $this->assertFalse($this->live($tokens));
+        $this->assertTrue($this->refreshFails($tokens));
+        try {
+            $this->exchange($code);
+            $this->fail('A code issued before the cut was exchanged after the regrant');
+        } catch (OAuthException) {
+        }
+    }
+
+    /**
+     * Review F1 on the real server: the holder is kept by a second group when the first stops granting; the second
+     * group's deletion pre-event lands between the phases. The save is replayed and answers 503 (eligibility without
+     * the first group unknown), nothing written; after the real deletion the withdrawal cuts the holder.
+     */
+    public function testASecondSourceMovingBetweenThePhasesMakesTheWithdrawalUnavailable(): void {
+        $tokens = $this->exchange($this->consent());
+        $first = $this->group()->getGID();
+        $second = $this->group();
+        $this->saveFrom($this->preview($first, ['_system' => ['eligible']]));
+        $this->saveFrom($this->preview($second->getGID(), ['_system' => ['eligible']]));
+        $this->groupOnly();
+        $preview = $this->preview($first, []);
+        $this->assertSame(0, $preview['revokes'], 'the second group keeps the holder');
+        $hooks = [function () use ($second): void {
+            $life = new GroupLifeMapper($this->official());
+            $this->assertTrue($life->markPendingDelete($second->getGID(), $life->get($second->getGID())['gen'], bin2hex(random_bytes(16))));
+        }];
+        try {
+            $this->saveFrom($preview, $this->admit($hooks, $attempts, true));
+            $this->fail('A withdrawal decided on a source that moved');
+        } catch (PolicyUnavailable $e) {
+            $this->assertFalse($e->uncertain);
+        }
+        $this->assertSame(2, $attempts);
+        $this->assertSame(['_system' => ['eligible']], $this->grants($first));
+        $this->assertSame('0', $this->generations()['revoked_below']);
+
+        $this->assertTrue($second->delete());
+        $this->assertNull($this->life($second->getGID()));
+        $preview = $this->preview($first, []);
+        $this->assertSame(1, $preview['revokes']);
+        $this->saveFrom($preview);
+        $this->assertFalse($this->live($tokens));
+    }
+
+    /**
+     * Review F2 with two real sessions: a deletion's pre-event commits from another connection after the save read the
+     * lifecycle under the mutex and before its conditional write. The write touches no row, the attempt is replayed,
+     * and the replay no longer matches its preview: 409, the pending_delete of the other session intact. SQLite has
+     * no such window (the other session waits for the writer's database lock), so the cell skips it.
+     */
+    public function testAPreEventCommittedAfterTheReadUnderTheMutexIsNeverOverwritten(): void {
+        if ($this->cellDatabase() === 'sqlite') {
+            $this->markTestSkipped('SQLite serializes the other session behind the writer\'s database lock');
+        }
+        $gid = $this->group()->getGID();
+        $this->saveFrom($this->preview($gid, ['_system' => ['eligible']]));
+        $preview = $this->preview($gid, ['_system' => ['eligible'], 'notes' => ['edit']]);
+        $other = new GroupLifeMapper($this->openIndependentConnection());
+        $pending = bin2hex(random_bytes(16));
+        $life = new class($this->official(), $other, $gid, $pending) extends GroupLifeMapper {
+            private bool $done = false;
+            public function __construct(\OCP\IDBConnection $db, private GroupLifeMapper $other, private string $gid, private string $pending) {
+                parent::__construct($db);
+            }
+            public function replace(string $gid, string $expectedGen, string $state, string $gen, string $policyRev): bool {
+                if (!$this->done) {
+                    $this->done = true;
+                    // The other session's pre-event, committed between the read under the mutex and this write.
+                    \PHPUnit\Framework\Assert::assertTrue($this->other->markPendingDelete($this->gid, $expectedGen, $this->pending));
+                }
+                return parent::replace($gid, $expectedGen, $state, $gen, $policyRev);
+            }
+        };
+        $writer = new PolicyWriter($this->official(), Server::get(PolicyStateMapper::class), Server::get(\OCA\Mcp\Db\PolicyEventsMapper::class),
+            Server::get(IConfig::class), Server::get(IUserConfig::class), Server::get(\OCP\IAppConfig::class), Server::get(IUserManager::class),
+            Server::get(\OCP\AppFramework\Utility\ITimeFactory::class), Server::get(AuthUsersMapper::class), Server::get(\OCA\Mcp\Db\RecheckMapper::class),
+            Server::get(\OCA\Mcp\Service\Policy\PolicyEventProcessor::class), Server::get(GroupGrantsMapper::class), $life, Server::get(OAuthStore::class));
+        $hooks = [];
+        try {
+            $writer->setGroupGrants($preview['revision'], self::ACTOR, $gid, $preview['grants'], $preview['previewId'], $this->admit($hooks, $attempts));
+            $this->fail('A save overwrote a pending deletion');
+        } catch (PolicyConflict) {
+        }
+        $this->assertSame(2, $attempts);
+        $this->assertSame(['state' => 'pending_delete', 'gen' => $pending], array_intersect_key($this->life($gid), ['state' => 1, 'gen' => 1]));
+        $this->assertSame(['_system' => ['eligible']], $this->grants($gid));
     }
 }
 

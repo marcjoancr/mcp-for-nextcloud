@@ -24,7 +24,8 @@ use PHPUnit\Framework\TestCase;
  * preserved).
  */
 final class GroupGrantsServiceTest extends TestCase {
-    private const GROUP = ['groupId' => 'staff', 'grants' => ['_system' => ['eligible']], 'trusted' => true, 'state' => 'active'];
+    private const GEN = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    private const GROUP = ['groupId' => 'staff', 'grants' => ['_system' => ['eligible']], 'trusted' => true, 'state' => 'active', 'gen' => self::GEN];
 
     /** @var array<string, array{raw:array, candidates:list<array>}> holder => what a resolution reads for it */
     private array $holders = [];
@@ -58,16 +59,16 @@ final class GroupGrantsServiceTest extends TestCase {
         $eligible = ['present' => true, 'value' => '1'];
         $denied = ['present' => true, 'value' => '0'];
         $other = ['groupId' => 'team'] + self::GROUP;
-        $suspended = ['groupId' => 'old', 'state' => 'needs_confirm'] + self::GROUP;
+        $suspended = ['groupId' => 'old', 'state' => 'needs_confirm', 'gen' => 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'] + self::GROUP;
         return [
             'only through the group' => [[], [self::GROUP], true],
             'individual Allow' => [['eligible' => $eligible], [self::GROUP], false],
             'another granting group' => [[], [self::GROUP, $other], false],
             'already denied individually' => [['eligible' => $denied], [self::GROUP], false],
             'not a member of the group' => [[], [$other], false],
-            // A source that cannot be proven: the save removes the group and cannot show another one.
-            'otherwise only through a suspended group' => [[], [self::GROUP, $suspended], true],
             'not a member, unknown through another group' => [[], [$suspended], false],
+            // Unknown now only because the withdrawn group is itself suspended: determined without it.
+            'only through the withdrawn group, itself suspended' => [[], [['state' => 'needs_confirm'] + self::GROUP], true],
         ];
     }
 
@@ -77,10 +78,38 @@ final class GroupGrantsServiceTest extends TestCase {
         $this->assertSame($cut ? ['ana'] : [], $this->withdraw(['ana'])['cuts']);
     }
 
+    /**
+     * Coordinator decision (15/10/2026): an unknown eligibility without the group is no cut; the save is unavailable
+     * (503), so nothing is written and nobody is cut, until the other source is readable.
+     */
+    public function testAHolderUnknownWithoutTheGroupMakesTheSaveUnavailable(): void {
+        $suspended = ['groupId' => 'old', 'state' => 'needs_confirm', 'gen' => 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'] + self::GROUP;
+        $this->holders = ['ana' => ['raw' => [], 'candidates' => [self::GROUP]], 'bob' => ['raw' => [], 'candidates' => [self::GROUP, $suspended]]];
+        try {
+            $this->withdraw(['ana', 'bob']);
+            $this->fail('An unknown eligibility was decided');
+        } catch (PolicyUnavailable $e) {
+            $this->assertFalse($e->uncertain);
+        }
+    }
+
+    /** F1: the lifecycle of every group the decisions read goes back to the writer, once per group. */
+    public function testTheLifecyclesTheDecisionsReadAreReturnedOncePerGroup(): void {
+        $other = ['groupId' => 'team', 'gen' => 'cccccccccccccccccccccccccccccccc'] + self::GROUP;
+        $plain = ['groupId' => 'plain', 'state' => null, 'gen' => null] + self::GROUP;
+        $this->holders = ['ana' => ['raw' => [], 'candidates' => [self::GROUP, $other]],
+            'bob' => ['raw' => [], 'candidates' => [self::GROUP, $other, $plain]], 'carl' => ['raw' => [], 'candidates' => [$other]]];
+        $admission = $this->withdraw(['ana', 'bob', 'carl']);
+        $this->assertSame([], $admission['cuts'], 'team keeps ana and bob; carl is not a member');
+        $this->assertSame([['groupId' => 'staff', 'state' => 'active', 'gen' => self::GEN],
+            ['groupId' => 'team', 'state' => 'active', 'gen' => 'cccccccccccccccccccccccccccccccc'],
+            ['groupId' => 'plain', 'state' => null, 'gen' => null]], $admission['sources']);
+    }
+
     public function testOnlyAWithdrawalResolvesHolders(): void {
         $admission = $this->service()->admit(['gid' => 'staff', 'grants' => ['_system' => ['eligible']], 'current' => [],
             'withdraws' => false, 'holders' => []]);
-        $this->assertSame(['trusted' => true, 'members' => ['ana'], 'cuts' => []], $admission);
+        $this->assertSame(['trusted' => true, 'members' => ['ana'], 'cuts' => [], 'sources' => []], $admission);
         $this->assertSame([], $this->resolutions);
     }
 

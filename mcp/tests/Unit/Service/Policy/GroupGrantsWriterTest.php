@@ -11,9 +11,14 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\OAuth\OAuthStore;
+use OCA\Mcp\Service\Policy\GroupGrantsService;
+use OCA\Mcp\Service\Policy\GroupSourceClassifier;
 use OCA\Mcp\Service\Policy\GroupSourceUntrusted;
 use OCA\Mcp\Service\Policy\PolicyConflict;
 use OCA\Mcp\Service\Policy\PolicyEventPayload;
+use OCA\Mcp\Service\Policy\PolicyOperationContext;
+use OCA\Mcp\Service\Policy\PolicyResolver;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Service\Policy\ReceiptExpired;
 use OCA\Mcp\Service\Policy\ReceiptNotFound;
@@ -38,6 +43,11 @@ final class GroupGrantsWriterTest extends TestCase {
     private array $during = [];
     /** @var list<array> what each external phase was given */
     private array $admitted = [];
+    /** @var list<\Closure(): void> run one per external phase of realAdmit(), after its decisions */
+    private array $after = [];
+    /** @var array<string, list<string>> uid => the groups it is in, for realAdmit() */
+    private array $memberOf = [];
+    private bool $injected = false;
 
     protected function setUp(): void {
         $this->lifecycleDatabase();
@@ -53,6 +63,49 @@ final class GroupGrantsWriterTest extends TestCase {
             return ['trusted' => $this->trusted, 'members' => $this->members,
                 'cuts' => array_values(array_intersect($command['holders'], $this->losing))];
         };
+    }
+
+    /**
+     * The production external phase (GroupGrantsService) over this database: each resolution is a real
+     * PolicyOperationContext built from the stored grant rows and lifecycles of the holder's groups and its individual
+     * eligibility flag; the source predicate is true and the members are $this->members.
+     */
+    private function realAdmit(): \Closure {
+        $resolver = $this->createMock(PolicyResolver::class);
+        $resolver->method('begin')->willReturnCallback(function (string $uid, array $added, array $removed, bool $observe): PolicyOperationContext {
+            $gids = array_values(array_diff($this->memberOf[$uid] ?? [], $removed));
+            $lives = [];
+            foreach ($this->life->forGroups($gids) as $row) {
+                $lives[$row['groupId']] = $row;
+            }
+            $candidates = [];
+            foreach ($this->grants->forGroups($gids) as $row) {
+                if ($row['grants'] !== []) {
+                    $candidates[] = $row + ['trusted' => true, 'state' => $lives[$row['groupId']]['state'] ?? null, 'gen' => $lives[$row['groupId']]['gen'] ?? null];
+                }
+            }
+            $flag = $this->configData->user[$uid]['mcp']['eligible'] ?? null;
+            $raw = $flag === null ? [] : ['eligible' => ['present' => true, 'value' => $flag]];
+            return new PolicyOperationContext($this->revision(), $this->writer, $raw, $candidates, true, true, [], true, true);
+        });
+        $classifier = $this->createMock(GroupSourceClassifier::class);
+        $classifier->method('trusted')->willReturn(true);
+        $classifier->method('members')->willReturnCallback(fn (): array => array_combine(array_map('sha1', $this->members), $this->members));
+        $service = new GroupGrantsService($this->writer, $classifier, $resolver, $this->grants, $this->life);
+        return function (array $command) use ($service): array {
+            $this->assertFalse($this->db->inTransaction(), 'no directory read under the mutex');
+            $this->admitted[] = $command;
+            $admission = $service->admit($command);
+            if ($this->after !== []) {
+                (array_shift($this->after))();
+            }
+            return $admission;
+        };
+    }
+
+    private function realSave(string $gid, array $grants): array {
+        $preview = $this->writer->previewGroupGrants($this->revision(), 'root', $gid, $grants, $this->realAdmit());
+        return [$preview, fn (): array => $this->writer->setGroupGrants($preview['revision'], 'root', $gid, $preview['grants'], $preview['previewId'], $this->realAdmit())];
     }
 
     private function preview(mixed $grants, string $gid = 'staff', string $actor = 'root'): array {
@@ -377,5 +430,92 @@ final class GroupGrantsWriterTest extends TestCase {
         }
         $this->assertSame($lock, $this->lockSeq(), 'refused before the mutex');
         $this->assertSame([], PolicyEventPayload::groupGrants(['notes' => []]), 'a module without operations is no grant');
+    }
+
+    /**
+     * Review F1: a holder kept by another group (G2) when G1 stops granting. G2's deletion pre-event between the phases
+     * moves its lifecycle (no revision step); the save sees it under the mutex and replays, and with G2 suspended the
+     * holder's eligibility without G1 is unknown: 503, nothing written, nobody cut. Once G2 is purged the withdrawal
+     * cuts the holder, and granting eligibility again never brings the old credential back.
+     */
+    public function testASourceThatKeptAHolderAndMovesBeforeTheCommitIsSeenAndNeverLeavesTheHolderUncut(): void {
+        $this->policy('staff');
+        $teamGen = $this->policy('team');
+        $this->holder('ana', '2');
+        $this->memberOf['ana'] = ['staff', 'team'];
+        $this->members = ['ana'];
+        [$preview, $save] = $this->realSave('staff', []);
+        $this->assertSame(0, $preview['revokes'], 'team keeps ana');
+        $pending = bin2hex(random_bytes(16));
+        $this->after = [fn () => $this->assertTrue($this->life->markPendingDelete('team', $teamGen, $pending))];
+        $this->admitted = [];
+        $revision = $this->revision();
+        try {
+            $save();
+            $this->fail('A withdrawal decided on a source that moved');
+        } catch (PolicyUnavailable $e) {
+            $this->assertFalse($e->uncertain);
+        }
+        $this->assertCount(2, $this->admitted, 'team moved under the first attempt: replayed, then unknown');
+        $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
+        $this->assertSame('0', $this->generations('ana')['revoked_below']);
+        $this->assertSame($revision, $this->revision());
+
+        $this->assertTrue($this->lifecycle->deleted('team', $pending));
+        [$preview, $save] = $this->realSave('staff', []);
+        $this->assertSame(1, $preview['revokes']);
+        $this->assertSame(1, $save()['revoked']);
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->generations('ana'));
+
+        [, $save] = $this->realSave('staff', ['_system' => ['eligible']]);
+        $this->assertTrue($save()['changed']);
+        $this->assertSame('2', $this->generations('ana')['revoked_below'], 'the regrant leaves the old generation 2 cut');
+    }
+
+    /**
+     * Review F1, the commit side: every active source the decision relied on gets a new gen, so a deletion's pre-event
+     * that read it before the commit fails its conditional transition; its After then suspends the group (what
+     * GroupLifecycleListener does without a recorded gen) instead of purging a source without a cause for its holders.
+     */
+    public function testASaveRenewsTheGenOfEverySourceItReliedOn(): void {
+        $this->policy('staff');
+        $teamGen = $this->policy('team');
+        $this->holder('ana');
+        $this->memberOf['ana'] = ['staff', 'team'];
+        $this->members = ['ana'];
+        [, $save] = $this->realSave('staff', []);
+        $this->assertSame(0, $save()['revoked']);
+        $team = $this->life->get('team');
+        $this->assertSame('active', $team['state']);
+        $this->assertNotSame($teamGen, $team['gen']);
+        $this->assertFalse($this->life->markPendingDelete('team', $teamGen, bin2hex(random_bytes(16))));
+        $this->assertTrue($this->lifecycle->needsConfirm('team'));
+        $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('team'), 'suspended, never purged');
+    }
+
+    /**
+     * Review F2: the lifecycle write is conditioned on the gen read under the mutex. A pre-event landing after that
+     * read (injected right before the write, on the writer's own SQLite connection) makes it touch no row, and the
+     * attempt is replayed instead of overwriting pending_delete. Here the injection is rolled back with the attempt, so
+     * the replay saves; on two real connections the pre-event stays and the replay is a 409 (integration).
+     */
+    public function testALifecycleMovedAfterItsReadUnderTheMutexIsNeverOverwritten(): void {
+        $this->policy('staff');
+        $preview = $this->preview(['_system' => ['eligible'], 'notes' => ['edit', 'read']]);
+        $this->during = [function (): void {
+            // Armed at the mutex (the attempt's first statement), it fires at the next one: the lifecycle write.
+            $this->database->beforeStatement = function (): void {
+                $this->database->beforeStatement = function (): void {
+                    $this->database->dbal->update('mcp_group_life', ['state' => 'pending_delete', 'gen' => bin2hex(random_bytes(16))],
+                        ['group_key' => IdentityKey::group('staff')]);
+                    $this->injected = true;
+                };
+            };
+        }];
+        $this->admitted = [];
+        $result = $this->saveFrom($preview);
+        $this->assertTrue($this->injected);
+        $this->assertCount(2, $this->admitted, 'the conditional write refused the moved lifecycle');
+        $this->assertTrue($result['changed']);
     }
 }

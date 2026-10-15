@@ -151,5 +151,13 @@ replayed once (H1 differs from H0) and cuts the new credential with the old one;
 keeps its session. "Confirm current policy" brings a suspended group back to active with a new gen and the same rows,
 and a deletion's pre-event between the phases (pending_delete, no revision step) is seen under the mutex: 409.
 
+After the review of ticket 08: a new member who joins and consents after the save's enumeration replays the attempt
+(new holder in H1) and ends in a 409 (member set changed); the next save cuts it, and after a regrant its old token,
+refresh and unused code stay rejected. A holder kept by a second group whose deletion pre-event lands between the
+phases makes the withdrawal unavailable (503, eligibility without the first group unknown, nothing written); after
+the real deletion the withdrawal cuts it. With two real sessions (MariaDB, PostgreSQL; SQLite skips, it has no such
+window), a pre-event committed by the other session after the read under the mutex makes the conditional lifecycle
+write touch no row: replay, 409, the other session's pending_delete intact.
+
 These tests were written while the integration workflow was disabled (Actions minutes, until 1 November): they have
 not run yet.

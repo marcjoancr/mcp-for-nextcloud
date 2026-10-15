@@ -495,9 +495,10 @@ class PolicyWriter {
      * @param string $actor uid of the administrator
      * @param string $gid the group, exact bytes
      * @param mixed $grants target set, module => list of operations (PolicyEventPayload::groupGrants())
-     * @param Closure(array{gid:string, grants:array, current:array, withdraws:bool, holders:list<string>}): array{trusted:bool, members:list<string>, cuts:list<string>} $admit
+     * @param Closure(array{gid:string, grants:array, current:array, withdraws:bool, holders:list<string>}): array{trusted:bool, members:list<string>, cuts:list<string>, sources?:list<array{groupId:string, state:?string, gen:?string}>} $admit
      *     the external phase, without any transaction: the fresh source predicate, the member list and, when the
-     *     set withdraws eligibility, which of the given holders lose their last source (GroupGrantsAdmission)
+     *     set withdraws eligibility, which of the given holders lose their last source, with the lifecycle of every
+     *     group those decisions read (GroupGrantsService::admit())
      * @return array{previewId:string, revision:string, groupId:string, grants:array, current:array, state:?string, members:int, trusted:bool, withdraws:bool, revokes:int}
      * @throws \InvalidArgumentException for an invalid revision, group or set
      * @throws GroupSourceUntrusted for a non-empty set on a group that cannot grant
@@ -525,7 +526,14 @@ class PolicyWriter {
      * is read before the external phase, which decides who loses its last source; under the mutex H1 is read again,
      * and any new holder or issue_seq (an issuance between the phases) replays the attempt, at most twice, then 409.
      * Otherwise the rows, the lifecycle and the cuts (revoked_below = issue_seq) of the holders who lose commit
-     * together. Holders with another source keep their credentials.
+     * together. Holders with another source keep their credentials, so that source must still be what the decision
+     * read: the lifecycle of every group the external phase relied on is compared under the mutex too (a deletion's
+     * pending_delete moves no revision), and each active one gets a new gen in the same commit. A deletion's pre-event
+     * that read such a group before this commit then fails its conditional transition, and its After suspends the
+     * group (needs_confirm) instead of purging a source this save relied on without a cause for its holders.
+     *
+     * Every lifecycle write is conditioned on the gen read under the mutex (the pre-event transition never takes the
+     * mutex, so it can land after that read): a lifecycle that moved in between replays the attempt.
      *
      * @param string $expectedRevision the preview's revision
      * @param string $actor uid of the administrator; only the preview's own may save it
@@ -611,6 +619,11 @@ class PolicyWriter {
             if ($snapshot['withdraws'] && $this->holders($snapshot['now'], $current['auth_epoch']) !== $snapshot['holders']) {
                 throw new SnapshotInvalidated();
             }
+            foreach ($snapshot['admission']['sources'] as $source) {
+                if ($source['groupId'] !== $gid && self::life($this->life->get($source['groupId'])) !== self::life($source['gen'] === null ? null : $source)) {
+                    throw new SnapshotInvalidated();
+                }
+            }
             if ($preview === null) {
                 $outcome = ['previewId' => $outbox->add(PolicyEventsMapper::KIND_PREVIEW, PolicyEventPayload::preview($actor, $gid,
                     $current['revision'], $grants, $snapshot['memberHash'], $snapshot['life'])),
@@ -625,17 +638,30 @@ class PolicyWriter {
                 return false;
             }
             $revision = self::next($current['revision']);
-            $this->groupGrants->replaceGroup($gid, $grants);
             $state = null;
+            // Lifecycle first, conditioned on the gen read above; the rows follow only once it is held.
             if ($grants === []) {
                 if ($stored !== null && !$this->life->delete($gid, $stored['gen'])) {
                     throw new SnapshotInvalidated();
                 }
             } else {
                 // policy_rev is the revision this commit writes, never the one before the CAS (ticket 07).
-                $this->life->put($gid, GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16)), $revision);
+                $gen = bin2hex(random_bytes(16));
+                if ($stored === null) {
+                    // Only the writer creates a lifecycle, and only under the mutex: no pre-event can race the insert.
+                    $this->life->put($gid, GroupLifeMapper::ACTIVE, $gen, $revision);
+                } elseif (!$this->life->replace($gid, $stored['gen'], GroupLifeMapper::ACTIVE, $gen, $revision)) {
+                    throw new SnapshotInvalidated();
+                }
                 $state = GroupLifeMapper::ACTIVE;
             }
+            foreach ($snapshot['admission']['sources'] as $source) {
+                if ($source['groupId'] !== $gid && $source['state'] === GroupLifeMapper::ACTIVE
+                    && !$this->life->transition($source['groupId'], $source['gen'], GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16)))) {
+                    throw new SnapshotInvalidated();
+                }
+            }
+            $this->groupGrants->replaceGroup($gid, $grants);
             foreach ($snapshot['admission']['cuts'] as $uid) {
                 $this->revokeUserLocal($uid);
             }
@@ -680,10 +706,10 @@ class PolicyWriter {
     }
 
     /**
-     * Checks what the external phase answered: cuts only among the holders it was given.
+     * Checks what the external phase answered: cuts only among the holders it was given, and the lifecycles it read.
      *
      * @param list<string> $holders the holders that may be cut
-     * @return array{trusted:bool, members:list<string>, cuts:list<string>}
+     * @return array{trusted:bool, members:list<string>, cuts:list<string>, sources:list<array{groupId:string, state:?string, gen:?string}>}
      */
     private static function admission(mixed $admission, array $holders): array {
         if (!is_array($admission) || !is_bool($admission['trusted'] ?? null)
@@ -702,7 +728,28 @@ class PolicyWriter {
                 throw new \LogicException('A group save may cut only the holders it was given');
             }
         }
-        return ['trusted' => $admission['trusted'], 'members' => array_values(array_unique($admission['members'])), 'cuts' => $cuts];
+        $sources = $admission['sources'] ?? [];
+        if (!is_array($sources) || !array_is_list($sources)) {
+            throw new \LogicException('Invalid group admission');
+        }
+        $distinct = [];
+        foreach ($sources as $source) {
+            $valid = is_array($source) && is_string($source['groupId'] ?? null) && array_key_exists('state', $source) && array_key_exists('gen', $source)
+                && ($source['state'] === null ? $source['gen'] === null
+                    : in_array($source['state'], GroupLifeMapper::STATES, true) && is_string($source['gen']) && preg_match('/^[0-9a-f]{32}$/D', $source['gen']) === 1);
+            if (!$valid) {
+                throw new \LogicException('Invalid group admission');
+            }
+            $source = ['groupId' => $source['groupId'], 'state' => $source['state'], 'gen' => $source['gen']];
+            $key = \OCA\Mcp\Db\IdentityKey::group($source['groupId']);
+            if (isset($distinct[$key]) && $distinct[$key] !== $source) {
+                // Two reads of one group disagree: it moved during the external phase.
+                throw new SnapshotInvalidated();
+            }
+            $distinct[$key] = $source;
+        }
+        return ['trusted' => $admission['trusted'], 'members' => array_values(array_unique($admission['members'])), 'cuts' => $cuts,
+            'sources' => array_values($distinct)];
     }
 
     /** @return array{state:string, gen:string}|null the part of a lifecycle a preview fixes */

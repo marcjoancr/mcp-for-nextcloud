@@ -126,6 +126,42 @@ class GroupLifeMapper {
     }
 
     /**
+     * Replaces an existing lifecycle, as a save of the group's policy does, only if it still carries $expectedGen: a
+     * pre-event transition (markPendingDelete(), which never takes the mutex) committed after the caller read the row
+     * is never overwritten. The caller replays its attempt when this returns false.
+     *
+     * @param string $gid Nextcloud group id
+     * @param string $expectedGen gen read under the mutex
+     * @param string $state one of STATES
+     * @param string $gen new gen, different from $expectedGen
+     * @param string $policyRev canonical revision of the commit that saves the group's policy
+     * @return bool whether this call replaced it
+     * @throws LogicException outside the policy writer's transaction
+     * @throws InvalidArgumentException for an invalid id, state, gen or revision
+     * @throws UnexpectedValueException for a digest collision
+     * @throws \OCP\DB\Exception when a statement fails
+     */
+    public function replace(string $gid, string $expectedGen, string $state, string $gen, string $policyRev): bool {
+        $this->requireTransaction();
+        self::validate($state, $gen);
+        DecimalCounter::validate($policyRev, DecimalCounter::MAX);
+        if (!self::validGen($expectedGen) || $expectedGen === $gen) {
+            throw new InvalidArgumentException('A replacement needs a new gen');
+        }
+        if (($this->get($gid)['gen'] ?? null) !== $expectedGen) {
+            return false;
+        }
+        $qb = $this->db->getQueryBuilder();
+        return $qb->update(self::TABLE)
+            ->set('state', $qb->createNamedParameter($state))
+            ->set('gen', $qb->createNamedParameter($gen))
+            ->set('policy_rev', $qb->createNamedParameter($policyRev))
+            ->where($qb->expr()->eq('group_key', $qb->createNamedParameter(IdentityKey::group($gid))))
+            ->andWhere($qb->expr()->eq('gen', $qb->createNamedParameter($expectedGen)))
+            ->executeStatement() === 1;
+    }
+
+    /**
      * Moves the lifecycle to $state with a new gen, only if it still carries $expectedGen.
      *
      * @param string $gid Nextcloud group id

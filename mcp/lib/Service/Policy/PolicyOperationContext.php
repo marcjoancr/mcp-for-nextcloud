@@ -19,7 +19,7 @@ final class PolicyOperationContext {
 
     /**
      * @param array<string,array{present:bool,value?:mixed}> $raw
-     * @param list<array{groupId:string,grants:array,trusted:bool,state:?string}> $candidates
+     * @param list<array{groupId:string,grants:array,trusted:bool,state:?string,gen:?string}> $candidates
      * @param array<string,bool> $apps
      */
     public function __construct(

@@ -9,7 +9,6 @@ namespace OCA\Mcp\Service\Policy;
 
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
-use Throwable;
 
 /**
  * Group policy commands of the admin API (contracts §2.3, §3.3.5): the read of one group's policy, its preview and
@@ -19,10 +18,14 @@ use Throwable;
  * - the source predicate, read fresh through the backends (GroupSourceClassifier::trusted());
  * - the member list, enumerated from the backends that serve the group, whose hash a save compares with its preview;
  * - for a withdrawal of _system/eligible, which credential holders lose their last source: a holder in the group
- *   (fresh membership) who is not ineligible now and would not be eligible without the group. An individual Allow or
- *   another granting group keeps the holder eligible, so its credentials are kept. A holder whose eligibility without
- *   the group is unknown (another group of indeterminate policy) is cut: the save removes a source and cannot prove
- *   another one, and a cut only revokes (the holder reconnects), it never grants.
+ *   (fresh membership) who is not ineligible now and is determined not eligible without the group. An individual
+ *   Allow or another granting group keeps the holder eligible, so its credentials are kept. A holder whose
+ *   eligibility without the group is unknown (another group of indeterminate policy, contracts §3.3.5) makes the
+ *   whole save unavailable (503): nothing is written and nobody is cut, and the administrator retries once the
+ *   source is readable (coordinator decision of 15/10/2026). A holder unknown now only because of the group being
+ *   withdrawn (the group itself is suspended) is determined without it, so the rule above applies;
+ * - the lifecycle (state and gen, or absence) of every group those resolutions read, which the writer compares again
+ *   under its mutex and renews, so a source that kept a holder cannot move unseen before the commit.
  *
  * The enumeration is complete only for a group that can grant: exactly one backend, named 'Database', which lists
  * every member. Any other group gets a non-empty set refused (422); clearing its whole policy stays allowed, because
@@ -86,38 +89,50 @@ class GroupGrantsService {
         $gid = $command['gid'];
         $trusted = $this->classifier->trusted($gid);
         $members = array_values($this->classifier->members($gid));
-        $cuts = [];
+        $cuts = $sources = [];
         if ($command['withdraws']) {
             foreach ($command['holders'] as $uid) {
-                if ($this->loses($uid, $gid)) {
+                if ($this->loses($uid, $gid, $sources)) {
                     $cuts[] = $uid;
                 }
             }
         }
-        return ['trusted' => $trusted, 'members' => $members, 'cuts' => $cuts];
+        return ['trusted' => $trusted, 'members' => $members, 'cuts' => $cuts, 'sources' => array_values($sources)];
     }
 
     /**
      * Whether a holder loses its last source of eligibility when $gid stops granting it.
      *
-     * @throws PolicyUnavailable when the membership or the policy cannot be read
+     * @param array<string, array{groupId:string, state:?string, gen:?string}> $sources receives the lifecycle of every
+     *     candidate group the resolutions read, by group digest
+     * @throws PolicyUnavailable when the membership or the policy cannot be read, or the holder's eligibility without
+     *     the group is unknown
      */
-    private function loses(string $uid, string $gid): bool {
+    private function loses(string $uid, string $gid, array &$sources): bool {
         $context = $this->resolver->begin($uid, [], [], false);
         try {
-            $member = in_array($gid, array_column($context->candidates(), 'groupId'), true);
+            $candidates = $context->candidates();
             $now = $context->eligible()->allowed;
         } finally {
             $context->close();
         }
-        if (!$member || $now === false) {
+        if (!in_array($gid, array_column($candidates, 'groupId'), true) || $now === false) {
             return false;
         }
         $context = $this->resolver->begin($uid, [], [$gid], false);
         try {
-            return $context->eligible()->allowed !== true;
+            $candidates = [...$candidates, ...$context->candidates()];
+            $without = $context->eligible()->allowed;
         } finally {
             $context->close();
         }
+        foreach ($candidates as $candidate) {
+            $sources[\OCA\Mcp\Db\IdentityKey::group($candidate['groupId'])] ??= ['groupId' => $candidate['groupId'],
+                'state' => $candidate['state'] ?? null, 'gen' => $candidate['gen'] ?? null];
+        }
+        if ($without === null) {
+            throw new PolicyUnavailable('Eligibility of a credential holder without the group is unknown');
+        }
+        return !$without;
     }
 }
