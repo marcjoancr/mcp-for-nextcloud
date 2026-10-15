@@ -483,6 +483,7 @@
 			: (data.total === null
 				? t('mcp', 'Users {from}–{to}', { from, to })
 				: t('mcp', 'Users {from}–{to} of {total}', { from, to, total: data.total }))
+		window.dispatchEvent(new Event('mcp-matrix-rendered'))
 	}
 
 	/**
@@ -490,6 +491,16 @@
 	 * @return {HTMLTableRowElement}
 	 */
 	function renderRow(user) {
+		const row = buildRow(user)
+		window.McpAdminOverrides?.decorateRow(row, user)
+		return row
+	}
+
+	/**
+	 * @param {object} user row from the API
+	 * @return {HTMLTableRowElement}
+	 */
+	function buildRow(user) {
 		const row = el('tr', { className: user.enabled ? '' : 'mcp-disabled-user' })
 		row.dataset.uid = user.uid
 		const name = el('th', { scope: 'row', className: 'mcp-user-col' }, [
@@ -677,6 +688,8 @@
 			}
 		})
 		cell.append(box)
+		// The override state and the per-cell reset come from js/admin-overrides.js, when it is loaded.
+		window.McpAdminOverrides?.decorateCell(cell, box, user, module, module === null ? 'eligible' : body.operation)
 		return cell
 	}
 
@@ -901,6 +914,14 @@
 				await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })
 				showNotice(t('mcp', 'Change undone.'), null)
 			} catch (e) {
+				if (e.message === '503' && !(e.data && e.data.uncertain)) {
+					// Nothing was written (what the users inherit could not be read): the table stays as it is, and the same
+					// undo is offered again instead of a reload that would hide that it is still possible.
+					const retry = t('mcp', 'The change could not be undone because what these users inherit could not be read. Nothing was changed. Try again.')
+					notifyError(retry)
+					showNotice(retry, () => undoBulk(receiptId, savedRevision))
+					return
+				}
 				const failure = e.message === '409'
 					? t('mcp', 'The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.')
 					: e.message === '410'
@@ -1388,6 +1409,37 @@
 		}
 
 		await reload()
+	}
+
+	/**
+	 * What js/admin-overrides.js needs from the matrix: the page on screen, the shared request, lock and undo notice,
+	 * and a re-render, so it can paint rows that were drawn before it loaded. It never touches the matrix state itself.
+	 */
+	window.McpAdminMatrix = {
+		data: () => state.data,
+		api,
+		reload: reloadLocked,
+		policyError,
+		isBusy: () => bulkBusy || matrixLocked,
+		setBusy: setBulkBusy,
+		labels: () => ({ modules: moduleLabels(), operations: operationLabels() }),
+		/**
+		 * @param {string} message text of the notice
+		 * @param {{receiptId: string|null, revision: string}} saved the saved command
+		 * @return {Function|null} the undo that was offered, to give back to focusUndo()
+		 */
+		offerUndo(message, saved) {
+			const undo = saved.receiptId === null ? null : () => undoBulk(saved.receiptId, saved.revision)
+			showNotice(message, undo)
+			return undo
+		},
+		/** @param {Function|null} undo what offerUndo() returned: the focus moves to it while it is still the offered undo */
+		focusUndo(undo) {
+			if (undo !== null && pendingUndo === undo) {
+				undoButton.focus()
+			}
+		},
+		refresh: () => state.data !== null && render(),
 	}
 
 	load()

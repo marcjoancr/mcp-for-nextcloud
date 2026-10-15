@@ -34,7 +34,10 @@ class Element {
 	}
 	async click() { if (!this.disabled) await this.onclick?.() }
 }
-const tick = async () => { for (let i = 0; i < 12; i++) await new Promise(setImmediate) }
+/** Announcement timers of the app under test, run by tick() but not by settle(), so a test can see the cleared region. */
+let flushTimers = () => {}
+const settle = async () => { for (let i = 0; i < 12; i++) await new Promise(setImmediate) }
+const tick = async () => { for (let i = 0; i < 12; i++) { await new Promise(setImmediate); flushTimers() } }
 const stored = (extra = {}) => ({
 	groupId: 'staff', trusted: true, exists: true, state: 'active', grants: [], revision: '9007199254740993',
 	catalog: { _system: ['eligible'], notes: ['read', 'edit'] },
@@ -53,12 +56,16 @@ async function app(handler, group = stored()) {
 	const calls = []
 	const events = []
 	const confirmations = { allow: true, messages: [] }
+	// The search debounce (300 ms) runs at once; every other timer (the live-region announcements) waits for a flush.
+	const timers = new Map()
+	let timerId = 1000
+	flushTimers = () => { for (const [id, action] of [...timers]) { timers.delete(id); action() } }
 	const context = {
 		document, URLSearchParams, structuredClone, Event,
 		window: { dispatchEvent: (event) => events.push(event.type), confirm: (message) => { confirmations.messages.push(message); return confirmations.allow } },
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		t: (_, text, params = {}) => text.replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
-		setTimeout: (fn) => { fn(); return 1 }, clearTimeout: () => {},
+		setTimeout: (fn, ms) => { if (ms === 300) { fn(); return 1 } timers.set(++timerId, fn); return timerId }, clearTimeout: (id) => { timers.delete(id) },
 		fetch: async (url, options) => {
 			const call = { url, method: options.method, body: options.body ? JSON.parse(options.body) : undefined }
 			calls.push(call)
@@ -71,7 +78,7 @@ async function app(handler, group = stored()) {
 	await tick()
 	const open = async () => { await ids['mcp-group-list'].all('button')[0].click(); await tick() }
 	const button = (text) => ids['mcp-group-detail'].all('button').find((node) => node.textContent === text)
-	return { ids, calls, events, document, open, button, confirmations }
+	return { ids, calls, events, document, open, button, confirmations, timers }
 }
 const preview = { previewId: 'receipt', revision: '9007199254740993', members: 51, revokes: 2, withdraws: true }
 
@@ -165,7 +172,7 @@ function matrixFunctions() {
 	const source = fs.readFileSync(path.join(__dirname, '../../js/admin-grants.js'), 'utf8')
 	const document = {}
 	const context = {
-		t: (_, text) => text, document,
+		t: (_, text) => text, document, window: {},
 		el: (tag, props) => Object.assign(new Element(tag, document), props),
 		paintState: (cell, state, detail) => { cell.title = state + ': ' + detail },
 		reloadLocked: () => {},
@@ -248,4 +255,36 @@ test('M7: an invalid directory identity has a diagnostic row without an editable
 	const ui = await app(undefined, stored({ groupId: null, invalidId: true, trusted: null }))
 	assert.equal(ui.ids['mcp-group-list'].all('button')[0].disabled, true)
 	assert.match(ui.ids['mcp-group-list'].textContent, /invalid group ID/)
+})
+
+test('O2: an identical error twice in a row is announced twice, and a replaced message never appears', async () => {
+	const ui = await app((call) => call.method === 'POST' ? [503, { error: 'Unavailable' }] : undefined)
+	await ui.open()
+	const alert = ui.ids['mcp-group-alert']
+	await ui.button('Preview group changes').click()
+	await settle()
+	// Cleared at once and written in a later task: nothing is announced in the same task as the clearing.
+	assert.equal(alert.textContent, '')
+	assert.equal(ui.timers.size, 1)
+	flushTimers()
+	const first = alert.textContent
+	assert.match(first, /Retry after checking the group/)
+	await ui.button('Preview group changes').click()
+	await settle()
+	assert.equal(alert.textContent, '', 'the old identical text is cleared, so the repeat is a new announcement')
+	flushTimers()
+	assert.equal(alert.textContent, first)
+})
+test('O2: a success that follows an error cancels the pending announcement of the error', async () => {
+	let fail = true
+	const ui = await app((call) => call.method === 'POST' ? (fail ? [503, {}] : [200, preview]) : undefined)
+	await ui.open()
+	await ui.button('Preview group changes').click()
+	await settle()
+	assert.equal(ui.timers.size, 1)
+	fail = false
+	await ui.button('Preview group changes').click()
+	await tick()
+	assert.equal(ui.ids['mcp-group-alert'].textContent, '')
+	assert.match(ui.ids['mcp-group-status'].textContent, /Review the impact/)
 })

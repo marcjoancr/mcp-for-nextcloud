@@ -1,0 +1,433 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+/**
+ * Individual overrides of the permission matrix: each cell is allowed, denied or inherited from the groups and
+ * defaults, and an override goes back to inheritance for one cell, for one user or for the selected users of the
+ * page, with a preview of exactly what is removed and the server receipt as the undo.
+ *
+ * Plain browser JavaScript, no build step. js/admin-grants.js calls decorateRow() and decorateCell() for every row it
+ * draws and exposes window.McpAdminMatrix; this file never reads or writes the matrix state itself. A reset is the
+ * command {state: "inherit"} of POST /apps/mcp/api/grants/commands: one transaction, which writes every cell or none.
+ *
+ * What the page may promise: the table only knows each cell's current source (individual allow, individual deny, or
+ * inherited), never what the groups would give once an override is gone. So the preview names the exact cells that
+ * lose their override, says that credentials are cut only when nothing else keeps the user eligible ("may be signed
+ * out", never "will be"), and a 503 means nothing was written: the preview, the selection and the table stay as they
+ * are and the administrator can try again. A reset is never reported before the server confirmed it.
+ */
+(function () {
+	'use strict'
+
+	const matrix = window.McpAdminMatrix
+	const table = document.getElementById('mcp-matrix')
+	if (!matrix || !table) {
+		return
+	}
+
+	/** Sources of a cell's origin that are an individual override, by kind. Everything else is inherited. */
+	const OVERRIDES = { individual_allow: 'allow', individual_deny: 'deny', invalid: 'invalid' }
+	/** Most cells and users one command accepts (PolicyWriter::MAX_CELLS and MAX_UIDS). */
+	const MAX_CELLS = 2500
+	const MAX_USERS = 50
+	/** Milliseconds between clearing a live region and writing into it, so an identical message is announced again. */
+	const SAY_DELAY = 60
+
+	/** Users selected on the page, by uid. Only the users on screen count: see pageUsers(). */
+	const selected = new Set()
+	/** The open preview: {plan, trigger, retry} or null. */
+	let review = null
+	let saving = false
+	let sayTimer = null
+
+	/**
+	 * @param {string} tag element name
+	 * @param {object} [props] properties to assign
+	 * @param {Array<Node|string>} [children] child nodes or text
+	 * @return {HTMLElement}
+	 */
+	function el(tag, props, children) {
+		const node = document.createElement(tag)
+		Object.assign(node, props || {})
+		for (const child of children || []) {
+			node.append(child)
+		}
+		return node
+	}
+
+	/** @return {object[]} the users of the table on screen */
+	function pageUsers() {
+		return matrix.data()?.users || []
+	}
+
+	/**
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string} operation operation id, "eligible" for "Can connect"
+	 * @return {string} the permission as the table names it
+	 */
+	function permissionName(module, operation) {
+		if (module === null) {
+			return t('mcp', 'Can connect')
+		}
+		const labels = matrix.labels()
+		return (labels.modules[module] || module) + ': ' + (labels.operations[operation] || operation)
+	}
+
+	/**
+	 * @param {object} user row from the API
+	 * @return {Array<{module: string|null, operation: string, kind: string}>} the cells where the user has an individual override
+	 */
+	function overrideCells(user) {
+		const cells = []
+		const eligible = OVERRIDES[user.origins?.eligible?.source]
+		if (eligible) {
+			cells.push({ module: null, operation: 'eligible', kind: eligible })
+		}
+		for (const [module, operations] of Object.entries(user.origins?.grants || {})) {
+			for (const [operation, origin] of Object.entries(operations)) {
+				if (OVERRIDES[origin?.source]) {
+					cells.push({ module, operation, kind: OVERRIDES[origin.source] })
+				}
+			}
+		}
+		return cells
+	}
+
+	/**
+	 * What a reset removes, computed from the table on screen.
+	 *
+	 * @param {object[]} users users to reset
+	 * @param {Array<{module: string|null, operation: string}>|null} only restrict to these cells, null for every override
+	 * @return {object} {targets, users, cells, allow, deny, invalid, eligibleAllow, eligibleDeny, without, tooMany}
+	 */
+	function plan(users, only) {
+		const result = { targets: [], users: 0, cells: 0, allow: 0, deny: 0, invalid: 0, eligibleAllow: 0, eligibleDeny: 0, without: 0, tooMany: false }
+		for (const user of users) {
+			const cells = overrideCells(user).filter((cell) => only === null
+				|| only.some((wanted) => wanted.module === cell.module && wanted.operation === cell.operation))
+			if (cells.length === 0) {
+				result.without++
+				continue
+			}
+			result.targets.push({ user, cells })
+			result.users++
+			for (const cell of cells) {
+				result.cells++
+				result[cell.kind]++
+				if (cell.module === null && cell.kind === 'allow') {
+					result.eligibleAllow++
+				} else if (cell.module === null && cell.kind === 'deny') {
+					result.eligibleDeny++
+				}
+			}
+		}
+		result.tooMany = result.cells > MAX_CELLS || result.users > MAX_USERS
+		return result
+	}
+
+	/**
+	 * Writes into the live regions. A region is cleared at once and written shortly after, so the same text twice in a
+	 * row (a second identical error) is announced again, and a message that was replaced in the meantime never appears.
+	 * The regions are fixed: a status one (polite) and an alert one (assertive), whose role never changes.
+	 *
+	 * @param {string} message text, '' to clear both
+	 * @param {boolean} [error] an error goes to the alert region
+	 */
+	function say(message, error = false) {
+		clearTimeout(sayTimer)
+		statusLine.textContent = ''
+		alertLine.textContent = ''
+		if (message === '') {
+			return
+		}
+		const region = error ? alertLine : statusLine
+		sayTimer = setTimeout(() => {
+			region.textContent = message
+		}, SAY_DELAY)
+	}
+
+	// --- Toolbar: selection, reset of the selected users, live regions and the preview -------------------------
+
+	const toolbar = el('div', { className: 'mcp-reset-toolbar' })
+	toolbar.setAttribute('role', 'group')
+	toolbar.setAttribute('aria-label', t('mcp', 'Individual overrides'))
+	const selectAll = el('input', { type: 'checkbox', id: 'mcp-select-all' })
+	const resetSelected = el('button', { type: 'button', className: 'mcp-reset-selected', onclick: () => start(selectedUsers(), null, resetSelected) })
+	const statusLine = el('p', { className: 'mcp-reset-status', id: 'mcp-reset-status' })
+	statusLine.setAttribute('role', 'status')
+	statusLine.setAttribute('aria-live', 'polite')
+	const alertLine = el('p', { className: 'mcp-reset-alert', id: 'mcp-reset-alert' })
+	alertLine.setAttribute('role', 'alert')
+	alertLine.setAttribute('aria-live', 'assertive')
+	const panel = el('div', { className: 'mcp-reset-preview', hidden: true })
+	panel.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape' && review !== null && !saving) {
+			close(true)
+		}
+	})
+	toolbar.append(
+		el('span', { className: 'mcp-reset-select' }, [selectAll, ' ', el('label', { htmlFor: 'mcp-select-all', textContent: t('mcp', 'Select every user on this page') })]),
+		' ', resetSelected, statusLine, alertLine, panel)
+	const wrap = table.closest('.mcp-matrix-wrap')
+	if (wrap) {
+		wrap.before(toolbar)
+	}
+
+	/** @return {object[]} the selected users that are on the page now */
+	function selectedUsers() {
+		return pageUsers().filter((user) => selected.has(user.uid))
+	}
+
+	/** Keeps the toolbar's counters, the select-all box and the button state in line with the selection and the lock. */
+	function updateToolbar() {
+		const users = pageUsers()
+		const chosen = selectedUsers()
+		selectAll.checked = users.length > 0 && chosen.length === users.length
+		selectAll.indeterminate = chosen.length > 0 && chosen.length < users.length
+		selectAll.disabled = users.length === 0
+		resetSelected.textContent = t('mcp', 'Back to group inheritance for selected users ({count})', { count: chosen.length }, undefined, { escape: false })
+		resetSelected.disabled = chosen.length === 0 || saving
+	}
+
+	selectAll.addEventListener('change', () => {
+		for (const user of pageUsers()) {
+			selectAll.checked ? selected.add(user.uid) : selected.delete(user.uid)
+		}
+		for (const box of table.querySelectorAll('input.mcp-row-select')) {
+			box.checked = selectAll.checked
+		}
+		updateToolbar()
+	})
+
+	// The table was redrawn: the selection keeps only users that are still on screen, and a preview that was built from
+	// the old table is closed, because what it lists may no longer be what is saved.
+	window.addEventListener('mcp-matrix-rendered', () => {
+		const present = new Set(pageUsers().map((user) => user.uid))
+		for (const uid of [...selected]) {
+			if (!present.has(uid)) {
+				selected.delete(uid)
+			}
+		}
+		if (review !== null && !saving) {
+			close(false)
+			say(t('mcp', 'The table changed, so the reset preview was closed. Review it again.'))
+		}
+		updateToolbar()
+	})
+
+	// --- Rows and cells -----------------------------------------------------------------------------------------
+
+	/**
+	 * Adds the selection box and, when the user has an individual override, the reset button to a row.
+	 *
+	 * @param {HTMLTableRowElement} row row drawn by admin-grants.js; its first child is the user header cell
+	 * @param {object} user row from the API
+	 */
+	function decorateRow(row, user) {
+		const header = row.children[0]
+		const box = el('input', { type: 'checkbox', className: 'mcp-row-select', checked: selected.has(user.uid) })
+		box.setAttribute('aria-label', t('mcp', 'Select {user}', { user: user.displayName }, undefined, { escape: false }))
+		box.addEventListener('change', () => {
+			box.checked ? selected.add(user.uid) : selected.delete(user.uid)
+			updateToolbar()
+		})
+		header.append(box)
+		if (overrideCells(user).length > 0) {
+			const reset = el('button', { type: 'button', className: 'mcp-reset-row', textContent: t('mcp', 'Back to group'), title: t('mcp', 'Remove the individual overrides of this user, so groups and defaults decide again.') })
+			reset.setAttribute('aria-label', t('mcp', 'Back to group inheritance: {user}', { user: user.displayName }, undefined, { escape: false }))
+			reset.addEventListener('click', () => start([user], null, reset))
+			header.append(reset)
+		}
+		updateToolbar()
+	}
+
+	/**
+	 * Names the state of a cell (individual allow, individual deny or inherited) for the eye, the tooltip and the screen
+	 * reader, and gives an overridden cell its own "back to inherited" button.
+	 *
+	 * @param {HTMLTableCellElement} cell the permission cell
+	 * @param {HTMLInputElement} box its checkbox
+	 * @param {object} user row from the API
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string} operation operation id, "eligible" for "Can connect"
+	 */
+	function decorateCell(cell, box, user, module, operation) {
+		const origin = module === null ? user.origins?.eligible : user.origins?.grants?.[module]?.[operation]
+		const kind = OVERRIDES[origin?.source]
+		const names = {
+			allow: t('mcp', 'Individual override: allowed'),
+			deny: t('mcp', 'Individual override: denied'),
+			invalid: t('mcp', 'Invalid stored override (denied)'),
+		}
+		const stateName = kind ? names[kind] : t('mcp', 'Inherited')
+		cell.classList.add(kind ? 'mcp-override' : 'mcp-inherited')
+		if (kind) {
+			cell.classList.add('mcp-override-' + kind)
+		}
+		cell.title += ' — ' + stateName
+		box.setAttribute('aria-label', box.getAttribute('aria-label') + ' — ' + stateName)
+		if (!kind) {
+			return
+		}
+		const reset = el('button', { type: 'button', className: 'mcp-reset-cell', textContent: '↺', title: t('mcp', 'Remove this individual override: groups and defaults decide again.') })
+		reset.setAttribute('aria-label', t('mcp', 'Back to inherited: {user} — {permission}', { user: user.displayName, permission: permissionName(module, operation) }, undefined, { escape: false }))
+		reset.addEventListener('click', () => start([user], [{ module, operation }], reset))
+		cell.append(reset)
+	}
+
+	// --- Preview and reset ------------------------------------------------------------------------------------
+
+	/**
+	 * Opens the preview of a reset, or says why there is nothing to reset.
+	 *
+	 * @param {object[]} users users to reset
+	 * @param {Array<{module: string|null, operation: string}>|null} only restrict to these cells
+	 * @param {HTMLElement} trigger control that asked, which gets the focus back when the preview is cancelled
+	 */
+	function start(users, only, trigger) {
+		if (saving || matrix.isBusy()) {
+			say(t('mcp', 'Wait until the change in progress is saved.'), true)
+			return
+		}
+		const result = plan(users, only)
+		if (result.cells === 0) {
+			say(t('mcp', 'Nothing to reset: the selected users have no individual overrides.'))
+			return
+		}
+		if (result.tooMany) {
+			say(t('mcp', 'Too many overrides to reset at once. Select fewer users.'), true)
+			return
+		}
+		say('')
+		review = { plan: result, trigger, retry: false }
+		renderReview()
+		panel.hidden = false
+		panel.querySelector('h3').focus()
+	}
+
+	/** @param {boolean} restoreFocus give the focus back to the control that opened the preview */
+	function close(restoreFocus) {
+		const trigger = review?.trigger
+		review = null
+		panel.hidden = true
+		panel.replaceChildren()
+		if (restoreFocus) {
+			(trigger && trigger.isConnected !== false ? trigger : resetSelected).focus()
+		}
+	}
+
+	/**
+	 * @param {{user: object, cells: object[]}} target one user of the plan
+	 * @return {string} "Ana: Can connect (allowed), Notes: edit (denied)"
+	 */
+	function describeTarget(target) {
+		const parts = target.cells.map((cell) => {
+			const permission = permissionName(cell.module, cell.operation)
+			return cell.kind === 'allow'
+				? t('mcp', '{permission} (allowed)', { permission }, undefined, { escape: false })
+				: cell.kind === 'deny'
+					? t('mcp', '{permission} (denied)', { permission }, undefined, { escape: false })
+					: t('mcp', '{permission} (invalid, denied)', { permission }, undefined, { escape: false })
+		})
+		return t('mcp', '{user}: {permissions}', { user: target.user.displayName, permissions: parts.join(', ') }, undefined, { escape: false })
+	}
+
+	/** Draws the preview: the exact cells, what may change and the buttons. */
+	function renderReview() {
+		const result = review.plan
+		const heading = el('h3', {
+			tabIndex: -1,
+			textContent: n('mcp', 'Back to group inheritance for %n user', 'Back to group inheritance for %n users', result.users, undefined, { escape: false }),
+		})
+		const lines = [
+			el('p', { textContent: t('mcp', 'Overrides to remove: {allow} allowed, {deny} denied, {invalid} invalid.', { allow: result.allow, deny: result.deny, invalid: result.invalid }, undefined, { escape: false }) }),
+			el('p', { textContent: t('mcp', 'Each removed override is replaced by what the groups and defaults give, so some permissions may change.') }),
+		]
+		if (result.eligibleAllow > 0) {
+			// Never "will": a group or another rule may keep the user eligible, and the page cannot tell which.
+			lines.push(el('p', { className: 'mcp-reset-warning', textContent: n('mcp',
+				'%n user loses an individual Allow for “Can connect”. Unless a group or another rule keeps them eligible, they may be signed out of their MCP clients, and undoing this does not sign them back in.',
+				'%n users lose an individual Allow for “Can connect”. Unless a group or another rule keeps them eligible, they may be signed out of their MCP clients, and undoing this does not sign them back in.',
+				result.eligibleAllow, undefined, { escape: false }) }))
+		}
+		if (result.eligibleDeny > 0) {
+			lines.push(el('p', { textContent: t('mcp', 'Removing an individual Deny for “Can connect” lets the groups decide again, which may give access.') }))
+		}
+		if (result.without > 0) {
+			lines.push(el('p', { textContent: n('mcp', '%n selected user has no individual overrides and is left out.', '%n selected users have no individual overrides and are left out.', result.without, undefined, { escape: false }) }))
+		}
+		const list = el('ul', { className: 'mcp-reset-targets', tabIndex: 0 }, result.targets.map((target) => el('li', { textContent: describeTarget(target) })))
+		// The list scrolls when many users are selected, so it is a named, focusable region the keyboard can reach.
+		list.setAttribute('aria-label', t('mcp', 'Individual overrides'))
+		const confirm = el('button', {
+			type: 'button',
+			className: 'primary mcp-reset-confirm',
+			textContent: review.retry ? t('mcp', 'Try again') : t('mcp', 'Remove overrides'),
+			onclick: execute,
+		})
+		const cancel = el('button', { type: 'button', className: 'mcp-reset-cancel', textContent: t('mcp', 'Cancel'), onclick: () => close(true) })
+		panel.replaceChildren(heading, ...lines, list, el('div', { className: 'mcp-reset-actions' }, [confirm, ' ', cancel]))
+	}
+
+	/** Sends the command of the open preview. Nothing is repeated on its own: a retry is the administrator's click. */
+	async function execute() {
+		if (review === null || saving || matrix.isBusy()) {
+			return
+		}
+		const current = review
+		const commands = current.plan.targets.flatMap((target) => target.cells.map((cell) => ({
+			uid: target.user.uid,
+			module: cell.module,
+			operation: cell.operation,
+			state: 'inherit',
+		})))
+		saving = true
+		matrix.setBusy(true)
+		for (const button of panel.querySelectorAll('button')) {
+			button.disabled = true
+		}
+		updateToolbar()
+		say('')
+		let undo = null
+		try {
+			try {
+				const saved = await matrix.api('POST', '/api/grants/commands', { expectedRevision: matrix.data().revision, commands })
+				for (const target of current.plan.targets) {
+					selected.delete(target.user.uid)
+				}
+				close(false)
+				// The table still shows the old values until it reloads: the result is told only now, from the server's answer.
+				undo = matrix.offerUndo(saved.changed === 0
+					? t('mcp', 'Nothing changed: those overrides were already gone.')
+					: n('mcp', '%n individual override removed.', '%n individual overrides removed.', saved.changed, undefined, { escape: false }), saved)
+				await matrix.reload()
+			} catch (e) {
+				if (e.message === '503' && !(e.data && e.data.uncertain)) {
+					// Nothing was written: the preview, the selection and the table stay, and the same command can be sent again.
+					review.retry = true
+					renderReview()
+					say(t('mcp', 'The change could not be made because what these users inherit could not be read. Nothing was changed, and your selection is kept. Try again.'), true)
+				} else if (!(await matrix.policyError(e))) {
+					close(false)
+					say(t('mcp', 'Could not return the users to group inheritance. The table was reloaded with the saved values.'), true)
+					await matrix.reload()
+				} else {
+					close(false)
+				}
+			}
+		} finally {
+			saving = false
+			matrix.setBusy(false)
+			updateToolbar()
+		}
+		if (review !== null && review.retry) {
+			panel.querySelector('button').focus()
+		}
+		matrix.focusUndo(undo)
+	}
+
+	window.McpAdminOverrides = { decorateRow, decorateCell, plan }
+	// The matrix may have been drawn before this file ran: draw it again so its rows carry the controls.
+	matrix.refresh()
+})()

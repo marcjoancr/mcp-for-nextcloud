@@ -22,6 +22,9 @@
 	let preview = null
 	let busy = false
 	let timer
+	let sayTimer
+	/** Milliseconds between clearing a live region and writing into it. */
+	const SAY_DELAY = 60
 
 	function el(tag, props = {}, children = []) {
 		const node = document.createElement(tag)
@@ -29,11 +32,18 @@
 		node.append(...children)
 		return node
 	}
+	/**
+	 * Writes into the fixed live regions. Both are cleared at once and the message is written shortly after, in
+	 * another task, so the same error twice in a row is announced again, and a message that was replaced or cleared
+	 * in the meantime never appears.
+	 */
 	function say(message, error = false) {
+		clearTimeout(sayTimer)
 		status.textContent = ''
 		alert.textContent = ''
+		if (message === '') return
 		const region = error ? alert : status
-		region.textContent = message
+		sayTimer = setTimeout(() => { region.textContent = message }, SAY_DELAY)
 	}
 	async function api(method, path, body) {
 		const response = await fetch(OC.generateUrl('/apps/mcp' + path), {
