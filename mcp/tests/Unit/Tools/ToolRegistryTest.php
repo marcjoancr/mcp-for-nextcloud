@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Unit\Tools;
 
+use OCA\Mcp\Service\Policy\GrantUnknown;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
@@ -211,8 +212,8 @@ final class ToolRegistryTest extends TestCase {
     /**
      * Finding F1 of the review of ticket 09: "any of" is three-valued, so the order of the alternatives never changes the
      * answer. A known Allow of link admits the tool even while share is unknown (its only source is a group in
-     * needs_confirm); without that Allow the unknown makes the listing and the call unavailable, never a denial; with
-     * every alternative known and denied the tool is hidden.
+     * needs_confirm); without that Allow the tool alone is left out of the listing and calling it is unavailable (503),
+     * never a denial; with every alternative known and denied the tool is hidden.
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('alternativeOrders')]
     public function testAnUnknownAlternativeNeverHidesAKnownAllowInEitherOrder(array $order): void {
@@ -230,13 +231,15 @@ final class ToolRegistryTest extends TestCase {
         } catch (PolicyUnavailable) {
         }
 
+        // Unknown and denied: the tool alone is left out of the listing (the others stay), and calling it is a 503.
         $this->policy->setGrant('alice', 'files', 'link', false);
-        foreach ([fn () => $this->registry()->list('alice'), fn () => $this->registry()->call('s_share', ['confirm' => true], 'alice')] as $use) {
-            try {
-                $use();
-                $this->fail('Unknown and denied alternatives answered without the unknown one');
-            } catch (PolicyUnavailable) {
-            }
+        $names = array_column($this->registry()->list('alice'), 'name');
+        $this->assertNotContains('s_share', $names);
+        $this->assertContains('a_read', $names, 'a group in needs_confirm never empties the whole list');
+        try {
+            $this->registry()->call('s_share', ['confirm' => true], 'alice');
+            $this->fail('A tool of unknown grant was called');
+        } catch (GrantUnknown) {
         }
         $this->assertCount(1, $this->calls);
 
@@ -244,6 +247,18 @@ final class ToolRegistryTest extends TestCase {
         $this->policy->setGrant('alice', 'files', 'share', false);
         $this->assertNotContains('s_share', array_column($this->registry()->list('alice'), 'name'), 'every alternative known and denied');
         $this->assertUnknown('s_share');
+    }
+
+    /** A failed read of the policy is no unknown grant: the whole listing fails (503), nothing is silently left out. */
+    public function testAFailedPolicyReadFailsTheWholeListing(): void {
+        $writer = InMemoryConfig::writer($this->config);
+        (new \ReflectionProperty($writer, 'usable'))->setValue($writer, false);
+        try {
+            $this->registry()->list('alice');
+            $this->fail('A failed read was answered with a partial list');
+        } catch (PolicyUnavailable $e) {
+            $this->assertNotInstanceOf(GrantUnknown::class, $e);
+        }
     }
 
     public function testListedDefinitionsExposeOnlyMcpFields(): void {

@@ -38,6 +38,7 @@ use Psr\Log\LoggerInterface;
 final class ResourceRegistryTest extends TestCase {
     private FakeTree $tree;
     private InMemoryConfig $config;
+    private \OCP\IConfig $policyConfig;
     private GrantPolicy $policy;
     private IAppManager $appManager;
     private IUserManager $userManager;
@@ -58,7 +59,8 @@ final class ResourceRegistryTest extends TestCase {
         $this->noteId = $this->tree->addFile('/alice/files/Notes/Ideia.md', '# Ideia', 'text/markdown');
 
         $this->config = new InMemoryConfig();
-        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->config->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $this->policyConfig = $this->config->mock($this);
+        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->policyConfig, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $this->policy->setGrant('alice', 'files', 'read', true);
         $this->policy->setGrant('alice', 'notes', 'read', true);
 
@@ -140,6 +142,21 @@ final class ResourceRegistryTest extends TestCase {
     public function testTemplatesRejectsInvalidCursor(): void {
         $this->expectException(InvalidArgumentException::class);
         $this->registry->templates('alice', 'next-page');
+    }
+
+    /**
+     * The read templates follow grants whose default allows, so a group in needs_confirm can never make them unknown:
+     * they stay listed and readable (the omission of an unknown template in templates() is defensive). An individual
+     * Deny still removes its template.
+     */
+    public function testAGroupInNeedsConfirmNeverHidesTheReadTemplates(): void {
+        unset($this->config->user['alice']['mcp']['grant_files_read'], $this->config->user['alice']['mcp']['grant_notes_read']);
+        $this->config->groupBackends = [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn (): array => ['paused' => ['alice']])];
+        InMemoryConfig::groupPolicy($this->policyConfig, 'paused', ['files' => ['read'], 'notes' => ['read']], 'needs_confirm');
+        $this->assertSame(['files', 'notes'], array_column($this->registry->templates('alice')['resourceTemplates'], 'name'));
+        $this->assertSame('Ola mundo', $this->registry->read('nc://files/Documentos/texto.txt', 'alice')['contents'][0]['text']);
+        $this->policy->setGrant('alice', 'files', 'read', false);
+        $this->assertSame(['notes'], array_column($this->registry->templates('alice')['resourceTemplates'], 'name'));
     }
 
     public function testReadGuideReturnsMarkdownContent(): void {

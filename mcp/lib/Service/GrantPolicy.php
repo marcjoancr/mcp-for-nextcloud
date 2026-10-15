@@ -9,6 +9,7 @@ namespace OCA\Mcp\Service;
 
 use Closure;
 use InvalidArgumentException;
+use OCA\Mcp\Service\Policy\GrantUnknown;
 use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
@@ -24,7 +25,8 @@ use OCP\IConfig;
  * then the groups that may grant (trusted source, active lifecycle), then the default. Without any group policy that
  * is exactly the 1.0.8 answer. A resolution that is unknown (it depended only on a group of indeterminate policy), an
  * abandoned writer context or a failed read is never answered with a default: it throws PolicyUnavailable, which the
- * entry points answer with 503 and which never revokes anything.
+ * entry points answer with 503 and which never revokes anything. The unknown answer is the subtype GrantUnknown, so a
+ * listing can omit the one entry that depends on it while a failed read still fails the whole request.
  *
  * Reads go back to the persisted policy, so a change applies to the next operation. Inside within() one operation
  * reuses one snapshot (the controlled reuse of contracts §4.2, T14); a write through this service, or the end of the
@@ -395,11 +397,11 @@ class GrantPolicy {
 
     /**
      * @return bool the resolved answer
-     * @throws PolicyUnavailable when it is unknown: never a default, never a revocation
+     * @throws GrantUnknown when it is unknown: never a default, never a revocation
      */
     private static function known(?bool $allowed): bool {
         if ($allowed === null) {
-            throw new PolicyUnavailable('Policy resolution is unknown');
+            throw new GrantUnknown();
         }
         return $allowed;
     }

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Service;
 
+use OCA\Mcp\Service\Policy\GrantUnknown;
 use InvalidArgumentException;
 use OCA\Mcp\Tools\Common\CommonMessages;
 use OCA\Mcp\Tools\Common\NodeAccess;
@@ -96,7 +97,15 @@ class ResourceRegistry {
             throw new InvalidArgumentException('Invalid cursor');
         }
         $templates = [];
-        if ($this->hasFilesRead($userId)) {
+        // A template whose grant is unknown (GrantUnknown) is left out, alone; reading through it still answers 503.
+        $listed = static function (\Closure $has): bool {
+            try {
+                return $has();
+            } catch (GrantUnknown) {
+                return false;
+            }
+        };
+        if ($listed(fn (): bool => $this->hasFilesRead($userId))) {
             $templates[] = [
                 'uriTemplate' => 'nc://files/{path}',
                 'name' => 'files',
@@ -105,7 +114,7 @@ class ResourceRegistry {
                 'mimeType' => 'application/octet-stream',
             ];
         }
-        if ($this->hasNotesRead($userId)) {
+        if ($listed(fn (): bool => $this->hasNotesRead($userId))) {
             $templates[] = [
                 'uriTemplate' => 'nc://notes/{id}',
                 'name' => 'notes',

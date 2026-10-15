@@ -414,8 +414,9 @@ final class McpControllerTest extends TestCase {
         $module = new class($inside) implements \OCA\Mcp\Tools\ToolModule {
             public function __construct(private ?\Closure $inside) {}
             public function definitions(): array {
-                return [['name' => 'notes_probe', 'description' => 'x', 'module' => 'notes', 'operation' => 'read',
-                    'inputSchema' => ['type' => 'object', 'additionalProperties' => false, 'properties' => new \stdClass()]]];
+                $schema = ['type' => 'object', 'additionalProperties' => false, 'properties' => new \stdClass()];
+                return [['name' => 'notes_probe', 'description' => 'x', 'module' => 'notes', 'operation' => 'read', 'inputSchema' => $schema],
+                    ['name' => 'notes_editor', 'description' => 'x', 'module' => 'notes', 'operation' => 'edit', 'inputSchema' => $schema]];
             }
             public function call(string $name, array $arguments, string $userId): array {
                 if ($this->inside !== null) {
@@ -479,5 +480,23 @@ final class McpControllerTest extends TestCase {
             throw new \OCA\Mcp\Service\Policy\PolicyUnavailable('Policy resolution is unknown');
         });
         $this->assertSame(503, $this->call($protocol, 'notes_probe')[0]);
+    }
+
+    /**
+     * Coordinator decision on the review of ticket 09: a group in needs_confirm never takes the whole tools/list of its
+     * members down. The tool that depends only on it is left out; calling it directly answers 503.
+     */
+    public function testAToolOfUnknownGrantIsLeftOutOfTheListAndItsCallIs503(): void {
+        $this->groupEligibleAlice();
+        $this->store->groupBackends = [new ArrayGroupBackend(static fn (): array => ['team' => ['alice'], 'paused' => ['alice']])];
+        InMemoryConfig::groupPolicy($this->config, 'paused', ['notes' => ['edit']], 'needs_confirm');
+        $protocol = $this->groupProtocol();
+        $response = $this->controller('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', $protocol)->post();
+        $this->assertSame(200, $response->getStatus());
+        $this->assertStringContainsString('notes_probe', $response->render());
+        $this->assertStringNotContainsString('notes_editor', $response->render());
+        $call = $this->controller('{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"notes_editor","arguments":{"confirm":true}}}', $protocol)->post();
+        $this->assertSame(503, $call->getStatus());
+        $this->assertSame('1', self::headers($call)['Retry-After']);
     }
 }

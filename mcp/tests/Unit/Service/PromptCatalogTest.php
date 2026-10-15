@@ -24,9 +24,13 @@ use Psr\Log\LoggerInterface;
 final class PromptCatalogTest extends TestCase {
     private GrantPolicy $policy;
     private PromptCatalog $catalog;
+    private InMemoryConfig $data;
+    private \OCP\IConfig $config;
 
     protected function setUp(): void {
-        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy((new InMemoryConfig())->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $this->data = new InMemoryConfig();
+        $this->config = $this->data->mock($this);
+        $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->config, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $this->catalog = new PromptCatalog();
     }
 
@@ -71,6 +75,20 @@ final class PromptCatalogTest extends TestCase {
         $this->policy->setGrant('alice', 'files', 'edit', false);
         $this->assertSame([], $this->catalog->list($this->policy, 'alice'));
         $this->assertNull($this->catalog->get(PromptCatalog::EDIT_LOCALLY, $this->policy, 'alice'));
+    }
+
+    /**
+     * A prompt whose grant is unknown (its only source is a group in needs_confirm) is left out of prompts/list, alone;
+     * asking for it directly is a 503 (GrantUnknown), never "no such prompt".
+     */
+    public function testAPromptOfUnknownGrantIsLeftOutAndItsDirectUseIsUnavailable(): void {
+        $this->data->groupBackends = [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn (): array => ['paused' => ['alice']])];
+        InMemoryConfig::groupPolicy($this->config, 'paused', ['files' => ['edit']], 'needs_confirm');
+        $this->policy->setGrant('alice', 'files', 'create', true);
+        $this->assertSame([PromptCatalog::CREATE_FILE], array_column($this->catalog->list($this->policy, 'alice'), 'name'));
+        $this->assertNotNull($this->catalog->get(PromptCatalog::CREATE_FILE, $this->policy, 'alice'));
+        $this->expectException(\OCA\Mcp\Service\Policy\GrantUnknown::class);
+        $this->catalog->get(PromptCatalog::EDIT_LOCALLY, $this->policy, 'alice');
     }
 
     public function testAnUnknownNameResolvesToNothing(): void {

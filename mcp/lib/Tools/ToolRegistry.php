@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools;
 
+use OCA\Mcp\Service\Policy\GrantUnknown;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use InvalidArgumentException;
 use OCA\Mcp\L10n\Translator;
@@ -75,7 +76,9 @@ class ToolRegistry {
      * the registry did to a schema before answering tools/list is what the guide describes.
      *
      * @param string $userId authenticated user
-     * @return list<array<string, mixed>> one entry per tool the user may call now, guide excluded
+     * @return list<array<string, mixed>> one entry per tool the user may call now, guide excluded; a tool whose grant
+     *     is unknown (GrantUnknown) is left out
+     * @throws PolicyUnavailable when the policy or a role cannot be read
      */
     public function definitions(string $userId): array {
         $tools = [];
@@ -84,7 +87,14 @@ class ToolRegistry {
                 continue;
             }
             foreach ($module->definitions() as $definition) {
-                if ($this->allowed($definition, $userId)) {
+                try {
+                    $allowed = $this->allowed($definition, $userId);
+                } catch (GrantUnknown) {
+                    // Fail-closed for this tool only: a group in needs_confirm never empties the whole list. Calling
+                    // it still answers 503; a failed read of the policy still fails the whole listing.
+                    continue;
+                }
+                if ($allowed) {
                     $tools[] = $this->present($definition);
                 }
             }
