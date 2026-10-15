@@ -19,7 +19,8 @@ use UnexpectedValueException;
  * saved later; policy_rev is the revision of the commit that saved the group's policy. mcp_group_grants is untouched.
  *
  * Composition mapper: writes run only inside the policy writer's transaction, under its global mutex, with one
- * exception: markPendingDelete(), the pre-event transition, which never takes the mutex (see there).
+ * exception: the two pre-event transitions of a deletion's Before, markSuspended() and markPendingDelete(), which never
+ * take the mutex (see there).
  */
 class GroupLifeMapper {
     public const TABLE = 'mcp_group_life';
@@ -193,11 +194,39 @@ class GroupLifeMapper {
     }
 
     /**
-     * BeforeGroupDeletedEvent (contracts §3.3.5): any state -> pending_delete with a new gen (a new deletion renews
-     * the gen of an earlier one that failed), only if the row still carries $expectedGen, as one conditional statement
-     * outside any transaction.
+     * BeforeGroupDeletedEvent (contracts §3.3.5), its first step: any state -> needs_confirm with a new gen, only if
+     * the row still carries $expectedGen, as one conditional statement outside any transaction (RF1 of the re-reading
+     * of F1, 15/10/2026). The Before then captures the holders and records their causes, and only when that is
+     * complete moves the row on to pending_delete (markPendingDelete(), conditioned on the gen written here).
      *
-     * This is the one lifecycle transition that runs without the policy mutex and does not move the revision: a
+     * The capture thereby has a durable, fail-closed state: until it is complete the lifecycle is needs_confirm, which
+     * grants nothing (only active does), deletes nothing and is never purged by the job (it purges only pending_delete).
+     * A capture that fails, or a process that dies before the last step, leaves the policy suspended until an
+     * administrator decides, never purged without the holders' causes. Like markPendingDelete() it takes no mutex and
+     * does not move the revision, with the same reasoning for readers and writers (see there); every command whose
+     * decision relied on the group's lifecycle compares or renews its gen under its mutex and sees it leave active.
+     *
+     * @param string $gid Nextcloud group id
+     * @param string $expectedGen gen read before the transition
+     * @param string $gen new random gen, different from $expectedGen
+     * @return bool whether this call moved it; false when the row is gone or carries another gen
+     * @throws LogicException inside a transaction: a pre-event handler runs no SQL there (contracts §3.3.6)
+     * @throws InvalidArgumentException for an invalid id or gen
+     * @throws UnexpectedValueException for a digest collision or an invalid stored row
+     * @throws \OCP\DB\Exception when a statement fails
+     */
+    public function markSuspended(string $gid, string $expectedGen, string $gen): bool {
+        return $this->preEvent($gid, $expectedGen, self::NEEDS_CONFIRM, $gen);
+    }
+
+    /**
+     * BeforeGroupDeletedEvent (contracts §3.3.5), its last step: any state -> pending_delete with a new gen (a new
+     * deletion renews the gen of an earlier one that failed), only if the row still carries $expectedGen, as one
+     * conditional statement outside any transaction. The Before writes it only once the holders' causes are recorded
+     * (markSuspended() comes first, see there), so the job never purges a lifecycle whose capture is missing.
+     *
+     * With markSuspended(), the only lifecycle transitions that run without the policy mutex and do not move the
+     * revision: a
      * pre-event handler never takes the mutex (contracts §3.3), and the native deletion is not confirmed yet. It is
      * safe because pending_delete grants nothing (only active does) and deletes nothing: every final transition
      * (purge, needs_confirm, the job's decision) still goes through the writer, under the mutex, with revision + 1.
@@ -225,10 +254,15 @@ class GroupLifeMapper {
      * @throws \OCP\DB\Exception when a statement fails
      */
     public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+        return $this->preEvent($gid, $expectedGen, self::PENDING_DELETE, $gen);
+    }
+
+    /** The conditional statement of markSuspended() and markPendingDelete(), outside any transaction. */
+    private function preEvent(string $gid, string $expectedGen, string $state, string $gen): bool {
         if ($this->db->inTransaction()) {
             throw new LogicException('The pre-event lifecycle transition never runs inside a transaction');
         }
-        self::validate(self::PENDING_DELETE, $gen);
+        self::validate($state, $gen);
         if (!self::validGen($expectedGen) || $expectedGen === $gen) {
             throw new InvalidArgumentException('A transition needs a new gen');
         }
@@ -238,7 +272,7 @@ class GroupLifeMapper {
         }
         $qb = $this->db->getQueryBuilder();
         return $qb->update(self::TABLE)
-            ->set('state', $qb->createNamedParameter(self::PENDING_DELETE))
+            ->set('state', $qb->createNamedParameter($state))
             ->set('gen', $qb->createNamedParameter($gen))
             ->where($qb->expr()->eq('group_key', $qb->createNamedParameter(IdentityKey::group($gid))))
             ->andWhere($qb->expr()->eq('gen', $qb->createNamedParameter($expectedGen)))

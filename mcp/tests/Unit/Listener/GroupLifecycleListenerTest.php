@@ -223,7 +223,7 @@ final class GroupLifecycleListenerTest extends TestCase {
         $rounds = 0;
         $life = new class($this->db, $rounds) extends GroupLifeMapper {
             public function __construct(IDBConnection $db, private int &$rounds) { parent::__construct($db); }
-            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+            public function markSuspended(string $gid, string $expectedGen, string $gen): bool {
                 ++$this->rounds;
                 return false;
             }
@@ -349,11 +349,11 @@ final class GroupLifecycleListenerTest extends TestCase {
     }
 
     /**
-     * Review F1 and condition 1 of the coordinator on F1 of the second reading: the capture runs after the mark; when it
-     * fails (holders unreadable, or a cause that cannot be written), G is never left pending_delete without its causes:
-     * the Before keeps no gen and the After suspends G (needs_confirm) instead of purging it.
+     * Review F1, condition 1 of the coordinator on F1 and RF1 of the re-reading: the capture runs after the suspension;
+     * when it fails (holders unreadable, or a cause that cannot be written), G stays needs_confirm in storage, never
+     * pending_delete, and the After leaves it suspended instead of purging it.
      */
-    public function testAFailedCaptureAfterTheMarkSuspendsTheGroupInsteadOfPurgingIt(): void {
+    public function testAFailedCaptureLeavesTheGroupSuspendedInsteadOfPurgingIt(): void {
         $store = $this->createMock(OAuthStore::class);
         $store->method('liveHolders')->willThrowException(new \RuntimeException('tokens unreadable'));
         $rechecks = $this->createMock(RecheckMapper::class);
@@ -361,7 +361,7 @@ final class GroupLifecycleListenerTest extends TestCase {
         foreach ([$this->listener(store: $store), $this->listener(rechecks: $rechecks)] as $listener) {
             $this->policy('staff');
             $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
-            $this->assertSame('pending_delete', $this->life->get('staff')['state'], 'the mark comes first');
+            $this->assertSame('needs_confirm', $this->life->get('staff')['state'], 'durably suspended before the Before returns');
             $this->assertSame([], $this->causedUsers('staff'));
             $this->handle($listener, new GroupDeletedEvent($this->group()));
             $this->assertSame('needs_confirm', $this->life->get('staff')['state'], 'suspended, never purged without causes');
@@ -369,12 +369,40 @@ final class GroupLifecycleListenerTest extends TestCase {
             $this->database->dbal->executeStatement('DELETE FROM mcp_group_grants');
             $this->database->dbal->executeStatement('DELETE FROM mcp_group_life');
         }
-        $this->assertContains(['Credential holders of a deleted group not listed; the group is suspended instead of purged', 'staff'], $this->warnings);
+        $this->assertContains(['Credential holders of a deleted group not listed; the group stays suspended', 'staff'], $this->warnings);
         $this->assertContains(['Recheck cause of a group deletion not recorded', 'alice'], $this->warnings);
     }
 
-    /** F1 of the second reading: the holders are judged after pending_delete is written, never before. */
-    public function testTheHoldersAreJudgedAfterTheMark(): void {
+    /**
+     * RF1 of the re-reading of F1: the Before's capture fails, the backend deletes G, and the job runs before the After
+     * arrives. The suspension is in storage, so the job (which purges only pending_delete) leaves it, and the After
+     * finds it suspended: rows and lifecycle kept, never purged without the holders' causes. A complete capture is
+     * still purged by the job when its After is lost.
+     */
+    public function testTheJobBetweenAFailedCaptureAndTheAfterNeverPurges(): void {
+        $this->policy('staff');
+        $store = $this->createMock(OAuthStore::class);
+        $store->method('liveHolders')->willThrowException(new \RuntimeException('tokens unreadable'));
+        $listener = $this->listener(store: $store);
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->exists['staff'] = false;
+        $this->assertSame(0, $this->lifecycle->reconcile());
+        $this->assertSame('needs_confirm', $this->life->get('staff')['state']);
+        $this->handle($listener, new GroupDeletedEvent($this->group()));
+        $this->assertSame('needs_confirm', $this->life->get('staff')['state']);
+        $this->assertSame(['_system/eligible', 'notes/edit'], $this->rows('staff'));
+
+        // Control: a complete capture whose After is lost is purged by the job.
+        $this->policy('team');
+        $this->handle($this->listener(), new BeforeGroupDeletedEvent($this->group('team')));
+        $this->assertSame('pending_delete', $this->life->get('team')['state']);
+        $this->exists['team'] = false;
+        $this->assertSame(1, $this->lifecycle->reconcile());
+        $this->assertNull($this->life->get('team'));
+    }
+
+    /** F1 of the second reading: the holders are judged after G is suspended, never while it is active. */
+    public function testTheHoldersAreJudgedAfterTheSuspension(): void {
         $this->policy('staff');
         $states = [];
         $this->eligibility = function (string $uid, array $without) use (&$states): ?bool {
@@ -383,7 +411,8 @@ final class GroupLifecycleListenerTest extends TestCase {
         };
         $this->handle($this->listener(), new BeforeGroupDeletedEvent($this->group()));
         $this->assertNotSame([], $states);
-        $this->assertSame(['pending_delete'], array_values(array_unique($states)));
+        $this->assertSame(['needs_confirm'], array_values(array_unique($states)), 'suspended, not active, while judged');
+        $this->assertSame('pending_delete', $this->life->get('staff')['state'], 'promoted once the capture completed');
         $this->assertSame(['alice'], $this->causedUsers('staff'));
     }
 

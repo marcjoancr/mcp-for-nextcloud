@@ -619,13 +619,13 @@ final class GroupGrantsWriterTest extends TestCase {
         $this->assertSame(0, $preview['revokes'], 'team keeps ana');
         $life = new class($this->db, $save) extends GroupLifeMapper {
             public function __construct(\OCP\IDBConnection $db, private ?\Closure $between) { parent::__construct($db); }
-            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+            public function markSuspended(string $gid, string $expectedGen, string $gen): bool {
                 if ($this->between !== null) {
                     // The withdrawal commits between the Before's judgement of the holders and its transition.
                     [$between, $this->between] = [$this->between, null];
                     \PHPUnit\Framework\Assert::assertSame(0, $between()['revoked']);
                 }
-                return parent::markPendingDelete($gid, $expectedGen, $gen);
+                return parent::markSuspended($gid, $expectedGen, $gen);
             }
         };
         [$listener] = $this->listener($life);
@@ -696,13 +696,13 @@ final class GroupGrantsWriterTest extends TestCase {
         $marks = 0;
         $life = new class($this->db, fn () => $this->assertTrue($this->issueAdmitted('ana')), $marks) extends GroupLifeMapper {
             public function __construct(\OCP\IDBConnection $db, private ?\Closure $between, private int &$marks) { parent::__construct($db); }
-            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+            public function markSuspended(string $gid, string $expectedGen, string $gen): bool {
                 ++$this->marks;
                 if ($this->between !== null) {
                     [$between, $this->between] = [$this->between, null];
                     $between();
                 }
-                return parent::markPendingDelete($gid, $expectedGen, $gen);
+                return parent::markSuspended($gid, $expectedGen, $gen);
             }
         };
         [$listener] = $this->listener($life);
