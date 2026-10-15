@@ -93,9 +93,9 @@ that window may touch an app table or fail), runs the caller's next query and co
 is reconciled at the next safe point without a date: committed and no longer eligible, cut; rolled back and still
 eligible, nothing cut. The same is done for an account deletion (both deletion handlers called between markers, then
 `User::delete` itself, committed, reconciled later: account gone, cut) and for an account disable (`setEnabled(false)`,
-rolled back; inside a transaction the disable is left to the next use, which refuses the disabled account). Group
-eligibility is not wired into consent and validation until ticket 09, so those cases read the effect on the user's
-generations, not through a Bearer request. Limit: the listener instance and its dependency graph are built before the
+rolled back; inside a transaction the disable is left to the next use, which refuses the disabled account). Those
+cases read the effect on the user's generations; group eligibility over consent and Bearer is proven by
+`OAuth/GroupConsumersTest` (ticket 09). Limit: the listener instance and its dependency graph are built before the
 caller's transaction opens (the dispatcher resolves the service on its first event in the process); none of their
 constructors runs SQL, but that construction is not itself bracketed by the log.
 

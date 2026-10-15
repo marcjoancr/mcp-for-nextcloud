@@ -38,9 +38,9 @@ use OCP\Server;
  * group manager and its Database backend (validation T5 part F3, T6 422 without write, T16 server part). Every
  * observation is read from a second session.
  *
- * Group eligibility is not wired into consent and validation yet (ticket 09), which still read the individual flag:
- * where a holder must be eligible only through the group, the individual flag is removed after the consent, outside
- * the writer (as GroupLifecycleTest does), and the effect of a withdrawal is read on the generations (the cut).
+ * Where a holder must be eligible only through the group, the individual flag is removed after the consent, outside
+ * the writer (as GroupLifecycleTest does), and the effect of a withdrawal is read on the generations (the cut). Since
+ * ticket 09, consent and validation resolve group eligibility too (OAuth/GroupConsumersTest).
  */
 final class GroupGrantsTest extends OAuthAccountTestCase {
     private const ACTOR = 'admin';
@@ -90,7 +90,7 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
         };
     }
 
-    /** Consent still reads the individual flag (ticket 09): it is granted for the consent, then taken back. */
+    /** The consent is made with an individual flag, then the flag is taken back: the group remains the only source. */
     private function consentGroupOnly(): string {
         Server::get(IConfig::class)->setUserValue($this->uid, 'mcp', 'eligible', '1');
         Server::get(IUserConfig::class)->clearCache($this->uid, false);
@@ -231,7 +231,7 @@ final class GroupGrantsTest extends OAuthAccountTestCase {
         $this->assertSame(1, $preview['revokes']);
         $new = null;
         $hooks = [function () use (&$new): void {
-            // Consent still reads the individual flag (ticket 09): grant it for the consent, then take it back.
+            // Consent with an individual flag, then take it back: the group remains the only source.
             Server::get(IConfig::class)->setUserValue($this->uid, 'mcp', 'eligible', '1');
             Server::get(IUserConfig::class)->clearCache($this->uid, false);
             $new = $this->exchange($this->consent());

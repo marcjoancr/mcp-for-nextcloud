@@ -42,9 +42,9 @@ use RuntimeException;
  * work of §3.3.6 is proven with the caller's own transaction on the official connection and, in the PostgreSQL cell,
  * with the statement log around the app's real handlers and the core calls.
  *
- * Group eligibility is not wired into consent and validation yet (ticket 09), which still read the individual flag:
- * where a holder must be eligible only through the group, the individual flag is removed after the consent, outside
- * the writer, and the effect of a cause is read on the generations (the cut).
+ * Where a holder must be eligible only through the group, the individual flag is removed after the consent, outside
+ * the writer, and the effect of a cause is read on the generations (the cut). Group eligibility over consent and
+ * Bearer is proven by GroupConsumersTest (ticket 09).
  */
 final class GroupLifecycleTest extends OAuthAccountTestCase {
     /** @var list<string> */

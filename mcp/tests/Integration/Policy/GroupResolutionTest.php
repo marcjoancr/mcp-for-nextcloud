@@ -78,7 +78,10 @@ final class GroupResolutionTest extends IntegrationTestCase {
         } finally { $context->close(); }
     }
 
-    /** M1: the fresh logs role matches LogsAccess over the real OC\Group\Manager for admins and non-admins. */
+    /**
+     * M1 and the pending item of ticket 05 for 09: LogsAccess now reads the role through the fresh reader, so both are
+     * compared with the 1.0.8 gate (IGroupManager::isAdmin/isInGroup over the listed groups) on the real manager.
+     */
     public function testLogsRoleReaderMatchesLegacyGateOnTheRealManager(): void {
         $manager = Server::get(IGroupManager::class);
         $users = Server::get(IUserManager::class);
@@ -94,8 +97,11 @@ final class GroupResolutionTest extends IntegrationTestCase {
         foreach ($uids as $uid) {
             $user = $users->get($uid);
             $this->assertNotNull($user);
-            $this->assertSame(['available' => $legacy->available(), 'permitted' => $legacy->permits($uid)],
+            $before = $legacy->available() && ($manager->isAdmin($uid)
+                || array_filter($legacy->groups(), static fn (string $gid): bool => $manager->isInGroup($uid, $gid)) !== []);
+            $this->assertSame(['available' => $legacy->available(), 'permitted' => $before],
                 $reader->read($uid, $membership->read($user)), $uid);
+            $this->assertSame($before, $legacy->permits($uid), $uid);
         }
     }
 

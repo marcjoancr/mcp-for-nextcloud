@@ -46,9 +46,9 @@ use RuntimeException;
  * throws before it. The deferred work of §3.3.6 is proven with the caller's own transaction on the official
  * connection, and, in the PostgreSQL cell, with the statement log around the app's real handler.
  *
- * Group eligibility is not wired into consent and validation yet (ticket 09), which still read the individual flag:
- * where a test needs a user eligible only through a group, the individual flag is removed after the consent, outside
- * the writer, and the effect of a cause is read on the generations (the cut), not through a Bearer request.
+ * Where a test needs a user eligible only through a group, the individual flag is removed after the consent, outside
+ * the writer, and the effect of a cause is read on the generations (the cut). Group eligibility over consent and
+ * Bearer is proven by GroupConsumersTest (ticket 09).
  */
 final class UserCausesTest extends OAuthAccountTestCase {
     /** @var list<string> */
