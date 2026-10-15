@@ -84,17 +84,19 @@ class PolicyEventsMapper {
     }
 
     /**
-     * Pending events of some kinds, oldest first, through the (status, created_at) index. Delivery reads only the
-     * kinds it delivers: receipts stay pending until they expire and are never delivered.
+     * Pending events of some kinds for delivery: fewest failed attempts first, then oldest, so events that keep
+     * failing never hide newer ones behind them. Delivery reads only the kinds it delivers: receipts stay pending
+     * until they expire and are never delivered. A stored row that is not a valid event does not stop the batch: it
+     * is left out and its id reported in $invalid.
      *
      * @param list<string> $kinds members of KINDS
-     * @param int $limit at most this many events, 1..500
+     * @param int $limit at most this many rows, 1..500
+     * @param list<string>|null $invalid receives the ids of invalid rows read in this batch
      * @return list<array{id:string, kind:string, status:string, payload:array, createdAt:int, attempts:int}>
      * @throws InvalidArgumentException for an unknown kind or a limit out of range
-     * @throws UnexpectedValueException for an invalid stored event
      * @throws \OCP\DB\Exception when the query fails
      */
-    public function pendingOf(array $kinds, int $limit): array {
+    public function pendingOf(array $kinds, int $limit, ?array &$invalid = null): array {
         if ($kinds === [] || array_diff($kinds, self::KINDS) !== [] || $limit < 1 || $limit > 500) {
             throw new InvalidArgumentException('Invalid pending event query');
         }
@@ -102,11 +104,16 @@ class PolicyEventsMapper {
         $result = $qb->select('id', 'kind', 'status', 'payload', 'created_at', 'attempts')->from(self::TABLE)
             ->where($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_PENDING)))
             ->andWhere($qb->expr()->in('kind', $qb->createNamedParameter(array_values($kinds), IQueryBuilder::PARAM_STR_ARRAY)))
-            ->orderBy('created_at')->addOrderBy('id')->setMaxResults($limit)->executeQuery();
+            ->orderBy('attempts')->addOrderBy('created_at')->addOrderBy('id')->setMaxResults($limit)->executeQuery();
         $events = [];
+        $invalid = [];
         try {
             while (($row = $result->fetch()) !== false) {
-                $events[] = self::event($row);
+                try {
+                    $events[] = self::event($row);
+                } catch (UnexpectedValueException) {
+                    $invalid[] = (string)($row['id'] ?? '');
+                }
             }
         } finally {
             $result->closeCursor();

@@ -61,25 +61,13 @@ class PolicyEventProcessor {
     }
 
     /**
-     * Delivers due pending events, oldest first. Never throws.
+     * Delivers due pending events, fewest attempts and oldest first. Never throws.
      *
      * @param int $limit events to read at most, 1..500
-     * @return bool whether the batch was full, so more may be pending
+     * @return int events delivered
      */
-    public function flush(int $limit = self::PREFLIGHT_BATCH): bool {
-        try {
-            $pending = $this->events->pendingOf(self::DELIVERED, $limit);
-        } catch (Throwable $e) {
-            $this->logger->warning('Cannot read pending policy events', ['app' => 'mcp', 'exception' => $e]);
-            return false;
-        }
-        $now = $this->time->getTime();
-        foreach ($pending as $event) {
-            if (self::due($event['attempts'], $event['createdAt'], $now)) {
-                $this->deliver($event);
-            }
-        }
-        return count($pending) === $limit;
+    public function flush(int $limit = self::PREFLIGHT_BATCH): int {
+        return $this->round($limit)['delivered'];
     }
 
     /**
@@ -93,7 +81,12 @@ class PolicyEventProcessor {
         } catch (Throwable $e) {
             $this->logger->warning('Cannot purge expired OAuth credentials', ['app' => 'mcp', 'exception' => $e]);
         }
-        for ($round = 0; $round < self::JOB_ROUNDS && $this->flush(self::JOB_BATCH); ++$round) {
+        // Stop at a short batch, or at a batch that delivered nothing: the rest is not due yet or keeps failing.
+        for ($round = 0; $round < self::JOB_ROUNDS; ++$round) {
+            ['read' => $read, 'delivered' => $delivered] = $this->round(self::JOB_BATCH);
+            if ($read < self::JOB_BATCH || $delivered === 0) {
+                break;
+            }
         }
         try {
             $this->events->purge(PolicyEventsMapper::KIND_RECEIPT, $now - PolicyWriter::RECEIPT_TTL);
@@ -101,6 +94,36 @@ class PolicyEventProcessor {
         } catch (Throwable $e) {
             $this->logger->warning('Cannot purge expired policy receipts', ['app' => 'mcp', 'exception' => $e]);
         }
+    }
+
+    /**
+     * One batch. An invalid stored row is counted as a failed attempt and skipped, so it never blocks the queue.
+     *
+     * @return array{read:int, delivered:int} rows read (valid or not) and events delivered
+     */
+    private function round(int $limit): array {
+        $invalid = [];
+        try {
+            $pending = $this->events->pendingOf(self::DELIVERED, $limit, $invalid);
+        } catch (Throwable $e) {
+            $this->logger->warning('Cannot read pending policy events', ['app' => 'mcp', 'exception' => $e]);
+            return ['read' => 0, 'delivered' => 0];
+        }
+        foreach ($invalid as $id) {
+            $this->logger->warning('Skipping an invalid stored policy event', ['app' => 'mcp', 'eventId' => $id]);
+            try {
+                $this->events->recordAttempt($id);
+            } catch (Throwable) {
+            }
+        }
+        $now = $this->time->getTime();
+        $delivered = 0;
+        foreach ($pending as $event) {
+            if (self::due($event['attempts'], $event['createdAt'], $now) && $this->deliver($event)) {
+                ++$delivered;
+            }
+        }
+        return ['read' => count($pending) + count($invalid), 'delivered' => $delivered];
     }
 
     /**

@@ -114,7 +114,7 @@ final class PolicyEventDeliveryTest extends TestCase {
         $logger->expects($this->atLeastOnce())->method('info');
         $processor = new PolicyEventProcessor($this->events, $oauth, $logger, $this->time());
 
-        $this->assertFalse($processor->flush(10));
+        $this->assertSame(1, $processor->flush(10), 'the audit went through, the cleanup failed');
         $this->assertSame(['status' => 'pending', 'attempts' => 1], $this->statuses()[str_repeat('a', 32) . '-1']);
         $this->assertSame('delivered', $this->statuses()[str_repeat('a', 32) . '-2']['status']);
         $processor->flush(10); // not due yet: no second call
@@ -208,5 +208,54 @@ final class PolicyEventDeliveryTest extends TestCase {
         $this->assertSame([str_repeat('e', 32)], array_column($this->events->pendingOf(['cleanup', 'audit'], 10), 'id'));
         $this->expectException(\InvalidArgumentException::class);
         $this->events->pendingOf(['intent'], 10);
+    }
+
+    /** Review F2: one invalid stored row is skipped and counted, never a reason to stop the whole queue. */
+    public function testAnInvalidStoredEventIsSkippedAndCountedWithoutBlockingTheOthers(): void {
+        $this->database->dbal->insert('mcp_policy_events', ['id' => str_repeat('0', 32), 'kind' => 'cleanup', 'status' => 'pending',
+            'payload' => '{"v":1', 'created_at' => $this->now - 10, 'attempts' => 0]);
+        $this->append(str_repeat('f', 32), 'cleanup', PolicyEventPayload::cleanupUser('alice', '1'));
+        $oauth = $this->createMock(OAuthStore::class);
+        $oauth->expects($this->once())->method('deleteUpToGeneration')->with('alice', '1');
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('warning')->with('Skipping an invalid stored policy event', $this->anything());
+
+        $this->assertSame(1, (new PolicyEventProcessor($this->events, $oauth, $logger, $this->time()))->flush(10));
+        $this->assertSame(['status' => 'pending', 'attempts' => 1], $this->statuses()[str_repeat('0', 32)]);
+        $this->assertSame('delivered', $this->statuses()[str_repeat('f', 32)]['status']);
+        $invalid = null;
+        $this->events->pendingOf(['cleanup'], 10, $invalid);
+        $this->assertSame([str_repeat('0', 32)], $invalid);
+    }
+
+    /** Review F2: events that keep failing come after fresh ones, so a full batch of them never starves the queue. */
+    public function testEventsThatKeepFailingNeverHideAFreshOne(): void {
+        foreach (range(1, 3) as $n) {
+            $this->database->dbal->insert('mcp_policy_events', ['id' => str_repeat((string)$n, 32), 'kind' => 'cleanup', 'status' => 'pending',
+                'payload' => json_encode(PolicyEventPayload::cleanupUser('bob', '1')), 'created_at' => $this->now - 1000, 'attempts' => 9]);
+        }
+        $this->append(str_repeat('9', 32), 'cleanup', PolicyEventPayload::cleanupUser('alice', '1'));
+        $oauth = $this->createMock(OAuthStore::class);
+        $oauth->expects($this->once())->method('deleteUpToGeneration')->with('alice', '1');
+
+        $this->assertSame(1, (new PolicyEventProcessor($this->events, $oauth, new NullLogger(), $this->time()))->flush(3));
+    }
+
+    /** Review F2: the job stops at the first batch that delivers nothing instead of rereading it twenty times. */
+    public function testTheJobStopsAtABatchThatDeliversNothing(): void {
+        foreach (range(1, PolicyEventProcessor::JOB_BATCH) as $n) {
+            $this->database->dbal->insert('mcp_policy_events', ['id' => sprintf('%032x', $n), 'kind' => 'cleanup', 'status' => 'pending',
+                'payload' => json_encode(PolicyEventPayload::cleanupUser('bob', '1')), 'created_at' => $this->now, 'attempts' => 3]);
+        }
+        $reads = 0;
+        $events = new class($this->db, $this->time(), $reads) extends PolicyEventsMapper {
+            public function __construct(IDBConnection $db, ITimeFactory $time, private int &$reads) { parent::__construct($db, $time); }
+            public function pendingOf(array $kinds, int $limit, ?array &$invalid = null): array {
+                ++$this->reads;
+                return parent::pendingOf($kinds, $limit, $invalid);
+            }
+        };
+        (new PolicyEventProcessor($events, $this->createMock(OAuthStore::class), new NullLogger(), $this->time()))->maintenance();
+        $this->assertSame(1, $reads, 'none of them is due yet');
     }
 }
