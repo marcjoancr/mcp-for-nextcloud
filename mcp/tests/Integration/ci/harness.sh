@@ -253,28 +253,33 @@ install_release_app() {
     occ app:enable "$app"
 }
 
-# Release pinned per Nextcloud major: groupfolders, Talk and Notes each have one build per supported major.
+# Release pinned per Nextcloud major: groupfolders, Talk and Notes each have one build per supported major. The Calendar
+# release below declares min-version 32 and max-version 35, so one build serves every major this matrix covers.
 pin_releases() {
     case "$MCP_IT_NC" in
         32)
             GF_TAG=v20.1.19; GF_SHA=e59e6a11a50f60bf3bd23c243b7ec4b01af371c89e4ad65d4ec7e788058f50ff
             TALK_TAG=v22.0.19; TALK_SHA=c053dbce9c2a4a76c42e937d4d095502ba48a38c2e6fa02d46c36762573d6bff
             NOTES_TAG=v5.0.2; NOTES_SHA=1bf9e97a92bae5901a17c93666c4ac0f36ddfe68c69caa5d2368b18be6af7fdc
+            CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
             ;;
         33)
             GF_TAG=v21.0.15; GF_SHA=1ecdd644a2e913de8b333560717660f0ba75836309c4463af858e886cdc3a68c
             TALK_TAG=v23.0.12; TALK_SHA=a907070cb8c0eb69a0ef808f62ea6eea822365c97a1c0e6f4a86aa748eda6c79
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
+            CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
             ;;
         34)
             GF_TAG=v22.0.6; GF_SHA=bfff357b12bbd24257d8d127cf30e83a72256e7659f1cc3e32bd09fe647d2f9b
             TALK_TAG=v24.0.6; TALK_SHA=4a8d5cf52ed42223ea9937860f70c2e9dca1df8bfd5f75b871ae7569d2106110
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
+            CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
             ;;
         35)
             GF_TAG=v23.0.1; GF_SHA=3949e6a45947188090c170c6983aae11a1d66134ec317ffe7b7609062f3aecf3
             TALK_TAG=v25.0.6; TALK_SHA=2b3e3eae42d9bf8ba8da2ab244d16347a3cfacbb8bff346bd99cf32cd6f9c65e
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
+            CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
             ;;
         *)
             echo "No pinned releases for Nextcloud $MCP_IT_NC" >&2
@@ -325,13 +330,14 @@ cmd_provision() {
     log="$ARTIFACTS/provision.log"
     : > "$log"
     : > "$WORK/provision-failures"
-    for part in groupfolders files_external talk notes; do
+    for part in groupfolders files_external talk notes calendar; do
         echo "=== provisioning $part" | tee -a "$log"
         case "$part" in
             groupfolders) step=provision_groupfolders ;;
             files_external) step=provision_files_external ;;
             talk) step="install_release_app spreed spreed $TALK_TAG $TALK_SHA" ;;
             notes) step="install_release_app notes notes $NOTES_TAG $NOTES_SHA" ;;
+            calendar) step="install_release_app calendar calendar $CAL_TAG $CAL_SHA" ;;
         esac
         # Not inside an if or ||: there errexit would be ignored in the subshell and a failing command would not
         # fail the part.
