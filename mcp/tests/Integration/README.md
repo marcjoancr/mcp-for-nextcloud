@@ -108,3 +108,27 @@ builder), and a real lock wait on the issuance mutex held by another session, wi
 shortened for the test session (MariaDB `innodb_lock_wait_timeout`, PostgreSQL `lock_timeout`, SQLite
 `busy_timeout`); the elapsed time is printed to stderr. A real deadlock (MariaDB 1213, PostgreSQL 40P01) is not
 produced here.
+
+## GID lifecycle (T6, T19 group part)
+
+`OAuth/GroupLifecycleTest.php` (ticket 07) deletes and creates groups through the core's group manager and Database
+backend, with the app's listener as registered. A deletion of a group whose policy grants eligibility must, between
+core's Before and the backend delete (a probe right after the app's handler), show the lifecycle as `pending_delete`
+and the cause of the holder who loses its last source, with neither the mutex nor the revision moved (the one
+transition that runs without the mutex, see `GroupLifeMapper::markPendingDelete()`); after GroupDeletedEvent the rows
+and the lifecycle are gone, the holder is cut once and the cause is consumed (two revisions: purge and cut). A holder
+eligible through another source keeps its credential. A lost GroupDeletedEvent (another app throws first) leaves
+`pending_delete` until the job, which purges a group that is gone; a deletion that failed (the Before alone) is
+suspended by the job (`needs_confirm`, rows kept, eligibility through it unknown, nothing cut). Recreating the id
+purges a residual policy saved before the creation began (policy_rev <= R_c), a policy saved between the creation's
+Before and its event is kept, and a late GroupDeletedEvent carrying the old gen never removes a policy saved after the
+recreation. Creating another group while one is being deleted is never refused.
+
+The F5 case brackets the app's four group handlers between statement-log markers inside the caller's transaction
+(PostgreSQL cell: empty window), then lets core delete the group with its real dispatch (no app table touched, no
+failed statement), runs the next query and commits or rolls back; at the next safe point the policy is suspended
+(`needs_confirm`) and never deleted, committed or not. Delete and recreate of the same id in one committed transaction
+shows the accepted window of contracts §6.3 item 3 (i): another session still reads the old lifecycle as active until
+the deferred processing, which then suspends it.
+
+These tests were written while the integration workflow was disabled (Actions minutes): they have not run yet.
