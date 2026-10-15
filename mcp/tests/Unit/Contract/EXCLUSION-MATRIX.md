@@ -1,8 +1,12 @@
+<!--
+  SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 # Exclusion contract matrix (issue #4, A1)
 
 These are local contracts using OCP doubles and an in-memory tree. They do not
 certify Nextcloud core behavior, storage mounts, authentication sessions or event
-delivery. A4 must provide that evidence in the private Actions repository.
+delivery. A4 provides that evidence in the private Actions repository; its verdict is the last section of this file.
 
 For byte comparisons, keep the request identical and remove its excluded target
 between calls. This preserves caller-supplied paths in batch summaries while
@@ -44,3 +48,43 @@ must fail CI if a real mount violates that assumption and hides every file.
 
 The implemented A3 gate, its D6 precedence, URL nullability and translation fallback
 are specified in [the D7 contract map](FOLDER-EXPOSURE.md) and `FolderExposureTest`.
+
+## A4 verdict: real-server evidence (issue #4)
+
+Run [38783918353](https://github.com/sintax-tech/mcp-for-nextcloud-dev/actions/runs/38783918353) of the private `dev`
+repository, commit c51af34, is green in all twelve cells: NC 32, 33, 34 and 35 on MariaDB, NC 35 also on PostgreSQL and
+SQLite, each fresh and upgraded from v1.0.8 (86 tests per cell, 3 skipped only where the PostgreSQL-only smoke tests do not
+apply). The scenarios live in `tests/Integration/Exclusion/` and are described in `tests/Integration/README.md`. The tools
+are called over HTTP with a real app password (Basic) and a real OAuth access token (Bearer); files change through WebDAV
+and the server's Files API; groupfolders, three local external mounts, Talk and Notes are provisioned in every cell.
+
+| ID | Proven for real | Test |
+| --- | --- | --- |
+| V2 | A file created from outside the tools (WebDAV, three folder levels; Files API, five levels) inside an excluded folder is hidden without a tag of its own; a file created through the tools is hidden once an ancestor is tagged. Home, groupfolder, external storage and its alias. Tree, list and name search leave it out. | `InheritanceTest` |
+| V3 | WebDAV moves into and out of an excluded folder, of a file and of a whole folder, and a tagged folder moved elsewhere, are reflected by the next call; a tool move followed by a WebDAV move too; one guard instance follows real NodeRenamed and tag events inside one request. Home, groupfolder, external storage. | `MovesTest` |
+| V4 | A real share of a file or of a subfolder to another user is judged by the owner's chain: tag on the file, on the immediate parent, on a high ancestor, on the shared folder, on a subfolder or file inside it; visible again once the tag is removed. | `SharedOriginTest` |
+| V5 | Groupfolder: tag on the mount root and on a subfolder; a subfolder shared out of the groupfolder stays protected by its ancestors. Local external storage: a tag inside it hides the file through the wide mount and through a second mount of the same directory (alias); a tag on the mount root hides both; a narrow mount honors tags inside it and on its own root. | `MountsTest` |
+| V7 | Create, mkdir (also with intermediate folders), upload, copy, move, batch (also with a folder to create), undo, version restore, Notes create and move with an excluded source or destination are refused, the plan included, and the real tree shows no effect. D7 against the real share manager, copy and move: folder share and link refused with zero shares created; file share works; folder copy refused and file copy works; folder move to another directory and a batch with it refused; rename in the same parent allowed; link of a folder listed with `url: null`, of a file with its url, nothing revoked; without an exclusion folders behave as before; an exclusion set between plan and confirmation stops the copy. | `WritesTest` |
+| V9, phase 1 | A real Talk conversation with a real room share: `attachmentId` is withheld for every participant when the file is excluded by its own tag or by an ancestor and returns when the tag is removed; attaching or quoting an excluded file reads like one that does not exist and posts nothing. **Phase 2 (file only outside the Files scope, no tag) is not claimed here: B8.** | `TalkReferenceTest` |
+| V14 | One Basic login and one Bearer login, each reused for every call of the scenario: a tag assigned or removed, the tag leaving and returning to the exclusion list, a WebDAV move, a tagged ancestor, always reflected by the next call; the login is never revoked. | `SessionsTest` |
+| Positive controls (A1 review F4) | With an exclusion configured and nothing tagged, a plain file stays readable and listed in the home, in a groupfolder, in the external storage, its alias and the narrow mount, in a file and in a folder shared to another user, and in a groupfolder file shared to another user. | `PositiveControlsTest` |
+
+**What the controls found.** The first runs failed these controls in every cell: with any tag configured, files in a local
+external storage and files shared out of a groupfolder were refused. In a fresh process the folder above the root of any
+mount came back with the id of the mounted storage instead of its own, so the guard's walk saw an id it could not use and
+failed closed. The fix is in the guard (c51af34, "Resolve the folder above a mount root by its path"): the parent of a
+mount root is resolved again by its path. The same scenarios, unchanged, turned green.
+
+**Limits that stay.**
+
+- A narrower mount of a subdirectory (here `/mcp-it-ext/Open` next to the mount of `/mcp-it-ext`) is a separate storage in
+  Nextcloud with file ids of its own. A tag placed through the wide mount names other ids, so the file stays readable
+  through the narrow mount (recorded in the cell's `observations.txt`, not asserted as expected). A tag has to be placed
+  where the file is read; an administrator who mounts the same directory twice with different roots has two resources.
+  Two mounts of the *same* directory share their ids and are protected together (alias).
+- The proof runs in a runner-only configuration: `cache_app_config` is off, because core keeps the app config in the web
+  server's local cache and the PHP CLI that writes the settings cannot invalidate it. A real web pool that writes and reads
+  is unaffected.
+- V6 (federated shares) stays documental plus contract; V8, V10, V11, V12 and V13 are covered by the local contracts above
+  and were not repeated against the real server here (V10 real CalDAV objects with `ATTACH` are not part of A4's list).
+- Groupfolders are provisioned without advanced permissions (ACL rules); native groupfolder ACLs are not exercised.

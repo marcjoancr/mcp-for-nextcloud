@@ -1,3 +1,7 @@
+<!--
+  SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+  SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 # D7 folder exposure contract (issue #4, A3)
 
 The operation order is **node visibility (D6), D7, recursive helpers, mutation**.
@@ -31,7 +35,8 @@ including locks appearing after a plan; removing a folder share remains permitte
 
 Request boundaries in these doubles are modeled by `VisibilityGuard::clearCache`.
 Production requests resolve a fresh request-scoped guard; no visibility/config
-cache is stored across requests. Real core behavior and event delivery remain A4.
+cache is stored across requests. Real core behavior and event delivery are proven by A4
+(`WritesTest` against the real share manager, copy and move; see `EXCLUSION-MATRIX.md`).
 The existing privacy-race batch test now moves an individual file first, preserving
 its after-mutation tag assertion; moving a folder across parents is blocked by D7.
 

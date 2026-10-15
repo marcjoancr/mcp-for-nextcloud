@@ -40,3 +40,23 @@ reexecution must preserve existing counters, and a second writer must reject a s
 
 The event/outbox schema belongs to a later ticket; its rollback injection must be added when that schema exists.
 These tests do not certify OAuth generation/cause handling or the full T19 concurrency matrix.
+
+## Exclusion proof (issue #4, A4)
+
+`Exclusion/` runs the real scenarios of the exclusion by tags (V2, V3, V4, V5, V7, V9 phase 1, V14) and the positive
+controls; `Unit/Contract/EXCLUSION-MATRIX.md` holds the verdict and the limits.
+
+- **Provisioning** (`harness.sh provision`, after the fixtures): groupfolders (`mcp-it-gf`, group `mcp-it-staff`), Talk
+  and Notes from the project release repositories, pinned per Nextcloud major by tag and SHA-256, and three global local
+  external mounts for both fixture users: `mcp-it-ext-wide` (`/mcp-it-ext`), `mcp-it-ext-alias` (the same directory) and
+  `mcp-it-ext-narrow` (`/mcp-it-ext/Open`). Each part is attempted on its own; a failure is recorded and
+  `ProvisioningTest` fails by name, with `provision.log` in the cell's artifact. Nothing is left silently uncovered.
+- **Real logins**: an app password (HTTP Basic, created through the core token provider) and an OAuth access token from the
+  app's own `TokenService` (Bearer, PKCE), used over HTTP against the container's Apache. Files change from outside the
+  tools through WebDAV and the server's Files API; tags, shares and links through the core services.
+- **`cache_app_config` is off** in the cell: the suite writes settings from the PHP CLI and the web server reads them, and
+  core's local app-config cache cannot be invalidated across the two.
+- **Diagnostics**: `DiagnosticsTest` records, in `observations.txt` of the artifact, how each kind of mount looks to the guard
+  (including the ancestor walk in a fresh process, `Support/chain-probe.php`) and the answers of the tools for it. Behavior
+  that is documented rather than asserted (the narrow mount of a subdirectory is a separate storage) is recorded there too.
+- Not covered here: V9 phase 2 (B8), V6 (federated), groupfolder ACL rules, S-scenarios of part B.
