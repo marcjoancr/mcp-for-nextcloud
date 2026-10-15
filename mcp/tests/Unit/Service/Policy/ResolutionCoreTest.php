@@ -25,7 +25,7 @@ use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
-use OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore;
+use OCA\Mcp\Service\Policy\PolicyEventProcessor;
 use OCA\Mcp\Tests\Unit\SqliteDatabase;
 use OCP\App\IAppManager;
 use OCP\Config\IUserConfig;
@@ -95,8 +95,9 @@ final class ResolutionCoreTest extends TestCase {
         $this->logs->method('available')->willReturn(true);
         $this->logs->method('permits')->willReturn(true);
         $this->writer = new PolicyWriter($this->db, $this->state, $this->createMock(PolicyEventsMapper::class),
-            $this->config, $this->userConfig, $this->appConfig, $this->users, new InMemoryOAuthStore(),
-            $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
+            $this->config, $this->userConfig, $this->appConfig, $this->users,
+            $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class), $this->createMock(\OCA\Mcp\Db\AuthUsersMapper::class),
+            $this->createMock(\OCA\Mcp\Db\RecheckMapper::class), $this->createMock(PolicyEventProcessor::class));
         $this->resolver = $this->resolver();
     }
 
