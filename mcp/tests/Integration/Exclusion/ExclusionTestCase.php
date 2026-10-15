@@ -287,11 +287,17 @@ abstract class ExclusionTestCase extends IntegrationTestCase {
     }
 
     /** The reply is a refusal and, byte for byte, the one a path that does not exist gets. */
-    protected function assertRefusedAsMissing(McpClient $client, ToolReply $reply, string $label): void {
-        $missing = $this->missingReply($client);
+    protected function assertRefusedAsMissing(McpClient $client, ToolReply $reply, string $label, ?ToolReply $reference = null): void {
+        $missing = $reference ?? $this->missingReply($client);
         $this->assertTrue($missing->isError(), 'The reference reply of a missing path is a refusal: ' . $missing->describe());
         $this->assertTrue($reply->isError(), "$label must be refused: " . $reply->describe());
         $this->assertSame($missing->text(), $reply->text(), "$label must read exactly like a path that does not exist");
+    }
+
+    /** The reply is the generic refusal of a resource that is not there (the text may carry a tool-specific hint). */
+    protected function assertRefusedAsNotFound(ToolReply $reply, string $label): void {
+        $this->assertTrue($reply->isError(), "$label must be refused: " . $reply->describe());
+        $this->assertStringStartsWith('Resource not found in Nextcloud.', $reply->text(), $label);
     }
 
     protected function assertReadable(McpClient $client, string $path, string $content, string $label): void {

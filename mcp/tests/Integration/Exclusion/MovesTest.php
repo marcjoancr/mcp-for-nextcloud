@@ -71,6 +71,7 @@ final class MovesTest extends ExclusionTestCase {
     public function testAMoveThroughTheToolsAndThenOneThroughWebDavAreBothSeenByTheNextCall(): void {
         $this->makeFile('home', 'open/t.txt', 'by the tool, then by dav');
         $this->tag($this->makeFolder('home', 'locked'));
+        $this->makeFolder('home', 'open2');
         $this->exclude();
         $alice = $this->mcp();
 

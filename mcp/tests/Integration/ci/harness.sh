@@ -298,6 +298,11 @@ provision_files_external() {
 # the scenario that needs the part (Exclusion/ProvisioningTest), with this log next to it in the uploaded artifact.
 cmd_provision() {
     pin_releases
+    # Core keeps the app config in the local cache (APCu) of the web server and invalidates it only for writes made
+    # by that same cache. The suite writes the app's settings from the PHP CLI and reads them in the web server's
+    # requests, so without this the server would keep serving a stale value (for example an exclusion list the test
+    # just emptied). Runner-only: the production path, a single web pool that writes and reads, is unaffected.
+    occ config:system:set cache_app_config --value=false --type=boolean
     log="$ARTIFACTS/provision.log"
     : > "$log"
     : > "$WORK/provision-failures"

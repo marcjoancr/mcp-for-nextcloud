@@ -48,8 +48,16 @@ final class WritesTest extends ExclusionTestCase {
         ];
         foreach ($cases as $label => $arguments) {
             $tool = explode(' ', $label)[0];
-            $this->assertRefusedAsMissing($alice, $alice->tool($tool, $arguments), "$label, plan without confirm");
-            $this->assertRefusedAsMissing($alice, $alice->write($tool, $arguments), "$label, confirmed");
+            // The same tool, planned for a destination folder that does not exist: its refusal may carry a hint of
+            // its own (files_create says to create the folder first), and the excluded folder must read the same.
+            $absent = ['path' => $this->path('home', 'no-such-folder', basename($arguments['path']))] + $arguments;
+            $reference = $alice->tool($tool, $absent);
+            foreach (['plan without confirm' => $alice->tool($tool, $arguments), 'confirmed' => $alice->write($tool, $arguments)] as $step => $reply) {
+                $this->assertRefusedAsNotFound($reply, "$label, $step");
+                if ($reference->isError()) {
+                    $this->assertSame($reference->text(), $reply->text(), "$label, $step, reads like a destination that does not exist");
+                }
+            }
         }
         foreach (['locked/new.txt', 'locked/newdir', 'locked/a', 'locked/a/b', 'locked/up.bin'] as $relative) {
             $this->assertNoEffect($relative);
@@ -83,9 +91,11 @@ final class WritesTest extends ExclusionTestCase {
             ['from' => $this->path('home', 'open', 'p.txt'), 'to' => $this->path('home', 'open', 'p2.txt')],
             ['from' => $this->path('home', 'open', 'o.txt'), 'to' => $this->path('home', 'locked', 'b.txt')],
         ];
-        foreach ([$alice->tool('files_move_batch', ['moves' => $moves]), $alice->write('files_move_batch', ['moves' => $moves])] as $reply) {
-            $this->assertTrue($reply->isError(), 'the mixed batch is refused: ' . $reply->describe());
-        }
+        $plan = $alice->tool('files_move_batch', ['moves' => $moves]);
+        $this->assertStringContainsString('Not allowed by Nextcloud', $plan->text(), 'the plan lists the item as not allowed: ' . $plan->describe());
+        $this->assertStringContainsString('Resource not found in Nextcloud.', $plan->text(), 'with the generic reason: ' . $plan->describe());
+        $confirmed = $alice->write('files_move_batch', ['moves' => $moves]);
+        $this->assertTrue($confirmed->isError(), 'the mixed batch is refused when confirmed: ' . $confirmed->describe());
         $inFolder = $alice->write('files_move_batch', ['moves' => [['from' => $this->path('home', 'open', 'o.txt'), 'to' => $this->path('home', 'open', 'o2.txt')]],
             'mkdirs' => [$this->path('home', 'locked', 'made')]]);
         $this->assertTrue($inFolder->isError(), 'a folder to create inside the excluded folder is refused: ' . $inFolder->describe());
