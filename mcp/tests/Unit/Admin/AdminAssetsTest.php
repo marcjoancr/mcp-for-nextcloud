@@ -64,7 +64,7 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(6, $matches);
+        $this->assertCount(7, $matches);
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -159,7 +159,7 @@ final class AdminAssetsTest extends TestCase {
         $ordered = [
             'role="tablist"',
             'id="mcp-panel-overview"', 'id="mcp-block-status"',
-            'id="mcp-panel-access"', 'id="mcp-block-matrix"',
+            'id="mcp-panel-access"', 'id="mcp-block-matrix"', 'id="mcp-inspector"',
             'id="mcp-panel-clients"', 'id="mcp-block-oauth"', 'id="mcp-connections"',
             'id="mcp-panel-protection"', 'id="mcp-block-tags"',
             'id="mcp-panel-advanced"', 'id="mcp-block-logs"', 'id="mcp-block-logs-privacy"', 'id="mcp-block-ocr"',
@@ -172,12 +172,12 @@ final class AdminAssetsTest extends TestCase {
         $this->assertSame($sorted, $positions, 'tabs, panels and blocks must appear in the tab order');
     }
 
-    /** Nine blocks, each a core settings section with its own heading, in the tab order. */
-    public function testAdminPageHasNineSectionBlocks(): void {
+    /** Ten blocks, each a core settings section with its own heading, in the tab order. */
+    public function testAdminPageHasTenSectionBlocks(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
         preg_match_all('/<div class="section mcp-block" id="([^"]+)"[^>]*>\s*<h2><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
-        $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
-        $this->assertSame(['Status', 'Group grants', 'Permissions', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
+        $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-inspector', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
+        $this->assertSame(['Status', 'Group grants', 'Permissions', 'Access inspector', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         $this->assertStringContainsString('data-scope="admin"', $template);
     }
 
@@ -450,7 +450,7 @@ final class AdminAssetsTest extends TestCase {
         $this->assertTrue($loaded);
         $blocks = [
             'mcp-panel-overview' => ['mcp-block-status'],
-            'mcp-panel-access' => ['mcp-group-editor', 'mcp-block-matrix'],
+            'mcp-panel-access' => ['mcp-group-editor', 'mcp-block-matrix', 'mcp-inspector'],
             'mcp-panel-clients' => ['mcp-block-oauth', 'mcp-connections'],
             'mcp-panel-protection' => ['mcp-block-tags'],
             'mcp-panel-advanced' => ['mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'],

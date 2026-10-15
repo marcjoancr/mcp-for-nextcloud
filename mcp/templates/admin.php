@@ -19,6 +19,7 @@
 \OCP\Util::addScript('mcp', 'admin-picker');
 \OCP\Util::addScript('mcp', 'admin-grants');
 \OCP\Util::addScript('mcp', 'admin-groups');
+\OCP\Util::addScript('mcp', 'admin-inspector');
 \OCP\Util::addScript('mcp', 'connections');
 \OCP\Util::addScript('mcp', 'admin-tabs');
 \OCP\Util::addStyle('mcp', 'admin');
@@ -154,6 +155,41 @@
                 <span id="mcp-page-info-bottom"></span>
                 <button type="button" id="mcp-next-bottom"><?php p($l->t('Next')); ?></button>
             </span>
+        </div>
+    </div>
+    <div class="section mcp-block" id="mcp-inspector">
+        <h2><?php p($l->t('Access inspector')); ?></h2>
+        <p class="mcp-hint"><?php p($l->t('Shows what the MCP tools of one user may do now and the first check that blocks each operation, with the same rules the tools use. It only reads: nothing is changed.')); ?></p>
+        <form id="mcp-inspector-form" class="mcp-inspector-form">
+            <label for="mcp-inspector-user"><?php p($l->t('User ID')); ?></label>
+            <input type="text" id="mcp-inspector-user" autocomplete="off" spellcheck="false">
+            <button type="submit"><?php p($l->t('Inspect')); ?></button>
+        </form>
+        <p id="mcp-inspector-status" role="status" aria-live="polite"></p>
+        <p id="mcp-inspector-alert" role="alert" aria-live="assertive"></p>
+        <div id="mcp-inspector-access"></div>
+        <div id="mcp-inspector-resources" hidden>
+            <h3><?php p($l->t('Why a file or calendar is reached or not')); ?></h3>
+            <p class="mcp-hint"><?php p($l->t('Names appear only here, for administrators. To the MCP tools, anything they cannot reach is simply not found.')); ?></p>
+            <form id="mcp-inspector-path-form" class="mcp-inspector-form">
+                <label for="mcp-inspector-path"><?php p($l->t('Path in the files of the user')); ?></label>
+                <input type="text" id="mcp-inspector-path" placeholder="/Documents/report.pdf" autocomplete="off" spellcheck="false">
+                <button type="submit"><?php p($l->t('Explain')); ?></button>
+            </form>
+            <p id="mcp-inspector-path-result" aria-live="polite"></p>
+            <form id="mcp-inspector-calendar-form" class="mcp-inspector-form">
+                <label for="mcp-inspector-calendar-module"><?php p($l->t('Module')); ?></label>
+                <select id="mcp-inspector-calendar-module">
+                    <option value="calendar"><?php p($l->t('Calendar')); ?></option>
+                    <option value="tasks"><?php p($l->t('Tasks')); ?></option>
+                </select>
+                <label for="mcp-inspector-calendar"><?php p($l->t('Calendar or task list')); ?></label>
+                <select id="mcp-inspector-calendar"></select>
+                <label for="mcp-inspector-calendar-operation"><?php p($l->t('Operation')); ?></label>
+                <select id="mcp-inspector-calendar-operation"></select>
+                <button type="submit"><?php p($l->t('Explain')); ?></button>
+            </form>
+            <p id="mcp-inspector-calendar-result" aria-live="polite"></p>
         </div>
     </div>
     </div>
