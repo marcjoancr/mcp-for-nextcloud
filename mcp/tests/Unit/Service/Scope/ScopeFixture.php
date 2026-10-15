@@ -107,8 +107,11 @@ final class ScopeFixture {
         return new NativeResourceEnumerator($root, new CalendarAccess($this->calendars), $this->guard);
     }
 
-    /** @param bool $open whether every module's activation barrier is open; false is the shipped state */
-    public function writer(bool $open = true, ?NativeResourceEnumerator $resources = null): PolicyWriter {
+    /**
+     * @param bool $open whether every module's activation barrier is open; false closes all three, as before B5 and B6
+     * @param ScopeActivation|null $activation a barrier of its own instead, such as the shipped one (new ScopeActivation())
+     */
+    public function writer(bool $open = true, ?NativeResourceEnumerator $resources = null, ?ScopeActivation $activation = null): PolicyWriter {
         $time = $this->mock(ITimeFactory::class);
         $time->method('getTime')->willReturnCallback(fn () => $this->now);
         return new PolicyWriter($this->db, $this->state, $this->events, $this->config->mock($this->test),
@@ -117,7 +120,38 @@ final class ScopeFixture {
             new \OCA\Mcp\Service\Policy\PolicyEventProcessor($this->events, $this->oauth, new \Psr\Log\NullLogger(), $time),
             new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), $this->oauth,
             $this->scopes, $resources ?? $this->enumerator(),
-            $open ? new ScopeActivation(['files' => true, 'calendar' => true, 'tasks' => true]) : new ScopeActivation());
+            $activation ?? new ScopeActivation(['files' => $open, 'calendar' => $open, 'tasks' => $open]));
+    }
+
+    /**
+     * The resolution core over these tables, without any group: the policy every tool of alice reads.
+     *
+     * @param PolicyWriter $writer the writer whose context the resolution checks
+     */
+    public function resolver(PolicyWriter $writer): \OCA\Mcp\Service\Policy\PolicyResolver {
+        $backend = (new \ReflectionMethod($this->test, 'createMockForIntersectionOfInterfaces'))->invoke($this->test, [\OCP\GroupInterface::class, \OCP\Group\Backend\INamedBackend::class]);
+        $backend->method('getBackendName')->willReturn('Database');
+        $backend->method('getUserGroups')->willReturn([]);
+        $backend->method('groupExists')->willReturn(false);
+        $groups = $this->mock(\OCP\IGroupManager::class);
+        $groups->method('getBackends')->willReturn([$backend]);
+        $apps = $this->mock(\OCP\App\IAppManager::class);
+        $apps->method('isEnabledForUser')->willReturn(true);
+        $apps->method('getAppVersion')->willReturn('99.0.0');
+        $logs = $this->mock(\OCA\Mcp\Service\Policy\LogsRoleReader::class);
+        $logs->method('read')->willReturn(['available' => true, 'permitted' => true]);
+        $life = new \OCA\Mcp\Db\GroupLifeMapper($this->db);
+        return new \OCA\Mcp\Service\Policy\PolicyResolver($this->state, $writer, $this->config->mock($this->test),
+            $this->mock(IUserConfig::class), $this->mock(IAppConfig::class), $this->userManager(),
+            new \OCA\Mcp\Service\Policy\MembershipReader($groups), new \OCA\Mcp\Service\Policy\GroupSourceClassifier($groups),
+            new \OCA\Mcp\Db\GroupGrantsMapper($this->db), $life,
+            new \OCA\Mcp\Service\Policy\GroupTrustObserver($this->db, $writer, $life, $this->mock(\Psr\Log\LoggerInterface::class)),
+            $apps, $logs, new ResourceScopeMapper($this->db));
+    }
+
+    /** The GrantPolicy the tools read, over resolver($writer). */
+    public function policy(PolicyWriter $writer): \OCA\Mcp\Service\GrantPolicy {
+        return new \OCA\Mcp\Service\GrantPolicy($this->config->mock($this->test), $this->mock(IUserConfig::class), $writer, $this->resolver($writer));
     }
 
     public function userManager(): IUserManager {
