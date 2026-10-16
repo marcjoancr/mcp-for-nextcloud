@@ -27,7 +27,7 @@ class AuthorizationValidator {
         $get = static fn (string $name): string => is_string($params[$name] ?? null) ? $params[$name] : '';
         $client = $this->resolver->resolve($get('client_id'));
         $redirectUri = $get('redirect_uri');
-        if ($redirectUri === '' || !RedirectUriMatcher::matches($redirectUri, $client->redirectUris)) {
+        if ($redirectUri === '' || !$client->allowsRedirect($redirectUri)) {
             throw new OAuthException('invalid_request', 'redirect_uri is not registered for this client');
         }
         if ($get('response_type') !== 'code') {
@@ -46,5 +46,25 @@ class AuthorizationValidator {
         }
         return new AuthorizationRequest($client, $redirectUri, $get('state'), $get('code_challenge'),
             $resource !== '' ? $resource : $expectedResource, $scopes === [] ? 'mcp' : implode(' ', $scopes));
+    }
+
+    /**
+     * Checks a request kept in the session against what the administrator allows now, before the consent page answers
+     * anything (allow or deny): the pending request is older than the decision and must not return to a client that was
+     * turned off, deleted or turned on again since, nor to a redirect URI that was withdrawn. Only the clients the
+     * administrator manages are checked (the native one and the self-hosted ones); a CIMD document is not fetched again.
+     *
+     * @param AuthorizationRequest $request the pending request restored from the session
+     * @throws OAuthException invalid_client / invalid_request (never redirectable) when the request no longer stands
+     */
+    public function revalidate(AuthorizationRequest $request): void {
+        $id = $request->client->clientId;
+        if ($id !== NativeClient::CLIENT_ID && !CustomClient::owns($id)) {
+            return;
+        }
+        $client = $this->resolver->resolve($id);
+        if ($client->generation !== $request->client->generation || !$client->allowsRedirect($request->redirectUri)) {
+            throw new OAuthException('invalid_request', 'The authorization request is no longer valid for this client');
+        }
     }
 }

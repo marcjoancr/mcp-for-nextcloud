@@ -194,4 +194,20 @@ final class AccessInspectorTest extends TestCase {
     private static function summary(array $row): array {
         return [$row['allowed'], $row['reasonCode'], $row['blockingGate'], $row['grant']['source']];
     }
+
+    /**
+     * B1 of the merge review: candidates that cannot be built leave the scope gate not evaluated under the one name the
+     * admin page knows for it, resource_scope_unknown, the same as an unreadable scope.
+     */
+    public function testUnbuildableCandidatesNameTheUnknownScopeGate(): void {
+        $this->writer->setResourceScope($this->fx->revision(), 'root', 'alice', 'files', [$this->fx->projects]);
+        $scope = $this->createMock(\OCA\Mcp\Service\Scope\FilesScope::class);
+        $scope->method('candidatesIn')->willThrowException(new \RuntimeException('Unresolved chain'));
+        $resolver = $this->fx->resolver($this->writer);
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $this->fx->tree->rootFolder());
+        $inspector = new I($resolver, $root, $this->fx->guard, new CalendarAccessExplainer($resolver, new CalendarAccess($this->fx->calendars)), $scope);
+        $this->assertSame(['reason' => I::NOT_EVALUATED, 'gate' => 'resource_scope_unknown', 'exclusion' => null, 'folder' => null],
+            $inspector->path('alice', '/Projects'));
+    }
 }

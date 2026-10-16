@@ -10,7 +10,8 @@ declare(strict_types=1);
  * installed app, before the upgrade. It issues OAuth credentials through the baseline's own store and hasher, as a
  * client of that release would hold them: a pending code, a grant rotated once (which leaves a spent record) and a
  * second grant. The plain values and the rows as the baseline wrote them go to the file named by the argument, for
- * OAuth/LegacyCredentialsTest to check after the upgrade (validation T12). The owner is created later by the fixture
+ * OAuth/LegacyCredentialsTest to check after the upgrade (validation T12). It also turns the native client on, as the
+ * baseline's admin page does, for Compat/NativeClientMigrationTest. The owner is created later by the fixture
  * step; a row only names it.
  */
 
@@ -57,6 +58,10 @@ if (!$store->rotate($id, $hasher->hash($spent), $hasher->hash($tokens['rotated']
     fwrite(STDERR, "The baseline store refused to rotate the legacy grant\n");
     exit(1);
 }
+
+// The native client switched on through the baseline's own setting, as its admin page writes it: the upgrade must carry it
+// into the app's table of clients (Compat/NativeClientMigrationTest).
+Server::get(\OCP\IConfig::class)->setAppValue('mcp', 'oauth_native_client_enabled', '1');
 
 $db = Server::get(IDBConnection::class);
 $rows = [];

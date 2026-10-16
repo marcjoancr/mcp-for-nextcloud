@@ -9,6 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Admin;
 
 use OCA\Mcp\Controller\GrantsController;
 use OCA\Mcp\OAuth\ClientMetadataFetcher;
+use OCA\Mcp\OAuth\CustomClient;
 use OCA\Mcp\OAuth\NativeClient;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -37,8 +38,8 @@ final class GrantsControllerTest extends TestCase {
         $this->body = $body;
         $request = $this->createMock(IRequest::class);
         $request->method('getParam')->willReturnCallback(fn (string $key, $default = null) => array_key_exists($key, $this->body) ? $this->body[$key] : $default);
-        return new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(), $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(),
-            $this->fx->writer(), $this->fx->state(), $this->session('root'), $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class));
+        return new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(), $this->fx->config->mock($this), $this->fx->logsAccess(),
+            $this->fx->writer(), $this->fx->state(), $this->session('root'), $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class), $this->fx->clients());
     }
 
     private function session(string $uid): \OCP\IUserSession {
@@ -202,6 +203,8 @@ final class GrantsControllerTest extends TestCase {
             'nativeClientEnabled' => false,
             'nativeClientId' => NativeClient::CLIENT_ID,
             'nativeRedirectUris' => NativeClient::REDIRECT_URIS,
+            'revision' => '0',
+            'customClients' => [],
         ], $data);
     }
 
@@ -216,7 +219,7 @@ final class GrantsControllerTest extends TestCase {
 
     public function testOauthClientsReadsExplicitConfig(): void {
         $this->fx->config->app['mcp']['oauth_client_hosts'] = 'claude.ai,gemini.example.com';
-        $this->fx->config->app['mcp']['oauth_native_client_enabled'] = '1';
+        $this->fx->clients->native(true);
         $data = $this->controller()->oauthClients()->getData();
         $this->assertSame(['claude.ai', 'gemini.example.com'], $data['hosts']);
         $this->assertFalse($data['hostsDefault']);
@@ -228,13 +231,14 @@ final class GrantsControllerTest extends TestCase {
         $this->assertSame('claude.ai,my-host.example.org', $this->fx->config->app['mcp']['oauth_client_hosts']);
         $this->assertSame(['claude.ai', 'my-host.example.org'], $data['hosts']);
         $this->assertFalse($data['hostsDefault']);
-        $this->assertArrayNotHasKey('oauth_native_client_enabled', $this->fx->config->app['mcp']);
+        $this->assertNull($this->fx->clients->nativeRow());
 
         $data = $this->controller(['nativeClientEnabled' => true])->updateOauthClients()->getData();
-        $this->assertSame('1', $this->fx->config->app['mcp']['oauth_native_client_enabled']);
+        $this->assertTrue($this->fx->clients->nativeRow());
         $this->assertTrue($data['nativeClientEnabled']);
         $this->controller(['nativeClientEnabled' => false])->updateOauthClients();
-        $this->assertSame('0', $this->fx->config->app['mcp']['oauth_native_client_enabled']);
+        $this->assertFalse($this->fx->clients->nativeRow());
+        $this->assertSame('2', $this->fx->clients->mapper->find(NativeClient::CLIENT_ID)['gen'], 'turning it off advances its generation');
     }
 
     public function testDisablingTheNativeClientDeletesOnlyItsGrants(): void {
@@ -246,6 +250,151 @@ final class GrantsControllerTest extends TestCase {
         $this->controller(['nativeClientEnabled' => false])->updateOauthClients();
         $this->assertSame(['https://claude.ai/x'], array_values(array_column($this->fx->oauth->tokens, 'client_id')));
         $this->assertSame([], $this->fx->oauth->codes);
+    }
+
+    private const CB = 'https://harness.example.com/oauth/callback';
+
+    /** @return list<array<string, mixed>> the self-hosted clients as stored */
+    private function storedCustom(): array {
+        return $this->fx->clients->stored();
+    }
+
+    public function testUpdateOauthClientsAddsSelfHostedClientsWithTheirOwnIds(): void {
+        $data = $this->controller(['customClients' => [
+            ['name' => ' QwenPaw ', 'enabled' => true, 'redirectUris' => [' ' . self::CB, self::CB]],
+            ['name' => 'Équipe', 'enabled' => false, 'redirectUris' => ['https://other.example.org/cb?tenant=a']],
+        ]])->updateOauthClients()->getData();
+        $stored = $this->storedCustom();
+        $this->assertCount(2, $stored);
+        $this->assertSame(['QwenPaw', true, [self::CB]], [$stored[0]['name'], $stored[0]['enabled'], $stored[0]['redirectUris']]);
+        $this->assertSame('Équipe', $stored[1]['name']);
+        $this->assertNotSame($stored[0]['id'], $stored[1]['id']);
+        $this->assertSame([
+            ['id' => $stored[0]['id'], 'clientId' => 'nextcloud-mcp-custom-' . $stored[0]['id'], 'name' => 'QwenPaw', 'enabled' => true, 'redirectUris' => [self::CB]],
+            ['id' => $stored[1]['id'], 'clientId' => 'nextcloud-mcp-custom-' . $stored[1]['id'], 'name' => 'Équipe', 'enabled' => false,
+                'redirectUris' => ['https://other.example.org/cb?tenant=a']],
+        ], $data['customClients']);
+        $this->assertFalse($data['nativeClientEnabled']);
+
+        $data = $this->controller(['customClients' => []])->updateOauthClients()->getData();
+        $this->assertSame([], $this->storedCustom());
+        $this->assertSame([], $data['customClients']);
+    }
+
+    /** Clients A and B with one grant each, plus a native and a CIMD grant; returns [idA, idB]. */
+    private function twoClientsWithGrants(): array {
+        $data = $this->controller(['customClients' => [
+            ['name' => 'A', 'enabled' => true, 'redirectUris' => [self::CB]],
+            ['name' => 'B', 'enabled' => true, 'redirectUris' => ['https://b.example/cb']],
+        ]])->updateOauthClients()->getData();
+        [$a, $b] = array_column($data['customClients'], 'id');
+        $this->fx->oauth->insertToken(['user_id' => 'ana', 'client_id' => CustomClient::clientId($a)], 0);
+        $this->fx->oauth->insertCode(['user_id' => 'bob', 'client_id' => CustomClient::clientId($a)], 0);
+        $this->fx->oauth->insertToken(['user_id' => 'ana', 'client_id' => CustomClient::clientId($b)], 0);
+        $this->fx->oauth->insertToken(['user_id' => 'ana', 'client_id' => NativeClient::CLIENT_ID], 0);
+        $this->fx->oauth->insertToken(['user_id' => 'ana', 'client_id' => 'https://claude.ai/x'], 0);
+        return [$a, $b];
+    }
+
+    /** @return list<string> client_ids that still have tokens */
+    private function tokenClients(): array {
+        return array_values(array_column($this->fx->oauth->tokens, 'client_id'));
+    }
+
+    public function testRenamingOrAddingAUriOrTurningOnRevokesNothing(): void {
+        [$a, $b] = $this->twoClientsWithGrants();
+        $this->controller(['customClients' => [
+            ['id' => $b, 'name' => 'B', 'enabled' => true, 'redirectUris' => ['https://b.example/cb']],
+            ['id' => $a, 'name' => 'A renamed', 'enabled' => true, 'redirectUris' => ['https://a.example/second', self::CB]],
+        ]])->updateOauthClients();
+        $this->assertCount(4, $this->fx->oauth->tokens);
+        $this->assertCount(1, $this->fx->oauth->codes);
+        $this->assertSame('A renamed', $this->storedCustom()[1]['name']);
+    }
+
+    public function testTurningOffDeletingOrRemovingAUriRevokesOnlyThatClient(): void {
+        [$a, $b] = $this->twoClientsWithGrants();
+        $keepB = ['id' => $b, 'name' => 'B', 'enabled' => true, 'redirectUris' => ['https://b.example/cb']];
+        $this->controller(['customClients' => [['id' => $a, 'name' => 'A', 'enabled' => false, 'redirectUris' => [self::CB]], $keepB]])->updateOauthClients();
+        $this->assertSame([CustomClient::clientId($b), NativeClient::CLIENT_ID, 'https://claude.ai/x'], $this->tokenClients());
+        $this->assertSame([], $this->fx->oauth->codes);
+
+        $this->controller(['customClients' => [['id' => $a, 'name' => 'A', 'enabled' => true, 'redirectUris' => [self::CB]],
+            ['id' => $b, 'name' => 'B', 'enabled' => true, 'redirectUris' => ['https://b2.example/cb']]]])->updateOauthClients();
+        $this->assertSame([NativeClient::CLIENT_ID, 'https://claude.ai/x'], $this->tokenClients());
+
+        $this->fx->oauth->insertToken(['user_id' => 'ana', 'client_id' => CustomClient::clientId($a)], 0);
+        $this->fx->oauth->insertToken(['user_id' => 'ana', 'client_id' => CustomClient::clientId($b)], 0);
+        $this->controller(['customClients' => [['id' => $b, 'name' => 'B', 'enabled' => true, 'redirectUris' => ['https://b2.example/cb']]]])->updateOauthClients();
+        $this->assertSame([NativeClient::CLIENT_ID, 'https://claude.ai/x', CustomClient::clientId($b)], $this->tokenClients());
+        $this->assertSame([$b], array_column($this->storedCustom(), 'id'));
+    }
+
+    /**
+     * Scenario F2 of the review: administrators A and B load clients C and D. A turns C off; B, on the old page, renames D
+     * and sends the whole list. The server answers 409 with the state now stored, so B's page cannot turn C on again, and
+     * nothing of B's save is written.
+     */
+    public function testASaveFromAnOutdatedPageIsAConflictAndNeverReEnablesAClientAnotherAdminTurnedOff(): void {
+        $first = $this->controller(['customClients' => [
+            ['name' => 'C', 'enabled' => true, 'redirectUris' => [self::CB]],
+            ['name' => 'D', 'enabled' => true, 'redirectUris' => ['https://d.example/cb']],
+        ]])->updateOauthClients()->getData();
+        [$c, $d] = $first['customClients'];
+        $pageRevision = $first['revision'];
+
+        $turnedOff = $this->controller(['expectedRevision' => $pageRevision, 'customClients' => [array_merge($c, ['enabled' => false]), $d]])->updateOauthClients();
+        $this->assertSame(200, $turnedOff->getStatus());
+        $this->assertNotSame($pageRevision, $turnedOff->getData()['revision']);
+
+        $stale = $this->controller(['expectedRevision' => $pageRevision, 'customClients' => [$c, array_merge($d, ['name' => 'D renamed'])]])->updateOauthClients();
+        $this->assertSame(409, $stale->getStatus());
+        $this->assertSame('Conflict', $stale->getData()['error']);
+        $this->assertSame($turnedOff->getData()['revision'], $stale->getData()['revision']);
+        $this->assertSame([false, true], array_column($stale->getData()['state']['customClients'], 'enabled'), 'the answer carries what is stored now');
+        $this->assertSame(['C', 'D'], array_column($this->storedCustom(), 'name'), 'the stale rename was not written');
+        $this->assertSame([false, true], array_column($this->storedCustom(), 'enabled'));
+    }
+
+    /** The same hole for a removed URI, and for a client one administrator deleted while another saved the full list. */
+    public function testAStaleSaveNeverRestoresARemovedUriOrADeletedClient(): void {
+        $first = $this->controller(['customClients' => [
+            ['name' => 'C', 'enabled' => true, 'redirectUris' => [self::CB, 'https://c.example/second']],
+            ['name' => 'D', 'enabled' => true, 'redirectUris' => ['https://d.example/cb']],
+        ]])->updateOauthClients()->getData();
+        [$c, $d] = $first['customClients'];
+        $this->controller(['expectedRevision' => $first['revision'], 'customClients' => [array_merge($c, ['redirectUris' => [self::CB]])]])->updateOauthClients();
+        $stale = $this->controller(['expectedRevision' => $first['revision'], 'customClients' => [$c, array_merge($d, ['enabled' => false])]])->updateOauthClients();
+        $this->assertSame(409, $stale->getStatus());
+        $this->assertSame([[self::CB]], array_column($this->storedCustom(), 'redirectUris'), 'the removed URI stayed removed and D stayed deleted');
+    }
+
+    /** Two saves from one revision: the second loses even when it only adds a client, so no client is lost either. */
+    public function testOfTwoSavesFromOneRevisionTheSecondIsRefused(): void {
+        $revision = $this->controller()->oauthClients()->getData()['revision'];
+        $a = ['name' => 'A', 'enabled' => true, 'redirectUris' => [self::CB]];
+        $this->assertSame(200, $this->controller(['expectedRevision' => $revision, 'customClients' => [$a]])->updateOauthClients()->getStatus());
+        $second = $this->controller(['expectedRevision' => $revision, 'customClients' => [array_merge($a, ['name' => 'B'])]])->updateOauthClients();
+        $this->assertSame(409, $second->getStatus());
+        $this->assertSame(['A'], array_column($this->storedCustom(), 'name'));
+    }
+
+    public function testEveryOauthClientSaveNeedsTheRevisionOfItsPage(): void {
+        foreach ([['hosts' => ['claude.ai']], ['nativeClientEnabled' => true], ['customClients' => []]] as $body) {
+            $response = $this->controller($body + ['expectedRevision' => null])->updateOauthClients();
+            $this->assertSame([428, ['error' => 'PreconditionRequired']], [$response->getStatus(), $response->getData()]);
+            $stale = $this->controller($body + ['expectedRevision' => '99'])->updateOauthClients();
+            $this->assertSame(409, $stale->getStatus());
+        }
+        $this->assertSame([], array_intersect_key($this->fx->config->app['mcp'] ?? [], ['oauth_client_hosts' => 1]));
+        $this->assertSame([null, []], [$this->fx->clients->nativeRow(), $this->storedCustom()]);
+    }
+
+    public function testTheRevisionAdvancesOnlyWhenTheSettingsChange(): void {
+        $body = ['customClients' => [['name' => 'A', 'enabled' => true, 'redirectUris' => [self::CB]]]];
+        $saved = $this->controller($body)->updateOauthClients()->getData();
+        $again = $this->controller(['customClients' => $saved['customClients'], 'expectedRevision' => $saved['revision']])->updateOauthClients();
+        $this->assertSame([200, $saved['revision']], [$again->getStatus(), $again->getData()['revision']]);
     }
 
     public function testSendingTheDefaultHostsDeletesTheKeyAndAnotherListStoresIt(): void {
@@ -280,10 +429,20 @@ final class GrantsControllerTest extends TestCase {
             ['hosts' => [42]],
             ['hosts' => ['claude.ai'], 'nativeClientEnabled' => 'yes'],
             ['nativeClientEnabled' => 1],
+            ['customClients' => 'QwenPaw'],
+            ['customClients' => [['name' => 'QwenPaw', 'enabled' => 'true', 'redirectUris' => ['https://harness.example.com/cb']]]],
+            ['customClients' => [['name' => 'QwenPaw', 'enabled' => true, 'redirectUris' => ['http://harness.example.com/cb']]]],
+            ['customClients' => [['name' => 'QwenPaw', 'enabled' => true, 'redirectUris' => []]]],
+            ['customClients' => [['name' => '', 'enabled' => true, 'redirectUris' => ['https://harness.example.com/cb']]]],
+            ['customClients' => [['id' => 'aaaaaaaaaaaa', 'name' => 'QwenPaw', 'enabled' => true, 'redirectUris' => ['https://harness.example.com/cb']]]],
+            ['customClients' => [['name' => 'QwenPaw', 'enabled' => true, 'redirectUris' => ['https://harness.example.com/cb']],
+                ['name' => 'QWENPAW', 'enabled' => true, 'redirectUris' => ['https://harness.example.com/cb']]]],
+            ['hosts' => ['claude.ai'], 'customClients' => [['name' => 'QwenPaw', 'enabled' => true, 'redirectUris' => ['https://u@harness.example.com/cb']]]],
         ] as $body) {
             self::assertBad($this->controller($body)->updateOauthClients());
         }
-        $this->assertSame([], array_intersect_key($this->fx->config->app['mcp'] ?? [], ['oauth_client_hosts' => 1, 'oauth_native_client_enabled' => 1]));
+        $this->assertSame([], array_intersect_key($this->fx->config->app['mcp'] ?? [], ['oauth_client_hosts' => 1]));
+        $this->assertSame([null, []], [$this->fx->clients->nativeRow(), $this->storedCustom()]);
     }
 
     /** The groups that may read the server log: none by default (administrators only), every group offered. */

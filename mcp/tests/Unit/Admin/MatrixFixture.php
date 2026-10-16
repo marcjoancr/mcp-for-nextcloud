@@ -34,6 +34,8 @@ final class MatrixFixture {
     /** The IConfig mock the policy, its writer and the logs gate share. */
     public \OCP\IConfig $policyConfig;
     public \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore $oauth;
+    /** The authoritative table of the administrator's OAuth clients. */
+    public \OCA\Mcp\Tests\Unit\OAuth\ClientsTable $clients;
     /** @var array<string, array{name:string, email:string, enabled:bool}> */
     public array $users = [];
     /** @var array<string, list<string>> members by group id */
@@ -53,6 +55,7 @@ final class MatrixFixture {
         $this->logsDb = new \OCA\Mcp\Tests\Unit\SqliteDatabase($test, [new \OCA\Mcp\Migration\Version001002Date20261008000000()]);
         $this->scopeDb = new \OCA\Mcp\Tests\Unit\SqliteDatabase($test, [new \OCA\Mcp\Migration\Version001100Date20261015020000()]);
         $this->oauth = new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore();
+        $this->clients = new \OCA\Mcp\Tests\Unit\OAuth\ClientsTable($test);
         $this->config->userExists = fn (string $uid): bool => isset($this->users[$uid]);
         $this->policyConfig = $this->config->mock($test);
         $this->policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($this->policyConfig, $this->oauth);
@@ -85,6 +88,11 @@ final class MatrixFixture {
     /** @return \OCA\Mcp\Service\Policy\PolicyWriter the writer behind the policy, shared by every worker of the fixture */
     public function writer(): \OCA\Mcp\Service\Policy\PolicyWriter {
         return InMemoryConfig::writer($this->policyConfig, $this->oauth);
+    }
+
+    /** @return \OCA\Mcp\OAuth\OAuthClientsService the administrator's OAuth client settings over the writer and the OAuth store of the fixture */
+    public function clients(): \OCA\Mcp\OAuth\OAuthClientsService {
+        return new \OCA\Mcp\OAuth\OAuthClientsService($this->writer(), $this->config->mock($this->test), $this->clients->mapper, $this->oauth);
     }
 
     /** @return \OCA\Mcp\Db\PolicyStateMapper the revision the writer reads */

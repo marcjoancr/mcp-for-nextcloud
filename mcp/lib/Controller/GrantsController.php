@@ -10,9 +10,9 @@ namespace OCA\Mcp\Controller;
 use InvalidArgumentException;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\OAuth\ClientMetadataFetcher;
-use OCA\Mcp\OAuth\ClientResolver;
+use OCA\Mcp\OAuth\CustomClient;
 use OCA\Mcp\OAuth\NativeClient;
-use OCA\Mcp\OAuth\OAuthStore;
+use OCA\Mcp\OAuth\OAuthClientsService;
 use OCA\Mcp\Service\GrantMatrix;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\LogsAccess;
@@ -63,12 +63,12 @@ class GrantsController extends Controller {
         private GrantPolicy $policy,
         private IUserManager $userManager,
         private IConfig $config,
-        private OAuthStore $oauth,
         private LogsAccess $logs,
         private PolicyWriter $writer,
         private PolicyStateMapper $state,
         private IUserSession $session,
         private GroupGrantsService $groups,
+        private OAuthClientsService $clients,
     ) {
         parent::__construct($appName, $request);
     }
@@ -290,49 +290,38 @@ class GrantsController extends Controller {
     /**
      * Current OAuth client settings for the admin page.
      *
-     * @return JSONResponse {hosts, hostsDefault, nativeClientEnabled, nativeClientId, nativeRedirectUris}
+     * @return JSONResponse {hosts, hostsDefault, nativeClientEnabled, nativeClientId, nativeRedirectUris, customClients,
+     *     revision}
      */
     public function oauthClients(): JSONResponse {
         return $this->guard(fn (): array => $this->oauthState());
     }
 
     /**
-     * Body {hosts?: list<string>, nativeClientEnabled?: bool}. Everything is validated before anything is written;
-     * an empty host list is rejected because at least one host must stay trusted.
+     * Body {expectedRevision, hosts?: list<string>, nativeClientEnabled?: bool, customClients?: list<{id?, name,
+     * enabled, redirectUris}>}. customClients replaces the whole list of self-hosted clients; an entry without id is a
+     * new client. The whole change is one policy command (OAuthClientsService): the page's revision is compared first
+     * (428 without one, 409 {error, revision, state} when the page is outdated, nothing written), the stored list is
+     * read and the request validated inside the transaction, and turning the native client off, turning a self-hosted
+     * one off, deleting it or removing one of its redirect URIs deletes that client's grants, codes and spent refresh
+     * records in the same transaction, so nothing issued for a withdrawn client or URI outlives the decision and a
+     * failed delete leaves nothing withdrawn. An empty host list is rejected because at least one host must stay trusted.
      *
-     * @return JSONResponse the same shape as oauthClients(), or 400
+     * @return JSONResponse the same shape as oauthClients() with the new revision, 400, 409, 428 or 503
      */
     public function updateOauthClients(): JSONResponse {
-        return $this->guard(function (): array {
+        return $this->guard(function (): array|JSONResponse {
+            $expected = $this->expectedRevision();
             $hosts = $this->request->getParam('hosts');
             $native = $this->request->getParam('nativeClientEnabled');
-            if ($hosts === null && $native === null) {
+            $custom = $this->request->getParam('customClients');
+            if ($hosts === null && $native === null && $custom === null) {
                 throw new InvalidArgumentException('Invalid request');
             }
-            if ($hosts !== null) {
-                $hosts = self::hosts($hosts);
-            }
-            if ($native !== null) {
-                $native = self::bool($native);
-            }
-            if ($hosts !== null) {
-                $default = explode(',', ClientMetadataFetcher::DEFAULT_HOSTS);
-                if (count($hosts) === count($default) && array_diff($hosts, $default) === []) {
-                    // The default is not frozen into the config, so a later release can change it.
-                    $this->config->deleteAppValue($this->appName, ClientMetadataFetcher::HOSTS_KEY);
-                } else {
-                    $this->config->setAppValue($this->appName, ClientMetadataFetcher::HOSTS_KEY, implode(',', $hosts));
-                }
-            }
-            if ($native !== null) {
-                $this->config->setAppValue($this->appName, NativeClient::CONFIG_KEY, $native ? '1' : '0');
-                if (!$native) {
-                    // Under the issuance mutex, so no grant of the native client is issued past this point.
-                    $this->writer->underMutex(fn () => $this->oauth->deleteForClient(NativeClient::CLIENT_ID));
-                }
-            }
-            return $this->oauthState();
-        });
+            $this->clients->update($expected, $hosts === null ? null : self::hosts($hosts),
+                $native === null ? null : self::bool($native), $custom);
+            return self::afterCommit([], fn (): array => $this->oauthState());
+        }, fn (): array => $this->oauthState());
     }
 
     /**
@@ -406,17 +395,31 @@ class GrantsController extends Controller {
         ];
     }
 
-    /** @return array{hosts:list<string>, hostsDefault:bool, nativeClientEnabled:bool, nativeClientId:string, nativeRedirectUris:list<string>} */
+    /**
+     * @return array{hosts:list<string>, hostsDefault:bool, nativeClientEnabled:bool, nativeClientId:string,
+     *     nativeRedirectUris:list<string>, revision:string, customClients:list<array{id:string, clientId:string,
+     *     name:string, enabled:bool, redirectUris:list<string>}>}
+     */
     private function oauthState(): array {
+        // Read before the lists: a write in between makes the next save a conflict, never a stale accept.
+        $revision = $this->revision();
         $raw = $this->config->getAppValue($this->appName, ClientMetadataFetcher::HOSTS_KEY, '');
         $hosts = array_values(array_filter(array_map('trim', explode(',', $raw)), static fn (string $h) => $h !== ''));
         $default = $hosts === [];
         return [
             'hosts' => $default ? explode(',', ClientMetadataFetcher::DEFAULT_HOSTS) : $hosts,
             'hostsDefault' => $default,
-            'nativeClientEnabled' => ClientResolver::nativeEnabled($this->config),
+            'nativeClientEnabled' => $this->clients->nativeEnabled(),
             'nativeClientId' => NativeClient::CLIENT_ID,
             'nativeRedirectUris' => NativeClient::REDIRECT_URIS,
+            'revision' => $revision,
+            'customClients' => array_map(static fn (array $client): array => [
+                'id' => $client['id'],
+                'clientId' => CustomClient::clientId($client['id']),
+                'name' => $client['name'],
+                'enabled' => $client['enabled'],
+                'redirectUris' => $client['redirectUris'],
+            ], $this->clients->stored()),
         ];
     }
 

@@ -9,6 +9,7 @@ namespace OCA\Mcp\Controller;
 
 use OCA\Mcp\OAuth\AuthorizationRequest;
 use OCA\Mcp\OAuth\AuthorizationValidator;
+use OCA\Mcp\OAuth\CustomClient;
 use OCA\Mcp\OAuth\NativeClient;
 use OCA\Mcp\OAuth\OAuthException;
 use OCA\Mcp\OAuth\RedirectUriMatcher;
@@ -84,6 +85,7 @@ class OAuthController extends Controller {
             'client' => $authRequest->client->name,
             'clientHost' => $authRequest->client->host(),
             'nativeClient' => $authRequest->client->clientId === NativeClient::CLIENT_ID,
+            'customClient' => CustomClient::owns($authRequest->client->clientId),
             'redirectHost' => (string)parse_url($authRequest->redirectUri, PHP_URL_HOST),
             'loopback' => RedirectUriMatcher::isLoopback($authRequest->redirectUri),
             'account' => $user->getDisplayName(),
@@ -110,6 +112,12 @@ class OAuthController extends Controller {
             return $this->page(['error' => 'The authorization request expired. Start the connection again.']);
         }
         $authRequest = AuthorizationRequest::fromArray($stored[$pending]);
+        try {
+            // Before any answer, deny included: a pending page older than a withdrawal never returns to its redirect URI.
+            $this->validator->revalidate($authRequest);
+        } catch (OAuthException) {
+            return $this->page(['error' => 'The authorization request expired. Start the connection again.']);
+        }
         $uid = $this->userSession->getUser()->getUID();
         if ($decision !== 'allow') {
             return new RedirectResponse($authRequest->redirectWith(['error' => 'access_denied'], $this->urls->issuer()));
@@ -120,6 +128,9 @@ class OAuthController extends Controller {
             }
             // Connection and code in one command: a failure leaves the user neither connected nor with a code.
             $code = $this->tokens->consent($authRequest, $uid);
+        } catch (OAuthException) {
+            // The client was withdrawn after the check above (decided under the mutex): nothing was written.
+            return $this->page(['error' => 'The authorization request expired. Start the connection again.']);
         } catch (PolicyUnavailable) {
             // Nothing was issued: the client may try again (RFC 6749 §4.1.2.1), the state is never assumed.
             return new RedirectResponse($authRequest->redirectWith(['error' => 'temporarily_unavailable'], $this->urls->issuer()));

@@ -44,8 +44,8 @@ final class GroupGrantsControllerTest extends TestCase {
         $session = $this->createMock(\OCP\IUserSession::class);
         $session->method('getUser')->willReturn($user);
         return new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(),
-            $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(),
-            $session, $this->groups);
+            $this->fx->config->mock($this), $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(),
+            $session, $this->groups, $this->fx->clients());
     }
 
     private function revision(): string {

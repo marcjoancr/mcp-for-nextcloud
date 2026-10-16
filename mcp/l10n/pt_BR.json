@@ -1206,6 +1206,20 @@
     "Your administrator can restrict what your MCP clients reach to selected folders, calendars and task lists. It never changes what you can do in Nextcloud itself." : "Seu administrador pode restringir o que seus clientes MCP alcançam a pastas, calendários e listas de tarefas selecionados. Isso nunca muda o que você pode fazer no próprio Nextcloud.",
     "Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope." : "As alterações não salvas aqui foram feitas antes de a política mudar, então salvá-las será recusado. Descarte-as para carregar a restrição salva.",
     "Scope unknown" : "Restrição desconhecida",
-    "The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope." : "A restrição por recurso deste usuário não pode ser lida agora, então as ferramentas deste módulo recusam até que possa. Abrir a restrição por recurso."
+    "The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope." : "A restrição por recurso deste usuário não pode ser lida agora, então as ferramentas deste módulo recusam até que possa. Abrir a restrição por recurso.",
+    "Could not change the self-hosted client." : "Não foi possível alterar o cliente auto-hospedado.",
+    "Self-hosted clients (custom redirect URIs)" : "Clientes auto-hospedados (URIs de redirecionamento personalizadas)",
+    "For self-hosted programs that take a client_id in their settings and return to their own domain. Add one client per program: its name is shown to people on the consent screen and in their connections. Turning a client off, deleting it or removing one of its redirect URIs signs out its connections." : "Para programas auto-hospedados que aceitam um client_id nas configurações e retornam ao próprio domínio. Adicione um cliente por programa: o nome dele aparece para as pessoas na tela de consentimento e nas conexões delas. Desligar um cliente, excluí-lo ou remover uma das URIs de redirecionamento dele desconecta as conexões dele.",
+    "Add client" : "Adicionar cliente",
+    "%s (added by your administrator)" : "%s (adicionado pela administração)",
+    "Self-hosted client" : "Cliente auto-hospedado",
+    "Delete" : "Excluir",
+    "Could not copy the client_id." : "Não foi possível copiar o client_id.",
+    "One URI per line, exactly as the client sends it, port included: https (http only for 127.0.0.1, localhost or [::1]), no wildcard or fragment, up to 2000 bytes." : "Uma URI por linha, exatamente como o cliente envia, porta incluída: https (http só para 127.0.0.1, localhost ou [::1]), sem curinga nem fragmento, até 2000 bytes.",
+    "The OAuth client settings were changed in another window or by another administrator. The current settings were loaded; nothing was overwritten." : "As configurações dos clientes OAuth foram alteradas em outra janela ou por outro administrador. As configurações atuais foram carregadas; nada foi sobrescrito.",
+    "The server could not confirm whether the change was saved. The current settings were loaded." : "O servidor não conseguiu confirmar se a alteração foi salva. As configurações atuais foram carregadas.",
+    "Not saved: each client needs a name of up to 64 characters that no other client has, and 1 to 20 redirect URIs (absolute https URIs, without user name, wildcard or fragment)." : "Não salvo: cada cliente precisa de um nome de até 64 caracteres que nenhum outro cliente tenha e de 1 a 20 URIs de redirecionamento (URIs https absolutas, sem nome de usuário, curinga nem fragmento).",
+    "Delete the client “{name}”? Its connections are signed out at once." : "Excluir o cliente “{name}”? As conexões dele são desconectadas na hora.",
+    "Could not delete the self-hosted client." : "Não foi possível excluir o cliente auto-hospedado."
 },"pluralForm" :"nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

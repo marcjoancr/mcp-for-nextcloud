@@ -48,8 +48,8 @@ final class GrantsRevisionTest extends TestCase {
         $session = $this->createMock(IUserSession::class);
         $session->method('getUser')->willReturn($user);
         return new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(),
-            $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session,
-            $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class));
+            $this->fx->config->mock($this), $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session,
+            $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class), $this->fx->clients());
     }
 
     /** Review F1 of B2: a re-read for the response that fails after the commit answers uncertain, with the receipt. */
@@ -68,8 +68,8 @@ final class GrantsRevisionTest extends TestCase {
             $session = $this->createMock(IUserSession::class);
             $session->method('getUser')->willReturn($user);
             return new GrantsController('mcp', $request, $failing, $policy, $this->fx->userManager(),
-                $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session,
-                $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class));
+                $this->fx->config->mock($this), $this->fx->logsAccess(), $this->fx->writer(), $this->fx->state(), $session,
+                $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class), $this->fx->clients());
         };
 
         $revision = $this->revision();
@@ -412,8 +412,8 @@ final class GrantsRevisionTest extends TestCase {
         $admin->method('getUID')->willReturn('root');
         $session->method('getUser')->willReturn($admin);
         $controller = new GrantsController('mcp', $request, $this->fx->matrix(), $this->fx->policy, $this->fx->userManager(),
-            $this->fx->config->mock($this), $this->fx->oauth, $this->fx->logsAccess(), $writer, $state, $session,
-            $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class));
+            $this->fx->config->mock($this), $this->fx->logsAccess(), $writer, $state, $session,
+            $this->createMock(\OCA\Mcp\Service\Policy\GroupGrantsService::class), $this->fx->clients());
         $response = $controller->update('ana');
         $this->assertSame([503, ['error' => 'Unavailable', 'uncertain' => true]], [$response->getStatus(), $response->getData()]);
     }
