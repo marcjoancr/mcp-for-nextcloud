@@ -291,12 +291,6 @@
 	font-weight: bold;
 }
 
-/* Header menus must paint above the second header row and the sticky corner. A browser without :has()
-   is a progressive-enhancement case: the open menu then paints under the second header row. */
-#mcp-admin .mcp-matrix thead th:has(.mcp-bulk-menu[open]) {
-	z-index: 4;
-}
-
 #mcp-admin .mcp-matrix thead th[title] {
 	cursor: help;
 }
@@ -317,15 +311,6 @@
 
 #mcp-admin .mcp-matrix tbody tr:hover > * {
 	background-color: var(--color-background-dark);
-}
-
-#mcp-admin .mcp-matrix.mcp-compact th,
-#mcp-admin .mcp-matrix.mcp-compact td {
-	padding: 1px 6px;
-}
-
-#mcp-admin .mcp-matrix.mcp-compact .mcp-uid {
-	display: none;
 }
 
 #mcp-admin .mcp-matrix.mcp-loading tbody {
@@ -447,16 +432,13 @@
 	display: flex;
 }
 
-#mcp-admin .mcp-badge-connected {
-	color: var(--color-success-text, var(--color-main-text));
-}
-
 /*
- * Individual overrides: a cell with its own value is outlined and carries a "back to inherited" button, so it never
- * depends on colour; an invalid stored value uses a solid outline in the error colour. The outline is neutral: the theme
- * colour is not a state. The reset toolbar sits above the table.
+ * Individual values in the operations view: only a real exception (js/admin-exceptions.js) is outlined, and its state
+ * is named in the tooltip and for screen readers, so it never depends on colour; an invalid stored value uses a solid
+ * outline in the error colour. The outline is neutral: the theme colour is not a state. The reset toolbar sits above the
+ * table.
  */
-#mcp-admin .mcp-matrix td.mcp-override {
+#mcp-admin .mcp-matrix td.mcp-override-exception {
 	outline: 1px dashed var(--color-border-maxcontrast, var(--color-text-maxcontrast));
 	outline-offset: -2px;
 	white-space: nowrap;
@@ -467,34 +449,13 @@
 	outline-color: var(--color-error-text, var(--color-error));
 }
 
-/* Buttons repeated in every row are tertiary: no fill until hovered, so the table is not painted in the theme colour. */
-#mcp-admin .mcp-reset-cell,
-#mcp-admin .mcp-reset-row {
-	min-height: 0;
-	margin: 0 0 0 4px;
-	padding: 0 4px;
-	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
-	background-color: transparent;
-	color: var(--color-main-text);
-	font-size: 0.85em;
-	font-weight: normal;
-	line-height: 1.4;
-}
-
-#mcp-admin .mcp-reset-cell:hover,
-#mcp-admin .mcp-reset-row:hover,
 #mcp-admin .mcp-scope-indicator:hover,
 #mcp-admin .mcp-bulk:hover {
 	background-color: var(--color-background-hover);
 }
 
-#mcp-admin .mcp-reset-row {
-	display: block;
-	margin: 2px 0 0;
-}
-
 #mcp-admin .mcp-matrix .mcp-row-select {
-	margin: 0 6px 0 0;
+	margin: 0;
 }
 
 #mcp-admin .mcp-reset-toolbar {
@@ -509,11 +470,6 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-}
-
-#mcp-admin .mcp-reset-help {
-	flex-basis: 100%;
-	margin: 0;
 }
 
 #mcp-admin .mcp-reset-status:empty,
@@ -555,67 +511,9 @@
 }
 
 #mcp-admin .mcp-reset-toolbar :focus-visible,
-#mcp-admin .mcp-reset-cell:focus-visible,
-#mcp-admin .mcp-reset-row:focus-visible,
 #mcp-admin .mcp-row-select:focus-visible {
 	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
-}
-
-/* Header "All" menus: a native <details>, so it works without a build step and with the keyboard. */
-#mcp-admin .mcp-bulk-menu {
-	display: inline-block;
-	position: relative;
-	font-weight: normal;
-}
-
-#mcp-admin .mcp-bulk-summary {
-	display: inline-block;
-	padding: 0 8px;
-	border: 1px solid var(--color-border-dark);
-	border-radius: var(--border-radius-pill, var(--border-radius));
-	font-size: 0.85em;
-	cursor: pointer;
-	list-style: none;
-}
-
-#mcp-admin .mcp-bulk-summary::-webkit-details-marker {
-	display: none;
-}
-
-#mcp-admin .mcp-bulk-summary::after {
-	content: ' ▾';
-}
-
-#mcp-admin .mcp-bulk-summary:focus-visible {
-	outline: 2px solid var(--color-primary-element);
-	outline-offset: 2px;
-}
-
-#mcp-admin .mcp-bulk-list {
-	position: absolute;
-	inset-inline-start: 0;
-	top: 100%;
-	z-index: 10;
-	min-width: 260px;
-	margin-top: 4px;
-	padding: 6px;
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-element, var(--border-radius-large));
-	background-color: var(--color-main-background);
-	box-shadow: 0 2px 8px var(--color-box-shadow);
-	text-align: start;
-}
-
-#mcp-admin .mcp-bulk-line {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 2px 0;
-}
-
-#mcp-admin .mcp-bulk-name {
-	flex: 1;
 }
 
 #mcp-admin .mcp-bulk {
@@ -1240,4 +1138,306 @@ body[data-themes*="dark"] #mcp-admin {
 #mcp-admin .mcp-note p {
 	flex: 1 1 300px;
 	margin: 0;
+}
+
+/* The row: a narrow selection column first, the name with one quiet line under it, and the actions menu last. */
+#mcp-admin .mcp-matrix .mcp-select-col {
+	width: 32px;
+	padding-inline: 6px;
+	text-align: center;
+}
+
+#mcp-admin .mcp-matrix .mcp-actions-col {
+	width: 44px;
+	text-align: end;
+}
+
+#mcp-admin .mcp-user-connected {
+	color: var(--color-success-text, var(--color-main-text));
+}
+
+#mcp-admin .mcp-connected-mark {
+	font-size: 0.8em;
+}
+
+#mcp-admin .mcp-row-actions-button {
+	min-width: var(--default-clickable-area);
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background-color: transparent;
+	color: var(--color-main-text);
+	font-size: 1.3em;
+	font-weight: bold;
+	line-height: 1;
+}
+
+#mcp-admin .mcp-row-actions-button:hover {
+	background-color: var(--color-background-dark);
+}
+
+#mcp-admin .mcp-row-actions-button:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+#mcp-admin .mcp-row-menu {
+	position: absolute;
+	z-index: 21;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	width: 260px;
+	padding: 4px;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+	background-color: var(--color-main-background);
+	box-shadow: 0 2px 16px var(--color-box-shadow);
+}
+
+#mcp-admin .mcp-row-menu[hidden] {
+	display: none;
+}
+
+#mcp-admin .mcp-row-menu-item {
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	padding: 0 12px;
+	border: 0;
+	border-radius: var(--border-radius-element, var(--border-radius));
+	background-color: transparent;
+	color: var(--color-main-text);
+	font-weight: normal;
+	text-align: start;
+}
+
+#mcp-admin .mcp-row-menu-item:hover:not(:disabled) {
+	background-color: var(--color-background-hover);
+}
+
+#mcp-admin .mcp-row-menu-item:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+/* The selection bar (js/admin-overrides.js): shown while people are selected, in place of the "All" menus. */
+#mcp-admin .mcp-selection-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	flex-basis: 100%;
+	padding: 4px 12px;
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+	background-color: var(--color-background-dark);
+	color: var(--color-main-text);
+}
+
+#mcp-admin .mcp-selection-bar[hidden] {
+	display: none;
+}
+
+#mcp-admin .mcp-selection-set {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
+#mcp-admin .mcp-selection-clear {
+	margin-inline-start: auto;
+}
+
+#mcp-admin .mcp-matrix .mcp-select-col input {
+	margin: 0;
+}
+
+/* The bar's actions are ordinary buttons: the class mcp-bulk only puts them under the bulk lock. */
+#mcp-admin .mcp-selection-bar .mcp-selection-apply {
+	min-height: var(--default-clickable-area);
+	padding: 0 14px;
+	border: 0;
+	background-color: var(--color-main-background);
+	font-size: inherit;
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-selection-bar .mcp-reset-selected,
+#mcp-admin .mcp-selection-bar .mcp-selection-clear {
+	background-color: transparent;
+	color: var(--color-main-text);
+}
+
+/*
+ * Side drawers of the Access tab (S9: resource scope). Closed, the block shows one sentence and its button; open, it
+ * becomes a panel at the end side of the window, over the page, with its own scroll. The theme colour marks only the
+ * selected tab and the focus.
+ */
+#mcp-admin .mcp-drawer-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Nextcloud 35 centres a section heading as a flex box; the heading of a drawer starts at the start side. */
+#mcp-admin .mcp-drawer-head h2 {
+	flex: 1;
+	justify-content: flex-start;
+	margin-inline: 0;
+	text-align: start;
+}
+
+#mcp-admin .mcp-drawer-close,
+#mcp-admin .mcp-drawer:not(.mcp-drawer-open) .mcp-drawer-body,
+#mcp-admin .mcp-drawer.mcp-drawer-open .mcp-drawer-entry {
+	display: none;
+}
+
+#mcp-admin .mcp-drawer.mcp-drawer-open {
+	position: fixed;
+	z-index: 2000;
+	top: var(--header-height, 50px);
+	bottom: 0;
+	inset-inline-end: 0;
+	box-sizing: border-box;
+	width: min(480px, 100vw);
+	margin: 0;
+	padding: 12px 20px 20px;
+	overflow-y: auto;
+	border-inline-start: 1px solid var(--color-border);
+	background-color: var(--color-main-background);
+	box-shadow: 0 0 24px var(--color-box-shadow);
+}
+
+#mcp-admin .mcp-drawer.mcp-drawer-open .mcp-drawer-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--default-clickable-area);
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background-color: transparent;
+	color: var(--color-main-text);
+}
+
+#mcp-admin .mcp-drawer-close:hover {
+	background-color: var(--color-background-hover);
+}
+
+#mcp-admin .mcp-drawer-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 8px 0;
+	border-bottom: 1px solid var(--color-border);
+}
+
+#mcp-admin .mcp-drawer-tabs [role="tab"] {
+	margin: 0;
+	padding: 8px 10px;
+	border: 0;
+	border-bottom: 3px solid transparent;
+	border-radius: 0;
+	background-color: transparent;
+	color: var(--color-text-maxcontrast);
+	font-weight: normal;
+}
+
+#mcp-admin .mcp-drawer-tabs [role="tab"][aria-selected="true"] {
+	border-bottom-color: var(--color-primary-element);
+	color: var(--color-main-text);
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-drawer-tabs [role="tab"]:focus-visible,
+#mcp-admin .mcp-drawer-close:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+#mcp-admin .mcp-drawer .mcp-scope-module[hidden] {
+	display: none;
+}
+
+/* Inspector (S10): the verdict first, then the general checks, one line per module, and every operation on demand. */
+#mcp-admin .mcp-note-error {
+	border-inline-start-color: var(--color-error, var(--color-border-maxcontrast));
+}
+
+#mcp-admin .mcp-note-warning {
+	border-inline-start-color: var(--color-warning, var(--color-border-maxcontrast));
+}
+
+#mcp-admin .mcp-inspector-verdict {
+	margin: 8px 0;
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-inspector-allowed,
+#mcp-admin .mcp-inspector-check-passed {
+	color: var(--color-success-text, var(--color-main-text));
+}
+
+#mcp-admin .mcp-inspector-check-failed {
+	color: var(--color-error-text, var(--color-main-text));
+}
+
+#mcp-admin .mcp-inspector-check-unknown {
+	color: var(--color-warning-text, var(--color-main-text));
+}
+
+#mcp-admin .mcp-inspector-check-skipped {
+	color: var(--color-text-maxcontrast);
+}
+
+#mcp-admin .mcp-inspector-checks,
+#mcp-admin .mcp-inspector-modules {
+	margin: 8px 0;
+	padding: 0;
+	list-style: none;
+}
+
+#mcp-admin .mcp-inspector-checks li {
+	padding: 2px 0;
+}
+
+#mcp-admin .mcp-inspector-mark {
+	display: inline-block;
+	width: 1.2em;
+	font-weight: bold;
+	text-align: center;
+}
+
+#mcp-admin .mcp-inspector-module {
+	display: grid;
+	grid-template-columns: 9em 7em 1fr;
+	gap: 8px;
+	align-items: baseline;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--color-border);
+}
+
+#mcp-admin .mcp-inspector-level {
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-inspector-all,
+#mcp-admin .mcp-inspector-why {
+	margin: 12px 0;
+}
+
+#mcp-admin .mcp-inspector-all summary,
+#mcp-admin .mcp-inspector-why summary {
+	padding: 6px 0;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+#mcp-admin .mcp-inspector-why[hidden] {
+	display: none;
 }

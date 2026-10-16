@@ -18,7 +18,11 @@ class Element {
 		this.value = ''
 		this.hidden = false
 		this._text = ''
+		this.classes = new Set()
 	}
+	get classList() { return { add: (name) => this.classes.add(name), remove: (name) => this.classes.delete(name), contains: (name) => this.classes.has(name) } }
+	removeAttribute(key) { delete this.attributes[key] }
+	focus() { focused = this }
 	append(...children) { this.children.push(...children) }
 	replaceChildren(...children) { this.children = children; this._text = '' }
 	setAttribute(key, value) { this.attributes[key] = value }
@@ -28,8 +32,9 @@ class Element {
 	all(tag) { return this.children.flatMap((child) => typeof child === 'string' ? [] : [...(child.tag === tag ? [child] : []), ...child.all(tag)]) }
 }
 const tick = async () => { for (let i = 0; i < 12; i++) await new Promise(setImmediate) }
+let focused = null
 const IDS = ['', '-form', '-user', '-status', '-alert', '-access', '-resources', '-path-form', '-path', '-path-result',
-	'-calendar-form', '-calendar-module', '-calendar', '-calendar-operation', '-calendar-result']
+	'-calendar-form', '-calendar-module', '-calendar', '-calendar-operation', '-calendar-result', '-title', '-close', '-entry']
 const row = (module, operation, allowed, gate, source, extra = {}) => ({ module, operation, allowed, reasonCode: gate ?? 'allowed',
 	blockingGate: gate, grant: { allowed, source, groupIds: [] }, scope: { mode: 'unrestricted', count: null }, ...extra })
 const matrix = { revision: '7', operations: [
@@ -44,8 +49,9 @@ async function app(handler) {
 	ids['mcp-inspector-calendar-module'].value = 'calendar'
 	const document = { getElementById: (id) => ids[id], createElement: (tag) => new Element(tag) }
 	const calls = []
+	const window = {}
 	const context = {
-		document, URLSearchParams,
+		document, window, URLSearchParams,
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		t: (_, text, params = {}) => text.replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
 		fetch: async (url, options) => {
@@ -55,9 +61,11 @@ async function app(handler) {
 			return { ok: status < 400, status, json: async () => body }
 		},
 	}
+	// The page loads js/admin-levels.js before the inspector, which names each module's level with it.
+	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-levels.js'), 'utf8'), { window })
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-inspector.js'), 'utf8'), context)
 	const submit = async (id) => { await ids[id].listeners.submit({ preventDefault() {} }); await tick() }
-	return { ids, calls, submit }
+	return { ids, calls, submit, window }
 }
 
 test('T9: every operation shows its result, first gate and grant; unknown is never shown as allowed', async () => {
@@ -136,4 +144,106 @@ test('B4: a failed explanation is announced in the alert region', async () => {
 	await ui.submit('mcp-inspector-path-form')
 	assert.equal(ui.ids['mcp-inspector-alert'].textContent, 'The MCP policy cannot be read right now, so nothing can be confirmed. Try again shortly.')
 	assert.equal(ui.ids['mcp-inspector-path-result'].textContent, '')
+})
+
+test('S5: the actions menu of a matrix row inspects that user, as the form does', async () => {
+	const ui = await app()
+	ui.window.McpInspectorUi.open('alice')
+	await tick()
+	assert.equal(ui.ids['mcp-inspector-user'].value, 'alice')
+	assert.ok(ui.calls.some((call) => call.url === '/apps/mcp/api/inspector/access?uid=alice'))
+})
+
+/* S10: the verdict, the general checks and one line per module, above the table of every operation. */
+
+function verdictRows(gate) {
+	const op = (module, operation, allowed, blockingGate = null, source = 'default', granted = allowed) => ({ module, operation, allowed, reasonCode: blockingGate || 'allowed', blockingGate, grant: { allowed: granted, source, groupIds: source === 'group' ? ['comercial'] : [] }, scope: { mode: 'all', count: null } })
+	// Behind a general block every operation is blocked, while the grants still say what each module gives: read here.
+	if (gate) return [op('notes', 'read', false, gate, 'default', true), op('notes', 'edit', false, gate, 'default', false)]
+	return [op('notes', 'read', true, null, 'group'), op('notes', 'edit', true, null, 'individual_allow'), op('files', 'read', false, 'app')]
+}
+
+async function inspected(operations) {
+	const ui = await app((url) => url.startsWith('/apps/mcp/api/inspector/access') ? [200, { revision: '1', operations }] : undefined)
+	ui.ids['mcp-inspector-user'].value = 'alice'
+	await ui.submit('mcp-inspector-form')
+	return ui
+}
+
+test('S10: when one general check blocks every operation, one sentence says which and how to fix it', async () => {
+	const ui = await inspected(verdictRows('connection'))
+	const text = ui.ids['mcp-inspector-access'].textContent.replace(/\s+/g, ' ')
+	assert.match(text, /alice cannot use any MCP tool\. The user has not switched on their MCP connection\. They turn it on in their personal settings, under MCP for Cloud\./)
+	const squash = (li) => li.textContent.replace(/\s+/g, ' ')
+	const checks = ui.ids['mcp-inspector-access'].all('li').map(squash)
+	assert.deepEqual(checks.slice(0, 4), ['✓ Account active: passed', '✓ MCP service on: passed', '✓ Can connect: passed', '✕ Personal connection on: blocks'])
+	const service = await inspected(verdictRows('service'))
+	assert.deepEqual(service.ids['mcp-inspector-access'].all('li').map(squash).slice(0, 4), ['✓ Account active: passed', '✕ MCP service on: blocks', '— Can connect: not checked', '— Personal connection on: not checked'])
+	assert.match(text, /What each module grants, once the general check is fixed:/)
+	assert.ok(!/Notes Blocked/.test(text), 'the general block is not repeated on every module')
+	assert.match(text, /Notes Read Default/, 'the level the grants give, not the blocked result')
+	const unknown = await inspected(verdictRows('eligibility_unknown'))
+	assert.match(unknown.ids['mcp-inspector-access'].all('li').map(squash)[2], /^\? Can connect: not confirmed$/)
+})
+
+test('S10: without a general block the verdict says so, and each module has one line with its level, origin and block', async () => {
+	const ui = await inspected(verdictRows(null))
+	const text = ui.ids['mcp-inspector-access'].textContent.replace(/\s+/g, ' ')
+	assert.match(text, /alice can use the MCP tools: the general checks passed\./)
+	const modules = ui.ids['mcp-inspector-access'].all('li').filter((li) => li.className === 'mcp-inspector-module').map((li) => li.textContent.replace(/\s+/g, ' '))
+	assert.equal(modules.length, 2)
+	assert.match(modules[0], /^Notes Full /, 'the level the grants give: with only read and edit in this answer, both allowed is the top level')
+	assert.match(modules[0], /Set for this person/, 'an individual value makes the module individual')
+	assert.match(modules[1], /^Files Blocked The app of this module is not available to the user\./)
+	// The table of every operation is still there, one click away.
+	assert.ok(ui.ids['mcp-inspector-access'].all('details').length === 1)
+	assert.equal(ui.ids['mcp-inspector-access'].all('tr').length, 4, 'header and three operations')
+})
+
+test('S10: different general checks on different operations are not one verdict', async () => {
+	const op = (operation, gate) => ({ module: 'notes', operation, allowed: false, reasonCode: gate, blockingGate: gate, grant: { allowed: false, source: 'default', groupIds: [] }, scope: { mode: 'all', count: null } })
+	const ui = await inspected([op('read', 'service'), op('edit', 'connection')])
+	assert.doesNotMatch(ui.ids['mcp-inspector-access'].textContent, /cannot use any MCP tool/)
+})
+
+test('S10: the inspector opens as a drawer from a row and from its button, closes on Escape, and only one drawer is open', async () => {
+	const ui = await app()
+	const root = ui.ids['mcp-inspector']
+	let scopeClosed = 0
+	ui.window.McpScopeUi = { close: () => { scopeClosed++ } }
+	const trigger = new Element('button')
+	ui.window.McpInspectorUi.open('alice', trigger)
+	await tick()
+	assert.ok(root.classes.has('mcp-drawer-open'))
+	assert.equal(root.attributes.role, 'dialog')
+	assert.equal(scopeClosed, 1, 'the resource scope drawer closes first')
+	assert.equal(ui.ids['mcp-inspector-user'].value, 'alice')
+	assert.ok(ui.calls.some((call) => call.url === '/apps/mcp/api/inspector/access?uid=alice'))
+	root.listeners.keydown({ key: 'Escape', preventDefault() {} })
+	assert.ok(!root.classes.has('mcp-drawer-open'))
+	assert.equal(focused, trigger, 'the focus goes back to the control that opened it')
+	ui.ids['mcp-inspector-entry'].listeners.click()
+	assert.ok(root.classes.has('mcp-drawer-open'))
+	assert.equal(focused, ui.ids['mcp-inspector-user'], 'the button of the tab opens it on the user field')
+	ui.ids['mcp-inspector-close'].listeners.click()
+	assert.equal(focused, ui.ids['mcp-inspector-entry'])
+})
+
+test('F4: the inspector gives the focus to the new "…" of the row when the old one is gone, or to its own button', async () => {
+	const ui = await app()
+	const fresh = new Element('button')
+	ui.ids['mcp-matrix'] = { tBodies: [{ rows: [{ dataset: { uid: 'alice' }, querySelector: (selector) => selector === 'button.mcp-row-actions-button' ? fresh : null }] }] }
+	const old = new Element('button')
+	old.closest = () => ({ dataset: { uid: 'alice' } })
+	ui.window.McpInspectorUi.open('alice', old)
+	await tick()
+	old.isConnected = false
+	ui.ids['mcp-inspector-close'].listeners.click()
+	assert.equal(focused, fresh)
+	const lone = new Element('button')
+	ui.window.McpInspectorUi.open('alice', lone)
+	await tick()
+	lone.isConnected = false
+	ui.ids['mcp-inspector-close'].listeners.click()
+	assert.equal(focused, ui.ids['mcp-inspector-entry'])
 })

@@ -102,7 +102,7 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 	const timers = new Map()
 	let timerId = 0
 	const listeners = {}
-	const log = { calls: [], notices: [], reloads: 0, busy: [], policyErrors: [], undoFocus: 0, announced: [] }
+	const log = { calls: [], notices: [], reloads: 0, busy: [], policyErrors: [], undoFocus: 0, announced: [], bulks: [] }
 	const data = { revision: REVISION, users, catalog: { notes: ['read', 'edit'], files: ['read'] } }
 	const window = {
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
@@ -131,14 +131,18 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 		offerUndo: (message, saved) => { const undo = () => {}; log.notices.push({ message, saved, undo }); return undo },
 		focusUndo: (undo) => { if (undo !== null) log.undoFocus++ },
 		refresh: () => render(),
+		bulk: (module, level, uids) => { log.bulks.push([module, level, [...uids]]) },
+		levelLabels: () => ({ none: 'None', read: 'Read', edit: 'Edit', full: 'Full' }),
 	}
 	/** What render() does in admin-grants.js: redraw every row, then announce it. */
 	const rows = new Map()
+	const triggers = new Map()
 	function render() {
 		// The rows of the old table leave the page: their controls are no longer connected.
 		const detach = (node) => { node.isConnected = false; for (const child of node.children) if (typeof child !== 'string') detach(child) }
 		rows.forEach(detach)
 		rows.clear()
+		triggers.clear()
 		for (const row of data.users) {
 			const tr = new Element('tr', document)
 			tr.append(new Element('th', document))
@@ -168,7 +172,20 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 		resetSelected: find('button.mcp-reset-selected'),
 		flush: () => { for (const [id, action] of [...timers]) { timers.delete(id); action() } },
 		rowBox: (uid) => rows.get(uid).querySelector('input.mcp-row-select'),
-		rowButton: (uid) => rows.get(uid).querySelector('button.mcp-reset-row'),
+		// The reset of a row is the "Give everything back to inheritance…" item of its actions menu
+		// (js/admin-row-actions.js), which calls resetUser() with the menu button as the control to give the focus back to.
+		rowButton: (uid) => {
+			const person = data.users.find((candidate) => candidate.uid === uid)
+			if (!window.McpAdminOverrides.hasOverrides(person)) return null
+			if (!triggers.has(uid)) {
+				const trigger = new Element('button', document)
+				trigger.click = async () => { window.McpAdminOverrides.resetUser(person, trigger); await tick() }
+				// It lives in the row, as the menu button does, so a redraw of the table disconnects it.
+				rows.get(uid).append(trigger)
+				triggers.set(uid, trigger)
+			}
+			return triggers.get(uid)
+		},
 		panelButton: (name) => ui.panel.querySelector('button.mcp-reset-' + name),
 		commands: () => log.calls.filter((call) => call.path === '/api/grants/commands'),
 		previews: () => log.calls.filter((call) => call.path === '/api/grants/commands/preview'),
@@ -318,7 +335,7 @@ test('T16: any other failure reloads the saved values and says nothing was reset
 	assert.equal(ui.log.notices.length, 0)
 })
 
-test('T4/T16: a cell reset targets exactly that cell and an inherited cell has no reset button', async () => {
+test('T4/T16/S5: a cell names its state and carries no button; one cell goes back to inheritance through the same preview', async () => {
 	const ui = app([alice()])
 	const decorate = (module, operation, rowUser = alice()) => {
 		const cell = new Element('td', ui.document)
@@ -332,13 +349,12 @@ test('T4/T16: a cell reset targets exactly that cell and an inherited cell has n
 	const denied = decorate('notes', 'edit')
 	assert.match(denied.box.getAttribute('aria-label'), /Individual override: denied/)
 	assert.ok(denied.cell.classes.has('mcp-override-deny'))
-	const reset = denied.cell.querySelector('button.mcp-reset-cell')
-	assert.match(reset.getAttribute('aria-label'), /Back to inherited: Alice — Notes: edit/)
+	assert.equal(denied.cell.querySelector('button'), null, 'no button repeated in every cell')
 	const inherited = decorate('notes', 'read')
 	assert.match(inherited.box.getAttribute('aria-label'), /Inherited$/)
-	assert.equal(inherited.cell.querySelector('button.mcp-reset-cell'), null)
 	assert.equal(decorate('files', 'read').cell.classes.has('mcp-override-invalid'), true)
-	await reset.click()
+	ui.window.McpAdminOverrides.reviewCells([{ uid: 'alice', module: 'notes', operation: 'edit' }], denied.box)
+	await tick()
 	await ui.panelButton('confirm').click()
 	await tick()
 	assert.deepEqual(plain(ui.commands()[0].body.commands), [{ uid: 'alice', module: 'notes', operation: 'edit', state: 'inherit' }])
@@ -429,7 +445,7 @@ test('T16: a preview built from a table that was redrawn is closed instead of ac
 test('T17: the select boxes and buttons have accessible names that carry the user', () => {
 	const ui = app([alice()])
 	assert.equal(ui.rowBox('alice').getAttribute('aria-label'), 'Select Alice')
-	assert.equal(ui.rowButton('alice').getAttribute('aria-label'), 'Back to group inheritance: Alice')
+	assert.equal(ui.rows.get('alice').querySelector('button'), null, 'the row reset is in the actions menu, not a button on the row')
 	assert.equal(ui.toolbar.getAttribute('role'), 'group')
 	assert.equal(ui.toolbar.getAttribute('aria-label'), 'Individual overrides')
 })
@@ -519,7 +535,7 @@ test('B1: with no user on the page the toolbar itself takes the focus', async ()
 	assert.equal(ui.toolbar.tabIndex, -1)
 })
 
-test('B2: an unavailable cell with an override shows its state and keeps its reset, and one without says nothing more', async () => {
+test('B2/S5: an unavailable cell with an override shows its state, and one without says nothing more', async () => {
 	const ui = app([alice()])
 	const cell = (rowUser, module, operation) => {
 		const td = new Element('td', ui.document)
@@ -531,15 +547,41 @@ test('B2: an unavailable cell with an override shows its state and keeps its res
 	assert.ok(overridden.classes.has('mcp-override-deny'))
 	assert.match(overridden.title, /Individual override: denied$/)
 	assert.match(overridden.querySelector('span.mcp-sr-only').textContent, /Individual override: denied/)
-	assert.match(overridden.querySelector('button.mcp-reset-cell').getAttribute('aria-label'), /Back to inherited: Alice — Notes: edit/)
+	assert.equal(overridden.querySelector('button'), null)
 	const inherited = cell(alice(), 'notes', 'read')
-	assert.equal(inherited.querySelector('button.mcp-reset-cell'), null)
 	assert.equal(inherited.querySelector('span.mcp-sr-only'), null)
 	assert.equal(inherited.title, 'Unavailable: This app is unavailable for this user')
-	await overridden.querySelector('button.mcp-reset-cell').click()
-	await ui.panelButton('confirm').click()
+	// Its value still goes back to inheritance with the row (the row preview names cells the table does not offer, see
+	// the next test).
+	await ui.rowButton('alice').click()
 	await tick()
-	assert.deepEqual(plain(ui.commands()[0].body.commands), [{ uid: 'alice', module: 'notes', operation: 'edit', state: 'inherit' }])
+	assert.match(ui.panel.textContent, /Notes: edit: Individual override: denied →/)
+})
+
+test('S5: in the operations view only a real exception is outlined; a repeated value is named "the same as inherited"', () => {
+	const ui = app([alice()])
+	const decorate = (kind) => {
+		ui.window.McpAdminExceptions = { kindOf: () => ({ kind, after: null }) }
+		const cell = new Element('td', ui.document)
+		const box = new Element('input', ui.document)
+		box.setAttribute('aria-label', 'Alice — edit')
+		ui.window.McpAdminOverrides.decorateCell(cell, box, alice(), 'notes', 'edit')
+		return { cell, box }
+	}
+	const exception = decorate('exception')
+	assert.ok(exception.cell.classes.has('mcp-override-exception'))
+	const repeated = decorate('redundant')
+	assert.ok(!repeated.cell.classes.has('mcp-override-exception'))
+	assert.match(repeated.box.getAttribute('aria-label'), /Individual override: denied — the same as inherited$/)
+	assert.ok(!decorate('pending').cell.classes.has('mcp-override-exception'), 'nothing is outlined before the answer')
+	delete ui.window.McpAdminExceptions
+	const without = new Element('td', ui.document)
+	ui.window.McpAdminOverrides.decorateCell(without, new Element('input', ui.document), alice(), 'notes', 'edit')
+	assert.ok(without.classes.has('mcp-override-exception'), 'without the classification every individual value is outlined')
+	const invalid = new Element('td', ui.document)
+	ui.window.McpAdminExceptions = { kindOf: () => ({ kind: 'redundant', after: null }) }
+	ui.window.McpAdminOverrides.decorateCell(invalid, new Element('input', ui.document), alice(), 'files', 'read')
+	assert.ok(invalid.classes.has('mcp-override-exception'), 'an invalid stored value is always an exception')
 })
 
 test('B2: the row preview says that overrides in cells the table does not offer are removed too', async () => {
@@ -737,11 +779,9 @@ test('A1: with a matching revision the command names exactly that revision; an u
 	assert.equal(fallback.commands()[0].body.expectedRevision, REVISION)
 })
 
-test('Allow over an inherited Allow: the toolbar carries a short help text saying how, and warning about Can connect', () => {
+test('S5: the toolbar carries no long help text: an Allow over an inherited Allow is chosen in the level popover', () => {
 	const ui = app([alice()])
-	const help = ui.toolbar.querySelector('p.mcp-reset-help')
-	assert.match(help.textContent, /To keep that Allow if the group changes, uncheck the box \(Deny\) and then check it again \(Allow\)/)
-	assert.match(help.textContent, /Do not do this for “Can connect”: denying it signs the user out/)
+	assert.equal(ui.toolbar.querySelector('p.mcp-reset-help'), null)
 })
 
 test('S4: the review of redundant values resets exactly the cells it names, user by user, through the same preview and command', async () => {
@@ -763,4 +803,46 @@ test('S4: the review of redundant values resets exactly the cells it names, user
 	], 'alice keeps her other individual values')
 	const filtered = ui.window.McpAdminOverrides.plan([alice()], (person, cell) => cell.module === 'notes')
 	assert.deepEqual(plain(filtered.targets[0].cells.map((cell) => cell.module + ':' + cell.operation)), ['notes:edit'], 'a function filter keeps cells per user')
+})
+
+test('S6: the selection bar appears with a selection, sets a level or "Can connect" for exactly the selected people, and clears', async () => {
+	const ui = app([alice(), bob(), carol()])
+	const levels = {}
+	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-levels.js'), 'utf8'), levels)
+	ui.window.McpAdminLevels = levels.McpAdminLevels
+	const bar = ui.toolbar.querySelector('div.mcp-selection-bar')
+	assert.equal(bar.hidden, true, 'no bar without a selection')
+	ui.rowBox('alice').checked = true
+	await ui.rowBox('alice').fire('change')
+	ui.rowBox('carol').checked = true
+	await ui.rowBox('carol').fire('change')
+	assert.equal(bar.hidden, false)
+	assert.equal(bar.getAttribute('aria-label'), 'Selected people')
+	assert.equal(bar.querySelector('strong.mcp-selection-count').textContent, '2 selected')
+	const [module, level] = [bar.querySelector('select.mcp-selection-module'), bar.querySelector('select.mcp-selection-level')]
+	assert.deepEqual(module.children.map((option) => [option.value, option.textContent]), [['', 'Can connect'], ['notes', 'Notes'], ['files', 'Files']])
+	assert.deepEqual(level.children.map((option) => [option.value, option.textContent]), [['read', 'Yes'], ['none', 'No']], '"Can connect" is Yes or No')
+	module.value = 'notes'
+	await module.fire('change')
+	assert.deepEqual(level.children.map((option) => option.value), ['none', 'read', 'full'], 'the levels of the module (Notes here has read and edit)')
+	level.value = 'full'
+	await bar.querySelector('button.mcp-selection-apply').click()
+	assert.deepEqual(ui.log.bulks, [['notes', 'full', ['alice', 'carol']]])
+	module.value = ''
+	await module.fire('change')
+	level.value = 'none'
+	await bar.querySelector('button.mcp-selection-apply').click()
+	assert.deepEqual(ui.log.bulks[1], [null, 'none', ['alice', 'carol']])
+	await bar.querySelector('button.mcp-selection-clear').click()
+	assert.equal(bar.hidden, true)
+	assert.match(ui.resetSelected.textContent, /\(0\)/, 'nobody is selected any more')
+	assert.equal(ui.document.activeElement, ui.selectAll, 'the focus goes to the select-all box')
+})
+
+test('S6: the select-all box heads the selection column and keeps its accessible name', () => {
+	const ui = app([alice(), bob()])
+	const header = new Element('th', ui.document)
+	ui.window.McpAdminOverrides.decorateHeader(header)
+	assert.equal(header.querySelector('input'), ui.selectAll)
+	assert.equal(ui.selectAll.getAttribute('aria-label'), 'Select every user on this page')
 })

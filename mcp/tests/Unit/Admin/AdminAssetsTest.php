@@ -64,11 +64,12 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(12, $matches);
+        $this->assertCount(13, $matches);
         // The levels mapping is read by the matrix, so it loads before it; the level popover uses the matrix, so after it.
         $this->assertLessThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-levels')"));
         $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-level-popover')"));
         $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-exceptions')"));
+        $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-row-actions')"));
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -137,7 +138,10 @@ final class AdminAssetsTest extends TestCase {
         $template = (string)file_get_contents($app . '/templates/admin.php');
 
         $this->assertStringContainsString("Util::addScript('mcp', 'admin-tabs')", $template);
-        $this->assertSame(1, substr_count($template, 'role="tablist"'));
+        // One tab bar for the page; the resource scope drawer has its own tablist for its modules (S9).
+        $this->assertSame(1, substr_count($template, 'class="mcp-tab-bar" role="tablist"'));
+        $this->assertSame(2, substr_count($template, 'role="tablist"'));
+        $this->assertStringContainsString('<div id="mcp-scope-tabs" class="mcp-drawer-tabs" role="tablist"', $template);
         preg_match_all('/<button type="button" role="tab" id="(mcp-tab-[a-z]+)" data-tab-hash="([a-z]+)" aria-controls="(mcp-panel-[a-z]+)" aria-selected="(true|false)">/', $template, $tabs, PREG_SET_ORDER);
         $this->assertCount(5, $tabs);
         $this->assertSame(['overview', 'access', 'clients', 'protection', 'advanced'], array_map(static fn (array $tab) => $tab[2], $tabs));
@@ -187,7 +191,8 @@ final class AdminAssetsTest extends TestCase {
 
     public function testAdminPageHasTenSectionBlocks(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
-        preg_match_all('/<div class="section mcp-block" id="([^"]+)"[^>]*>\s*<h2><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
+        // A block may be a drawer (S9), whose heading sits in the drawer head next to its close button.
+        preg_match_all('/<div class="section mcp-block(?: mcp-drawer)?" id="([^"]+)"[^>]*>\s*(?:<div class="mcp-drawer-head">\s*)?<h2(?: id="[a-z-]+" tabindex="-1")?><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
         $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-scope', 'mcp-inspector', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
         $this->assertSame(['Status', 'Group grants', 'Permissions', 'Resource scope', 'Access inspector', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         $this->assertStringContainsString('data-scope="admin"', $template);
@@ -251,7 +256,8 @@ final class AdminAssetsTest extends TestCase {
         $this->assertStringNotContainsString("'/api/grants/bulk'", $script);
         $this->assertStringContainsString('async function undoBulk(', $script);
         $this->assertStringNotContainsString('innerHTML', $script);
-        $this->assertStringContainsString('const FIXED_COLUMNS = 3', $script);
+        // Selection, user, "Can connect" and the row's actions (S5: the actions menu replaced the "Connected" column).
+        $this->assertStringContainsString('const FIXED_COLUMNS = 4', $script);
         $this->assertDoesNotMatchRegularExpression('/\\b3 \\+ |cells\\.length \\+ 3/', $script, 'fixed columns come from the constant');
         $this->assertStringContainsString('window.history.replaceState(', $script);
         $this->assertStringContainsString('noticeText.focus({ preventScroll: true })', $script);
@@ -318,6 +324,54 @@ final class AdminAssetsTest extends TestCase {
         $this->assertLessThan(strpos($popover, "matrix.api('POST', '/api/grants/commands'"), strpos($popover, 'if (losesEligibility('), 'asked before the command');
         $template = (string)file_get_contents($app . '/templates/admin.php');
         $this->assertStringContainsString('<div id="mcp-level-popover" class="mcp-popover" role="dialog" aria-labelledby="mcp-level-popover-title" hidden></div>', $template);
+    }
+
+    /**
+     * S5: the matrix keeps the explanation in the legend and the row's actions in one menu. No long text above the table,
+     * no compact-rows switch, no pager above it, and no button repeated in every row or cell.
+     */
+    public function testMatrixRowsCarryOneMenuAndNoRepeatedControls(): void {
+        $app = dirname(__DIR__, 3);
+        $template = (string)file_get_contents($app . '/templates/admin.php');
+        foreach (['Compact rows', 'Users need “Can connect”', 'id="mcp-prev"', 'id="mcp-next"', 'id="mcp-page-info"'] as $gone) {
+            $this->assertStringNotContainsString($gone, $template);
+        }
+        $this->assertStringContainsString('<div id="mcp-row-menu" class="mcp-row-menu" role="menu" hidden></div>', $template);
+        $this->assertStringContainsString('id="mcp-only-exceptions" aria-pressed="false"', $template);
+        $this->assertStringContainsString('id="mcp-prev-bottom"', $template);
+        $this->assertGreaterThan(strpos($template, 'id="mcp-legend-levels"'), strpos($template, "Reading starts allowed, writing denied. Nextcloud permissions still apply."), 'the short help is in the legend');
+        $overrides = (string)file_get_contents($app . '/js/admin-overrides.js');
+        foreach (['mcp-reset-row', 'mcp-reset-cell', 'mcp-reset-help'] as $gone) {
+            $this->assertStringNotContainsString($gone, $overrides);
+        }
+        $grants = (string)file_get_contents($app . '/js/admin-grants.js');
+        $this->assertStringNotContainsString('mcp-badge-connected', $grants);
+        $this->assertStringNotContainsString("className: 'mcp-connected'", $grants);
+        $this->assertStringContainsString("row.append(el('td', { className: 'mcp-select-col' }))", $grants);
+        $this->assertStringContainsString('row.append(actionsCell(user))', $grants);
+        // S6: the "All" menus of the column headers gave way to the selection bar, whose bulk change keeps the explicit
+        // confirmation of 331bdede (who changes, who is left out and why, who already has it) and the receipt undo.
+        $this->assertStringNotContainsString('function bulkMenu(', $grants);
+        $this->assertStringNotContainsString('mcp-bulk-menu', $grants . (string)file_get_contents($app . '/css/admin.css'));
+        $this->assertStringContainsString("async function bulk(module, level, uids) {", $grants);
+        $this->assertStringContainsString("'%n selected person is left out: this permission is unavailable or unknown for them.'", $grants);
+        $this->assertStringContainsString("'%n selected person already has it.'", $grants);
+        $this->assertStringContainsString("matrix.bulk(moduleChoice.value || null, levelChoice.value, uids)", $overrides);
+        $this->assertStringContainsString('window.McpAdminOverrides?.decorateHeader?.(selectHeader)', $grants);
+    }
+
+    /**
+     * S9/S10: the heading of a drawer starts at the start side (Nextcloud 35 centres a section heading as a flex box), and
+     * an unrestricted module's tab says "no restriction" in words that fit every module, whatever its grammatical gender.
+     */
+    public function testDrawerHeadingStartsAtTheStartAndTabsNameNoRestriction(): void {
+        $app = dirname(__DIR__, 3);
+        $css = (string)file_get_contents($app . '/css/admin.css');
+        $this->assertMatchesRegularExpression('/#mcp-admin \.mcp-drawer-head h2 \{[^}]*justify-content: flex-start;[^}]*text-align: start;/s', $css);
+        $l10n = json_decode((string)file_get_contents($app . '/l10n/pt_BR.json'), true)['translations'];
+        $this->assertSame('{module}: sem restrição', $l10n['{module}: all']);
+        $this->assertSame('{module}: sin restricción', json_decode((string)file_get_contents($app . '/l10n/es.json'), true)['translations']['{module}: all']);
+        $this->assertSame('{module}: uneingeschränkt', json_decode((string)file_get_contents($app . '/l10n/de.json'), true)['translations']['{module}: all']);
     }
 
     /** Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. */

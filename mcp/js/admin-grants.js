@@ -27,13 +27,13 @@
 		return
 	}
 
-	/** Columns the matrix always shows besides the permissions: user, "Can connect" and "Connected". */
-	const FIXED_COLUMNS = 3
+	/** Columns the matrix always shows besides the permissions: selection, user, "Can connect" and the row's actions. */
+	const FIXED_COLUMNS = 4
 	/**
 	 * view is "levels" (one access level per module, js/admin-levels.js) or "operations" (a box per operation); app filters
 	 * the operations view only. Both live in the address as #access?view=operations&app=<module>.
 	 */
-	const state = { search: '', group: '', filter: 'eligible', page: 1, app: '', view: 'levels', data: null, groupsLoaded: false }
+	const state = { search: '', group: '', filter: 'eligible', page: 1, app: '', view: 'levels', exceptionsOnly: false, data: null, groupsLoaded: false }
 	const table = document.getElementById('mcp-matrix')
 	const searchInput = document.getElementById('mcp-search')
 	const groupSelect = document.getElementById('mcp-group')
@@ -42,13 +42,12 @@
 	const appFilter = document.getElementById('mcp-app-filter')
 	const viewButtons = { levels: document.getElementById('mcp-view-levels'), operations: document.getElementById('mcp-view-operations') }
 	const legends = { levels: document.getElementById('mcp-legend-levels'), operations: document.getElementById('mcp-legend-operations') }
-	const compactBox = document.getElementById('mcp-compact')
 	const countInfo = document.getElementById('mcp-count')
-	const prevButtons = [document.getElementById('mcp-prev'), document.getElementById('mcp-prev-bottom')]
-	const nextButtons = [document.getElementById('mcp-next'), document.getElementById('mcp-next-bottom')]
-	const pageInfos = [document.getElementById('mcp-page-info'), document.getElementById('mcp-page-info-bottom')]
-	/** localStorage key of the compact-rows preference; a convenience of this browser only. */
-	const COMPACT_KEY = 'mcp-admin-compact'
+	// The pager sits under the table only; the count of users stays above it.
+	const prevButtons = [document.getElementById('mcp-prev-bottom')].filter(Boolean)
+	const nextButtons = [document.getElementById('mcp-next-bottom')].filter(Boolean)
+	const pageInfos = [document.getElementById('mcp-page-info-bottom')].filter(Boolean)
+	const onlyButtons = { all: document.getElementById('mcp-only-all'), exceptions: document.getElementById('mcp-only-exceptions') }
 	const serviceBox = document.getElementById('mcp-service')
 	const serviceStatus = document.getElementById('mcp-service-status')
 
@@ -465,38 +464,6 @@
 	window.addEventListener('hashchange', readAppFromHash)
 	readAppFromHash()
 
-	/**
-	 * Header menu ("All") that allows or denies permissions for every user on the page.
-	 *
-	 * @param {string|null} module module id, null for eligibility
-	 * @param {Array<{operations: string[], label: string}>} entries one line per permission (or group of them)
-	 * @param {string} title accessible name of the menu
-	 * @return {HTMLElement} a native <details> menu
-	 */
-	function bulkMenu(module, entries, title) {
-		const list = el('div', { className: 'mcp-bulk-list' })
-		for (const entry of entries) {
-			const make = (granted, text) => el('button', {
-				type: 'button',
-				className: 'mcp-bulk',
-				textContent: text,
-				onclick: (event) => {
-					event.target.closest('details').open = false
-					bulk(module, entry.operations, granted, entry.label)
-				},
-			})
-			list.append(el('div', { className: 'mcp-bulk-line' }, [
-				el('span', { className: 'mcp-bulk-name', textContent: entry.label }),
-				make(true, t('mcp', 'Allow')),
-				make(false, t('mcp', 'Deny')),
-			]))
-		}
-		const summary = el('summary', { className: 'mcp-bulk-summary', textContent: t('mcp', 'All') })
-		summary.title = title
-		summary.setAttribute('aria-label', title)
-		return el('details', { className: 'mcp-bulk-menu' }, [summary, list])
-	}
-
 	/** Makes the second header row stick right below the first one, whose height depends on the density. */
 	function stickSecondHeaderRow() {
 		const [top, sub] = table.tHead.rows
@@ -561,19 +528,17 @@
 		const top = el('tr')
 		const sub = el('tr')
 		const rowSpan = levelsView ? 1 : 2
+		const selectHeader = el('th', { rowSpan, className: 'mcp-select-col', scope: 'col' }, [el('span', { className: 'mcp-sr-only', textContent: t('mcp', 'Select') })])
+		// The "select every user on this page" box of js/admin-overrides.js heads the selection column.
+		window.McpAdminOverrides?.decorateHeader?.(selectHeader)
+		top.append(selectHeader)
 		top.append(el('th', { rowSpan, className: 'mcp-user-col', scope: 'col', textContent: t('mcp', 'User') }))
 		const canConnect = t('mcp', 'Can connect')
-		top.append(el('th', { rowSpan, scope: 'col', title: t('mcp', 'The administrator allows this user to connect an MCP client') }, [
-			canConnect, ' ', bulkMenu(null, [{ operations: ['eligible'], label: canConnect }], t('mcp', 'Change “{permission}” for every user on this page', { permission: canConnect })),
-		]))
+		top.append(el('th', { rowSpan, scope: 'col', title: t('mcp', 'The administrator allows this user to connect an MCP client'), textContent: canConnect }))
 		Object.entries(data.catalog).forEach(([module, ops], index) => {
 			const band = 'mcp-band-' + (index % 2)
 			const name = modules[module] || module
-			const entries = ops.map((operation) => ({ operations: [operation], label: name + ': ' + (operations[operation] || operation) }))
-			entries.push({ operations: ops, label: t('mcp', '{module}: every permission', { module: name }) })
-			const header = el('th', { colSpan: levelsView ? 1 : ops.length, scope: levelsView ? 'col' : 'colgroup', className: 'mcp-module ' + band }, [
-				name, ' ', bulkMenu(module, entries, t('mcp', 'Change {module} permissions for every user on this page', { module: name })),
-			])
+			const header = el('th', { colSpan: levelsView ? 1 : ops.length, scope: levelsView ? 'col' : 'colgroup', className: 'mcp-module ' + band, textContent: name })
 			header.dataset.module = module
 			top.append(header)
 			if (levelsView) {
@@ -590,7 +555,7 @@
 				sub.append(cell)
 			})
 		})
-		top.append(el('th', { rowSpan, scope: 'col', textContent: t('mcp', 'Connected') }))
+		top.append(el('th', { rowSpan, scope: 'col', className: 'mcp-actions-col' }, [el('span', { className: 'mcp-sr-only', textContent: t('mcp', 'Actions') })]))
 		table.tHead.replaceChildren(...(levelsView ? [top] : [top, sub]))
 		if (bulkBusy) {
 			setBulkBusy(true)
@@ -605,6 +570,7 @@
 		}
 		table.tBodies[0].replaceChildren(...rows)
 		applyAppFilter()
+		applyExceptionsFilter()
 
 		const pageText = data.total === null
 			? t('mcp', 'Page {page}', { page: data.page })
@@ -645,16 +611,9 @@
 	function buildRow(user) {
 		const row = el('tr', { className: user.enabled ? '' : 'mcp-disabled-user' })
 		row.dataset.uid = user.uid
-		const name = el('th', { scope: 'row', className: 'mcp-user-col' }, [
-			el('span', { className: 'mcp-name', textContent: user.displayName }),
-			el('span', { className: 'mcp-uid', textContent: user.uid }),
-		])
-		if (!user.enabled) {
-			name.append(el('span', { className: 'mcp-badge', textContent: t('mcp', 'disabled') }))
-		} else if (user.eligible && user.connected) {
-			name.append(el('span', { className: 'mcp-badge mcp-badge-connected', textContent: t('mcp', 'connected') }))
-		}
-		row.append(name)
+		// The selection box of js/admin-overrides.js goes here, in its own column instead of next to the name.
+		row.append(el('td', { className: 'mcp-select-col' }))
+		row.append(el('th', { scope: 'row', className: 'mcp-user-col' }, [el('span', { className: 'mcp-name', textContent: user.displayName }), userLine(user)]))
 		row.append(isLevelsView() ? eligibleCell(user) : permissionCell(user, null, user.eligible, t('mcp', 'Can connect'), { eligible: null }))
 		const rowReason = rowUnavailableReason(user)
 		if (rowReason !== null) {
@@ -664,14 +623,14 @@
 				? t('mcp', 'The saved permissions are kept and shown again when “Can connect” is on.')
 				: t('mcp', 'The saved permissions are kept and shown again when the account is enabled and “Can connect” is on.')
 			row.append(notice)
-			row.append(el('td', { className: 'mcp-connected', textContent: user.connected ? t('mcp', 'yes') : t('mcp', 'no') }))
+			row.append(actionsCell(user))
 			return row
 		}
 		const modules = moduleLabels()
 		const operations = operationLabels()
 		if (isLevelsView()) {
 			Object.entries(state.data.catalog).forEach(([module, ops], index) => row.append(levelCell(user, module, ops, index)))
-			row.append(el('td', { className: 'mcp-connected', textContent: user.connected ? t('mcp', 'yes') : t('mcp', 'no') }))
+			row.append(actionsCell(user))
 			return row
 		}
 		Object.entries(state.data.catalog).forEach(([module, ops], index) => {
@@ -691,8 +650,103 @@
 				row.append(cell)
 			})
 		})
-		row.append(el('td', { className: 'mcp-connected', textContent: user.connected ? t('mcp', 'yes') : t('mcp', 'no') }))
+		row.append(actionsCell(user))
 		return row
+	}
+
+	/**
+	 * The second line under a name: "Account disabled", "Connected" (with its mark, in the success colour as text) or, for
+	 * everyone else, the user ID. Being connected is a fact worth seeing; not being connected is the normal case and says
+	 * nothing more than the ID.
+	 *
+	 * @param {object} user row from the API
+	 * @return {HTMLElement}
+	 */
+	function userLine(user) {
+		if (!user.enabled) {
+			return el('span', { className: 'mcp-uid mcp-user-disabled', textContent: t('mcp', 'Account disabled') })
+		}
+		if (user.eligible && user.connected) {
+			const mark = el('span', { className: 'mcp-connected-mark', textContent: '●' })
+			mark.setAttribute('aria-hidden', 'true')
+			const line = el('span', { className: 'mcp-uid mcp-user-connected' }, [mark, ' ', t('mcp', 'Connected')])
+			line.title = user.uid
+			return line
+		}
+		return el('span', { className: 'mcp-uid', textContent: user.uid })
+	}
+
+	/** @return {HTMLTableCellElement} the cell with the row's actions menu (js/admin-row-actions.js) */
+	function actionsCell(user) {
+		const cell = el('td', { className: 'mcp-actions-col' })
+		const button = window.McpRowActions?.button(user)
+		if (button) cell.append(button)
+		return cell
+	}
+
+	/** Sources of a value the person has individually. */
+	const OWN_SOURCES = ['individual_allow', 'individual_deny', 'invalid']
+
+	/**
+	 * Whether a user has a real exception on the page (js/admin-exceptions.js): an individual value that differs from what
+	 * they would inherit. null while that is not known.
+	 *
+	 * @param {object} user row from the API
+	 * @return {boolean|null}
+	 */
+	function hasException(user) {
+		const exceptions = window.McpAdminExceptions
+		if (!exceptions) return null
+		const cells = []
+		if (OWN_SOURCES.includes(user.origins?.eligible?.source)) cells.push([null, 'eligible'])
+		for (const [module, operations] of Object.entries(user.origins?.grants || {})) {
+			for (const [operation, origin] of Object.entries(operations)) {
+				if (OWN_SOURCES.includes(origin?.source)) cells.push([module, operation])
+			}
+		}
+		const kinds = cells.map(([module, operation]) => exceptions.kindOf(user.uid, module, operation).kind)
+		if (kinds.includes('exception')) return true
+		return kinds.includes('pending') ? null : false
+	}
+
+	/**
+	 * The "All | With exceptions (N)" filter: it counts the users of this page who have a real exception and, when chosen,
+	 * shows only them. It works on the page on screen, so it says so; nothing is asked of the server.
+	 */
+	function applyExceptionsFilter() {
+		if (!onlyButtons.exceptions || !state.data) return
+		const known = state.data.users.map((user) => [user.uid, hasException(user)])
+		const pending = known.some(([, value]) => value === null)
+		const count = known.filter(([, value]) => value === true).length
+		onlyButtons.exceptions.textContent = pending
+			? t('mcp', 'With exceptions')
+			: t('mcp', 'With exceptions ({count})', { count }, undefined, { escape: false })
+		onlyButtons.exceptions.title = t('mcp', 'People on this page with an individual value that differs from what they inherit')
+		for (const [only, button] of Object.entries(onlyButtons)) {
+			button?.setAttribute('aria-pressed', String((only === 'exceptions') === state.exceptionsOnly))
+		}
+		const show = new Set(known.filter(([, value]) => !state.exceptionsOnly || value !== false).map(([uid]) => uid))
+		let shown = 0
+		for (const row of table.tBodies[0].rows) {
+			if (row.dataset.uid === undefined) continue
+			row.hidden = !show.has(row.dataset.uid)
+			if (!row.hidden) shown++
+		}
+		table.tBodies[0].querySelector('tr.mcp-only-empty')?.remove()
+		if (state.exceptionsOnly && shown === 0 && state.data.users.length > 0) {
+			table.tBodies[0].append(el('tr', { className: 'mcp-only-empty' }, [el('td', {
+				colSpan: FIXED_COLUMNS + visiblePermissionColumns(),
+				className: 'mcp-empty',
+				textContent: t('mcp', 'No one on this page has an exception.'),
+			})]))
+		}
+	}
+
+	for (const [only, button] of Object.entries(onlyButtons)) {
+		button?.addEventListener('click', () => {
+			state.exceptionsOnly = only === 'exceptions'
+			applyExceptionsFilter()
+		})
 	}
 
 	/**
@@ -1158,20 +1212,25 @@
 	})
 
 	/**
-	 * What a bulk change would do on this page: per operation, the users whose saved value differs
-	 * and that value; users with an unavailable cell are left out, users already set are counted.
+	 * What a bulk change would do: per operation, the users whose saved value differs from the target and that value; users
+	 * with an unavailable or unknown cell are left out, users already set are counted.
 	 *
 	 * @param {string|null} module module id, null for eligibility
 	 * @param {string[]} operationList operation ids, or ["eligible"]
-	 * @param {boolean} granted new value
-	 * @return {{changes: Array<{operation: string, previous: Map<string, boolean>}>, users: number, unavailable: number, unchanged: number}}
+	 * @param {boolean|Object<string, boolean>} granted the new value of every operation, or one per operation
+	 * @param {string[]|null} [uids] the users to change, the whole page when null
+	 * @return {{changes: Array<{operation: string, granted: boolean, previous: Map<string, boolean>}>, users: number, unavailable: number, unchanged: number}}
 	 */
-	function bulkPlan(module, operationList, granted) {
-		const changes = operationList.map((operation) => ({ operation, previous: new Map() }))
+	function bulkPlan(module, operationList, granted, uids = null) {
+		const target = (operation) => typeof granted === 'boolean' ? granted : granted[operation] === true
+		const changes = operationList.map((operation) => ({ operation, granted: target(operation), previous: new Map() }))
 		let users = 0
 		let unavailable = 0
 		let unchanged = 0
 		for (const user of state.data.users) {
+			if (uids !== null && !uids.includes(user.uid)) {
+				continue
+			}
 			if (unavailableReason(user, module) !== null || operationList.some((operation) =>
 				(module === null ? user.eligible : user.grants[module][operation]) === null)) {
 				unavailable++
@@ -1180,7 +1239,7 @@
 			let changed = false
 			for (const change of changes) {
 				const current = module === null ? user.eligible : user.grants[module][change.operation]
-				if (current !== granted) {
+				if (current !== change.granted) {
 					change.previous.set(user.uid, current)
 					changed = true
 				}
@@ -1212,43 +1271,44 @@
 	}
 
 	/**
-	 * Header "All" action: confirms exactly what changes on this page, saves it and offers an undo.
+	 * The selection bar's "Set" (js/admin-overrides.js): gives the selected users one level of a module, or turns "Can
+	 * connect" on or off. It confirms exactly what changes, how many are left out and why, and how many already have it,
+	 * sends nothing when nobody changes, saves one command and offers the undo. Every cell is an explicit allow or deny,
+	 * never an inheritance, as the level popover does for a removal (F1).
 	 *
-	 * @param {string|null} module module id, null for eligibility
-	 * @param {string[]} operationList operation ids, or ["eligible"]; several are saved one after the other
-	 * @param {boolean} granted new value
-	 * @param {string} label permission name
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string} level a level of js/admin-levels.js; for "Can connect", "read" is on and "none" is off
+	 * @param {string[]} uids the selected users of the page
 	 */
-	async function bulk(module, operationList, granted, label) {
+	async function bulk(module, level, uids) {
 		// The plan is computed from the table on screen, so never from one that is being replaced.
 		if (bulkBusy || matrixLocked) {
 			return
 		}
-		const plan = bulkPlan(module, operationList, granted)
-		const vars = { permission: label }
+		const operationList = module === null ? ['eligible'] : state.data.catalog[module]
+		const allowed = module === null ? (level === 'read' ? ['eligible'] : []) : window.McpAdminLevels.operationsFor(module, operationList, level)
+		const plan = bulkPlan(module, operationList, Object.fromEntries(operationList.map((operation) => [operation, allowed.includes(operation)])), uids)
+		const levelName = module === null ? (level === 'read' ? t('mcp', 'Yes') : t('mcp', 'No')) : levelLabels()[level] || level
+		const vars = { permission: module === null ? t('mcp', 'Can connect') : moduleLabels()[module] || module, level: levelName }
 		const lines = []
 		if (plan.unavailable > 0) {
-			lines.push(n('mcp', '%n user with this permission unavailable is left out.', '%n users with this permission unavailable are left out.', plan.unavailable, vars, { escape: false }))
+			lines.push(n('mcp', '%n selected person is left out: this permission is unavailable or unknown for them.', '%n selected people are left out: this permission is unavailable or unknown for them.', plan.unavailable, vars, { escape: false }))
 		}
 		if (plan.unchanged > 0) {
-			lines.push(granted
-				? n('mcp', '%n user already has it allowed.', '%n users already have it allowed.', plan.unchanged, vars, { escape: false })
-				: n('mcp', '%n user already has it denied.', '%n users already have it denied.', plan.unchanged, vars, { escape: false }))
+			lines.push(n('mcp', '%n selected person already has it.', '%n selected people already have it.', plan.unchanged, vars, { escape: false }))
 		}
 		if (plan.users === 0) {
-			showNotice([t('mcp', 'Nothing to change on this page for “{permission}”.', vars, undefined, { escape: false }), ...lines].join(' '), null)
+			showNotice([t('mcp', 'Nothing to change for the selected people: “{permission}” is already {level}.', vars, undefined, { escape: false }), ...lines].join(' '), null)
 			return
 		}
-		const question = granted
-			? n('mcp', 'Allow “{permission}” for %n user on this page?', 'Allow “{permission}” for %n users on this page?', plan.users, vars, { escape: false })
-			: n('mcp', 'Deny “{permission}” for %n user on this page?', 'Deny “{permission}” for %n users on this page?', plan.users, vars, { escape: false })
-		if (module === null && !granted) {
+		const question = n('mcp', 'Set “{permission}” to {level} for %n selected person?', 'Set “{permission}” to {level} for %n selected people?', plan.users, vars, { escape: false })
+		if (module === null && level !== 'read') {
 			lines.push(t('mcp', 'They are signed out of their MCP clients, and undoing this does not sign them back in.'))
 		}
 		if (!window.confirm([question, ...lines].join('\n'))) {
 			return
 		}
-		const requests = plan.changes.map((change) => ({ operation: change.operation, uids: [...change.previous.keys()], granted }))
+		const requests = plan.changes.map((change) => ({ operation: change.operation, uids: [...change.previous.keys()], granted: change.granted }))
 		let undo = null
 		let reloaded = false
 		setBulkBusy(true)
@@ -1256,14 +1316,12 @@
 			try {
 				const saved = await sendCommand(module, requests)
 				undo = saved.receiptId === null ? null : () => undoBulk(saved.receiptId, saved.revision)
-				showNotice(granted
-					? n('mcp', 'Allowed “{permission}” for %n user.', 'Allowed “{permission}” for %n users.', plan.users, vars, { escape: false })
-					: n('mcp', 'Denied “{permission}” for %n user.', 'Denied “{permission}” for %n users.', plan.users, vars, { escape: false }), undo)
+				showNotice(n('mcp', '“{permission}” set to {level} for %n person.', '“{permission}” set to {level} for %n people.', plan.users, vars, { escape: false }), undo)
 			} catch (e) {
 				// Nothing was saved: the command is all or nothing.
 				reloaded = await policyError(e)
 				if (!reloaded) {
-					notifyError(t('mcp', 'Could not update the users on this page.'))
+					notifyError(t('mcp', 'Could not update the selected people.'))
 				}
 			}
 			if (!reloaded) {
@@ -1273,8 +1331,7 @@
 			setBulkBusy(false)
 		}
 		if (undo !== null && pendingUndo === undo) {
-			// The menu that started the change is gone after the reload; the focus goes to its undo,
-			// scrolling the notice under the table into view when it is below the fold.
+			// The focus goes to the undo, scrolling the notice under the table into view when it is below the fold.
 			undoButton.focus()
 		}
 	}
@@ -1383,21 +1440,7 @@
 			load()
 		})
 	}
-	try {
-		compactBox.checked = window.localStorage.getItem(COMPACT_KEY) === '1'
-	} catch (e) {
-		compactBox.checked = false
-	}
-	table.classList.toggle('mcp-compact', compactBox.checked)
-	compactBox.addEventListener('change', () => {
-		table.classList.toggle('mcp-compact', compactBox.checked)
-		stickSecondHeaderRow()
-		try {
-			window.localStorage.setItem(COMPACT_KEY, compactBox.checked ? '1' : '0')
-		} catch (e) {
-			// The preference is a convenience; without storage it lasts until the page is reloaded.
-		}
-	})
+
 	for (const button of root.querySelectorAll('.mcp-copy')) {
 		button.addEventListener('click', () => {
 			const text = document.getElementById(button.dataset.copy).textContent
@@ -2156,6 +2199,8 @@
 			}
 		},
 		refresh: () => state.data !== null && render(),
+		bulk,
+		levelLabels,
 	}
 
 	load()
