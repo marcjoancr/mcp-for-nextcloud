@@ -356,7 +356,7 @@ AGPL-3.0-or-later, with the additional section 7(b) attribution term in [NOTICE]
 
 The package includes Smalot PdfParser, Symfony Polyfill Mbstring and the Composer autoloader. See versions, licenses, copyright and development dependencies in [THIRD-PARTY-NOTICES.md](mcp/THIRD-PARTY-NOTICES.md).
 
-**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit and (#10) for the German translation.
+**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit and (#10) for the German translation, and to @Zegorax (#8) for the OAuth clients registered by the administrator.
 
 ## About Sintax
 
