@@ -265,4 +265,21 @@ final class FilesScopeTest extends TestCase {
         }
         $this->assertSame([], $this->tree->ops, 'no folder on the way to a refusal');
     }
+
+    /** N2 of the ticket 13 re-read: the inspector's entry builds the chain only for a restricted Files scope. */
+    public function testCandidatesInBuildsTheChainOnlyWhenRestricted(): void {
+        $broken = $this->createMock(Node::class);
+        $broken->method('getId')->willReturn(5000);
+        $broken->method('getPath')->willReturn('/alice/files/x');
+        $broken->method('getStorage')->willReturn($this->createMock(IStorage::class));
+        $broken->method('getParent')->willThrowException(new \OCP\Files\NotFoundException());
+        $scope = $this->scope();
+        $resolution = static fn (string $mode, array $items = []) => new \OCA\Mcp\Service\Policy\Resolution\ScopeResolution($mode, $items);
+        $this->assertNull($scope->candidatesIn($resolution('unrestricted'), $broken), 'no chain, no failure, without a scope');
+        $this->assertNull($scope->candidatesIn($resolution('unavailable'), $broken));
+        $this->assertContains($this->projects, $scope->candidatesIn($resolution('restricted', [$this->projects]), $this->node('/Projects/deep/plan.md')));
+        $this->assertSame($scope->candidates($this->node('/A/B/C')), $scope->candidatesIn($resolution('restricted', []), $this->node('/A/B/C')));
+        $this->expectException(\Throwable::class);
+        $scope->candidatesIn($resolution('restricted', [$this->projects]), $broken);
+    }
 }

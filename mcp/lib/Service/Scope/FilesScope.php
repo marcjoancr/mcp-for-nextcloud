@@ -9,6 +9,7 @@ namespace OCA\Mcp\Service\Scope;
 
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
+use OCA\Mcp\Service\Policy\Resolution\ScopeResolution;
 use OCA\Mcp\Service\VisibilityGuard;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Files\Events\Node\NodeCopiedEvent;
@@ -145,6 +146,21 @@ class FilesScope {
             $outermost[$path] = $folder;
         }
         return array_values($outermost);
+    }
+
+    /**
+     * The candidates of a node for a caller that holds its own policy snapshot, such as the admin inspector: built
+     * only when that snapshot restricts Files, exactly as {@see self::allows()} builds them, so a chain that cannot
+     * be resolved never changes the answer for a user without a Files scope.
+     *
+     * @param ScopeResolution $scope the Files scope of the caller's snapshot
+     * @param Node $node the node, as the user reaches it
+     * @return list<string>|null the candidates when restricted; null otherwise (unrestricted, or unavailable, which
+     *         the caller's resolution reports itself)
+     * @throws Throwable when the scope is restricted and the chain cannot be resolved: then the node is outside
+     */
+    public function candidatesIn(ScopeResolution $scope, Node $node): ?array {
+        return $scope->mode === ScopeResolution::RESTRICTED ? $this->candidates($node) : null;
     }
 
     /** Forgets the resolved chains: a move or a deletion changes them. */
