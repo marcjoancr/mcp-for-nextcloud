@@ -146,18 +146,88 @@ final class GroupGrantsWriterTest extends TestCase {
         return [$listener, $causes];
     }
 
-    /** A mapper that runs $between once, inside the first markPendingDelete, before the real conditional transition. */
-    private function interleaved(\Closure $between): GroupLifeMapper {
-        return new class($this->db, $between) extends GroupLifeMapper {
-            public function __construct(\OCP\IDBConnection $db, private ?\Closure $between) { parent::__construct($db); }
-            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
-                if ($this->between !== null) {
-                    [$between, $this->between] = [$this->between, null];
-                    $between();
+    /** GrantPolicy::admission() over resolver(): the lifecycles of the groups that admit the user, or null. */
+    private function admission(string $uid): ?array {
+        $context = $this->resolver()->begin($uid, [], [], false);
+        try {
+            $eligibility = $context->eligible();
+            return $eligibility->allowed === true ? $context->lifecycles($eligibility->groupIds) : null;
+        } finally {
+            $context->close();
+        }
+    }
+
+    /**
+     * An issuance a group admitted, as TokenService::asOwner() runs it: the admission in the external phase, then under
+     * the mutex the admitting groups held (PolicyWriter::holdLifecycles()) and a credential of the next generation.
+     *
+     * @param (\Closure(): ?array)|null $admit the external phase; admission() by default
+     * @return bool whether a credential was issued (false: the admission refused)
+     */
+    private function issueAdmitted(string $uid, ?\Closure $admit = null, ?PolicyWriter $writer = null): bool {
+        $issued = false;
+        ($writer ?? $this->writer)->runCredential($uid, $admit ?? fn (): ?array => $this->admission($uid),
+            function (?array $lifecycles) use ($uid, $writer, &$issued): bool {
+                $issued = false;
+                if ($lifecycles === null) {
+                    return false;
                 }
-                return parent::markPendingDelete($gid, $expectedGen, $gen);
-            }
-        };
+                ($writer ?? $this->writer)->holdLifecycles($lifecycles);
+                $this->token($uid, (new AuthUsersMapper($this->db))->issue($uid));
+                $issued = true;
+                return false;
+            });
+        return $issued;
+    }
+
+    /** Every account exists and is enabled. */
+    private function users(): \OCP\IUserManager {
+        $users = $this->createMock(\OCP\IUserManager::class);
+        $users->method('get')->willReturnCallback(function (string $uid): \OCP\IUser {
+            $user = $this->createMock(\OCP\IUser::class);
+            $user->method('getUID')->willReturn($uid);
+            $user->method('isEnabled')->willReturn(true);
+            return $user;
+        });
+        return $users;
+    }
+
+    /** GrantPolicy::inheritance() over resolver(). */
+    private function inheritance(string $uid): ?array {
+        $context = $this->resolver()->begin($uid, [], [], false);
+        try {
+            $inherited = $context->inheritedEligibility();
+            return $inherited->allowed === true ? $context->lifecycles($inherited->groupIds) : null;
+        } finally {
+            $context->close();
+        }
+    }
+
+    /** Removes $uid from $gid as the core does: the production UserCauseListener sees Before and After. */
+    private function removeMember(string $uid, string $gid, CauseProcessor $causes): void {
+        $time = $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        $listener = new \OCA\Mcp\Listener\UserCauseListener($causes, $this->rechecks, new OAuthStore($this->db), $this->grants,
+            $this->life, $this->classifier(), $this->resolver(), $this->db, $time, new \Psr\Log\NullLogger());
+        $group = $this->createMock(\OCP\IGroup::class);
+        $group->method('getGID')->willReturn($gid);
+        $group->method('inGroup')->willReturnCallback(fn (\OCP\IUser $user): bool => in_array($gid, $this->memberOf[$user->getUID()] ?? [], true));
+        $user = $this->users()->get($uid);
+        $listener->handle(new \OCP\Group\Events\BeforeUserRemovedEvent($group, $user));
+        $this->memberOf[$uid] = array_values(array_diff($this->memberOf[$uid] ?? [], [$gid]));
+        $listener->handle(new \OCP\Group\Events\UserRemovedEvent($group, $user));
+    }
+
+    /** The production writer over this database with another lifecycle mapper. */
+    private function writerWith(GroupLifeMapper $life): PolicyWriter {
+        $time = $this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        $events = new PolicyEventsMapper($this->db, $time);
+        return new PolicyWriter($this->db, $this->state, $events, $this->configData->mock($this),
+            $this->createMock(\OCP\Config\IUserConfig::class), $this->createMock(\OCP\IAppConfig::class),
+            $this->users(), $time, new AuthUsersMapper($this->db), $this->rechecks,
+            new \OCA\Mcp\Service\Policy\PolicyEventProcessor($events, new OAuthStore($this->db), new \Psr\Log\NullLogger(), $time),
+            $this->grants, $life, new OAuthStore($this->db));
     }
 
     private function preview(mixed $grants, string $gid = 'staff', string $actor = 'root'): array {
@@ -572,9 +642,9 @@ final class GroupGrantsWriterTest extends TestCase {
     }
 
     /**
-     * Re-review R1, the probe of the review: G2's deletion Before judges the holder while G1 still grants it (no
-     * cause), then a withdrawal of G1 commits, keeps the holder through G2 and renews G2's gen, so the Before loses its
-     * conditional transition. The Before judges the holders again against the new state: the holder now depends on G2
+     * Re-review R1, the probe of the review: while G2's deletion Before reads G2's lifecycle, a withdrawal of G1 commits,
+     * keeps the holder through G2 and renews G2's gen, so the Before loses its conditional transition. It reads again,
+     * marks, and only then judges the holders (mark first, F1 of the second reading): the holder now depends on G2
      * alone and gets its cause; the After purges G2 and cuts it. Granting G1 again never brings the old credential back.
      */
     public function testADeletionBeforeThatLosesItsTransitionToAWithdrawalJudgesTheHoldersAgain(): void {
@@ -587,13 +657,13 @@ final class GroupGrantsWriterTest extends TestCase {
         $this->assertSame(0, $preview['revokes'], 'team keeps ana');
         $life = new class($this->db, $save) extends GroupLifeMapper {
             public function __construct(\OCP\IDBConnection $db, private ?\Closure $between) { parent::__construct($db); }
-            public function markPendingDelete(string $gid, string $expectedGen, string $gen): bool {
+            public function markSuspended(string $gid, string $expectedGen, string $gen): bool {
                 if ($this->between !== null) {
                     // The withdrawal commits between the Before's judgement of the holders and its transition.
                     [$between, $this->between] = [$this->between, null];
                     \PHPUnit\Framework\Assert::assertSame(0, $between()['revoked']);
                 }
-                return parent::markPendingDelete($gid, $expectedGen, $gen);
+                return parent::markSuspended($gid, $expectedGen, $gen);
             }
         };
         [$listener] = $this->listener($life);
@@ -616,39 +686,251 @@ final class GroupGrantsWriterTest extends TestCase {
     }
 
     /**
-     * Re-review 2, R2: the first round of a deletion Before records the holder's cause C; before its transition an
-     * issuance (runCredential with the real classifier) consumes C, cuts generation 2 and issues 3, and a renewal of the
-     * group's gen makes the transition lose. The second round never writes C back, so the After finds nothing to do
-     * and the new credential (generation 3) survives.
+     * Re-review 2, R2, in the order of F1 of the second reading (mark first, then one capture): the deletion Before
+     * marks pending_delete and only then records the holder's cause C. An issuance between the Before and the After
+     * (runCredential with the real classifier) consumes C, cuts generation 2 and issues 3; nothing writes C back, so
+     * the After finds nothing to do and generation 3 survives. No cause exists before the mark, so no issuance can
+     * consume one while the group still admits: the one that consumes C runs after the mark, when the group admits
+     * nobody (PolicyWriter::holdLifecycles() refuses it), so its credential never relied on the group.
      */
-    public function testACauseAnIssuanceConsumedBetweenTheRoundsIsNeverWrittenBack(): void {
+    public function testACauseAnIssuanceConsumedAfterTheMarkIsNeverWrittenBack(): void {
         $this->policy('team');
         $this->holder('ana', '2');
         $this->memberOf['ana'] = ['team'];
         $this->members = ['ana'];
-        $causes = null;
-        $life = $this->interleaved(function () use (&$causes): void {
-            $this->assertCount(1, $this->rechecks->causes('ana'), 'the first round recorded C');
-            $this->writer->runCredential('ana', fn () => null, function (): bool {
-                $this->token('ana', (new AuthUsersMapper($this->db))->issue('ana'));
-                return false;
-            }, $causes->classifier());
-            $this->assertSame([], $this->rechecks->causes('ana'), 'the issuance consumed C');
-            $this->assertSame(['issue_seq' => '3', 'revoked_below' => '2'], $this->generations('ana'));
-            $this->writer->runInternal([], fn () => null, fn (): bool => $this->life->transition('team',
-                $this->life->get('team')['gen'], GroupLifeMapper::ACTIVE, bin2hex(random_bytes(16))));
-        });
-        [$listener, $causes] = $this->listener($life);
+        [$listener, $causes] = $this->listener(new GroupLifeMapper($this->db));
         $group = $this->createMock(\OCP\IGroup::class);
         $group->method('getGID')->willReturn('team');
 
         $listener->handle(new \OCP\Group\Events\BeforeGroupDeletedEvent($group));
-        $this->assertSame('pending_delete', $this->life->get('team')['state'], 'the second round marked it');
+        $this->assertSame('pending_delete', $this->life->get('team')['state']);
+        $this->assertCount(1, $this->rechecks->causes('ana'), 'C is recorded after the mark');
+        // The native deletion removed ana from team, so its classification is known (not eligible: cut).
+        $this->memberOf['ana'] = [];
+        $this->writer->runCredential('ana', fn () => null, function (): bool {
+            $this->token('ana', (new AuthUsersMapper($this->db))->issue('ana'));
+            return false;
+        }, $causes->classifier());
+        $this->assertSame([], $this->rechecks->causes('ana'), 'the issuance consumed C');
+        $this->assertSame(['issue_seq' => '3', 'revoked_below' => '2'], $this->generations('ana'));
+        $listener->handle(new \OCP\Group\Events\GroupDeletedEvent($group));
+
+        $this->assertNull($this->life->get('team'));
         $this->assertSame([], $this->rechecks->causes('ana'), 'C is never written back');
+        $this->assertSame(['issue_seq' => '3', 'revoked_below' => '2'], $this->generations('ana'), 'generation 3 survives');
+    }
+
+    /**
+     * F1 of the second reading, first interleaving: G grants the only eligibility of ana, who holds no credential. The
+     * deletion Before reads G's lifecycle; before its transition an issuance G admitted commits (consent, exchange or
+     * refresh). The issuance renewed G's gen, so the transition loses; the Before reads again, marks, and only then
+     * captures the holders: ana's new credential is there, gets its cause, and the After cuts it. Granting G again
+     * never brings it back.
+     */
+    public function testAnIssuanceCommittedBeforeTheMarkIsCapturedAndCutByTheAfter(): void {
+        $this->policy('team');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $marks = 0;
+        $life = new class($this->db, fn () => $this->assertTrue($this->issueAdmitted('ana')), $marks) extends GroupLifeMapper {
+            public function __construct(\OCP\IDBConnection $db, private ?\Closure $between, private int &$marks) { parent::__construct($db); }
+            public function markSuspended(string $gid, string $expectedGen, string $gen): bool {
+                ++$this->marks;
+                if ($this->between !== null) {
+                    [$between, $this->between] = [$this->between, null];
+                    $between();
+                }
+                return parent::markSuspended($gid, $expectedGen, $gen);
+            }
+        };
+        [$listener] = $this->listener($life);
+        $group = $this->createMock(\OCP\IGroup::class);
+        $group->method('getGID')->willReturn('team');
+
+        $listener->handle(new \OCP\Group\Events\BeforeGroupDeletedEvent($group));
+        $this->assertSame(2, $marks, 'the issuance renewed the gen, so the first transition lost');
+        $this->assertSame('pending_delete', $this->life->get('team')['state']);
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '0'], $this->generations('ana'));
+        $this->assertSame([IdentityKey::group('team')], array_column($this->rechecks->causes('ana'), 'causeKey'));
         $this->memberOf['ana'] = [];
         $listener->handle(new \OCP\Group\Events\GroupDeletedEvent($group));
 
         $this->assertNull($this->life->get('team'));
-        $this->assertSame(['issue_seq' => '3', 'revoked_below' => '2'], $this->generations('ana'), 'generation 3 survives');
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->generations('ana'), 'cut by the After');
+        $this->memberOf['ana'] = ['team'];
+        [, $save] = $this->realSave('team', ['_system' => ['eligible']]);
+        $save();
+        $this->assertSame('2', $this->generations('ana')['revoked_below'], 'the regrant leaves generation 2 cut');
+    }
+
+    /**
+     * F1, second interleaving: the issuance's local phase read G active, then the deletion's mark committed on another
+     * connection before the issuance renewed G's gen. The conditional renewal matches nothing, the attempt rolls back
+     * whole, and the replay's admission reads pending_delete and refuses: no credential, nothing for the After to miss.
+     * (One SQLite connection: the concurrent mark is applied inside the attempt, where the renewal sees it, and again
+     * outside it, as committed, before the replay.)
+     */
+    public function testAMarkCommittedBetweenTheReadAndTheRenewalRefusesTheIssuanceOnReplay(): void {
+        $this->policy('team');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $mark = bin2hex(random_bytes(16));
+        $marked = false;
+        $life = new class($this->db, function () use ($mark, &$marked): void {
+            $this->database->dbal->update('mcp_group_life', ['state' => 'pending_delete', 'gen' => $mark], ['group_key' => IdentityKey::group('team')]);
+            $marked = true;
+        }) extends GroupLifeMapper {
+            public function __construct(\OCP\IDBConnection $db, private ?\Closure $concurrent) { parent::__construct($db); }
+            public function transition(string $gid, string $expectedGen, string $state, string $gen): bool {
+                if ($this->concurrent !== null) {
+                    [$concurrent, $this->concurrent] = [$this->concurrent, null];
+                    $concurrent();
+                }
+                return parent::transition($gid, $expectedGen, $state, $gen);
+            }
+        };
+        $attempts = 0;
+        $issued = $this->issueAdmitted('ana', function () use (&$attempts, &$marked, $mark): ?array {
+            if (++$attempts > 1 && $marked) {
+                // The committed mark of the other connection, which the rollback of this one cannot undo.
+                $this->database->dbal->update('mcp_group_life', ['state' => 'pending_delete', 'gen' => $mark], ['group_key' => IdentityKey::group('team')]);
+            }
+            return $this->admission('ana');
+        }, $this->writerWith($life));
+
+        $this->assertTrue($marked);
+        $this->assertSame(2, $attempts, 'replayed once');
+        $this->assertFalse($issued, 'the replay reads pending_delete and refuses');
+        $this->assertSame(['issue_seq' => '1', 'revoked_below' => '0'], $this->generations('ana'));
+        $this->assertSame([], (new OAuthStore($this->db))->liveHolders($this->now, '0'));
+    }
+
+    /** F1: an issuance whose external phase follows the mark refuses; G admits nobody while pending_delete. */
+    public function testAnIssuanceAfterTheMarkIsRefused(): void {
+        $this->policy('team');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $this->assertTrue($this->life->markPendingDelete('team', $this->life->get('team')['gen'], bin2hex(random_bytes(16))));
+        $this->assertFalse($this->issueAdmitted('ana'));
+        $this->assertSame(['issue_seq' => '1', 'revoked_below' => '0'], $this->generations('ana'));
+    }
+
+    /**
+     * F1: two issuances G admitted, concurrent: the second commits during the first one's external phase and renews
+     * G's gen. The first still finds G active under its mutex and the revision unchanged, so it renews again without
+     * a replay; neither forces the other to replay.
+     */
+    public function testTwoConcurrentIssuancesOfOneGroupDoNotReplayEachOther(): void {
+        $this->policy('team');
+        $this->memberOf = ['ana' => ['team'], 'bob' => ['team']];
+        $gen = $this->life->get('team')['gen'];
+        $attempts = 0;
+        $this->assertTrue($this->issueAdmitted('ana', function () use (&$attempts): ?array {
+            ++$attempts;
+            $admission = $this->admission('ana');
+            if ($attempts === 1) {
+                $this->assertTrue($this->issueAdmitted('bob'), 'bob commits in between');
+            }
+            return $admission;
+        }));
+        $this->assertSame(1, $attempts, 'no replay');
+        $this->assertSame('2', $this->generations('ana')['issue_seq']);
+        $this->assertSame('2', $this->generations('bob')['issue_seq']);
+        $this->assertNotSame($gen, $this->life->get('team')['gen']);
+        $this->assertSame('active', $this->life->get('team')['state']);
+    }
+
+    /**
+     * RF2 of the re-reading of F2, the exact interleaving: ana has an individual Allow, a credential and team, the only
+     * group she would inherit from. A reset of the Allow reads in its external phase that she inherits from team; then
+     * her removal from team is delivered (Before and After) before the reset reaches its mutex. The removal records
+     * its cause although the Allow masks it, and processing it (no cut: the Allow still exists) advances the revision,
+     * so the reset meets a conflict and writes nothing. Sent again on the new revision it reads ana outside team and
+     * cuts; adding her back never revives the old credential.
+     */
+    public function testAResetRacingTheRemovalOfTheMemberCutsInsteadOfKeepingAStaleInheritance(): void {
+        $this->policy('team');
+        $this->holder('ana', '2');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $this->configData->user['ana']['mcp'] = ['eligible' => '1', 'connected' => '1'];
+        [, $causes] = $this->listener(new GroupLifeMapper($this->db));
+        $writer = $this->writerWith(new GroupLifeMapper($this->db));
+        $cell = [['uid' => 'ana', 'key' => 'eligible', 'value' => null]];
+
+        try {
+            $writer->applyCells($this->revision(), 'root', 'grants.commands', $cell, function (string $uid) use ($causes): ?array {
+                $inherited = $this->inheritance($uid);
+                $this->assertNotNull($inherited, 'read while ana is in team');
+                $this->removeMember('ana', 'team', $causes);
+                return $inherited;
+            });
+            $this->fail('the processed removal moved the revision');
+        } catch (\OCA\Mcp\Service\Policy\PolicyConflict) {
+        }
+        $this->assertSame('1', $this->configData->user['ana']['mcp']['eligible'], 'nothing written');
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '0'], $this->generations('ana'), 'still eligible by the Allow: no cut');
+        $this->assertSame([], $this->rechecks->causes('ana'), 'the cause was processed');
+
+        $writer->applyCells($this->revision(), 'root', 'grants.commands', $cell, fn (string $uid): ?array => $this->inheritance($uid));
+        $this->assertArrayNotHasKey('eligible', $this->configData->user['ana']['mcp']);
+        $this->assertSame(['issue_seq' => '2', 'revoked_below' => '2'], $this->generations('ana'), 'cut');
+        $this->memberOf['ana'] = ['team'];
+        $this->assertSame('2', $this->generations('ana')['revoked_below'], 'back in team, the old generation stays cut');
+    }
+
+    /** RF2, the undo that restores absence: the same race leaves the Allow in place (conflict), never a stale keep. */
+    public function testAnUndoRacingTheRemovalOfTheMemberNeverKeepsAStaleInheritance(): void {
+        $this->policy('team');
+        $this->holder('ana', '2');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        $this->configData->user['ana']['mcp'] = ['connected' => '1'];
+        [, $causes] = $this->listener(new GroupLifeMapper($this->db));
+        $writer = $this->writerWith(new GroupLifeMapper($this->db));
+        $saved = $writer->applyCells($this->revision(), 'root', 'grants.commands', [['uid' => 'ana', 'key' => 'eligible', 'value' => '1']]);
+
+        try {
+            $writer->restoreReceipt((string)$saved['receiptId'], $saved['revision'], 'root', function (string $uid) use ($causes): ?array {
+                $inherited = $this->inheritance($uid);
+                $this->removeMember('ana', 'team', $causes);
+                return $inherited;
+            });
+            $this->fail('the processed removal moved the revision');
+        } catch (\OCA\Mcp\Service\Policy\PolicyConflict) {
+        }
+        $this->assertSame('1', $this->configData->user['ana']['mcp']['eligible'], 'the Allow stays: ana is still eligible');
+        $this->assertSame('0', $this->generations('ana')['revoked_below']);
+        $this->memberOf['ana'] = [];
+        $writer->applyCells($this->revision(), 'root', 'grants.commands', [['uid' => 'ana', 'key' => 'eligible', 'value' => null]],
+            fn (string $uid): ?array => $this->inheritance($uid));
+        $this->assertSame('2', $this->generations('ana')['revoked_below'], 'removing the Allow now cuts');
+    }
+
+    /**
+     * RF3 of the re-reading of F1: an issuance the group admitted renews its gen (active to active, revision unchanged)
+     * between the preview and the save of an ordinary change; policy and members are the same, so the save succeeds.
+     * A real transition in the same place (pending_delete) still refuses it.
+     */
+    public function testAnIssuanceRenewalBetweenPreviewAndSaveNeverInvalidatesThePreview(): void {
+        $this->policy('team');
+        $this->memberOf['ana'] = ['team'];
+        $this->members = ['ana'];
+        [$preview, $save] = $this->realSave('team', ['_system' => ['eligible'], 'notes' => ['edit', 'read']]);
+        $gen = $this->life->get('team')['gen'];
+        $this->assertTrue($this->issueAdmitted('ana'), 'a refresh admitted by team');
+        $this->assertNotSame($gen, $this->life->get('team')['gen']);
+        $this->assertSame($preview['revision'], $this->revision(), 'the renewal moves no revision');
+        $this->assertTrue($save()['changed']);
+        $this->assertSame(['_system/eligible', 'notes/edit', 'notes/read'], $this->rows('team'));
+
+        [$preview, $save] = $this->realSave('team', ['_system' => ['eligible']]);
+        $this->assertTrue($this->life->markPendingDelete('team', $this->life->get('team')['gen'], bin2hex(random_bytes(16))));
+        try {
+            $save();
+            $this->fail('a real transition invalidates the preview');
+        } catch (PolicyConflict) {
+        }
+        $this->assertSame(['_system/eligible', 'notes/edit', 'notes/read'], $this->rows('team'));
     }
 }

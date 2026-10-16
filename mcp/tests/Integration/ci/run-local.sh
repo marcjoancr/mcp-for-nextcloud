@@ -248,8 +248,8 @@ SAMPLER_PID=$!
 
 failed=0
 for step in packages tools start-db start-nextcloud install-app fixtures provision report; do
-    # The provisioning of groupfolders, external storage, Talk and Notes exists only on the lines that prove the
-    # exclusion (issue #4); the harness of this line has no such step.
+    # The provisioning of groupfolders, external storage, Talk, Notes and Calendar exists only on the lines that prove
+    # the exclusion (issue #4); the harness of this line has no such step.
     if [ "$step" = provision ] && ! grep -q '^    provision)' "$HARNESS"; then
         continue
     fi

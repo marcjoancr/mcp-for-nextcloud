@@ -178,7 +178,7 @@ class GrantsController extends Controller {
                 $cells[] = ['uid' => $command['uid'], 'key' => $key, 'value' => self::STATES[$command['state']]];
             }
             $expected = $this->expectedRevision();
-            $result = $this->writer->applyCells($expected, $this->actor(), PolicyEventPayload::ACTION_COMMANDS, $cells);
+            $result = $this->writer->applyCells($expected, $this->actor(), PolicyEventPayload::ACTION_COMMANDS, $cells, $this->inheritance());
             return ['revision' => $result['revision'], 'changed' => $result['changed'], 'receiptId' => $result['receiptId']];
         }, fn (): array => $this->usersState(is_array($commands) ? array_map(static fn ($c) => is_array($c) ? ($c['uid'] ?? '') : '', $commands) : []));
     }
@@ -199,7 +199,7 @@ class GrantsController extends Controller {
             }
             $expected = $this->expectedRevision();
             try {
-                return $this->writer->restoreReceipt($receiptId, $expected, $this->actor());
+                return $this->writer->restoreReceipt($receiptId, $expected, $this->actor(), $this->inheritance());
             } catch (ReceiptNotFound) {
                 return new JSONResponse(['error' => 'NotFound'], Http::STATUS_NOT_FOUND);
             } catch (ReceiptExpired) {
@@ -510,6 +510,16 @@ class GrantsController extends Controller {
             throw new InvalidArgumentException('Invalid request');
         }
         return \OCA\Mcp\Service\Policy\DecimalCounter::validate($expected);
+    }
+
+    /**
+     * What a user inherits once an individual Allow of eligibility is removed (inherit, or an undo that restores
+     * absence): the writer cuts only when nothing keeps the user eligible, and refuses with 503 when that is unknown.
+     *
+     * @return \Closure(string): (list<array{groupId:string, gen:string}>|null)
+     */
+    private function inheritance(): \Closure {
+        return fn (string $uid): ?array => $this->policy->inheritance($uid);
     }
 
     /** @return string uid of the signed-in administrator, recorded on receipts and audit */

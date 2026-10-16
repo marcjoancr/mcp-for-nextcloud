@@ -249,6 +249,26 @@ class GrantPolicy implements ScopeReader {
     }
 
     /**
+     * What keeps a user eligible once the individual value is removed, for a reset of an individual Allow or an undo
+     * that restores absence (contracts §3.1, §4.1; F2 of the second reading of 1.1.0): a fresh read in the external
+     * phase of the writer command, outside any open operation, persisting no observation.
+     *
+     * @param string $uid Nextcloud user id
+     * @return list<array{groupId:string, gen:string}>|null the lifecycles of the groups that keep the user eligible,
+     *     which the command renews under its mutex (PolicyWriter::holdLifecycles()); null when nothing does
+     * @throws PolicyUnavailable when the inherited eligibility is unknown or cannot be read
+     */
+    public function inheritance(string $uid): ?array {
+        $context = $this->resolver->begin($uid, [], [], false);
+        try {
+            $eligibility = $context->inheritedEligibility();
+            return self::known($eligibility->allowed) ? $context->lifecycles($eligibility->groupIds) : null;
+        } finally {
+            $context->close();
+        }
+    }
+
+    /**
      * @param string $uid Nextcloud user id
      * @param string $module key of CATALOG
      * @param string $operation operation listed for the module in CATALOG

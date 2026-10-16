@@ -20,6 +20,8 @@ return ['routes' => [
     ['name' => 'grants#bulk', 'url' => '/api/grants/bulk', 'verb' => 'POST'],
     // Same reasoning: POST never collides with the per-user PUT route.
     ['name' => 'grants#commands', 'url' => '/api/grants/commands', 'verb' => 'POST'],
+    // Read only: what the same commands would leave, for the preview of a reset.
+    ['name' => 'override_preview#index', 'url' => '/api/grants/commands/preview', 'verb' => 'POST'],
     ['name' => 'grants#undo', 'url' => '/api/grants/undo', 'verb' => 'POST'],
     ['name' => 'grants#update', 'url' => '/api/grants/{uid}', 'verb' => 'PUT'],
     ['name' => 'grants#service', 'url' => '/api/service', 'verb' => 'PUT'],

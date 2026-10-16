@@ -19,6 +19,7 @@
  */
 \OCP\Util::addScript('mcp', 'admin-picker');
 \OCP\Util::addScript('mcp', 'admin-grants');
+\OCP\Util::addScript('mcp', 'admin-overrides');
 \OCP\Util::addScript('mcp', 'admin-groups');
 \OCP\Util::addScript('mcp', 'admin-scope');
 \OCP\Util::addScript('mcp', 'admin-inspector');
