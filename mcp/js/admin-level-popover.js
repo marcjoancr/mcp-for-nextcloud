@@ -432,7 +432,7 @@
 		if (!open.saving) render()
 	}
 
-	/** Places the popover under the cell it belongs to, inside the matrix block. */
+	/** Places the popover under the cell it belongs to, inside the matrix block, and brings all of it into view. */
 	function place(trigger) {
 		const block = popover.offsetParent || popover.parentElement
 		const box = block.getBoundingClientRect()
@@ -440,6 +440,8 @@
 		const width = popover.offsetWidth || 360
 		popover.style.top = (rect.bottom - box.top + 4) + 'px'
 		popover.style.left = Math.max(0, Math.min(rect.left - box.left, box.width - width)) + 'px'
+		// Its height is capped (js/admin.css) and it scrolls inside: the page only moves as far as showing all of it takes.
+		popover.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
 	}
 
 	/**
@@ -483,6 +485,8 @@
 		window.dispatchEvent?.(new Event('mcp-level-popover-closed'))
 	}
 
+	// Opening "Operations" makes it taller: it comes back into view whole (toggle does not bubble, so it is caught here).
+	popover.addEventListener('toggle', () => popover.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }), true)
 	popover.addEventListener('keydown', (event) => {
 		if (event.key === 'Escape') {
 			event.preventDefault()
