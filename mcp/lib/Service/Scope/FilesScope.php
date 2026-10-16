@@ -35,8 +35,10 @@ use Throwable;
 class FilesScope {
     public const MODULE = 'files';
 
-    /** @var array<string, list<string>> candidate ids by "id:path" of a node, until the tree changes */
+    /** @var array<string, list<string>> candidate ids by "id:path" of a node or an ancestor, until the tree changes */
     private array $chains = [];
+    /** @var array<string, list<string>> the owner's chain of a share root, by its id, until the tree changes */
+    private array $owners = [];
 
     public function __construct(
         private GrantPolicy $policy,
@@ -166,6 +168,7 @@ class FilesScope {
     /** Forgets the resolved chains: a move or a deletion changes them. */
     public function clearCache(): void {
         $this->chains = [];
+        $this->owners = [];
     }
 
     /**
@@ -188,32 +191,45 @@ class FilesScope {
      * @throws Throwable when a chain cannot be resolved: then the node is outside the scope
      */
     public function candidates(Node $node): array {
-        $key = self::canonical($node->getId()) . ':' . $node->getPath();
-        if (isset($this->chains[$key])) {
-            return $this->chains[$key];
-        }
-        $ids = [];
+        // Walk up only until an ancestor whose chain is already known: the siblings of a listing, a tree or a search
+        // share their ancestors, so each ancestor and each share root is resolved once per operation.
+        $walked = [];
         $seen = [];
+        $known = [];
         $current = $node;
         while (!$current instanceof IRootFolder) {
             $id = self::canonical($current->getId());
             if ($id === '' || isset($seen[$id])) {
                 throw new RuntimeException('Unresolved chain');
             }
-            $seen[$id] = true;
-            $ids[$id] = $id;
-            if ($this->isShareRoot($current)) {
-                foreach ($this->ownerChain($current) as $owned) {
-                    $ids[$owned] = $owned;
-                }
+            $key = $id . ':' . $current->getPath();
+            if (isset($this->chains[$key])) {
+                $known = $this->chains[$key];
+                break;
             }
+            $seen[$id] = true;
+            $walked[] = [$key, $id, $current];
             $parent = $this->guard->parentOf($current);
             if ($parent === $current || ($parent instanceof Node && !$parent instanceof IRootFolder && self::canonical($parent->getId()) === $id)) {
                 throw new RuntimeException('Unresolved chain');
             }
             $current = $parent;
         }
-        return $this->chains[$key] = array_values($ids);
+        // Each walked node's chain is its own id, the owner's chain above a share root, and its parent's chain.
+        $chain = $known;
+        foreach (array_reverse($walked) as [$key, $id, $walkedNode]) {
+            $ids = [$id => $id];
+            if ($this->isShareRoot($walkedNode)) {
+                foreach ($this->ownerChain($walkedNode) as $owned) {
+                    $ids[$owned] = $owned;
+                }
+            }
+            foreach ($chain as $above) {
+                $ids[$above] = $above;
+            }
+            $chain = $this->chains[$key] = array_values($ids);
+        }
+        return $chain;
     }
 
     /** Whether the node is the root of a share mount: above it, the user's chain is not the owner's. */
@@ -233,6 +249,9 @@ class FilesScope {
      */
     private function ownerChain(Node $node): array {
         $id = self::canonical($node->getId());
+        if (isset($this->owners[$id])) {
+            return $this->owners[$id];
+        }
         $owner = $node->getOwner();
         if ($owner === null || $owner->getUID() === '') {
             throw new RuntimeException('No owner');
@@ -260,6 +279,6 @@ class FilesScope {
                 $current = $this->guard->parentOf($current);
             }
         }
-        return array_values($ids);
+        return $this->owners[$id] = array_values($ids);
     }
 }

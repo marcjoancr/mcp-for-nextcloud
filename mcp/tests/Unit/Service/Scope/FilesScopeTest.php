@@ -282,4 +282,71 @@ final class FilesScopeTest extends TestCase {
         $this->expectException(\Throwable::class);
         $scope->candidatesIn($resolution('restricted', [$this->projects]), $broken);
     }
+
+    /**
+     * M2 of the B5 review: siblings share their ancestors, so a listing of N children resolves each ancestor once:
+     * the first child walks up to the root, every other one stops at its parent.
+     */
+    public function testSiblingsResolveTheirAncestorsOncePerOperation(): void {
+        for ($i = 0; $i < 20; $i++) {
+            $this->tree->addFile("/alice/files/Projects/deep/f$i.md", 'x');
+        }
+        $calls = 0;
+        $counting = new class ($this->config->mock($this), $this->tags(), $this->tree->filesystemRoot(), $calls) extends VisibilityGuard {
+            public function __construct($config, $tags, $root, private int &$calls) {
+                parent::__construct($config, $tags, $root);
+            }
+            public function parentOf(Node $node): Node {
+                $this->calls++;
+                return parent::parentOf($node);
+            }
+        };
+        $this->scopes['alice'] = [$this->projects];
+        $scope = FilesScopes::over($this, $counting, $this->tree->filesystemRoot(), fn (string $uid): array|null|false => $this->scopes[$uid] ?? null);
+        for ($i = 0; $i < 20; $i++) {
+            $this->assertTrue($scope->allows('alice', $this->node("/Projects/deep/f$i.md")));
+        }
+        // f0 -> deep -> Projects -> /alice/files -> root: 4 walks; f1..f19 stop at the known deep: 19 more.
+        $this->assertSame(23, $calls);
+        $this->assertTrue($scope->allows('alice', $this->node('/Projects/deep/f3.md')));
+        $this->assertSame(23, $calls, 'a node already resolved walks nothing');
+        $scope->clearCache();
+        $scope->allows('alice', $this->node('/Projects/deep/f3.md'));
+        $this->assertSame(27, $calls, 'a change of the tree forgets the chains');
+    }
+
+    /** M2: the owner's chain of a share root is resolved once for every node below it. */
+    public function testTheOwnersChainIsResolvedOncePerShareRoot(): void {
+        [$root, $node] = $this->sharedWithBob();
+        $lookups = 0;
+        $counted = $this->createMock(IRootFolder::class);
+        $counted->method('getUserFolder')->willReturnCallback(function (string $uid) use ($root, &$lookups) {
+            $lookups++;
+            return $root->getUserFolder($uid);
+        });
+        $guard = new VisibilityGuard($this->config->mock($this), $this->tags(), null);
+        $scope = FilesScopes::over($this, $guard, $counted, static fn (): array => ['100'], 'bob');
+        foreach ([1, 2, 3] as $ignored) {
+            $this->assertTrue($scope->allows('bob', $node));
+        }
+        $sibling = $this->createMock(\OCP\Files\File::class);
+        $sibling->method('getId')->willReturn(302);
+        $sibling->method('getPath')->willReturn('/bob/files/Shared/y.md');
+        $sibling->method('getStorage')->willReturn($node->getStorage());
+        $sibling->method('getMountPoint')->willReturn($node->getMountPoint());
+        $sibling->method('getParent')->willReturn($node->getParent());
+        $this->assertTrue($scope->allows('bob', $sibling));
+        // The same share root mounted at a second path of bob's: another chain, the same owner lookup.
+        $alias = $this->createMock(Folder::class);
+        $alias->method('getId')->willReturn(300);
+        $alias->method('getPath')->willReturn('/bob/files/Again');
+        $alias->method('getStorage')->willReturn($node->getStorage());
+        $point = $this->createMock(IMountPoint::class);
+        $point->method('getMountPoint')->willReturn('/bob/files/Again/');
+        $alias->method('getMountPoint')->willReturn($point);
+        $alias->method('getOwner')->willReturn($node->getOwner());
+        $alias->method('getParent')->willReturn($node->getParent()->getParent());
+        $this->assertTrue($scope->allows('bob', $alias));
+        $this->assertSame(1, $lookups, 'one owner lookup for the share root, whatever path it is mounted at');
+    }
 }
