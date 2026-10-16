@@ -382,3 +382,58 @@ test('T14 D1 review F1: the default host list is stored as no list, so sending i
 		assert.deepEqual(log.announced, announced, hosts)
 	}
 })
+
+test('T14 D1 review F1 (re-read): values the server trims with PHP\'s trim (NUL, VT, TAB, CR at the ends) change nothing, so nothing is announced', async () => {
+	// Stored: host claude.ai and client A with one URI. The server trims each value below back to the stored one and
+	// commits nothing; another administrator turns A off before the read-back (revision 6).
+	const outside = state('6', [client('aaaaaaaaaaaa', 'A', false)], { hosts: ['claude.ai'] })
+	const edges = { NUL: '\u0000', VT: '\u000B', TAB: '\t', CR: '\r' }
+	const saves = []
+	for (const [name, edge] of Object.entries(edges)) {
+		saves.push([`host with ${name}`, async ({ elements }) => {
+			elements['mcp-oauth-hosts'].value = edge + 'claude.ai' + edge
+			await elements['mcp-oauth-hosts-save'].fire('click')
+		}])
+		saves.push([`name with ${name}`, async ({ cards }) => {
+			cards()[0].querySelector('input[type="text"]').value = edge + 'A' + edge
+			await button(cards()[0], 'Save').fire('click')
+		}])
+		saves.push([`URI with ${name}`, async ({ cards }) => {
+			cards()[0].querySelector('textarea').value = edge + REDIRECT + edge
+			await button(cards()[0], 'Save').fire('click')
+		}])
+	}
+	// A control character the server keeps (it then refuses the value) is never taken for a change either.
+	saves.push(['host with a BEL inside', async ({ elements }) => {
+		elements['mcp-oauth-hosts'].value = 'claude\u0007.ai'
+		await elements['mcp-oauth-hosts-save'].fire('click')
+	}])
+	for (const [name, save] of saves) {
+		const ui = await page(({ method }) => method === 'GET' ? [200, state('5', [client('aaaaaaaaaaaa', 'A')], { hosts: ['claude.ai'] })] : [200, outside])
+		await save(ui)
+		assert.equal(puts(ui.log).length, 1, name)
+		assert.deepEqual(ui.log.announced, [], name)
+	}
+})
+
+test('T14 D1 review F1 (re-read): a real change with NUL at the ends is trimmed as the server trims it, committed and announced', async () => {
+	const cases = [
+		['host', async ({ elements }) => {
+			elements['mcp-oauth-hosts'].value = '\u0000example.org\u0000'
+			await elements['mcp-oauth-hosts-save'].fire('click')
+		}],
+		['name', async ({ cards }) => {
+			cards()[0].querySelector('input[type="text"]').value = '\u0000B\u0000'
+			await button(cards()[0], 'Save').fire('click')
+		}],
+		['URI', async ({ cards }) => {
+			cards()[0].querySelector('textarea').value = '\u0000https://other.example.com/cb\u0000'
+			await button(cards()[0], 'Save').fire('click')
+		}],
+	]
+	for (const [name, save] of cases) {
+		const ui = await page(({ method }) => method === 'GET' ? [200, state('5', [client('aaaaaaaaaaaa', 'A')], { hosts: ['claude.ai'] })] : [200, state('6', [client('aaaaaaaaaaaa', 'A')])])
+		await save(ui)
+		assert.deepEqual(ui.log.announced, [['5', '6']], name)
+	}
+})

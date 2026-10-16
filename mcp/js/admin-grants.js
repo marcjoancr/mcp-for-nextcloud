@@ -217,6 +217,17 @@
 	}
 
 	/**
+	 * PHP's trim() without a character list: removes only " \t\n\r\0\x0B" from both ends. String.prototype.trim()
+	 * keeps NUL and removes Unicode spaces PHP keeps, so it cannot stand in for the server's normalization.
+	 *
+	 * @param {string} text
+	 * @return {string}
+	 */
+	function phpTrim(text) {
+		return text.replace(/^[ \t\n\r\x00\x0B]+|[ \t\n\r\x00\x0B]+$/g, '')
+	}
+
+	/**
 	 * Keeps a block's own revision in step with the writes of this page: when the block is exactly at the revision a
 	 * write committed from, it takes the one that write made, and its unsaved changes stay valid.
 	 *
@@ -1327,21 +1338,28 @@
 
 		/**
 		 * Whether a request differs from the settings stored at the block's revision, compared the way the server compares
-		 * them (OAuthClientsService): the server then commits it and the revision advances. Hosts are lowercased, trimmed
-		 * and without duplicates, and the default list is stored as no list; clients keep their order, with names and
-		 * redirect URIs trimmed and URIs without duplicates. False when unsure, so nothing is announced then.
+		 * them (OAuthClientsService): the server then commits it and the revision advances. Hosts are trimmed, lowercased
+		 * (ASCII only) and without duplicates, and the default list is stored as no list (GrantsController::hosts,
+		 * writeHosts); clients keep their order, with names and redirect URIs trimmed and URIs without duplicates
+		 * (CustomClient::validate, validateUris). Every trim is PHP's own (phpTrim()). A value still holding a control
+		 * character after it, which the server refuses, counts as unsure. False when unsure, so nothing is announced then.
 		 *
 		 * @param {object} change the settings sent (hosts, nativeClientEnabled or customClients)
 		 * @param {object} stored the server's last answer
 		 * @return {boolean}
 		 */
 		function changes(change, stored) {
-			const unique = (list) => [...new Set(list.map((item) => item.trim()))]
+			const control = (text) => /[\x00-\x1f\x7f]/.test(text)
+			const uris = (list) => [...new Set(list.map(phpTrim))]
 			if (change.nativeClientEnabled !== undefined && change.nativeClientEnabled !== stored.nativeClientEnabled) {
 				return true
 			}
 			if (change.hosts !== undefined) {
-				const hosts = unique(change.hosts.map((host) => host.toLowerCase()))
+				// strtolower() of PHP 8 changes A-Z only.
+				const hosts = [...new Set(change.hosts.map((host) => phpTrim(host).replace(/[A-Z]/g, (letter) => letter.toLowerCase())))]
+				if (hosts.some(control)) {
+					return false
+				}
 				// Stored as no list when the request is the default set; only known while the default is what is stored.
 				const isDefault = stored.hostsDefault && hosts.length === stored.hosts.length && hosts.every((host) => stored.hosts.includes(host))
 				if (stored.hostsDefault ? !isDefault : hosts.join(',') !== stored.hosts.join(',')) {
@@ -1349,7 +1367,10 @@
 				}
 			}
 			if (change.customClients !== undefined) {
-				const key = (clients) => JSON.stringify(clients.map((client) => [client.id ?? null, client.name.trim(), client.enabled, unique(client.redirectUris)]))
+				if (change.customClients.some((client) => control(phpTrim(client.name)) || uris(client.redirectUris).some(control))) {
+					return false
+				}
+				const key = (clients) => JSON.stringify(clients.map((client) => [client.id ?? null, phpTrim(client.name), client.enabled, uris(client.redirectUris)]))
 				if (key(change.customClients) !== key(stored.customClients)) {
 					return true
 				}
