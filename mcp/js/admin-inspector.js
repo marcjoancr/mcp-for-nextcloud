@@ -6,6 +6,14 @@
  * Effective access inspector (ticket 13; issue #4 A5, B6). Plain JavaScript, no build. It only reads: the effective
  * access of one user per operation, and why one path or one calendar is reached or not. Every text comes from the
  * codes the server answers, the same codes the tools are decided by; nothing here decides access.
+ *
+ * It opens as a drawer at the side of the page (S10), from its button on the Access tab or from the actions menu of a
+ * matrix row, and answers first whether the person can use the tools at all: when one general check blocks every
+ * operation (the account, the service, "Can connect" or the personal connection), one sentence says which and how to
+ * fix it, next to the four general checks. Then one line per module gives the level the person has, where it comes
+ * from, the resource scope and what blocks it; the table of every operation stays one click away. An individual value
+ * that only repeats what the person inherits is said as the matrix says it ("also set for this person, with the same
+ * value"), through the same read-only preview (js/admin-exceptions.js); until that is known it is "set for this person".
  */
 (function () {
 	'use strict'
@@ -28,6 +36,14 @@
 	let inspected = null
 	let catalog = {}
 	let seq = 0
+	/**
+	 * What each individual value of the person on screen is (js/admin-exceptions.js, the same preview and rule as the
+	 * matrix): per "module/operation", {kind: exception|redundant, after}. Null until known, and when it cannot be read:
+	 * every individual value is then said as set for this person, never as repeating what they inherit.
+	 */
+	let kinds = null
+	/** The answer on screen, drawn again once the kinds are known. */
+	let shown = null
 
 	function el(tag, props = {}, children = []) {
 		const node = document.createElement(tag)
@@ -77,6 +93,17 @@
 			resource_scope_unknown: t('mcp', 'Unknown: the resource scope of this user cannot be read.'),
 		}[gate] || gate
 	}
+	/**
+	 * Where one operation's value comes from, in words. An individual value that only repeats what the person inherits
+	 * says what it repeats, as the matrix does.
+	 */
+	function grantText(row) {
+		const kind = kinds?.get(row.module + '/' + row.operation)
+		if (kind?.kind === 'redundant' && kind.after) {
+			return sourceText(kind.after) + ' — ' + t('mcp', 'also set for this person, with the same value')
+		}
+		return sourceText(row.grant)
+	}
 	function sourceText(grant) {
 		const groups = (grant.groupIds || []).join(', ')
 		return {
@@ -114,7 +141,174 @@
 		}
 	}
 
+	/** The general checks, in the order the tools apply them; one of them blocking blocks every operation. */
+	const GENERAL = ['account', 'service', 'eligibility', 'connection']
+
+	/**
+	 * The general check that blocks every operation, or null when none does: every operation must be blocked by it.
+	 *
+	 * @param {Array<object>} operations the operations of the answer
+	 * @return {string|null} a gate of GENERAL, or eligibility_unknown
+	 */
+	function generalBlock(operations) {
+		const gates = new Set(operations.map((row) => row.blockingGate))
+		if (operations.length === 0 || gates.size !== 1) return null
+		const [gate] = gates
+		return GENERAL.includes(gate) || gate === 'eligibility_unknown' ? gate : null
+	}
+
+	/** What to do about a general check that blocks, when the administrator or the person can do something. */
+	function remedy(gate) {
+		return {
+			service: t('mcp', 'Turn the service on in the Overview tab.'),
+			eligibility: t('mcp', 'Turn on “Can connect” in the matrix or through a group.'),
+			connection: t('mcp', 'They turn it on in their personal settings, under MCP for Cloud.'),
+		}[gate] || ''
+	}
+
+	/**
+	 * What the operations say once no general check blocks: the tools can be used when one operation is allowed, it is
+	 * not confirmed when none is and one cannot be read, and nothing can be used when every one is blocked.
+	 *
+	 * @param {Array<object>} operations the operations of the answer, not empty
+	 * @return {string} usable, unknown, none_granted (every one blocked by its grant) or none
+	 */
+	function outcome(operations) {
+		if (operations.some((row) => row.allowed === true)) return 'usable'
+		if (operations.some((row) => row.allowed !== false)) return 'unknown'
+		return operations.every((row) => row.blockingGate === 'grant') ? 'none_granted' : 'none'
+	}
+
+	/** The verdict and the four general checks: passed, the one that blocks, or not checked after it. */
+	function renderVerdict(operations) {
+		// An answer without operations confirms nothing, not even the general checks.
+		if (operations.length === 0) {
+			return [el('p', { className: 'mcp-inspector-verdict', textContent: t('mcp', 'No operation was answered, so nothing can be said about {user}.', { user: inspected }, undefined, { escape: false }) })]
+		}
+		const block = generalBlock(operations)
+		const failed = block === 'eligibility_unknown' ? 'eligibility' : block
+		const index = failed === null ? GENERAL.length : GENERAL.indexOf(failed)
+		const names = {
+			account: t('mcp', 'Account active'),
+			service: t('mcp', 'MCP service on'),
+			eligibility: t('mcp', 'Can connect'),
+			connection: t('mcp', 'Personal connection on'),
+		}
+		const checks = el('ul', { className: 'mcp-inspector-checks' }, GENERAL.map((gate, i) => {
+			const state = i < index ? 'passed' : i > index ? 'skipped' : block === 'eligibility_unknown' ? 'unknown' : 'failed'
+			const mark = { passed: '✓', failed: '✕', unknown: '?', skipped: '—' }[state]
+			const word = { passed: t('mcp', 'passed'), failed: t('mcp', 'blocks'), unknown: t('mcp', 'not confirmed'), skipped: t('mcp', 'not checked') }[state]
+			const symbol = el('span', { className: 'mcp-inspector-mark', textContent: mark })
+			symbol.setAttribute('aria-hidden', 'true')
+			return el('li', { className: 'mcp-inspector-check-' + state }, [symbol, ' ', names[gate] + ': ' + word])
+		}))
+		if (block === null) {
+			const result = outcome(operations)
+			if (result === 'usable') {
+				return [el('p', { className: 'mcp-inspector-verdict mcp-inspector-allowed', textContent: t('mcp', '{user} can use the MCP tools allowed below: the general checks passed.', { user: inspected }, undefined, { escape: false }) }), checks]
+			}
+			const text = {
+				unknown: t('mcp', 'Not confirmed: no operation of {user} is allowed for sure now, and some cannot be confirmed.', { user: inspected }, undefined, { escape: false }),
+				none_granted: t('mcp', '{user} cannot use any MCP tool: nothing is granted.', { user: inspected }, undefined, { escape: false }),
+				none: t('mcp', '{user} cannot use any MCP tool: every operation is blocked, as each module below says.', { user: inspected }, undefined, { escape: false }),
+			}[result]
+			const said = el('div', { className: 'mcp-note ' + (result === 'unknown' ? 'mcp-note-warning' : 'mcp-note-error') }, [el('p', { textContent: text })])
+			said.setAttribute('role', 'status')
+			return [said, checks]
+		}
+		const note = el('div', { className: 'mcp-note ' + (block === 'eligibility_unknown' ? 'mcp-note-warning' : 'mcp-note-error') }, [
+			el('p', {}, [el('strong', { textContent: t('mcp', '{user} cannot use any MCP tool.', { user: inspected }, undefined, { escape: false }) }), ' ' + gateText(block) + (remedy(block) ? ' ' + remedy(block) : '')]),
+		])
+		note.setAttribute('role', 'status')
+		return [note, checks]
+	}
+
+	/**
+	 * One line per module: the level the grants give, where it comes from, the resource scope and what blocks it. While a
+	 * general check blocks everything, the lines say what will apply once it is fixed, without repeating it on each.
+	 */
+	function renderModules(operations) {
+		const general = generalBlock(operations) !== null
+		const levels = window.McpAdminLevels
+		const byModule = new Map()
+		for (const row of operations) {
+			if (!byModule.has(row.module)) byModule.set(row.module, [])
+			byModule.get(row.module).push(row)
+		}
+		const levelName = { none: t('mcp', 'None'), read: t('mcp', 'Read'), edit: t('mcp', 'Edit'), full: t('mcp', 'Full'), custom: t('mcp', 'Custom'), unknown: t('mcp', 'Unknown') }
+		const items = [...byModule.entries()].map(([module, rows]) => {
+			const operationList = rows.map((row) => row.operation)
+			const values = Object.fromEntries(rows.map((row) => [row.operation, row.grant ? row.grant.allowed : row.allowed]))
+			const level = levels ? levels.levelOf(module, operationList, values) : null
+			const gates = new Set(rows.map((row) => row.blockingGate).filter((gate) => gate !== null && gate !== 'grant'))
+			const blocked = !general && rows.every((row) => row.allowed === false) && gates.size === 1 ? [...gates][0] : null
+			const origin = levels ? levels.originOf(operationList, Object.fromEntries(rows.map((row) => [row.operation, row.grant]))) : null
+			const source = origin === null ? '' : origin.source === 'individual' ? individualText(rows) : {
+				invalid: t('mcp', 'Invalid stored value (denied)'),
+				group: t('mcp', 'Group: {groups}', { groups: origin.groupIds.join(', ') }),
+				unknown: t('mcp', 'Group awaiting confirmation: {groups}', { groups: origin.groupIds.join(', ') }),
+				default: t('mcp', 'Default'),
+			}[origin.source]
+			const scope = rows[0].scope && rows[0].scope.mode === 'restricted' ? t('mcp', 'Restricted to {count}', { count: rows[0].scope.count }) : ''
+			const state = blocked !== null
+				? el('span', { className: 'mcp-inspector-blocked', textContent: t('mcp', 'Blocked') })
+				: el('span', { className: level === 'unknown' ? 'mcp-inspector-unknown' : 'mcp-inspector-level', textContent: level === null ? '' : levelName[level] || level })
+			const detail = [blocked !== null ? gateText(blocked) : source, scope].filter((text) => text !== '').join(' — ')
+			return el('li', { className: 'mcp-inspector-module' }, [el('span', { className: 'mcp-inspector-module-name', textContent: moduleName(module) }), state, el('span', { className: 'mcp-hint', textContent: detail })])
+		})
+		const list = el('ul', { className: 'mcp-inspector-modules' }, items)
+		return general ? el('div', {}, [el('p', { className: 'mcp-hint', textContent: t('mcp', 'What each module grants, once the general check is fixed:') }), list]) : list
+	}
+
+	/**
+	 * Where a module's individual values come from, as the matrix says it: an exception when one of them differs from what
+	 * the person inherits, what they repeat when every one only repeats it, and "set for this person" until that is known.
+	 */
+	function individualText(rows) {
+		const individual = rows.filter((row) => row.grant?.source === 'individual_allow' || row.grant?.source === 'individual_deny')
+		const known = individual.map((row) => kinds?.get(row.module + '/' + row.operation))
+		if (kinds === null || known.some((kind) => !kind)) return t('mcp', 'Set for this person')
+		if (known.some((kind) => kind.kind === 'exception')) return t('mcp', 'Exception: differs from what the person inherits')
+		const repeated = Object.fromEntries(rows.map((row) => {
+			const index = individual.indexOf(row)
+			return [row.operation, index < 0 ? row.grant : known[index].after || { source: 'default', groupIds: [] }]
+		}))
+		const origin = window.McpAdminLevels.originOf(rows.map((row) => row.operation), repeated)
+		const text = {
+			group: t('mcp', 'Group: {groups}', { groups: origin.groupIds.join(', ') }),
+			unknown: t('mcp', 'Group awaiting confirmation: {groups}', { groups: origin.groupIds.join(', ') }),
+		}[origin.source] || t('mcp', 'Default')
+		return text + ' — ' + t('mcp', 'also set for this person, with the same value')
+	}
+
+	/**
+	 * Asks what the individual values of the answer on screen repeat, then draws it again; an answer for another person
+	 * or another inspection is dropped.
+	 */
+	async function classifyShown(data, mine) {
+		const exceptions = window.McpAdminExceptions
+		if (!exceptions?.classifyPerson || typeof data.revision !== 'string') return
+		const cells = data.operations.map((row) => ({ module: row.module, operation: row.operation, allowed: row.grant?.allowed ?? null, source: row.grant?.source }))
+		if (!cells.some((cell) => cell.source === 'individual_allow' || cell.source === 'individual_deny')) return
+		try {
+			const answer = await exceptions.classifyPerson(inspected, cells, data.revision)
+			if (mine !== seq || shown !== data) return
+			kinds = answer
+		} catch (e) {
+			return
+		}
+		// Drawn again in place: the table of every operation stays open, and a focused summary keeps the focus.
+		const details = access.querySelector?.('details.mcp-inspector-all')
+		const wasOpen = Boolean(details?.open)
+		const hadFocus = document.activeElement !== undefined && document.activeElement === details?.querySelector?.('summary')
+		renderAccess(data)
+		const again = access.querySelector?.('details.mcp-inspector-all')
+		if (again && wasOpen) again.open = true
+		if (hadFocus) again?.querySelector?.('summary')?.focus?.()
+	}
+
 	function renderAccess(data) {
+		shown = data
 		catalog = {}
 		const rows = data.operations.map((row) => {
 			;(catalog[row.module] = catalog[row.module] || []).push(row.operation)
@@ -123,11 +317,13 @@
 				el('th', { scope: 'row', textContent: moduleName(row.module) + ': ' + operationName(row.operation) }),
 				el('td', { textContent: resultText(row.allowed), className: 'mcp-inspector-' + (row.allowed === true ? 'allowed' : row.allowed === false ? 'blocked' : 'unknown') }),
 				el('td', { textContent: row.blockingGate === null ? '—' : gateText(row.blockingGate) }),
-				el('td', { textContent: sourceText(row.grant) + scope }),
+				el('td', { textContent: grantText(row) + scope }),
 			])
 		})
 		const head = el('tr', {}, [t('mcp', 'Operation'), t('mcp', 'Result'), t('mcp', 'First check that blocks'), t('mcp', 'Grant')].map((text) => el('th', { scope: 'col', textContent: text })))
-		access.replaceChildren(el('table', { className: 'mcp-inspector-table' }, [el('caption', { textContent: t('mcp', 'Effective access of {user}', { user: inspected }) }), el('thead', {}, [head]), el('tbody', {}, rows)]))
+		const table = el('table', { className: 'mcp-inspector-table' }, [el('caption', { textContent: t('mcp', 'Effective access of {user}', { user: inspected }) }), el('thead', {}, [head]), el('tbody', {}, rows)])
+		access.replaceChildren(...renderVerdict(data.operations), renderModules(data.operations),
+			el('details', { className: 'mcp-inspector-all' }, [el('summary', { textContent: t('mcp', 'Every operation') }), table]))
 	}
 
 	async function inspect() {
@@ -143,7 +339,9 @@
 			const data = await get('/api/inspector/access', { uid })
 			if (mine !== seq) return
 			inspected = uid
+			kinds = null
 			renderAccess(data)
+			classifyShown(data, mine)
 			resources.hidden = false
 			pathResult.textContent = ''
 			calendarResult.textContent = ''
@@ -152,6 +350,8 @@
 		} catch (error) {
 			if (mine !== seq) return
 			inspected = null
+			kinds = null
+			shown = null
 			access.replaceChildren()
 			resources.hidden = true
 			say(failure(error), true)
@@ -205,6 +405,101 @@
 	}
 
 	form.addEventListener('submit', (event) => { event.preventDefault(); inspect() })
+	const drawerTitle = document.getElementById('mcp-inspector-title')
+	const closeButton = document.getElementById('mcp-inspector-close')
+	const entryButton = document.getElementById('mcp-inspector-entry')
+	let returnFocus = null
+	let returnRow = null
+
+	/**
+	 * Puts the open drawer right under the Nextcloud header. A drawer is position: fixed, but Nextcloud 35 blurs the content
+	 * behind it (backdrop-filter on #content-vue), which makes that box, not the window, the one it is placed in: its top
+	 * would then be counted from the box, one header too low. The offset is measured, not assumed, since a theme may turn
+	 * the blur off.
+	 */
+	function placeDrawer() {
+		root.style?.removeProperty?.('top')
+		const rect = root.getBoundingClientRect?.()
+		if (!rect) return
+		const header = document.getElementById('header')?.getBoundingClientRect?.().bottom ?? 0
+		const shift = rect.top - header
+		if (Math.abs(shift) >= 1) root.style.top = (parseFloat(getComputedStyle(root).top) - shift) + 'px'
+	}
+
+	/**
+	 * Opens the drawer; the focus goes back to `trigger` when it closes. Only one drawer is open at a time: when the
+	 * administrator keeps a draft of the resource scope, its drawer stays and this one does not open.
+	 *
+	 * @return {boolean} whether the drawer opened
+	 */
+	function openDrawer(trigger) {
+		if (window.McpScopeUi?.close?.() === false) {
+			trigger?.focus?.()
+			return false
+		}
+		returnFocus = trigger || document.activeElement || null
+		// The row of a "…" button that opened the drawer: the table may be drawn again meanwhile, and its new button is
+		// the one that gets the focus back.
+		returnRow = returnFocus?.closest?.('tr')?.dataset?.uid ?? null
+		root.classList?.add('mcp-drawer-open')
+		root.setAttribute('role', 'dialog')
+		placeDrawer()
+		return true
+	}
+
+	/**
+	 * Closes the drawer and gives the focus back. The inspector only reads, so nothing can be lost.
+	 *
+	 * @return {boolean} always true: the drawer is closed now
+	 */
+	function closeDrawer() {
+		if (!root.classList?.contains('mcp-drawer-open')) return true
+		root.classList.remove('mcp-drawer-open')
+		root.removeAttribute?.('role')
+		root.style?.removeProperty?.('top')
+		const target = returnFocus
+		returnFocus = null
+		focusBack(target)
+		window.dispatchEvent?.(new Event('mcp-drawer-closed'))
+		return true
+	}
+
+	/**
+	 * Gives the focus back to the control that opened the drawer, or, when the table was drawn again and that control is
+	 * gone, to the same row's "…" button, then to the drawer's own button on the Access tab: never to the page.
+	 */
+	function focusBack(target) {
+		if (target && target.isConnected !== false) {
+			target.focus?.()
+			return
+		}
+		const rows = [...(document.getElementById('mcp-matrix')?.tBodies?.[0]?.rows || [])]
+		const row = returnRow === null ? null : rows.find((candidate) => candidate.dataset.uid === returnRow)
+		;(row?.querySelector('button.mcp-row-actions-button') || entryButton)?.focus?.()
+	}
+
+	entryButton?.addEventListener('click', () => {
+		if (openDrawer(entryButton)) user.focus?.()
+	})
+	closeButton?.addEventListener('click', () => closeDrawer())
+	root.addEventListener?.('keydown', (event) => {
+		if (event.key === 'Escape' && root.classList?.contains('mcp-drawer-open')) {
+			event.preventDefault?.()
+			closeDrawer()
+		}
+	})
+
+	// The actions menu of a matrix row inspects that user (js/admin-row-actions.js), in the drawer.
+	window.McpInspectorUi = {
+		open(target, trigger) {
+			if (!openDrawer(trigger)) return false
+			user.value = target
+			drawerTitle?.focus?.()
+			inspect()
+			return true
+		},
+		close: closeDrawer,
+	}
 	pathForm.addEventListener('submit', (event) => {
 		event.preventDefault()
 		const path = pathInput.value.trim()

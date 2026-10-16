@@ -18,6 +18,13 @@
  * takes the second and keeps its draft, since nothing but that write lies between them.
  * Exposes window.McpScopeUi for the matrix, which shows "Restricted to N" (or "Scope unknown") in the module's first
  * cell and opens this panel from it.
+ *
+ * The panel is a drawer at the side of the page (S9): the Access tab shows one sentence and a button, and the drawer
+ * opens from that button, from a "Restricted to N" cell or from the actions menu of a matrix row. Its modules are tabs
+ * that say the saved state ("Files: 3", "Calendar: all") and whether a draft is not saved. Escape and the close button
+ * close it, asking first when a draft would be lost, and the focus goes back to the control that opened it. The drawer
+ * is not modal, so the matrix stays usable beside it: opening another person while a draft is open asks first too, and
+ * close() says whether the drawer really closed, so another drawer never opens over a draft that was kept.
  */
 (function () {
 	'use strict'
@@ -31,6 +38,14 @@
 	const status = document.getElementById('mcp-scope-status')
 	const alertBox = document.getElementById('mcp-scope-alert')
 	const container = document.getElementById('mcp-scope-modules')
+	const tabs = document.getElementById('mcp-scope-tabs')
+	const drawerTitle = document.getElementById('mcp-scope-title')
+	const closeButton = document.getElementById('mcp-scope-close')
+	const entryButton = document.getElementById('mcp-scope-entry')
+	/** The module whose tab is open, and the control the focus goes back to when the drawer closes. */
+	let currentTab = 'files'
+	let returnFocus = null
+	let returnRow = null
 	let uid = null
 	let seq = 0
 	let sayTimer = null
@@ -115,6 +130,8 @@
 		const mine = ++seq
 		uid = target
 		modules = {}
+		currentTab = focusModule || MODULES[0]
+		tabs?.replaceChildren()
 		container.replaceChildren()
 		container.setAttribute('aria-busy', 'true')
 		say(t('mcp', 'Loading the resource scope…'))
@@ -129,6 +146,7 @@
 				}
 			})
 			MODULES.forEach((module) => container.append(renderModule(modules[module])))
+			renderTabs()
 			say(t('mcp', 'Resource scope of {user}.', { user: uid }, undefined, { escape: false }))
 			const heading = document.getElementById('mcp-scope-heading-' + (focusModule || MODULES[0]))
 			if (focusModule && heading) {
@@ -168,7 +186,7 @@
 				await reload(state).catch(() => {})
 			} else if (current === undefined || state.revision !== current) {
 				state.stale = true
-				state.line = t('mcp', 'Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope.')
+				state.line = t('mcp', 'Changed before the policy moved, so saving will be refused. Discard the changes to load the saved scope.')
 				rerender(state)
 			}
 		}
@@ -178,20 +196,149 @@
 		const old = document.getElementById('mcp-scope-module-' + state.module)
 		const fresh = renderModule(state)
 		if (old) old.replaceWith(fresh)
+		renderTabs()
 		if (focusId) document.getElementById(focusId)?.focus?.()
+	}
+
+	/** @return {string} the tab of a module: its saved state, and whether a draft is not saved */
+	function tabLabel(state) {
+		const name = { files: t('mcp', 'Files'), calendar: t('mcp', 'Calendar'), tasks: t('mcp', 'Tasks') }[state.module]
+		const saved = state.savedMode === 'restricted'
+			? t('mcp', '{module}: {count}', { module: name, count: state.savedItems.length }, undefined, { escape: false })
+			: t('mcp', '{module}: all', { module: name }, undefined, { escape: false })
+		return dirty(state) ? saved + ' (' + t('mcp', 'not saved') + ')' : saved
+	}
+
+	/** The module tabs of the drawer (WAI-ARIA tabs: the arrow keys, Home and End move between them). */
+	function renderTabs() {
+		if (!tabs) return
+		const shown = MODULES.filter((module) => modules[module])
+		tabs.replaceChildren(...shown.map((module, index) => {
+			const selected = module === currentTab
+			const tab = el('button', { type: 'button', id: 'mcp-scope-tab-' + module, textContent: tabLabel(modules[module]), tabIndex: selected ? 0 : -1 })
+			tab.setAttribute('role', 'tab')
+			tab.setAttribute('aria-selected', String(selected))
+			tab.setAttribute('aria-controls', 'mcp-scope-module-' + module)
+			tab.addEventListener('click', () => selectTab(module, true))
+			tab.addEventListener('keydown', (event) => {
+				const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: shown.length - 1 }[event.key]
+				if (next === undefined) return
+				event.preventDefault?.()
+				selectTab(shown[(next + shown.length) % shown.length], true)
+			})
+			return tab
+		}))
+	}
+
+	/** Shows one module's section and marks its tab. */
+	function selectTab(module, focus) {
+		currentTab = module
+		for (const other of MODULES) {
+			const section = document.getElementById('mcp-scope-module-' + other)
+			if (section) section.hidden = Boolean(tabs) && other !== module
+		}
+		renderTabs()
+		if (focus) document.getElementById('mcp-scope-tab-' + module)?.focus?.()
+	}
+
+	/**
+	 * Puts the open drawer right under the Nextcloud header. A drawer is position: fixed, but Nextcloud 35 blurs the content
+	 * behind it (backdrop-filter on #content-vue), which makes that box, not the window, the one it is placed in: its top
+	 * would then be counted from the box, one header too low. The offset is measured, not assumed, since a theme may turn
+	 * the blur off.
+	 */
+	function placeDrawer() {
+		root.style?.removeProperty?.('top')
+		const rect = root.getBoundingClientRect?.()
+		if (!rect) return
+		const header = document.getElementById('header')?.getBoundingClientRect?.().bottom ?? 0
+		const shift = rect.top - header
+		if (Math.abs(shift) >= 1) root.style.top = (parseFloat(getComputedStyle(root).top) - shift) + 'px'
+	}
+
+	/** Opens the drawer; the focus goes back to `trigger` when it closes. */
+	function openDrawer(trigger) {
+		// Only one drawer is open at a time: the inspector closes when the scope opens.
+		window.McpInspectorUi?.close?.()
+		returnFocus = trigger || document.activeElement || null
+		// The row of a "…" button that opened the drawer: the table may be drawn again meanwhile, and its new button is
+		// the one that gets the focus back.
+		returnRow = returnFocus?.closest?.('tr')?.dataset?.uid ?? null
+		root.classList?.add('mcp-drawer-open')
+		root.setAttribute('role', 'dialog')
+		placeDrawer()
+	}
+
+	/** @return {boolean} whether a module has a draft that is not saved */
+	function hasDraft() {
+		return Object.values(modules).some(dirty)
+	}
+
+	/** Drops the drafts the administrator agreed to lose, so they never come back when the drawer opens again. */
+	function forget() {
+		seq++
+		uid = null
+		modules = {}
+		tabs?.replaceChildren()
+		container.replaceChildren()
+	}
+
+	/**
+	 * Closes the drawer, asking first when a draft of a module would be lost.
+	 *
+	 * @return {boolean} whether the drawer is closed now: false when the administrator kept the draft
+	 */
+	function closeDrawer() {
+		if (!root.classList?.contains('mcp-drawer-open')) return true
+		if (hasDraft()) {
+			if (!window.confirm(t('mcp', 'Close the resource scope? The changes that are not saved are lost.'))) return false
+			forget()
+		}
+		root.classList.remove('mcp-drawer-open')
+		root.removeAttribute?.('role')
+		root.style?.removeProperty?.('top')
+		const target = returnFocus
+		returnFocus = null
+		focusBack(target)
+		window.dispatchEvent?.(new Event('mcp-drawer-closed'))
+		return true
+	}
+
+	/**
+	 * Whether the drafts of the open user may be lost to open another one (or the same one read again): asked, never
+	 * assumed.
+	 *
+	 * @return {boolean}
+	 */
+	function mayReplace() {
+		return !hasDraft() || window.confirm(t('mcp', 'Open another person? The changes that are not saved for {user} are lost.', { user: uid }, undefined, { escape: false }))
+	}
+
+	/**
+	 * Gives the focus back to the control that opened the drawer, or, when the table was drawn again and that control is
+	 * gone, to the same row's "…" button, then to the drawer's own button on the Access tab: never to the page.
+	 */
+	function focusBack(target) {
+		if (target && target.isConnected !== false) {
+			target.focus?.()
+			return
+		}
+		const rows = [...(document.getElementById('mcp-matrix')?.tBodies?.[0]?.rows || [])]
+		const row = returnRow === null ? null : rows.find((candidate) => candidate.dataset.uid === returnRow)
+		;(row?.querySelector('button.mcp-row-actions-button') || entryButton)?.focus?.()
 	}
 
 	function renderModule(state) {
 		const module = state.module
-		const section = el('section', { id: 'mcp-scope-module-' + module, className: 'mcp-scope-module' })
+		const section = el('section', { id: 'mcp-scope-module-' + module, className: 'mcp-scope-module', hidden: Boolean(tabs) && module !== currentTab })
 		const heading = el('h3', { id: 'mcp-scope-heading-' + module, textContent: title(module), tabIndex: -1 })
 		section.setAttribute('aria-labelledby', heading.id)
 		section.append(heading)
 		if (state.stale) {
-			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope.') }))
+			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Changed before the policy moved, so saving will be refused. Discard the changes to load the saved scope.') }))
 		}
 		if (!state.active) {
-			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Not available yet: the tools of this module do not apply a resource scope in this version, so it cannot be saved and nothing is restricted. You can still browse what the user has.') }))
+			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Not available in this version: the tools of this module do not apply a scope yet, so nothing can be saved. You can still browse.') }))
 		}
 		const fieldset = el('fieldset', {}, [el('legend', { textContent: t('mcp', 'Resources the MCP tools of {user} may reach', { user: uid }, undefined, { escape: false }) })])
 		;[['unrestricted', t('mcp', 'All resources')], ['restricted', t('mcp', 'Only selected')]].forEach(([value, text]) => {
@@ -469,19 +616,39 @@
 		mark.setAttribute('aria-hidden', 'true')
 		const button = el('button', { type: 'button', className: 'mcp-scope-indicator' }, [mark, ' ' + (unknown ? t('mcp', 'Scope unknown') : t('mcp', 'Restricted to {count}', { count: scope.count }, undefined, { escape: false }))])
 		button.title = unknown
-			? t('mcp', 'The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope.')
+			? t('mcp', 'The scope cannot be read now, so the tools of this module refuse until it can. Open the resource scope.')
 			: t('mcp', 'The MCP tools of this user reach only the selected resources of this module. Open the resource scope.')
-		button.addEventListener('click', () => open(target, module))
+		button.addEventListener('click', () => open(target, module, button))
 		return button
 	}
 
-	function open(target, module) {
-		if (!root) return
+	/**
+	 * Opens the drawer on one user, at one module when given.
+	 *
+	 * @param {string} target user ID
+	 * @param {string} [module] module whose tab opens
+	 * @param {HTMLElement} [trigger] control the focus goes back to when the drawer closes
+	 */
+	function open(target, module, trigger) {
+		if (!root) return false
+		// The same person in the open drawer: only the tab changes, and the draft stays.
+		if (root.classList?.contains('mcp-drawer-open') && target === uid && Object.keys(modules).length > 0) {
+			if (module) selectTab(module, true)
+			return true
+		}
+		// The drawer is not modal: another person can be opened from the matrix while a draft is open.
+		if (!mayReplace()) {
+			trigger?.focus?.()
+			return false
+		}
+		openDrawer(trigger)
 		userInput.value = target
+		drawerTitle?.focus?.()
 		openUser(target, module)
+		return true
 	}
 
-	window.McpScopeUi = { indicator, open }
+	window.McpScopeUi = { indicator, open, close: closeDrawer }
 	// A module exactly at the revision a write of this page committed from takes the one it made; its draft stays.
 	window.addEventListener(REVISION_MOVED, (event) => {
 		for (const state of Object.values(modules)) {
@@ -491,6 +658,17 @@
 	// A matrix drawn before this script ran is drawn again, now with the scope marks.
 	window.McpAdminMatrix?.refresh?.()
 	if (!root) return
+	entryButton?.addEventListener('click', () => {
+		openDrawer(entryButton)
+		userInput.focus?.()
+	})
+	closeButton?.addEventListener('click', () => closeDrawer())
+	root.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape' && root.classList?.contains('mcp-drawer-open')) {
+			event.preventDefault?.()
+			closeDrawer()
+		}
+	})
 	form.addEventListener('submit', (event) => {
 		event.preventDefault()
 		const target = userInput.value.trim()
@@ -498,6 +676,7 @@
 			say(t('mcp', 'Enter the user ID.'), true)
 			return
 		}
+		if (!mayReplace()) return
 		openUser(target, null)
 	})
 })()

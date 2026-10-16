@@ -64,7 +64,12 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(9, $matches);
+        $this->assertCount(13, $matches);
+        // The levels mapping is read by the matrix, so it loads before it; the level popover uses the matrix, so after it.
+        $this->assertLessThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-levels')"));
+        $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-level-popover')"));
+        $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-exceptions')"));
+        $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-row-actions')"));
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -133,7 +138,10 @@ final class AdminAssetsTest extends TestCase {
         $template = (string)file_get_contents($app . '/templates/admin.php');
 
         $this->assertStringContainsString("Util::addScript('mcp', 'admin-tabs')", $template);
-        $this->assertSame(1, substr_count($template, 'role="tablist"'));
+        // One tab bar for the page; the resource scope drawer has its own tablist for its modules (S9).
+        $this->assertSame(1, substr_count($template, 'class="mcp-tab-bar" role="tablist"'));
+        $this->assertSame(2, substr_count($template, 'role="tablist"'));
+        $this->assertStringContainsString('<div id="mcp-scope-tabs" class="mcp-drawer-tabs" role="tablist"', $template);
         preg_match_all('/<button type="button" role="tab" id="(mcp-tab-[a-z]+)" data-tab-hash="([a-z]+)" aria-controls="(mcp-panel-[a-z]+)" aria-selected="(true|false)">/', $template, $tabs, PREG_SET_ORDER);
         $this->assertCount(5, $tabs);
         $this->assertSame(['overview', 'access', 'clients', 'protection', 'advanced'], array_map(static fn (array $tab) => $tab[2], $tabs));
@@ -183,7 +191,9 @@ final class AdminAssetsTest extends TestCase {
 
     public function testAdminPageHasTenSectionBlocks(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
-        preg_match_all('/<div class="section mcp-block" id="([^"]+)"[^>]*>\s*<h2><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
+        // A block may be a drawer (S9), whose heading sits in the drawer head next to its close button, or the matrix,
+        // whose bands above the table are compact (S12).
+        preg_match_all('/<div class="section mcp-block(?: mcp-drawer| mcp-matrix-block)?" id="([^"]+)"[^>]*>\s*(?:<div class="mcp-drawer-head">\s*)?<h2(?: id="[a-z-]+" tabindex="-1")?><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
         $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-scope', 'mcp-inspector', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
         $this->assertSame(['Status', 'Group grants', 'Permissions', 'Resource scope', 'Access inspector', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         $this->assertStringContainsString('data-scope="admin"', $template);
@@ -217,13 +227,38 @@ final class AdminAssetsTest extends TestCase {
         }
         $this->assertStringContainsString("textContent: checked === null ? '—' : '⊘'", $script);
         $this->assertStringContainsString("mark.setAttribute('aria-hidden', 'true')", $script);
+        // None of the three states is told by colour alone: allowed is a checked box, denied an empty box, and an
+        // unavailable cell has no box at all but the ⊘ mark, with the state named in its title and for screen readers.
+        $this->assertStringContainsString("const box = el('input', { type: 'checkbox', checked })", $script);
+        $this->assertStringContainsString("paintState(cell, checked ? 'allowed' : 'denied')", $script);
+        $this->assertStringContainsString("cell.title = detail ? PERMISSION_STATES[key].name() + ': ' + detail : PERMISSION_STATES[key].name()", $script);
+        $this->assertStringContainsString("cell.append(mark, el('span', { className: 'mcp-sr-only'", $script);
+        $legend = (string)file_get_contents($app . '/templates/admin.php');
+        $this->assertStringContainsString('<input type="checkbox" checked disabled aria-hidden="true" tabindex="-1"> <?php p($l->t(\'Allowed\')); ?>', $legend);
+        $this->assertStringContainsString('<input type="checkbox" disabled aria-hidden="true" tabindex="-1"> <?php p($l->t(\'Denied\')); ?>', $legend);
+        $this->assertStringContainsString('<span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t(\'Unavailable\')); ?>', $legend);
+        $css = (string)file_get_contents($app . '/css/admin.css');
+        foreach (['allowed', 'denied'] as $state) {
+            $this->assertDoesNotMatchRegularExpression('/\.mcp-state-' . $state . '\s*\{[^}]*color/s', $css, "$state is told by the box, not by a colour");
+        }
+        // The levels view keeps the rule: the level is a word, the origin an icon next to it, and an unavailable or
+        // unknown module the same mark as above, a word and no control.
+        $this->assertStringContainsString("el('span', { className: 'mcp-level-word', textContent: levelName })", $script);
+        $this->assertStringContainsString("if (mark === 'exception') return 'icon-user'", $script);
+        $this->assertStringContainsString("return origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null", $script);
+        $this->assertStringContainsString("glyph.setAttribute('aria-hidden', 'true')", $script);
+        $this->assertStringContainsString("textContent: unknown ? t('mcp', 'Unknown') : t('mcp', 'Unavailable')", $script);
+        $this->assertStringContainsString("cell.append(mark, ' ', word, el('span', { className: 'mcp-sr-only'", $script);
+        $this->assertStringContainsString('<span class="mcp-origin-icon icon-user" aria-hidden="true"></span> <?php p($l->t(\'Exception: differs from what the person inherits\')); ?>', $legend);
+        $this->assertStringContainsString('<span class="mcp-origin-icon icon-group" aria-hidden="true"></span> <?php p($l->t(\'From a group\')); ?>', $legend);
         // A bulk change is one all-or-nothing command, undone by its server receipt, never by replaying old values.
         $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/commands'"), 'the bulk menu sends one command');
         $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })"));
         $this->assertStringNotContainsString("'/api/grants/bulk'", $script);
         $this->assertStringContainsString('async function undoBulk(', $script);
         $this->assertStringNotContainsString('innerHTML', $script);
-        $this->assertStringContainsString('const FIXED_COLUMNS = 3', $script);
+        // Selection, user, "Can connect" and the row's actions (S5: the actions menu replaced the "Connected" column).
+        $this->assertStringContainsString('const FIXED_COLUMNS = 4', $script);
         $this->assertDoesNotMatchRegularExpression('/\\b3 \\+ |cells\\.length \\+ 3/', $script, 'fixed columns come from the constant');
         $this->assertStringContainsString('window.history.replaceState(', $script);
         $this->assertStringContainsString('noticeText.focus({ preventScroll: true })', $script);
@@ -251,10 +286,114 @@ final class AdminAssetsTest extends TestCase {
         $this->assertDoesNotMatchRegularExpression('/#mcp-admin \.mcp-(state|bulk-notice|sr-only)[^{]*\{[^}]*#[0-9a-fA-F]{3,6}\b/', $css);
     }
 
-    /** Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. */
+    /**
+     * The theme colour marks only focus, selection and the main action, never a state: an administrator may pick a red
+     * theme, and a state painted in it reads as an error. Semantic colours are text only through their -text variants
+     * (Nextcloud 35 documents --color-error, --color-warning and --color-success as background colours).
+     */
+    public function testThemeColourMarksOnlyFocusAndSelection(): void {
+        $css = (string)file_get_contents(dirname(__DIR__, 3) . '/css/admin.css');
+        $rules = preg_replace('#/\*.*?\*/#s', '', $css);
+        preg_match_all('/([^{}]+)\{([^{}]*)\}/', (string)$rules, $matches, PREG_SET_ORDER);
+        $this->assertNotEmpty($matches);
+        foreach ($matches as [, $selector, $body]) {
+            $selector = trim($selector);
+            if (str_contains($body, '--color-primary-element')) {
+                $this->assertMatchesRegularExpression('/:focus-visible|\[aria-(selected|current|pressed)="true"\]/', $selector,
+                    "only focus and selection (selected, current, pressed) use the theme colour: $selector");
+            }
+            // A -text variable may fall back to its background colour on themes that lack it; a border may use the
+            // background colour, as NcNoteCard does, since the word next to it carries the state.
+            $text = preg_replace('/var\(--color-(error|warning|success)-text, var\(--color-\1\)\)/', '', $body);
+            $this->assertDoesNotMatchRegularExpression('/(?<![-\w])(color|outline(-color)?)\s*:[^;]*var\(--color-(error|warning|success)\)/', (string)$text,
+                "semantic colours as text or outline take their -text variant: $selector");
+            $this->assertStringNotContainsString('border-radius: var(--border-radius-large', $body, "--border-radius-large is deprecated: $selector");
+        }
+    }
+
+    /**
+     * Taking "Can connect" away signs the person out of every MCP client, so neither view does it without an explicit yes:
+     * the checkbox of the operations view asks before saving, and the level popover asks before its command.
+     */
+    public function testCanConnectIsNeverTakenAwayWithoutConfirmation(): void {
+        $app = dirname(__DIR__, 3);
+        $grants = (string)file_get_contents($app . '/js/admin-grants.js');
+        $this->assertMatchesRegularExpression("/if \(module === null && !value && !window\.confirm\(t\('mcp', 'Turn off “Can connect” for \{user\}\?'.*?\)\) \{\s*box\.checked = true\s*return\s*\}/s", $grants);
+        $this->assertLessThan(strpos($grants, "api('PUT', '/api/grants/' + encodeURIComponent(user.uid)"), strpos($grants, "Turn off “Can connect” for {user}?"), 'asked before the save');
+        $popover = (string)file_get_contents($app . '/js/admin-level-popover.js');
+        $this->assertMatchesRegularExpression("/if \(losesEligibility\(.*?&& !window\.confirm\(.*?\) \{\s*render\(\)\s*return\s*\}/s", $popover);
+        $this->assertLessThan(strpos($popover, "matrix.api('POST', '/api/grants/commands'"), strpos($popover, 'if (losesEligibility('), 'asked before the command');
+        $template = (string)file_get_contents($app . '/templates/admin.php');
+        $this->assertStringContainsString('<div id="mcp-level-popover" class="mcp-popover" role="dialog" aria-labelledby="mcp-level-popover-title" hidden></div>', $template);
+    }
+
+    /**
+     * S5: the matrix keeps the explanation in the legend and the row's actions in one menu. No long text above the table,
+     * no compact-rows switch, no pager above it, and no button repeated in every row or cell.
+     */
+    public function testMatrixRowsCarryOneMenuAndNoRepeatedControls(): void {
+        $app = dirname(__DIR__, 3);
+        $template = (string)file_get_contents($app . '/templates/admin.php');
+        foreach (['Compact rows', 'Users need “Can connect”', 'id="mcp-prev"', 'id="mcp-next"', 'id="mcp-page-info"'] as $gone) {
+            $this->assertStringNotContainsString($gone, $template);
+        }
+        $this->assertStringContainsString('<div id="mcp-row-menu" class="mcp-row-menu" role="menu" hidden></div>', $template);
+        $this->assertStringContainsString('id="mcp-only-exceptions" aria-pressed="false"', $template);
+        $this->assertStringContainsString('id="mcp-prev-bottom"', $template);
+        $this->assertGreaterThan(strpos($template, 'id="mcp-legend-levels"'), strpos($template, "Reading starts allowed, writing denied. Nextcloud permissions still apply."), 'the short help is in the legend');
+        $overrides = (string)file_get_contents($app . '/js/admin-overrides.js');
+        foreach (['mcp-reset-row', 'mcp-reset-cell', 'mcp-reset-help'] as $gone) {
+            $this->assertStringNotContainsString($gone, $overrides);
+        }
+        $grants = (string)file_get_contents($app . '/js/admin-grants.js');
+        $this->assertStringNotContainsString('mcp-badge-connected', $grants);
+        $this->assertStringNotContainsString("className: 'mcp-connected'", $grants);
+        $this->assertStringContainsString("row.append(el('td', { className: 'mcp-select-col' }))", $grants);
+        $this->assertStringContainsString('row.append(actionsCell(user))', $grants);
+        // S6: the "All" menus of the column headers gave way to the selection bar, whose bulk change keeps the explicit
+        // confirmation of 331bdede (who changes, who is left out and why, who already has it) and the receipt undo.
+        $this->assertStringNotContainsString('function bulkMenu(', $grants);
+        $this->assertStringNotContainsString('mcp-bulk-menu', $grants . (string)file_get_contents($app . '/css/admin.css'));
+        $this->assertStringContainsString("async function bulk(module, level, uids) {", $grants);
+        $this->assertStringContainsString("'%n selected person is left out: this permission is unavailable or unknown for them.'", $grants);
+        $this->assertStringContainsString("'%n selected person already has it.'", $grants);
+        $this->assertStringContainsString("matrix.bulk(moduleChoice.value || null, levelChoice.value, uids)", $overrides);
+        $this->assertStringContainsString('window.McpAdminOverrides?.decorateHeader?.(selectHeader)', $grants);
+    }
+
+    /**
+     * S9/S10: the heading of a drawer starts at the start side (Nextcloud 35 centres a section heading as a flex box), and
+     * an unrestricted module's tab says "no restriction" in words that fit every module, whatever its grammatical gender.
+     */
+    public function testDrawerHeadingStartsAtTheStartAndTabsNameNoRestriction(): void {
+        $app = dirname(__DIR__, 3);
+        $css = (string)file_get_contents($app . '/css/admin.css');
+        $this->assertMatchesRegularExpression('/#mcp-admin \.mcp-drawer-head h2 \{[^}]*justify-content: flex-start;[^}]*text-align: start;/s', $css);
+        $l10n = json_decode((string)file_get_contents($app . '/l10n/pt_BR.json'), true)['translations'];
+        $this->assertSame('{module}: sem restrição', $l10n['{module}: all']);
+        $this->assertSame('{module}: sin restricción', json_decode((string)file_get_contents($app . '/l10n/es.json'), true)['translations']['{module}: all']);
+        $this->assertSame('{module}: uneingeschränkt', json_decode((string)file_get_contents($app . '/l10n/de.json'), true)['translations']['{module}: all']);
+    }
+
+    /**
+     * Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. The selection box sticks
+     * at the start, the name right after its fixed width, and the "…" menu at the end, so a row scrolled sideways can
+     * still be selected, named and acted on (S12).
+     */
     public function testMatrixStickyLayersAndToggleClearanceAreScoped(): void {
         $css = (string)file_get_contents(dirname(__DIR__, 3) . '/css/admin.css');
-        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*position: sticky;[^}]*inset-inline-start: 0;[^}]*z-index: 1;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-select-col \{[^}]*position: sticky;[^}]*inset-inline-start: 0;[^}]*z-index: 1;[^}]*width: 44px;[^}]*min-width: 44px;[^}]*max-width: 44px;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*position: sticky;[^}]*inset-inline-start: 44px;[^}]*z-index: 1;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-actions-col \{[^}]*position: sticky;[^}]*inset-inline-end: 0;[^}]*z-index: 1;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix thead \.mcp-select-col,\s*#mcp-admin \.mcp-matrix thead \.mcp-actions-col \{[^}]*z-index: 3;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix-wrap \{[^}]*position: relative;[^}]*overflow: auto;[^}]*max-width: 100%;/s', $css, 'the matrix scrolls inside its block, never the page');
+        // On a phone a long name wraps between words, never down to one letter per line, and a drawer that reaches the
+        // start of the page leaves the corner of the Nextcloud navigation toggle free.
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*min-width: 6\.5em;[^}]*max-width: 38vw;[^}]*white-space: normal;[^}]*overflow-wrap: break-word;/s', $css);
+        $this->assertStringNotContainsString('overflow-wrap: anywhere', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix-block \.mcp-toolbar > \.mcp-legend,\s*#mcp-admin \.mcp-matrix-block \.mcp-toolbar > \.mcp-pager \{[^}]*flex-basis: 100%;/s', $css, 'the legend and the pager under the table take a row each');
+        $this->assertMatchesRegularExpression('/\.mcp-matrix-block \.mcp-pager \{[^}]*flex-wrap: wrap;/s', $css, 'the pager wraps instead of pushing "Next" past the edge');
+        $this->assertMatchesRegularExpression('/@media \(max-width: 560px\) \{\s*#mcp-admin \.mcp-drawer\.mcp-drawer-open \.mcp-drawer-head \{[^}]*padding-inline-start: calc\(var\(--default-clickable-area\) \+ 4px\);/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead th \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 2;/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead \.mcp-user-col \{[^}]*z-index: 3;/s', $css);
         $this->assertStringContainsString('#app-content-vue #mcp-admin .mcp-tab-bar', $css);

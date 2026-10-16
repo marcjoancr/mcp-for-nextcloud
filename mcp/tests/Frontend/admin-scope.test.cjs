@@ -21,7 +21,10 @@ class Element {
 		this.hidden = false
 		this.disabled = false
 		this._text = ''
+		this.classes = new Set()
 	}
+	get classList() { return { add: (name) => this.classes.add(name), remove: (name) => this.classes.delete(name), contains: (name) => this.classes.has(name) } }
+	removeAttribute(key) { delete this.attributes[key] }
 	append(...children) {
 		for (const child of children) {
 			if (typeof child !== 'string') child.parent = this
@@ -55,9 +58,11 @@ const show = {
 }
 const candidates = { items: [{ id: '11', name: 'Personal', path: null, excluded: false }, { id: '12', name: 'Team', path: null, excluded: false }], page: 1, pageSize: 50, total: 2, hasMore: false, parent: null }
 
-async function app(handler = () => undefined) {
+async function app(handler = () => undefined, options = {}) {
 	const page = new Element('div')
-	const ids = Object.fromEntries(['mcp-scope', 'mcp-scope-form', 'mcp-scope-user', 'mcp-scope-status', 'mcp-scope-alert', 'mcp-scope-modules'].map((id) => {
+	// The drawer of S9 adds its title, tabs, close and entry buttons; without them the panel behaves as before.
+	const drawer = options.drawer ? ['mcp-scope-tabs', 'mcp-scope-title', 'mcp-scope-close', 'mcp-scope-entry'] : []
+	const ids = Object.fromEntries(['mcp-scope', 'mcp-scope-form', 'mcp-scope-user', 'mcp-scope-status', 'mcp-scope-alert', 'mcp-scope-modules', ...drawer].map((id) => {
 		const node = new Element('div')
 		node.id = id
 		page.append(node)
@@ -73,6 +78,7 @@ async function app(handler = () => undefined) {
 	const timers = []
 	const context = {
 		document, URLSearchParams,
+		getComputedStyle: () => ({ top: '44px' }),
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		// Like Nextcloud's t(): the values are HTML-escaped unless the caller passes { escape: false }.
 		t: (_, text, params = {}, count, options = {}) => text.replace(/\{(\w+)\}/g, (match, key) => key in params
@@ -101,7 +107,9 @@ async function app(handler = () => undefined) {
 		dispatchEvent: (event) => { events.push(event.detail ? [event.type, event.detail.from, event.detail.to] : event.type); (listeners[event.type] || []).forEach((action) => action(event)) },
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
 		McpAdminMatrix: { refresh: () => { refreshed++ } },
+		confirm: (text) => { confirms.push(text); return options.confirm !== false },
 	}
+	const confirms = []
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-scope.js'), 'utf8'), context)
 	const open = async (uid = 'alice') => {
 		ids['mcp-scope-user'].value = uid
@@ -111,7 +119,7 @@ async function app(handler = () => undefined) {
 	const module = (name) => document.getElementById('mcp-scope-module-' + name)
 	const click = async (node) => { assert.ok(node, 'the control exists'); assert.equal(node.disabled, false, 'the control is enabled'); node.listeners.click(); await tick() }
 	ids['mcp-scope-alert'].writes = []
-	return { ids, calls, events, timers, open, module, click, document, window: context.window, ui: context.window.McpScopeUi, refreshed: () => refreshed }
+	return { ids, calls, events, timers, open, module, click, document, window: context.window, ui: context.window.McpScopeUi, refreshed: () => refreshed, confirms, active: () => active }
 }
 
 test('S14: each module shows its saved scope; a module the tools do not scope yet says so and cannot be saved', async () => {
@@ -120,7 +128,7 @@ test('S14: each module shows its saved scope; a module the tools do not scope ye
 	assert.deepEqual(ui.calls.map((c) => c.url), ['/apps/mcp/api/scope/alice/files', '/apps/mcp/api/scope/alice/calendar', '/apps/mcp/api/scope/alice/tasks'])
 	assert.equal(ui.calls[0].headers.requesttoken, 'token', 'the CSRF token travels with every request')
 	const files = ui.module('files')
-	assert.match(files.textContent, /Not available yet: the tools of this module do not apply a resource scope/)
+	assert.match(files.textContent, /Not available in this version: the tools of this module do not apply a scope yet/)
 	assert.equal(files.button('Save').disabled, true)
 	const calendar = ui.module('calendar')
 	assert.match(calendar.textContent, /1 of at most 200 selected/)
@@ -270,7 +278,7 @@ test('B7 review A1: an unreadable scope is marked "Scope unknown", never blank; 
 	const ui = await app()
 	const unknown = ui.ui.indicator('bob', 'files', { mode: 'unavailable', count: null })
 	assert.match(unknown.textContent, /Scope unknown/)
-	assert.match(unknown.title, /cannot be read right now/)
+	assert.match(unknown.title, /The scope cannot be read now/)
 	assert.equal(ui.ui.indicator('bob', 'files', { mode: 'unrestricted', count: null }), null)
 	assert.equal(ui.refreshed(), 1, 'N1: a matrix drawn before the script loaded is drawn again with the marks')
 })
@@ -294,7 +302,7 @@ test('B7 review M1: a draft whose revision moved by a change this page did not m
 	// The refusal moved the revision by a write this page never saw: Files and Tasks are read again, the Calendar draft
 	// is kept, never overwritten, and says it is stale.
 	assert.deepEqual(ui.calls.filter((c) => c.method === 'GET' && !c.url.includes('candidates')).slice(-2).map((c) => c.url.split('/').pop()), ['files', 'tasks'])
-	assert.match(ui.module('calendar').textContent, /Unsaved changes here were made before the policy changed, so saving them will be refused\./)
+	assert.match(ui.module('calendar').textContent, /Changed before the policy moved, so saving will be refused\./)
 	assert.deepEqual(ui.events, [], 'a refused save announces nothing')
 	await ui.click(ui.module('calendar').button('Save'))
 	assert.equal(ui.calls.filter((c) => c.method === 'PUT').at(-1).body.expectedRevision, '7', 'the Calendar draft keeps the revision it was read at')
@@ -310,7 +318,7 @@ test('T14 D1: a save of another module of this panel moves the revision of a dra
 	await ui.open()
 	await twoDrafts(ui)
 	await ui.click(ui.module('tasks').button('Save'))
-	assert.doesNotMatch(ui.module('calendar').textContent, /Unsaved changes here were made before the policy changed/)
+	assert.doesNotMatch(ui.module('calendar').textContent, /Changed before the policy moved/)
 	assert.match(ui.module('calendar').textContent, /2 of at most 200 selected/, 'the Calendar draft is still on screen')
 	await ui.click(ui.module('calendar').button('Save'))
 	const put = ui.calls.filter((c) => c.method === 'PUT').at(-1)
@@ -340,7 +348,7 @@ test('B7 review M1: discarding a stale draft loads the saved scope from the serv
 	restricted.listeners.change()
 	await tick()
 	await ui.click(ui.module('tasks').button('Save'))
-	assert.match(ui.module('calendar').textContent, /Unsaved changes here were made before the policy changed/)
+	assert.match(ui.module('calendar').textContent, /Changed before the policy moved/)
 	const before = ui.calls.length
 	await ui.click(ui.module('calendar').button('Discard changes'))
 	assert.equal(ui.calls.at(-1).url, '/apps/mcp/api/scope/alice/calendar', 'the saved scope comes from the server')
@@ -402,3 +410,152 @@ test('B7 review B4: the same error twice in a row is announced twice', async () 
 	assert.ok(writes.slice(shown[0] + 1, shown[1]).includes(''), 'cleared in between, so a screen reader announces it again')
 })
 
+
+test('S9: the drawer opens on a user from the matrix, shows one module per tab with its saved state, and gives the focus back', async () => {
+	const ui = await app(undefined, { drawer: true })
+	const root = ui.ids['mcp-scope']
+	const trigger = new Element('button')
+	let inspectorClosed = 0
+	ui.window.McpInspectorUi = { close: () => { inspectorClosed++ } }
+	ui.ui.open('alice', 'calendar', trigger)
+	await tick()
+	assert.ok(root.classes.has('mcp-drawer-open'))
+	assert.equal(inspectorClosed, 1, 'only one drawer is open at a time')
+	assert.equal(root.attributes.role, 'dialog')
+	assert.equal(ui.ids['mcp-scope-user'].value, 'alice')
+	const tabs = ui.ids['mcp-scope-tabs'].children
+	assert.deepEqual(tabs.map((tab) => tab.textContent), ['Files: all', 'Calendar: 1', 'Tasks: all'])
+	assert.deepEqual(tabs.map((tab) => tab.attributes['aria-selected']), ['false', 'true', 'false'], 'it opens on the module it was asked for')
+	assert.ok(tabs.every((tab) => tab.attributes.role === 'tab'))
+	assert.equal(tabs[1].attributes['aria-controls'], 'mcp-scope-module-calendar')
+	assert.deepEqual(['files', 'calendar', 'tasks'].map((name) => ui.module(name).hidden), [true, false, true], 'one module at a time')
+	// The arrow keys move between the tabs.
+	tabs[1].listeners.keydown({ key: 'ArrowRight', preventDefault() {} })
+	assert.deepEqual(['files', 'calendar', 'tasks'].map((name) => ui.module(name).hidden), [true, true, false])
+	assert.equal(ui.active(), ui.ids['mcp-scope-tabs'].children[2])
+	ui.ids['mcp-scope-tabs'].children[2].listeners.keydown({ key: 'Home', preventDefault() {} })
+	assert.equal(ui.module('files').hidden, false)
+	// Escape closes it and gives the focus back to the control that opened it.
+	root.listeners.keydown({ key: 'Escape', preventDefault() {} })
+	assert.ok(!root.classes.has('mcp-drawer-open'))
+	assert.equal(root.attributes.role, undefined)
+	assert.equal(ui.active(), trigger)
+})
+
+test('S9: a draft that would be lost is asked about before the drawer closes, and a tab says it is not saved', async () => {
+	const ui = await app(undefined, { drawer: true, confirm: false })
+	const root = ui.ids['mcp-scope']
+	ui.ui.open('alice', 'calendar', new Element('button'))
+	await tick()
+	await ui.click(ui.module('calendar').button('Search'))
+	await ui.click(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add Team'))
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.deepEqual(ui.confirms, ['Close the resource scope? The changes that are not saved are lost.'])
+	assert.ok(root.classes.has('mcp-drawer-open'), 'a "no" keeps the drawer and the draft')
+})
+
+test('S9: the entry button of the Access tab opens the drawer on the user field', async () => {
+	const ui = await app(undefined, { drawer: true })
+	ui.ids['mcp-scope-entry'].listeners.click()
+	assert.ok(ui.ids['mcp-scope'].classes.has('mcp-drawer-open'))
+	assert.equal(ui.active(), ui.ids['mcp-scope-user'])
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(ui.active(), ui.ids['mcp-scope-entry'])
+})
+
+test('F4: when the table was drawn again and the "…" that opened the drawer is gone, the focus goes to the new "…" of that row', async () => {
+	const ui = await app(undefined, { drawer: true })
+	const fresh = new Element('button')
+	ui.ids['mcp-matrix'] = { tBodies: [{ rows: [{ dataset: { uid: 'alice' }, querySelector: (selector) => selector === 'button.mcp-row-actions-button' ? fresh : null }] }] }
+	const old = new Element('button')
+	old.closest = () => ({ dataset: { uid: 'alice' } })
+	ui.ui.open('alice', undefined, old)
+	await tick()
+	old.isConnected = false
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(ui.active(), fresh)
+	// Without a row to come back to, the button of the Access tab takes it, never the page.
+	const lone = new Element('button')
+	ui.ui.open('alice', undefined, lone)
+	await tick()
+	lone.isConnected = false
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(ui.active(), ui.ids['mcp-scope-entry'])
+	assert.ok(ui.events.includes('mcp-drawer-closed'), 'the matrix may draw itself again now')
+})
+
+/** Opens the drawer on alice with a draft in Calendar (Team added, not saved). */
+async function withDraft(options) {
+	const ui = await app(undefined, Object.assign({ drawer: true }, options))
+	ui.ui.open('alice', 'calendar', new Element('button'))
+	await tick()
+	await ui.click(ui.module('calendar').button('Search'))
+	await ui.click(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add Team'))
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+	return ui
+}
+const reads = (ui, uid) => ui.calls.filter((call) => call.method === 'GET' && call.url === '/apps/mcp/api/scope/' + uid + '/files').length
+
+test('F6: opening another person from the matrix while a draft is open asks first; a "no" keeps the draft and the focus', async () => {
+	const ui = await withDraft({ confirm: false })
+	const trigger = new Element('button')
+	assert.equal(ui.ui.open('bruno', 'files', trigger), false)
+	await tick()
+	assert.deepEqual(ui.confirms, ['Open another person? The changes that are not saved for alice are lost.'])
+	assert.equal(reads(ui, 'bruno'), 0, 'bruno is not read')
+	assert.equal(ui.ids['mcp-scope-user'].value, 'alice')
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)', 'the draft of alice stays')
+	assert.equal(ui.active(), trigger, 'the focus goes back to the control, never to the page')
+	// The form of the drawer asks too, even for the same person: reading her again would drop the draft.
+	ui.ids['mcp-scope-user'].value = 'alice'
+	await ui.ids['mcp-scope-form'].listeners.submit({ preventDefault() {} })
+	await tick()
+	assert.equal(ui.confirms.length, 2)
+	assert.equal(reads(ui, 'alice'), 1, 'alice is not read again')
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+})
+
+test('F6: a "yes" drops the draft and opens the other person; the same person only changes tab and keeps it', async () => {
+	const same = await withDraft()
+	assert.equal(same.ui.open('alice', 'tasks', new Element('button')), true)
+	await tick()
+	assert.deepEqual(same.confirms, [], 'nothing is lost, nothing is asked')
+	assert.equal(reads(same, 'alice'), 1)
+	assert.equal(same.module('tasks').hidden, false)
+	assert.equal(same.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+	const ui = await withDraft()
+	assert.equal(ui.ui.open('bruno', undefined, new Element('button')), true)
+	await tick()
+	assert.equal(ui.confirms.length, 1)
+	assert.equal(reads(ui, 'bruno'), 1)
+	assert.equal(ui.ids['mcp-scope-user'].value, 'bruno')
+	assert.ok(ui.ids['mcp-scope-tabs'].children.every((tab) => !tab.textContent.includes('not saved')))
+})
+
+test('F6: close() says whether the drawer closed, and a draft given up does not come back', async () => {
+	const kept = await withDraft({ confirm: false })
+	assert.equal(kept.ui.close(), false, 'the administrator kept the draft: the drawer is still open')
+	assert.ok(kept.ids['mcp-scope'].classes.has('mcp-drawer-open'))
+	const ui = await withDraft()
+	assert.equal(ui.ui.close(), true)
+	assert.equal(ui.ui.close(), true, 'a closed drawer is closed')
+	ui.ids['mcp-scope-entry'].listeners.click()
+	assert.deepEqual(ui.ids['mcp-scope-tabs'].children, [], 'the draft that was given up is gone')
+	assert.equal(ui.ui.open('bruno', undefined, new Element('button')), true)
+	assert.equal(ui.confirms.length, 1, 'only the closing asked')
+})
+
+test('S12: the open drawer sits right under the Nextcloud header, and keeps no position once closed', async () => {
+	const ui = await app(undefined, { drawer: true })
+	const root = ui.ids['mcp-scope']
+	const style = { top: '', removeProperty(key) { this[key] = '' } }
+	root.style = style
+	root.getBoundingClientRect = () => ({ top: style.top === '' ? 88 : parseFloat(style.top) + 44 })
+	ui.ids.header = { getBoundingClientRect: () => ({ bottom: 44 }) }
+	ui.ui.open('alice', undefined, new Element('button'))
+	await tick()
+	assert.equal(style.top, '0px')
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(style.top, '')
+})

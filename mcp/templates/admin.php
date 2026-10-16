@@ -18,7 +18,11 @@
  * @var \OCP\IL10N $l
  */
 \OCP\Util::addScript('mcp', 'admin-picker');
+\OCP\Util::addScript('mcp', 'admin-levels');
 \OCP\Util::addScript('mcp', 'admin-grants');
+\OCP\Util::addScript('mcp', 'admin-level-popover');
+\OCP\Util::addScript('mcp', 'admin-exceptions');
+\OCP\Util::addScript('mcp', 'admin-row-actions');
 \OCP\Util::addScript('mcp', 'admin-overrides');
 \OCP\Util::addScript('mcp', 'admin-groups');
 \OCP\Util::addScript('mcp', 'admin-scope');
@@ -93,21 +97,32 @@
     <div role="tabpanel" id="mcp-panel-access" aria-labelledby="mcp-tab-access" class="mcp-tab-panel" tabindex="0">
     <div class="section mcp-block" id="mcp-group-editor">
         <h2><?php p($l->t('Group grants')); ?></h2>
-        <p class="mcp-hint"><?php p($l->t('Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.')); ?></p>
-        <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. Group identity protection relies on delivered Nextcloud events; a lost deletion event may let a recreated group inherit the old policy.')); ?></p>
-        <p class="mcp-hint"><?php p($l->t('Removing group eligibility is refused when remaining access is unknown for a credential holder. Check the sources and retry.')); ?></p>
-        <label for="mcp-group-search"><?php p($l->t('Search groups by name or ID')); ?></label>
-        <input type="search" id="mcp-group-search">
-        <ul id="mcp-group-list" aria-busy="true"></ul>
-        <button type="button" id="mcp-group-prev"><?php p($l->t('Previous')); ?></button>
-        <button type="button" id="mcp-group-next"><?php p($l->t('Next')); ?></button>
-        <p id="mcp-group-status" role="status" aria-live="polite"></p>
-        <p id="mcp-group-alert" role="alert" aria-live="assertive"></p>
-        <div id="mcp-group-detail"></div>
+        <details class="mcp-group-rules">
+            <summary><?php p($l->t('How group grants work')); ?></summary>
+            <p class="mcp-hint"><?php p($l->t('Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.')); ?></p>
+            <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. If a group is deleted and that event is lost, a new group with the same ID may inherit the old policy.')); ?></p>
+            <p class="mcp-hint"><?php p($l->t('Taking “Can connect” away from a group is refused while it is unknown what a signed-in member would keep. Check the sources and try again.')); ?></p>
+        </details>
+        <div class="mcp-groups">
+            <nav class="mcp-groups-nav" aria-label="<?php p($l->t('Groups')); ?>">
+                <label for="mcp-group-search" class="mcp-sr-only"><?php p($l->t('Search groups by name or ID')); ?></label>
+                <input type="search" id="mcp-group-search" placeholder="<?php p($l->t('Search groups by name or ID')); ?>">
+                <p id="mcp-group-count" class="mcp-hint"></p>
+                <ul id="mcp-group-list" aria-busy="true"></ul>
+                <div class="mcp-groups-pager">
+                    <button type="button" id="mcp-group-prev"><?php p($l->t('Previous')); ?></button>
+                    <button type="button" id="mcp-group-next"><?php p($l->t('Next')); ?></button>
+                </div>
+            </nav>
+            <div class="mcp-groups-main">
+                <p id="mcp-group-status" role="status" aria-live="polite"></p>
+                <p id="mcp-group-alert" role="alert" aria-live="assertive"></p>
+                <div id="mcp-group-detail"></div>
+            </div>
+        </div>
     </div>
-    <div class="section mcp-block" id="mcp-block-matrix">
+    <div class="section mcp-block mcp-matrix-block" id="mcp-block-matrix">
         <h2><?php p($l->t('Permissions')); ?></h2>
-        <p class="settings-hint mcp-hint"><?php p($l->t('Users need “Can connect” and must turn the connection on in their personal settings. Reading starts allowed except the server log; writing, deleting and transferring start denied; Nextcloud permissions still apply. Changes save at once, and “All” applies to the current page.')); ?></p>
         <?php foreach ($_['unsupportedApps'] as $app) { ?>
             <p class="mcp-unsupported-app"><?php p($l->t('%1$s %2$s is installed, but MCP for Cloud supports it from version %3$s on. Its tools stay hidden until the app is updated; the saved permissions are kept.', [$app['name'], $app['installed'], $app['required']])); ?></p>
         <?php } ?>
@@ -121,20 +136,25 @@
                 <option value="eligible" selected><?php p($l->t('Only users who can connect')); ?></option>
                 <option value="connected"><?php p($l->t('Only connected users')); ?></option>
             </select>
-            <label for="mcp-app"><?php p($l->t('Show apps')); ?></label>
-            <select id="mcp-app" disabled>
-                <option value=""><?php p($l->t('All apps')); ?></option>
-            </select>
-            <span>
-                <input type="checkbox" class="checkbox" id="mcp-compact">
-                <label for="mcp-compact"><?php p($l->t('Compact rows')); ?></label>
+            <span class="mcp-view" role="group" aria-label="<?php p($l->t('Show permissions as')); ?>">
+                <button type="button" id="mcp-view-levels" aria-pressed="true"><?php p($l->t('Levels')); ?></button>
+                <button type="button" id="mcp-view-operations" aria-pressed="false"><?php p($l->t('Operations')); ?></button>
             </span>
-            <span class="mcp-pager">
-                <span id="mcp-count" class="mcp-count" aria-live="polite"></span>
-                <button type="button" id="mcp-prev"><?php p($l->t('Previous')); ?></button>
-                <span id="mcp-page-info"></span>
-                <button type="button" id="mcp-next"><?php p($l->t('Next')); ?></button>
+            <span id="mcp-app-filter" hidden>
+                <label for="mcp-app"><?php p($l->t('Show apps')); ?></label>
+                <select id="mcp-app" disabled>
+                    <option value=""><?php p($l->t('All apps')); ?></option>
+                </select>
             </span>
+            <span class="mcp-view" role="group" aria-label="<?php p($l->t('Show people')); ?>">
+                <button type="button" id="mcp-only-all" aria-pressed="true"><?php p($l->t('All')); ?></button>
+                <button type="button" id="mcp-only-exceptions" aria-pressed="false"><?php p($l->t('With exceptions')); ?></button>
+            </span>
+            <span id="mcp-count" class="mcp-count" aria-live="polite"></span>
+        </div>
+        <div id="mcp-redundant-notice" class="mcp-note mcp-note-info" role="status" hidden>
+            <p id="mcp-redundant-notice-text"></p>
+            <button type="button" id="mcp-redundant-review"><?php p($l->t('Review')); ?></button>
         </div>
         <div class="mcp-matrix-wrap">
             <table class="mcp-matrix" id="mcp-matrix" aria-busy="true">
@@ -142,12 +162,22 @@
                 <tbody><tr><td class="mcp-empty"><?php p($l->t('Loading…')); ?></td></tr></tbody>
             </table>
         </div>
+        <div id="mcp-row-menu" class="mcp-row-menu" role="menu" hidden></div>
+        <div id="mcp-level-popover" class="mcp-popover" role="dialog" aria-labelledby="mcp-level-popover-title" hidden></div>
         <div class="mcp-bulk-notice" id="mcp-bulk-notice" role="status" aria-live="polite">
             <span id="mcp-bulk-notice-text" tabindex="-1"></span>
             <button type="button" id="mcp-bulk-undo" hidden><?php p($l->t('Undo')); ?></button>
         </div>
         <div class="mcp-toolbar mcp-toolbar-bottom">
-            <p class="mcp-legend">
+            <p class="mcp-legend mcp-legend-levels" id="mcp-legend-levels">
+                <span class="mcp-legend-item"><span class="mcp-origin-icon icon-user" aria-hidden="true"></span> <?php p($l->t('Exception: differs from what the person inherits')); ?></span>
+                <span class="mcp-legend-item"><span class="mcp-origin-icon icon-group" aria-hidden="true"></span> <?php p($l->t('From a group')); ?></span>
+                <span class="mcp-legend-item"><?php p($l->t('No icon: default')); ?></span>
+                <span class="mcp-legend-item"><span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t('Unavailable')); ?></span>
+                <span><?php p($l->t('Choose a cell to change its level or its operations.')); ?></span>
+                <span><?php p($l->t('Reading starts allowed, writing denied. Nextcloud permissions still apply.')); ?></span>
+            </p>
+            <p class="mcp-legend" id="mcp-legend-operations" hidden>
                 <span class="mcp-legend-item"><input type="checkbox" checked disabled aria-hidden="true" tabindex="-1"> <?php p($l->t('Allowed')); ?></span>
                 <span class="mcp-legend-item"><input type="checkbox" disabled aria-hidden="true" tabindex="-1"> <?php p($l->t('Denied')); ?></span>
                 <span class="mcp-legend-item"><span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t('Unavailable')); ?></span>
@@ -160,22 +190,38 @@
             </span>
         </div>
     </div>
-    <div class="section mcp-block" id="mcp-scope">
-        <h2><?php p($l->t('Resource scope')); ?></h2>
-        <p class="mcp-hint"><?php p($l->t('Optionally restrict the MCP tools of one user to selected folders, calendars and task lists. A scope only narrows: it never gives access the user does not already have in Nextcloud, and an item excluded by a tag stays excluded.')); ?></p>
-        <p class="mcp-hint"><?php p($l->t('Restricting does not end the sessions of the user: it applies from their next MCP call.')); ?></p>
-        <form id="mcp-scope-form" class="mcp-inspector-form">
-            <label for="mcp-scope-user"><?php p($l->t('User ID')); ?></label>
-            <input type="text" id="mcp-scope-user" autocomplete="off" spellcheck="false">
-            <button type="submit"><?php p($l->t('Open')); ?></button>
-        </form>
-        <p id="mcp-scope-status" role="status" aria-live="polite"></p>
-        <p id="mcp-scope-alert" role="alert" aria-live="assertive"></p>
-        <div id="mcp-scope-modules"></div>
+    <div class="section mcp-block mcp-drawer" id="mcp-scope" aria-labelledby="mcp-scope-title">
+        <div class="mcp-drawer-head">
+            <h2 id="mcp-scope-title" tabindex="-1"><?php p($l->t('Resource scope')); ?></h2>
+            <button type="button" id="mcp-scope-close" class="mcp-drawer-close" aria-label="<?php p($l->t('Close')); ?>">✕</button>
+        </div>
+        <div class="mcp-drawer-entry">
+            <p class="mcp-hint"><?php p($l->t('Limit the MCP tools of one person to chosen folders, calendars and task lists. It only narrows what the person already has.')); ?></p>
+            <button type="button" id="mcp-scope-entry"><?php p($l->t('Restrict the resources of a person…')); ?></button>
+        </div>
+        <div class="mcp-drawer-body">
+            <form id="mcp-scope-form" class="mcp-inspector-form">
+                <label for="mcp-scope-user"><?php p($l->t('User ID')); ?></label>
+                <input type="text" id="mcp-scope-user" autocomplete="off" spellcheck="false">
+                <button type="submit"><?php p($l->t('Open')); ?></button>
+            </form>
+            <p id="mcp-scope-status" role="status" aria-live="polite"></p>
+            <p id="mcp-scope-alert" role="alert" aria-live="assertive"></p>
+            <div id="mcp-scope-tabs" class="mcp-drawer-tabs" role="tablist" aria-label="<?php p($l->t('Modules')); ?>"></div>
+            <div id="mcp-scope-modules"></div>
+            <p class="mcp-hint"><?php p($l->t('Restricting does not end the sessions of the user: it applies from their next MCP call.')); ?></p>
+        </div>
     </div>
-    <div class="section mcp-block" id="mcp-inspector">
-        <h2><?php p($l->t('Access inspector')); ?></h2>
-        <p class="mcp-hint"><?php p($l->t('Shows what the MCP tools of one user may do now and the first check that blocks each operation, with the same rules the tools use. It only reads: nothing is changed.')); ?></p>
+    <div class="section mcp-block mcp-drawer" id="mcp-inspector" aria-labelledby="mcp-inspector-title">
+        <div class="mcp-drawer-head">
+            <h2 id="mcp-inspector-title" tabindex="-1"><?php p($l->t('Access inspector')); ?></h2>
+            <button type="button" id="mcp-inspector-close" class="mcp-drawer-close" aria-label="<?php p($l->t('Close')); ?>">✕</button>
+        </div>
+        <div class="mcp-drawer-entry">
+            <p class="mcp-hint"><?php p($l->t('See what the MCP tools of one person can do now and what blocks the rest. It only reads.')); ?></p>
+            <button type="button" id="mcp-inspector-entry"><?php p($l->t('Inspect a person…')); ?></button>
+        </div>
+        <div class="mcp-drawer-body">
         <form id="mcp-inspector-form" class="mcp-inspector-form">
             <label for="mcp-inspector-user"><?php p($l->t('User ID')); ?></label>
             <input type="text" id="mcp-inspector-user" autocomplete="off" spellcheck="false">
@@ -184,8 +230,8 @@
         <p id="mcp-inspector-status" role="status" aria-live="polite"></p>
         <p id="mcp-inspector-alert" role="alert" aria-live="assertive"></p>
         <div id="mcp-inspector-access"></div>
-        <div id="mcp-inspector-resources" hidden>
-            <h3><?php p($l->t('Why a file or calendar is reached or not')); ?></h3>
+        <details id="mcp-inspector-resources" class="mcp-inspector-why" hidden>
+            <summary><?php p($l->t('Why a file or calendar is reached or not')); ?></summary>
             <p class="mcp-hint"><?php p($l->t('Names appear only here, for administrators. To the MCP tools, anything they cannot reach is simply not found.')); ?></p>
             <form id="mcp-inspector-path-form" class="mcp-inspector-form">
                 <label for="mcp-inspector-path"><?php p($l->t('Path in the files of the user')); ?></label>
@@ -206,6 +252,7 @@
                 <button type="submit"><?php p($l->t('Explain')); ?></button>
             </form>
             <p id="mcp-inspector-calendar-result" aria-live="polite"></p>
+        </details>
         </div>
     </div>
     </div>
