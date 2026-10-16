@@ -85,7 +85,7 @@ function setup({ overrides = true, clipboard = true } = {}) {
 			notifyError: (message) => log.errors.push(message),
 		},
 		McpInspectorUi: { open: (uid) => log.inspected.push(uid) },
-		McpScopeUi: { open: (uid) => log.scoped.push(uid) },
+		McpScopeUi: { open: (uid, module, trigger) => log.scoped.push([uid, module, trigger]) },
 		McpAdminOverrides: overrides ? { hasOverrides: (user) => user.uid === 'ana', resetUser: (user, trigger) => log.resets.push([user.uid, trigger]) } : undefined,
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
 	}
@@ -141,7 +141,7 @@ test('each action does what it says, and the menu closes first', async () => {
 
 	await trigger.click()
 	await kit.menu.children[1].click()
-	assert.deepEqual(kit.log.scoped, ['ana'])
+	assert.deepEqual(kit.log.scoped, [['ana', undefined, trigger]], 'the scope drawer gives the focus back to the menu button')
 
 	await trigger.click()
 	await kit.menu.children[2].click()

@@ -1222,3 +1222,93 @@ body[data-themes*="dark"] #mcp-admin {
 	background-color: transparent;
 	color: var(--color-main-text);
 }
+
+/*
+ * Side drawers of the Access tab (S9: resource scope). Closed, the block shows one sentence and its button; open, it
+ * becomes a panel at the end side of the window, over the page, with its own scroll. The theme colour marks only the
+ * selected tab and the focus.
+ */
+#mcp-admin .mcp-drawer-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+#mcp-admin .mcp-drawer-head h2 {
+	flex: 1;
+}
+
+#mcp-admin .mcp-drawer-close,
+#mcp-admin .mcp-drawer:not(.mcp-drawer-open) .mcp-drawer-body,
+#mcp-admin .mcp-drawer.mcp-drawer-open .mcp-drawer-entry {
+	display: none;
+}
+
+#mcp-admin .mcp-drawer.mcp-drawer-open {
+	position: fixed;
+	z-index: 2000;
+	top: var(--header-height, 50px);
+	bottom: 0;
+	inset-inline-end: 0;
+	box-sizing: border-box;
+	width: min(480px, 100vw);
+	margin: 0;
+	padding: 12px 20px 20px;
+	overflow-y: auto;
+	border-inline-start: 1px solid var(--color-border);
+	background-color: var(--color-main-background);
+	box-shadow: 0 0 24px var(--color-box-shadow);
+}
+
+#mcp-admin .mcp-drawer.mcp-drawer-open .mcp-drawer-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--default-clickable-area);
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background-color: transparent;
+	color: var(--color-main-text);
+}
+
+#mcp-admin .mcp-drawer-close:hover {
+	background-color: var(--color-background-hover);
+}
+
+#mcp-admin .mcp-drawer-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 8px 0;
+	border-bottom: 1px solid var(--color-border);
+}
+
+#mcp-admin .mcp-drawer-tabs [role="tab"] {
+	margin: 0;
+	padding: 8px 10px;
+	border: 0;
+	border-bottom: 3px solid transparent;
+	border-radius: 0;
+	background-color: transparent;
+	color: var(--color-text-maxcontrast);
+	font-weight: normal;
+}
+
+#mcp-admin .mcp-drawer-tabs [role="tab"][aria-selected="true"] {
+	border-bottom-color: var(--color-primary-element);
+	color: var(--color-main-text);
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-drawer-tabs [role="tab"]:focus-visible,
+#mcp-admin .mcp-drawer-close:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+#mcp-admin .mcp-drawer .mcp-scope-module[hidden] {
+	display: none;
+}

@@ -1179,7 +1179,6 @@
     "Enter the user ID." : "Informe o ID do usuário.",
     "Open the resource scope" : "Abrir a restrição por recurso",
     "Resource scope" : "Restrição por recurso",
-    "Optionally restrict the MCP tools of one user to selected folders, calendars and task lists. A scope only narrows: it never gives access the user does not already have in Nextcloud, and an item excluded by a tag stays excluded." : "Opcionalmente, restrinja as ferramentas MCP de um usuário a pastas, calendários e listas de tarefas selecionados. A restrição só estreita: nunca dá um acesso que o usuário ainda não tenha no Nextcloud, e um item excluído por etiqueta continua excluído.",
     "Restricting does not end the sessions of the user: it applies from their next MCP call." : "Restringir não encerra as sessões do usuário: vale a partir da próxima chamada MCP.",
     "Your administrator can restrict what your MCP clients reach to selected folders, calendars and task lists. It never changes what you can do in Nextcloud itself." : "Seu administrador pode restringir o que seus clientes MCP alcançam a pastas, calendários e listas de tarefas selecionados. Isso nunca muda o que você pode fazer no próprio Nextcloud.",
     "Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope." : "As alterações não salvas aqui foram feitas antes de a política mudar, então salvá-las será recusado. Descarte-as para carregar a restrição salva.",
@@ -1272,6 +1271,13 @@
     "_“{permission}” set to {level} for %n person._::_“{permission}” set to {level} for %n people._" : ["“{permission}” definido como {level} para %n pessoa.", "“{permission}” definido como {level} para %n pessoas.", "“{permission}” definido como {level} para %n pessoas."],
     "Could not update the selected people." : "Não foi possível atualizar as pessoas selecionadas.",
     "Give back to inheritance… ({count})" : "Voltar à herança… ({count})",
-    "Remove the individual values of the selected people, after a preview of what changes" : "Remove as definições individuais das pessoas selecionadas, depois de uma prévia do que muda"
+    "Remove the individual values of the selected people, after a preview of what changes" : "Remove as definições individuais das pessoas selecionadas, depois de uma prévia do que muda",
+    "Limit the MCP tools of one person to chosen folders, calendars and task lists. It only narrows what the person already has." : "Limite as ferramentas MCP de uma pessoa a pastas, calendários e listas de tarefas escolhidos. Só estreita o que a pessoa já tem.",
+    "Restrict the resources of a person…" : "Restringir os recursos de uma pessoa…",
+    "Modules" : "Módulos",
+    "{module}: {count}" : "{module}: {count}",
+    "{module}: all" : "{module}: todos",
+    "not saved" : "não salvo",
+    "Close the resource scope? The changes that are not saved are lost." : "Fechar a restrição por recurso? As mudanças não salvas são perdidas."
 },"pluralForm" :"nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

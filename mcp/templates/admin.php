@@ -178,18 +178,27 @@
             </span>
         </div>
     </div>
-    <div class="section mcp-block" id="mcp-scope">
-        <h2><?php p($l->t('Resource scope')); ?></h2>
-        <p class="mcp-hint"><?php p($l->t('Optionally restrict the MCP tools of one user to selected folders, calendars and task lists. A scope only narrows: it never gives access the user does not already have in Nextcloud, and an item excluded by a tag stays excluded.')); ?></p>
-        <p class="mcp-hint"><?php p($l->t('Restricting does not end the sessions of the user: it applies from their next MCP call.')); ?></p>
-        <form id="mcp-scope-form" class="mcp-inspector-form">
-            <label for="mcp-scope-user"><?php p($l->t('User ID')); ?></label>
-            <input type="text" id="mcp-scope-user" autocomplete="off" spellcheck="false">
-            <button type="submit"><?php p($l->t('Open')); ?></button>
-        </form>
-        <p id="mcp-scope-status" role="status" aria-live="polite"></p>
-        <p id="mcp-scope-alert" role="alert" aria-live="assertive"></p>
-        <div id="mcp-scope-modules"></div>
+    <div class="section mcp-block mcp-drawer" id="mcp-scope" aria-labelledby="mcp-scope-title">
+        <div class="mcp-drawer-head">
+            <h2 id="mcp-scope-title" tabindex="-1"><?php p($l->t('Resource scope')); ?></h2>
+            <button type="button" id="mcp-scope-close" class="mcp-drawer-close" aria-label="<?php p($l->t('Close')); ?>">✕</button>
+        </div>
+        <div class="mcp-drawer-entry">
+            <p class="mcp-hint"><?php p($l->t('Limit the MCP tools of one person to chosen folders, calendars and task lists. It only narrows what the person already has.')); ?></p>
+            <button type="button" id="mcp-scope-entry"><?php p($l->t('Restrict the resources of a person…')); ?></button>
+        </div>
+        <div class="mcp-drawer-body">
+            <form id="mcp-scope-form" class="mcp-inspector-form">
+                <label for="mcp-scope-user"><?php p($l->t('User ID')); ?></label>
+                <input type="text" id="mcp-scope-user" autocomplete="off" spellcheck="false">
+                <button type="submit"><?php p($l->t('Open')); ?></button>
+            </form>
+            <p id="mcp-scope-status" role="status" aria-live="polite"></p>
+            <p id="mcp-scope-alert" role="alert" aria-live="assertive"></p>
+            <div id="mcp-scope-tabs" class="mcp-drawer-tabs" role="tablist" aria-label="<?php p($l->t('Modules')); ?>"></div>
+            <div id="mcp-scope-modules"></div>
+            <p class="mcp-hint"><?php p($l->t('Restricting does not end the sessions of the user: it applies from their next MCP call.')); ?></p>
+        </div>
     </div>
     <div class="section mcp-block" id="mcp-inspector">
         <h2><?php p($l->t('Access inspector')); ?></h2>

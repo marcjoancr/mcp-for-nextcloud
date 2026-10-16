@@ -21,7 +21,10 @@ class Element {
 		this.hidden = false
 		this.disabled = false
 		this._text = ''
+		this.classes = new Set()
 	}
+	get classList() { return { add: (name) => this.classes.add(name), remove: (name) => this.classes.delete(name), contains: (name) => this.classes.has(name) } }
+	removeAttribute(key) { delete this.attributes[key] }
 	append(...children) {
 		for (const child of children) {
 			if (typeof child !== 'string') child.parent = this
@@ -55,9 +58,11 @@ const show = {
 }
 const candidates = { items: [{ id: '11', name: 'Personal', path: null, excluded: false }, { id: '12', name: 'Team', path: null, excluded: false }], page: 1, pageSize: 50, total: 2, hasMore: false, parent: null }
 
-async function app(handler = () => undefined) {
+async function app(handler = () => undefined, options = {}) {
 	const page = new Element('div')
-	const ids = Object.fromEntries(['mcp-scope', 'mcp-scope-form', 'mcp-scope-user', 'mcp-scope-status', 'mcp-scope-alert', 'mcp-scope-modules'].map((id) => {
+	// The drawer of S9 adds its title, tabs, close and entry buttons; without them the panel behaves as before.
+	const drawer = options.drawer ? ['mcp-scope-tabs', 'mcp-scope-title', 'mcp-scope-close', 'mcp-scope-entry'] : []
+	const ids = Object.fromEntries(['mcp-scope', 'mcp-scope-form', 'mcp-scope-user', 'mcp-scope-status', 'mcp-scope-alert', 'mcp-scope-modules', ...drawer].map((id) => {
 		const node = new Element('div')
 		node.id = id
 		page.append(node)
@@ -101,7 +106,9 @@ async function app(handler = () => undefined) {
 		dispatchEvent: (event) => { events.push(event.detail ? [event.type, event.detail.from, event.detail.to] : event.type); (listeners[event.type] || []).forEach((action) => action(event)) },
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
 		McpAdminMatrix: { refresh: () => { refreshed++ } },
+		confirm: (text) => { confirms.push(text); return options.confirm !== false },
 	}
+	const confirms = []
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-scope.js'), 'utf8'), context)
 	const open = async (uid = 'alice') => {
 		ids['mcp-scope-user'].value = uid
@@ -111,7 +118,7 @@ async function app(handler = () => undefined) {
 	const module = (name) => document.getElementById('mcp-scope-module-' + name)
 	const click = async (node) => { assert.ok(node, 'the control exists'); assert.equal(node.disabled, false, 'the control is enabled'); node.listeners.click(); await tick() }
 	ids['mcp-scope-alert'].writes = []
-	return { ids, calls, events, timers, open, module, click, document, window: context.window, ui: context.window.McpScopeUi, refreshed: () => refreshed }
+	return { ids, calls, events, timers, open, module, click, document, window: context.window, ui: context.window.McpScopeUi, refreshed: () => refreshed, confirms, active: () => active }
 }
 
 test('S14: each module shows its saved scope; a module the tools do not scope yet says so and cannot be saved', async () => {
@@ -402,3 +409,53 @@ test('B7 review B4: the same error twice in a row is announced twice', async () 
 	assert.ok(writes.slice(shown[0] + 1, shown[1]).includes(''), 'cleared in between, so a screen reader announces it again')
 })
 
+
+test('S9: the drawer opens on a user from the matrix, shows one module per tab with its saved state, and gives the focus back', async () => {
+	const ui = await app(undefined, { drawer: true })
+	const root = ui.ids['mcp-scope']
+	const trigger = new Element('button')
+	ui.ui.open('alice', 'calendar', trigger)
+	await tick()
+	assert.ok(root.classes.has('mcp-drawer-open'))
+	assert.equal(root.attributes.role, 'dialog')
+	assert.equal(ui.ids['mcp-scope-user'].value, 'alice')
+	const tabs = ui.ids['mcp-scope-tabs'].children
+	assert.deepEqual(tabs.map((tab) => tab.textContent), ['Files: all', 'Calendar: 1', 'Tasks: all'])
+	assert.deepEqual(tabs.map((tab) => tab.attributes['aria-selected']), ['false', 'true', 'false'], 'it opens on the module it was asked for')
+	assert.ok(tabs.every((tab) => tab.attributes.role === 'tab'))
+	assert.equal(tabs[1].attributes['aria-controls'], 'mcp-scope-module-calendar')
+	assert.deepEqual(['files', 'calendar', 'tasks'].map((name) => ui.module(name).hidden), [true, false, true], 'one module at a time')
+	// The arrow keys move between the tabs.
+	tabs[1].listeners.keydown({ key: 'ArrowRight', preventDefault() {} })
+	assert.deepEqual(['files', 'calendar', 'tasks'].map((name) => ui.module(name).hidden), [true, true, false])
+	assert.equal(ui.active(), ui.ids['mcp-scope-tabs'].children[2])
+	ui.ids['mcp-scope-tabs'].children[2].listeners.keydown({ key: 'Home', preventDefault() {} })
+	assert.equal(ui.module('files').hidden, false)
+	// Escape closes it and gives the focus back to the control that opened it.
+	root.listeners.keydown({ key: 'Escape', preventDefault() {} })
+	assert.ok(!root.classes.has('mcp-drawer-open'))
+	assert.equal(root.attributes.role, undefined)
+	assert.equal(ui.active(), trigger)
+})
+
+test('S9: a draft that would be lost is asked about before the drawer closes, and a tab says it is not saved', async () => {
+	const ui = await app(undefined, { drawer: true, confirm: false })
+	const root = ui.ids['mcp-scope']
+	ui.ui.open('alice', 'calendar', new Element('button'))
+	await tick()
+	await ui.click(ui.module('calendar').button('Search'))
+	await ui.click(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add Team'))
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.deepEqual(ui.confirms, ['Close the resource scope? The changes that are not saved are lost.'])
+	assert.ok(root.classes.has('mcp-drawer-open'), 'a "no" keeps the drawer and the draft')
+})
+
+test('S9: the entry button of the Access tab opens the drawer on the user field', async () => {
+	const ui = await app(undefined, { drawer: true })
+	ui.ids['mcp-scope-entry'].listeners.click()
+	assert.ok(ui.ids['mcp-scope'].classes.has('mcp-drawer-open'))
+	assert.equal(ui.active(), ui.ids['mcp-scope-user'])
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(ui.active(), ui.ids['mcp-scope-entry'])
+})

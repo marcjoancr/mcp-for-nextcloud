@@ -1176,7 +1176,6 @@ OC.L10N.register(
     "Enter the user ID." : "Gib die Benutzer-ID ein.",
     "Open the resource scope" : "Ressourcenbereich öffnen",
     "Resource scope" : "Ressourcenbereich",
-    "Optionally restrict the MCP tools of one user to selected folders, calendars and task lists. A scope only narrows: it never gives access the user does not already have in Nextcloud, and an item excluded by a tag stays excluded." : "Optional die MCP-Werkzeuge eines Benutzers auf ausgewählte Ordner, Kalender und Aufgabenlisten einschränken. Ein Bereich schränkt nur ein: Er gewährt niemals Zugriff, den der Benutzer nicht bereits in Nextcloud hat, und ein durch ein Schlagwort ausgeschlossenes Element bleibt ausgeschlossen.",
     "Restricting does not end the sessions of the user: it applies from their next MCP call." : "Das Einschränken beendet die Sitzungen des Benutzers nicht: Es gilt ab seinem nächsten MCP-Aufruf.",
     "Your administrator can restrict what your MCP clients reach to selected folders, calendars and task lists. It never changes what you can do in Nextcloud itself." : "Deine Administration kann den Zugriff deiner MCP-Clients auf ausgewählte Ordner, Kalender und Aufgabenlisten einschränken. Das ändert niemals, was du in Nextcloud selbst tun kannst.",
     "Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope." : "Nicht gespeicherte Änderungen hier wurden vorgenommen, bevor sich die Richtlinie geändert hat. Das Speichern wird daher abgelehnt. Verwerfe sie, um den gespeicherten Ressourcenbereich zu laden.",
@@ -1269,6 +1268,13 @@ OC.L10N.register(
     "_“{permission}” set to {level} for %n person._::_“{permission}” set to {level} for %n people._" : ["„{permission}“ für %n Person auf {level} gesetzt.", "„{permission}“ für %n Personen auf {level} gesetzt."],
     "Could not update the selected people." : "Die ausgewählten Personen konnten nicht aktualisiert werden.",
     "Give back to inheritance… ({count})" : "Wieder erben … ({count})",
-    "Remove the individual values of the selected people, after a preview of what changes" : "Entfernt die individuellen Einstellungen der ausgewählten Personen nach einer Vorschau der Änderungen"
+    "Remove the individual values of the selected people, after a preview of what changes" : "Entfernt die individuellen Einstellungen der ausgewählten Personen nach einer Vorschau der Änderungen",
+    "Limit the MCP tools of one person to chosen folders, calendars and task lists. It only narrows what the person already has." : "Beschränke die MCP-Werkzeuge einer Person auf ausgewählte Ordner, Kalender und Aufgabenlisten. Das schränkt nur ein, was die Person schon hat.",
+    "Restrict the resources of a person…" : "Ressourcen einer Person einschränken …",
+    "Modules" : "Module",
+    "{module}: {count}" : "{module}: {count}",
+    "{module}: all" : "{module}: alle",
+    "not saved" : "nicht gespeichert",
+    "Close the resource scope? The changes that are not saved are lost." : "Ressourcenbereich schließen? Nicht gespeicherte Änderungen gehen verloren."
 },
 "nplurals=2; plural=(n != 1);");

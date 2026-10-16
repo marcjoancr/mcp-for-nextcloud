@@ -63,10 +63,8 @@
 			{
 				label: t('mcp', 'Restrict resources'),
 				disabled: !window.McpScopeUi,
-				run: () => {
-					window.McpScopeUi.open(user.uid)
-					reveal('mcp-scope')
-				},
+				// The resource scope opens as a drawer that takes the focus and gives it back to this button.
+				run: () => window.McpScopeUi.open(user.uid, undefined, trigger),
 			},
 			{
 				label: t('mcp', 'Give everything back to inheritance…'),

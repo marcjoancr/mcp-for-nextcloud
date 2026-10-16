@@ -138,7 +138,10 @@ final class AdminAssetsTest extends TestCase {
         $template = (string)file_get_contents($app . '/templates/admin.php');
 
         $this->assertStringContainsString("Util::addScript('mcp', 'admin-tabs')", $template);
-        $this->assertSame(1, substr_count($template, 'role="tablist"'));
+        // One tab bar for the page; the resource scope drawer has its own tablist for its modules (S9).
+        $this->assertSame(1, substr_count($template, 'class="mcp-tab-bar" role="tablist"'));
+        $this->assertSame(2, substr_count($template, 'role="tablist"'));
+        $this->assertStringContainsString('<div id="mcp-scope-tabs" class="mcp-drawer-tabs" role="tablist"', $template);
         preg_match_all('/<button type="button" role="tab" id="(mcp-tab-[a-z]+)" data-tab-hash="([a-z]+)" aria-controls="(mcp-panel-[a-z]+)" aria-selected="(true|false)">/', $template, $tabs, PREG_SET_ORDER);
         $this->assertCount(5, $tabs);
         $this->assertSame(['overview', 'access', 'clients', 'protection', 'advanced'], array_map(static fn (array $tab) => $tab[2], $tabs));
@@ -188,7 +191,8 @@ final class AdminAssetsTest extends TestCase {
 
     public function testAdminPageHasTenSectionBlocks(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
-        preg_match_all('/<div class="section mcp-block" id="([^"]+)"[^>]*>\s*<h2><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
+        // A block may be a drawer (S9), whose heading sits in the drawer head next to its close button.
+        preg_match_all('/<div class="section mcp-block(?: mcp-drawer)?" id="([^"]+)"[^>]*>\s*(?:<div class="mcp-drawer-head">\s*)?<h2(?: id="[a-z-]+" tabindex="-1")?><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
         $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-scope', 'mcp-inspector', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
         $this->assertSame(['Status', 'Group grants', 'Permissions', 'Resource scope', 'Access inspector', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         $this->assertStringContainsString('data-scope="admin"', $template);
