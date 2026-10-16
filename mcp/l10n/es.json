@@ -1275,7 +1275,7 @@
     "Restrict the resources of a person…" : "Restringir los recursos de una persona…",
     "Modules" : "Módulos",
     "{module}: {count}" : "{module}: {count}",
-    "{module}: all" : "{module}: todos",
+    "{module}: all" : "{module}: sin restricción",
     "not saved" : "no guardado",
     "Close the resource scope? The changes that are not saved are lost." : "¿Cerrar la restricción por recurso? Se pierden los cambios no guardados.",
     "See what the MCP tools of one person can do now and what blocks the rest. It only reads." : "Mira lo que las herramientas MCP de una persona pueden hacer ahora y qué bloquea el resto. Solo lee.",

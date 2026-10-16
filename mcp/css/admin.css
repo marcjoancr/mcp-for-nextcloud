@@ -1234,8 +1234,12 @@ body[data-themes*="dark"] #mcp-admin {
 	gap: 8px;
 }
 
+/* Nextcloud 35 centres a section heading as a flex box; the heading of a drawer starts at the start side. */
 #mcp-admin .mcp-drawer-head h2 {
 	flex: 1;
+	justify-content: flex-start;
+	margin-inline: 0;
+	text-align: start;
 }
 
 #mcp-admin .mcp-drawer-close,

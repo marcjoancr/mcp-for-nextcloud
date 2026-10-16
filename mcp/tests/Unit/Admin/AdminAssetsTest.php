@@ -360,6 +360,20 @@ final class AdminAssetsTest extends TestCase {
         $this->assertStringContainsString('window.McpAdminOverrides?.decorateHeader?.(selectHeader)', $grants);
     }
 
+    /**
+     * S9/S10: the heading of a drawer starts at the start side (Nextcloud 35 centres a section heading as a flex box), and
+     * an unrestricted module's tab says "no restriction" in words that fit every module, whatever its grammatical gender.
+     */
+    public function testDrawerHeadingStartsAtTheStartAndTabsNameNoRestriction(): void {
+        $app = dirname(__DIR__, 3);
+        $css = (string)file_get_contents($app . '/css/admin.css');
+        $this->assertMatchesRegularExpression('/#mcp-admin \.mcp-drawer-head h2 \{[^}]*justify-content: flex-start;[^}]*text-align: start;/s', $css);
+        $l10n = json_decode((string)file_get_contents($app . '/l10n/pt_BR.json'), true)['translations'];
+        $this->assertSame('{module}: sem restrição', $l10n['{module}: all']);
+        $this->assertSame('{module}: sin restricción', json_decode((string)file_get_contents($app . '/l10n/es.json'), true)['translations']['{module}: all']);
+        $this->assertSame('{module}: uneingeschränkt', json_decode((string)file_get_contents($app . '/l10n/de.json'), true)['translations']['{module}: all']);
+    }
+
     /** Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. */
     public function testMatrixStickyLayersAndToggleClearanceAreScoped(): void {
         $css = (string)file_get_contents(dirname(__DIR__, 3) . '/css/admin.css');

@@ -1272,7 +1272,7 @@ OC.L10N.register(
     "Restrict the resources of a person…" : "Ressourcen einer Person einschränken …",
     "Modules" : "Module",
     "{module}: {count}" : "{module}: {count}",
-    "{module}: all" : "{module}: alle",
+    "{module}: all" : "{module}: uneingeschränkt",
     "not saved" : "nicht gespeichert",
     "Close the resource scope? The changes that are not saved are lost." : "Ressourcenbereich schließen? Nicht gespeicherte Änderungen gehen verloren.",
     "See what the MCP tools of one person can do now and what blocks the rest. It only reads." : "Sieh, was die MCP-Werkzeuge einer Person jetzt tun können und was den Rest blockiert. Es wird nur gelesen.",
