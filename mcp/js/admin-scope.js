@@ -11,13 +11,17 @@
  *
  * A module whose activation barrier is still closed on the server (`active: false`) is shown with its saved state
  * and browsable, but cannot be saved, and says so: the tools of that module do not apply a scope yet. A conflict
- * (409) never repeats the write: the current scope is read again and shown. Exposes window.McpScopeUi for the
- * matrix, which shows "Restricted to N" in the module's first cell and opens this panel from it.
+ * (409) never repeats the write: the current scope is read again and shown. Each module keeps the revision its own
+ * draft was read at, so a draft made before a change elsewhere is refused by the server instead of overwriting it.
+ * Exposes window.McpScopeUi for the matrix, which shows "Restricted to N" (or "Scope unknown") in the module's first
+ * cell and opens this panel from it.
  */
 (function () {
 	'use strict'
 	const MODULES = ['files', 'calendar', 'tasks']
 	const UNDO_SECONDS = 10
+	/** Delay before a message is written, so the same message twice in a row is announced twice (as in the matrix). */
+	const SAY_DELAY = 60
 	const root = document.getElementById('mcp-scope')
 	const form = document.getElementById('mcp-scope-form')
 	const userInput = document.getElementById('mcp-scope-user')
@@ -25,8 +29,8 @@
 	const alertBox = document.getElementById('mcp-scope-alert')
 	const container = document.getElementById('mcp-scope-modules')
 	let uid = null
-	let revision = null
 	let seq = 0
+	let sayTimer = null
 	/** @type {Object<string, object>} state of each module of the open user */
 	let modules = {}
 
@@ -37,9 +41,12 @@
 		return node
 	}
 	function say(message, error = false) {
+		clearTimeout(sayTimer)
 		status.textContent = ''
 		alertBox.textContent = ''
-		;(error ? alertBox : status).textContent = message
+		if (message === '') return
+		const region = error ? alertBox : status
+		sayTimer = setTimeout(() => { region.textContent = message }, SAY_DELAY)
 	}
 	async function api(method, path, query, body) {
 		const url = OC.generateUrl('/apps/mcp' + path) + (query ? '?' + new URLSearchParams(query) : '')
@@ -73,7 +80,7 @@
 	}
 	/** What a saved or selected item is called on screen: its path for a folder, its name otherwise. */
 	function label(item) {
-		if (item.found === false) return t('mcp', 'Resource no longer found ({id})', { id: item.id })
+		if (item.found === false) return t('mcp', 'Resource no longer found ({id})', { id: item.id }, undefined, { escape: false })
 		return item.path || item.name
 	}
 	function badges(item) {
@@ -110,15 +117,14 @@
 			const loaded = await Promise.all(MODULES.map((module) => api('GET', scopePath(module))))
 			if (mine !== seq) return
 			loaded.forEach((data) => {
-				revision = data.revision
 				modules[data.module] = {
-					module: data.module, active: data.active, limit: data.limit,
+					module: data.module, active: data.active, limit: data.limit, revision: data.revision,
 					mode: data.mode, savedMode: data.mode, items: [...data.items], savedItems: [...data.items],
-					search: '', parents: [], results: null, page: 1, undo: null,
+					search: '', parents: [], results: null, page: 1, undo: null, saving: false, stale: false,
 				}
 			})
 			MODULES.forEach((module) => container.append(renderModule(modules[module])))
-			say(t('mcp', 'Resource scope of {user}.', { user: uid }))
+			say(t('mcp', 'Resource scope of {user}.', { user: uid }, undefined, { escape: false }))
 			const heading = document.getElementById('mcp-scope-heading-' + (focusModule || MODULES[0]))
 			if (focusModule && heading) {
 				heading.scrollIntoView?.({ block: 'start' })
@@ -133,12 +139,30 @@
 		}
 	}
 
-	/** Reads one module again from the server: after a save, an undo or a conflict. */
+	/** Reads one module again from the server; its draft is replaced by the saved scope and its revision. */
 	async function reload(state) {
 		const data = await api('GET', scopePath(state.module))
-		revision = data.revision
-		Object.assign(state, { active: data.active, mode: data.mode, savedMode: data.mode, items: [...data.items], savedItems: [...data.items] })
+		Object.assign(state, { active: data.active, revision: data.revision, stale: false,
+			mode: data.mode, savedMode: data.mode, items: [...data.items], savedItems: [...data.items] })
 		rerender(state)
+	}
+
+	/**
+	 * The policy revision moved (a save, an undo, a conflict): the three modules are read again. A module with an
+	 * unsaved draft keeps it, with the revision it was read at, and says so: saving it is refused by the server (409)
+	 * rather than accepted against a scope it never saw, and discarding it loads the saved scope.
+	 */
+	async function reloadAll(origin) {
+		for (const module of MODULES) {
+			const state = modules[module]
+			if (state === origin || !dirty(state)) {
+				await reload(state).catch(() => {})
+			} else {
+				state.stale = true
+				state.line = t('mcp', 'Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope.')
+				rerender(state)
+			}
+		}
 	}
 
 	function rerender(state, focusId) {
@@ -154,10 +178,13 @@
 		const heading = el('h3', { id: 'mcp-scope-heading-' + module, textContent: title(module), tabIndex: -1 })
 		section.setAttribute('aria-labelledby', heading.id)
 		section.append(heading)
+		if (state.stale) {
+			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope.') }))
+		}
 		if (!state.active) {
 			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Not available yet: the tools of this module do not apply a resource scope in this version, so it cannot be saved and nothing is restricted. You can still browse what the user has.') }))
 		}
-		const fieldset = el('fieldset', {}, [el('legend', { textContent: t('mcp', 'Resources the MCP tools of {user} may reach', { user: uid }) })])
+		const fieldset = el('fieldset', {}, [el('legend', { textContent: t('mcp', 'Resources the MCP tools of {user} may reach', { user: uid }, undefined, { escape: false }) })])
 		;[['unrestricted', t('mcp', 'All resources')], ['restricted', t('mcp', 'Only selected')]].forEach(([value, text]) => {
 			const id = 'mcp-scope-mode-' + module + '-' + value
 			const radio = el('input', { type: 'radio', name: 'mcp-scope-mode-' + module, id, value, checked: state.mode === value })
@@ -172,17 +199,34 @@
 		if (state.mode === 'restricted') {
 			section.append(renderSelection(state), renderPicker(state))
 		}
-		const save = el('button', { type: 'button', id: 'mcp-scope-save-' + module, textContent: t('mcp', 'Save'), disabled: !state.active || !dirty(state) })
+		// Nothing can be sent twice: Save, Discard and Undo wait for the answer of the request in flight.
+		const save = el('button', { type: 'button', id: 'mcp-scope-save-' + module, textContent: t('mcp', 'Save'), disabled: state.saving || !state.active || !dirty(state) })
 		save.addEventListener('click', () => saveModule(state))
-		const discard = el('button', { type: 'button', textContent: t('mcp', 'Discard changes'), disabled: !dirty(state) })
-		discard.addEventListener('click', () => {
+		const discard = el('button', { type: 'button', id: 'mcp-scope-discard-' + module, textContent: t('mcp', 'Discard changes'), disabled: state.saving || (!dirty(state) && !state.stale) })
+		discard.addEventListener('click', async () => {
+			if (state.stale) {
+				// A draft of an older revision: what is saved now comes from the server, not from the old copy.
+				await reload(state).catch((error) => note(state, failure(error), true))
+				rerender(state, 'mcp-scope-mode-' + module + '-' + state.mode)
+				return
+			}
 			Object.assign(state, { mode: state.savedMode, items: [...state.savedItems] })
 			rerender(state, 'mcp-scope-mode-' + module + '-' + state.mode)
 		})
 		const actions = el('div', { className: 'mcp-scope-actions' }, [save, discard])
 		if (state.undo) {
-			const undo = el('button', { type: 'button', id: 'mcp-scope-undo-' + module, textContent: t('mcp', 'Undo') })
+			const offer = state.undo
+			const undo = el('button', { type: 'button', id: 'mcp-scope-undo-' + module, textContent: t('mcp', 'Undo'), disabled: state.saving })
 			undo.addEventListener('click', () => undoModule(state))
+			// The ten seconds pause while the pointer or the focus is on the button (WCAG 2.2.1).
+			const hold = (key, value) => () => {
+				offer[key] = value
+				if (!value) expireUndo(state, offer)
+			}
+			undo.addEventListener('mouseenter', hold('hover', true))
+			undo.addEventListener('mouseleave', hold('hover', false))
+			undo.addEventListener('focus', hold('focus', true))
+			undo.addEventListener('blur', hold('focus', false))
 			actions.append(undo)
 		}
 		section.append(actions)
@@ -193,13 +237,13 @@
 	function renderSelection(state) {
 		const module = state.module
 		const wrap = el('div', { className: 'mcp-scope-selection' })
-		wrap.append(el('p', { textContent: state.items.length === 0 ? emptyText(module) : t('mcp', '{count} of at most {limit} selected', { count: state.items.length, limit: state.limit }) }))
+		wrap.append(el('p', { textContent: state.items.length === 0 ? emptyText(module) : t('mcp', '{count} of at most {limit} selected', { count: state.items.length, limit: state.limit }, undefined, { escape: false }) }))
 		if (state.items.length > 0) {
 			const list = el('ul', { className: 'mcp-scope-list' })
 			list.setAttribute('aria-label', t('mcp', 'Selected resources'))
 			state.items.forEach((item, index) => {
 				const remove = el('button', { type: 'button', id: 'mcp-scope-remove-' + module + '-' + item.id, textContent: t('mcp', 'Remove') })
-				remove.setAttribute('aria-label', t('mcp', 'Remove {name}', { name: label(item) }))
+				remove.setAttribute('aria-label', t('mcp', 'Remove {name}', { name: label(item) }, undefined, { escape: false }))
 				remove.addEventListener('click', () => {
 					state.items = state.items.filter((other) => other.id !== item.id)
 					// The focus goes to the next item, else the previous one, else the mode choice.
@@ -225,7 +269,7 @@
 		picker.append(el('label', { htmlFor: searchId, textContent: module === 'files' ? t('mcp', 'Find a folder of the user') : t('mcp', 'Find a calendar or task list of the user') }), search, go)
 		if (module === 'files') {
 			const here = state.parents[state.parents.length - 1]
-			picker.append(el('p', { className: 'mcp-scope-where', textContent: here ? t('mcp', 'In folder {path}', { path: here.path }) : t('mcp', 'In the top folder of the user') }))
+			picker.append(el('p', { className: 'mcp-scope-where', textContent: here ? t('mcp', 'In folder {path}', { path: here.path }, undefined, { escape: false }) : t('mcp', 'In the top folder of the user') }))
 			if (here) {
 				const up = el('button', { type: 'button', id: 'mcp-scope-up-files', textContent: t('mcp', 'Up one folder') })
 				up.addEventListener('click', () => { state.parents.pop(); state.page = 1; state.results = null; browse(state, 'mcp-scope-up-files') })
@@ -239,12 +283,12 @@
 		if (state.results === null) {
 			count.textContent = t('mcp', 'Search, or press Search with an empty field to list everything.')
 		} else {
-			count.textContent = state.results.total === 0 ? t('mcp', 'Nothing found.') : t('mcp', '{shown} of {total} shown', { shown: state.results.items.length, total: state.results.total })
+			count.textContent = state.results.total === 0 ? t('mcp', 'Nothing found.') : t('mcp', '{shown} of {total} shown', { shown: state.results.items.length, total: state.results.total }, undefined, { escape: false })
 			state.results.items.forEach((item) => {
 				const row = el('li', {}, [el('span', { textContent: label(item) }), ...badges(item), addButton(state, item)])
 				if (module === 'files') {
 					const open = el('button', { type: 'button', textContent: t('mcp', 'Open') })
-					open.setAttribute('aria-label', t('mcp', 'Open {name}', { name: label(item) }))
+					open.setAttribute('aria-label', t('mcp', 'Open {name}', { name: label(item) }, undefined, { escape: false }))
 					open.addEventListener('click', () => { state.parents.push(item); state.page = 1; state.results = null; state.search = ''; browse(state, searchId) })
 					row.append(open)
 				}
@@ -264,15 +308,15 @@
 	function addButton(state, item, text) {
 		const chosen = state.items.some((other) => other.id === item.id)
 		const add = el('button', { type: 'button', textContent: text || (chosen ? t('mcp', 'Added') : t('mcp', 'Add')), disabled: chosen })
-		add.setAttribute('aria-label', chosen ? t('mcp', '{name} is selected', { name: label(item) }) : t('mcp', 'Add {name}', { name: label(item) }))
+		add.setAttribute('aria-label', chosen ? t('mcp', '{name} is selected', { name: label(item) }, undefined, { escape: false }) : t('mcp', 'Add {name}', { name: label(item) }, undefined, { escape: false }))
 		add.addEventListener('click', () => {
 			if (state.items.length >= state.limit) {
-				note(state, t('mcp', 'At most {limit} resources can be selected.', { limit: state.limit }), true)
+				note(state, t('mcp', 'At most {limit} resources can be selected.', { limit: state.limit }, undefined, { escape: false }), true)
 				rerender(state)
 				return
 			}
 			state.items = [...state.items, { id: item.id, name: item.name, path: item.path, found: true, excluded: item.excluded }]
-			note(state, t('mcp', '{name} added. Save to apply it.', { name: label(item) }))
+			note(state, t('mcp', '{name} added. Save to apply it.', { name: label(item) }, undefined, { escape: false }))
 			rerender(state, 'mcp-scope-search-' + state.module)
 		})
 		return add
@@ -294,20 +338,24 @@
 	}
 
 	async function saveModule(state) {
+		if (state.saving) return
+		// The revision this module's draft was read at, never one another module moved to since.
 		const body = state.mode === 'unrestricted'
-			? { expectedRevision: revision, mode: 'unrestricted' }
-			: { expectedRevision: revision, mode: 'restricted', items: state.items.map((item) => item.id) }
+			? { expectedRevision: state.revision, mode: 'unrestricted' }
+			: { expectedRevision: state.revision, mode: 'restricted', items: state.items.map((item) => item.id) }
+		state.saving = true
 		note(state, t('mcp', 'Saving…'))
 		rerender(state)
 		try {
 			const result = await api('PUT', scopePath(state.module), null, body)
-			revision = result.revision
-			await reload(state)
+			state.saving = false
+			await reloadAll(state)
 			note(state, result.changed ? t('mcp', 'Saved. It applies from the next MCP call of the user; sessions are not ended.') : t('mcp', 'Nothing changed.'))
 			if (result.changed && result.receiptId) offerUndo(state, result.receiptId, result.revision)
 			rerender(state, 'mcp-scope-line-' + state.module)
 			window.dispatchEvent(new Event('mcp-scope-saved'))
 		} catch (error) {
+			state.saving = false
 			await saveFailed(state, error)
 		}
 	}
@@ -317,7 +365,9 @@
 		if (error.status === 409) {
 			// Never written again from here: the admin sees what is saved now and decides.
 			note(state, t('mcp', 'The policy changed after this scope was loaded, so nothing was saved. The saved scope is shown again.'), true)
-			await reload(state).catch(() => {})
+			const line = state.line
+			await reloadAll(state)
+			state.line = line
 		} else if (error.status === 422 && data.error === 'ScopeInactive') {
 			state.active = false
 			note(state, t('mcp', 'Not saved: the tools of this module do not apply a resource scope in this version.'), true)
@@ -326,10 +376,12 @@
 			state.items = state.items.map((item) => missing.has(item.id) ? Object.assign({}, item, { inaccessible: true }) : item)
 			note(state, t('mcp', 'Not saved: the user cannot reach the marked resources in Nextcloud. Remove them and save again.'), true)
 		} else if (error.status === 422 && data.error === 'TooManyResources') {
-			note(state, t('mcp', 'Not saved: at most {limit} resources can be selected.', { limit: data.limit || state.limit }), true)
+			note(state, t('mcp', 'Not saved: at most {limit} resources can be selected.', { limit: data.limit || state.limit }, undefined, { escape: false }), true)
 		} else if (error.status === 503 && data.uncertain) {
 			note(state, t('mcp', 'The save could not be confirmed: it may have been applied. The saved scope is shown again; check it before changing it.'), true)
-			await reload(state).catch(() => {})
+			const line = state.line
+			await reloadAll(state)
+			state.line = line
 		} else {
 			note(state, failure(error), true)
 		}
@@ -337,22 +389,30 @@
 	}
 
 	function offerUndo(state, receiptId, savedRevision) {
-		const token = {}
-		state.undo = { receiptId, savedRevision, token }
+		const offer = { receiptId, savedRevision, hover: false, focus: false, expired: false }
+		state.undo = offer
 		setTimeout(() => {
-			if (state.undo && state.undo.token === token) {
-				state.undo = null
-				rerender(state)
-			}
+			offer.expired = true
+			expireUndo(state, offer)
 		}, UNDO_SECONDS * 1000)
 	}
 
+	/** Removes an expired undo once neither the pointer nor the focus holds it; the focus never falls to the page. */
+	function expireUndo(state, offer) {
+		if (state.undo !== offer || !offer.expired || offer.hover || offer.focus) return
+		const focused = document.activeElement && document.activeElement.id === 'mcp-scope-undo-' + state.module
+		state.undo = null
+		rerender(state, focused ? 'mcp-scope-line-' + state.module : undefined)
+	}
+
 	async function undoModule(state) {
+		if (state.saving) return
 		const { receiptId, savedRevision } = state.undo
 		state.undo = null
+		state.saving = true
+		rerender(state)
 		try {
-			const result = await api('POST', '/api/grants/undo', null, { receiptId, expectedRevision: savedRevision })
-			revision = result.revision
+			await api('POST', '/api/grants/undo', null, { receiptId, expectedRevision: savedRevision })
 			note(state, t('mcp', 'Change undone.'))
 			window.dispatchEvent(new Event('mcp-scope-saved'))
 		} catch (error) {
@@ -362,25 +422,31 @@
 					? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
 					: failure(error), true)
 		}
+		state.saving = false
 		const line = state.line
-		await reload(state).catch(() => {})
+		await reloadAll(state)
 		state.line = line
 		rerender(state, 'mcp-scope-line-' + state.module)
 	}
 
 	/**
-	 * The matrix cell mark of a restricted module: visible text, no colour or icon alone, and a way into the panel.
+	 * The matrix cell mark of a module that is restricted, or whose scope cannot be read: visible text, no colour or
+	 * icon alone, and a way into the panel. An unrestricted module gets no mark.
 	 *
 	 * @param {string} target uid of the row
 	 * @param {string} module scope module
-	 * @param {number} count resources kept by the scope
-	 * @return {HTMLButtonElement}
+	 * @param {{mode: string, count: ?number}} scope the cell's scope from the matrix
+	 * @return {HTMLButtonElement|null}
 	 */
-	function indicator(target, module, count) {
-		const mark = el('span', { className: 'mcp-scope-mark', textContent: '◩' })
+	function indicator(target, module, scope) {
+		const unknown = scope.mode === 'unavailable'
+		if (!unknown && scope.mode !== 'restricted') return null
+		const mark = el('span', { className: 'mcp-scope-mark', textContent: unknown ? '?' : '◩' })
 		mark.setAttribute('aria-hidden', 'true')
-		const button = el('button', { type: 'button', className: 'mcp-scope-indicator' }, [mark, ' ' + t('mcp', 'Restricted to {count}', { count })])
-		button.title = t('mcp', 'The MCP tools of this user reach only the selected resources of this module. Open the resource scope.')
+		const button = el('button', { type: 'button', className: 'mcp-scope-indicator' }, [mark, ' ' + (unknown ? t('mcp', 'Scope unknown') : t('mcp', 'Restricted to {count}', { count: scope.count }, undefined, { escape: false }))])
+		button.title = unknown
+			? t('mcp', 'The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope.')
+			: t('mcp', 'The MCP tools of this user reach only the selected resources of this module. Open the resource scope.')
 		button.addEventListener('click', () => open(target, module))
 		return button
 	}
@@ -392,6 +458,8 @@
 	}
 
 	window.McpScopeUi = { indicator, open }
+	// A matrix drawn before this script ran is drawn again, now with the scope marks.
+	window.McpAdminMatrix?.refresh?.()
 	if (!root) return
 	form.addEventListener('submit', (event) => {
 		event.preventDefault()

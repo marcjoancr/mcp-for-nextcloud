@@ -10,7 +10,6 @@ namespace OCA\Mcp\Service;
 use InvalidArgumentException;
 use OCA\Mcp\Db\ResourceScopeMapper;
 use OCA\Mcp\Service\Compat\AppEnablement;
-use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\App\IAppManager;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -112,24 +111,30 @@ class GrantMatrix {
 
     /**
      * The resource scope of each user and module of ResourceScopeMapper::MODULES, for the matrix cell: the mode and,
-     * when restricted, how many resources it keeps. No id and no name (contracts B.6).
+     * when restricted, how many resources it keeps. No id and no name (contracts B.6). A scope that cannot be read is
+     * "unavailable" in every cell of the page, so the grants stay editable and the cell says "Scope unknown": it is
+     * never shown as unrestricted by default, nor left blank.
      *
      * @param list<IUser> $users users of the page
-     * @return array<string, array<string, array{mode:string, count:?int}>> by uid and module
-     * @throws PolicyUnavailable when the scopes cannot be read: the matrix never shows a scope as unrestricted by default
+     * @return array<string, array<string, array{mode:string, count:?int}>> by uid and module; mode is unrestricted,
+     *     restricted or unavailable
      */
     private function scopes(array $users): array {
         $uids = array_map(static fn (IUser $user) => $user->getUID(), $users);
         try {
             $counts = $this->scopes->counts($uids);
-        } catch (\Throwable $e) {
-            throw new PolicyUnavailable('Resource scopes unavailable', previous: $e);
+        } catch (\Throwable) {
+            $counts = null;
         }
         $scopes = [];
         foreach ($uids as $uid) {
             foreach (ResourceScopeMapper::MODULES as $module) {
-                $count = $counts[$uid][$module] ?? null;
-                $scopes[$uid][$module] = $count === null ? ['mode' => 'unrestricted', 'count' => null] : ['mode' => 'restricted', 'count' => $count];
+                $count = $counts === null ? null : ($counts[$uid][$module] ?? null);
+                $scopes[$uid][$module] = match (true) {
+                    $counts === null => ['mode' => 'unavailable', 'count' => null],
+                    $count === null => ['mode' => 'unrestricted', 'count' => null],
+                    default => ['mode' => 'restricted', 'count' => $count],
+                };
             }
         }
         return $scopes;

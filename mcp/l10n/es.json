@@ -1155,7 +1155,7 @@
     "Check the user ID and try again." : "Comprueba el ID del usuario e inténtalo de nuevo.",
     "The MCP policy cannot be read right now. Nothing was changed. Try again shortly." : "La política de MCP no se puede leer ahora. No se cambió nada. Inténtalo de nuevo en breve.",
     "The request failed. Try again." : "La solicitud falló. Inténtalo de nuevo.",
-    "Resource no longer found ({id})" : "Recurso ya no encontrado ({id})",
+    "Resource no longer found ({id})" : "El recurso ya no existe ({id})",
     "not found: it has no effect" : "no encontrado: no tiene efecto",
     "excluded by a tag: choosing it has no effect" : "excluido por una etiqueta: elegirlo no tiene efecto",
     "the user cannot reach it in Nextcloud" : "el usuario no lo alcanza en Nextcloud",
@@ -1203,6 +1203,9 @@
     "Resource scope" : "Alcance de recursos",
     "Optionally restrict the MCP tools of one user to selected folders, calendars and task lists. A scope only narrows: it never gives access the user does not already have in Nextcloud, and an item excluded by a tag stays excluded." : "Opcionalmente, restringe las herramientas MCP de un usuario a carpetas, calendarios y listas de tareas seleccionados. El alcance solo restringe: nunca da un acceso que el usuario no tenga ya en Nextcloud, y un elemento excluido por una etiqueta sigue excluido.",
     "Restricting does not end the sessions of the user: it applies from their next MCP call." : "Restringir no cierra las sesiones del usuario: se aplica desde su próxima llamada MCP.",
-    "Your administrator can restrict what your MCP clients reach to selected folders, calendars and task lists. It never changes what you can do in Nextcloud itself." : "Tu administrador puede restringir lo que alcanzan tus clientes MCP a carpetas, calendarios y listas de tareas seleccionados. Nunca cambia lo que puedes hacer en el propio Nextcloud."
+    "Your administrator can restrict what your MCP clients reach to selected folders, calendars and task lists. It never changes what you can do in Nextcloud itself." : "Tu administrador puede restringir lo que alcanzan tus clientes MCP a carpetas, calendarios y listas de tareas seleccionados. Nunca cambia lo que puedes hacer en el propio Nextcloud.",
+    "Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope." : "Los cambios sin guardar de aquí se hicieron antes de que cambiara la política, así que guardarlos se rechazará. Descártalos para cargar el alcance guardado.",
+    "Scope unknown" : "Alcance desconocido",
+    "The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope." : "El alcance de recursos de este usuario no se puede leer ahora, así que las herramientas de este módulo rechazan hasta que se pueda. Abrir el alcance de recursos."
 },"pluralForm" :"nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

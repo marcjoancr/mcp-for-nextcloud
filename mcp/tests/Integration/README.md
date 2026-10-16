@@ -270,7 +270,9 @@ inspected on each route.
 `Policy/ScopePanelTest.php` runs what the admin panel asks and saves through the scope, matrix and undo controllers
 built from the container's services, signed in as the administrator: show, candidates, save, a stale save refused with
 409 and nothing written, the matrix cell and the personal page (signed in as alice) reading the saved scope, and undo
-through the receipt. Files is browsable but refused on save (422 ScopeInactive) while its barrier is closed. Over HTTP,
+through the receipt. An unreadable scope (an inconsistent row on the real database) is `unavailable` in every scope
+cell of the matrix, which still answers. Files is browsable but refused on save (422 ScopeInactive) while its barrier
+is closed. Over HTTP,
 a non-administrator session gets the framework's 403 on every scope route. The panel's own requests (URLs, requesttoken
 header, bodies) are covered by the node tests. The test also measures the folder picker over a folder of 1000
 subfolders (F3 of the B2 review) and records it in `observations.txt`.

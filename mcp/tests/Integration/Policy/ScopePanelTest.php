@@ -189,6 +189,22 @@ final class ScopePanelTest extends IntegrationTestCase {
         $this->assertSame('unrestricted', $this->show('files')['body']['mode']);
     }
 
+    /** B7 review A1: on the real database, a scope that cannot be read is "unavailable" in the matrix, never blank. */
+    public function testTheRealMatrixMarksAnUnreadableScopeUnavailable(): void {
+        // An inconsistent mode row (another uid behind alice's key) makes the scope read fail closed.
+        $qb = $this->official()->getQueryBuilder();
+        $qb->insert(ResourceScopeMapper::MODES_TABLE)
+            ->setValue('user_key', $qb->createNamedParameter(IdentityKey::user(Fixtures::ALICE)))
+            ->setValue('module', $qb->createNamedParameter('files'))
+            ->setValue('user_id', $qb->createNamedParameter('mcp-it-collision'))
+            ->setValue('policy_rev', $qb->createNamedParameter('1'))
+            ->executeStatement();
+        $matrix = $this->as(self::ADMIN, fn () => $this->controller(GrantsController::class)->index(Fixtures::ALICE));
+        $this->assertSame(200, $matrix['status'], 'the grants stay editable');
+        $row = array_values(array_filter($matrix['body']['users'], static fn (array $u): bool => $u['uid'] === Fixtures::ALICE))[0];
+        $this->assertSame(array_fill_keys(ResourceScopeMapper::MODULES, ['mode' => 'unavailable', 'count' => null]), $row['scope']);
+    }
+
     /** The framework's admin check, over HTTP: a non-administrator session is refused before any scope is read. */
     public function testANonAdministratorIsRefusedBeforeTheTargetIsRead(): void {
         $session = self::httpSession(Fixtures::BOB);

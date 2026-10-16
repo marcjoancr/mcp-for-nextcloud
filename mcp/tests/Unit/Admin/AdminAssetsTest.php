@@ -64,7 +64,7 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(8, $matches);
+        $this->assertCount(9, $matches);
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -176,7 +176,7 @@ final class AdminAssetsTest extends TestCase {
     /** The matrix draws "Restricted to N" through js/admin-scope.js and reloads after a scope is saved (B7). */
     public function testTheMatrixShowsTheResourceScopeOfARestrictedModule(): void {
         $script = (string)file_get_contents(dirname(__DIR__, 3) . '/js/admin-grants.js');
-        $this->assertStringContainsString("window.McpScopeUi.indicator(user.uid, module, scope.count)", $script);
+        $this->assertStringContainsString("window.McpScopeUi.indicator(user.uid, module, user.scope[module])", $script);
         $this->assertStringContainsString("window.addEventListener('mcp-scope-saved', reloadLocked)", $script);
     }
 

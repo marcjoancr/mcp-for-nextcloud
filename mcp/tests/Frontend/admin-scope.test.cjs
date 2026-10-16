@@ -38,7 +38,7 @@ class Element {
 	addEventListener(name, action) { this.listeners[name] = action }
 	focus() { active = this }
 	scrollIntoView() {}
-	set textContent(value) { this._text = value; this.children = [] }
+	set textContent(value) { this._text = value; this.children = []; this.writes?.push(value) }
 	get textContent() { return [this._text, ...this.children.map((child) => typeof child === 'string' ? child : child.textContent)].filter((s) => s !== '').join(' ') }
 	all(predicate) {
 		return this.children.flatMap((child) => typeof child === 'string' ? [] : [...(predicate(child) ? [child] : []), ...child.all(predicate)])
@@ -74,8 +74,12 @@ async function app(handler = () => undefined) {
 	const context = {
 		document, URLSearchParams,
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
-		t: (_, text, params = {}) => text.replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
-		setTimeout: (action) => { timers.push(action) },
+		// Like Nextcloud's t(): the values are HTML-escaped unless the caller passes { escape: false }.
+		t: (_, text, params = {}, count, options = {}) => text.replace(/\{(\w+)\}/g, (match, key) => key in params
+			? (options.escape === false ? String(params[key]) : String(params[key]).replace(/&/g, '&amp;').replace(/</g, '&lt;')) : match),
+		// The short delay of an announcement runs at once; the ten seconds of an undo wait for the test.
+		setTimeout: (action, delay) => { if (delay >= 1000) timers.push(action); else action() },
+		clearTimeout: () => {},
 		Event: class { constructor(type) { this.type = type } },
 		fetch: async (url, options) => {
 			const body = options.body === undefined ? undefined : JSON.parse(options.body)
@@ -90,7 +94,8 @@ async function app(handler = () => undefined) {
 			return { ok: true, status: 200, json: async () => data }
 		},
 	}
-	context.window = { dispatchEvent: (event) => events.push(event.type) }
+	let refreshed = 0
+	context.window = { dispatchEvent: (event) => events.push(event.type), McpAdminMatrix: { refresh: () => { refreshed++ } } }
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-scope.js'), 'utf8'), context)
 	const open = async (uid = 'alice') => {
 		ids['mcp-scope-user'].value = uid
@@ -99,7 +104,8 @@ async function app(handler = () => undefined) {
 	}
 	const module = (name) => document.getElementById('mcp-scope-module-' + name)
 	const click = async (node) => { assert.ok(node, 'the control exists'); assert.equal(node.disabled, false, 'the control is enabled'); node.listeners.click(); await tick() }
-	return { ids, calls, events, timers, open, module, click, document, ui: context.window.McpScopeUi }
+	ids['mcp-scope-alert'].writes = []
+	return { ids, calls, events, timers, open, module, click, document, ui: context.window.McpScopeUi, refreshed: () => refreshed }
 }
 
 test('S14: each module shows its saved scope; a module the tools do not scope yet says so and cannot be saved', async () => {
@@ -156,7 +162,7 @@ test('S14: a conflict never repeats the write; it shows the saved scope again', 
 	await ui.click(ui.module('calendar').button('Remove'))
 	await ui.click(ui.module('calendar').button('Save'))
 	assert.equal(ui.calls.filter((c) => c.method === 'PUT').length, 1)
-	assert.equal(ui.calls.at(-1).url, '/apps/mcp/api/scope/alice/calendar', 'the scope is read again')
+	assert.deepEqual(ui.calls.slice(-3).map((c) => c.url.split('/').pop()), ['files', 'calendar', 'tasks'], 'the revision moved: the three modules are read again')
 	assert.match(ui.module('calendar').textContent, /The policy changed after this scope was loaded, so nothing was saved\./)
 	assert.match(ui.module('calendar').textContent, /1 of at most 200 selected/, 'the saved scope is back on screen')
 	assert.match(ui.ids['mcp-scope-alert'].textContent, /^Calendar: calendars: The policy changed after this scope was loaded/, 'a refusal is an alert')
@@ -208,7 +214,7 @@ test('S14 keyboard: removing an item moves the focus to the next one, not to the
 
 test('S14: the matrix mark is text, not color alone, and opens the scope of that user', async () => {
 	const ui = await app()
-	const mark = ui.ui.indicator('bob', 'tasks', 3)
+	const mark = ui.ui.indicator('bob', 'tasks', { mode: 'restricted', count: 3 })
 	assert.equal(mark.tag, 'button')
 	assert.match(mark.textContent, /Restricted to 3/)
 	assert.equal(mark.find((node) => node.attributes['aria-hidden'] === 'true').textContent, '◩', 'the icon is hidden from screen readers')
@@ -253,3 +259,106 @@ test('personal settings: the user reads their own scope, and an unreadable scope
 	assert.equal(failed['mcp-my-scope-status'].textContent, 'Your resource scope cannot be read right now. Try again later.')
 	assert.equal(failed['mcp-my-scope-list'].children.length, 0)
 })
+
+test('B7 review A1: an unreadable scope is marked "Scope unknown", never blank; an unrestricted one has no mark', async () => {
+	const ui = await app()
+	const unknown = ui.ui.indicator('bob', 'files', { mode: 'unavailable', count: null })
+	assert.match(unknown.textContent, /Scope unknown/)
+	assert.match(unknown.title, /cannot be read right now/)
+	assert.equal(ui.ui.indicator('bob', 'files', { mode: 'unrestricted', count: null }), null)
+	assert.equal(ui.refreshed(), 1, 'N1: a matrix drawn before the script loaded is drawn again with the marks')
+})
+
+test('B7 review M1: a draft read before another module moved the revision is sent with its own revision, never the new one', async () => {
+	let revision = '7'
+	const ui = await app((url, method, body) => {
+		if (method === 'PUT') { revision = String(Number(revision) + 1); return [200, { revision, changed: true, receiptId: '41', scope: { mode: 'restricted', count: 0 } }] }
+		const module = (url.match(/\/api\/scope\/[^/]+\/(files|calendar|tasks)$/) || [])[1]
+		return module ? [200, Object.assign({}, show[module], { revision })] : undefined
+	})
+	await ui.open()
+	// A draft in Calendar, then Tasks is saved: the revision moves to 8 under the Calendar draft.
+	await ui.click(ui.module('calendar').button('Search'))
+	await ui.click(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add Team'))
+	const restricted = ui.module('tasks').find((node) => node.id === 'mcp-scope-mode-tasks-restricted')
+	restricted.checked = true
+	restricted.listeners.change()
+	await tick()
+	await ui.click(ui.module('tasks').button('Save'))
+	// Files and Tasks are read again; the Calendar draft is kept, never overwritten, and says it is stale.
+	assert.deepEqual(ui.calls.filter((c) => c.method === 'GET' && !c.url.includes('candidates')).slice(-2).map((c) => c.url.split('/').pop()), ['files', 'tasks'])
+	assert.match(ui.module('calendar').textContent, /Unsaved changes here were made before the policy changed, so saving them will be refused\./)
+	await ui.click(ui.module('calendar').button('Save'))
+	assert.equal(ui.calls.filter((c) => c.method === 'PUT').at(-1).body.expectedRevision, '7', 'the Calendar draft keeps the revision it was read at')
+})
+
+test('B7 review M1: discarding a stale draft loads the saved scope from the server', async () => {
+	const ui = await app((url, method) => method === 'PUT' ? [200, { revision: '8', changed: true, receiptId: '41', scope: { mode: 'unrestricted', count: null } }] : undefined)
+	await ui.open()
+	await ui.click(ui.module('calendar').button('Remove'))
+	const restricted = ui.module('tasks').find((node) => node.id === 'mcp-scope-mode-tasks-restricted')
+	restricted.checked = true
+	restricted.listeners.change()
+	await tick()
+	await ui.click(ui.module('tasks').button('Save'))
+	const before = ui.calls.length
+	await ui.click(ui.module('calendar').button('Discard changes'))
+	assert.equal(ui.calls.at(-1).url, '/apps/mcp/api/scope/alice/calendar', 'the saved scope comes from the server')
+	assert.ok(ui.calls.length > before)
+	assert.match(ui.module('calendar').textContent, /1 of at most 200 selected/)
+})
+
+test('B7 review B1: names are shown as they are, never HTML-escaped twice', async () => {
+	const ui = await app((url) => url.includes('/calendar/candidates') ? [200, { items: [{ id: '12', name: 'R&D <team>', path: null, excluded: false }], page: 1, pageSize: 50, total: 1, hasMore: false, parent: null }] : undefined)
+	await ui.open()
+	await ui.click(ui.module('calendar').button('Search'))
+	const add = ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add R&D <team>')
+	assert.ok(add, 'the accessible name keeps the raw name')
+	await ui.click(add)
+	assert.match(ui.module('calendar').textContent, /R&D <team> added\./)
+	assert.doesNotMatch(ui.module('calendar').textContent, /&amp;|&lt;/)
+})
+
+test('B7 review B3: Save, Discard and Undo wait for the request in flight', async () => {
+	let release
+	const pending = new Promise((resolve) => { release = resolve })
+	const ui = await app(async (url, method) => method === 'PUT' ? (await pending, [200, { revision: '8', changed: true, receiptId: '41', scope: { mode: 'restricted', count: 0 } }]) : undefined)
+	await ui.open()
+	await ui.click(ui.module('calendar').button('Remove'))
+	ui.module('calendar').button('Save').listeners.click()
+	await tick()
+	assert.equal(ui.module('calendar').button('Save').disabled, true)
+	assert.equal(ui.module('calendar').button('Discard changes').disabled, true)
+	ui.module('calendar').button('Save').listeners.click()
+	release()
+	await tick()
+	assert.equal(ui.calls.filter((c) => c.method === 'PUT').length, 1, 'a second click sends nothing')
+})
+
+test('B7 review B2: the undo waits while the pointer or the focus is on it, and the focus never falls to the page', async () => {
+	const ui = await app((url, method) => method === 'PUT' ? [200, { revision: '8', changed: true, receiptId: '41', scope: { mode: 'restricted', count: 0 } }] : undefined)
+	await ui.open()
+	await ui.click(ui.module('calendar').button('Remove'))
+	await ui.click(ui.module('calendar').button('Save'))
+	const undo = ui.module('calendar').button('Undo')
+	undo.listeners.mouseenter()
+	ui.timers.forEach((action) => action())
+	assert.ok(ui.module('calendar').button('Undo'), 'kept while the pointer is on it')
+	undo.focus()
+	undo.listeners.focus()
+	undo.listeners.mouseleave()
+	assert.ok(ui.module('calendar').button('Undo'), 'kept while it has the focus')
+	undo.listeners.blur()
+	assert.equal(ui.module('calendar').button('Undo'), undefined, 'gone once released after the ten seconds')
+})
+
+test('B7 review B4: the same error twice in a row is announced twice', async () => {
+	const ui = await app(() => [503, { error: 'Unavailable' }])
+	await ui.open()
+	await ui.open()
+	const writes = ui.ids['mcp-scope-alert'].writes
+	const shown = writes.map((w, i) => /^The MCP policy/.test(w) ? i : -1).filter((i) => i >= 0)
+	assert.equal(shown.length, 2, 'written twice')
+	assert.ok(writes.slice(shown[0] + 1, shown[1]).includes(''), 'cleared in between, so a screen reader announces it again')
+})
+

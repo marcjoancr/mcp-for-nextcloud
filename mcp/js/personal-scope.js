@@ -27,7 +27,7 @@
 		if (names.length === 0) {
 			return { files: t('mcp', 'Files: no folder'), calendar: t('mcp', 'Calendar: no calendar'), tasks: t('mcp', 'Tasks: no task list') }[module]
 		}
-		return { files: t('mcp', 'Files: only {names}', { names: names.join(', ') }), calendar: t('mcp', 'Calendar: only {names}', { names: names.join(', ') }), tasks: t('mcp', 'Tasks: only {names}', { names: names.join(', ') }) }[module]
+		return { files: t('mcp', 'Files: only {names}', { names: names.join(', ') }, undefined, { escape: false }), calendar: t('mcp', 'Calendar: only {names}', { names: names.join(', ') }, undefined, { escape: false }), tasks: t('mcp', 'Tasks: only {names}', { names: names.join(', ') }, undefined, { escape: false }) }[module]
 	}
 
 	async function load() {
