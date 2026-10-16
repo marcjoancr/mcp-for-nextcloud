@@ -49,6 +49,8 @@ try {
             throw new RuntimeException('Parent did not reach the group-row lock barrier');
         }
     }
+    // Extra scheduling margin only: PostgreSQL's barrier already establishes the order, and InnoDB's
+    // transaction weight selects the victim. Correctness does not depend on this delay.
     usleep(100000);
     $state->acquire();
     if ($advanceRevision) {
