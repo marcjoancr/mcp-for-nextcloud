@@ -1315,6 +1315,7 @@ OC.L10N.register(
     "_%n member_::_%n members_" : ["%n membro", "%n membros", "%n membros"],
     "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n membro tem definições individuais que vencem este grupo.", "%n membros têm definições individuais que vencem este grupo.", "%n membros têm definições individuais que vencem este grupo."],
     "_%n unsaved change_::_%n unsaved changes_" : ["%n mudança não salva", "%n mudanças não salvas", "%n mudanças não salvas"],
-    "Default: {level}" : "Padrão: {level}"
+    "Default: {level}" : "Padrão: {level}",
+    "The matrix cannot show only the members of {group}: its group filter does not list this group." : "A matriz não consegue mostrar só os membros de {group}: o filtro de grupo dela não lista este grupo."
 },
 "nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;");

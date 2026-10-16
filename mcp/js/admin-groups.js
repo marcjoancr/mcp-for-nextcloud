@@ -235,16 +235,24 @@
 		preview = null
 		render(focusKey)
 	}
-	/** The matrix, filtered by this group, for the members whose individual settings win over it. */
-	function viewInMatrix(gid) {
+	/**
+	 * The matrix, filtered by this group and by "With exceptions", for the members whose individual settings win over it.
+	 * The matrix's group filter lists the groups it can filter by; a group it does not list (an external group, or one that
+	 * no longer exists) is said so here, and the page does not move. The focus goes to the exceptions filter, a real
+	 * control, which also tells a screen reader where it landed.
+	 */
+	function viewInMatrix(gid, name) {
 		const select = document.getElementById('mcp-group')
-		const matrix = document.getElementById('mcp-block-matrix')
-		if (select && Array.from(select.options).some((option) => option.value === gid)) {
-			select.value = gid
-			select.dispatchEvent(new Event('change'))
+		const exceptionsOnly = document.getElementById('mcp-only-exceptions')
+		if (!select || !Array.from(select.options).some((option) => option.value === gid)) {
+			say(t('mcp', 'The matrix cannot show only the members of {group}: its group filter does not list this group.', { group: name }, undefined, RAW))
+			return
 		}
-		matrix?.scrollIntoView?.({ block: 'start' })
-		matrix?.querySelector('h2')?.focus?.()
+		select.value = gid
+		select.dispatchEvent(new Event('change'))
+		exceptionsOnly?.click()
+		document.getElementById('mcp-block-matrix')?.scrollIntoView?.({ block: 'start' })
+		exceptionsOnly?.focus()
 	}
 	/** A pressed level carries a check mark besides aria-pressed, as in the matrix popover, so it never depends on colour. */
 	function levelButton(module, level, pressed, onclick) {
@@ -340,7 +348,7 @@
 			? t('mcp', 'The members with individual settings could not be counted.')
 			: overrides === 0 ? t('mcp', 'No member has individual settings that take precedence over this group.')
 				: n('mcp', '%n member has individual settings that take precedence over this group.', '%n members have individual settings that take precedence over this group.', overrides)])
-		if (overrides !== 0) exceptions.append(el('button', { type: 'button', className: 'mcp-link-button', textContent: t('mcp', 'View in the matrix'), onclick: () => viewInMatrix(current.groupId) }))
+		if (overrides !== 0) exceptions.append(el('button', { type: 'button', className: 'mcp-link-button', textContent: t('mcp', 'View in the matrix'), onclick: () => viewInMatrix(current.groupId, name) }))
 
 		const parts = [head, note, toolbar, fields, exceptions]
 		const save = keyed('save', el('button', { type: 'button', className: 'primary', textContent: t('mcp', 'Save group policy'), disabled: busy || !preview, onclick: () => run('save') }))

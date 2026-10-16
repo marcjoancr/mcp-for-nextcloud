@@ -1313,6 +1313,7 @@
     "_%n member_::_%n members_" : ["%n miembro", "%n miembros", "%n miembros"],
     "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n miembro tiene ajustes individuales que prevalecen sobre este grupo.", "%n miembros tienen ajustes individuales que prevalecen sobre este grupo.", "%n miembros tienen ajustes individuales que prevalecen sobre este grupo."],
     "_%n unsaved change_::_%n unsaved changes_" : ["%n cambio sin guardar", "%n cambios sin guardar", "%n cambios sin guardar"],
-    "Default: {level}" : "Predeterminado: {level}"
+    "Default: {level}" : "Predeterminado: {level}",
+    "The matrix cannot show only the members of {group}: its group filter does not list this group." : "La matriz no puede mostrar solo a los miembros de {group}: su filtro de grupo no incluye este grupo."
 },"pluralForm" :"nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

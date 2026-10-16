@@ -490,16 +490,20 @@ test('S8: one sentence tells who wins over the group, unknown stays apart from z
 	const select = { value: '', options: [{ value: '' }, { value: 'staff' }], dispatchEvent: (event) => changes.push(event.type) }
 	const matrix = { scrolled: false, scrollIntoView() { this.scrolled = true }, querySelector: () => null }
 	const ui = await app(undefined, stored({ counts: { members: 24, overrides: 3, permissions: null } }))
+	const only = new Element('button', ui.document)
+	only.onclick = () => changes.push('exceptions')
 	ui.ids['mcp-group'] = select
 	ui.ids['mcp-block-matrix'] = matrix
+	ui.ids['mcp-only-exceptions'] = only
 	await ui.open()
 	assert.match(ui.ids['mcp-group-detail'].textContent, /24 members/)
 	assert.match(ui.ids['mcp-group-detail'].textContent, /3 members have individual settings that take precedence over this group/)
 	assert.equal(ui.ids['mcp-group-detail'].all('table').length, 0, 'no table of counters')
 	await ui.button('View in the matrix').click()
 	assert.equal(select.value, 'staff')
-	assert.deepEqual(changes, ['change'])
+	assert.deepEqual(changes, ['change', 'exceptions'], 'the group filter first, then "With exceptions"')
 	assert.equal(matrix.scrolled, true)
+	assert.equal(ui.document.activeElement, only, 'the focus lands on the exceptions filter, a control that takes it')
 	const none = await app(undefined, stored({ counts: { members: 1, overrides: 0, permissions: null } }))
 	await none.open()
 	assert.match(none.ids['mcp-group-detail'].textContent, /1 member\b/)
@@ -513,4 +517,26 @@ test('S8: "Not granted" pressed stays neutral, and only focus and selection take
 	assert.ok(none.length > 0)
 	for (const [, , body] of none) assert.doesNotMatch(body, /--color-primary/)
 	assert.ok(rule('.mcp-group-level[aria-pressed="true"]').some(([, , body]) => /--color-primary-element-light/.test(body)))
+})
+test('O1: a group the matrix cannot filter by is said so, and neither the matrix nor the focus moves', async () => {
+	const changes = []
+	const select = { value: '', options: [{ value: '' }, { value: 'other' }], dispatchEvent: (event) => changes.push(event.type) }
+	const matrix = { scrolled: false, scrollIntoView() { this.scrolled = true } }
+	const ui = await app(undefined, stored({ counts: { members: 2, overrides: 1, permissions: null } }))
+	const only = new Element('button', ui.document)
+	only.onclick = () => changes.push('exceptions')
+	ui.ids['mcp-group'] = select
+	ui.ids['mcp-block-matrix'] = matrix
+	ui.ids['mcp-only-exceptions'] = only
+	await ui.open()
+	const link = ui.button('View in the matrix')
+	link.focus()
+	await link.click()
+	await tick()
+	assert.equal(select.value, '')
+	assert.deepEqual(changes, [])
+	assert.equal(matrix.scrolled, false)
+	assert.equal(ui.document.activeElement, link)
+	assert.match(ui.ids['mcp-group-status'].textContent, /cannot show only the members of Staff: its group filter does not list this group/)
+	assert.equal(ui.ids['mcp-group-alert'].textContent, '', 'a notice, not an error')
 })
