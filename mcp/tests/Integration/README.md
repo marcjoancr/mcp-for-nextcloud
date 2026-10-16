@@ -258,7 +258,7 @@ for every module, whose barriers B5 and B6 opened (the refusal behind a closed b
 open barrier (built by hand, with a stand-in enumerator, since native folders and calendars are not
 provisioned here) the saved scope carries `policy_rev` = the committed revision, another session reads the mode and
 its items through the one-statement join and the grouped count, no epoch moves, and undo restores the absence of the
-mode. The native resource checks themselves are unit contracts; the real Files and CalDAV enumeration belongs to B8.
+mode. The real Files and CalDAV checks are covered by `FilesScopeTest`, `CalendarScopeTest` and `ScopePanelTest` (B5–B7).
 
 The candidate listing of Files uses the native API on purpose (contracts F4), with its native side effects, which
 these tests neither suppress nor certify: `getUserFolder()` creates the home of a user who never signed in, and
@@ -277,7 +277,25 @@ a file, a folder or a resource outside the scope answers exactly like a missing 
 the scope is refused (S2). `files_mkdir` creates a level inside a nested selected folder without its ancestors becoming
 listable, and a destination above the boundary or outside the scope is refused with no folder created; a file moved
 into the scope outside MCP is reachable on the next call (S5). Restricted to nothing reaches nothing (S6). Shares
-across users (S4) and the V9 proof with a file only outside the scope are B8's.
+across users (S4) and V9 phase 2 are covered by the B8 proof below.
+
+## Real resource scope proof (issue #4, B8)
+
+Run locally with `ci/run-local.sh 35 pgsql fresh` and `ci/run-local.sh 32 mariadb upgrade`; no Actions run is required.
+`Policy/ScopeRealProofTest.php` adds only the real scenarios missing from the existing Files, Calendar and panel tests:
+
+| Scenario | Real proof |
+| --- | --- |
+| S4 / S5 | A native user share, the recipient's independent scope and native WebDAV read, then WebDAV MOVE into, out of and back into the selected folder. The same MCP clients observe each change on their next HTTP call. A selected folder never grants the recipient access to an unshared private folder. |
+| S9 | The same Basic and OAuth credentials read before and after replacing the selected folder; both apply the current scope, remain authenticated and leave OAuth generations and the global auth epoch unchanged. |
+| S12 | `Policy/ScopeCleanupEventsTest.php`: on-time real deletion removes old rows; actual account recreation before the late handler preserves newer rows; both core deletion events inside a caller's rolled-back transaction keep scopes; committed deferred deletion, diagnostic job, actual same-UID recreation and MCP reads keep the old restriction. The job counts absent accounts and never removes scopes. |
+| V9 phase 2 | A real Talk room share, no exclusion tags configured, native ACL allowing the participant and only Files scope blocking it. The attachment message stays with its type and explicit null attachmentId, without its filename. Quote draft and confirmation match an absent attachment and publish nothing. Reply draft and confirmation quoting that message expose neither filename nor attachmentId. |
+| D6 | Full HTTP status/result comparisons against the same tool's nonexistent resource, including Files reads and Talk quote plans and confirmations. |
+
+Existing coverage is reused: `FilesScopeTest::testS2S5TheToolsReachOnlyTheSelectedFoldersAndCreateNothingOutside`
+proves nested destinations, refusals without partial writes, checkout and resource reads; `CalendarScopeTest` proves
+calendar/task scope and native share identity; `ScopePanelTest` proves the native picker, saved scope, personal view
+and server-side admin gate. `Exclusion/TalkReferenceTest` remains V9 phase 1 (tags). S14 headless UI belongs to ticket 14.
 
 ## Calendar and tasks scope (issue #4, B6)
 
@@ -333,4 +351,4 @@ controls; `Unit/Contract/EXCLUSION-MATRIX.md` holds the verdict and the limits.
 - **Diagnostics**: `DiagnosticsTest` records, in `observations.txt` of the artifact, how each kind of mount looks to the guard
   (including the ancestor walk in a fresh process, `Support/chain-probe.php`) and the answers of the tools for it. Behavior
   that is documented rather than asserted (the narrow mount of a subdirectory is a separate storage) is recorded there too.
-- Not covered here: V9 phase 2 (B8), V6 (federated), groupfolder ACL rules, S-scenarios of part B.
+- Not covered by the Exclusion directory: V6 (federated), groupfolder ACL rules and S-scenarios of part B. V9 phase 2 is covered by Policy/ScopeRealProofTest (B8).
