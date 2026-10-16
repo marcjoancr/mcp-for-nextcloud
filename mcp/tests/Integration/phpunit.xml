@@ -7,9 +7,11 @@
   (tests/Integration/ci/harness.sh test), never with the unit suite.
 -->
 <phpunit bootstrap="bootstrap.php" colors="false" cacheResult="false" failOnWarning="true" failOnRisky="true"
-         beStrictAboutOutputDuringTests="true">
+         beStrictAboutOutputDuringTests="true"
+         executionOrder="default">
     <!-- Suites run in this order. "compat" reads the snapshot the baseline wrote before the upgrade, before any other
-         test can touch the service switch or the epoch. "last" holds what changes state for every later test (the
+         test can touch the service switch or the epoch; its tests rely on declaration order (executionOrder above),
+         since the last one cuts the users the others read. "last" holds what changes state for every later test (the
          global auth epoch), so it runs after the baseline credentials of the upgrade cells are checked. -->
     <testsuites>
         <testsuite name="compat"><directory>Compat</directory></testsuite>

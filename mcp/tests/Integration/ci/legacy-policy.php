@@ -37,13 +37,14 @@ require_once __DIR__ . '/../Compat/SnapshotProbe.php';
 if ($mode === 'seed') {
     Server::get(\OCP\App\IAppManager::class)->loadApp('mcp');
 } else {
-    // The baseline's classes win over the installed branch's: this loader is prepended, and nothing of OCA\Mcp may be
-    // loaded yet. The file GrantPolicy came from is checked below, so a wrong release can never pass silently.
+    // The baseline's classes win over the installed branch's for everything loaded from here on: this loader is
+    // prepended. The file every class came from is checked below, so a wrong release can never pass silently.
     $lib = rtrim($argv[3], '/') . '/lib/';
-    if (class_exists('OCA\\Mcp\\Service\\GrantPolicy', false)) {
-        fwrite(STDERR, "GrantPolicy was loaded before the baseline loader\n");
-        exit(1);
-    }
+    // The server's boot may already have loaded classes of the installed branch (its Application); they are recorded
+    // and checked after the reading. Nothing the reading uses may be among them.
+    $mcpClasses = static fn (): array => array_values(array_filter([...get_declared_classes(), ...get_declared_interfaces(), ...get_declared_traits()],
+        static fn (string $name): bool => str_starts_with($name, 'OCA\\Mcp\\') && !str_starts_with($name, 'OCA\\Mcp\\Tests\\')));
+    $boot = $mcpClasses();
     spl_autoload_register(static function (string $class) use ($lib): void {
         if (str_starts_with($class, 'OCA\\Mcp\\')) {
             $file = $lib . str_replace('\\', '/', substr($class, strlen('OCA\\Mcp\\'))) . '.php';
@@ -91,14 +92,38 @@ if ($mode === 'seed') {
     $ttl = 6 * 3600;
     $tokens = [];
     foreach ($uids as $uid) {
-        $tokens[$uid] = $hasher->generate('at');
+        $tokens[$uid] = ['access' => $hasher->generate('at'), 'refresh' => $hasher->generate('rt')];
         $store->insertToken(['user_id' => $uid, 'client_id' => SnapshotProbe::CLIENT, 'resource' => SnapshotProbe::RESOURCE, 'scope' => 'mcp',
-            'access_hash' => $hasher->hash($tokens[$uid]), 'access_expires' => $now + $ttl,
-            'refresh_hash' => $hasher->hash($hasher->generate('rt')), 'refresh_expires' => $now + $ttl, 'created_at' => $now], $now);
+            'access_hash' => $hasher->hash($tokens[$uid]['access']), 'access_expires' => $now + $ttl,
+            'refresh_hash' => $hasher->hash($tokens[$uid]['refresh']), 'refresh_expires' => $now + $ttl, 'created_at' => $now], $now);
     }
-    $result += ['plan' => $plan, 'tokens' => $tokens, 'appKeys' => $appConfig->getAllValues('mcp')];
+    $result += ['appVersion' => Server::get(\OCP\App\IAppManager::class)->getAppVersion('mcp'), 'plan' => $plan, 'tokens' => $tokens,
+        'appKeys' => $appConfig->getAllValues('mcp')];
 }
 $result += ['raw' => SnapshotProbe::raw($config, $appConfig, $userConfig, $uids),
     'answers' => SnapshotProbe::answers($policy, $catalog, $config, $appConfig, $userConfig, $uids)];
+if ($mode === 'read') {
+    // Every class of the app loaded by the reading, not only GrantPolicy, must be the baseline's. Classes the boot
+    // loaded before the baseline loader are allowed only outside what a policy read uses (Service, OAuth, Db).
+    $loaded = [];
+    foreach ($mcpClasses() as $name) {
+        $file = (string)(new ReflectionClass($name))->getFileName();
+        if (in_array($name, $boot, true)) {
+            if (preg_match('/^OCA\\\\Mcp\\\\(Service|OAuth|Db)\\\\/', $name) === 1) {
+                fwrite(STDERR, "$name was loaded from $file by the boot, before the baseline loader\n");
+                exit(1);
+            }
+            continue;
+        }
+        if (!str_starts_with($file, $lib)) {
+            fwrite(STDERR, "$name came from $file, not from the baseline at $lib\n");
+            exit(1);
+        }
+        $loaded[] = $name;
+    }
+    sort($boot);
+    sort($loaded);
+    $result += ['boot' => $boot, 'loaded' => $loaded];
+}
 file_put_contents($output, json_encode($result, JSON_THROW_ON_ERROR));
 echo "Legacy policy snapshot ($mode) of ", count($uids), ' users from ', $source, PHP_EOL;

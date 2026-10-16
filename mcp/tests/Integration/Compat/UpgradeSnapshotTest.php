@@ -12,7 +12,9 @@ use OCA\Mcp\Db\AuthUsersMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Migration\PolicyStateSeedStep;
 use OCA\Mcp\OAuth\AccessTokenAuthenticator;
+use OCA\Mcp\OAuth\OAuthException;
 use OCA\Mcp\OAuth\TokenHasher;
+use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
 use OCP\Config\IUserConfig;
@@ -32,7 +34,8 @@ use OCP\Server;
  *
  * That 1.0.8 still reads these preferences is a fact about the data. It does not make going back to 1.0.8 safe, even
  * before adopting groups (decisions 1.1.0, D4): 1.0.8 does not know the epochs and cuts that revoke credentials in
- * 1.1.0. This suite runs first (phpunit.xml, suite "compat"), before any other test can switch the service off.
+ * 1.1.0. This suite runs first (phpunit.xml, suite "compat"), before any other test can switch the service off, and
+ * its tests run in declaration order (executionOrder="default" there): the last one cuts users the others read.
  */
 final class UpgradeSnapshotTest extends IntegrationTestCase {
     private array $seed = [];
@@ -58,6 +61,8 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
     }
 
     public function testThePlanCoversEveryOperationInEveryStateAndTheBaselineStoredExactlyIt(): void {
+        $this->assertSame('1.0.8', $this->seed['appVersion'], 'the snapshot must be written by the released baseline');
+        $this->assertNotSame(getenv('MCP_IT_EXPECTED_VERSION'), $this->seed['appVersion']);
         $this->assertSame(GrantPolicy::CATALOG, $this->seed['catalog'], 'the baseline and the branch must share the CATALOG');
         $plan = $this->seed['plan'];
         $this->assertSame(SnapshotProbe::uids(), array_keys($plan));
@@ -89,7 +94,7 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
         $hasher = Server::get(TokenHasher::class);
         $before = [];
         foreach (SnapshotProbe::uids() as $uid) {
-            $before[$uid] = $this->token($hasher->hash($this->seed['tokens'][$uid]));
+            $before[$uid] = $this->token($hasher->hash($this->seed['tokens'][$uid]['access']));
             $this->assertNotNull($before[$uid], "$uid: the baseline token survived the upgrade");
             $this->assertSame(['0', '1'], [$before[$uid]['auth_global_epoch'], $before[$uid]['auth_gen']], $uid);
             $this->assertSame(['issue_seq' => '1', 'revoked_below' => '0'], Server::get(AuthUsersMapper::class)->generations($uid), $uid);
@@ -107,7 +112,7 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
         $this->assertSame($this->seed['raw'], $this->raw(), 'after the migrations and the seed step ran again');
         $this->assertSame($state, Server::get(PolicyStateMapper::class)->state());
         foreach (SnapshotProbe::uids() as $uid) {
-            $this->assertSame($before[$uid], $this->token($hasher->hash($this->seed['tokens'][$uid])), $uid);
+            $this->assertSame($before[$uid], $this->token($hasher->hash($this->seed['tokens'][$uid]['access'])), $uid);
             $this->assertSame(['issue_seq' => '1', 'revoked_below' => '0'], Server::get(AuthUsersMapper::class)->generations($uid), $uid);
         }
         foreach ($this->seed['appKeys'] as $key => $value) {
@@ -135,26 +140,63 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
         $read = json_decode((string)file_get_contents($out), true, 512, JSON_THROW_ON_ERROR);
         unlink($out);
         $this->assertStringStartsWith(rtrim((string)getenv('MCP_IT_BASELINE_APP'), '/') . '/lib/', $read['source']);
+        // The script refuses any class of the app the reading loaded from elsewhere, and any class of Service, OAuth
+        // or Db the server's boot loaded from the branch before its loader; these are the ones the reading needed.
+        $this->assertSame([], preg_grep('/^OCA\\\\Mcp\\\\(Service|OAuth|Db)\\\\/', $read['boot']));
+        $this->assertContains('OCA\\Mcp\\Service\\GrantPolicy', $read['loaded']);
+        $this->assertContains('OCA\\Mcp\\OAuth\\OAuthStore', $read['loaded']);
         $this->assertSame($this->seed['answers'], $read['answers']);
         $this->assertSame($this->seed['raw'], $read['raw']);
         $this->assertSame($this->seed['raw'], $this->raw());
     }
 
-    public function testEveryBaselineTokenAuthenticatesExactlyWhenTheBaselineAllowedIt(): void {
+    /**
+     * Last in the class: a refusal in use cuts the user, so nothing after it may expect the snapshot's credentials.
+     * With the service on, each baseline token authenticates and its refresh token rotates exactly when the baseline
+     * allowed the user; with the service off or absent, as in the baseline, none does.
+     */
+    public function testEveryBaselineTokenAuthenticatesAndRefreshesExactlyWhenTheBaselineAllowedIt(): void {
         $authenticator = Server::get(AccessTokenAuthenticator::class);
-        $this->config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, '1');
+        $tokens = Server::get(TokenService::class);
+        $bearer = static fn (string $token): ?string => $authenticator->authenticate('Bearer ' . $token, SnapshotProbe::RESOURCE)?->getUID();
+        $access = array_map(static fn (array $pair): string => $pair['access'], $this->seed['tokens']);
         try {
-            $this->appConfig->clearCache(false);
+            $this->service('1');
             foreach (SnapshotProbe::uids() as $uid) {
-                $expected = $this->seed['answers']['1']['users'][$uid]['canConnect'] ? $uid : null;
-                $this->assertSame($expected, $authenticator->authenticate('Bearer ' . $this->seed['tokens'][$uid], SnapshotProbe::RESOURCE)?->getUID(), $uid);
+                $allowed = $this->seed['answers']['1']['users'][$uid]['canConnect'];
+                $this->assertSame($allowed ? $uid : null, $bearer($access[$uid]), $uid);
+                try {
+                    $refreshed = $tokens->refresh(['refresh_token' => $this->seed['tokens'][$uid]['refresh'], 'client_id' => SnapshotProbe::CLIENT]);
+                    $this->assertTrue($allowed, "$uid: a refresh the baseline would refuse was accepted");
+                    $this->assertSame($uid, $bearer((string)$refreshed['access_token']), $uid);
+                    $this->assertNull($bearer($access[$uid]), "$uid: rotation replaced the baseline access token");
+                    $access[$uid] = (string)$refreshed['access_token'];
+                } catch (OAuthException) {
+                    $this->assertFalse($allowed, "$uid: the refresh token of an allowed user was refused");
+                }
+            }
+            foreach (['0', null] as $service) {
+                $this->service($service);
+                foreach (SnapshotProbe::uids() as $uid) {
+                    $allowed = $this->seed['answers'][$service ?? 'absent']['users'][$uid]['canConnect'];
+                    $this->assertSame($allowed ? $uid : null, $bearer($access[$uid]), "$uid service " . ($service ?? 'absent'));
+                }
             }
         } finally {
-            $this->config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY);
-            $this->appConfig->clearCache(false);
+            $this->service(null);
         }
         $this->assertSame('0', Server::get(PolicyStateMapper::class)->state()['auth_epoch']);
         $this->assertSame($this->seed['raw'], $this->raw(), 'an access refused in use revokes credentials, never preferences');
+    }
+
+    /** Writes the service switch raw, as 1.0.8 stores it (never through the writer, which would advance the epoch). */
+    private function service(?string $value): void {
+        if ($value === null) {
+            $this->config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY);
+        } else {
+            $this->config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, $value);
+        }
+        $this->appConfig->clearCache(false);
     }
 
     /** @return array<string, string>|null the token row with that access hash, every value as a string */

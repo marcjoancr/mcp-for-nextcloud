@@ -122,8 +122,11 @@ the bytes and keys are unchanged, also after every migration of the app runs aga
 `occ migrations:execute` runs) and the seed step with it; no policy key was materialized in the app config; the global epoch is 0, no user was cut and every
 baseline token keeps its row with epoch 0 and generation 1; the branch's answers equal the baseline's; the baseline's
 own `GrantPolicy`, loaded by `ci/legacy-policy.php read` from the copy the upgrade moved aside
-(`MCP_IT_BASELINE_APP`), reads the same bytes into the same answers; and each baseline token authenticates exactly
-when the baseline's `canConnect` allowed it. Skipped in fresh cells.
+(`MCP_IT_BASELINE_APP`), reads the same bytes into the same answers (the script refuses any class of the app the
+reading loaded from elsewhere, and any Service, OAuth or Db class the server's boot loaded from the branch first); and each baseline access token authenticates, and its refresh token rotates, exactly
+when the baseline's `canConnect` allowed it, while with the service off or absent none does. The seed records the
+app version it ran under, which must be the baseline's. The tests rely on declaration order (`executionOrder="default"`
+in `phpunit.xml`): the last one cuts the snapshot's users. Skipped in fresh cells.
 
 That 1.0.8 can still read the preferences is a property of the data, not a statement that going back to 1.0.8 is
 safe: it is not, even before groups are adopted, because 1.0.8 knows neither the epoch nor the cuts that revoke
