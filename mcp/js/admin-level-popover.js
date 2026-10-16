@@ -9,9 +9,14 @@
  * Every choice is one POST /apps/mcp/api/grants/commands, all or nothing, from the revision of the table on screen, and the
  * notice under the table offers the server receipt as the undo, like the bulk changes. A level is presentation only: the
  * command carries one cell per operation whose value changes. When the popover opens it asks the read-only preview
- * (POST /apps/mcp/api/grants/commands/preview) what the person would inherit without their individual values; a cell
- * whose target equals that is sent as "inherit", so choosing a level never leaves an individual value that only repeats
- * what the groups or the defaults give. Without that answer the cell is sent as allow or deny.
+ * (POST /apps/mcp/api/grants/commands/preview) what the person would inherit without their individual values.
+ *
+ * An operation the chosen level takes away is always sent as an explicit deny, never as "inherit": the revision does not
+ * freeze group membership (adding a member to a group does not have to move it), so a group that grants the operation by
+ * the time the command lands would keep the access the administrator meant to remove. Only an operation the level allows
+ * may go back to inheritance, and only when the preview says the inheritance allows it too; if the inheritance changes
+ * afterwards, that can only take access away, which is the safe side. Without that answer it is sent as allow. The
+ * "Inherit from groups and defaults" button is the one explicit choice of inheritance, and sends "inherit" as it says.
  *
  * Taking "Can connect" away signs the person out of every MCP client, so it is asked first, in words, and nothing is sent
  * without that confirmation. An unknown "after" counts as taken away.
@@ -93,8 +98,9 @@
 	}
 
 	/**
-	 * The commands that give a set of target values: one per operation whose value changes, as "inherit" when the target is
-	 * what the person would inherit and as allow or deny otherwise.
+	 * The commands that give a set of target values: one per operation whose value changes. Taking an operation away is
+	 * always an explicit deny. Giving one is "inherit" only when it is an individual value and the preview says the person
+	 * inherits it allowed, otherwise an explicit allow: a later change of the inheritance can then only narrow the access.
 	 *
 	 * @param {object} user row of the table
 	 * @param {string|null} module module id, null for "Can connect"
@@ -109,8 +115,12 @@
 			if (want === undefined || valueOf(user, module, operation) === want) {
 				continue
 			}
-			const back = inherited?.[operation]?.allowed === want && INDIVIDUAL.includes(originOfCell(user, module, operation).source)
-			commands.push({ uid: user.uid, module, operation, state: back ? 'inherit' : want ? 'allow' : 'deny' })
+			if (!want) {
+				commands.push({ uid: user.uid, module, operation, state: 'deny' })
+				continue
+			}
+			const back = inherited?.[operation]?.allowed === true && INDIVIDUAL.includes(originOfCell(user, module, operation).source)
+			commands.push({ uid: user.uid, module, operation, state: back ? 'inherit' : 'allow' })
 		}
 		return commands
 	}

@@ -149,19 +149,55 @@ function setup({ users, preview, commands, confirm = true } = {}) {
 const radio = (kit, level) => kit.popover.all().find((node) => node.tag === 'input' && node.value === level)
 const posts = (kit) => kit.calls.filter((call) => call.url === '/api/grants/commands')
 
-test('a level sends only the operations that change; a target equal to the inherited value is sent as inherit', () => {
+test('a level sends only the operations that change, and an operation it takes away is always an explicit deny', () => {
 	const kit = setup()
 	const ana = kit.data.users[0]
 	// Ana: read by default, edit by an individual Allow. What she inherits without it: read allowed, edit denied.
 	const inherited = kit.api.inheritedValues(ana, 'files', [{ uid: 'ana', module: 'files', operation: 'edit', after: { allowed: false, source: 'default', groupIds: [] } }])
-	assert.deepEqual(plain(kit.api.planLevel(ana, 'files', 'read', inherited)), [{ uid: 'ana', module: 'files', operation: 'edit', state: 'inherit' }])
+	// Even though she would inherit edit denied, taking it away is a deny: never an inherit a group could turn into an Allow.
+	assert.deepEqual(plain(kit.api.planLevel(ana, 'files', 'read', inherited)), [{ uid: 'ana', module: 'files', operation: 'edit', state: 'deny' }])
 	assert.deepEqual(plain(kit.api.planLevel(ana, 'files', 'none', inherited)), [
 		{ uid: 'ana', module: 'files', operation: 'read', state: 'deny' },
-		{ uid: 'ana', module: 'files', operation: 'edit', state: 'inherit' },
+		{ uid: 'ana', module: 'files', operation: 'edit', state: 'deny' },
 	])
 	assert.deepEqual(plain(kit.api.planLevel(ana, 'files', 'edit', inherited).map((c) => c.operation + ':' + c.state)), ['create:allow', 'move:allow', 'restore:allow'])
-	// Without the preview nothing is sent as inherit.
 	assert.deepEqual(plain(kit.api.planLevel(ana, 'files', 'read', null)), [{ uid: 'ana', module: 'files', operation: 'edit', state: 'deny' }])
+})
+
+test('F1: group membership that changes within the same revision never turns a removal into kept access', async () => {
+	// The preview, read at revision R, says Ana inherits edit denied. Before the command lands she joins a group that grants
+	// edit, which does not have to move R. An "inherit" would then remove her Allow and the group would keep edit; a deny
+	// takes it away whatever the groups say by then.
+	const kit = setup({ preview: (body) => ({ revision: REVISION, cells: body.commands.map((c) => ({ ...c, before: { allowed: true }, after: { allowed: false, source: 'default', groupIds: [] } })) }) })
+	kit.api.open(kit.trigger, 'ana', 'files')
+	await tick()
+	assert.match(kit.popover.textContent, /Inherits: Read \(Default\)/, 'the preview said edit is not inherited')
+	await radio(kit, 'read').click()
+	await tick()
+	const sent = posts(kit)[0].body
+	assert.equal(sent.expectedRevision, REVISION)
+	assert.deepEqual(sent.commands, [{ uid: 'ana', module: 'files', operation: 'edit', state: 'deny' }])
+	assert.ok(sent.commands.every((command) => command.state !== 'inherit'), 'a lower level never sends inherit')
+
+	const none = setup({ preview: (body) => ({ revision: REVISION, cells: body.commands.map((c) => ({ ...c, after: { allowed: false, source: 'default', groupIds: [] } })) }) })
+	none.api.open(none.trigger, 'ana', 'files')
+	await tick()
+	await radio(none, 'none').click()
+	await tick()
+	assert.deepEqual(posts(none)[0].body.commands.map((c) => c.operation + ':' + c.state), ['read:deny', 'edit:deny'])
+})
+
+test('giving an operation back to inheritance only happens when the preview says it is inherited allowed', () => {
+	const kit = setup()
+	// Ana denied edit individually; the groups would give it.
+	const ana = user('ana', ['read'], { edit: individualDeny })
+	const allowedByGroup = kit.api.inheritedValues(ana, 'files', [{ uid: 'ana', module: 'files', operation: 'edit', after: { allowed: true, source: 'group', groupIds: ['comercial'] } }])
+	const edit = kit.api.planLevel(ana, 'files', 'edit', allowedByGroup)
+	assert.deepEqual(plain(edit.find((c) => c.operation === 'edit')), { uid: 'ana', module: 'files', operation: 'edit', state: 'inherit' })
+	assert.ok(edit.filter((c) => c.operation !== 'edit').every((c) => c.state === 'allow'), 'cells without an individual value are explicit')
+	const unknown = kit.api.inheritedValues(ana, 'files', [{ uid: 'ana', module: 'files', operation: 'edit', after: { allowed: null, source: 'unknown', groupIds: [] } }])
+	assert.equal(kit.api.planLevel(ana, 'files', 'edit', unknown).find((c) => c.operation === 'edit').state, 'allow')
+	assert.equal(kit.api.planLevel(ana, 'files', 'edit', null).find((c) => c.operation === 'edit').state, 'allow')
 })
 
 test('inherit, one operation and the eligibility check', () => {
@@ -193,7 +229,7 @@ test('opening asks the preview for the individual cells only, then a level is on
 	assert.match(kit.popover.textContent, /Files of Ana Souza/)
 	await radio(kit, 'read').click()
 	await tick()
-	assert.deepEqual(posts(kit).map((call) => call.body), [{ expectedRevision: REVISION, commands: [{ uid: 'ana', module: 'files', operation: 'edit', state: 'inherit' }] }])
+	assert.deepEqual(posts(kit).map((call) => call.body), [{ expectedRevision: REVISION, commands: [{ uid: 'ana', module: 'files', operation: 'edit', state: 'deny' }] }])
 	assert.ok(kit.calls.some((call) => call.announce && call.announce[0] === REVISION && call.announce[1] === '9007199254740994'))
 	assert.deepEqual(kit.notices, [{ message: 'Files of Ana Souza: Read.', saved: { revision: '9007199254740994', changed: 1, receiptId: 'r-1' } }])
 	assert.equal(kit.reloads(), 1)
@@ -352,4 +388,24 @@ test('the focus stays on the same control when the preview answer draws the popo
 	await tick()
 	assert.equal(slow.document.activeElement.dataset.focusKey, 'operation:edit:deny')
 	assert.ok(slow.popover.contains(slow.document.activeElement))
+})
+
+test('F1: "Can connect" No is always a deny, asked first; Yes goes back to inheritance only when it is inherited Yes', async () => {
+	const users = [user('ana', ['read'], { eligible: individualAllow })]
+	const no = setup({ users, preview: (body) => ({ revision: REVISION, cells: body.commands.map((c) => ({ ...c, after: { allowed: false, source: 'default', groupIds: [] } })) }) })
+	no.api.open(no.trigger, 'ana', null)
+	await tick()
+	await radio(no, 'none').click()
+	await tick()
+	assert.equal(no.confirms.length, 1, 'taking it away is still asked')
+	assert.deepEqual(posts(no)[0].body.commands, [{ uid: 'ana', module: null, operation: 'eligible', state: 'deny' }], 'never inherit, though No is what she inherits')
+
+	const denied = [user('ana', ['read'], { eligible: individualDeny }, false)]
+	const yes = setup({ users: denied, preview: (body) => ({ revision: REVISION, cells: body.commands.map((c) => ({ ...c, after: { allowed: true, source: 'group', groupIds: ['comercial'] } })) }) })
+	yes.api.open(yes.trigger, 'ana', null)
+	await tick()
+	await radio(yes, 'read').click()
+	await tick()
+	assert.deepEqual(posts(yes)[0].body.commands, [{ uid: 'ana', module: null, operation: 'eligible', state: 'inherit' }])
+	assert.deepEqual(yes.confirms, [])
 })
