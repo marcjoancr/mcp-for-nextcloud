@@ -780,13 +780,13 @@
  * list scrolls inside its column, between the search and filter on top and the pager at the bottom, and the open group
  * scrolls in its own column beside it.
  */
-#mcp-admin .mcp-groups { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); height: max(420px, calc(100vh - var(--header-height, 50px) - 48px)); border: 1px solid var(--color-border); border-radius: var(--border-radius-element, 8px); overflow: hidden; }
+#mcp-admin .mcp-groups { display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); height: max(420px, calc(100vh - var(--header-height, 50px) - 48px)); border: 1px solid var(--color-border); border-radius: var(--border-radius-element, 8px); overflow: hidden; }
 #mcp-admin .mcp-group-picker { display: none; }
 #mcp-admin .mcp-groups-nav { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-inline-end: 1px solid var(--color-border); background-color: var(--color-background-hover); }
 #mcp-admin .mcp-groups-top { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 4px; border-bottom: 1px solid var(--color-border); }
 #mcp-admin .mcp-groups-nav input[type="search"] { width: 100%; margin: 0; }
-#mcp-admin .mcp-group-filter { display: flex; flex-wrap: wrap; width: 100%; }
-#mcp-admin .mcp-group-filter button { flex: 1 1 auto; min-width: 0; padding-inline: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcp-admin .mcp-view.mcp-group-filter { display: flex; width: 100%; }
+#mcp-admin .mcp-view.mcp-group-filter button { flex: 1 1 auto; min-width: 0; padding-inline: 6px; font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mcp-admin [id="mcp-group-count"] { margin: 0; padding-inline: 4px; font-size: 0.9em; }
 #mcp-admin .mcp-groups-pager { display: flex; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--color-border); }
 #mcp-admin .mcp-groups-main { min-height: 0; min-width: 0; padding: 12px 16px 0; overflow-y: auto; }
@@ -812,6 +812,9 @@
 	#mcp-admin .mcp-groups-nav { border-inline-end: 0; border-bottom: 1px solid var(--color-border); max-height: 60vh; }
 	#mcp-admin .mcp-groups[data-list="closed"] .mcp-groups-nav { display: none; }
 	#mcp-admin .mcp-groups-main { overflow: visible; padding-inline: 12px; }
+	/* Three labels do not fit side by side here: they wrap instead of being cut. */
+	#mcp-admin .mcp-view.mcp-group-filter { flex-wrap: wrap; }
+	#mcp-admin .mcp-view.mcp-group-filter button { overflow: visible; white-space: normal; }
 }
 #mcp-admin .mcp-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 #mcp-admin .mcp-group-head h3 { margin: 0; }
