@@ -194,6 +194,59 @@ class ResourceScopeMapper {
     }
 
     /**
+     * Users that have at least one mode row, for the account cleanup job: at most $limit, by user_key, after the cursor
+     * $after. The ids are returned as stored and not verified here: the job compares each with its digest, one row at a
+     * time, so an invalid or colliding row is skipped without stopping the others.
+     *
+     * @param int $limit most users returned
+     * @param string $after user_key the previous page ended with; '' for the first page
+     * @return list<array{userKey:string, userId:string}>
+     * @throws Exception when the query fails
+     */
+    public function usersWithModes(int $limit, string $after = ''): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('user_key', 'user_id')->from(self::MODES_TABLE)->groupBy('user_key', 'user_id');
+        if ($after !== '') {
+            $qb->where($qb->expr()->gt('user_key', $qb->createNamedParameter($after)));
+        }
+        $result = $qb->orderBy('user_key')->setMaxResults(max(1, $limit))->executeQuery();
+        $rows = [];
+        try {
+            while (($row = $result->fetch()) !== false) {
+                $rows[] = ['userKey' => (string)($row['user_key'] ?? ''), 'userId' => (string)($row['user_id'] ?? '')];
+            }
+        } finally {
+            $result->closeCursor();
+        }
+        return $rows;
+    }
+
+    /**
+     * How many users keep item rows of a module they have no mode row for (contracts B.3: such items have no effect, and
+     * removeUpTo() leaves them). Only a count, for the cleanup job's diagnostic: the item table names no user.
+     *
+     * @return int distinct user keys with at least one orphan item row
+     * @throws Exception when the query fails
+     */
+    public function orphanItemUsers(): int {
+        $qb = $this->db->getQueryBuilder();
+        $qb->selectAlias($qb->createFunction('COUNT(DISTINCT i.user_key)'), 'orphans')
+            ->from(self::ITEMS_TABLE, 'i')
+            ->leftJoin('i', self::MODES_TABLE, 'm', $qb->expr()->andX(
+                $qb->expr()->eq('m.user_key', 'i.user_key'),
+                $qb->expr()->eq('m.module', 'i.module'),
+            ))
+            ->where($qb->expr()->isNull('m.user_key'));
+        $result = $qb->executeQuery();
+        try {
+            $row = $result->fetch();
+            return $row === false ? 0 : (int)($row['orphans'] ?? 0);
+        } finally {
+            $result->closeCursor();
+        }
+    }
+
+    /**
      * Deletes the mode and the items of (user_key, module), the mode only while it carries $policyRev when given.
      *
      * @return bool whether a mode row was deleted

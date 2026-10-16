@@ -10,11 +10,13 @@ namespace OCA\Mcp\Listener;
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
+use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\RecheckMapper;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
 use OCA\Mcp\Service\Policy\PolicyResolver;
+use OCA\Mcp\Service\Policy\ScopeCleanup;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -47,6 +49,11 @@ use Throwable;
  * - UserRemovedEvent(G, U): the protocol for the cause (U, G) with the captured gen, and nothing else.
  * - UserDeletedEvent(U): the protocol for the account cause with the captured gen (account gone: cut). When its Before
  *   could not store the cause, the deletion is reconciled without a date instead (account gone: cut), never dropped.
+ * - The resource scope of the account (contracts B.3, F3): BeforeUserDeletedEvent outside a transaction reads the policy
+ *   revision R_b in autocommit, whatever the account's credentials; UserDeletedEvent outside a transaction removes the
+ *   scopes saved at or before R_b (ScopeCleanup::deleted()). A Before or an After inside a transaction, a Before that
+ *   could not read R_b, and a deletion with no After remove nothing: the job decides (ScopeCleanup::reconcile()). The
+ *   handler takes no mutex before the event and runs no SQL inside a caller's transaction.
  *
  * A read that fails while testing relevance records the cause anyway: the reconciler repeats the test. A cause whose
  * After never arrives (a failed or interrupted operation) stays pending for the preflight and the reconciler (Q1).
@@ -61,6 +68,8 @@ class UserCauseListener implements IEventListener {
     private array $deleting = [];
     /** @var array<string, array{uid:string, gid:string, gen:string}> pair => the cause recorded by its Before */
     private array $removals = [];
+    /** @var array<string, string|null> uid => R_b read by the Before of a deletion in this process; null when none could be */
+    private array $scopeRevisions = [];
 
     public function __construct(
         private CauseProcessor $causes,
@@ -73,6 +82,8 @@ class UserCauseListener implements IEventListener {
         private IDBConnection $db,
         private ITimeFactory $time,
         private LoggerInterface $logger,
+        private ?PolicyStateMapper $state = null,
+        private ?ScopeCleanup $scopeCleanup = null,
     ) {}
 
     public function handle(Event $event): void {
@@ -96,6 +107,7 @@ class UserCauseListener implements IEventListener {
 
     private function beforeDelete(IUser $user): void {
         $uid = $user->getUID();
+        $this->scopeRevisions[$uid] = $this->captureRevision();
         if ($this->db->inTransaction()) {
             $this->deleting[$uid] = null;
             $this->causes->deferUndated($uid);
@@ -161,9 +173,12 @@ class UserCauseListener implements IEventListener {
         $uid = $user->getUID();
         $gen = $this->deleting[$uid] ?? null;
         unset($this->deleting[$uid]);
+        $revision = $this->scopeRevisions[$uid] ?? null;
+        unset($this->scopeRevisions[$uid]);
         if (!$this->db->inTransaction()) {
             $this->causes->flush();
         }
+        $this->removeScopes($uid, $revision);
         if ($gen === false) {
             // Relevant, but its Before could not store the cause: reconcile without a date (account gone: cut).
             $this->causes->deferUndated($uid);
@@ -175,6 +190,39 @@ class UserCauseListener implements IEventListener {
             return;
         }
         $this->causes->after($uid, IdentityKey::accountCause(), $gen);
+    }
+
+    /**
+     * R_b: the revision, read in autocommit before the account goes. Never inside a caller's transaction (no SQL there)
+     * and never an error: without it the scope cleanup of this deletion is left to the job.
+     */
+    private function captureRevision(): ?string {
+        if ($this->state === null || $this->scopeCleanup === null || $this->db->inTransaction()) {
+            return null;
+        }
+        try {
+            return $this->state->state()['revision'];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The scope cleanup of a deletion that was seen on time: its own writer command, its failure never stopping the
+     * cause protocol that follows and left to the job. Inside a caller's transaction, or without R_b, it does nothing.
+     */
+    private function removeScopes(string $uid, ?string $revision): void {
+        if ($revision === null || $this->scopeCleanup === null || $this->db->inTransaction()) {
+            return;
+        }
+        try {
+            $this->scopeCleanup->deleted($uid, $revision);
+        } catch (Throwable $e) {
+            try {
+                $this->logger->warning('Resource scope of a deleted account left to the job', ['app' => 'mcp', 'target' => $uid, 'exception' => $e]);
+            } catch (Throwable) {
+            }
+        }
     }
 
     /** U holds a code or grant row, or is not known to be ineligible. A failed read is relevant. */

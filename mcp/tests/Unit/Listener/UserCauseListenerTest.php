@@ -9,6 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Listener;
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
+use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\RecheckMapper;
 use OCA\Mcp\Listener\UserCauseListener;
 use OCA\Mcp\Migration\Version001100Date20261014000000;
@@ -18,7 +19,9 @@ use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\GroupSourceClassifier;
 use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
+use OCA\Mcp\Service\Policy\ScopeCleanup;
 use OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore;
 use OCA\Mcp\Tests\Unit\SqliteDatabase;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -56,6 +59,16 @@ final class UserCauseListenerTest extends TestCase {
     private bool $member = true;
     private bool $trusted = true;
     private ?string $life = GroupLifeMapper::ACTIVE;
+    /** The policy revision a Before reads as R_b. */
+    private string $revision = '7';
+    private bool $revisionFails = false;
+    /** @var list<bool> whether a transaction was open at each read of the revision */
+    private array $revisionReads = [];
+    /** @var list<array{string, string}> ScopeCleanup::deleted() calls */
+    private array $cleanups = [];
+    private bool $cleanupFails = false;
+    /** Whether the listener's connection says a caller's transaction is open (only in the tests that build it that way). */
+    private bool $inTransaction = false;
 
     protected function setUp(): void {
         $this->database = new SqliteDatabase($this, [new Version001100Date20261014000000(), new Version001100Date20261015010000()]);
@@ -106,8 +119,24 @@ final class UserCauseListenerTest extends TestCase {
         });
         $time = $this->createMock(ITimeFactory::class);
         $time->method('getTime')->willReturn(1_760_000_000);
+        $state = $this->createMock(PolicyStateMapper::class);
+        $state->method('state')->willReturnCallback(function (): array {
+            $this->revisionReads[] = $this->inTransaction;
+            if ($this->revisionFails) {
+                throw new \RuntimeException('state read failed');
+            }
+            return ['revision' => $this->revision, 'lock_seq' => '0', 'auth_epoch' => '0'];
+        });
+        $cleanup = $this->createMock(ScopeCleanup::class);
+        $cleanup->method('deleted')->willReturnCallback(function (string $uid, string $revision): array {
+            $this->cleanups[] = [$uid, $revision];
+            if ($this->cleanupFails) {
+                throw new PolicyUnavailable('writer down');
+            }
+            return [];
+        });
         return new UserCauseListener($causes, $rechecks ?? $this->rechecks, $this->store, $grants, $life, $classifier, $resolver,
-            $db ?? $this->db, $time, new NullLogger());
+            $db ?? $this->db, $time, new NullLogger(), $state, $cleanup);
     }
 
     private function user(string $uid = 'alice'): IUser {
@@ -323,5 +352,114 @@ final class UserCauseListenerTest extends TestCase {
             $listener->handle(new UserRemovedEvent($this->group(), $this->user('bob')));
         }
         $this->addToAssertionCount(1);
+    }
+
+    // --- the resource scope of the account (contracts B.3, F3) -----------------------------------------------------
+
+    /** A connection that reports a caller's transaction according to $this->inTransaction and answers nothing else. */
+    private function transactional(): IDBConnection {
+        $db = $this->createMock(IDBConnection::class);
+        $db->method('inTransaction')->willReturnCallback(fn (): bool => $this->inTransaction);
+        foreach (['getQueryBuilder', 'executeQuery', 'executeStatement', 'prepare', 'beginTransaction', 'commit', 'rollBack'] as $method) {
+            $db->expects($this->never())->method($method);
+        }
+        return $db;
+    }
+
+    public function testADeletionOutsideATransactionRemovesTheScopeQualifiedByTheRevisionItsBeforeRead(): void {
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $this->assertSame([false], $this->revisionReads, 'R_b is read once, in autocommit');
+        $this->assertSame([], $this->cleanups, 'a pre-event removes nothing and takes no mutex');
+        $this->revision = '9'; // the policy moves while the deletion runs: only R_b qualifies the removal
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([['alice', '7']], $this->cleanups);
+    }
+
+    public function testTheRevisionIsReadWhateverTheCredentialsOrEligibilityOfTheAccount(): void {
+        $this->eligibility = static fn (): bool => false; // an account the cause protocol finds irrelevant
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $this->assertSame([], $this->causes());
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([['alice', '7']], $this->cleanups, 'the scope is not tied to credentials');
+    }
+
+    public function testABeforeInsideATransactionReadsNothingAndItsAfterRemovesNothing(): void {
+        $this->inTransaction = true;
+        $listener = $this->listener($this->transactional());
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $this->assertSame([], $this->revisionReads, 'no SQL inside a caller\'s transaction');
+        $this->inTransaction = false; // the After arrives once the transaction is over
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([], $this->cleanups, 'a deletion captured inside a transaction is left to the job');
+    }
+
+    public function testAnAfterInsideATransactionRemovesNothingEvenWithTheRevisionOfItsBefore(): void {
+        $listener = $this->listener($this->transactional());
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $this->assertSame([false], $this->revisionReads);
+        $this->inTransaction = true;
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([], $this->cleanups, 'the deferred path never deletes');
+        $this->assertSame([false], $this->revisionReads, 'and reads nothing');
+    }
+
+    public function testADeletionThatNeverGetsItsAfterRemovesNothingAndTheNextOneUsesItsOwnRevision(): void {
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user())); // failed or rolled back: no After
+        $this->assertSame([], $this->cleanups);
+        $this->revision = '12';
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([['alice', '12']], $this->cleanups, 'never the stale revision of the earlier attempt');
+    }
+
+    public function testARevisionIsUsedByExactlyOneAfter(): void {
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([['alice', '7']], $this->cleanups);
+        $this->revision = '20';
+        // A second After of the same id (a duplicate, or the account recreated and deleted by something that sent none).
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([['alice', '7']], $this->cleanups, 'the consumed revision is never reused');
+    }
+
+    public function testAnAfterWithoutAnyBeforeRemovesNothing(): void {
+        $listener = $this->listener();
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([], $this->cleanups);
+    }
+
+    public function testABeforeThatCannotReadTheRevisionLeavesTheScopeToTheJobAndKeepsTheCauseProtocol(): void {
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '2'], 0);
+        $this->revisionFails = true;
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $this->assertSame(['account_delete:'], $this->causes());
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([], $this->cleanups);
+        $this->assertCount(1, $this->afters, 'the account cause is still consumed');
+    }
+
+    public function testAFailingScopeCleanupNeverStopsTheCauseProtocolOrReachesTheCore(): void {
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '2'], 0);
+        $this->cleanupFails = true;
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user()));
+        $listener->handle(new UserDeletedEvent($this->user()));
+        $this->assertSame([['alice', '7']], $this->cleanups);
+        $this->assertCount(1, $this->afters, 'the credentials are still cut');
+    }
+
+    public function testTheScopeRevisionOfOneAccountIsNeverUsedForAnother(): void {
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserDeletedEvent($this->user('alice')));
+        $this->revision = '8';
+        $listener->handle(new BeforeUserDeletedEvent($this->user('bob')));
+        $listener->handle(new UserDeletedEvent($this->user('bob')));
+        $listener->handle(new UserDeletedEvent($this->user('alice')));
+        $this->assertSame([['bob', '8'], ['alice', '7']], $this->cleanups);
     }
 }

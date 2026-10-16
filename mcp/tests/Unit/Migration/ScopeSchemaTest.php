@@ -156,7 +156,8 @@ final class ScopeSchemaTest extends TestCase {
     /**
      * A rollback to 1.0.8 before any scope is adopted leaves two empty tables that nothing of 1.0.8 reads, and the
      * 1.0.8 steps neither touch nor need them. Only the mapper names the tables; besides it, only the scope writer,
-     * the matrix summary, the admin and personal scope routes, the native enumerator and the scope guard, read by the
+     * the matrix summary, the admin and personal scope routes, the native enumerator, the account cleanup (ScopeCleanup) and
+     * the scope guard, read by the
      * resolution core into each operation's snapshot, use the mapper. No tool reads it directly: tools ask the operation
      * context, and a new reader has to be added here on purpose.
      */
@@ -185,6 +186,7 @@ final class ScopeSchemaTest extends TestCase {
             'Service/Policy/PolicyEventPayload.php',
             'Service/Policy/PolicyResolver.php',
             'Service/Policy/PolicyWriter.php',
+            'Service/Policy/ScopeCleanup.php',
             'Service/Scope/NativeResourceEnumerator.php',
             'Service/Scope/ScopeGuard.php',
         ], $readers);
