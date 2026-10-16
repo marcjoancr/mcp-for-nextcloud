@@ -133,6 +133,8 @@ class Application extends App implements IBootstrap {
             new TextExtractor($c->get(ITempManager::class)),
             new NotesRepository($c->get(IRootFolder::class), $c->get(IConfig::class)),
             $c->get(ToolRegistry::class)->guide(),
+            // nc://files answers to the Files gate, the resource scope included; nc://notes keeps the plain guard (D4).
+            $c->get(\OCA\Mcp\Service\Scope\FilesAccessGuard::class),
         ));
         $context->registerService(McpProtocol::class, static fn (ContainerInterface $c): McpProtocol => new McpProtocol(
             $c->get(ToolRegistry::class),

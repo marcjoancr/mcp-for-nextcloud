@@ -57,7 +57,7 @@ class ResourceRegistry {
         private TextExtractor $textExtractor,
         private NotesRepository $notesRepo,
         private ToolGuide $guide,
-        private ?FilesAccessGuard $filesGuard = null,
+        private FilesAccessGuard $filesGuard,
     ) {
     }
 
@@ -217,13 +217,12 @@ class ResourceRegistry {
 
         // nc://files answers to the Files gate, the resource scope included (contract B.5); nc://notes does not (D4).
         // A scope that cannot be read answers 503 before the node is looked up.
-        $guard = $this->filesGuard ?? $this->visibilityGuard;
-        $this->filesGuard?->assertScopeReadable();
-        return NodeAccess::run(function () use ($uri, $path, $userId, $guard): array {
+        $this->filesGuard->assertScopeReadable();
+        return NodeAccess::run(function () use ($uri, $path, $userId): array {
             $root = $this->rootFolder->getUserFolder($userId);
             // The guard runs before requireFile, so a protected item answers like a missing one instead of
             // revealing that it exists and is a folder.
-            $node = NodeAccess::requireFile(NodeAccess::get($root, $path, $guard));
+            $node = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->filesGuard));
 
             $mime = (string)$node->getMimetype();
             $name = $node->getName();

@@ -43,7 +43,7 @@ final class ResourceRegistryTest extends TestCase {
     private IAppManager $appManager;
     private IUserManager $userManager;
     private IRootFolder $rootFolder;
-    private VisibilityGuard $visibilityGuard;
+    private \OCA\Mcp\Service\Scope\FilesAccessGuard $visibilityGuard;
     private TextExtractor $extractor;
     private NotesRepository $notesRepo;
     private ToolRegistry $toolRegistry;
@@ -92,6 +92,7 @@ final class ResourceRegistryTest extends TestCase {
             $this->extractor,
             $this->notesRepo,
             new ToolGuide([]),
+            $this->visibilityGuard,
         );
     }
 
@@ -297,7 +298,7 @@ final class ResourceRegistryTest extends TestCase {
     }
 
     public function testVisibilityGuardHidingNodeThrowsNotFound(): void {
-        $guard = $this->createMock(VisibilityGuard::class);
+        $guard = $this->createMock(\OCA\Mcp\Service\Scope\FilesAccessGuard::class);
         $guard->method('assertVisible')->willThrowException(new ToolFailure(CommonMessages::notFound()));
 
         $registry = new ResourceRegistry(
@@ -310,6 +311,7 @@ final class ResourceRegistryTest extends TestCase {
             $this->extractor,
             $this->notesRepo,
             new ToolGuide([]),
+            $guard,
         );
 
         $this->expectException(ToolFailure::class);
@@ -449,7 +451,7 @@ final class ResourceRegistryTest extends TestCase {
     }
 
     public function testModernHiddenResourceReturnsMinus32602(): void {
-        $guard = $this->createMock(VisibilityGuard::class);
+        $guard = $this->createMock(\OCA\Mcp\Service\Scope\FilesAccessGuard::class);
         $guard->method('assertVisible')->willThrowException(new ToolFailure(CommonMessages::notFound()));
 
         $registry = new ResourceRegistry(
@@ -462,6 +464,7 @@ final class ResourceRegistryTest extends TestCase {
             $this->extractor,
             $this->notesRepo,
             new ToolGuide([]),
+            $guard,
         );
 
         $protocol = new McpProtocol(
@@ -494,7 +497,7 @@ final class ResourceRegistryTest extends TestCase {
      *
      * @param list<int> $hiddenIds file ids carrying the hidden tag
      */
-    private function guardHiding(array $hiddenIds): VisibilityGuard {
+    private function guardHiding(array $hiddenIds): \OCA\Mcp\Service\Scope\FilesAccessGuard {
         $config = new InMemoryConfig();
         $config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
         $mapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
@@ -509,12 +512,12 @@ final class ResourceRegistryTest extends TestCase {
         $tag->method('getId')->willReturn('999');
         $manager = $this->createMock(\OCP\SystemTag\ISystemTagManager::class);
         $manager->method('getTagsByIds')->willReturn(['999' => $tag]);
-        return new VisibilityGuard($config->mock($this), $mapper, $this->rootFolder, $manager);
+        return new \OCA\Mcp\Service\Scope\FilesAccessGuard($config->mock($this), $mapper, $this->rootFolder, $manager);
     }
 
-    private function registryWith(VisibilityGuard $guard): ResourceRegistry {
+    private function registryWith(\OCA\Mcp\Service\Scope\FilesAccessGuard $guard): ResourceRegistry {
         return new ResourceRegistry($this->toolRegistry, $this->policy, $this->appManager, $this->userManager, $this->rootFolder,
-            $guard, $this->extractor, $this->notesRepo, new ToolGuide([]));
+            $guard, $this->extractor, $this->notesRepo, new ToolGuide([]), $guard);
     }
 
     private function assertNotFound(callable $read): void {
@@ -627,10 +630,10 @@ final class ResourceRegistryTest extends TestCase {
     }
 
     /** A real guard with no hidden tag configured: every node is visible. */
-    private function openGuard(): VisibilityGuard {
+    private function openGuard(): \OCA\Mcp\Service\Scope\FilesAccessGuard {
         $config = $this->createMock(\OCP\IConfig::class);
         $config->method('getAppValue')->willReturnCallback(static fn (string $app, string $key, string $default = '') => $default);
-        return new VisibilityGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
+        return new \OCA\Mcp\Service\Scope\FilesAccessGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
     }
 
     /**
