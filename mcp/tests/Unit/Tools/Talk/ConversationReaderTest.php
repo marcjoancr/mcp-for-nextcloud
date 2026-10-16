@@ -230,7 +230,7 @@ class ConversationReaderTest extends TestCase {
         $share->method('getNode')->willReturn($node);
         $shares = $this->createMock(\OCP\Share\IManager::class);
         $shares->method('getShareById')->with('ocRoomShare:12', 'alice')->willReturn($share);
-        $access = new \OCA\Mcp\Tools\Talk\AttachmentAccess($shares);
+        $access = new \OCA\Mcp\Tools\Talk\AttachmentAccess($shares, \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::openGuard($this), \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this));
 
         $found = $access->requireRoomShareOf(new \OCA\Mcp\Tools\Talk\Conversation(new ReaderRoomStub('abcd'), new ReaderParticipantStub()), 'alice', $attachmentId);
 

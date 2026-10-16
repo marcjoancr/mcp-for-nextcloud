@@ -32,11 +32,11 @@ class AttachmentAccessTest extends TestCase {
     protected function setUp(): void {
         parent::setUp();
         $this->shareManager = $this->createMock(IShareManager::class);
-        $this->access = new AttachmentAccess($this->shareManager);
+        $this->access = new AttachmentAccess($this->shareManager, \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::openGuard($this), \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this));
     }
 
     public function testARoomShareOfThisConversationIsAccepted(): void {
-        $this->givenShare(IShare::TYPE_ROOM, 'abcd');
+        $this->givenShare(IShare::TYPE_ROOM, 'abcd', true);
 
         $this->access->requireRoomShareOf($this->givenConversation(), 'alice', 77);
 
@@ -52,6 +52,7 @@ class AttachmentAccessTest extends TestCase {
         $share->method('getId')->willReturn('77');
         $share->method('getShareType')->willReturn(IShare::TYPE_ROOM);
         $share->method('getSharedWith')->willReturn('abcd');
+        $share->method('getNode')->willReturn($this->createMock(\OCP\Files\File::class));
         $this->shareManager->method('getShareById')->willReturnCallback(
             static function (string $id) use ($share): IShare {
                 if ($id !== 'ocRoomShare:77') {
@@ -71,7 +72,7 @@ class AttachmentAccessTest extends TestCase {
     }
 
     public function testTheValidatedShareComesBackSoTheDraftCanNameTheFile(): void {
-        $this->givenShare(IShare::TYPE_ROOM, 'abcd');
+        $this->givenShare(IShare::TYPE_ROOM, 'abcd', true);
 
         $share = $this->access->requireRoomShareOf($this->givenConversation(), 'alice', 77);
 
@@ -120,7 +121,7 @@ class AttachmentAccessTest extends TestCase {
         $this->shareManager->expects($this->once())
             ->method('getShareById')
             ->with('ocRoomShare:77', 'alice')
-            ->willReturn($this->givenShare(IShare::TYPE_ROOM, 'abcd'));
+            ->willReturn($this->givenShare(IShare::TYPE_ROOM, 'abcd', true));
         // Reading the share is all this may do: creating one here would publish the attachment a second time.
         $this->shareManager->expects($this->never())->method('createShare');
         $this->shareManager->expects($this->never())->method('newShare');
@@ -181,7 +182,7 @@ class AttachmentAccessTest extends TestCase {
         $tagMapper->method('getTagIdsForObjects')->willReturn(['777' => ['999']]);
         $guard = new \OCA\Mcp\Service\VisibilityGuard($config->mock($this), $tagMapper, $root);
 
-        $access = new AttachmentAccess($this->shareManager, $guard);
+        $access = new AttachmentAccess($this->shareManager, $guard, \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this));
 
         $this->expectException(ConversationAccessException::class);
         $this->expectExceptionMessage(Messages::attachmentNotFound());
@@ -206,7 +207,7 @@ class AttachmentAccessTest extends TestCase {
         $share = $this->givenShare(IShare::TYPE_ROOM, 'abcd');
         $share->method('getNode')->willReturn($node);
 
-        $access = new AttachmentAccess($this->shareManager, $this->givenGuard(['777' => ['999']], $root));
+        $access = new AttachmentAccess($this->shareManager, $this->givenGuard(['777' => ['999']], $root), \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this));
 
         $desc = $access->describe($share);
 
@@ -221,7 +222,7 @@ class AttachmentAccessTest extends TestCase {
         $share = $this->givenShare(IShare::TYPE_ROOM, 'abcd');
         $share->method('getNode')->willThrowException(new RuntimeException('storage of share 77 is offline'));
 
-        $access = new AttachmentAccess($this->shareManager, $this->givenGuard());
+        $access = new AttachmentAccess($this->shareManager, $this->givenGuard(), \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this));
 
         try {
             $access->requireRoomShareOf($this->givenConversation(), 'alice', 77);
@@ -245,14 +246,18 @@ class AttachmentAccessTest extends TestCase {
 
         $root = $this->createMock(\OCP\Files\IRootFolder::class);
         $node->method('getParent')->willReturn($root);
-        $access = new AttachmentAccess($this->shareManager, $this->givenGuard([], $root));
+        $access = new AttachmentAccess($this->shareManager, $this->givenGuard([], $root), \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this));
 
         $this->assertSame($share, $access->requireRoomShareOf($this->givenConversation(), 'alice', 77));
     }
 
 
-    private function givenShare(int $shareType, string $sharedWith): IShare&MockObject {
+    /** @param bool $withNode whether the share resolves to a file, which the exclusion guard checks */
+    private function givenShare(int $shareType, string $sharedWith, bool $withNode = false): IShare&MockObject {
         $share = $this->createMock(IShare::class);
+        if ($withNode) {
+            $share->method('getNode')->willReturn($this->createMock(\OCP\Files\File::class));
+        }
         $share->method('getId')->willReturn('77');
         $share->method('getShareType')->willReturn($shareType);
         $share->method('getSharedWith')->willReturn($sharedWith);

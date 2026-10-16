@@ -24,8 +24,8 @@ class AttachmentAccess {
 
     public function __construct(
         private IShareManager $shareManager,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
-        private ?OutputReferenceFilter $references = null,
+        private \OCA\Mcp\Service\VisibilityGuard $visibilityGuard,
+        private OutputReferenceFilter $references,
     ) {}
 
     /**
@@ -56,7 +56,7 @@ class AttachmentAccess {
      */
     public function requireRoomShareOf(Conversation $conversation, string $userId, int $attachmentId): IShare {
         // Before the lookup: an unreadable Files scope is the same 503 for a share that exists and one that does not.
-        $this->references?->assertAvailable($userId);
+        $this->references->assertAvailable($userId);
         try {
             $share = $this->shareManager->getShareById(self::fullShareId($attachmentId), $userId);
         } catch (Throwable $e) {
@@ -68,21 +68,19 @@ class AttachmentAccess {
             throw new ConversationAccessException(Messages::attachmentNotFound());
         }
 
-        if ($this->visibilityGuard !== null) {
-            try {
-                $node = $share->getNode();
-            } catch (Throwable $e) {
-                // A share whose node cannot be resolved cannot be checked against the hidden tags, so it is
-                // refused with the very same answer as an unknown attachment, in the draft and in the confirm.
-                throw new ConversationAccessException(Messages::attachmentNotFound(), $e);
-            }
-            if (!$node instanceof \OCP\Files\Node || !$this->visibilityGuard->isVisible($node)) {
-                throw new ConversationAccessException(Messages::attachmentNotFound());
-            }
+        try {
+            $node = $share->getNode();
+        } catch (Throwable $e) {
+            // A share whose node cannot be resolved cannot be checked against the hidden tags, so it is
+            // refused with the very same answer as an unknown attachment, in the draft and in the confirm.
+            throw new ConversationAccessException(Messages::attachmentNotFound(), $e);
+        }
+        if (!$node instanceof \OCP\Files\Node || !$this->visibilityGuard->isVisible($node)) {
+            throw new ConversationAccessException(Messages::attachmentNotFound());
         }
         // The owner's node is not enough: the file is checked again where the caller sees it, by the rule
         // talk_read_messages applies, so a draft never names an attachment the reading hides.
-        if ($this->references !== null && !$this->references->allowsRoomShare($userId, $share)) {
+        if (!$this->references->allowsRoomShare($userId, $share)) {
             throw new ConversationAccessException(Messages::attachmentNotFound());
         }
 
@@ -107,7 +105,7 @@ class AttachmentAccess {
 
         try {
             $node = $share->getNode();
-            if ($this->visibilityGuard !== null && $node instanceof \OCP\Files\Node && !$this->visibilityGuard->isVisible($node)) {
+            if ($node instanceof \OCP\Files\Node && !$this->visibilityGuard->isVisible($node)) {
                 return $description;
             }
         } catch (Throwable) {
