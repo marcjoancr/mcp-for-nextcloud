@@ -22,7 +22,9 @@
  * The panel is a drawer at the side of the page (S9): the Access tab shows one sentence and a button, and the drawer
  * opens from that button, from a "Restricted to N" cell or from the actions menu of a matrix row. Its modules are tabs
  * that say the saved state ("Files: 3", "Calendar: all") and whether a draft is not saved. Escape and the close button
- * close it, asking first when a draft would be lost, and the focus goes back to the control that opened it.
+ * close it, asking first when a draft would be lost, and the focus goes back to the control that opened it. The drawer
+ * is not modal, so the matrix stays usable beside it: opening another person while a draft is open asks first too, and
+ * close() says whether the drawer really closed, so another drawer never opens over a draft that was kept.
  */
 (function () {
 	'use strict'
@@ -251,16 +253,48 @@
 		root.setAttribute('role', 'dialog')
 	}
 
-	/** Closes the drawer, asking first when a draft of a module would be lost. */
+	/** @return {boolean} whether a module has a draft that is not saved */
+	function hasDraft() {
+		return Object.values(modules).some(dirty)
+	}
+
+	/** Drops the drafts the administrator agreed to lose, so they never come back when the drawer opens again. */
+	function forget() {
+		seq++
+		uid = null
+		modules = {}
+		tabs?.replaceChildren()
+		container.replaceChildren()
+	}
+
+	/**
+	 * Closes the drawer, asking first when a draft of a module would be lost.
+	 *
+	 * @return {boolean} whether the drawer is closed now: false when the administrator kept the draft
+	 */
 	function closeDrawer() {
-		if (!root.classList?.contains('mcp-drawer-open')) return
-		if (Object.values(modules).some(dirty) && !window.confirm(t('mcp', 'Close the resource scope? The changes that are not saved are lost.'))) return
+		if (!root.classList?.contains('mcp-drawer-open')) return true
+		if (hasDraft()) {
+			if (!window.confirm(t('mcp', 'Close the resource scope? The changes that are not saved are lost.'))) return false
+			forget()
+		}
 		root.classList.remove('mcp-drawer-open')
 		root.removeAttribute?.('role')
 		const target = returnFocus
 		returnFocus = null
 		focusBack(target)
 		window.dispatchEvent?.(new Event('mcp-drawer-closed'))
+		return true
+	}
+
+	/**
+	 * Whether the drafts of the open user may be lost to open another one (or the same one read again): asked, never
+	 * assumed.
+	 *
+	 * @return {boolean}
+	 */
+	function mayReplace() {
+		return !hasDraft() || window.confirm(t('mcp', 'Open another person? The changes that are not saved for {user} are lost.', { user: uid }, undefined, { escape: false }))
 	}
 
 	/**
@@ -579,11 +613,22 @@
 	 * @param {HTMLElement} [trigger] control the focus goes back to when the drawer closes
 	 */
 	function open(target, module, trigger) {
-		if (!root) return
+		if (!root) return false
+		// The same person in the open drawer: only the tab changes, and the draft stays.
+		if (root.classList?.contains('mcp-drawer-open') && target === uid && Object.keys(modules).length > 0) {
+			if (module) selectTab(module, true)
+			return true
+		}
+		// The drawer is not modal: another person can be opened from the matrix while a draft is open.
+		if (!mayReplace()) {
+			trigger?.focus?.()
+			return false
+		}
 		openDrawer(trigger)
 		userInput.value = target
 		drawerTitle?.focus?.()
 		openUser(target, module)
+		return true
 	}
 
 	window.McpScopeUi = { indicator, open, close: closeDrawer }
@@ -614,6 +659,7 @@
 			say(t('mcp', 'Enter the user ID.'), true)
 			return
 		}
+		if (!mayReplace()) return
 		openUser(target, null)
 	})
 })()

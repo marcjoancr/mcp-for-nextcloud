@@ -1275,7 +1275,6 @@
     "blocks" : "blockiert",
     "not confirmed" : "nicht bestätigt",
     "not checked" : "nicht geprüft",
-    "{user} can use the MCP tools: the general checks passed." : "{user} kann die MCP-Werkzeuge nutzen: Die allgemeinen Prüfungen sind bestanden.",
     "{user} cannot use any MCP tool." : "{user} kann kein MCP-Werkzeug nutzen.",
     "Every operation" : "Alle Vorgänge",
     "What each module grants, once the general check is fixed:" : "Was jedes Modul gewährt, sobald die allgemeine Prüfung behoben ist:",
@@ -1309,6 +1308,12 @@
     "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n Mitglied hat individuelle Einstellungen, die Vorrang vor dieser Gruppe haben.", "%n Mitglieder haben individuelle Einstellungen, die Vorrang vor dieser Gruppe haben."],
     "_%n unsaved change_::_%n unsaved changes_" : ["%n ungespeicherte Änderung", "%n ungespeicherte Änderungen"],
     "Default: {level}" : "Standard: {level}",
-    "The matrix cannot show only the members of {group}: its group filter does not list this group." : "Die Matrix kann nicht nur die Mitglieder von {group} zeigen: Ihr Gruppenfilter führt diese Gruppe nicht."
+    "The matrix cannot show only the members of {group}: its group filter does not list this group." : "Die Matrix kann nicht nur die Mitglieder von {group} zeigen: Ihr Gruppenfilter führt diese Gruppe nicht.",
+    "{user} can use the MCP tools allowed below: the general checks passed." : "{user} kann die unten erlaubten MCP-Werkzeuge nutzen: Die allgemeinen Prüfungen sind bestanden.",
+    "Not confirmed: no operation of {user} is allowed for sure now, and some cannot be confirmed." : "Nicht bestätigt: Kein Vorgang von {user} ist gerade sicher erlaubt, und einige lassen sich nicht bestätigen.",
+    "{user} cannot use any MCP tool: nothing is granted." : "{user} kann kein MCP-Werkzeug nutzen: Nichts ist gewährt.",
+    "{user} cannot use any MCP tool: every operation is blocked, as each module below says." : "{user} kann kein MCP-Werkzeug nutzen: Jeder Vorgang ist blockiert, wie jedes Modul unten zeigt.",
+    "No operation was answered, so nothing can be said about {user}." : "Kein Vorgang wurde beantwortet, daher lässt sich zu {user} nichts sagen.",
+    "Open another person? The changes that are not saved for {user} are lost." : "Andere Person öffnen? Nicht gespeicherte Änderungen für {user} gehen verloren."
 },"pluralForm":"nplurals=2; plural=(n != 1);"
 }

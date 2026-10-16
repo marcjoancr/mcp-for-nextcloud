@@ -145,8 +145,25 @@
 		}[gate] || ''
 	}
 
+	/**
+	 * What the operations say once no general check blocks: the tools can be used when one operation is allowed, it is
+	 * not confirmed when none is and one cannot be read, and nothing can be used when every one is blocked.
+	 *
+	 * @param {Array<object>} operations the operations of the answer, not empty
+	 * @return {string} usable, unknown, none_granted (every one blocked by its grant) or none
+	 */
+	function outcome(operations) {
+		if (operations.some((row) => row.allowed === true)) return 'usable'
+		if (operations.some((row) => row.allowed !== false)) return 'unknown'
+		return operations.every((row) => row.blockingGate === 'grant') ? 'none_granted' : 'none'
+	}
+
 	/** The verdict and the four general checks: passed, the one that blocks, or not checked after it. */
 	function renderVerdict(operations) {
+		// An answer without operations confirms nothing, not even the general checks.
+		if (operations.length === 0) {
+			return [el('p', { className: 'mcp-inspector-verdict', textContent: t('mcp', 'No operation was answered, so nothing can be said about {user}.', { user: inspected }, undefined, { escape: false }) })]
+		}
 		const block = generalBlock(operations)
 		const failed = block === 'eligibility_unknown' ? 'eligibility' : block
 		const index = failed === null ? GENERAL.length : GENERAL.indexOf(failed)
@@ -165,7 +182,18 @@
 			return el('li', { className: 'mcp-inspector-check-' + state }, [symbol, ' ', names[gate] + ': ' + word])
 		}))
 		if (block === null) {
-			return [el('p', { className: 'mcp-inspector-verdict mcp-inspector-allowed', textContent: t('mcp', '{user} can use the MCP tools: the general checks passed.', { user: inspected }, undefined, { escape: false }) }), checks]
+			const result = outcome(operations)
+			if (result === 'usable') {
+				return [el('p', { className: 'mcp-inspector-verdict mcp-inspector-allowed', textContent: t('mcp', '{user} can use the MCP tools allowed below: the general checks passed.', { user: inspected }, undefined, { escape: false }) }), checks]
+			}
+			const text = {
+				unknown: t('mcp', 'Not confirmed: no operation of {user} is allowed for sure now, and some cannot be confirmed.', { user: inspected }, undefined, { escape: false }),
+				none_granted: t('mcp', '{user} cannot use any MCP tool: nothing is granted.', { user: inspected }, undefined, { escape: false }),
+				none: t('mcp', '{user} cannot use any MCP tool: every operation is blocked, as each module below says.', { user: inspected }, undefined, { escape: false }),
+			}[result]
+			const said = el('div', { className: 'mcp-note ' + (result === 'unknown' ? 'mcp-note-warning' : 'mcp-note-error') }, [el('p', { textContent: text })])
+			said.setAttribute('role', 'status')
+			return [said, checks]
 		}
 		const note = el('div', { className: 'mcp-note ' + (block === 'eligibility_unknown' ? 'mcp-note-warning' : 'mcp-note-error') }, [
 			el('p', {}, [el('strong', { textContent: t('mcp', '{user} cannot use any MCP tool.', { user: inspected }, undefined, { escape: false }) }), ' ' + gateText(block) + (remedy(block) ? ' ' + remedy(block) : '')]),
@@ -311,26 +339,40 @@
 	let returnFocus = null
 	let returnRow = null
 
-	/** Opens the drawer; the focus goes back to `trigger` when it closes. Only one drawer is open at a time. */
+	/**
+	 * Opens the drawer; the focus goes back to `trigger` when it closes. Only one drawer is open at a time: when the
+	 * administrator keeps a draft of the resource scope, its drawer stays and this one does not open.
+	 *
+	 * @return {boolean} whether the drawer opened
+	 */
 	function openDrawer(trigger) {
-		window.McpScopeUi?.close?.()
+		if (window.McpScopeUi?.close?.() === false) {
+			trigger?.focus?.()
+			return false
+		}
 		returnFocus = trigger || document.activeElement || null
 		// The row of a "…" button that opened the drawer: the table may be drawn again meanwhile, and its new button is
 		// the one that gets the focus back.
 		returnRow = returnFocus?.closest?.('tr')?.dataset?.uid ?? null
 		root.classList?.add('mcp-drawer-open')
 		root.setAttribute('role', 'dialog')
+		return true
 	}
 
-	/** Closes the drawer and gives the focus back. The inspector only reads, so nothing can be lost. */
+	/**
+	 * Closes the drawer and gives the focus back. The inspector only reads, so nothing can be lost.
+	 *
+	 * @return {boolean} always true: the drawer is closed now
+	 */
 	function closeDrawer() {
-		if (!root.classList?.contains('mcp-drawer-open')) return
+		if (!root.classList?.contains('mcp-drawer-open')) return true
 		root.classList.remove('mcp-drawer-open')
 		root.removeAttribute?.('role')
 		const target = returnFocus
 		returnFocus = null
 		focusBack(target)
 		window.dispatchEvent?.(new Event('mcp-drawer-closed'))
+		return true
 	}
 
 	/**
@@ -348,8 +390,7 @@
 	}
 
 	entryButton?.addEventListener('click', () => {
-		openDrawer(entryButton)
-		user.focus?.()
+		if (openDrawer(entryButton)) user.focus?.()
 	})
 	closeButton?.addEventListener('click', () => closeDrawer())
 	root.addEventListener?.('keydown', (event) => {
@@ -362,10 +403,11 @@
 	// The actions menu of a matrix row inspects that user (js/admin-row-actions.js), in the drawer.
 	window.McpInspectorUi = {
 		open(target, trigger) {
-			openDrawer(trigger)
+			if (!openDrawer(trigger)) return false
 			user.value = target
 			drawerTitle?.focus?.()
 			inspect()
+			return true
 		},
 		close: closeDrawer,
 	}

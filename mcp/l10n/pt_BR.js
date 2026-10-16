@@ -1282,7 +1282,6 @@ OC.L10N.register(
     "blocks" : "bloqueia",
     "not confirmed" : "não confirmado",
     "not checked" : "não verificado",
-    "{user} can use the MCP tools: the general checks passed." : "{user} pode usar as ferramentas MCP: as verificações gerais passaram.",
     "{user} cannot use any MCP tool." : "{user} não pode usar nenhuma ferramenta MCP.",
     "Every operation" : "Todas as operações",
     "What each module grants, once the general check is fixed:" : "O que cada módulo concede, quando a verificação geral for resolvida:",
@@ -1316,6 +1315,12 @@ OC.L10N.register(
     "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n membro tem definições individuais que vencem este grupo.", "%n membros têm definições individuais que vencem este grupo.", "%n membros têm definições individuais que vencem este grupo."],
     "_%n unsaved change_::_%n unsaved changes_" : ["%n mudança não salva", "%n mudanças não salvas", "%n mudanças não salvas"],
     "Default: {level}" : "Padrão: {level}",
-    "The matrix cannot show only the members of {group}: its group filter does not list this group." : "A matriz não consegue mostrar só os membros de {group}: o filtro de grupo dela não lista este grupo."
+    "The matrix cannot show only the members of {group}: its group filter does not list this group." : "A matriz não consegue mostrar só os membros de {group}: o filtro de grupo dela não lista este grupo.",
+    "{user} can use the MCP tools allowed below: the general checks passed." : "{user} pode usar as ferramentas MCP permitidas abaixo: as verificações gerais passaram.",
+    "Not confirmed: no operation of {user} is allowed for sure now, and some cannot be confirmed." : "Não confirmado: nenhuma operação de {user} está permitida com certeza agora, e algumas não podem ser confirmadas.",
+    "{user} cannot use any MCP tool: nothing is granted." : "{user} não pode usar nenhuma ferramenta MCP: nada está concedido.",
+    "{user} cannot use any MCP tool: every operation is blocked, as each module below says." : "{user} não pode usar nenhuma ferramenta MCP: toda operação está bloqueada, como cada módulo abaixo diz.",
+    "No operation was answered, so nothing can be said about {user}." : "Nenhuma operação foi respondida, então nada pode ser dito sobre {user}.",
+    "Open another person? The changes that are not saved for {user} are lost." : "Abrir outra pessoa? As alterações não salvas de {user} serão perdidas."
 },
 "nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;");

@@ -189,7 +189,7 @@ test('S10: when one general check blocks every operation, one sentence says whic
 test('S10: without a general block the verdict says so, and each module has one line with its level, origin and block', async () => {
 	const ui = await inspected(verdictRows(null))
 	const text = ui.ids['mcp-inspector-access'].textContent.replace(/\s+/g, ' ')
-	assert.match(text, /alice can use the MCP tools: the general checks passed\./)
+	assert.match(text, /alice can use the MCP tools allowed below: the general checks passed\./)
 	const modules = ui.ids['mcp-inspector-access'].all('li').filter((li) => li.className === 'mcp-inspector-module').map((li) => li.textContent.replace(/\s+/g, ' '))
 	assert.equal(modules.length, 2)
 	assert.match(modules[0], /^Notes Full /, 'the level the grants give: with only read and edit in this answer, both allowed is the top level')
@@ -200,10 +200,33 @@ test('S10: without a general block the verdict says so, and each module has one 
 	assert.equal(ui.ids['mcp-inspector-access'].all('tr').length, 4, 'header and three operations')
 })
 
-test('S10: different general checks on different operations are not one verdict', async () => {
-	const op = (operation, gate) => ({ module: 'notes', operation, allowed: false, reasonCode: gate, blockingGate: gate, grant: { allowed: false, source: 'default', groupIds: [] }, scope: { mode: 'all', count: null } })
-	const ui = await inspected([op('read', 'service'), op('edit', 'connection')])
-	assert.doesNotMatch(ui.ids['mcp-inspector-access'].textContent, /cannot use any MCP tool/)
+test('F5: without a general block the verdict comes from the operations, never "can use" when nothing is allowed or known', async () => {
+	// The server applies the general checks in one order for every operation (PolicyOperationContext), so with none of
+	// them blocking, what is left to say comes from the operations themselves.
+	const op = (operation, allowed, gate) => ({ module: 'notes', operation, allowed, reasonCode: gate || 'allowed', blockingGate: gate, grant: { allowed: gate === 'grant' ? false : allowed, source: 'default', groupIds: [] }, scope: { mode: 'all', count: null } })
+	const verdict = async (operations) => {
+		const ui = await inspected(operations)
+		const access = ui.ids['mcp-inspector-access']
+		return { text: access.textContent.replace(/\s+/g, ' '), checks: access.all('li').filter((li) => (li.className || '').startsWith('mcp-inspector-check-')).map((li) => li.className) }
+	}
+	const passed = ['mcp-inspector-check-passed', 'mcp-inspector-check-passed', 'mcp-inspector-check-passed', 'mcp-inspector-check-passed']
+	const none = await verdict([op('read', false, 'grant'), op('edit', false, 'grant')])
+	assert.match(none.text, /alice cannot use any MCP tool: nothing is granted\./)
+	assert.doesNotMatch(none.text, /can use the MCP tools/)
+	assert.deepEqual(none.checks, passed, 'the general checks did pass')
+	const unknown = await verdict([op('read', null, 'grant_unknown'), op('edit', null, 'grant_unknown')])
+	assert.match(unknown.text, /Not confirmed: no operation of alice is allowed for sure now, and some cannot be confirmed\./)
+	assert.doesNotMatch(unknown.text, /can use the MCP tools/)
+	const scope = await verdict([op('read', null, 'resource_scope_unknown'), op('edit', false, 'grant')])
+	assert.match(scope.text, /Not confirmed:/, 'an unreadable scope is a doubt, not a "can use"')
+	const blocked = await verdict([op('read', false, 'resource_scope'), op('edit', false, 'grant')])
+	assert.match(blocked.text, /alice cannot use any MCP tool: every operation is blocked, as each module below says\./, 'blocked by more than its grant')
+	const some = await verdict([op('read', true, null), op('edit', false, 'grant'), op('create', null, 'grant_unknown')])
+	assert.match(some.text, /alice can use the MCP tools allowed below/, 'one allowed operation is enough')
+	const empty = await verdict([])
+	assert.match(empty.text, /No operation was answered, so nothing can be said about alice\./)
+	assert.deepEqual(empty.checks, [], 'no check is shown as passed without an operation')
+	assert.doesNotMatch(empty.text, /can use|cannot use/)
 })
 
 test('S10: the inspector opens as a drawer from a row and from its button, closes on Escape, and only one drawer is open', async () => {
@@ -227,6 +250,23 @@ test('S10: the inspector opens as a drawer from a row and from its button, close
 	assert.equal(focused, ui.ids['mcp-inspector-user'], 'the button of the tab opens it on the user field')
 	ui.ids['mcp-inspector-close'].listeners.click()
 	assert.equal(focused, ui.ids['mcp-inspector-entry'])
+})
+
+test('F6: the inspector does not open over a resource scope whose draft the administrator kept', async () => {
+	const ui = await app()
+	const root = ui.ids['mcp-inspector']
+	ui.window.McpScopeUi = { close: () => false }
+	const trigger = new Element('button')
+	assert.equal(ui.window.McpInspectorUi.open('alice', trigger), false)
+	await tick()
+	assert.ok(!root.classes.has('mcp-drawer-open'), 'one drawer at a time: the scope stays, the inspector does not open')
+	assert.ok(!ui.calls.some((call) => call.url.startsWith('/apps/mcp/api/inspector/access')), 'nothing is inspected')
+	assert.equal(focused, trigger, 'the focus stays on the control, never on the page')
+	ui.ids['mcp-inspector-entry'].listeners.click()
+	assert.ok(!root.classes.has('mcp-drawer-open'))
+	ui.window.McpScopeUi = { close: () => true }
+	assert.equal(ui.window.McpInspectorUi.open('alice', trigger), true)
+	assert.ok(root.classes.has('mcp-drawer-open'))
 })
 
 test('F4: the inspector gives the focus to the new "…" of the row when the old one is gone, or to its own button', async () => {

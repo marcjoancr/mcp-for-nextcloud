@@ -483,3 +483,64 @@ test('F4: when the table was drawn again and the "…" that opened the drawer is
 	assert.equal(ui.active(), ui.ids['mcp-scope-entry'])
 	assert.ok(ui.events.includes('mcp-drawer-closed'), 'the matrix may draw itself again now')
 })
+
+/** Opens the drawer on alice with a draft in Calendar (Team added, not saved). */
+async function withDraft(options) {
+	const ui = await app(undefined, Object.assign({ drawer: true }, options))
+	ui.ui.open('alice', 'calendar', new Element('button'))
+	await tick()
+	await ui.click(ui.module('calendar').button('Search'))
+	await ui.click(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add Team'))
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+	return ui
+}
+const reads = (ui, uid) => ui.calls.filter((call) => call.method === 'GET' && call.url === '/apps/mcp/api/scope/' + uid + '/files').length
+
+test('F6: opening another person from the matrix while a draft is open asks first; a "no" keeps the draft and the focus', async () => {
+	const ui = await withDraft({ confirm: false })
+	const trigger = new Element('button')
+	assert.equal(ui.ui.open('bruno', 'files', trigger), false)
+	await tick()
+	assert.deepEqual(ui.confirms, ['Open another person? The changes that are not saved for alice are lost.'])
+	assert.equal(reads(ui, 'bruno'), 0, 'bruno is not read')
+	assert.equal(ui.ids['mcp-scope-user'].value, 'alice')
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)', 'the draft of alice stays')
+	assert.equal(ui.active(), trigger, 'the focus goes back to the control, never to the page')
+	// The form of the drawer asks too, even for the same person: reading her again would drop the draft.
+	ui.ids['mcp-scope-user'].value = 'alice'
+	await ui.ids['mcp-scope-form'].listeners.submit({ preventDefault() {} })
+	await tick()
+	assert.equal(ui.confirms.length, 2)
+	assert.equal(reads(ui, 'alice'), 1, 'alice is not read again')
+	assert.equal(ui.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+})
+
+test('F6: a "yes" drops the draft and opens the other person; the same person only changes tab and keeps it', async () => {
+	const same = await withDraft()
+	assert.equal(same.ui.open('alice', 'tasks', new Element('button')), true)
+	await tick()
+	assert.deepEqual(same.confirms, [], 'nothing is lost, nothing is asked')
+	assert.equal(reads(same, 'alice'), 1)
+	assert.equal(same.module('tasks').hidden, false)
+	assert.equal(same.ids['mcp-scope-tabs'].children[1].textContent, 'Calendar: 1 (not saved)')
+	const ui = await withDraft()
+	assert.equal(ui.ui.open('bruno', undefined, new Element('button')), true)
+	await tick()
+	assert.equal(ui.confirms.length, 1)
+	assert.equal(reads(ui, 'bruno'), 1)
+	assert.equal(ui.ids['mcp-scope-user'].value, 'bruno')
+	assert.ok(ui.ids['mcp-scope-tabs'].children.every((tab) => !tab.textContent.includes('not saved')))
+})
+
+test('F6: close() says whether the drawer closed, and a draft given up does not come back', async () => {
+	const kept = await withDraft({ confirm: false })
+	assert.equal(kept.ui.close(), false, 'the administrator kept the draft: the drawer is still open')
+	assert.ok(kept.ids['mcp-scope'].classes.has('mcp-drawer-open'))
+	const ui = await withDraft()
+	assert.equal(ui.ui.close(), true)
+	assert.equal(ui.ui.close(), true, 'a closed drawer is closed')
+	ui.ids['mcp-scope-entry'].listeners.click()
+	assert.deepEqual(ui.ids['mcp-scope-tabs'].children, [], 'the draft that was given up is gone')
+	assert.equal(ui.ui.open('bruno', undefined, new Element('button')), true)
+	assert.equal(ui.confirms.length, 1, 'only the closing asked')
+})
