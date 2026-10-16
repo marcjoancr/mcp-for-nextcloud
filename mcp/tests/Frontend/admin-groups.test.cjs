@@ -333,12 +333,17 @@ test('S7/L2: one line per group: the ID only when it differs, a short end, and t
 	assert.equal(ti.all('span').find((span) => span.className === 'mcp-group-end').textContent, '—')
 	assert.equal(ti.title, label(ti), 'the tooltip carries the full name, ID and state')
 	const ends = (item) => item.all('span').find((span) => span.className.startsWith('mcp-group-end'))
-	for (const [item, symbol, words] of [[finance, '⚠', 'Awaiting confirmation'], [sales, '🔒', 'Cannot grant access'], [gone, '⊘', 'Deleted group'], [leaving, '⚠', 'Deletion pending'], [remote, '?', 'Source unavailable']]) {
-		assert.equal(ends(item).textContent, symbol)
+	for (const [item, symbol, words] of [[finance, '⚠', 'Awaiting confirmation'], [sales, null, 'Cannot grant access'], [gone, '⊘', 'Deleted group'], [leaving, '⚠', 'Deletion pending'], [remote, '?', 'Source unavailable']]) {
+		if (symbol === null) {
+			// A group that cannot grant shows the lock as an inline SVG icon, never as an emoji.
+			assert.equal(ends(item).textContent, '')
+			assert.match(ends(item).innerHTML, /^<svg [^>]*fill="currentColor"[^>]*aria-hidden="true"/)
+			assert.doesNotMatch(ends(item).innerHTML, /[\u{1F000}-\u{1FAFF}]/u)
+		} else assert.equal(ends(item).textContent, symbol)
 		assert.equal(ends(item).attributes['aria-hidden'], 'true', 'the symbol is decoration; the words carry the state')
 		assert.ok(label(item).endsWith(words), label(item))
 	}
-	assert.equal(new Set([finance, sales, gone, remote].map((item) => ends(item).textContent)).size, 4, 'states differ in shape, not only in colour')
+	assert.equal(new Set([finance, sales, gone, remote].map((item) => ends(item).innerHTML || ends(item).textContent)).size, 4, 'states differ in shape, not only in colour')
 	assert.equal(ui.ids['mcp-group-count'].textContent, '7 groups')
 })
 test('S7: only the open group is marked with aria-current, and the list keeps the mark across pages of the detail', async () => {
