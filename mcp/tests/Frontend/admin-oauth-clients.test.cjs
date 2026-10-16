@@ -437,3 +437,13 @@ test('T14 D1 review F1 (re-read): a real change with NUL at the ends is trimmed 
 		assert.deepEqual(ui.log.announced, [['5', '6']], name)
 	}
 })
+
+test('T14 D1 review F1 (re-read 2): a stored name with no-break spaces, which PHP\'s trim keeps, saved as the plain name is a change and is announced', async () => {
+	// The server stored " A " with no-break spaces; the card sends "A" (String.trim() drops them), which differs.
+	const ui = await page(({ method }) => method === 'GET' ? [200, state('5', [client('aaaaaaaaaaaa', ' A ')])] : [200, state('6', [client('aaaaaaaaaaaa', 'A')])])
+	const card = ui.cards()[0]
+	card.querySelector('input[type="text"]').value = 'A'
+	await button(card, 'Save').fire('click')
+	assert.equal(puts(ui.log)[0].body.customClients[0].name, 'A')
+	assert.deepEqual(ui.log.announced, [['5', '6']])
+})
