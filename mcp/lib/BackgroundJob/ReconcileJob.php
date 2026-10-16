@@ -9,6 +9,7 @@ namespace OCA\Mcp\BackgroundJob;
 
 use OCA\Mcp\Service\Policy\CauseProcessor;
 use OCA\Mcp\Service\Policy\GroupLifecycle;
+use OCA\Mcp\Service\Policy\ScopeCleanup;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
@@ -20,11 +21,16 @@ use OCP\BackgroundJob\TimedJob;
  * appinfo/info.xml and run by the server's own background job runner, so nothing extra is needed. Idempotent: a cause
  * already consumed is not found again. The app stays correct when it does not run, because the preflight of every
  * request of a user and every issuance process that user's causes first.
+ *
+ * Its last step is a diagnostic of the resource scope (ScopeCleanup::reconcile(), contracts B.3): it counts the scopes
+ * that belong to accounts that are gone and removes nothing. The scope of a deleted account is removed only by the
+ * deletion event; when that event came inside a transaction or was lost, the scope is kept (an account recreated under
+ * the id stays restricted) and this pass only reports it.
  */
 class ReconcileJob extends TimedJob {
     public const INTERVAL = 900;
 
-    public function __construct(ITimeFactory $time, private CauseProcessor $causes, private GroupLifecycle $groups) {
+    public function __construct(ITimeFactory $time, private CauseProcessor $causes, private GroupLifecycle $groups, private ?ScopeCleanup $scopes = null) {
         parent::__construct($time);
         $this->setInterval(self::INTERVAL);
         $this->setTimeSensitivity(self::TIME_SENSITIVE);
@@ -35,5 +41,6 @@ class ReconcileJob extends TimedJob {
         $this->causes->flush();
         $this->groups->reconcile();
         $this->causes->reconcile();
+        $this->scopes?->reconcile();
     }
 }

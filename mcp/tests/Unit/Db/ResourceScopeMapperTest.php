@@ -320,4 +320,43 @@ final class ResourceScopeMapperTest extends TestCase {
         $this->assertSame([], $this->scopes->forUser('alice'));
         $this->assertSame(0, $this->rowCount(ResourceScopeMapper::ITEMS_TABLE));
     }
+
+    public function testUsersWithModesAreListedOncePerUserByKeyInPagesAfterACursor(): void {
+        $this->inTransaction(function (): void {
+            foreach (['alice', 'bob', 'carol'] as $uid) {
+                $this->scopes->replace($uid, 'files', ['1'], '1');
+                $this->scopes->replace($uid, 'calendar', ['2'], '2');
+            }
+        });
+        $keys = [];
+        foreach (['alice', 'bob', 'carol'] as $uid) {
+            $keys[IdentityKey::user($uid)] = $uid;
+        }
+        ksort($keys);
+        $expected = [];
+        foreach ($keys as $key => $uid) {
+            $expected[] = ['userKey' => $key, 'userId' => $uid];
+        }
+
+        $this->assertSame($expected, $this->scopes->usersWithModes(10), 'two modules of one user give one entry');
+        $first = $this->scopes->usersWithModes(1);
+        $this->assertSame([$expected[0]], $first);
+        $this->assertSame([$expected[1]], $this->scopes->usersWithModes(1, $first[0]['userKey']));
+        $this->assertSame([], $this->scopes->usersWithModes(1, $expected[2]['userKey']));
+    }
+
+    public function testOnlyUsersWithoutAModeAreCountedAsOrphanItemUsers(): void {
+        $this->inTransaction(fn () => $this->scopes->replace('alice', 'files', ['1'], '1'));
+        $this->assertSame(0, $this->scopes->orphanItemUsers());
+        // Items of a module the user has no mode for, whoever the user is: one user key counts once.
+        foreach (['5', '6'] as $id) {
+            $this->database->dbal->insert(ResourceScopeMapper::ITEMS_TABLE, [
+                'user_key' => IdentityKey::user('carol'), 'module' => 'files', 'resource_key' => IdentityKey::resource('files', $id), 'resource_id' => $id,
+            ]);
+        }
+        $this->database->dbal->insert(ResourceScopeMapper::ITEMS_TABLE, [
+            'user_key' => IdentityKey::user('alice'), 'module' => 'calendar', 'resource_key' => IdentityKey::resource('calendar', '9'), 'resource_id' => '9',
+        ]);
+        $this->assertSame(2, $this->scopes->orphanItemUsers(), 'carol and the calendar items of alice, who has no calendar mode');
+    }
 }
