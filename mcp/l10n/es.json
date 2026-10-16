@@ -1222,6 +1222,21 @@
     "Not saved: the settings changed after this page was loaded. Your changes are kept here; check them and save again." : "No guardado: la configuración cambió después de cargar esta página. Sus cambios se conservan aquí; revíselos y vuelva a guardar.",
     "Not saved: this client was deleted in the meantime. Your changes are kept here as a new client; saving adds it again." : "No guardado: este cliente se eliminó mientras tanto. Sus cambios se conservan aquí como un cliente nuevo; al guardar se vuelve a añadir.",
     "Delete the client “{name}”? Its connections are signed out at once." : "¿Eliminar el cliente «{name}»? Sus conexiones se cierran de inmediato.",
-    "Could not delete the self-hosted client." : "No se pudo eliminar el cliente autoalojado."
+    "Could not delete the self-hosted client." : "No se pudo eliminar el cliente autoalojado.",
+    "Show permissions as" : "Mostrar permisos como",
+    "Levels" : "Niveles",
+    "Operations" : "Operaciones",
+    "Set for this person" : "Definido para esta persona",
+    "From a group" : "Viene de un grupo",
+    "No icon: default" : "Sin icono: predeterminado",
+    "Choose a level to see and change its operations." : "Elige un nivel para ver y cambiar sus operaciones.",
+    "None" : "Ninguno",
+    "Read" : "Leer",
+    "Edit" : "Editar",
+    "Full" : "Total",
+    "Custom" : "Personalizado",
+    "Allows nothing" : "No permite nada",
+    "Allows: {operations}" : "Permite: {operations}",
+    "{user}, {module}: {level}. {source}. Open the operations." : "{user}, {module}: {level}. {source}. Abrir las operaciones."
 },"pluralForm" :"nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

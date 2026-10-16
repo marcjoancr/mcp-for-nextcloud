@@ -1219,6 +1219,21 @@ OC.L10N.register(
     "Not saved: the settings changed after this page was loaded. Your changes are kept here; check them and save again." : "Nicht gespeichert: Die Einstellungen wurden geändert, nachdem diese Seite geladen wurde. Deine Änderungen bleiben hier erhalten; prüfe sie und speichere erneut.",
     "Not saved: this client was deleted in the meantime. Your changes are kept here as a new client; saving adds it again." : "Nicht gespeichert: Dieser Client wurde inzwischen gelöscht. Deine Änderungen bleiben hier als neuer Client erhalten; beim Speichern wird er erneut hinzugefügt.",
     "Delete the client “{name}”? Its connections are signed out at once." : "Client „{name}“ löschen? Seine Verbindungen werden sofort abgemeldet.",
-    "Could not delete the self-hosted client." : "Der selbst gehostete Client konnte nicht gelöscht werden."
+    "Could not delete the self-hosted client." : "Der selbst gehostete Client konnte nicht gelöscht werden.",
+    "Show permissions as" : "Berechtigungen anzeigen als",
+    "Levels" : "Stufen",
+    "Operations" : "Vorgänge",
+    "Set for this person" : "Für diese Person festgelegt",
+    "From a group" : "Kommt von einer Gruppe",
+    "No icon: default" : "Ohne Symbol: Standard",
+    "Choose a level to see and change its operations." : "Wähle eine Stufe, um ihre Vorgänge zu sehen und zu ändern.",
+    "None" : "Keine",
+    "Read" : "Lesen",
+    "Edit" : "Bearbeiten",
+    "Full" : "Voll",
+    "Custom" : "Angepasst",
+    "Allows nothing" : "Erlaubt nichts",
+    "Allows: {operations}" : "Erlaubt: {operations}",
+    "{user}, {module}: {level}. {source}. Open the operations." : "{user}, {module}: {level}. {source}. Vorgänge öffnen."
 },
 "nplurals=2; plural=(n != 1);");

@@ -18,6 +18,7 @@
  * @var \OCP\IL10N $l
  */
 \OCP\Util::addScript('mcp', 'admin-picker');
+\OCP\Util::addScript('mcp', 'admin-levels');
 \OCP\Util::addScript('mcp', 'admin-grants');
 \OCP\Util::addScript('mcp', 'admin-overrides');
 \OCP\Util::addScript('mcp', 'admin-groups');
@@ -121,10 +122,16 @@
                 <option value="eligible" selected><?php p($l->t('Only users who can connect')); ?></option>
                 <option value="connected"><?php p($l->t('Only connected users')); ?></option>
             </select>
-            <label for="mcp-app"><?php p($l->t('Show apps')); ?></label>
-            <select id="mcp-app" disabled>
-                <option value=""><?php p($l->t('All apps')); ?></option>
-            </select>
+            <span class="mcp-view" role="group" aria-label="<?php p($l->t('Show permissions as')); ?>">
+                <button type="button" id="mcp-view-levels" aria-pressed="true"><?php p($l->t('Levels')); ?></button>
+                <button type="button" id="mcp-view-operations" aria-pressed="false"><?php p($l->t('Operations')); ?></button>
+            </span>
+            <span id="mcp-app-filter" hidden>
+                <label for="mcp-app"><?php p($l->t('Show apps')); ?></label>
+                <select id="mcp-app" disabled>
+                    <option value=""><?php p($l->t('All apps')); ?></option>
+                </select>
+            </span>
             <span>
                 <input type="checkbox" class="checkbox" id="mcp-compact">
                 <label for="mcp-compact"><?php p($l->t('Compact rows')); ?></label>
@@ -147,7 +154,14 @@
             <button type="button" id="mcp-bulk-undo" hidden><?php p($l->t('Undo')); ?></button>
         </div>
         <div class="mcp-toolbar mcp-toolbar-bottom">
-            <p class="mcp-legend">
+            <p class="mcp-legend mcp-legend-levels" id="mcp-legend-levels">
+                <span class="mcp-legend-item"><span class="mcp-origin-icon icon-user" aria-hidden="true"></span> <?php p($l->t('Set for this person')); ?></span>
+                <span class="mcp-legend-item"><span class="mcp-origin-icon icon-group" aria-hidden="true"></span> <?php p($l->t('From a group')); ?></span>
+                <span class="mcp-legend-item"><?php p($l->t('No icon: default')); ?></span>
+                <span class="mcp-legend-item"><span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t('Unavailable')); ?></span>
+                <span><?php p($l->t('Choose a level to see and change its operations.')); ?></span>
+            </p>
+            <p class="mcp-legend" id="mcp-legend-operations" hidden>
                 <span class="mcp-legend-item"><input type="checkbox" checked disabled aria-hidden="true" tabindex="-1"> <?php p($l->t('Allowed')); ?></span>
                 <span class="mcp-legend-item"><input type="checkbox" disabled aria-hidden="true" tabindex="-1"> <?php p($l->t('Denied')); ?></span>
                 <span class="mcp-legend-item"><span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t('Unavailable')); ?></span>

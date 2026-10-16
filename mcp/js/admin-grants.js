@@ -29,12 +29,19 @@
 
 	/** Columns the matrix always shows besides the permissions: user, "Can connect" and "Connected". */
 	const FIXED_COLUMNS = 3
-	const state = { search: '', group: '', filter: 'eligible', page: 1, app: '', data: null, groupsLoaded: false }
+	/**
+	 * view is "levels" (one access level per module, js/admin-levels.js) or "operations" (a box per operation); app filters
+	 * the operations view only. Both live in the address as #access?view=operations&app=<module>.
+	 */
+	const state = { search: '', group: '', filter: 'eligible', page: 1, app: '', view: 'levels', data: null, groupsLoaded: false }
 	const table = document.getElementById('mcp-matrix')
 	const searchInput = document.getElementById('mcp-search')
 	const groupSelect = document.getElementById('mcp-group')
 	const filterSelect = document.getElementById('mcp-filter')
 	const appSelect = document.getElementById('mcp-app')
+	const appFilter = document.getElementById('mcp-app-filter')
+	const viewButtons = { levels: document.getElementById('mcp-view-levels'), operations: document.getElementById('mcp-view-operations') }
+	const legends = { levels: document.getElementById('mcp-legend-levels'), operations: document.getElementById('mcp-legend-operations') }
 	const compactBox = document.getElementById('mcp-compact')
 	const countInfo = document.getElementById('mcp-count')
 	const prevButtons = [document.getElementById('mcp-prev'), document.getElementById('mcp-prev-bottom')]
@@ -303,7 +310,7 @@
 	/** Replaces the body with an error row and a retry button, keeping the last header. */
 	function renderError() {
 		const retry = el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: load })
-		const cell = el('td', { colSpan: table.tHead.rows[1] ? table.tHead.rows[1].cells.length + FIXED_COLUMNS : 1, className: 'mcp-empty mcp-load-error' },
+		const cell = el('td', { colSpan: state.data ? FIXED_COLUMNS + visiblePermissionColumns() : 1, className: 'mcp-empty mcp-load-error' },
 			[t('mcp', 'Could not load the users.'), ' ', retry])
 		table.tBodies[0].replaceChildren(el('tr', {}, [cell]))
 		applyAppFilter()
@@ -340,8 +347,9 @@
 
 	/** Filter only presentation; user queries and permission payloads stay unchanged. */
 	function applyAppFilter() {
+		const app = shownApp()
 		for (const cell of table.querySelectorAll('[data-module]')) {
-			cell.hidden = state.app !== '' && cell.dataset.module !== state.app
+			cell.hidden = app !== '' && cell.dataset.module !== app
 			if (cell.hidden) {
 				for (const menu of cell.querySelectorAll('details[open]')) {
 					menu.open = false
@@ -364,11 +372,47 @@
 		if (tab !== 'access') {
 			return
 		}
-		state.app = new URLSearchParams(query).get('app') || ''
-		if (state.data) {
-			renderApps()
-			applyAppFilter()
+		const params = new URLSearchParams(query)
+		const view = params.get('view') === 'operations' ? 'operations' : 'levels'
+		state.app = params.get('app') || ''
+		if (!state.data) {
+			state.view = view
+			return
 		}
+		if (view !== state.view) {
+			state.view = view
+			render()
+			return
+		}
+		renderApps()
+		applyAppFilter()
+	}
+
+	/** @return {boolean} whether the matrix shows one level per module */
+	function isLevelsView() {
+		return state.view === 'levels' && Boolean(window.McpAdminLevels)
+	}
+
+	/** @return {string} the app whose columns are shown alone, '' for all; the levels view always shows every module */
+	function shownApp() {
+		return isLevelsView() ? '' : state.app
+	}
+
+	/**
+	 * Switches between the levels and the operations view, keeping the page, the filters and the data on screen.
+	 *
+	 * @param {string} view "levels" or "operations"
+	 * @param {string} [app] module to show alone in the operations view
+	 */
+	function setView(view, app) {
+		state.view = view
+		if (app !== undefined) {
+			state.app = app
+		}
+		if (state.data) {
+			render()
+		}
+		writeAppToHash(false)
 	}
 
 	/**
@@ -387,6 +431,11 @@
 		} else {
 			params.set('app', state.app)
 		}
+		if (state.view === 'operations') {
+			params.set('view', 'operations')
+		} else {
+			params.delete('view')
+		}
 		const next = '#access' + (params.toString() ? '?' + params.toString() : '')
 		if (next === window.location.hash) {
 			return
@@ -403,6 +452,13 @@
 		applyAppFilter()
 		writeAppToHash(false)
 	})
+	for (const [view, button] of Object.entries(viewButtons)) {
+		button?.addEventListener('click', () => {
+			if (state.view !== view) {
+				setView(view)
+			}
+		})
+	}
 	window.addEventListener('hashchange', readAppFromHash)
 	readAppFromHash()
 
@@ -487,12 +543,24 @@
 		renderApps()
 		const modules = moduleLabels()
 		const operations = operationLabels()
+		const levelsView = isLevelsView()
+		for (const [view, button] of Object.entries(viewButtons)) {
+			button?.setAttribute('aria-pressed', String(view === (levelsView ? 'levels' : 'operations')))
+		}
+		for (const [view, legend] of Object.entries(legends)) {
+			if (legend) legend.hidden = view !== (levelsView ? 'levels' : 'operations')
+		}
+		if (appFilter) {
+			appFilter.hidden = levelsView
+		}
+		table.classList.toggle('mcp-levels', levelsView)
 
 		const top = el('tr')
 		const sub = el('tr')
-		top.append(el('th', { rowSpan: 2, className: 'mcp-user-col', scope: 'col', textContent: t('mcp', 'User') }))
+		const rowSpan = levelsView ? 1 : 2
+		top.append(el('th', { rowSpan, className: 'mcp-user-col', scope: 'col', textContent: t('mcp', 'User') }))
 		const canConnect = t('mcp', 'Can connect')
-		top.append(el('th', { rowSpan: 2, scope: 'col', title: t('mcp', 'The administrator allows this user to connect an MCP client') }, [
+		top.append(el('th', { rowSpan, scope: 'col', title: t('mcp', 'The administrator allows this user to connect an MCP client') }, [
 			canConnect, ' ', bulkMenu(null, [{ operations: ['eligible'], label: canConnect }], t('mcp', 'Change “{permission}” for every user on this page', { permission: canConnect })),
 		]))
 		Object.entries(data.catalog).forEach(([module, ops], index) => {
@@ -500,11 +568,14 @@
 			const name = modules[module] || module
 			const entries = ops.map((operation) => ({ operations: [operation], label: name + ': ' + (operations[operation] || operation) }))
 			entries.push({ operations: ops, label: t('mcp', '{module}: every permission', { module: name }) })
-			const header = el('th', { colSpan: ops.length, scope: 'colgroup', className: 'mcp-module ' + band }, [
+			const header = el('th', { colSpan: levelsView ? 1 : ops.length, scope: levelsView ? 'col' : 'colgroup', className: 'mcp-module ' + band }, [
 				name, ' ', bulkMenu(module, entries, t('mcp', 'Change {module} permissions for every user on this page', { module: name })),
 			])
 			header.dataset.module = module
 			top.append(header)
+			if (levelsView) {
+				return
+			}
 			ops.forEach((operation, i) => {
 				const cell = el('th', {
 					scope: 'col',
@@ -516,8 +587,8 @@
 				sub.append(cell)
 			})
 		})
-		top.append(el('th', { rowSpan: 2, scope: 'col', textContent: t('mcp', 'Connected') }))
-		table.tHead.replaceChildren(top, sub)
+		top.append(el('th', { rowSpan, scope: 'col', textContent: t('mcp', 'Connected') }))
+		table.tHead.replaceChildren(...(levelsView ? [top] : [top, sub]))
 		if (bulkBusy) {
 			setBulkBusy(true)
 		}
@@ -526,7 +597,7 @@
 
 		const rows = data.users.map(renderRow)
 		if (rows.length === 0) {
-			const columns = FIXED_COLUMNS + Object.values(data.catalog).reduce((sum, ops) => sum + ops.length, 0)
+			const columns = FIXED_COLUMNS + (levelsView ? Object.keys(data.catalog).length : Object.values(data.catalog).reduce((sum, ops) => sum + ops.length, 0))
 			rows.push(el('tr', {}, [el('td', { colSpan: columns, className: 'mcp-empty', textContent: t('mcp', 'No users found.') })]))
 		}
 		table.tBodies[0].replaceChildren(...rows)
@@ -595,6 +666,11 @@
 		}
 		const modules = moduleLabels()
 		const operations = operationLabels()
+		if (isLevelsView()) {
+			Object.entries(state.data.catalog).forEach(([module, ops], index) => row.append(levelCell(user, module, ops, index)))
+			row.append(el('td', { className: 'mcp-connected', textContent: user.connected ? t('mcp', 'yes') : t('mcp', 'no') }))
+			return row
+		}
 		Object.entries(state.data.catalog).forEach(([module, ops], index) => {
 			ops.forEach((operation, i) => {
 				// The same name as the column header and the reset button, never the raw id ("files:read").
@@ -635,6 +711,9 @@
 
 	/** @return {number} permission columns shown with the current app filter */
 	function visiblePermissionColumns() {
+		if (isLevelsView()) {
+			return Object.keys(state.data?.catalog || {}).length
+		}
 		return Object.entries(state.data?.catalog || {})
 			.filter(([module]) => state.app === '' || module === state.app)
 			.reduce((sum, [, operations]) => sum + operations.length, 0)
@@ -770,6 +849,110 @@
 		// The override state and the per-cell reset come from js/admin-overrides.js, when it is loaded.
 		window.McpAdminOverrides?.decorateCell(cell, box, user, module, module === null ? 'eligible' : body.operation)
 		return cell
+	}
+
+	/** @return {Object<string, string>} names of the access levels of js/admin-levels.js */
+	function levelLabels() {
+		return {
+			none: t('mcp', 'None'),
+			read: t('mcp', 'Read'),
+			edit: t('mcp', 'Edit'),
+			full: t('mcp', 'Full'),
+			custom: t('mcp', 'Custom'),
+		}
+	}
+
+	/**
+	 * Where a module's values come from, as a sentence for the tooltip and screen readers.
+	 *
+	 * @param {{source: string, groupIds: string[]}} origin what McpAdminLevels.originOf() returned
+	 * @return {string}
+	 */
+	function originText(origin) {
+		switch (origin.source) {
+		case 'individual': return t('mcp', 'Set for this person')
+		case 'invalid': return t('mcp', 'Invalid stored value (denied)')
+		case 'group': return t('mcp', 'Granted by groups: {groups}', { groups: origin.groupIds.join(', ') })
+		case 'unknown': return t('mcp', 'Group awaiting confirmation: {groups}', { groups: origin.groupIds.join(', ') })
+		default: return t('mcp', 'Default')
+		}
+	}
+
+	/**
+	 * One module of one user in the levels view: the level as a word (None, Read, Edit, Full, Custom) and where it comes
+	 * from as an icon, so no state depends on colour. An individual value carries a person icon and a group a group icon;
+	 * the default has none. A module the user cannot use keeps the "no entry" mark without a control, and an unknown value
+	 * the dash, as in the operations view. Choosing the cell opens that module's operations for editing.
+	 *
+	 * @param {object} user row from the API
+	 * @param {string} module module id
+	 * @param {string[]} operations the module's operations in the catalog
+	 * @param {number} index position of the module, for the alternating band
+	 * @return {HTMLTableCellElement}
+	 */
+	function levelCell(user, module, operations, index) {
+		const levels = window.McpAdminLevels
+		const cell = el('td', { className: 'mcp-cell mcp-level-cell mcp-module mcp-band-' + (index % 2) })
+		cell.dataset.module = module
+		const name = moduleLabels()[module] || module
+		const level = levels.levelOf(module, operations, user.grants[module])
+		const reason = unavailableReason(user, module)
+		if (reason !== null || level === 'unknown') {
+			const unknown = reason === null
+			paintState(cell, 'unavailable', unknown ? t('mcp', 'Access is unknown. A group policy or directory is unavailable; retry after checking the group.') : reason)
+			const mark = el('span', { className: 'mcp-state-mark', textContent: unknown ? '—' : '⊘' })
+			mark.setAttribute('aria-hidden', 'true')
+			const word = el('span', { className: 'mcp-level-word', textContent: unknown ? t('mcp', 'Unknown') : t('mcp', 'Unavailable') })
+			word.setAttribute('aria-hidden', 'true')
+			cell.append(mark, ' ', word, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + name + ': ' + cell.title }))
+			if (unknown) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
+		} else {
+			const origin = levels.originOf(operations, user.origins?.grants?.[module])
+			const labels = operationLabels()
+			const allowed = operations.filter((operation) => user.grants[module][operation] === true)
+			const levelName = levelLabels()[level] || level
+			const summary = allowed.length === 0
+				? t('mcp', 'Allows nothing')
+				: t('mcp', 'Allows: {operations}', { operations: allowed.map((operation) => labels[operation] || operation).join(', ') }, undefined, { escape: false })
+			paintState(cell, allowed.length === 0 ? 'denied' : 'allowed')
+			const source = originText(origin)
+			const individual = origin.source === 'individual' || origin.source === 'invalid'
+			const icon = individual ? 'icon-user' : origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null
+			const parts = []
+			if (icon !== null) {
+				const glyph = el('span', { className: 'mcp-origin-icon ' + icon })
+				glyph.setAttribute('aria-hidden', 'true')
+				parts.push(glyph)
+			}
+			parts.push(el('span', { className: 'mcp-level-word', textContent: levelName }))
+			const button = el('button', {
+				type: 'button',
+				className: 'mcp-level mcp-level-' + level + (individual ? ' mcp-level-individual' : ''),
+				title: levelName + '. ' + summary + ' — ' + source,
+				onclick: () => openOperations(module, user.uid),
+			}, parts)
+			button.setAttribute('aria-label', t('mcp', '{user}, {module}: {level}. {source}. Open the operations.', { user: user.displayName, module: name, level: levelName, source }, undefined, { escape: false }))
+			cell.title = button.title
+			cell.dataset.level = level
+			cell.dataset.origin = origin.source
+			cell.append(button)
+		}
+		// "Restricted to N" or "Scope unknown" of a resource scope, drawn and opened by js/admin-scope.js.
+		const mark = user.scope?.[module] && window.McpScopeUi ? window.McpScopeUi.indicator(user.uid, module, user.scope[module]) : null
+		if (mark) cell.append(mark)
+		return cell
+	}
+
+	/**
+	 * Opens the operations of one module for editing, with the focus on the first operation of the chosen user.
+	 *
+	 * @param {string} module module id
+	 * @param {string} uid user whose row keeps the focus
+	 */
+	function openOperations(module, uid) {
+		setView('operations', module)
+		const row = [...table.tBodies[0].rows].find((candidate) => candidate.dataset.uid === uid)
+		row?.querySelector('td[data-module="' + module + '"] input')?.focus()
 	}
 
 	/** Seconds the undo of a bulk change stays offered; it waits while the pointer or focus is on it. */

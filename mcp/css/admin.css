@@ -915,3 +915,94 @@
 #mcp-admin .mcp-custom-client { max-width: 680px; margin: 12px 0; padding: 8px 16px; border: 1px solid var(--color-border); border-radius: var(--border-radius-element, var(--border-radius-large, 12px)); }
 #mcp-admin .mcp-custom-client input[type="text"] { width: 100%; max-width: 320px; }
 .mcp-custom-redirects { width: 100%; max-width: 640px; font-family: var(--font-face-monospace, monospace); }
+
+/*
+ * Levels view (js/admin-levels.js): one cell per module with the level as a word and its origin as an icon, so no state
+ * depends on colour. The view switch is a segmented control whose pressed button is the selection.
+ */
+#mcp-admin .mcp-legend[hidden],
+#mcp-admin [id="mcp-app-filter"][hidden] {
+	display: none;
+}
+
+#mcp-admin .mcp-view {
+	display: inline-flex;
+	overflow: hidden;
+	border: 2px solid var(--color-border-maxcontrast, var(--color-border-dark));
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+}
+
+#mcp-admin .mcp-view button {
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background-color: transparent;
+	color: var(--color-main-text);
+	font-weight: normal;
+}
+
+#mcp-admin .mcp-view button + button {
+	border-inline-start: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+}
+
+#mcp-admin .mcp-view button:hover {
+	background-color: var(--color-background-hover);
+}
+
+#mcp-admin .mcp-view button[aria-pressed="true"] {
+	background-color: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text, var(--color-main-text));
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-matrix td.mcp-level-cell {
+	min-width: 7em;
+	text-align: start;
+}
+
+#mcp-admin .mcp-level {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	padding: 0 8px;
+	border: 0;
+	background-color: transparent;
+	color: var(--color-main-text);
+	font-weight: normal;
+}
+
+#mcp-admin .mcp-level:hover {
+	background-color: var(--color-background-dark);
+}
+
+#mcp-admin .mcp-level:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+/* "None" reads as quiet text; an individual value is bold next to its person icon. */
+#mcp-admin .mcp-level-none {
+	color: var(--color-text-maxcontrast);
+}
+
+#mcp-admin .mcp-level-individual {
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-origin-icon {
+	display: inline-block;
+	flex: none;
+	width: 16px;
+	height: 16px;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 16px;
+	vertical-align: middle;
+}
+
+#mcp-admin .mcp-level-cell .mcp-level-word {
+	white-space: nowrap;
+}
