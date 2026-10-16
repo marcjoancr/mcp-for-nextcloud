@@ -169,9 +169,14 @@ class GroupLifecycleListener implements IEventListener {
             }
             // Suspended (durable): an issuance G admitted committed before (and is listed here) or refuses after it.
             $complete = true;
-            if ($row['state'] === GroupLifeMapper::ACTIVE && $this->grantsEligibility($gid)) {
+            // The first round captures only an active group that grants eligibility. A later round captures whatever
+            // it reads: G may have admitted a consent while it was active again, and then moved to needs_confirm
+            // before this round (review O1 of M1). Such a group judges nobody, so the holders are not filtered by
+            // what they would be without G; record() still skips every holder that already has a cause.
+            $judged = $row['state'] === GroupLifeMapper::ACTIVE && $this->grantsEligibility($gid);
+            if ($judged || $round > 0) {
                 try {
-                    $complete = $this->record($gid, $this->holders($group), $causes);
+                    $complete = $this->record($gid, $this->holders($group, $judged), $causes);
                 } catch (Throwable $e) {
                     $complete = false;
                     $this->logger->warning('Credential holders of a deleted group not listed; the group stays suspended',
