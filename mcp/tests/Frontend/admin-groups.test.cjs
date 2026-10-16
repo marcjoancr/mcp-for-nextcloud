@@ -23,6 +23,7 @@ class Element {
 	append(...children) { this.children.push(...children) }
 	replaceChildren(...children) { this.children = children; this._text = '' }
 	setAttribute(key, value) { this.attributes[key] = value }
+	getAttribute(key) { return this.attributes[key] ?? null }
 	addEventListener(name, action) { this.listeners[name] = action }
 	focus() { this.document.activeElement = this }
 	set textContent(value) { this._text = value; this.children = [] }
@@ -45,12 +46,13 @@ const stored = (extra = {}) => ({
 })
 async function app(handler, group = stored()) {
 	const document = { activeElement: null }
-	const ids = Object.fromEntries(['editor', 'search', 'count', 'list', 'detail', 'status', 'alert', 'prev', 'next'].map((id) => ['mcp-group-' + id, new Element('div', document)]))
+	const ids = Object.fromEntries(['editor', 'search', 'count', 'list', 'detail', 'status', 'alert', 'prev', 'next', 'picker', 'filter-all', 'filter-granted', 'filter-blocked'].map((id) => ['mcp-group-' + id, new Element('div', document)]))
 	const template = fs.readFileSync(path.join(__dirname, '../../templates/admin.php'), 'utf8')
 	for (const id of ['status', 'alert']) {
 		const markup = template.match(new RegExp('<p id="mcp-group-' + id + '"[^>]+>'))[0]
 		for (const name of ['role', 'aria-live']) ids['mcp-group-' + id].attributes[name] = markup.match(new RegExp(name + '="([^"]+)"'))[1]
 	}
+	ids['mcp-groups'] = new Element('div', document)
 	document.getElementById = (id) => ids[id]
 	document.createElement = (tag) => new Element(tag, document)
 	const calls = []
@@ -270,7 +272,7 @@ test('M6: disabled group grant fields and actions describe their source diagnosi
 test('M7: an invalid directory identity has a diagnostic row without an editable replacement ID', async () => {
 	const ui = await app(undefined, stored({ groupId: null, invalidId: true, trusted: null }))
 	assert.equal(ui.ids['mcp-group-list'].all('button')[0].disabled, true)
-	assert.match(ui.ids['mcp-group-list'].textContent, /invalid group ID/)
+	assert.match(ui.ids['mcp-group-list'].all('button')[0].attributes['aria-label'], /invalid group ID/)
 })
 
 test('O2: an identical error twice in a row is announced twice, and a replaced message never appears', async () => {
@@ -318,23 +320,25 @@ const directory = [
 	{ groupId: 'remote', displayName: 'remote', trusted: null, exists: null, state: null, grants: {} },
 ]
 const items = (ui) => ui.ids['mcp-group-list'].all('button')
-test('S7: a row shows the ID only when it differs from the name, and its state in words next to a symbol', async () => {
-	const ui = await app((call) => call.url.includes('/detail?') ? undefined : [200, { groups: directory, hasMore: false }])
-	const [staff, ti, finance, sales, gone, leaving, remote] = items(ui).map((item) => item.textContent)
-	assert.doesNotMatch(staff, /ID:/)
-	assert.match(staff, /Grants: Can connect, Notes/)
-	assert.match(ti, /Equipe TI/)
-	assert.match(ti, /ID: ti-interno/)
-	assert.match(ti, /Grants nothing/)
-	assert.match(finance, /⚠ Awaiting confirmation/)
-	assert.match(sales, /🔒 Cannot grant access/)
-	assert.match(gone, /⊘ Deleted group/)
-	assert.match(leaving, /⚠ Deletion pending/)
-	assert.match(remote, /\? Source unavailable/)
-	for (const item of items(ui)) {
-		const symbol = item.all('span').find((span) => span.className === 'mcp-group-symbol')
-		if (symbol) assert.equal(symbol.attributes['aria-hidden'], 'true', 'the symbol is decoration; the words carry the state')
+test('S7/L2: one line per group: the ID only when it differs, a short end, and the state or grants in words in its name', async () => {
+	const ui = await app((call) => call.url.includes('/detail?') ? undefined : [200, { groups: directory, hasMore: false, total: 7 }])
+	const label = (item) => item.attributes['aria-label']
+	const [staff, ti, finance, sales, gone, leaving, remote] = items(ui)
+	assert.equal(staff.all('span').some((span) => span.className === 'mcp-group-id'), false, 'no ID when it equals the name')
+	assert.doesNotMatch(label(staff), /ID:/)
+	assert.match(label(staff), /^staff\. Grants: Can connect, Notes$/)
+	assert.equal(staff.all('span').find((span) => span.className === 'mcp-group-end').textContent, '1 module')
+	assert.equal(ti.all('span').find((span) => span.className === 'mcp-group-id').textContent, 'ti-interno')
+	assert.equal(label(ti), 'Equipe TI. ID: ti-interno. Grants nothing')
+	assert.equal(ti.all('span').find((span) => span.className === 'mcp-group-end').textContent, '—')
+	assert.equal(ti.title, label(ti), 'the tooltip carries the full name, ID and state')
+	const ends = (item) => item.all('span').find((span) => span.className.startsWith('mcp-group-end'))
+	for (const [item, symbol, words] of [[finance, '⚠', 'Awaiting confirmation'], [sales, '🔒', 'Cannot grant access'], [gone, '⊘', 'Deleted group'], [leaving, '⚠', 'Deletion pending'], [remote, '?', 'Source unavailable']]) {
+		assert.equal(ends(item).textContent, symbol)
+		assert.equal(ends(item).attributes['aria-hidden'], 'true', 'the symbol is decoration; the words carry the state')
+		assert.ok(label(item).endsWith(words), label(item))
 	}
+	assert.equal(new Set([finance, sales, gone, remote].map((item) => ends(item).textContent)).size, 4, 'states differ in shape, not only in colour')
 	assert.equal(ui.ids['mcp-group-count'].textContent, '7 groups')
 })
 test('S7: only the open group is marked with aria-current, and the list keeps the mark across pages of the detail', async () => {
@@ -348,11 +352,11 @@ test('S7: only the open group is marked with aria-current, and the list keeps th
 })
 test('S7: the counter tells the range when there are more pages, and nothing when the list failed', async () => {
 	let fail = false
-	const ui = await app((call) => fail ? [503, {}] : call.url.includes('/detail?') ? undefined : [200, { groups: directory.slice(0, 3), hasMore: true }])
-	assert.equal(ui.ids['mcp-group-count'].textContent, 'Groups 1–3')
+	const ui = await app((call) => fail ? [503, {}] : call.url.includes('/detail?') ? undefined : [200, { groups: directory.slice(0, 3), hasMore: true, total: 103 }])
+	assert.equal(ui.ids['mcp-group-count'].textContent, 'Groups 1–3 of 103')
 	await ui.ids['mcp-group-next'].listeners.click()
 	await tick()
-	assert.equal(ui.ids['mcp-group-count'].textContent, 'Groups 51–53')
+	assert.equal(ui.ids['mcp-group-count'].textContent, 'Groups 51–53 of 103')
 	fail = true
 	await ui.ids['mcp-group-prev'].listeners.click()
 	await tick()
@@ -539,4 +543,96 @@ test('O1: a group the matrix cannot filter by is said so, and neither the matrix
 	assert.equal(ui.document.activeElement, link)
 	assert.match(ui.ids['mcp-group-status'].textContent, /cannot show only the members of Staff: its group filter does not list this group/)
 	assert.equal(ui.ids['mcp-group-alert'].textContent, '', 'a notice, not an error')
+})
+
+/** L: the list that scales: filter on the server, one tab stop with arrows, the narrow-screen picker. */
+const pageOf = (count, extra = {}) => ({ groups: Array.from({ length: count }, (_, i) => ({ groupId: 'g' + i, displayName: 'G' + i, trusted: true, exists: true, state: 'active', grants: [] })), hasMore: false, total: count, ...extra })
+test('L1: the filter goes to the server with the search, starts again at page 1, and names its counts', async () => {
+	const ui = await app((call) => call.url.includes('/detail?') ? undefined : [200, pageOf(3, { hasMore: true, total: 120, counts: { all: 120, granted: 7, blocked: null } })])
+	const filter = (key) => ui.ids['mcp-group-filter-' + key]
+	assert.equal(filter('all').textContent, 'All (120)')
+	assert.equal(filter('granted').textContent, 'With grants (7)')
+	assert.equal(filter('blocked').textContent, 'Blocked groups', 'no count the server did not compute')
+	assert.equal(filter('all').attributes['aria-pressed'], 'true')
+	await ui.ids['mcp-group-next'].listeners.click()
+	await tick()
+	assert.match(ui.calls.at(-1).url, /page=2&filter=all/)
+	filter('blocked').listeners.click()
+	await tick()
+	assert.match(ui.calls.at(-1).url, /page=1&filter=blocked/, 'a new filter starts at its first page')
+	filter('all').listeners.click()
+	await tick()
+	ui.ids['mcp-group-search'].value = 'sales'
+	ui.ids['mcp-group-search'].listeners.input()
+	await tick()
+	filter('granted').listeners.click()
+	await tick()
+	assert.match(ui.calls.at(-1).url, /search=sales&page=1&filter=granted/)
+	assert.equal(filter('granted').attributes['aria-pressed'], 'true')
+	assert.equal(filter('all').attributes['aria-pressed'], 'false')
+	const before = ui.calls.length
+	filter('granted').listeners.click()
+	assert.equal(ui.calls.length, before, 'the active filter does not reload')
+	filter('blocked').listeners.click()
+	await tick()
+	assert.match(ui.calls.at(-1).url, /filter=blocked/)
+})
+test('L1: a blocked count the server computed is shown on its button', async () => {
+	const ui = await app((call) => call.url.includes('/detail?') ? undefined : [200, pageOf(2, { counts: { all: 24, granted: 0, blocked: 1 } })])
+	assert.equal(ui.ids['mcp-group-filter-blocked'].textContent, 'Blocked groups (1)')
+	assert.equal(ui.ids['mcp-group-filter-granted'].textContent, 'With grants (0)')
+})
+test('L3: the list is one tab stop; arrows, Home and End move inside it and skip a row that cannot open', async () => {
+	const rows = pageOf(4)
+	rows.groups[2] = { groupId: null, displayName: 'Broken', invalidId: true, trusted: null, exists: null, state: null, grants: null }
+	const ui = await app((call) => call.url.includes('/detail?') ? [200, stored({ groupId: 'g1' })] : [200, rows])
+	const [g0, g1, broken, g3] = items(ui)
+	assert.deepEqual([g0, g1, broken, g3].map((item) => item.tabIndex), [0, -1, -1, -1], 'the first row is the stop while none is open')
+	const key = (name) => { let prevented = false; ui.ids['mcp-group-list'].listeners.keydown({ key: name, preventDefault: () => { prevented = true } }); return prevented }
+	g0.focus()
+	assert.equal(key('ArrowDown'), true)
+	assert.equal(ui.document.activeElement, g1)
+	key('ArrowDown')
+	assert.equal(ui.document.activeElement, g3, 'the disabled row is skipped')
+	key('ArrowDown')
+	assert.equal(ui.document.activeElement, g3, 'the last row stays')
+	key('Home')
+	assert.equal(ui.document.activeElement, g0)
+	key('End')
+	assert.equal(ui.document.activeElement, g3)
+	key('ArrowUp')
+	assert.equal(ui.document.activeElement, g1)
+	assert.equal(g1.tabIndex, 0)
+	assert.equal(g3.tabIndex, -1)
+	assert.equal(key('a'), false, 'other keys are left alone')
+	await g1.click()
+	await tick()
+	const [, open] = items(ui)
+	assert.equal(open.attributes['aria-current'], 'true')
+	assert.deepEqual(items(ui).map((item) => item.tabIndex), [-1, 0, -1, -1], 'the open group is the stop after a redraw')
+})
+test('L4: on a narrow screen the list folds into a picker once a group is open, and the picker opens it again', async () => {
+	const ui = await app()
+	const columns = ui.ids['mcp-groups']
+	const picker = ui.ids['mcp-group-picker']
+	await ui.open()
+	assert.equal(columns.attributes['data-list'], 'closed')
+	assert.equal(picker.attributes['aria-expanded'], 'false')
+	assert.equal(picker.textContent, 'Group: Staff')
+	picker.listeners.click()
+	assert.equal(columns.attributes['data-list'], 'open')
+	assert.equal(picker.attributes['aria-expanded'], 'true')
+	assert.equal(picker.textContent, 'Choose a group')
+	assert.equal(ui.document.activeElement, ui.ids['mcp-group-search'], 'the search takes the focus')
+	picker.listeners.click()
+	assert.equal(columns.attributes['data-list'], 'closed')
+})
+test('L5: a new page starts at the top of the list, and only the page the server sent is drawn', async () => {
+	const ui = await app((call) => call.url.includes('/detail?') ? undefined : [200, pageOf(50, { hasMore: true, total: 500 })])
+	assert.equal(ui.ids['mcp-group-list'].all('li').length, 50)
+	ui.ids['mcp-group-list'].scrollTop = 900
+	await ui.ids['mcp-group-next'].listeners.click()
+	await tick()
+	assert.equal(ui.ids['mcp-group-list'].scrollTop, 0)
+	assert.equal(ui.ids['mcp-group-count'].textContent, 'Groups 51–100 of 500')
 })

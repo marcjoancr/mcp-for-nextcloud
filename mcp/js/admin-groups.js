@@ -15,7 +15,12 @@
 	const prev = document.getElementById('mcp-group-prev')
 	const next = document.getElementById('mcp-group-next')
 	const counter = document.getElementById('mcp-group-count')
+	const columns = document.getElementById('mcp-groups')
+	const picker = document.getElementById('mcp-group-picker')
+	const filters = { all: document.getElementById('mcp-group-filter-all'), granted: document.getElementById('mcp-group-filter-granted'), blocked: document.getElementById('mcp-group-filter-blocked') }
 	let page = 1
+	/** Filter of the list, sent to the server with the search and the page: all, granted or blocked. */
+	let filter = 'all'
 	/** Rows of the page on screen, kept so the open group can be marked without reading the list again. */
 	let rows = []
 	let listSeq = 0
@@ -109,47 +114,129 @@
 		if (group.state === 'pending_delete') return { symbol: '⚠', text: t('mcp', 'Deletion pending'), warning: true }
 		return null
 	}
-	/** @return {string} what a group grants, in a few words, for its row in the list */
+	/** @return {string} what a group grants, in words, for the accessible name and the tooltip of its row */
 	function grantSummary(group) {
 		const granted = Object.entries(group.grants || {}).filter(([, operations]) => operations.length > 0).map(([module]) => module)
 		if (granted.length === 0) return t('mcp', 'Grants nothing')
 		return t('mcp', 'Grants: {permissions}', { permissions: granted.map((module) => module === '_system' ? t('mcp', 'Can connect') : moduleName(module)).join(', ') }, undefined, RAW)
 	}
-	/** One row of the list: the name, the ID only when it differs from the name, and the state or what the group grants. */
+	/** @return {string} what a group grants in one or two words, for the end of its row: "—", "Can connect" or "N modules" */
+	function grantShort(group) {
+		const granted = Object.entries(group.grants || {}).filter(([, operations]) => operations.length > 0).map(([module]) => module)
+		const apps = granted.filter((module) => module !== '_system').length
+		if (apps > 0) return n('mcp', '%n module', '%n modules', apps)
+		return granted.length > 0 ? t('mcp', 'Can connect') : '—'
+	}
+	/**
+	 * One line per group: the name, cut with an ellipsis; the ID, quietly, only when it differs from the name; and at the
+	 * end what it grants in short or the symbol of its state. The full name, the ID and the state or grants in words are
+	 * the row's accessible name and tooltip, so nothing is told by the symbol or a colour alone.
+	 *
+	 * @return {HTMLButtonElement} the row's button; drawList() puts each in its list item
+	 */
 	function groupRow(group) {
+		const differs = group.groupId !== null && group.groupId !== group.displayName
 		const children = [el('span', { className: 'mcp-group-name', textContent: group.displayName })]
-		if (group.groupId !== null && group.groupId !== group.displayName) {
-			children.push(el('span', { className: 'mcp-group-sub', textContent: t('mcp', 'ID: {id}', { id: group.groupId }, undefined, RAW) }))
-		}
+		if (differs) children.push(el('span', { className: 'mcp-group-id', textContent: group.groupId }))
 		const state = rowState(group)
+		let end
 		if (state) {
-			const symbol = el('span', { className: 'mcp-group-symbol', textContent: state.symbol })
-			symbol.setAttribute('aria-hidden', 'true')
-			children.push(el('span', { className: 'mcp-group-sub mcp-group-state' + (state.warning ? ' mcp-group-state-warning' : '') }, [symbol, state.text]))
+			end = el('span', { className: 'mcp-group-end mcp-group-state' + (state.warning ? ' mcp-group-state-warning' : ''), textContent: state.symbol })
 		} else {
-			children.push(el('span', { className: 'mcp-group-sub', textContent: grantSummary(group) }))
+			end = el('span', { className: 'mcp-group-end', textContent: grantShort(group) })
 		}
-		const button = el('button', { type: 'button', className: 'mcp-group-item', disabled: group.invalidId === true, onclick: () => open(group.groupId, false, false, group.displayName) }, children)
-		button.setAttribute('aria-current', String(current !== null && group.groupId !== null && current.groupId === group.groupId))
-		return el('li', {}, [button])
+		end.setAttribute('aria-hidden', 'true')
+		children.push(end)
+		const label = [group.displayName, differs ? t('mcp', 'ID: {id}', { id: group.groupId }, undefined, RAW) : '', state ? state.text : grantSummary(group)].filter(Boolean).join('. ')
+		const selected = current !== null && group.groupId !== null && current.groupId === group.groupId
+		const button = el('button', { type: 'button', className: 'mcp-group-item', title: label, disabled: group.invalidId === true, tabIndex: -1, onclick: () => open(group.groupId, false, false, group.displayName) }, children)
+		button.setAttribute('aria-label', label)
+		button.setAttribute('aria-current', String(selected))
+		return button
+	}
+	/** The row buttons drawn by drawList(), in order. */
+	let buttons = []
+	/** The rows that can take the focus, in order. */
+	const items = () => buttons.filter((button) => !button.disabled)
+	/** One stop in the tab order for the whole list (the open group, else the first); the arrows move inside it. */
+	function rove(target) {
+		for (const button of items()) button.tabIndex = button === target ? 0 : -1
+	}
+	/** Scrolls the list, and only the list, so that a row is in view. */
+	function keepVisible(button) {
+		if (typeof button.offsetTop !== 'number' || typeof list.clientHeight !== 'number') return
+		const top = button.offsetTop - list.offsetTop
+		if (top < list.scrollTop) list.scrollTop = top
+		else if (top + button.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = top + button.offsetHeight - list.clientHeight
 	}
 	function drawList() {
-		list.replaceChildren(...rows.map(groupRow))
+		buttons = rows.map(groupRow)
+		list.replaceChildren(...buttons.map((button) => el('li', {}, [button])))
 		if (!rows.length) list.append(el('li', { className: 'mcp-hint', textContent: t('mcp', 'No groups found.') }))
+		const all = items()
+		const open = all.find((button) => button.getAttribute('aria-current') === 'true')
+		rove(open || all[0])
+		if (open) keepVisible(open)
 	}
+	list.addEventListener('keydown', (event) => {
+		const all = items()
+		const at = all.indexOf(document.activeElement)
+		if (at < 0) return
+		const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: all.length - 1 }[event.key]
+		if (to === undefined) return
+		event.preventDefault()
+		const target = all[Math.max(0, Math.min(all.length - 1, to))]
+		rove(target)
+		target.focus()
+	})
+	/** The filter buttons say how many groups each shows, when the server knows it without extra work. */
+	function drawFilters(counts) {
+		const names = { all: t('mcp', 'All'), granted: t('mcp', 'With grants'), blocked: t('mcp', 'Blocked groups') }
+		const counted = { all: (count) => t('mcp', 'All ({count})', { count }, undefined, RAW), granted: (count) => t('mcp', 'With grants ({count})', { count }, undefined, RAW), blocked: (count) => t('mcp', 'Blocked groups ({count})', { count }, undefined, RAW) }
+		for (const [key, button] of Object.entries(filters)) {
+			if (!button) continue
+			const known = counts?.[key]
+			button.textContent = typeof known === 'number' ? counted[key](known) : names[key]
+			button.setAttribute('aria-pressed', String(key === filter))
+		}
+	}
+	for (const [key, button] of Object.entries(filters)) {
+		button?.addEventListener('click', () => {
+			if (filter === key) return
+			filter = key
+			page = 1
+			drawFilters(null)
+			loadList()
+		})
+	}
+	/** On a narrow screen the list folds into the picker above the editor; on a wide one both columns stay. */
+	function setListOpen(isOpen) {
+		if (!columns || !picker) return
+		columns.setAttribute('data-list', isOpen ? 'open' : 'closed')
+		picker.setAttribute('aria-expanded', String(isOpen))
+		picker.textContent = current && !isOpen ? t('mcp', 'Group: {group}', { group: shownName ?? current.groupId }, undefined, RAW) : t('mcp', 'Choose a group')
+	}
+	picker?.addEventListener('click', () => {
+		const isOpen = picker.getAttribute('aria-expanded') !== 'true'
+		setListOpen(isOpen)
+		if (isOpen) search.focus()
+	})
 	async function loadList() {
 		const seq = ++listSeq
 		list.setAttribute('aria-busy', 'true')
 		prev.disabled = next.disabled = true
 		try {
-			const data = await api('GET', '/api/group-directory?' + new URLSearchParams({ search: search.value.trim(), page: String(page) }))
+			const data = await api('GET', '/api/group-directory?' + new URLSearchParams({ search: search.value.trim(), page: String(page), filter }))
 			if (seq !== listSeq) return
 			rows = data.groups
+			list.scrollTop = 0
 			drawList()
+			drawFilters(data.counts)
+			const total = typeof data.total === 'number' ? data.total : rows.length
 			const first = (page - 1) * PAGE_SIZE + 1
-			counter.textContent = page === 1 && !data.hasMore
-				? n('mcp', '%n group', '%n groups', rows.length)
-				: rows.length === 0 ? '' : t('mcp', 'Groups {first}–{last}', { first, last: first + rows.length - 1 }, undefined, RAW)
+			counter.textContent = rows.length === 0 ? ''
+				: page === 1 && !data.hasMore ? n('mcp', '%n group', '%n groups', total)
+					: t('mcp', 'Groups {first}–{last} of {total}', { first, last: first + rows.length - 1, total }, undefined, RAW)
 			prev.disabled = page <= 1
 			next.disabled = !data.hasMore
 			say('')
@@ -180,6 +267,7 @@
 			if (!preserve) draft = copyGrants(data.grants)
 			if (!keepMessage) say('')
 			drawList()
+			setListOpen(false)
 			render('heading')
 		} catch (e) {
 			if (seq !== detailSeq) return

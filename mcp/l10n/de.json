@@ -1283,7 +1283,6 @@
     "Grants: {permissions}" : "Gewährt: {permissions}",
     "ID: {id}" : "ID: {id}",
     "_%n group_::_%n groups_" : ["%n Gruppe", "%n Gruppen"],
-    "Groups {first}–{last}" : "Gruppen {first}–{last}",
     "Not granted" : "Nicht gewährt",
     "Custom ({operations})" : "Benutzerdefiniert ({operations})",
     "{module}: {before} → {after}" : "{module}: {before} → {after}",
@@ -1314,6 +1313,16 @@
     "The scope cannot be read now, so the tools of this module refuse until it can. Open the resource scope." : "Der Ressourcenbereich ist gerade nicht lesbar, daher verweigern die Werkzeuge dieses Moduls, bis er es wieder ist. Öffne den Ressourcenbereich.",
     "_%n of these values is in a permission the table does not show for that user. It is removed too._::_%n of these values are in permissions the table does not show for those users. They are removed too._" : ["%n dieser Einstellungen liegt in einer Berechtigung, die die Tabelle diesem Benutzer nicht zeigt. Sie wird ebenfalls entfernt.", "%n dieser Einstellungen liegen in Berechtigungen, die die Tabelle diesen Benutzern nicht zeigt. Sie werden ebenfalls entfernt."],
     "Only native Nextcloud groups can grant access. If a group is deleted and that event is lost, a new group with the same ID may inherit the old policy." : "Nur native Nextcloud-Gruppen können Zugriff gewähren. Wird eine Gruppe gelöscht und geht dieses Ereignis verloren, kann eine neue Gruppe mit derselben ID die alte Richtlinie erben.",
-    "Taking “Can connect” away from a group is refused while it is unknown what a signed-in member would keep. Check the sources and try again." : "„Verbindung möglich“ einer Gruppe zu entziehen wird abgelehnt, solange unbekannt ist, was ein angemeldetes Mitglied behalten würde. Prüfe die Quellen und versuche es erneut."
+    "Taking “Can connect” away from a group is refused while it is unknown what a signed-in member would keep. Check the sources and try again." : "„Verbindung möglich“ einer Gruppe zu entziehen wird abgelehnt, solange unbekannt ist, was ein angemeldetes Mitglied behalten würde. Prüfe die Quellen und versuche es erneut.",
+    "Choose a group" : "Gruppe wählen",
+    "Show groups" : "Gruppen anzeigen",
+    "With grants" : "Mit Freigaben",
+    "All ({count})" : "Alle ({count})",
+    "With grants ({count})" : "Mit Freigaben ({count})",
+    "Group: {group}" : "Gruppe: {group}",
+    "Groups {first}–{last} of {total}" : "Gruppen {first}–{last} von {total}",
+    "_%n module_::_%n modules_" : ["%n Modul", "%n Module"],
+    "Blocked groups" : "Blockierte",
+    "Blocked groups ({count})" : "Blockierte ({count})"
 },"pluralForm":"nplurals=2; plural=(n != 1);"
 }

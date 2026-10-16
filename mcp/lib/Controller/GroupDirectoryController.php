@@ -22,8 +22,8 @@ class GroupDirectoryController extends Controller {
         parent::__construct($appName, $request);
     }
 
-    public function index(string $search = '', int $page = 1): JSONResponse {
-        return $this->read(fn (): array => $this->directory->page($search, $page));
+    public function index(string $search = '', int $page = 1, string $filter = 'all'): JSONResponse {
+        return $this->read(fn (): array => $this->directory->page($search, $page, $filter));
     }
 
     public function detail(string $gid = ''): JSONResponse {

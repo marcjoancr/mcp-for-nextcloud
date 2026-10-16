@@ -103,12 +103,20 @@
             <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. If a group is deleted and that event is lost, a new group with the same ID may inherit the old policy.')); ?></p>
             <p class="mcp-hint"><?php p($l->t('Taking “Can connect” away from a group is refused while it is unknown what a signed-in member would keep. Check the sources and try again.')); ?></p>
         </details>
-        <div class="mcp-groups">
-            <nav class="mcp-groups-nav" aria-label="<?php p($l->t('Groups')); ?>">
-                <label for="mcp-group-search" class="mcp-sr-only"><?php p($l->t('Search groups by name or ID')); ?></label>
-                <input type="search" id="mcp-group-search" placeholder="<?php p($l->t('Search groups by name or ID')); ?>">
-                <p id="mcp-group-count" class="mcp-hint"></p>
-                <ul id="mcp-group-list" aria-busy="true"></ul>
+        <div class="mcp-groups" id="mcp-groups" data-list="open">
+            <button type="button" id="mcp-group-picker" class="mcp-group-picker" aria-expanded="true" aria-controls="mcp-groups-nav"><?php p($l->t('Choose a group')); ?></button>
+            <nav class="mcp-groups-nav" id="mcp-groups-nav" aria-label="<?php p($l->t('Groups')); ?>">
+                <div class="mcp-groups-top">
+                    <label for="mcp-group-search" class="mcp-sr-only"><?php p($l->t('Search groups by name or ID')); ?></label>
+                    <input type="search" id="mcp-group-search" placeholder="<?php p($l->t('Search groups by name or ID')); ?>">
+                    <div class="mcp-view mcp-group-filter" role="group" aria-label="<?php p($l->t('Show groups')); ?>">
+                        <button type="button" id="mcp-group-filter-all" aria-pressed="true"><?php p($l->t('All')); ?></button>
+                        <button type="button" id="mcp-group-filter-granted" aria-pressed="false"><?php p($l->t('With grants')); ?></button>
+                        <button type="button" id="mcp-group-filter-blocked" aria-pressed="false"><?php p($l->t('Blocked groups')); ?></button>
+                    </div>
+                    <p id="mcp-group-count" class="mcp-hint" aria-live="polite"></p>
+                </div>
+                <ul id="mcp-group-list" class="mcp-group-list" aria-busy="true" aria-label="<?php p($l->t('Groups')); ?>"></ul>
                 <div class="mcp-groups-pager">
                     <button type="button" id="mcp-group-prev"><?php p($l->t('Previous')); ?></button>
                     <button type="button" id="mcp-group-next"><?php p($l->t('Next')); ?></button>

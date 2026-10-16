@@ -33,13 +33,15 @@ final class GroupDirectoryTest extends TestCase {
     private bool $knownCount = true;
     private bool $brokenCount = false;
     private int $sourceReads = 0;
+    /** A group whose source cannot be read, to prove an unknown source is never shown as blocked. */
+    private ?string $failingGid = null;
     private IGroupManager $manager;
     private GroupDirectory $directory;
 
     protected function setUp(): void {
         $this->data = new InMemoryConfig();
-        $this->data->groupBackends = [new ArrayGroupBackend(fn () => $this->native, 'Database', function () { ++$this->sourceReads; }),
-            new ArrayGroupBackend(fn () => $this->ldap, 'LDAP', function () { ++$this->sourceReads; })];
+        $this->data->groupBackends = [new ArrayGroupBackend(fn () => $this->native, 'Database', function (string $gid) { ++$this->sourceReads; if ($gid === $this->failingGid) throw new \RuntimeException('Backend down'); }),
+            new ArrayGroupBackend(fn () => $this->ldap, 'LDAP', function (string $gid) { ++$this->sourceReads; if ($gid === $this->failingGid) throw new \RuntimeException('Backend down'); })];
         $this->config = $this->data->mock($this);
         $writer = InMemoryConfig::writer($this->config, new InMemoryOAuthStore());
         $resolver = InMemoryConfig::resolver($this->config);
@@ -185,6 +187,95 @@ final class GroupDirectoryTest extends TestCase {
         $this->assertSame(5 * (array_sum(array_map('count', \OCA\Mcp\Service\GrantPolicy::CATALOG)) + 2), $this->data->batchCalls);
         fwrite(STDERR, sprintf("T17 group 1000: %d app SELECTs, %d official config batch calls, %.3f ms (SQLite memory + directory/config doubles; state reads mocked)\n",
             $database->queryCount, $this->data->batchCalls, $ms));
+    }
+
+    public function testGrantedFilterPagesAndSearchesOnTheServerAndCountsEachFilter(): void {
+        for ($i = 0; $i < 120; ++$i) $this->native[sprintf('g%03d', $i)] = [];
+        // Every other group grants something; one policy-only group grants too.
+        for ($i = 0; $i < 120; $i += 2) InMemoryConfig::groupPolicy($this->config, sprintf('g%03d', $i), ['notes' => ['read']]);
+        InMemoryConfig::groupPolicy($this->config, 'orphan', ['_system' => ['eligible']]);
+        $first = $this->directory->page('', 1, 'granted');
+        $this->assertCount(50, $first['groups']);
+        $this->assertTrue($first['hasMore']);
+        $this->assertSame(61, $first['total']);
+        $this->assertSame(['all' => 121, 'granted' => 61, 'blocked' => null], $first['counts']);
+        $this->assertSame('granted', $first['filter']);
+        $this->assertSame(['g000', 'g002', 'g004'], array_slice(array_column($first['groups'], 'groupId'), 0, 3));
+        $last = $this->directory->page('', 2, 'granted');
+        $this->assertCount(11, $last['groups']);
+        $this->assertFalse($last['hasMore']);
+        $this->assertSame('orphan', $last['groups'][10]['groupId']);
+        $searched = $this->directory->page('g01', 1, 'granted');
+        $this->assertSame(['g010', 'g012', 'g014', 'g016', 'g018'], array_column($searched['groups'], 'groupId'));
+        $this->assertSame(['all' => 10, 'granted' => 5, 'blocked' => null], $searched['counts'], 'counts follow the search');
+        $all = $this->directory->page();
+        $this->assertSame(121, $all['total']);
+        $this->assertSame('all', $all['filter']);
+    }
+
+    public function testBlockedFilterKeepsOnlyGroupsThatCannotGrantAndClassifiesEachOnce(): void {
+        $this->native = ['native-a' => [], 'native-b' => []];
+        $this->ldap = ['ldap-a' => ['ana'], 'ldap-b' => []];
+        // A group on both backends is not one Database group either, so it cannot grant.
+        $this->native['both'] = $this->ldap['both'] = [];
+        $this->sourceReads = 0;
+        $blocked = $this->directory->page('', 1, 'blocked');
+        $this->assertSame(['both', 'ldap-a', 'ldap-b'], array_column($blocked['groups'], 'groupId'));
+        foreach ($blocked['groups'] as $row) $this->assertFalse($row['trusted']);
+        $this->assertSame(['all' => 5, 'granted' => 0, 'blocked' => 3], $blocked['counts']);
+        $this->assertSame(10, $this->sourceReads, 'one existence read per backend per searched group; the page reuses them');
+        $this->assertSame(['ldap-a'], array_column($this->directory->page('ldap-a', 1, 'blocked')['groups'], 'groupId'));
+        // An unreadable source is unknown, not blocked: it stays out of the filter and keeps trusted null in "all".
+        $this->failingGid = 'ldap-b';
+        $this->assertSame(['both', 'ldap-a'], array_column($this->directory->page('', 1, 'blocked')['groups'], 'groupId'));
+        $rows = array_column($this->directory->page()['groups'], null, 'groupId');
+        $this->assertNull($rows['ldap-b']['trusted']);
+    }
+
+    public function testUnknownFilterIsRefusedAsAnInvalidRequest(): void {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->directory->page('', 1, 'everything');
+    }
+
+    public function testControllerPassesTheFilterAndAnswers400ForAnUnknownOne(): void {
+        $session = $this->createMock(IUserSession::class);
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('admin');
+        $session->method('getUser')->willReturn($user);
+        $manager = $this->createMock(IGroupManager::class);
+        $manager->method('isAdmin')->willReturn(true);
+        $this->native['team'] = [];
+        InMemoryConfig::groupPolicy($this->config, 'team', ['notes' => ['read']]);
+        $this->native['quiet'] = [];
+        $controller = new GroupDirectoryController('mcp', $this->createMock(IRequest::class), $this->directory, $session, $manager);
+        $this->assertSame(['team'], array_column($controller->index('', 1, 'granted')->getData()['groups'], 'groupId'));
+        $this->assertSame(400, $controller->index('', 1, 'nope')->getStatus());
+    }
+
+    /** Scale guard for the list: 500 groups, one page of 50 drawn, and the cost of each filter. */
+    public function testFiveHundredGroupsKeepAPageOfFiftyAndBoundedSourceReads(): void {
+        for ($i = 0; $i < 450; ++$i) $this->native[sprintf('n%03d', $i)] = [];
+        for ($i = 0; $i < 50; ++$i) $this->ldap[sprintf('x%03d', $i)] = [];
+        for ($i = 0; $i < 450; $i += 9) InMemoryConfig::groupPolicy($this->config, sprintf('n%03d', $i), ['files' => ['read']]);
+        $measure = function (string $filter): array {
+            $this->sourceReads = 0;
+            $start = hrtime(true);
+            $page = $this->directory->page('', 1, $filter);
+            return [$page, (hrtime(true) - $start) / 1e6, $this->sourceReads];
+        };
+        [$all, $allMs, $allReads] = $measure('all');
+        [$granted, $grantedMs, $grantedReads] = $measure('granted');
+        [$blocked, $blockedMs, $blockedReads] = $measure('blocked');
+        $this->assertCount(50, $all['groups']);
+        $this->assertSame(500, $all['total']);
+        $this->assertSame(100, $allReads, 'only the 50 drawn groups are classified');
+        $this->assertCount(50, $granted['groups']);
+        $this->assertSame(50, $granted['total']);
+        $this->assertSame(100, $grantedReads);
+        $this->assertSame(50, $blocked['total']);
+        $this->assertSame(1000, $blockedReads, 'blocked classifies each of the 500 groups once, and the page reuses it');
+        fwrite(STDERR, sprintf("List 500 groups: all %.1f ms / %d source reads, granted %.1f ms / %d, blocked %.1f ms / %d (SQLite memory + directory doubles)\n",
+            $allMs, $allReads, $grantedMs, $grantedReads, $blockedMs, $blockedReads));
     }
 
     public function testNoDirectoryReadRunsInsideATransaction(): void {
