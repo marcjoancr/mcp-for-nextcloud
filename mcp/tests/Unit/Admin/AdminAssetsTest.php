@@ -342,7 +342,7 @@ final class AdminAssetsTest extends TestCase {
             "{ ...payload, expectedRevision: sent }",
             "{ expectedRevision: sent, commands }",
             "{ enabled: value, expectedRevision: sent }",
-            "version: sentVersion, expectedRevision: sent",
+            "version: version, expectedRevision: sent",
             "{ receiptId, expectedRevision: savedRevision }",
         ] as $body) {
             $this->assertStringContainsString($body, $script);
@@ -401,7 +401,7 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $script = (string)file_get_contents($app . '/js/admin-grants.js');
         $logs = substr($script, (int)strpos($script, 'async function initLogsAccess'));
-        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: sentVersion, expectedRevision: sent', $logs);
+        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: version, expectedRevision: sent', $logs);
         $this->assertStringContainsString("version = data.version", $logs);
         $this->assertStringContainsString("e.message === '409'", $logs);
         $this->assertStringContainsString("t('mcp', 'The groups were changed in another window or by another administrator; the current list was loaded.')", $logs);

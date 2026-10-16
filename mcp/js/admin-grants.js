@@ -198,9 +198,11 @@
 
 	/**
 	 * Whether `to` is exactly one commit after `from`. The OAuth clients and server-log saves answer with the revision of
-	 * a read made after their commit, which may already hold another administrator's write; a commit advances the
-	 * revision by one and only when it changes something, so one step plus a change of the block's own settings is that
-	 * save alone. Compared as exact integers, never as floating-point numbers.
+	 * a read made after their commit, which may already hold another administrator's write. A commit advances the
+	 * revision by one, and only when the request differs from what is stored at `from`; so a save whose request differs
+	 * from the settings this block confirmed at `from` made one step itself, and one step in all is that save alone. A
+	 * request that changes nothing commits nothing: its answer is never announced, whatever it shows. Compared as exact
+	 * integers, never as floating-point numbers.
 	 *
 	 * @param {string} from revision the save was sent with
 	 * @param {string} to revision of the answer
@@ -1248,15 +1250,14 @@
 		let epoch = 0
 		/** Per card: the client it was built from, and what is typed in it now. */
 		const drafts = new WeakMap()
-		/** The settings of the server's last answer, to tell whether a save changed them. */
-		let confirmed = ''
-		const settings = (data) => JSON.stringify([data.hosts, data.nativeClientEnabled, data.customClients])
+		/** The server's last answer: what is stored at this block's revision. */
+		let confirmed = null
 		followRevision(() => oauthRevision, (revision) => { oauthRevision = revision })
 
 		/** @param {object} data settings returned by the API */
 		function show(data) {
 			oauthRevision = data.revision
-			confirmed = settings(data)
+			confirmed = data
 			hostsInput.value = data.hosts.join(', ')
 			nativeBox.checked = data.nativeClientEnabled
 			details.hidden = !data.nativeClientEnabled
@@ -1304,12 +1305,13 @@
 				}
 				try {
 					const sent = oauthRevision
-					const before = confirmed
-					const data = await api('PUT', '/api/oauth-clients', { ...build(customClients), expectedRevision: sent })
+					const change = build(customClients)
+					const committed = changes(change, confirmed)
+					const data = await api('PUT', '/api/oauth-clients', { ...change, expectedRevision: sent })
 					oauthRevision = data.revision
 					customClients = data.customClients
-					confirmed = settings(data)
-					if (oneStep(sent, data.revision) && confirmed !== before) {
+					confirmed = data
+					if (committed && oneStep(sent, data.revision)) {
 						announce(sent, data.revision)
 					}
 					load()
@@ -1321,6 +1323,38 @@
 					throw e
 				}
 			})
+		}
+
+		/**
+		 * Whether a request differs from the settings stored at the block's revision, compared the way the server compares
+		 * them (OAuthClientsService): the server then commits it and the revision advances. Hosts are lowercased, trimmed
+		 * and without duplicates, and the default list is stored as no list; clients keep their order, with names and
+		 * redirect URIs trimmed and URIs without duplicates. False when unsure, so nothing is announced then.
+		 *
+		 * @param {object} change the settings sent (hosts, nativeClientEnabled or customClients)
+		 * @param {object} stored the server's last answer
+		 * @return {boolean}
+		 */
+		function changes(change, stored) {
+			const unique = (list) => [...new Set(list.map((item) => item.trim()))]
+			if (change.nativeClientEnabled !== undefined && change.nativeClientEnabled !== stored.nativeClientEnabled) {
+				return true
+			}
+			if (change.hosts !== undefined) {
+				const hosts = unique(change.hosts.map((host) => host.toLowerCase()))
+				// Stored as no list when the request is the default set; only known while the default is what is stored.
+				const isDefault = stored.hostsDefault && hosts.length === stored.hosts.length && hosts.every((host) => stored.hosts.includes(host))
+				if (stored.hostsDefault ? !isDefault : hosts.join(',') !== stored.hosts.join(',')) {
+					return true
+				}
+			}
+			if (change.customClients !== undefined) {
+				const key = (clients) => JSON.stringify(clients.map((client) => [client.id ?? null, client.name.trim(), client.enabled, unique(client.redirectUris)]))
+				if (key(change.customClients) !== key(stored.customClients)) {
+					return true
+				}
+			}
+			return false
 		}
 
 		/**
@@ -1702,9 +1736,10 @@
 					noMatchText: t('mcp', 'No match.'),
 					save: async (nextIds, previousIds) => {
 						const sent = logsRevision
-						const sentVersion = version
-						const data = await api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: sentVersion, expectedRevision: sent })
-						if (oneStep(sent, data.revision) && data.version !== sentVersion) {
+						// The server stores the groups as a set and commits only a set other than `previous` (LogsAccess).
+						const committed = new Set(nextIds).size !== new Set(previousIds).size || nextIds.some((id) => !previousIds.includes(id))
+						const data = await api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version, expectedRevision: sent })
+						if (committed && oneStep(sent, data.revision)) {
 							announce(sent, data.revision)
 						}
 						return data

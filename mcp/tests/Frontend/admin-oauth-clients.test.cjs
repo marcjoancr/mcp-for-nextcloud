@@ -344,3 +344,41 @@ test('T14 D1: a save of this block is announced to the page only when it alone l
 		assert.deepEqual(log.announced, announced, `answer ${revision}, changed ${change}`)
 	}
 })
+
+test('T14 D1 review F1: a save that changes nothing, followed by another administrator\'s change before the read-back, is never announced', async () => {
+	// Each request below is what is stored already: the server accepts it at 5 without a commit. Another administrator
+	// then turns A off (revision 6) before the state is read back, so the answer is one step away and shows a change.
+	const outside = state('6', [client('aaaaaaaaaaaa', 'A', false)], { hosts: ['claude.ai'] })
+	const saves = {
+		'hosts unchanged': async ({ elements }) => {
+			elements['mcp-oauth-hosts'].value = ' Claude.AI, claude.ai '
+			await elements['mcp-oauth-hosts-save'].fire('click')
+		},
+		'native client unchanged': async ({ elements }) => {
+			elements['mcp-native-client'].checked = false
+			await elements['mcp-native-client'].fire('change')
+		},
+		'client card saved as it is, with spaces and a repeated URI': async ({ cards }) => {
+			const card = cards()[0]
+			card.querySelector('input[type="text"]').value = ' A '
+			card.querySelector('textarea').value = REDIRECT + '\n ' + REDIRECT
+			await button(card, 'Save').fire('click')
+		},
+	}
+	for (const [name, save] of Object.entries(saves)) {
+		const ui = await page(({ method }) => method === 'GET' ? [200, state('5', [client('aaaaaaaaaaaa', 'A')])] : [200, outside])
+		await save(ui)
+		assert.equal(puts(ui.log).length, 1, name)
+		assert.deepEqual(ui.log.announced, [], name)
+	}
+})
+
+test('T14 D1 review F1: the default host list is stored as no list, so sending it again changes nothing', async () => {
+	const stored = state('5', [], { hosts: ['claude.ai', 'chatgpt.com'], hostsDefault: true })
+	for (const [hosts, announced] of [['chatgpt.com, claude.ai', []], ['claude.ai', [['5', '6']]]]) {
+		const { elements, log } = await page(({ method }) => method === 'GET' ? [200, stored] : [200, state('6', [])])
+		elements['mcp-oauth-hosts'].value = hosts
+		await elements['mcp-oauth-hosts-save'].fire('click')
+		assert.deepEqual(log.announced, announced, hosts)
+	}
+})
