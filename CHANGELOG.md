@@ -7,6 +7,7 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 ### Added
 
 - l10n: German translation (`de`) of the whole interface and of the messages shown by the tools. German translation by @matt-ek ([#10](https://github.com/sintax-tech/mcp-for-nextcloud/issues/10)).
+- oauth, admin: self-hosted MCP harnesses that take a manually configured `client_id` and return to their own domain can sign in with OAuth. *OAuth clients* has a new **Self-hosted clients (custom redirect URIs)** list: the administrator adds one client per harness, with a name, an **Enabled** setting and the exact redirect URIs it may return to (absolute `https` URIs, `http` only on loopback, without user name, `*` or fragment, 1 to 20), and copies the client's own `client_id` (`nextcloud-mcp-custom-` followed by 12 random hex characters). There are none by default, at most 20. The consent screen asks "Allow <name> to access MCP with your account?", says the administrator added the client and names the host it returns to; both connection lists show the name. The requested `redirect_uri` must match one of that client's URIs exactly, and PKCE S256 is required as for every client. Turning a client off, deleting it or removing one of its URIs deletes the tokens and pending codes of that client only; while it is off or deleted it can neither exchange a code nor refresh nor authenticate. Renaming it signs no one out. New key `oauth_custom_clients` (en, pt-BR, es) ([#7](https://github.com/sintax-tech/mcp-for-nextcloud/issues/7)).
 
 ### Fixed
 
