@@ -12,6 +12,11 @@
  * of repeating the write. The matrix revision is only ever the one of the matrix on screen: from the
  * GET that was rendered, or from a matrix save that committed from it. The server-log block keeps its
  * own, from its own GET. A revision found in an error body is never adopted.
+ * A write this page committed is announced to the other blocks of the page (event "mcp-revision-moved", with the
+ * revision it was sent with and the one it made). The OAuth clients, server-log and resource scope blocks, when still
+ * at the first, adopt the second and keep their unsaved changes: under compare-and-swap nothing but that write lies
+ * between the two. The matrix never adopts one; it is reloaded after the writes of the other blocks. A move this page
+ * did not make (another window or administrator) is never announced, so the next save of a block still answers 409.
  * Plain browser JavaScript, no build step; strings go through t('mcp', …) for translation.
  */
 (function () {
@@ -63,6 +68,7 @@
 			create: t('mcp', 'create'),
 			move: t('mcp', 'move'),
 			delete: t('mcp', 'delete'),
+			restore: t('mcp', 'restore'),
 			transfer: t('mcp', 'transfer'),
 			reply: t('mcp', 'reply'),
 			attach: t('mcp', 'attach'),
@@ -172,6 +178,55 @@
 		} else {
 			window.alert(message)
 		}
+	}
+
+	/** Page event of a write this page committed: detail {from, to}. js/admin-scope.js listens to it too. */
+	const REVISION_MOVED = 'mcp-revision-moved'
+
+	/**
+	 * Tells the other blocks of this page that a write of this page moved the policy revision from `from` to `to`.
+	 * Only the answer of a save qualifies: the server committed it from `from`, so `to` holds that write and nothing else.
+	 *
+	 * @param {string} from revision the write was sent with
+	 * @param {string} to revision the server answered with
+	 */
+	function announce(from, to) {
+		if (typeof from === 'string' && typeof to === 'string' && from !== to) {
+			window.dispatchEvent(new CustomEvent(REVISION_MOVED, { detail: { from, to } }))
+		}
+	}
+
+	/**
+	 * Whether `to` is exactly one commit after `from`. The OAuth clients and server-log saves answer with the revision of
+	 * a read made after their commit, which may already hold another administrator's write; a commit advances the
+	 * revision by one and only when it changes something, so one step plus a change of the block's own settings is that
+	 * save alone. Compared as exact integers, never as floating-point numbers.
+	 *
+	 * @param {string} from revision the save was sent with
+	 * @param {string} to revision of the answer
+	 * @return {boolean}
+	 */
+	function oneStep(from, to) {
+		try {
+			return BigInt(to) === BigInt(from) + 1n
+		} catch {
+			return false
+		}
+	}
+
+	/**
+	 * Keeps a block's own revision in step with the writes of this page: when the block is exactly at the revision a
+	 * write committed from, it takes the one that write made, and its unsaved changes stay valid.
+	 *
+	 * @param {Function} get () => the block's revision
+	 * @param {Function} set (revision) => void
+	 */
+	function followRevision(get, set) {
+		window.addEventListener(REVISION_MOVED, (event) => {
+			if (get() === event.detail.from) {
+				set(event.detail.to)
+			}
+		})
 	}
 
 	/**
@@ -525,9 +580,13 @@
 			row.append(el('td', { className: 'mcp-connected', textContent: user.connected ? t('mcp', 'yes') : t('mcp', 'no') }))
 			return row
 		}
+		const modules = moduleLabels()
+		const operations = operationLabels()
 		Object.entries(state.data.catalog).forEach(([module, ops], index) => {
 			ops.forEach((operation, i) => {
-				const cell = permissionCell(user, module, user.grants[module][operation], module + ':' + operation, { module, operation, granted: null })
+				// The same name as the column header and the reset button, never the raw id ("files:read").
+				const label = (modules[module] || module) + ': ' + (operations[operation] || operation)
+				const cell = permissionCell(user, module, user.grants[module][operation], label, { module, operation, granted: null })
 				cell.dataset.module = module
 				cell.hidden = state.app !== '' && state.app !== module
 				cell.classList.add('mcp-band-' + (index % 2))
@@ -666,9 +725,11 @@
 			const focusStayed = () => hadFocus && (document.activeElement === null || document.activeElement === document.body || document.activeElement === box)
 			box.disabled = true
 			try {
-				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: state.data.revision })
+				const sent = state.data.revision
+				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: sent })
 				// Committed from the revision on screen, so the page plus this row is exactly the new revision.
 				state.data.revision = updated.revision
+				announce(sent, updated.revision)
 				const index = state.data.users.findIndex((u) => u.uid === user.uid)
 				state.data.users[index] = updated
 				const restore = focusStayed()
@@ -827,14 +888,17 @@
 	 * @param {Array<{operation: string, uids: string[], granted: boolean}>} requests cells to save
 	 * @return {Promise<object>} the saved command: {revision, changed, receiptId}
 	 */
-	function sendCommand(module, requests) {
+	async function sendCommand(module, requests) {
 		const commands = requests.flatMap((request) => request.uids.map((uid) => ({
 			uid,
 			module,
 			operation: request.operation,
 			state: request.granted ? 'allow' : 'deny',
 		})))
-		return api('POST', '/api/grants/commands', { expectedRevision: state.data.revision, commands })
+		const sent = state.data.revision
+		const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands })
+		announce(sent, saved.revision)
+		return saved
 	}
 
 	/**
@@ -916,7 +980,8 @@
 		setBulkBusy(true)
 		try {
 			try {
-				await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })
+				const undone = await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })
+				announce(savedRevision, undone.revision)
 				showNotice(t('mcp', 'Change undone.'), null)
 			} catch (e) {
 				if (e.message === '503' && !(e.data && e.data.uncertain)) {
@@ -949,9 +1014,11 @@
 		}
 		serviceBox.disabled = true
 		try {
-			const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: state.data.revision })
+			const sent = state.data.revision
+			const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: sent })
 			// Committed from the revision on screen: the switch is the only thing that changed.
 			state.data.revision = result.revision
+			announce(sent, result.revision)
 			state.data.serviceEnabled = result.enabled
 			serviceBox.checked = result.enabled
 			serviceStatus.textContent = t('mcp', 'Saved')
@@ -1155,7 +1222,10 @@
 	 * built when its turn comes, from the clients the server confirmed last, and carries the revision of that same
 	 * answer. So two quick changes never resend a list from before the first one (turning B off cannot turn A back on).
 	 * A page that is out of date (another window or administrator saved first) gets 409 and is rebuilt from the
-	 * server; the intents queued behind the refused one are dropped with it, never sent on the reloaded page.
+	 * server; the intents queued behind the refused one are dropped with it, never sent on the reloaded page. A card
+	 * with typed changes the server does not have (a new client, or a changed name or redirect URIs) stays on screen
+	 * through that rebuild, marked as not saved, for the admin to check and save again. A save of another block of this
+	 * page moves the revision too; that move is adopted (see announce()), so it never refuses a save here.
 	 */
 	async function initOauthClients() {
 		const hostsInput = document.getElementById('mcp-oauth-hosts')
@@ -1176,10 +1246,17 @@
 		let queue = Promise.resolve()
 		// Advances when the page is reloaded after a refused save: intents queued before that are dropped.
 		let epoch = 0
+		/** Per card: the client it was built from, and what is typed in it now. */
+		const drafts = new WeakMap()
+		/** The settings of the server's last answer, to tell whether a save changed them. */
+		let confirmed = ''
+		const settings = (data) => JSON.stringify([data.hosts, data.nativeClientEnabled, data.customClients])
+		followRevision(() => oauthRevision, (revision) => { oauthRevision = revision })
 
 		/** @param {object} data settings returned by the API */
 		function show(data) {
 			oauthRevision = data.revision
+			confirmed = settings(data)
 			hostsInput.value = data.hosts.join(', ')
 			nativeBox.checked = data.nativeClientEnabled
 			details.hidden = !data.nativeClientEnabled
@@ -1226,9 +1303,15 @@
 					throw new Error('stale')
 				}
 				try {
-					const data = await api('PUT', '/api/oauth-clients', { ...build(customClients), expectedRevision: oauthRevision })
+					const sent = oauthRevision
+					const before = confirmed
+					const data = await api('PUT', '/api/oauth-clients', { ...build(customClients), expectedRevision: sent })
 					oauthRevision = data.revision
 					customClients = data.customClients
+					confirmed = settings(data)
+					if (oneStep(sent, data.revision) && confirmed !== before) {
+						announce(sent, data.revision)
+					}
 					load()
 					return data
 				} catch (e) {
@@ -1243,7 +1326,8 @@
 		/**
 		 * When a save failed because the page was out of date (409, or 428 without a revision) or the server could not
 		 * confirm it (503 uncertain), shows what is stored now, in the queue's order, and tells the admin nothing was
-		 * overwritten. An intent dropped behind such a save is handled by that reload.
+		 * overwritten. The cards with unsaved typed changes are kept (see keepUnsaved()). An intent dropped behind such a
+		 * save is handled by that reload.
 		 *
 		 * @param {Error} e error thrown by put()
 		 * @return {Promise<boolean>} whether the error was handled here (the settings are then reloaded)
@@ -1260,12 +1344,38 @@
 				return false
 			}
 			try {
+				const unsaved = [...customList.children].filter((card) => drafts.get(card)?.edited())
 				show(await enqueue(() => api('GET', '/api/oauth-clients')))
-				customList.replaceChildren(...customClients.map(customCard))
+				customList.replaceChildren(...keepUnsaved(unsaved))
 			} catch (reload) {
 				notifyError(t('mcp', 'Could not load the OAuth client settings.'))
 			}
 			return true
+		}
+
+		/**
+		 * The cards of the clients the server has now, with the cards whose typed changes it does not have put back: a
+		 * saved client keeps its edited card in its place, a new card comes after the saved ones, and the edits of a
+		 * client deleted elsewhere come back as a new card. Each card put back says it was not saved.
+		 *
+		 * @param {HTMLElement[]} unsaved cards with typed changes, read before the reload
+		 * @return {HTMLElement[]} the cards to show
+		 */
+		function keepUnsaved(unsaved) {
+			const kept = new Map(unsaved.filter((card) => drafts.get(card).client.id !== null).map((card) => [drafts.get(card).client.id, card]))
+			const cards = customClients.map((client) => kept.get(client.id) || customCard(client))
+			const extra = unsaved.filter((card) => !cards.includes(card)).map((card) => {
+				if (drafts.get(card).client.id === null) {
+					return card
+				}
+				const fresh = customCard({ ...drafts.get(card).read(), id: null })
+				report(fresh.querySelector('.mcp-status'), false, t('mcp', 'Not saved: this client was deleted in the meantime. Your changes are kept here as a new client; saving adds it again.'))
+				return fresh
+			})
+			for (const card of unsaved.filter((card) => cards.includes(card) || extra.includes(card))) {
+				report(card.querySelector('.mcp-status'), false, t('mcp', 'Not saved: the settings changed after this page was loaded. Your changes are kept here; check them and save again.'))
+			}
+			return [...cards, ...extra]
 		}
 
 		/**
@@ -1336,6 +1446,13 @@
 					redirectUris: uris.value.split('\n').map((uri) => uri.trim()).filter((uri) => uri !== ''),
 				}
 			}
+
+			/** @return {boolean} whether the card holds what the server does not have: any new card, or a changed name or URI list */
+			function edited() {
+				const entry = read()
+				return !saved || entry.name !== client.name || entry.redirectUris.join('\n') !== client.redirectUris.join('\n')
+			}
+			drafts.set(card, { client, read, edited })
 
 			save.addEventListener('click', async () => {
 				const entry = read()
@@ -1563,6 +1680,7 @@
 		// The block's own revision, from its own GET or save; never the matrix's, never an error body's.
 		let logsRevision = null
 		let picker = null
+		followRevision(() => logsRevision, (revision) => { logsRevision = revision })
 
 		/** @param {object} data state returned by the API */
 		function show(data) {
@@ -1583,7 +1701,13 @@
 					emptyOptionsText: t('mcp', 'No groups found; only administrators can read the log.'),
 					noMatchText: t('mcp', 'No match.'),
 					save: async (nextIds, previousIds) => {
-						return api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version, expectedRevision: logsRevision })
+						const sent = logsRevision
+						const sentVersion = version
+						const data = await api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: sentVersion, expectedRevision: sent })
+						if (oneStep(sent, data.revision) && data.version !== sentVersion) {
+							announce(sent, data.revision)
+						}
+						return data
 					},
 					onSaved: async (data) => {
 						show(data)
@@ -1655,6 +1779,7 @@
 	window.McpAdminMatrix = {
 		data: () => state.data,
 		api,
+		announce,
 		reload: reloadLocked,
 		policyError,
 		isBusy: () => bulkBusy || matrixLocked,

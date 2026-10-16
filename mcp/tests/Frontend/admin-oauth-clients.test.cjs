@@ -8,7 +8,8 @@
  * 409 (another window saved first) rebuilds the cards from the server instead of resending the stale list.
  *
  * The block is one function of the admin script, so it is cut out of the source and run against stubs of the helpers it
- * shares with the rest of the page (api, el, flash, notifyError, load).
+ * shares with the rest of the page (api, el, flash, notifyError, load), with the real revision helpers of the page
+ * (announce, oneStep, followRevision) cut out too.
  */
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
@@ -45,6 +46,8 @@ class Element {
 	set textContent(value) { this._text = String(value); this.children = [] }
 	get textContent() { return this._text + this.children.map((child) => typeof child === 'string' ? child : child.textContent).join('') }
 	matches(selector) {
+		const typed = selector.match(/^(\w*)\[type="(\w+)"\]$/)
+		if (typed) return (typed[1] === '' || typed[1] === this.tag) && this.type === typed[2]
 		const [tag, ...classes] = selector.split('.')
 		return (tag === '' || tag === this.tag) && classes.every((name) => this.classes.has(name))
 	}
@@ -58,6 +61,9 @@ const source = fs.readFileSync(path.join(__dirname, '../../js/admin-grants.js'),
 const start = source.indexOf('\tasync function initOauthClients() {')
 const block = source.slice(start, source.indexOf('\n\t}\n', start) + 4)
 assert.ok(start > 0 && block.length > 500, 'the OAuth clients block was found in js/admin-grants.js')
+const helpersStart = source.indexOf('\t/** Page event of a write this page committed')
+const helpers = source.slice(helpersStart, source.indexOf('\t/**\n\t * @param {HTMLElement} cell cell that shows the save result', helpersStart))
+assert.ok(helpersStart > 0 && helpers.includes('function followRevision('), 'the revision helpers were found in js/admin-grants.js')
 
 const REDIRECT = 'https://harness.example.com/oauth/callback'
 const client = (id, name, enabled = true) => ({ id, clientId: 'nextcloud-mcp-custom-' + id, name, enabled, redirectUris: [REDIRECT] })
@@ -76,10 +82,14 @@ async function page(serve) {
 		getElementById: (id) => elements[id] ??= new Element('div'),
 		createElement: (tag) => new Element(tag),
 	}
-	const log = { calls: [], errors: [], matrixReloads: 0 }
+	const log = { calls: [], errors: [], matrixReloads: 0, announced: [] }
+	// The page's window: the other blocks of the page talk to this one through its events.
+	const window = Object.assign(new EventTarget(), { confirm: () => true })
+	window.addEventListener('mcp-revision-moved', (event) => log.announced.push([event.detail.from, event.detail.to]))
 	const context = {
 		document,
-		window: { confirm: () => true },
+		window,
+		CustomEvent,
 		navigator: { clipboard: { writeText: async () => {} } },
 		t: (app, text) => text,
 		el: (tag, props, children) => {
@@ -99,10 +109,12 @@ async function page(serve) {
 		},
 	}
 	vm.createContext(context)
-	vm.runInContext(block + '\nthis.run = initOauthClients', context)
+	vm.runInContext(helpers + block + '\nthis.run = initOauthClients', context)
 	await context.run()
 	const cards = () => elements['mcp-custom-clients'].children
-	return { elements, log, cards, context }
+	/** A save of another block of this page committed from `from` to `to`. */
+	const moved = (from, to) => window.dispatchEvent(new CustomEvent('mcp-revision-moved', { detail: { from, to } }))
+	return { elements, log, cards, context, moved }
 }
 
 const puts = (log) => log.calls.filter((call) => call.method === 'PUT')
@@ -206,7 +218,8 @@ function revisionServer(initial) {
 		if (server.puts.length === 1) await server.held
 		if (body.expectedRevision !== String(server.revision)) return [409, { error: 'Conflict' }]
 		server.revision++
-		server.clients = body.customClients.map((c) => ({ ...c, clientId: 'nextcloud-mcp-custom-' + c.id }))
+		// A new client (no id yet) gets one, as the server gives it.
+		server.clients = body.customClients.map((c, i) => ({ ...c, id: c.id ?? 'new' + i, clientId: 'nextcloud-mcp-custom-' + (c.id ?? 'new' + i) }))
 		return [200, state(String(server.revision), server.clients)]
 	}
 	return server
@@ -245,4 +258,89 @@ test('R1: the intents queued behind a refused save are dropped, not sent on the 
 	assert.deepEqual(server.clients.map((c) => c.enabled), [true, true])
 	assert.ok(cards().every((card) => card.querySelector('input.checkbox').checked), 'the page shows what is stored')
 	assert.equal(log.errors.length, 1)
+})
+
+/** Adds a new client card and types a name and one redirect URI into it, as the admin does. */
+async function typeNewClient(elements, cards, name, uri) {
+	await elements['mcp-custom-add'].fire('click')
+	const card = cards().at(-1)
+	card.querySelector('input[type="text"]').value = name
+	card.querySelector('textarea').value = uri
+	return card
+}
+const button = (card, text) => card.querySelectorAll('button').find((node) => node.textContent === text)
+const typed = (card) => [card.querySelector('input[type="text"]').value, card.querySelector('textarea').value]
+
+test('T14 D1: a save of another block of this page is adopted, so the new client is saved instead of refused', async () => {
+	const server = revisionServer([client('aaaaaaaaaaaa', 'A')])
+	server.release()
+	const { elements, cards, log, moved } = await page(server.serve)
+	// The matrix of this page saved a cell: 5 -> 6. A move that does not start from this block's revision is ignored.
+	server.revision = 6
+	moved('4', '5')
+	moved('5', '6')
+	const card = await typeNewClient(elements, cards, 'Harness C', 'https://harness-c.example.com/cb')
+	await button(card, 'Save').fire('click')
+	assert.deepEqual(server.puts.map((body) => body.expectedRevision), ['6'])
+	assert.deepEqual([...server.clients].map((c) => c.name), ['A', 'Harness C'], 'the new client is stored')
+	assert.deepEqual(log.errors, [], 'no conflict, no toast')
+	assert.equal(cards().length, 2)
+	assert.match(cards()[1].textContent, /client_id: nextcloud-mcp-custom-/, 'the card is the saved client now')
+})
+
+test('T14 D1: a refused save never drops the new client typed in; the card stays, says so, and the next save goes through', async () => {
+	const server = revisionServer([client('aaaaaaaaaaaa', 'A')])
+	server.release()
+	const { elements, cards, log } = await page(server.serve)
+	server.revision = 6 // another administrator saved; nothing on this page announced it
+	const card = await typeNewClient(elements, cards, 'Harness C', 'https://harness-c.example.com/cb')
+	await button(card, 'Save').fire('click')
+	assert.equal(server.puts.length, 1)
+	assert.equal(server.puts[0].expectedRevision, '5')
+	assert.equal(log.errors.length, 1, 'the conflict is told once')
+	assert.equal(cards().length, 2, 'the saved client and the typed one')
+	assert.equal(cards()[1], card, 'the very card the admin typed in')
+	assert.deepEqual(typed(card), ['Harness C', 'https://harness-c.example.com/cb'])
+	assert.match(card.querySelector('.mcp-status').textContent, /Not saved: the settings changed after this page was loaded\. Your changes are kept here/)
+	assert.equal(button(card, 'Save').disabled, false)
+	await button(card, 'Save').fire('click')
+	assert.deepEqual(server.puts.map((body) => body.expectedRevision), ['5', '6'], 'sent again with the revision of the reload')
+	assert.deepEqual([...server.clients].map((c) => c.name), ['A', 'Harness C'])
+})
+
+test('T14 D1: on a refused save an edited saved client keeps its edits, and one deleted elsewhere comes back as a new card', async () => {
+	let reads = 0
+	const { cards, log } = await page(({ method }) => {
+		if (method === 'PUT') return [409, { error: 'Conflict' }]
+		// Another administrator deleted B after this page was loaded.
+		return [200, reads++ === 0 ? state('5', [client('aaaaaaaaaaaa', 'A'), client('bbbbbbbbbbbb', 'B')]) : state('9', [client('aaaaaaaaaaaa', 'A')])]
+	})
+	const [a, b] = cards()
+	a.querySelector('input[type="text"]').value = 'A renamed'
+	b.querySelector('textarea').value = 'https://b.example.com/new'
+	await button(a, 'Save').fire('click')
+	assert.equal(log.errors.length, 1)
+	assert.equal(cards().length, 2)
+	assert.equal(cards()[0], a, 'A keeps its card with the edit')
+	assert.deepEqual(typed(a), ['A renamed', REDIRECT])
+	assert.match(a.querySelector('.mcp-status').textContent, /Your changes are kept here; check them and save again/)
+	const again = cards()[1]
+	assert.deepEqual(typed(again), ['B', 'https://b.example.com/new'], 'the edits of B are still on screen')
+	assert.doesNotMatch(again.textContent, /client_id:/, 'as a new client: B no longer exists')
+	assert.match(again.querySelector('.mcp-status').textContent, /this client was deleted in the meantime/)
+})
+
+test('T14 D1: a save of this block is announced to the page only when it alone lies between the two revisions', async () => {
+	const cases = [
+		// [answer revision, changes the settings, announced]
+		['6', true, [['5', '6']]],
+		['7', true, []], // another write landed before the state was read back
+		['6', false, []], // nothing changed here, so the step is someone else's
+	]
+	for (const [revision, change, announced] of cases) {
+		const { elements, log } = await page(({ method }) => method === 'GET' ? [200, state('5', [])] : [200, state(revision, [], { nativeClientEnabled: change })])
+		elements['mcp-native-client'].checked = change
+		await elements['mcp-native-client'].fire('change')
+		assert.deepEqual(log.announced, announced, `answer ${revision}, changed ${change}`)
+	}
 })

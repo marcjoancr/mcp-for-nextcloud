@@ -457,7 +457,7 @@
 
 #mcp-admin .mcp-matrix td.mcp-override-invalid {
 	outline-style: solid;
-	outline-color: var(--color-error);
+	outline-color: var(--color-error-text, var(--color-error));
 }
 
 #mcp-admin .mcp-reset-cell,
@@ -509,7 +509,7 @@
 }
 
 #mcp-admin .mcp-reset-alert {
-	color: var(--color-error);
+	color: var(--color-error-text, var(--color-error));
 }
 
 #mcp-admin .mcp-reset-preview {
@@ -625,7 +625,7 @@
 
 #mcp-admin .mcp-error {
 	animation: mcp-flash-error 2s ease-out;
-	outline: 2px solid var(--color-error);
+	outline: 2px solid var(--color-error-text, var(--color-error));
 	outline-offset: -2px;
 }
 
@@ -855,14 +855,18 @@
 .mcp-group-permissions label { display: inline-flex; align-items: center; gap: 4px; }
 .mcp-group-counts { width: 100%; margin-block: 16px; }
 .mcp-group-counts th, .mcp-group-counts td { text-align: start; padding: 6px; }
-[id="mcp-group-alert"] { color: var(--color-error); }
+/*
+ * Text and outlines take the *-text variables: since Nextcloud 35 --color-error and --color-warning are background
+ * colors (1.18:1 on the main background). #mcp-admin and the element keep these rules above the theme's paragraph colour.
+ */
+#mcp-admin p[id="mcp-group-alert"] { color: var(--color-error-text, var(--color-error)); }
 [id="mcp-group-detail"] :focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
 .mcp-inspector-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 8px; }
 .mcp-inspector-table { width: 100%; margin-block: 16px; }
 .mcp-inspector-table th, .mcp-inspector-table td { text-align: start; padding: 6px; }
-.mcp-inspector-blocked { color: var(--color-error); }
-.mcp-inspector-unknown { color: var(--color-warning); font-weight: bold; }
-[id="mcp-inspector-alert"] { color: var(--color-error); }
+#mcp-admin .mcp-inspector-blocked { color: var(--color-error-text, var(--color-error)); }
+#mcp-admin .mcp-inspector-unknown { color: var(--color-warning-text, var(--color-warning)); font-weight: bold; }
+#mcp-admin p[id="mcp-inspector-alert"] { color: var(--color-error-text, var(--color-error)); }
 
 /* Resource scope (issue 4, B7): native controls, state in text and not in color alone. */
 .mcp-scope-module { margin-block: 16px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--border-radius); }
@@ -877,7 +881,7 @@
 .mcp-scope-module :focus-visible, .mcp-scope-indicator:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
 .mcp-scope-indicator { display: block; margin: 2px 0 0; padding: 0 4px; min-height: 0; font-size: 0.85em; white-space: nowrap; }
 #mcp-admin .mcp-badge-error { background-color: var(--color-error); color: var(--color-error-text, var(--color-primary-element-text)); }
-[id="mcp-scope-alert"] { color: var(--color-error); }
+#mcp-admin p[id="mcp-scope-alert"] { color: var(--color-error-text, var(--color-error)); }
 
 /* Self-hosted clients: one card each; redirect URIs one per line, wide enough for a full URL. */
 #mcp-admin .mcp-custom-heading { margin-top: 20px; font-size: 16px; font-weight: bold; }

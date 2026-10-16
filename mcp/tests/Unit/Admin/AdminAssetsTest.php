@@ -339,14 +339,18 @@ final class AdminAssetsTest extends TestCase {
         $script = (string)file_get_contents(dirname(__DIR__, 3) . '/js/admin-grants.js');
         $this->assertDoesNotMatchRegularExpression('/(Number|parseInt|parseFloat|BigInt)\([^)]*[rR]evision/', $script, 'kept as the server\'s string');
         foreach ([
-            "{ ...payload, expectedRevision: state.data.revision }",
-            "{ expectedRevision: state.data.revision, commands }",
-            "{ enabled: value, expectedRevision: state.data.revision }",
-            "version: version, expectedRevision: logsRevision",
+            "{ ...payload, expectedRevision: sent }",
+            "{ expectedRevision: sent, commands }",
+            "{ enabled: value, expectedRevision: sent }",
+            "version: sentVersion, expectedRevision: sent",
             "{ receiptId, expectedRevision: savedRevision }",
         ] as $body) {
             $this->assertStringContainsString($body, $script);
         }
+        // The revision sent is the one on screen (T14 D1: kept apart only to announce the move the save made).
+        $this->assertSame(3, substr_count($script, 'const sent = state.data.revision'), 'cell, bulk command and service');
+        $this->assertStringContainsString('const sent = logsRevision', $script);
+        $this->assertStringContainsString('const sent = oauthRevision', $script);
         $this->assertStringContainsString("if (e.message === '409' || e.message === '428') {", $script);
         $this->assertStringContainsString("e.message === '503' && e.data && e.data.uncertain", $script);
     }
@@ -397,7 +401,7 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $script = (string)file_get_contents($app . '/js/admin-grants.js');
         $logs = substr($script, (int)strpos($script, 'async function initLogsAccess'));
-        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: version, expectedRevision: logsRevision', $logs);
+        $this->assertStringContainsString('groups: nextIds, previous: previousIds, version: sentVersion, expectedRevision: sent', $logs);
         $this->assertStringContainsString("version = data.version", $logs);
         $this->assertStringContainsString("e.message === '409'", $logs);
         $this->assertStringContainsString("t('mcp', 'The groups were changed in another window or by another administrator; the current list was loaded.')", $logs);

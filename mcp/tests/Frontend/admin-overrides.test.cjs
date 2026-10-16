@@ -102,7 +102,7 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 	const timers = new Map()
 	let timerId = 0
 	const listeners = {}
-	const log = { calls: [], notices: [], reloads: 0, busy: [], policyErrors: [], undoFocus: 0 }
+	const log = { calls: [], notices: [], reloads: 0, busy: [], policyErrors: [], undoFocus: 0, announced: [] }
 	const data = { revision: REVISION, users, catalog: { notes: ['read', 'edit'], files: ['read'] } }
 	const window = {
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
@@ -118,6 +118,7 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 			if (status >= 400) throw Object.assign(new Error(String(status)), { data: result })
 			return result
 		},
+		announce: (from, to) => log.announced.push([from, to]),
 		reload: async () => { log.reloads++; render() },
 		policyError: async (e) => {
 			log.policyErrors.push(e.message)
@@ -480,6 +481,7 @@ test('O1: undoing a 503 without uncertainty keeps the table, offers the same und
 		showNotice: (message, undo) => notices.push({ message, undo }),
 		notifyError: (message) => toasts.push(message),
 		reloadLocked: async () => { reloads++ },
+		announce: () => {},
 	}
 	vm.runInNewContext(source.slice(start, end) + '\nthis.undoBulk = undoBulk', context)
 	await context.undoBulk('receipt-1', '7')
