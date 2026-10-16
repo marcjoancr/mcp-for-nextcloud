@@ -213,7 +213,7 @@
 	function levelText(grants, module) {
 		const level = levelIn(grants, module)
 		if (level !== 'custom') return levelName(level)
-		return t('mcp', 'Custom ({operations})', { operations: operationsIn(grants, module).map(operationName).join(', ') }, undefined, RAW)
+		return t('mcp', 'Custom ({operations})', { operations: current.catalog[module].filter((operation) => operationsIn(grants, module).includes(operation)).map(operationName).join(', ') }, undefined, RAW)
 	}
 	/** One line per changed module, "Files: Read → Edit", and one for "Can connect". */
 	function changes(before, after) {
@@ -301,7 +301,7 @@
 
 		const fields = el('fieldset', { disabled: !editable })
 		fields.setAttribute('aria-describedby', 'mcp-group-diagnosis')
-		fields.append(el('legend', { textContent: t('mcp', 'Group grants') }))
+		fields.append(el('legend', { className: 'mcp-sr-only', textContent: t('mcp', 'Group grants') }))
 		const eligible = keyed('eligible', el('input', { type: 'checkbox', name: 'mcp-group-eligible', id: 'mcp-group-eligible', checked: operationsIn(draft, '_system').includes('eligible') }))
 		eligible.setAttribute('role', 'switch')
 		eligible.addEventListener('change', () => setOperations('_system', eligible.checked ? ['eligible'] : [], 'eligible'))
@@ -329,7 +329,7 @@
 			control.setAttribute('role', 'group')
 			control.setAttribute('aria-labelledby', 'mcp-group-module-' + module)
 			let hint = ''
-			if (level === 'none') hint = t('mcp', 'Members keep the default: {level}', { level: defaultLevel(module) === 'none' ? t('mcp', 'None') : levelName(defaultLevel(module)) }, undefined, RAW)
+			if (level === 'none') hint = t('mcp', 'Default: {level}', { level: defaultLevel(module) === 'none' ? t('mcp', 'None') : levelName(defaultLevel(module)) }, undefined, RAW)
 			else if (level === 'custom' && !advanced) hint = t('mcp', 'Custom: change it in Operations')
 			fields.append(el('div', { className: 'mcp-group-row' }, [label, control, el('span', { className: 'mcp-hint', textContent: hint })]))
 		}

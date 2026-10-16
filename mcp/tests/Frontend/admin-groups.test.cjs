@@ -398,8 +398,8 @@ test('S8: each module shows the matrix levels, the chosen one pressed with a che
 	assert.match(ui.level('talk', 'none').className, /mcp-group-level-none/)
 	assert.doesNotMatch(ui.level('files', 'edit').className, /mcp-group-level-none/)
 	const text = ui.ids['mcp-group-detail'].textContent
-	assert.match(text, /Members keep the default: Read/, 'a module the group does not grant shows what members get anyway')
-	assert.doesNotMatch(ui.ids['mcp-group-detail'].all('div').find((row) => row.className === 'mcp-group-row' && row.textContent.startsWith('Server log'))?.textContent ?? '', /default/)
+	assert.match(text, /Default: Read/, 'a module the group does not grant shows what members get anyway')
+	assert.doesNotMatch(ui.ids['mcp-group-detail'].all('div').find((row) => row.className === 'mcp-group-row' && row.textContent.startsWith('Server log'))?.textContent ?? '', /Default/)
 })
 test('S8: choosing a level puts exactly its operations in the draft, lower or higher, and keeps the focus on it', async () => {
 	const ui = await app((call) => call.method === 'POST' ? [200, preview] : undefined, stored({ catalog: fullCatalog, grants: { files: ['read', 'edit', 'create', 'move', 'restore', 'share', 'link'], talk: ['read'] } }))
@@ -428,6 +428,9 @@ test('S8: "Operations" shows two-state boxes per operation, and a set that is no
 	assert.deepEqual(pressed(ui, 'files'), [])
 	assert.match(ui.ids['mcp-group-detail'].textContent, /Custom: change it in Operations/)
 	assert.match(ui.ids['mcp-group-detail'].textContent, /Files: Read → Custom \(read, share\)/)
+	ui.operations()
+	ui.check(ui.input('mcp-group-op-files', 'edit'))
+	assert.match(ui.ids['mcp-group-detail'].textContent, /Custom \(read, edit, share\)/, 'operations in catalog order, not sorted by ID')
 })
 test('S8: the save bar counts the changes, Discard restores the saved policy, and nothing is sent without a review', async () => {
 	const ui = await app(undefined, stored({ catalog: fullCatalog, grants: { files: ['read'] } }))

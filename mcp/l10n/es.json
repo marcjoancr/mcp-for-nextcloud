@@ -1265,13 +1265,12 @@
     "Grants nothing" : "No concede nada",
     "Grants: {permissions}" : "Concede: {permissions}",
     "ID: {id}" : "ID: {id}",
-    "_%n group_::_%n groups_" : ["%n grupo", "%n de grupos", "%n grupos"],
+    "_%n group_::_%n groups_" : ["%n grupo", "%n grupos", "%n grupos"],
     "Groups {first}–{last}" : "Grupos {first}–{last}",
     "Not granted" : "No concede",
     "Custom ({operations})" : "Personalizado ({operations})",
     "{module}: {before} → {after}" : "{module}: {before} → {after}",
     "Unknown number of members" : "Número de miembros desconocido",
-    "Members keep the default: {level}" : "Los miembros mantienen el valor predeterminado: {level}",
     "Custom: change it in Operations" : "Personalizado: cámbialo en Operaciones",
     "The members with individual settings could not be counted." : "No se pudieron contar los miembros con ajustes individuales.",
     "No member has individual settings that take precedence over this group." : "Ningún miembro tiene ajustes individuales que prevalezcan sobre este grupo.",
@@ -1281,8 +1280,9 @@
     "No change to the saved policy." : "Ningún cambio en la política guardada.",
     "Back" : "Volver",
     "Discard" : "Descartar",
-    "_%n member_::_%n members_" : ["%n miembro", "%n de miembros", "%n miembros"],
-    "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n miembro tiene ajustes individuales que prevalecen sobre este grupo.", "%n de miembros tienen ajustes individuales que prevalecen sobre este grupo.", "%n miembros tienen ajustes individuales que prevalecen sobre este grupo."],
-    "_%n unsaved change_::_%n unsaved changes_" : ["%n cambio sin guardar", "%n de cambios sin guardar", "%n cambios sin guardar"]
+    "_%n member_::_%n members_" : ["%n miembro", "%n miembros", "%n miembros"],
+    "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n miembro tiene ajustes individuales que prevalecen sobre este grupo.", "%n miembros tienen ajustes individuales que prevalecen sobre este grupo.", "%n miembros tienen ajustes individuales que prevalecen sobre este grupo."],
+    "_%n unsaved change_::_%n unsaved changes_" : ["%n cambio sin guardar", "%n cambios sin guardar", "%n cambios sin guardar"],
+    "Default: {level}" : "Predeterminado: {level}"
 },"pluralForm" :"nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

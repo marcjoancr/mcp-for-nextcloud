@@ -1268,7 +1268,6 @@ OC.L10N.register(
     "Custom ({operations})" : "Benutzerdefiniert ({operations})",
     "{module}: {before} → {after}" : "{module}: {before} → {after}",
     "Unknown number of members" : "Anzahl der Mitglieder unbekannt",
-    "Members keep the default: {level}" : "Mitglieder behalten den Standard: {level}",
     "Custom: change it in Operations" : "Benutzerdefiniert: änderst du unter Vorgänge",
     "The members with individual settings could not be counted." : "Die Mitglieder mit individuellen Einstellungen konnten nicht gezählt werden.",
     "No member has individual settings that take precedence over this group." : "Kein Mitglied hat individuelle Einstellungen, die Vorrang vor dieser Gruppe haben.",
@@ -1280,6 +1279,7 @@ OC.L10N.register(
     "Discard" : "Verwerfen",
     "_%n member_::_%n members_" : ["%n Mitglied", "%n Mitglieder"],
     "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n Mitglied hat individuelle Einstellungen, die Vorrang vor dieser Gruppe haben.", "%n Mitglieder haben individuelle Einstellungen, die Vorrang vor dieser Gruppe haben."],
-    "_%n unsaved change_::_%n unsaved changes_" : ["%n ungespeicherte Änderung", "%n ungespeicherte Änderungen"]
+    "_%n unsaved change_::_%n unsaved changes_" : ["%n ungespeicherte Änderung", "%n ungespeicherte Änderungen"],
+    "Default: {level}" : "Standard: {level}"
 },
 "nplurals=2; plural=(n != 1);");

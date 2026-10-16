@@ -1267,13 +1267,12 @@ OC.L10N.register(
     "Grants nothing" : "Não concede nada",
     "Grants: {permissions}" : "Concede: {permissions}",
     "ID: {id}" : "ID: {id}",
-    "_%n group_::_%n groups_" : ["%n grupo", "%n de grupos", "%n grupos"],
+    "_%n group_::_%n groups_" : ["%n grupo", "%n grupos", "%n grupos"],
     "Groups {first}–{last}" : "Grupos {first}–{last}",
     "Not granted" : "Não concede",
     "Custom ({operations})" : "Personalizado ({operations})",
     "{module}: {before} → {after}" : "{module}: {before} → {after}",
     "Unknown number of members" : "Número de membros desconhecido",
-    "Members keep the default: {level}" : "Os membros ficam com o padrão: {level}",
     "Custom: change it in Operations" : "Personalizado: altere em Operações",
     "The members with individual settings could not be counted." : "Não foi possível contar os membros com definições individuais.",
     "No member has individual settings that take precedence over this group." : "Nenhum membro tem definições individuais que vencem este grupo.",
@@ -1283,8 +1282,9 @@ OC.L10N.register(
     "No change to the saved policy." : "Nenhuma mudança na política salva.",
     "Back" : "Voltar",
     "Discard" : "Descartar",
-    "_%n member_::_%n members_" : ["%n membro", "%n de membros", "%n membros"],
-    "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n membro tem definições individuais que vencem este grupo.", "%n de membros têm definições individuais que vencem este grupo.", "%n membros têm definições individuais que vencem este grupo."],
-    "_%n unsaved change_::_%n unsaved changes_" : ["%n mudança não salva", "%n de mudanças não salvas", "%n mudanças não salvas"]
+    "_%n member_::_%n members_" : ["%n membro", "%n membros", "%n membros"],
+    "_%n member has individual settings that take precedence over this group._::_%n members have individual settings that take precedence over this group._" : ["%n membro tem definições individuais que vencem este grupo.", "%n membros têm definições individuais que vencem este grupo.", "%n membros têm definições individuais que vencem este grupo."],
+    "_%n unsaved change_::_%n unsaved changes_" : ["%n mudança não salva", "%n mudanças não salvas", "%n mudanças não salvas"],
+    "Default: {level}" : "Padrão: {level}"
 },
 "nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;");

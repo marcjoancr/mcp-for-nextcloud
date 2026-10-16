@@ -898,12 +898,16 @@
 #mcp-admin .mcp-group-state-warning { color: var(--color-warning-text, var(--color-warning)); }
 #mcp-admin .mcp-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 #mcp-admin .mcp-group-head h3 { margin: 0; }
-#mcp-admin .mcp-group-note { border-inline-start-color: var(--color-warning, var(--color-border-maxcontrast)); }
+#mcp-admin .mcp-note.mcp-group-note { border-inline-start-color: var(--color-warning, var(--color-border-maxcontrast)); }
 [id="mcp-group-detail"] fieldset { margin-block: 12px; padding: 12px; border: 1px solid var(--color-border); }
 /* One level per module, as in the matrix; "Not granted" pressed stays neutral, only a level that grants takes the selection. */
 #mcp-admin .mcp-group-toolbar { display: flex; justify-content: flex-end; margin-top: 12px; }
 #mcp-admin .mcp-group-toolbar label, #mcp-admin .mcp-group-operations label { display: inline-flex; align-items: center; gap: 4px; }
-#mcp-admin .mcp-group-row { display: grid; grid-template-columns: minmax(8em, 11em) auto minmax(0, 1fr); gap: 4px 12px; align-items: center; min-height: 44px; padding-block: 4px; border-bottom: 1px solid var(--color-border); }
+#mcp-admin .mcp-group-row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; min-height: 44px; padding-block: 4px; border-bottom: 1px solid var(--color-border); }
+#mcp-admin .mcp-group-row > .mcp-group-module { flex: 0 0 9em; }
+#mcp-admin .mcp-group-row > .mcp-hint { flex: 1 1 6em; margin: 0; }
+/* Secondary actions are quiet: Nextcloud's default button fill is the theme colour, which here marks only selection. */
+#mcp-admin [id="mcp-group-editor"] :is(.mcp-group-clear, .mcp-groups-pager button, .mcp-group-savebar button:not(.primary), .mcp-group-actions button:not(.primary), .mcp-group-note button, .mcp-groups-nav li > button:not(.mcp-group-item)) { border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark)); background-color: transparent; color: var(--color-main-text); }
 #mcp-admin .mcp-group-row:last-child { border-bottom: 0; }
 #mcp-admin .mcp-group-module { font-weight: bold; }
 #mcp-admin .mcp-group-levels { display: inline-flex; flex-wrap: wrap; border: 2px solid var(--color-border-maxcontrast, var(--color-border-dark)); border-radius: var(--border-radius-element, 8px); overflow: hidden; }
@@ -925,9 +929,6 @@
 #mcp-admin .mcp-group-review ul { margin: 0 0 8px; padding-inline-start: 18px; list-style: disc; }
 #mcp-admin .mcp-group-warning { color: var(--color-warning-text, var(--color-warning)); }
 #mcp-admin .mcp-group-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-@media (max-width: 760px) {
-	#mcp-admin .mcp-group-row { grid-template-columns: minmax(0, 1fr); }
-}
 /*
  * Text and outlines take the *-text variables: since Nextcloud 35 --color-error and --color-warning are background
  * colors (1.18:1 on the main background). #mcp-admin and the element keep these rules above the theme's paragraph colour.
