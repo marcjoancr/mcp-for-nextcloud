@@ -298,6 +298,41 @@ final class GroupLifecycleListenerTest extends TestCase {
     }
 
     /**
+     * O1 of the review of M1: the second round must capture whatever state it reads. As in M1, an administrator
+     * confirms G during the capture and bob consents through it; before the second round something returns G to
+     * needs_confirm with a new gen (a reclassification seen by the trust observer, say). The second round reads
+     * needs_confirm and used to capture nobody, so the mark passed, the After purged G and bob kept a credential
+     * without a cause. It now captures the holders without a cause whatever it reads, and never writes alice's again.
+     */
+    public function testTheSecondRoundCapturesEvenWhenGIsBackToNeedsConfirm(): void {
+        $this->policy('staff');
+        $this->store = new InMemoryOAuthStore();
+        $this->store->insertToken(['user_id' => 'alice', 'auth_gen' => '1'], 0);
+        $this->eligibility = static fn (string $uid, array $without): ?bool => !in_array('staff', $without, true);
+        $injected = 0;
+        $life = $this->lifeThatRuns(function () use (&$injected): void {
+            if (++$injected > 1) {
+                return;
+            }
+            $this->save('staff');
+            $this->assertTrue($this->issueAdmittedBy('staff', 'bob'), 'bob consents through the group once it is active again');
+            $this->assertTrue($this->life->markSuspended('staff', $this->life->get('staff')['gen'], bin2hex(random_bytes(16))),
+                'G goes back to needs_confirm with a new gen before the second round');
+        });
+        $listener = $this->listener(life: $life);
+
+        $this->handle($listener, new BeforeGroupDeletedEvent($this->group()));
+        $this->assertSame(['alice', 'bob'], $this->causedUsers('staff'), 'bob has a cause although the second round read needs_confirm');
+        $this->assertSame(1, count($this->rechecks->causes('alice')), 'alice keeps the one cause of the first round');
+        $this->assertSame('pending_delete', $this->life->get('staff')['state']);
+        $causes = [$this->rechecks->causes('alice')[0]['gen'], $this->rechecks->causes('bob')[0]['gen']];
+
+        $this->handle($listener, new GroupDeletedEvent($this->group()));
+        $this->assertNull($this->life->get('staff'));
+        $this->assertSame([['alice', IdentityKey::group('staff'), $causes[0]], ['bob', IdentityKey::group('staff'), $causes[1]]], $this->afters);
+    }
+
+    /**
      * R2 across rounds: a holder the first round recorded is not recorded again by the second, so a cause an
      * issuance consumed in between is never written back.
      */
