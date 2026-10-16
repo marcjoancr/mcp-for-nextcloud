@@ -52,8 +52,11 @@ class AttachmentAccess {
      *                          manager only resolves "<provider>:<id>", so the provider prefix is added here
      * @return IShare The validated share, so a draft can name the file the card will carry
      * @throws ConversationAccessException When the id is not a share of this conversation
+     * @throws \OCA\Mcp\Service\Policy\PolicyUnavailable When the user's Files scope cannot be read, before any lookup
      */
     public function requireRoomShareOf(Conversation $conversation, string $userId, int $attachmentId): IShare {
+        // Before the lookup: an unreadable Files scope is the same 503 for a share that exists and one that does not.
+        $this->references?->assertAvailable($userId);
         try {
             $share = $this->shareManager->getShareById(self::fullShareId($attachmentId), $userId);
         } catch (Throwable $e) {

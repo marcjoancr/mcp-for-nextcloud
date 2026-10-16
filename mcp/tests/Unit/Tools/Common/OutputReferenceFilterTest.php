@@ -440,4 +440,30 @@ final class OutputReferenceFilterTest extends TestCase {
 
         self::assertNull($this->filter()->attachmentId('alice', 'room1', 20));
     }
+
+    /**
+     * C1 of the second B5 review: the scope is read whatever exclusion is configured, so an unreadable scope is
+     * unavailability (503) at every entry of the filter, never masked by a configured tag.
+     */
+    public function testAnUnreadableScopeIsUnavailableEvenWithATagConfigured(): void {
+        $unreadable = new class implements FileReferenceScope {
+            public function restricts(string $userId): bool {
+                throw new \OCA\Mcp\Service\Policy\PolicyUnavailable('Resource scope unavailable');
+            }
+            public function allows(string $userId, Node $node): bool {
+                throw new \OCA\Mcp\Service\Policy\PolicyUnavailable('Resource scope unavailable');
+            }
+        };
+        $filter = $this->filter($unreadable);
+        $this->assertNotSame([], $this->guard->getHiddenTagIds(), 'a tag is configured');
+        foreach (['active' => fn () => $filter->active('alice'), 'assertAvailable' => fn () => $filter->assertAvailable('alice'),
+            'node' => fn () => $filter->allowsUserNode('alice', $this->tree->node('/alice/files/Docs/ok.pdf'))] as $label => $run) {
+            try {
+                $run();
+                $this->fail("$label answered");
+            } catch (\OCA\Mcp\Service\Policy\PolicyUnavailable) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
 }

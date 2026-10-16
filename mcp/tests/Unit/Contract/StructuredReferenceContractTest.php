@@ -350,6 +350,38 @@ final class StructuredReferenceContractTest extends TestCase {
         self::assertSame($this->expected(false), self::attaches($result['icalendar']));
     }
 
+    /**
+     * C1 of the second B5 review, for Tasks: with the Files scope unreadable, every task tool and plan answers the same
+     * 503 for a task that exists and one that does not, with or without exclusion tags, before any task is read.
+     */
+    #[DataProvider('gates')]
+    public function testC1AnUnreadableScopeIsTheSame503ForEveryTaskTool(bool $tagsOff): void {
+        if ($tagsOff) {
+            $this->tags = [];
+            $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '[]';
+        }
+        $this->scope = new FilesReferenceScope(FilesScopes::over($this, $this->guard, $this->tree->filesystemRoot(), static fn (): bool => false));
+        $module = $this->module();
+        $this->dav->expects(self::never())->method('update');
+        $this->dav->expects(self::never())->method('delete');
+        foreach (['t1', 'missing'] as $uid) {
+            foreach ([fn () => $module->call('tasks_read_task', ['calendar' => self::PATH, 'uid' => $uid], 'alice'),
+                fn () => $module->call('tasks_list_tasks', ['calendar' => self::PATH], 'alice'),
+                fn () => $module->call('tasks_edit_task', ['calendar' => self::PATH, 'uid' => $uid, 'summary' => 'x'], 'alice'),
+                fn () => $module->preview('tasks_complete_task', ['calendar' => self::PATH, 'uid' => $uid], 'alice'),
+                // A list that does not exist either: the scope is read before the calendar is resolved.
+                fn () => $module->preview('tasks_complete_task', ['calendar' => '/remote.php/dav/calendars/alice/nope/', 'uid' => $uid], 'alice'),
+                fn () => $module->call('tasks_read_task', ['calendar' => '/remote.php/dav/calendars/alice/nope/', 'uid' => $uid], 'alice')] as $i => $run) {
+                try {
+                    $run();
+                    self::fail("task tool $i answered for $uid");
+                } catch (\OCA\Mcp\Service\Policy\PolicyUnavailable) {
+                    $this->addToAssertionCount(1);
+                }
+            }
+        }
+    }
+
     /** @return list<string> ATTACH values tasks_read_task shows for a stored task carrying the given ATTACH lines */
     private function readAttach(string ...$lines): array {
         $this->data = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nBEGIN:VTODO\r\nUID:t1\r\nDTSTAMP:20261001T100000Z\r\n"
