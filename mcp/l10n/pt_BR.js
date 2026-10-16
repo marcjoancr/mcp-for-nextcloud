@@ -1221,6 +1221,8 @@ OC.L10N.register(
     "The OAuth client settings were changed in another window or by another administrator. The current settings were loaded; nothing was overwritten." : "As configurações dos clientes OAuth foram alteradas em outra janela ou por outro administrador. As configurações atuais foram carregadas; nada foi sobrescrito.",
     "The server could not confirm whether the change was saved. The current settings were loaded." : "O servidor não conseguiu confirmar se a alteração foi salva. As configurações atuais foram carregadas.",
     "Not saved: each client needs a name of up to 64 characters that no other client has, and 1 to 20 redirect URIs (absolute https URIs, without user name, wildcard or fragment)." : "Não salvo: cada cliente precisa de um nome de até 64 caracteres que nenhum outro cliente tenha e de 1 a 20 URIs de redirecionamento (URIs https absolutas, sem nome de usuário, curinga nem fragmento).",
+    "Not saved: the settings changed after this page was loaded. Your changes are kept here; check them and save again." : "Não salvo: as configurações mudaram depois que esta página foi carregada. Suas alterações continuam aqui; confira-as e salve novamente.",
+    "Not saved: this client was deleted in the meantime. Your changes are kept here as a new client; saving adds it again." : "Não salvo: este cliente foi excluído nesse meio-tempo. Suas alterações continuam aqui como um cliente novo; salvar o adiciona novamente.",
     "Delete the client “{name}”? Its connections are signed out at once." : "Excluir o cliente “{name}”? As conexões dele são desconectadas na hora.",
     "Could not delete the self-hosted client." : "Não foi possível excluir o cliente auto-hospedado."
 },

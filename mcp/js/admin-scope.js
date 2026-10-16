@@ -13,6 +13,9 @@
  * and browsable, but cannot be saved, and says so: the tools of that module do not apply a scope yet. A conflict
  * (409) never repeats the write: the current scope is read again and shown. Each module keeps the revision its own
  * draft was read at, so a draft made before a change elsewhere is refused by the server instead of overwriting it.
+ * A write of this page (a module here, or the matrix, OAuth clients or server log of js/admin-grants.js) is announced
+ * with the revision it was sent with and the one it made (event "mcp-revision-moved"); a module still at the first
+ * takes the second and keeps its draft, since nothing but that write lies between them.
  * Exposes window.McpScopeUi for the matrix, which shows "Restricted to N" (or "Scope unknown") in the module's first
  * cell and opens this panel from it.
  */
@@ -33,6 +36,8 @@
 	let sayTimer = null
 	/** @type {Object<string, object>} state of each module of the open user */
 	let modules = {}
+	/** Page event of a write this page committed: detail {from, to}; js/admin-grants.js sends and follows it too. */
+	const REVISION_MOVED = 'mcp-revision-moved'
 
 	function el(tag, props = {}, children = []) {
 		const node = document.createElement(tag)
@@ -149,15 +154,19 @@
 
 	/**
 	 * The policy revision moved (a save, an undo, a conflict): the three modules are read again. A module with an
-	 * unsaved draft keeps it, with the revision it was read at, and says so: saving it is refused by the server (409)
-	 * rather than accepted against a scope it never saw, and discarding it loads the saved scope.
+	 * unsaved draft keeps it. When it already took the revision this page's own write made (`current`), the draft is
+	 * still valid and stays as it is. Otherwise it keeps the revision it was read at, and says so: saving it is refused
+	 * by the server (409) rather than accepted against a scope it never saw, and discarding it loads the saved scope.
+	 *
+	 * @param {object} origin the module that saved, undid or was refused
+	 * @param {string} [current] revision made by this page's own write, when it committed
 	 */
-	async function reloadAll(origin) {
+	async function reloadAll(origin, current) {
 		for (const module of MODULES) {
 			const state = modules[module]
 			if (state === origin || !dirty(state)) {
 				await reload(state).catch(() => {})
-			} else {
+			} else if (current === undefined || state.revision !== current) {
 				state.stale = true
 				state.line = t('mcp', 'Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope.')
 				rerender(state)
@@ -349,7 +358,8 @@
 		try {
 			const result = await api('PUT', scopePath(state.module), null, body)
 			state.saving = false
-			await reloadAll(state)
+			announce(body.expectedRevision, result.revision)
+			await reloadAll(state, result.revision)
 			note(state, result.changed ? t('mcp', 'Saved. It applies from the next MCP call of the user; sessions are not ended.') : t('mcp', 'Nothing changed.'))
 			if (result.changed && result.receiptId) offerUndo(state, result.receiptId, result.revision)
 			rerender(state, 'mcp-scope-line-' + state.module)
@@ -411,8 +421,10 @@
 		state.undo = null
 		state.saving = true
 		rerender(state)
+		let current
 		try {
-			await api('POST', '/api/grants/undo', null, { receiptId, expectedRevision: savedRevision })
+			current = (await api('POST', '/api/grants/undo', null, { receiptId, expectedRevision: savedRevision })).revision
+			announce(savedRevision, current)
 			note(state, t('mcp', 'Change undone.'))
 			window.dispatchEvent(new Event('mcp-scope-saved'))
 		} catch (error) {
@@ -424,9 +436,21 @@
 		}
 		state.saving = false
 		const line = state.line
-		await reloadAll(state)
+		await reloadAll(state, current)
 		state.line = line
 		rerender(state, 'mcp-scope-line-' + state.module)
+	}
+
+	/**
+	 * Tells the other blocks of the page that a write of this panel moved the revision from `from` to `to`.
+	 *
+	 * @param {string} from revision the write was sent with
+	 * @param {string} to revision the server answered with
+	 */
+	function announce(from, to) {
+		if (typeof from === 'string' && typeof to === 'string' && from !== to) {
+			window.dispatchEvent(new CustomEvent(REVISION_MOVED, { detail: { from, to } }))
+		}
 	}
 
 	/**
@@ -458,6 +482,12 @@
 	}
 
 	window.McpScopeUi = { indicator, open }
+	// A module exactly at the revision a write of this page committed from takes the one it made; its draft stays.
+	window.addEventListener(REVISION_MOVED, (event) => {
+		for (const state of Object.values(modules)) {
+			if (state.revision === event.detail.from) state.revision = event.detail.to
+		}
+	})
 	// A matrix drawn before this script ran is drawn again, now with the scope marks.
 	window.McpAdminMatrix?.refresh?.()
 	if (!root) return

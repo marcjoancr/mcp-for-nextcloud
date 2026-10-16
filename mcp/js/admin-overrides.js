@@ -600,7 +600,9 @@
 		let failed = false
 		try {
 			try {
-				const saved = await matrix.api('POST', '/api/grants/commands', { expectedRevision: current.revision ?? matrix.data().revision, commands })
+				const sent = current.revision ?? matrix.data().revision
+				const saved = await matrix.api('POST', '/api/grants/commands', { expectedRevision: sent, commands })
+				matrix.announce(sent, saved.revision)
 				for (const target of current.plan.targets) {
 					selected.delete(target.user.uid)
 				}

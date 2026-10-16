@@ -81,6 +81,7 @@ async function app(handler = () => undefined) {
 		setTimeout: (action, delay) => { if (delay >= 1000) timers.push(action); else action() },
 		clearTimeout: () => {},
 		Event: class { constructor(type) { this.type = type } },
+		CustomEvent: class { constructor(type, init = {}) { this.type = type; this.detail = init.detail } },
 		fetch: async (url, options) => {
 			const body = options.body === undefined ? undefined : JSON.parse(options.body)
 			calls.push({ url, method: options.method, body, headers: options.headers })
@@ -95,7 +96,12 @@ async function app(handler = () => undefined) {
 		},
 	}
 	let refreshed = 0
-	context.window = { dispatchEvent: (event) => events.push(event.type), McpAdminMatrix: { refresh: () => { refreshed++ } } }
+	const listeners = {}
+	context.window = {
+		dispatchEvent: (event) => { events.push(event.detail ? [event.type, event.detail.from, event.detail.to] : event.type); (listeners[event.type] || []).forEach((action) => action(event)) },
+		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
+		McpAdminMatrix: { refresh: () => { refreshed++ } },
+	}
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-scope.js'), 'utf8'), context)
 	const open = async (uid = 'alice') => {
 		ids['mcp-scope-user'].value = uid
@@ -105,7 +111,7 @@ async function app(handler = () => undefined) {
 	const module = (name) => document.getElementById('mcp-scope-module-' + name)
 	const click = async (node) => { assert.ok(node, 'the control exists'); assert.equal(node.disabled, false, 'the control is enabled'); node.listeners.click(); await tick() }
 	ids['mcp-scope-alert'].writes = []
-	return { ids, calls, events, timers, open, module, click, document, ui: context.window.McpScopeUi, refreshed: () => refreshed }
+	return { ids, calls, events, timers, open, module, click, document, window: context.window, ui: context.window.McpScopeUi, refreshed: () => refreshed }
 }
 
 test('S14: each module shows its saved scope; a module the tools do not scope yet says so and cannot be saved', async () => {
@@ -133,7 +139,7 @@ test('S14: choosing resources and saving sends the revision, offers undo for ten
 	const put = ui.calls.find((c) => c.method === 'PUT')
 	assert.deepEqual([put.url, put.body], ['/apps/mcp/api/scope/alice/calendar', { expectedRevision: '7', mode: 'restricted', items: ['11', '12'] }])
 	assert.match(ui.module('calendar').textContent, /Saved\. It applies from the next MCP call of the user; sessions are not ended\./)
-	assert.deepEqual(ui.events, ['mcp-scope-saved'])
+	assert.deepEqual(ui.events, [['mcp-revision-moved', '7', '8'], 'mcp-scope-saved'], 'the other blocks of the page learn the revision this save made')
 	assert.equal(ui.ids['mcp-scope-status'].textContent, 'Calendar: calendars: Saved. It applies from the next MCP call of the user; sessions are not ended.', 'announced in the live region that exists from the start')
 	assert.ok(ui.module('calendar').button('Undo'))
 	ui.timers.forEach((action) => action())
@@ -269,31 +275,64 @@ test('B7 review A1: an unreadable scope is marked "Scope unknown", never blank; 
 	assert.equal(ui.refreshed(), 1, 'N1: a matrix drawn before the script loaded is drawn again with the marks')
 })
 
-test('B7 review M1: a draft read before another module moved the revision is sent with its own revision, never the new one', async () => {
-	let revision = '7'
-	const ui = await app((url, method, body) => {
-		if (method === 'PUT') { revision = String(Number(revision) + 1); return [200, { revision, changed: true, receiptId: '41', scope: { mode: 'restricted', count: 0 } }] }
-		const module = (url.match(/\/api\/scope\/[^/]+\/(files|calendar|tasks)$/) || [])[1]
-		return module ? [200, Object.assign({}, show[module], { revision })] : undefined
-	})
-	await ui.open()
-	// A draft in Calendar, then Tasks is saved: the revision moves to 8 under the Calendar draft.
+/** Puts a draft in Calendar (adds Team) and switches Tasks to "Only selected", both unsaved. */
+async function twoDrafts(ui) {
 	await ui.click(ui.module('calendar').button('Search'))
 	await ui.click(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add Team'))
 	const restricted = ui.module('tasks').find((node) => node.id === 'mcp-scope-mode-tasks-restricted')
 	restricted.checked = true
 	restricted.listeners.change()
 	await tick()
+}
+
+test('B7 review M1: a draft whose revision moved by a change this page did not make keeps its own revision and says it is stale', async () => {
+	const ui = await app((url, method) => method === 'PUT' && url.endsWith('/tasks') ? [409, { error: 'Conflict', revision: '9' }]
+		: method === 'PUT' ? [200, { revision: '10', changed: true, receiptId: '41', scope: { mode: 'restricted', count: 0 } }] : undefined)
+	await ui.open()
+	await twoDrafts(ui)
 	await ui.click(ui.module('tasks').button('Save'))
-	// Files and Tasks are read again; the Calendar draft is kept, never overwritten, and says it is stale.
+	// The refusal moved the revision by a write this page never saw: Files and Tasks are read again, the Calendar draft
+	// is kept, never overwritten, and says it is stale.
 	assert.deepEqual(ui.calls.filter((c) => c.method === 'GET' && !c.url.includes('candidates')).slice(-2).map((c) => c.url.split('/').pop()), ['files', 'tasks'])
 	assert.match(ui.module('calendar').textContent, /Unsaved changes here were made before the policy changed, so saving them will be refused\./)
+	assert.deepEqual(ui.events, [], 'a refused save announces nothing')
 	await ui.click(ui.module('calendar').button('Save'))
 	assert.equal(ui.calls.filter((c) => c.method === 'PUT').at(-1).body.expectedRevision, '7', 'the Calendar draft keeps the revision it was read at')
 })
 
+test('T14 D1: a save of another module of this panel moves the revision of a draft that was at the same one; the draft stays and is not stale', async () => {
+	let revision = '7'
+	const ui = await app((url, method) => {
+		if (method === 'PUT') { revision = String(Number(revision) + 1); return [200, { revision, changed: true, receiptId: '41', scope: { mode: 'restricted', count: 0 } }] }
+		const module = (url.match(/\/api\/scope\/[^/]+\/(files|calendar|tasks)$/) || [])[1]
+		return module ? [200, Object.assign({}, show[module], { revision })] : undefined
+	})
+	await ui.open()
+	await twoDrafts(ui)
+	await ui.click(ui.module('tasks').button('Save'))
+	assert.doesNotMatch(ui.module('calendar').textContent, /Unsaved changes here were made before the policy changed/)
+	assert.match(ui.module('calendar').textContent, /2 of at most 200 selected/, 'the Calendar draft is still on screen')
+	await ui.click(ui.module('calendar').button('Save'))
+	const put = ui.calls.filter((c) => c.method === 'PUT').at(-1)
+	assert.deepEqual([put.url, put.body], ['/apps/mcp/api/scope/alice/calendar', { expectedRevision: '8', mode: 'restricted', items: ['11', '12'] }], 'sent with the revision the Tasks save made')
+	assert.match(ui.module('calendar').textContent, /Saved\./)
+})
+
+test('T14 D1: a write of the matrix on this page moves the revision of the open scope; a move that does not start from it is ignored', async () => {
+	const ui = await app((url, method) => method === 'PUT' ? [200, { revision: '9', changed: true, receiptId: '41', scope: { mode: 'restricted', count: 0 } }] : undefined)
+	await ui.open()
+	await twoDrafts(ui)
+	const moved = (from, to) => ui.window.dispatchEvent({ type: 'mcp-revision-moved', detail: { from, to } })
+	moved('5', '6')
+	moved('7', '8')
+	await ui.click(ui.module('tasks').button('Save'))
+	assert.deepEqual(ui.calls.find((c) => c.method === 'PUT').body, { expectedRevision: '8', mode: 'restricted', items: [] })
+	assert.doesNotMatch(ui.module('tasks').textContent, /The policy changed after this scope was loaded/)
+	assert.match(ui.module('calendar').textContent, /2 of at most 200 selected/, 'the other draft is still on screen')
+})
+
 test('B7 review M1: discarding a stale draft loads the saved scope from the server', async () => {
-	const ui = await app((url, method) => method === 'PUT' ? [200, { revision: '8', changed: true, receiptId: '41', scope: { mode: 'unrestricted', count: null } }] : undefined)
+	const ui = await app((url, method) => method === 'PUT' ? [409, { error: 'Conflict', revision: '9' }] : undefined)
 	await ui.open()
 	await ui.click(ui.module('calendar').button('Remove'))
 	const restricted = ui.module('tasks').find((node) => node.id === 'mcp-scope-mode-tasks-restricted')
@@ -301,6 +340,7 @@ test('B7 review M1: discarding a stale draft loads the saved scope from the serv
 	restricted.listeners.change()
 	await tick()
 	await ui.click(ui.module('tasks').button('Save'))
+	assert.match(ui.module('calendar').textContent, /Unsaved changes here were made before the policy changed/)
 	const before = ui.calls.length
 	await ui.click(ui.module('calendar').button('Discard changes'))
 	assert.equal(ui.calls.at(-1).url, '/apps/mcp/api/scope/alice/calendar', 'the saved scope comes from the server')
