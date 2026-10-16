@@ -22,8 +22,7 @@ use OCP\User\Events\UserDeletedEvent;
 /**
  * The account cleanup of the resource scope (contracts B.3, F3, validation S12) against the real server: the real
  * deletion events of a real account reach the app's listener, which removes the scope the account had when its deletion
- * began and nothing saved after it; the 15-minute job removes the scope of an account that is gone and keeps that of
- * one that exists. The scope rows are written the way a save writes them (the writer's transaction, policy_rev = the
+ * began and nothing saved after it. The scope rows are written the way a save writes them (the writer's transaction, policy_rev = the
  * revision of the commit), without the native-resource validation of the admin route, which is not under test here.
  * The job is diagnostic only: with the real mapper, directory and app config it never removes a scope, it counts the
  * scopes of absent accounts and keeps those of accounts that exist.
@@ -136,7 +135,7 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
     public function testAnAccountRecreatedBeforeAnyCleanupKeepsItsRestriction(): void {
         $uid = $this->account();
         $this->replace($uid, 'files', ['100']);
-        // The deletion event never reached the app (deferred or lost); the same id exists when the job runs.
+        // The deletion event never reached the app (deferred or lost); the same id exists when the job's diagnostic runs.
         Server::get(ScopeCleanup::class)->reconcile();
 
         $this->assertSame(['100'], $this->scopes($uid)['files']['items'], 'never lifted while the account exists');

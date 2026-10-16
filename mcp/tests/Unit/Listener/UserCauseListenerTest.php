@@ -392,7 +392,7 @@ final class UserCauseListenerTest extends TestCase {
         $this->assertSame([], $this->revisionReads, 'no SQL inside a caller\'s transaction');
         $this->inTransaction = false; // the After arrives once the transaction is over
         $listener->handle(new UserDeletedEvent($this->user()));
-        $this->assertSame([], $this->cleanups, 'a deletion captured inside a transaction is left to the job');
+        $this->assertSame([], $this->cleanups, 'a deletion captured inside a transaction removes nothing: the scope is kept');
     }
 
     public function testAnAfterInsideATransactionRemovesNothingEvenWithTheRevisionOfItsBefore(): void {

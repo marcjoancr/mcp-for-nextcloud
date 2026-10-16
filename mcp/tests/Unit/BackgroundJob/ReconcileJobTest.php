@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Coordinator clarification 3: the reconciler is a TimedJob of 15 minutes, registered by the app itself; its last step is
- * the resource scope of accounts proven gone (contracts B.3).
+ * the diagnostic of the resource scopes that belong to absent accounts (contracts B.3), which removes nothing.
  */
 final class ReconcileJobTest extends TestCase {
     public function testTheAppRegistersAFifteenMinuteReconcilerThatRunsGroupsBeforeCauses(): void {
@@ -37,7 +37,7 @@ final class ReconcileJobTest extends TestCase {
         (new \ReflectionMethod($job, 'run'))->invoke($job, null);
         // Deferred facts first; then the pending deletions, so a removal cause of a deleted group is classified with
         // that group already gone; then the causes.
-        // The scope cleanup last: it judges the account directly and needs no cause to be settled first.
+        // The scope diagnostic last: it only reads and reports, and needs no cause to be settled first.
         $this->assertSame(['flush', 'groups', 'causes', 'scopes'], $order);
     }
 }

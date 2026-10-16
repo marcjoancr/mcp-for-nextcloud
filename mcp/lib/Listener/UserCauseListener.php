@@ -52,8 +52,9 @@ use Throwable;
  * - The resource scope of the account (contracts B.3, F3): BeforeUserDeletedEvent outside a transaction reads the policy
  *   revision R_b in autocommit, whatever the account's credentials; UserDeletedEvent outside a transaction removes the
  *   scopes saved at or before R_b (ScopeCleanup::deleted()). A Before or an After inside a transaction, a Before that
- *   could not read R_b, and a deletion with no After remove nothing: the job decides (ScopeCleanup::reconcile()). The
- *   handler takes no mutex before the event and runs no SQL inside a caller's transaction.
+ *   could not read R_b, and a deletion with no After remove nothing: the scope is kept, and the job's diagnostic pass
+ *   (ScopeCleanup::reconcile()) only counts it. The handler takes no mutex before the event and runs no SQL inside a
+ *   caller's transaction.
  *
  * A read that fails while testing relevance records the cause anyway: the reconciler repeats the test. A cause whose
  * After never arrives (a failed or interrupted operation) stays pending for the preflight and the reconciler (Q1).
@@ -194,7 +195,7 @@ class UserCauseListener implements IEventListener {
 
     /**
      * R_b: the revision, read in autocommit before the account goes. Never inside a caller's transaction (no SQL there)
-     * and never an error: without it the scope cleanup of this deletion is left to the job.
+     * and never an error: without it the scope of this deletion is kept, and only the job's diagnostic counts it.
      */
     private function captureRevision(): ?string {
         if ($this->state === null || $this->scopeCleanup === null || $this->db->inTransaction()) {
@@ -209,7 +210,8 @@ class UserCauseListener implements IEventListener {
 
     /**
      * The scope cleanup of a deletion that was seen on time: its own writer command, its failure never stopping the
-     * cause protocol that follows and left to the job. Inside a caller's transaction, or without R_b, it does nothing.
+     * cause protocol that follows; on failure the scope is kept. Inside a caller's transaction, or without R_b, it does
+     * nothing.
      */
     private function removeScopes(string $uid, ?string $revision): void {
         if ($revision === null || $this->scopeCleanup === null || $this->db->inTransaction()) {
@@ -219,7 +221,7 @@ class UserCauseListener implements IEventListener {
             $this->scopeCleanup->deleted($uid, $revision);
         } catch (Throwable $e) {
             try {
-                $this->logger->warning('Resource scope of a deleted account left to the job', ['app' => 'mcp', 'target' => $uid, 'exception' => $e]);
+                $this->logger->warning('Resource scope of a deleted account kept, its cleanup failed; only the job diagnostic counts it', ['app' => 'mcp', 'target' => $uid, 'exception' => $e]);
             } catch (Throwable) {
             }
         }

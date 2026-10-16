@@ -60,7 +60,7 @@ class ScopeCleanup {
      * @return list<string> the modules whose scope was removed
      * @throws \InvalidArgumentException for an invalid user id or revision
      * @throws PolicyUnavailable when the storage fails, a stored row is invalid, or the outcome is uncertain: nothing is
-     *     removed on the storage failures, and the job retries
+     *     removed on the storage failures, and the scope is kept (the job's diagnostic counts it; nothing retries)
      */
     public function deleted(string $uid, string $revision): array {
         if (!PolicyEventPayload::validUid($uid)) {

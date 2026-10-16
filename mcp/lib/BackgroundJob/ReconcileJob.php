@@ -22,9 +22,10 @@ use OCP\BackgroundJob\TimedJob;
  * already consumed is not found again. The app stays correct when it does not run, because the preflight of every
  * request of a user and every issuance process that user's causes first.
  *
- * It also removes the resource scope of accounts that are proven gone (ScopeCleanup::reconcile(), contracts B.3): the
- * deletions whose event came inside a transaction, or was lost, leave their scope to this pass, which never touches the
- * scope of an account that exists.
+ * Its last step is a diagnostic of the resource scope (ScopeCleanup::reconcile(), contracts B.3): it counts the scopes
+ * that belong to accounts that are gone and removes nothing. The scope of a deleted account is removed only by the
+ * deletion event; when that event came inside a transaction or was lost, the scope is kept (an account recreated under
+ * the id stays restricted) and this pass only reports it.
  */
 class ReconcileJob extends TimedJob {
     public const INTERVAL = 900;

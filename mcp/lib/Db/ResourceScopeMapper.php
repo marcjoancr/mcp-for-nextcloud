@@ -194,7 +194,7 @@ class ResourceScopeMapper {
     }
 
     /**
-     * Users that have at least one mode row, for the account cleanup job: at most $limit, by user_key, after the cursor
+     * Users that have at least one mode row, for the job's diagnostic pass: at most $limit, by user_key, after the cursor
      * $after. The ids are returned as stored and not verified here: the job compares each with its digest, one row at a
      * time, so an invalid or colliding row is skipped without stopping the others.
      *
@@ -223,7 +223,7 @@ class ResourceScopeMapper {
 
     /**
      * How many users keep item rows of a module they have no mode row for (contracts B.3: such items have no effect, and
-     * removeUpTo() leaves them). Only a count, for the cleanup job's diagnostic: the item table names no user.
+     * removeUpTo() leaves them). Only a count, for the job's diagnostic: the item table names no user.
      *
      * @return int distinct user keys with at least one orphan item row
      * @throws Exception when the query fails
