@@ -775,29 +775,44 @@
 /* Two columns, like Settings → Users: the list of groups on the start side, the open group beside it. */
 #mcp-admin .mcp-group-rules { margin-block: 4px 12px; }
 #mcp-admin .mcp-group-rules summary { cursor: pointer; color: var(--color-text-maxcontrast); }
-#mcp-admin .mcp-groups { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); border: 1px solid var(--color-border); border-radius: var(--border-radius-element, 8px); min-height: 360px; }
-#mcp-admin .mcp-groups-nav { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-inline-end: 1px solid var(--color-border); background-color: var(--color-background-hover); min-width: 0; }
+/*
+ * The two columns take the height of the window under Nextcloud's header, so the page does not grow with the list: the
+ * list scrolls inside its column, between the search and filter on top and the pager at the bottom, and the open group
+ * scrolls in its own column beside it.
+ */
+#mcp-admin .mcp-groups { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); height: max(420px, calc(100vh - var(--header-height, 50px) - 48px)); border: 1px solid var(--color-border); border-radius: var(--border-radius-element, 8px); overflow: hidden; }
+#mcp-admin .mcp-group-picker { display: none; }
+#mcp-admin .mcp-groups-nav { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-inline-end: 1px solid var(--color-border); background-color: var(--color-background-hover); }
+#mcp-admin .mcp-groups-top { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 4px; border-bottom: 1px solid var(--color-border); }
 #mcp-admin .mcp-groups-nav input[type="search"] { width: 100%; margin: 0; }
-#mcp-admin [id="mcp-group-count"] { margin: 0; padding-inline: 8px; font-size: 0.9em; }
-#mcp-admin .mcp-groups-pager { display: flex; gap: 4px; margin-top: auto; }
-#mcp-admin .mcp-groups-main { padding: 12px 16px; min-width: 0; }
+#mcp-admin .mcp-group-filter { display: flex; flex-wrap: wrap; width: 100%; }
+#mcp-admin .mcp-group-filter button { flex: 1 1 auto; min-width: 0; padding-inline: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcp-admin [id="mcp-group-count"] { margin: 0; padding-inline: 4px; font-size: 0.9em; }
+#mcp-admin .mcp-groups-pager { display: flex; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--color-border); }
+#mcp-admin .mcp-groups-main { min-height: 0; min-width: 0; padding: 12px 16px 0; overflow-y: auto; }
 #mcp-admin .mcp-groups-main > p:empty { display: none; }
-@media (max-width: 760px) {
-	#mcp-admin .mcp-groups { grid-template-columns: minmax(0, 1fr); }
-	#mcp-admin .mcp-groups-nav { border-inline-end: 0; border-bottom: 1px solid var(--color-border); }
-}
-[id="mcp-group-list"] { margin: 0; padding-inline-start: 0; list-style: none; }
-[id="mcp-group-list"] li { margin-block: 2px; }
-/* A list, not a column of buttons: the rows are tertiary, and only the open group takes the selection colour. */
-#mcp-admin [id="mcp-group-list"] .mcp-group-item { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%; min-height: var(--default-clickable-area, 34px); margin: 0; padding: 6px 10px; border: 0; border-radius: var(--border-radius-element, 8px); background-color: transparent; color: var(--color-main-text); font-weight: normal; text-align: start; }
+[id="mcp-group-list"] { flex: 1 1 auto; min-height: 0; margin: 0; padding: 4px; list-style: none; overflow-y: auto; }
+/* One line of about 36 px per group: the name cut with an ellipsis, the ID quietly after it, and a short end. */
+#mcp-admin [id="mcp-group-list"] .mcp-group-item { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; margin: 0 0 2px; padding: 0 8px; border: 0; border-radius: var(--border-radius-element, 8px); background-color: transparent; color: var(--color-main-text); font-weight: normal; text-align: start; }
 #mcp-admin [id="mcp-group-list"] .mcp-group-item:hover { background-color: var(--color-background-dark); }
-#mcp-admin [id="mcp-group-list"] .mcp-group-item[aria-current="true"] { background-color: var(--color-primary-element-light); color: var(--color-primary-element-light-text, var(--color-main-text)); }
-#mcp-admin [id="mcp-group-list"] .mcp-group-item:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
-#mcp-admin .mcp-group-name { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#mcp-admin .mcp-group-sub { font-size: 0.9em; color: var(--color-text-maxcontrast); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#mcp-admin .mcp-group-item[aria-current="true"] .mcp-group-sub { color: inherit; }
-#mcp-admin .mcp-group-symbol { margin-inline-end: 4px; }
+#mcp-admin [id="mcp-group-list"] .mcp-group-item[aria-current="true"] { background-color: var(--color-primary-element-light); color: var(--color-primary-element-light-text, var(--color-main-text)); font-weight: bold; }
+/* Inside the scrolling list the outline is drawn inwards, so the edge of the column never hides it. */
+#mcp-admin [id="mcp-group-list"] .mcp-group-item:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: -2px; }
+#mcp-admin .mcp-group-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcp-admin .mcp-group-id { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85em; font-weight: normal; color: var(--color-text-maxcontrast); }
+#mcp-admin .mcp-group-end { flex: none; margin-inline-start: auto; font-size: 0.9em; font-weight: normal; color: var(--color-text-maxcontrast); white-space: nowrap; }
+#mcp-admin .mcp-group-item[aria-current="true"] :is(.mcp-group-id, .mcp-group-end) { color: inherit; }
 #mcp-admin .mcp-group-state-warning { color: var(--color-warning-text, var(--color-warning)); }
+/* Narrow screens: one column. The list folds into a picker above the open group, which then has the whole width. */
+@media (max-width: 768px) {
+	#mcp-admin .mcp-groups { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); height: auto; overflow: visible; }
+	#mcp-admin .mcp-group-picker { display: flex; align-items: center; width: calc(100% - 16px); margin: 8px; justify-content: space-between; }
+	#mcp-admin .mcp-group-picker::after { content: "▾"; margin-inline-start: 8px; }
+	#mcp-admin .mcp-group-picker[aria-expanded="true"]::after { content: "▴"; }
+	#mcp-admin .mcp-groups-nav { border-inline-end: 0; border-bottom: 1px solid var(--color-border); max-height: 60vh; }
+	#mcp-admin .mcp-groups[data-list="closed"] .mcp-groups-nav { display: none; }
+	#mcp-admin .mcp-groups-main { overflow: visible; padding-inline: 12px; }
+}
 #mcp-admin .mcp-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 #mcp-admin .mcp-group-head h3 { margin: 0; }
 #mcp-admin .mcp-note.mcp-group-note { border-inline-start-color: var(--color-warning, var(--color-border-maxcontrast)); }
@@ -809,7 +824,7 @@
 #mcp-admin .mcp-group-row > .mcp-group-module { flex: 0 0 9em; }
 #mcp-admin .mcp-group-row > .mcp-hint { flex: 1 1 6em; margin: 0; }
 /* Secondary actions are quiet: Nextcloud's default button fill is the theme colour, which here marks only selection. */
-#mcp-admin [id="mcp-group-editor"] :is(.mcp-group-clear, .mcp-groups-pager button, .mcp-group-savebar button:not(.primary), .mcp-group-actions button:not(.primary), .mcp-group-note button, .mcp-groups-nav li > button:not(.mcp-group-item)) { border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark)); background-color: transparent; color: var(--color-main-text); }
+#mcp-admin [id="mcp-group-editor"] :is(.mcp-group-clear, .mcp-group-picker, .mcp-groups-pager button, .mcp-group-savebar button:not(.primary), .mcp-group-actions button:not(.primary), .mcp-group-note button, .mcp-groups-nav li > button:not(.mcp-group-item)) { border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark)); background-color: transparent; color: var(--color-main-text); }
 #mcp-admin .mcp-group-row:last-child { border-bottom: 0; }
 #mcp-admin .mcp-group-module { font-weight: bold; }
 #mcp-admin .mcp-group-levels { display: inline-flex; flex-wrap: wrap; border: 2px solid var(--color-border-maxcontrast, var(--color-border-dark)); border-radius: var(--border-radius-element, 8px); overflow: hidden; }

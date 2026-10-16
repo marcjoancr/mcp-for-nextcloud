@@ -39,12 +39,26 @@ class GroupDirectory {
         private PolicyStateMapper $state,
     ) {}
 
-    public function page(string $search = '', int $page = 1): array {
-        if ($page < 1 || $page > 100000 || mb_strlen($search) > 200) {
+    /** Filters of the list: every group, the groups with a stored grant, and the groups that cannot grant. */
+    public const FILTERS = ['all', 'granted', 'blocked'];
+
+    /**
+     * One page of 50 groups, after the search and the filter. "granted" keeps the groups with a stored grant, read from
+     * the grants table this page already scans. "blocked" keeps the groups the source classifier says cannot grant
+     * (trusted false); it classifies every group the search matches, once, and reuses that for the page. counts gives
+     * the size of each filter within the search; the blocked one is null unless that filter is active, since only then
+     * is it known without classifying the whole directory.
+     *
+     * @return array{groups: list<array>, page: int, pageSize: int, hasMore: bool, total: int, filter: string,
+     *     counts: array{all: int, granted: int, blocked: int|null}}
+     */
+    public function page(string $search = '', int $page = 1, string $filter = 'all'): array {
+        if ($page < 1 || $page > 100000 || mb_strlen($search) > 200 || !in_array($filter, self::FILTERS, true)) {
             throw new \InvalidArgumentException('Invalid request');
         }
-        return $this->read(function () use ($search, $page): array {
+        return $this->read(function () use ($search, $page, $filter): array {
             $all = [];
+            $granted = [];
             // Query all directory names for stable global ordering; policy-only GIDs are merged below.
             foreach ($this->groups->search('') as $group) {
                 $gid = $group->getGID();
@@ -65,6 +79,9 @@ class GroupDirectory {
                             throw new PolicyUnavailable('Invalid stored group identity');
                         }
                         $all[$row['group_key']] ??= ['groupId' => $row['group_id'], 'displayName' => $row['group_id']];
+                        if ($table === 'mcp_group_grants') {
+                            $granted[$row['group_id']] = true;
+                        }
                     }
                 } finally {
                     $result->closeCursor();
@@ -74,12 +91,32 @@ class GroupDirectory {
                 || mb_stripos((string)$row['groupId'], trim($search)) !== false || mb_stripos($row['displayName'], trim($search)) !== false));
             usort($all, static fn (array $a, array $b): int => strnatcasecmp($a['displayName'], $b['displayName'])
                 ?: strcmp((string)$a['groupId'], (string)$b['groupId']));
+            $withGrants = array_values(array_filter($all, static fn (array $row): bool => isset($granted[(string)$row['groupId']])));
+            $counts = ['all' => count($all), 'granted' => count($withGrants), 'blocked' => null];
+            $classified = [];
+            if ($filter === 'granted') {
+                $all = $withGrants;
+            } elseif ($filter === 'blocked') {
+                $all = array_values(array_filter($all, function (array $row) use (&$classified): bool {
+                    if ($row['groupId'] === null) {
+                        return false;
+                    }
+                    try {
+                        $classified[$row['groupId']] = $this->classifier->classify($row['groupId']);
+                    } catch (PolicyUnavailable|\InvalidArgumentException) {
+                        $classified[$row['groupId']] = ['trusted' => null, 'exists' => null];
+                    }
+                    return $classified[$row['groupId']]['trusted'] === false;
+                }));
+                $counts['blocked'] = count($all);
+            }
             $pageRows = array_slice($all, ($page - 1) * 50, 50);
             $gids = array_values(array_filter(array_column($pageRows, 'groupId'), static fn ($gid): bool => $gid !== null));
-            $states = $this->states($gids);
+            $states = $this->states($gids, $classified);
             $rows = array_map(static fn (array $row): array => $row['groupId'] === null
                 ? $row : $row + $states[IdentityKey::group($row['groupId'])], $pageRows);
-            return ['groups' => $rows, 'page' => $page, 'pageSize' => 50, 'hasMore' => count($all) > $page * 50];
+            return ['groups' => $rows, 'page' => $page, 'pageSize' => 50, 'hasMore' => count($all) > $page * 50,
+                'total' => count($all), 'filter' => $filter, 'counts' => $counts];
         });
     }
 
@@ -109,8 +146,12 @@ class GroupDirectory {
         });
     }
 
-    /** Stored policy reads are batched; each source classification supplies both trusted and exists. */
-    private function states(array $gids): array {
+    /**
+     * Stored policy reads are batched; each source classification supplies both trusted and exists.
+     *
+     * @param array<string, array{trusted: ?bool, exists: ?bool}> $classified classifications already read by the caller
+     */
+    private function states(array $gids, array $classified = []): array {
         $lifecycles = [];
         foreach ($this->life->forGroups($gids) as $life) {
             $lifecycles[IdentityKey::group($life['groupId'])] = $life['state'];
@@ -120,7 +161,7 @@ class GroupDirectory {
             $gid = $policy['groupId'];
             $key = IdentityKey::group($gid);
             try {
-                $classification = $this->classifier->classify($gid);
+                $classification = $classified[$gid] ?? $this->classifier->classify($gid);
             } catch (PolicyUnavailable|\InvalidArgumentException) {
                 $classification = ['trusted' => null, 'exists' => null];
             }

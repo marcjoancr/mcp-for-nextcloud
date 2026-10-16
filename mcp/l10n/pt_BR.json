@@ -1288,7 +1288,6 @@
     "Grants: {permissions}" : "Concede: {permissions}",
     "ID: {id}" : "ID: {id}",
     "_%n group_::_%n groups_" : ["%n grupo", "%n grupos", "%n grupos"],
-    "Groups {first}–{last}" : "Grupos {first}–{last}",
     "Not granted" : "Não concede",
     "Custom ({operations})" : "Personalizado ({operations})",
     "{module}: {before} → {after}" : "{module}: {before} → {after}",
@@ -1319,6 +1318,16 @@
     "The scope cannot be read now, so the tools of this module refuse until it can. Open the resource scope." : "A restrição não pode ser lida agora, então as ferramentas deste módulo recusam até que possa. Abra a restrição de recursos.",
     "_%n of these values is in a permission the table does not show for that user. It is removed too._::_%n of these values are in permissions the table does not show for those users. They are removed too._" : ["%n desses valores está numa permissão que a tabela não mostra para esse usuário. Ele também é removido.", "%n desses valores estão em permissões que a tabela não mostra para esses usuários. Eles também são removidos.", "%n desses valores estão em permissões que a tabela não mostra para esses usuários. Eles também são removidos."],
     "Only native Nextcloud groups can grant access. If a group is deleted and that event is lost, a new group with the same ID may inherit the old policy." : "Só grupos nativos do Nextcloud podem conceder acesso. Se um grupo for excluído e esse evento se perder, um novo grupo com o mesmo ID pode herdar a política antiga.",
-    "Taking “Can connect” away from a group is refused while it is unknown what a signed-in member would keep. Check the sources and try again." : "Tirar “Pode conectar” de um grupo é recusado enquanto não se sabe o que um membro conectado manteria. Confira as origens e tente de novo."
+    "Taking “Can connect” away from a group is refused while it is unknown what a signed-in member would keep. Check the sources and try again." : "Tirar “Pode conectar” de um grupo é recusado enquanto não se sabe o que um membro conectado manteria. Confira as origens e tente de novo.",
+    "Choose a group" : "Escolher um grupo",
+    "Show groups" : "Mostrar grupos",
+    "With grants" : "Com concessões",
+    "All ({count})" : "Todos ({count})",
+    "With grants ({count})" : "Com concessões ({count})",
+    "Group: {group}" : "Grupo: {group}",
+    "Groups {first}–{last} of {total}" : "Grupos {first}–{last} de {total}",
+    "_%n module_::_%n modules_" : ["%n módulo", "%n módulos", "%n módulos"],
+    "Blocked groups" : "Bloqueados",
+    "Blocked groups ({count})" : "Bloqueados ({count})"
 },"pluralForm" :"nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }
