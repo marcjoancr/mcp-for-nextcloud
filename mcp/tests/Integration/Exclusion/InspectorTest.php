@@ -137,8 +137,9 @@ final class InspectorTest extends ExclusionTestCase {
         ]);
         $this->calendars[] = $id;
         $this->assertSame(['reason' => AccessInspector::ALLOWED, 'gate' => null], $this->inspector()->calendar(self::ALICE, 'tasks', (string)$id, 'read'));
-        // The calendar tools need the Calendar app, which the harness does not install: the app gate comes first.
-        $this->assertSame(['reason' => AccessInspector::BLOCKED, 'gate' => 'app'], $this->inspector()->calendar(self::ALICE, 'calendar', (string)$id, 'read'));
+        // The harness installs the Calendar app, so the app gate passes; the calendar module asks for events and a
+        // task-only calendar gives alice no native access to them.
+        $this->assertSame(['reason' => AccessInspector::NO_NATIVE_ACCESS, 'gate' => 'native_acl'], $this->inspector()->calendar(self::ALICE, 'calendar', (string)$id, 'read'));
         Server::get(PolicyWriter::class)->setResourceScope(Server::get(PolicyStateMapper::class)->state()['revision'], 'admin', self::ALICE, 'tasks', []);
         $this->assertSame(['reason' => AccessInspector::OUT_OF_SCOPE, 'gate' => 'resource_scope'], $this->inspector()->calendar(self::ALICE, 'tasks', (string)$id, 'read'));
     }
