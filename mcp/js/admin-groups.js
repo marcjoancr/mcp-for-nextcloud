@@ -25,6 +25,8 @@
 	let shownName = null
 	let draft = {}
 	let preview = null
+	/** Whether the detail shows each module's operations instead of its level (the "Operations" switch). */
+	let advanced = false
 	let busy = false
 	let timer
 	let sayTimer
@@ -82,12 +84,6 @@
 	}
 	function discardDraft() {
 		return !dirty() || window.confirm(t('mcp', 'Discard the unsaved group changes?'))
-	}
-	function names(keys) {
-		return keys.map((key) => {
-			const [module, operation] = key.split(':')
-			return module === '_system' ? t('mcp', 'Can connect') : moduleName(module) + ': ' + operationName(operation)
-		}).join(', ') || '—'
 	}
 	function diagnosis(group) {
 		if (group.invalidId) return t('mcp', 'The directory returned an invalid group ID. This group cannot be edited.')
@@ -184,89 +180,197 @@
 			if (!preserve) draft = copyGrants(data.grants)
 			if (!keepMessage) say('')
 			drawList()
-			render()
-			detail.querySelector('h3').focus()
+			render('heading')
 		} catch (e) {
 			if (seq !== detailSeq) return
 			detail.replaceChildren(retry(() => open(gid, preserve)))
 			say(t('mcp', 'Could not read the group policy. Your draft is kept. Retry.'), true)
 		}
 	}
-	function render() {
+	/** Operations of a module in a grants object, whether it came as an object or as PHP's empty array. */
+	const operationsIn = (grants, module) => (grants && !Array.isArray(grants) && grants[module]) || []
+	/** The catalog's modules, without the "Can connect" key. */
+	const modules = () => Object.entries(current.catalog).filter(([module]) => module !== '_system')
+	/**
+	 * The level a set of granted operations makes, with the matrix's tiers (js/admin-levels.js). A group only grants, so an
+	 * operation outside the set is "not granted", never denied.
+	 */
+	function levelIn(grants, module) {
+		const operations = current.catalog[module]
+		const granted = operationsIn(grants, module)
+		return window.McpAdminLevels.levelOf(module, operations, Object.fromEntries(operations.map((operation) => [operation, granted.includes(operation)])))
+	}
+	/** What a member gets without any grant: GrantPolicy::defaultGranted(), reading except the server log. */
+	function defaultLevel(module) {
+		const operations = current.catalog[module]
+		return window.McpAdminLevels.levelOf(module, operations, Object.fromEntries(operations.map((operation) => [operation, operation === 'read' && module !== 'logs'])))
+	}
+	/** For a group the lowest level is "Not granted": the members keep what they have from elsewhere. */
+	function levelName(level) {
+		return { none: t('mcp', 'Not granted'), read: t('mcp', 'Read'), edit: t('mcp', 'Edit'), full: t('mcp', 'Full'), custom: t('mcp', 'Custom') }[level] || level
+	}
+	/** A level in words, a custom one with its operations, since "Custom → Custom" would say nothing. */
+	function levelText(grants, module) {
+		const level = levelIn(grants, module)
+		if (level !== 'custom') return levelName(level)
+		return t('mcp', 'Custom ({operations})', { operations: operationsIn(grants, module).map(operationName).join(', ') }, undefined, RAW)
+	}
+	/** One line per changed module, "Files: Read → Edit", and one for "Can connect". */
+	function changes(before, after) {
+		const lines = []
+		const eligible = (grants) => operationsIn(grants, '_system').includes('eligible')
+		if (eligible(before) !== eligible(after)) {
+			lines.push(t('mcp', '{module}: {before} → {after}', { module: t('mcp', 'Can connect'), before: eligible(before) ? t('mcp', 'Yes') : t('mcp', 'No'), after: eligible(after) ? t('mcp', 'Yes') : t('mcp', 'No') }, undefined, RAW))
+		}
+		for (const [module] of modules()) {
+			const was = [...operationsIn(before, module)].sort().join()
+			const will = [...operationsIn(after, module)].sort().join()
+			if (was !== will) lines.push(t('mcp', '{module}: {before} → {after}', { module: moduleName(module), before: levelText(before, module), after: levelText(after, module) }, undefined, RAW))
+		}
+		return lines
+	}
+	function setOperations(module, operations, focusKey) {
+		if (operations.length) draft[module] = [...operations].sort()
+		else delete draft[module]
+		preview = null
+		render(focusKey)
+	}
+	/** The matrix, filtered by this group, for the members whose individual settings win over it. */
+	function viewInMatrix(gid) {
+		const select = document.getElementById('mcp-group')
+		const matrix = document.getElementById('mcp-block-matrix')
+		if (select && Array.from(select.options).some((option) => option.value === gid)) {
+			select.value = gid
+			select.dispatchEvent(new Event('change'))
+		}
+		matrix?.scrollIntoView?.({ block: 'start' })
+		matrix?.querySelector('h2')?.focus?.()
+	}
+	/** A pressed level carries a check mark besides aria-pressed, as in the matrix popover, so it never depends on colour. */
+	function levelButton(module, level, pressed, onclick) {
+		const children = []
+		if (pressed) {
+			const mark = el('span', { className: 'mcp-pressed-mark', textContent: '✓' })
+			mark.setAttribute('aria-hidden', 'true')
+			children.push(mark)
+		}
+		children.push(levelName(level))
+		const button = el('button', { type: 'button', name: 'mcp-group-level-' + module, value: level, className: 'mcp-group-level' + (level === 'none' ? ' mcp-group-level-none' : ''), onclick }, children)
+		button.setAttribute('aria-pressed', String(pressed))
+		return button
+	}
+	/**
+	 * Draws the open group and focuses the control drawn under focusKey, so a change redraws without losing the place.
+	 *
+	 * @param {string|null} focusKey key of the control to focus, or null to leave the focus alone
+	 */
+	function render(focusKey = null) {
+		const controls = new Map()
+		const keyed = (key, node) => { controls.set(key, node); return node }
+		const editable = !busy && current.trusted === true
 		const name = shownName ?? current.groupId
-		const heading = el('h3', { tabIndex: -1, textContent: name })
+		const heading = keyed('heading', el('h3', { tabIndex: -1, textContent: name }))
 		heading.setAttribute('aria-describedby', 'mcp-group-alert mcp-group-diagnosis')
+		const stats = current.counts
+		const members = stats.members === null || stats.members === undefined
+			? t('mcp', 'Unknown number of members')
+			: n('mcp', '%n member', '%n members', stats.members)
 		const head = el('div', { className: 'mcp-group-head' }, [heading])
 		if (name !== current.groupId) head.append(el('span', { className: 'mcp-hint', textContent: t('mcp', 'ID: {id}', { id: current.groupId }, undefined, RAW) }))
-		const fields = el('fieldset', { disabled: busy || current.trusted !== true })
-		fields.setAttribute('aria-describedby', 'mcp-group-diagnosis')
-		fields.append(el('legend', { textContent: t('mcp', 'Group grants') }))
-		const stats = current.counts
-		const summary = el('p', { textContent: t('mcp', 'Members: {members}. Members with any individual override: {overrides}.', { members: count(stats.members), overrides: count(stats.overrides) }) })
-		const comparison = el('div')
-		function updateComparison() {
-			const before = grantKeys(current.grants)
-			const after = grantKeys(draft)
-			comparison.replaceChildren()
-			if (!dirty()) return
-			comparison.append(el('p', { textContent: t('mcp', 'Only in draft, not saved: {permissions}.', { permissions: names(after.filter((key) => !before.includes(key))) }) }),
-				el('p', { textContent: t('mcp', 'Saved, outside the draft: {permissions}.', { permissions: names(before.filter((key) => !after.includes(key))) }) }))
-		}
-		updateComparison()
-		const table = el('table', { className: 'mcp-group-counts' })
-		table.append(el('caption', { textContent: t('mcp', 'Individual overrides count even when they match inheritance. Different results are counted separately.') }),
-			el('thead', {}, [el('tr', {}, [t('mcp', 'Permission'), t('mcp', 'Members with overrides'), t('mcp', 'Different results')].map((textContent) => el('th', { scope: 'col', textContent }))) ]))
-		const body = el('tbody')
-		for (const [module, operations] of Object.entries(current.catalog)) {
-			const section = el('div', { className: 'mcp-group-permissions' })
-			for (const operation of operations) {
-				const name = module === '_system' ? t('mcp', 'Can connect') : moduleName(module) + ': ' + operationName(operation)
-				const box = el('input', { type: 'checkbox', checked: (draft[module] || []).includes(operation) })
-				box.addEventListener('change', () => {
-					const values = new Set(draft[module] || [])
-					box.checked ? values.add(operation) : values.delete(operation)
-					if (values.size) draft[module] = [...values].sort()
-					else delete draft[module]
-					preview = null
-					save.disabled = true
-					impact.replaceChildren()
-					updateComparison()
-				})
-				section.append(el('label', {}, [box, ' ' + name]))
-				const values = stats.permissions?.[module]?.[operation]
-				body.append(el('tr', {}, [el('th', { scope: 'row', textContent: name }), el('td', { textContent: count(values?.overrides) }), el('td', { textContent: count(values?.different) })]))
-			}
-			fields.append(section)
-		}
-		table.append(body)
-		const impact = el('div', { className: 'mcp-group-impact' })
-		if (preview) {
-			const before = grantKeys(preview.current || current.grants)
-			const after = grantKeys(preview.grants || draft)
-			impact.append(el('p', { textContent: t('mcp', 'Permissions added: {permissions}.', { permissions: names(after.filter((key) => !before.includes(key))) }) }),
-				el('p', { textContent: t('mcp', 'Permissions removed: {permissions}.', { permissions: names(before.filter((key) => !after.includes(key))) }) }),
-				el('p', { textContent: t('mcp', 'Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.') }))
-			impact.append(el('p', { textContent: t('mcp', 'Preview: {members} current members; {revokes} credential holders will be signed out.', { members: count(preview.members), revokes: count(preview.revokes) }) }))
-			if (preview.withdraws) impact.append(el('p', { textContent: t('mcp', 'Losing the last source of eligibility revokes connections. Restoring this policy does not reconnect users.') }))
-		}
-		const review = el('button', { type: 'button', textContent: t('mcp', 'Preview group changes'), disabled: busy || current.trusted !== true, onclick: () => run('preview') })
-		const save = el('button', { type: 'button', textContent: t('mcp', 'Save group policy'), disabled: busy || !preview, onclick: () => run('save') })
-		const confirm = el('button', { type: 'button', textContent: t('mcp', 'Confirm current policy'), disabled: busy || current.trusted !== true, onclick: () => {
+		head.append(el('span', { className: 'mcp-hint', textContent: members }))
+		const clear = el('button', { type: 'button', className: 'mcp-group-clear', textContent: t('mcp', 'Preview clearing group policy'), disabled: busy || grantKeys(current.grants).length === 0, onclick: () => {
+			if (!discardDraft()) return
+			draft = {}
+			run('preview')
+		} })
+		head.append(clear)
+		const confirm = el('button', { type: 'button', textContent: t('mcp', 'Confirm current policy'), disabled: !editable, onclick: () => {
 			if (!discardDraft()) return
 			draft = copyGrants(current.grants)
 			run('preview')
 		} })
 		confirm.hidden = !['needs_confirm', 'pending_delete'].includes(current.state)
-		const clear = el('button', { type: 'button', textContent: t('mcp', 'Preview clearing group policy'), disabled: busy || Object.keys(current.grants).length === 0, onclick: () => {
-			if (!discardDraft()) return
-			draft = {}
-			run('preview')
-		} })
-		for (const button of [review, confirm, clear, save]) button.setAttribute('aria-describedby', 'mcp-group-diagnosis')
 		// The group's notices live in its detail, under the title, with the action they ask for.
 		const reason = diagnosis(current)
 		const note = el('div', { className: 'mcp-note mcp-group-note', hidden: reason === '' }, [el('p', { id: 'mcp-group-diagnosis', textContent: reason }), confirm])
-		detail.replaceChildren(head, note, summary, fields, comparison, table, review, clear, impact, save)
+
+		const operationsSwitch = keyed('operations', el('input', { type: 'checkbox', id: 'mcp-group-operations', checked: advanced }))
+		operationsSwitch.setAttribute('role', 'switch')
+		operationsSwitch.addEventListener('change', () => { advanced = operationsSwitch.checked; render('operations') })
+		const toolbar = el('div', { className: 'mcp-group-toolbar' }, [el('label', { htmlFor: 'mcp-group-operations' }, [operationsSwitch, t('mcp', 'Operations')])])
+
+		const fields = el('fieldset', { disabled: !editable })
+		fields.setAttribute('aria-describedby', 'mcp-group-diagnosis')
+		fields.append(el('legend', { textContent: t('mcp', 'Group grants') }))
+		const eligible = keyed('eligible', el('input', { type: 'checkbox', name: 'mcp-group-eligible', id: 'mcp-group-eligible', checked: operationsIn(draft, '_system').includes('eligible') }))
+		eligible.setAttribute('role', 'switch')
+		eligible.addEventListener('change', () => setOperations('_system', eligible.checked ? ['eligible'] : [], 'eligible'))
+		fields.append(el('div', { className: 'mcp-group-row' }, [el('label', { htmlFor: 'mcp-group-eligible', className: 'mcp-group-module' }, [t('mcp', 'Can connect')]), el('span', {}, [eligible]), el('span')]))
+		for (const [module, operations] of modules()) {
+			const label = el('span', { className: 'mcp-group-module', id: 'mcp-group-module-' + module, textContent: moduleName(module) })
+			const granted = operationsIn(draft, module)
+			const level = levelIn(draft, module)
+			let control
+			if (advanced) {
+				control = el('span', { className: 'mcp-group-operations' }, operations.map((operation) => {
+					const box = keyed('op:' + module + ':' + operation, el('input', { type: 'checkbox', name: 'mcp-group-op-' + module, value: operation, checked: granted.includes(operation) }))
+					box.setAttribute('aria-label', moduleName(module) + ': ' + operationName(operation))
+					box.addEventListener('change', () => {
+						const values = new Set(granted)
+						box.checked ? values.add(operation) : values.delete(operation)
+						setOperations(module, [...values], 'op:' + module + ':' + operation)
+					})
+					return el('label', {}, [box, operationName(operation)])
+				}))
+			} else {
+				control = el('span', { className: 'mcp-group-levels' }, window.McpAdminLevels.levels(module, operations).map((choice) => keyed('level:' + module + ':' + choice,
+					levelButton(module, choice, choice === level, () => setOperations(module, window.McpAdminLevels.operationsFor(module, operations, choice), 'level:' + module + ':' + choice)))))
+			}
+			control.setAttribute('role', 'group')
+			control.setAttribute('aria-labelledby', 'mcp-group-module-' + module)
+			let hint = ''
+			if (level === 'none') hint = t('mcp', 'Members keep the default: {level}', { level: defaultLevel(module) === 'none' ? t('mcp', 'None') : levelName(defaultLevel(module)) }, undefined, RAW)
+			else if (level === 'custom' && !advanced) hint = t('mcp', 'Custom: change it in Operations')
+			fields.append(el('div', { className: 'mcp-group-row' }, [label, control, el('span', { className: 'mcp-hint', textContent: hint })]))
+		}
+
+		// One sentence and a link instead of a table of counters: who wins over this group, and where to see them.
+		const overrides = stats.overrides
+		const exceptions = el('p', { className: 'mcp-group-exceptions' }, [overrides === null || overrides === undefined
+			? t('mcp', 'The members with individual settings could not be counted.')
+			: overrides === 0 ? t('mcp', 'No member has individual settings that take precedence over this group.')
+				: n('mcp', '%n member has individual settings that take precedence over this group.', '%n members have individual settings that take precedence over this group.', overrides)])
+		if (overrides !== 0) exceptions.append(el('button', { type: 'button', className: 'mcp-link-button', textContent: t('mcp', 'View in the matrix'), onclick: () => viewInMatrix(current.groupId) }))
+
+		const parts = [head, note, toolbar, fields, exceptions]
+		const save = keyed('save', el('button', { type: 'button', className: 'primary', textContent: t('mcp', 'Save group policy'), disabled: busy || !preview, onclick: () => run('save') }))
+		const review = keyed('review', el('button', { type: 'button', className: 'primary', textContent: t('mcp', 'Review and save'), disabled: !editable, onclick: () => run('preview') }))
+		for (const button of [review, confirm, clear, save]) button.setAttribute('aria-describedby', 'mcp-group-diagnosis')
+		if (preview) {
+			// The review of the preview the server returned: what changes, who is affected, and the save it allows.
+			const region = el('div', { className: 'mcp-group-review' })
+			region.setAttribute('role', 'region')
+			region.setAttribute('aria-labelledby', 'mcp-group-review-title')
+			const lines = changes(preview.current || current.grants, preview.grants || draft)
+			region.append(el('h4', { id: 'mcp-group-review-title', textContent: t('mcp', 'Review the changes to {group}', { group: name }, undefined, RAW) }),
+				lines.length ? el('ul', {}, lines.map((line) => el('li', { textContent: line }))) : el('p', { textContent: t('mcp', 'No change to the saved policy.') }),
+				el('p', { textContent: t('mcp', 'Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.') }),
+				el('p', { textContent: t('mcp', 'Preview: {members} current members; {revokes} credential holders will be signed out.', { members: count(preview.members), revokes: count(preview.revokes) }) }))
+			if (preview.withdraws) region.append(el('p', { className: 'mcp-group-warning', textContent: t('mcp', 'Losing the last source of eligibility revokes connections. Restoring this policy does not reconnect users.') }))
+			const back = el('button', { type: 'button', textContent: t('mcp', 'Back'), disabled: busy, onclick: () => { preview = null; render('review') } })
+			region.append(el('div', { className: 'mcp-group-actions' }, [back, save]))
+			parts.push(region)
+		} else if (dirty()) {
+			const lines = changes(current.grants, draft)
+			const bar = el('div', { className: 'mcp-group-savebar' }, [
+				el('div', { className: 'mcp-group-savebar-text' }, [el('strong', { textContent: n('mcp', '%n unsaved change', '%n unsaved changes', lines.length) }), el('span', { className: 'mcp-hint', textContent: lines.join('; ') })]),
+				el('button', { type: 'button', textContent: t('mcp', 'Discard'), disabled: busy, onclick: () => { draft = copyGrants(current.grants); render('heading') } }),
+				review,
+			])
+			parts.push(bar)
+		}
+		detail.replaceChildren(...parts)
+		if (focusKey !== null) (controls.get(focusKey) || heading).focus()
 	}
 	async function run(action) {
 		if (busy || !current || (action === 'save' && !preview)) return
@@ -307,11 +411,7 @@
 			busy = false
 			root.setAttribute('aria-busy', 'false')
 			if (refresh) await open(gid, true, true)
-			else {
-				render()
-				const target = action === 'preview' && preview ? detail.querySelector('button:last-child') : detail.querySelector('h3')
-				target?.focus()
-			}
+			else render(action === 'preview' && preview ? 'save' : 'heading')
 		}
 	}
 	search.addEventListener('input', () => {
