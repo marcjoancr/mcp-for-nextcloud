@@ -6,13 +6,14 @@
 /**
  * Personal page of the "MCP for Cloud" settings section: a status card (service, administrator eligibility,
  * own connection) with the Connect/Disconnect switch, the user's own OAuth connections (filled by
- * js/connections.js) and the app-password guidance. Every visible string goes through the IL10N that
+ * js/connections.js), the user's own resource scope (read only, js/personal-scope.js) and the app-password guidance. Every visible string goes through the IL10N that
  * \OC\Template\Base injects as $l, so the page follows the user language.
  *
  * @var array $_ template parameters provided by \OCA\Mcp\Settings\PersonalSettings
  * @var \OCP\IL10N $l translations for app "mcp", injected by the template engine
  */
 \OCP\Util::addScript('mcp', 'connections');
+\OCP\Util::addScript('mcp', 'personal-scope');
 \OCP\Util::addStyle('mcp', 'admin');
 $escape = static fn ($value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $service = $_['global'] ? $l->t('enabled') : $l->t('disabled');
@@ -74,6 +75,12 @@ $canConnect = $_['connected'] || ($_['eligible'] === true && $_['global']);
         </table>
     </div>
 
+    <div class="section mcp-block" id="mcp-my-scope">
+        <h2><?= $l->t('Resource scope') ?></h2>
+        <p class="mcp-hint"><?= $l->t('Your administrator can restrict what your MCP clients reach to selected folders, calendars and task lists. It never changes what you can do in Nextcloud itself.') ?></p>
+        <p id="mcp-my-scope-status" role="status" aria-live="polite"></p>
+        <ul id="mcp-my-scope-list" class="mcp-scope-list"></ul>
+    </div>
     <div class="section mcp-block" id="mcp-personal-app-password">
         <h2><?= $l->t('App password') ?></h2>
         <p class="settings-hint mcp-hint"><?= $l->t('Create an individual app password in Nextcloud Settings → Security, then use it with your Nextcloud user ID in a client that supports HTTP Basic authentication and Streamable HTTP MCP 2025-06-18. This app never asks for your Nextcloud password.') ?></p>

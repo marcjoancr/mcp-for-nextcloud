@@ -251,6 +251,15 @@ access of `notes.delete` and `files.create` is whether the endpoint's `tools/lis
 container's inspector explains a task list through its scope; and a non-administrator gets a refusal before anything is
 inspected on each route.
 
+## Resource scope panel (issue #4, B7)
+
+`Policy/ScopePanelTest.php` sends the requests of the admin panel over HTTP from an administrator session opened like a
+browser (`/csrftoken`, its cookies and the requesttoken), so the routes run with the framework's admin and CSRF checks:
+show, candidates, save, a stale save refused with 409 and nothing written, the matrix cell and the personal page reading
+the saved scope, and undo through the receipt. Files is browsable but refused on save (422 ScopeInactive) while its
+barrier is closed. A non-administrator session gets 403 on every route. The test also measures one page of the folder
+picker over a folder of 1000 subfolders (F3 of the B2 review) and records it in `observations.txt`.
+
 ## Exclusion proof (issue #4, A4)
 
 `Exclusion/` runs the real scenarios of the exclusion by tags (V2, V3, V4, V5, V7, V9 phase 1, V14) and the positive
