@@ -197,9 +197,11 @@
 			close(true)
 		}
 	})
+	// The one thing a cell cannot do directly: pin an Allow that the groups already give.
+	const help = el('p', { className: 'mcp-hint mcp-reset-help', textContent: t('mcp', 'A cell allowed only through a group has no value of its own. To keep that Allow if the group changes, uncheck the box (Deny) and then check it again (Allow). Do not do this for “Can connect”: denying it signs the user out.') })
 	toolbar.append(
 		el('span', { className: 'mcp-reset-select' }, [selectAll, ' ', el('label', { htmlFor: 'mcp-select-all', textContent: t('mcp', 'Select every user on this page') })]),
-		' ', resetSelected, statusLine, alertLine, panel)
+		' ', resetSelected, help, statusLine, alertLine, panel)
 	// Focusable only by script: where the focus goes when nothing more specific is left to take it.
 	toolbar.tabIndex = -1
 	anchor.before(toolbar)
@@ -339,7 +341,7 @@
 			return
 		}
 		say('')
-		review = { plan: result, trigger, retry: false, after: null, loading: true, unavailable: false }
+		review = { plan: result, trigger, retry: false, after: null, loading: true, unavailable: false, revision: null }
 		renderReview()
 		panel.hidden = false
 		panel.querySelector('h3').focus()
@@ -373,6 +375,9 @@
 				return
 			}
 			current.after = new Map((Array.isArray(data.cells) ? data.cells : []).map((cell) => [afterKey(cell.uid, cell.module, cell.operation), cell]))
+			// The command is tied to what the preview showed: it carries the revision the preview was read at, so a change
+			// after it is a 409 and never something else applied.
+			current.revision = typeof data.revision === 'string' ? data.revision : null
 		} catch (e) {
 			if (review !== current) {
 				return
@@ -384,6 +389,15 @@
 		say(current.unavailable
 			? t('mcp', 'The result after the reset could not be read, so it is shown as unknown.')
 			: t('mcp', 'The result after the reset is shown.'), current.unavailable)
+	}
+
+	/**
+	 * @param {object} current the open preview
+	 * @return {boolean} whether the preview was read at another revision than the table on screen, so what the table lists
+	 *     and what the preview shows may not be the same overrides
+	 */
+	function outdated(current) {
+		return current.revision !== null && current.revision !== matrix.data()?.revision
 	}
 
 	/** @return {string} key of one cell of one user */
@@ -480,7 +494,7 @@
 	function renderReview() {
 		const result = review.plan
 		// The preview is drawn again when the server's answer arrives: the focus stays on what had it.
-		const focused = ['h3', 'button.mcp-reset-confirm', 'button.mcp-reset-cancel'].find((selector) => {
+		const focused = ['h3', 'button.mcp-reset-confirm', 'button.mcp-reset-cancel', 'button.mcp-reset-reload'].find((selector) => {
 			const node = panel.querySelector(selector)
 			return node !== null && document.activeElement === node
 		})
@@ -491,6 +505,10 @@
 		const lines = [
 			el('p', { textContent: t('mcp', 'Overrides to remove: {allow} allowed, {deny} denied, {invalid} invalid.', { allow: result.allow, deny: result.deny, invalid: result.invalid }, undefined, { escape: false }) }),
 		]
+		const stale = outdated(review)
+		if (stale) {
+			lines.push(el('p', { className: 'mcp-reset-warning', textContent: t('mcp', 'The table is older than the preview: the permissions changed after it was loaded. Reload the table to review the reset again.') }))
+		}
 		const known = review.after !== null
 		const counts = known ? outcomes(review) : null
 		if (review.loading) {
@@ -543,19 +561,30 @@
 			type: 'button',
 			className: 'primary mcp-reset-confirm',
 			textContent: review.retry ? t('mcp', 'Try again') : t('mcp', 'Remove overrides'),
-			disabled: review.loading,
+			disabled: review.loading || stale,
 			onclick: execute,
 		})
 		const cancel = el('button', { type: 'button', className: 'mcp-reset-cancel', textContent: t('mcp', 'Cancel'), onclick: () => close(true) })
-		panel.replaceChildren(heading, ...lines, list, el('div', { className: 'mcp-reset-actions' }, [confirm, ' ', cancel]))
+		const actions = [confirm, ' ', cancel]
+		if (stale) {
+			actions.push(' ', el('button', { type: 'button', className: 'mcp-reset-reload', textContent: t('mcp', 'Reload the table'), onclick: () => matrix.reload() }))
+		}
+		panel.replaceChildren(heading, ...lines, list, el('div', { className: 'mcp-reset-actions' }, actions))
 		if (focused) {
-			panel.querySelector(focused).focus()
+			// A button that was just disabled cannot take the focus: the reload button, which now matters most, does.
+			const target = panel.querySelector(focused)
+			;(target.disabled ? panel.querySelector('button.mcp-reset-reload') || target : target).focus()
 		}
 	}
 
 	/** Sends the command of the open preview. Nothing is repeated on its own: a retry is the administrator's click. */
 	async function execute() {
 		if (review === null || saving || matrix.isBusy()) {
+			return
+		}
+		if (outdated(review)) {
+			// A matrix save moved the table's revision after the preview was read: say so instead of acting on it.
+			renderReview()
 			return
 		}
 		const current = review
@@ -571,7 +600,7 @@
 		let failed = false
 		try {
 			try {
-				const saved = await matrix.api('POST', '/api/grants/commands', { expectedRevision: matrix.data().revision, commands })
+				const saved = await matrix.api('POST', '/api/grants/commands', { expectedRevision: current.revision ?? matrix.data().revision, commands })
 				for (const target of current.plan.targets) {
 					selected.delete(target.user.uid)
 				}

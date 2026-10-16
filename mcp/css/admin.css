@@ -492,6 +492,11 @@
 	gap: 4px;
 }
 
+#mcp-admin .mcp-reset-help {
+	flex-basis: 100%;
+	margin: 0;
+}
+
 #mcp-admin .mcp-reset-status:empty,
 #mcp-admin .mcp-reset-alert:empty {
 	display: none;

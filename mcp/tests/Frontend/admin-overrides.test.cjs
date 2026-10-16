@@ -691,3 +691,53 @@ test('T16: an answer for a preview that was closed meanwhile is dropped', async 
 	ui.flush()
 	assert.equal(ui.status.textContent, '')
 })
+
+test('A1: a table that moved after the preview is not acted on: the warning and the reload take over', async () => {
+	const ui = app([alice()], undefined, { preview: (body) => [200, { revision: '9007199254740993', cells: [] }] })
+	await ui.rowButton('alice').click()
+	await tick()
+	// Another save moved the table's revision after the preview; the command must still name the preview's.
+	ui.data.revision = '9007199254740999'
+	assert.equal(ui.panelButton('confirm').disabled, false)
+	ui.panelButton('confirm').focus()
+	await ui.panelButton('confirm').click()
+	assert.equal(ui.commands().length, 0, 'a table that moved since the preview is not acted on')
+	assert.match(ui.panel.textContent, /The table is older than the preview/)
+	assert.equal(ui.panelButton('confirm').disabled, true)
+	assert.equal(ui.document.activeElement, ui.panelButton('reload'), 'the focus goes to the button that matters now')
+})
+
+test('A1: a preview read at another revision than the table warns, offers a reload and cannot be confirmed', async () => {
+	const ui = app([alice()], undefined, { preview: () => [200, { revision: '9007199254740995', cells: [] }] })
+	await ui.rowButton('alice').click()
+	await tick()
+	assert.match(ui.panel.textContent, /The table is older than the preview: the permissions changed after it was loaded\. Reload the table to review the reset again/)
+	assert.equal(ui.panelButton('confirm').disabled, true)
+	await ui.panelButton('confirm').click()
+	assert.equal(ui.commands().length, 0)
+	await ui.panelButton('reload').click()
+	assert.equal(ui.log.reloads, 1)
+	assert.equal(ui.panel.hidden, true, 'the redrawn table closes the preview')
+})
+
+test('A1: with a matching revision the command names exactly that revision; an unreadable preview falls back to the table', async () => {
+	const ui = app([alice()], undefined, { preview: (body) => [200, { revision: REVISION, cells: [] }] })
+	await ui.rowButton('alice').click()
+	await tick()
+	await ui.panelButton('confirm').click()
+	await tick()
+	assert.equal(ui.commands()[0].body.expectedRevision, REVISION)
+	const fallback = app([alice()])
+	await fallback.rowButton('alice').click()
+	await tick()
+	await fallback.panelButton('confirm').click()
+	await tick()
+	assert.equal(fallback.commands()[0].body.expectedRevision, REVISION)
+})
+
+test('Allow over an inherited Allow: the toolbar carries a short help text saying how, and warning about Can connect', () => {
+	const ui = app([alice()])
+	const help = ui.toolbar.querySelector('p.mcp-reset-help')
+	assert.match(help.textContent, /To keep that Allow if the group changes, uncheck the box \(Deny\) and then check it again \(Allow\)/)
+	assert.match(help.textContent, /Do not do this for “Can connect”: denying it signs the user out/)
+})
