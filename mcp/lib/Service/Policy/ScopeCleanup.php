@@ -147,8 +147,10 @@ class ScopeCleanup {
     }
 
     /**
-     * A fresh read of the account, outside any transaction: the user object and the backends' own existence answer must
-     * both say it is gone. Anything else (an account, a disabled one) means it exists for this purpose.
+     * Reads the account through this process's user manager and backends, outside any transaction. Their answers may
+     * be cached, including an absence left by a deletion the caller rolled back. The job never removes scopes (B3),
+     * so an incorrect absent answer affects only its diagnostic count. An account, including a disabled one, counts
+     * as existing if either process-local answer reports it.
      *
      * @throws PolicyUnavailable when the account cannot be read
      */
