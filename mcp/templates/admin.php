@@ -100,8 +100,8 @@
         <details class="mcp-group-rules">
             <summary><?php p($l->t('How group grants work')); ?></summary>
             <p class="mcp-hint"><?php p($l->t('Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.')); ?></p>
-            <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. Group identity protection relies on delivered Nextcloud events; a lost deletion event may let a recreated group inherit the old policy.')); ?></p>
-            <p class="mcp-hint"><?php p($l->t('Removing group eligibility is refused when remaining access is unknown for a credential holder. Check the sources and retry.')); ?></p>
+            <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. If a group is deleted and that event is lost, a new group with the same ID may inherit the old policy.')); ?></p>
+            <p class="mcp-hint"><?php p($l->t('Taking “Can connect” away from a group is refused while it is unknown what a signed-in member would keep. Check the sources and try again.')); ?></p>
         </details>
         <div class="mcp-groups">
             <nav class="mcp-groups-nav" aria-label="<?php p($l->t('Groups')); ?>">

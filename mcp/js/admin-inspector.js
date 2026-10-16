@@ -11,7 +11,9 @@
  * matrix row, and answers first whether the person can use the tools at all: when one general check blocks every
  * operation (the account, the service, "Can connect" or the personal connection), one sentence says which and how to
  * fix it, next to the four general checks. Then one line per module gives the level the person has, where it comes
- * from, the resource scope and what blocks it; the table of every operation stays one click away.
+ * from, the resource scope and what blocks it; the table of every operation stays one click away. An individual value
+ * that only repeats what the person inherits is said as the matrix says it ("also set for this person, with the same
+ * value"), through the same read-only preview (js/admin-exceptions.js); until that is known it is "set for this person".
  */
 (function () {
 	'use strict'
@@ -34,6 +36,14 @@
 	let inspected = null
 	let catalog = {}
 	let seq = 0
+	/**
+	 * What each individual value of the person on screen is (js/admin-exceptions.js, the same preview and rule as the
+	 * matrix): per "module/operation", {kind: exception|redundant, after}. Null until known, and when it cannot be read:
+	 * every individual value is then said as set for this person, never as repeating what they inherit.
+	 */
+	let kinds = null
+	/** The answer on screen, drawn again once the kinds are known. */
+	let shown = null
 
 	function el(tag, props = {}, children = []) {
 		const node = document.createElement(tag)
@@ -82,6 +92,17 @@
 			resource_scope: t('mcp', 'Outside the resource scope of this user.'),
 			resource_scope_unknown: t('mcp', 'Unknown: the resource scope of this user cannot be read.'),
 		}[gate] || gate
+	}
+	/**
+	 * Where one operation's value comes from, in words. An individual value that only repeats what the person inherits
+	 * says what it repeats, as the matrix does.
+	 */
+	function grantText(row) {
+		const kind = kinds?.get(row.module + '/' + row.operation)
+		if (kind?.kind === 'redundant' && kind.after) {
+			return sourceText(kind.after) + ' — ' + t('mcp', 'also set for this person, with the same value')
+		}
+		return sourceText(row.grant)
 	}
 	function sourceText(grant) {
 		const groups = (grant.groupIds || []).join(', ')
@@ -222,8 +243,7 @@
 			const gates = new Set(rows.map((row) => row.blockingGate).filter((gate) => gate !== null && gate !== 'grant'))
 			const blocked = !general && rows.every((row) => row.allowed === false) && gates.size === 1 ? [...gates][0] : null
 			const origin = levels ? levels.originOf(operationList, Object.fromEntries(rows.map((row) => [row.operation, row.grant]))) : null
-			const source = origin === null ? '' : {
-				individual: t('mcp', 'Set for this person'),
+			const source = origin === null ? '' : origin.source === 'individual' ? individualText(rows) : {
 				invalid: t('mcp', 'Invalid stored value (denied)'),
 				group: t('mcp', 'Group: {groups}', { groups: origin.groupIds.join(', ') }),
 				unknown: t('mcp', 'Group awaiting confirmation: {groups}', { groups: origin.groupIds.join(', ') }),
@@ -240,7 +260,55 @@
 		return general ? el('div', {}, [el('p', { className: 'mcp-hint', textContent: t('mcp', 'What each module grants, once the general check is fixed:') }), list]) : list
 	}
 
+	/**
+	 * Where a module's individual values come from, as the matrix says it: an exception when one of them differs from what
+	 * the person inherits, what they repeat when every one only repeats it, and "set for this person" until that is known.
+	 */
+	function individualText(rows) {
+		const individual = rows.filter((row) => row.grant?.source === 'individual_allow' || row.grant?.source === 'individual_deny')
+		const known = individual.map((row) => kinds?.get(row.module + '/' + row.operation))
+		if (kinds === null || known.some((kind) => !kind)) return t('mcp', 'Set for this person')
+		if (known.some((kind) => kind.kind === 'exception')) return t('mcp', 'Exception: differs from what the person inherits')
+		const repeated = Object.fromEntries(rows.map((row) => {
+			const index = individual.indexOf(row)
+			return [row.operation, index < 0 ? row.grant : known[index].after || { source: 'default', groupIds: [] }]
+		}))
+		const origin = window.McpAdminLevels.originOf(rows.map((row) => row.operation), repeated)
+		const text = {
+			group: t('mcp', 'Group: {groups}', { groups: origin.groupIds.join(', ') }),
+			unknown: t('mcp', 'Group awaiting confirmation: {groups}', { groups: origin.groupIds.join(', ') }),
+		}[origin.source] || t('mcp', 'Default')
+		return text + ' — ' + t('mcp', 'also set for this person, with the same value')
+	}
+
+	/**
+	 * Asks what the individual values of the answer on screen repeat, then draws it again; an answer for another person
+	 * or another inspection is dropped.
+	 */
+	async function classifyShown(data, mine) {
+		const exceptions = window.McpAdminExceptions
+		if (!exceptions?.classifyPerson || typeof data.revision !== 'string') return
+		const cells = data.operations.map((row) => ({ module: row.module, operation: row.operation, allowed: row.grant?.allowed ?? null, source: row.grant?.source }))
+		if (!cells.some((cell) => cell.source === 'individual_allow' || cell.source === 'individual_deny')) return
+		try {
+			const answer = await exceptions.classifyPerson(inspected, cells, data.revision)
+			if (mine !== seq || shown !== data) return
+			kinds = answer
+		} catch (e) {
+			return
+		}
+		// Drawn again in place: the table of every operation stays open, and a focused summary keeps the focus.
+		const details = access.querySelector?.('details.mcp-inspector-all')
+		const wasOpen = Boolean(details?.open)
+		const hadFocus = document.activeElement !== undefined && document.activeElement === details?.querySelector?.('summary')
+		renderAccess(data)
+		const again = access.querySelector?.('details.mcp-inspector-all')
+		if (again && wasOpen) again.open = true
+		if (hadFocus) again?.querySelector?.('summary')?.focus?.()
+	}
+
 	function renderAccess(data) {
+		shown = data
 		catalog = {}
 		const rows = data.operations.map((row) => {
 			;(catalog[row.module] = catalog[row.module] || []).push(row.operation)
@@ -249,7 +317,7 @@
 				el('th', { scope: 'row', textContent: moduleName(row.module) + ': ' + operationName(row.operation) }),
 				el('td', { textContent: resultText(row.allowed), className: 'mcp-inspector-' + (row.allowed === true ? 'allowed' : row.allowed === false ? 'blocked' : 'unknown') }),
 				el('td', { textContent: row.blockingGate === null ? '—' : gateText(row.blockingGate) }),
-				el('td', { textContent: sourceText(row.grant) + scope }),
+				el('td', { textContent: grantText(row) + scope }),
 			])
 		})
 		const head = el('tr', {}, [t('mcp', 'Operation'), t('mcp', 'Result'), t('mcp', 'First check that blocks'), t('mcp', 'Grant')].map((text) => el('th', { scope: 'col', textContent: text })))
@@ -271,7 +339,9 @@
 			const data = await get('/api/inspector/access', { uid })
 			if (mine !== seq) return
 			inspected = uid
+			kinds = null
 			renderAccess(data)
+			classifyShown(data, mine)
 			resources.hidden = false
 			pathResult.textContent = ''
 			calendarResult.textContent = ''
@@ -280,6 +350,8 @@
 		} catch (error) {
 			if (mine !== seq) return
 			inspected = null
+			kinds = null
+			shown = null
 			access.replaceChildren()
 			resources.hidden = true
 			say(failure(error), true)

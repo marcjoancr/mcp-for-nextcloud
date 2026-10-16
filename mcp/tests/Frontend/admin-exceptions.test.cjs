@@ -147,7 +147,7 @@ test('the notice counts the redundant values of the page and the review opens th
 	const kit = setup({ users, preview: previewOf((uid, module, operation) => operation === 'read') })
 	await kit.rendered()
 	assert.equal(kit.elements['mcp-redundant-notice'].hidden, false)
-	assert.match(kit.elements['mcp-redundant-notice-text'].textContent, /^On this page, 2 individual values repeat what the people would inherit\./)
+	assert.match(kit.elements['mcp-redundant-notice-text'].textContent, /^2 individual values on this page only repeat what is inherited, so group changes would not reach those people\./)
 	assert.deepEqual(plain(kit.api.redundantCells()), [{ uid: 'ana', module: 'files', operation: 'read' }, { uid: 'ana', module: 'files', operation: 'edit' }])
 	for (const action of kit.elements['mcp-redundant-review'].listeners.click) action()
 	assert.deepEqual(kit.reviews.map((review) => review.cells), [[{ uid: 'ana', module: 'files', operation: 'read' }, { uid: 'ana', module: 'files', operation: 'edit' }]])
@@ -155,7 +155,7 @@ test('the notice counts the redundant values of the page and the review opens th
 
 	const one = setup({ users: [user('ana', {}, { read: o('individual_allow') })], preview: previewOf(() => true) })
 	await one.rendered()
-	assert.match(one.elements['mcp-redundant-notice-text'].textContent, /^On this page, 1 individual value repeats/)
+	assert.match(one.elements['mcp-redundant-notice-text'].textContent, /^1 individual value on this page only repeats/)
 	const none = setup({ users: [user('ana', { edit: true }, { edit: o('individual_allow') })], preview: previewOf(() => false) })
 	await none.rendered()
 	assert.equal(none.elements['mcp-redundant-notice'].hidden, true, 'no notice without a redundant value')
@@ -282,4 +282,26 @@ test('F4: the redraw also waits while a drawer is open, and comes when it closes
 	assert.equal(kit.refreshes(), 0)
 	await kit.drawerClosed()
 	assert.equal(kit.refreshes(), 1)
+})
+
+test('S11: the inspector classifies one person with the same preview and rule, at the revision it read', async () => {
+	const k = setup({ preview: (body) => ({ revision: REVISION, cells: body.commands.map((command) => ({ ...command, after: { allowed: command.operation === 'read', source: 'group', groupIds: ['comercial'] } })) }) })
+	const kinds = await k.api.classifyPerson('ana', [
+		{ module: 'files', operation: 'read', allowed: true, source: 'individual_allow' },
+		{ module: 'files', operation: 'edit', allowed: true, source: 'individual_allow' },
+		{ module: 'files', operation: 'move', allowed: false, source: 'group' },
+	], REVISION)
+	assert.deepEqual(k.calls.map((call) => call.body), [{ commands: [
+		{ uid: 'ana', module: 'files', operation: 'read', state: 'inherit' },
+		{ uid: 'ana', module: 'files', operation: 'edit', state: 'inherit' },
+	] }], 'only the individual values, as inherit, in the read-only preview')
+	assert.equal(k.calls[0].url, '/api/grants/commands/preview')
+	assert.deepEqual(plain([...kinds]), [
+		['files/read', { kind: 'redundant', after: { source: 'group', groupIds: ['comercial'] } }],
+		['files/edit', { kind: 'exception', after: { source: 'group', groupIds: ['comercial'] } }],
+	])
+	await assert.rejects(k.api.classifyPerson('ana', [{ module: 'files', operation: 'read', allowed: true, source: 'individual_allow' }], '1'), /stale/, 'an answer at another revision is not about these values')
+	const none = await k.api.classifyPerson('ana', [{ module: 'files', operation: 'read', allowed: true, source: 'default' }], REVISION)
+	assert.equal(none.size, 0)
+	assert.equal(k.calls.length, 2, 'nothing is asked without an individual value')
 })

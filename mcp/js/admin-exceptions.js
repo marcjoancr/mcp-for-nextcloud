@@ -17,8 +17,8 @@
  * stored value is always an exception. Removing a redundant value changes nothing now, but it changes what happens when
  * the person leaves a group, so it is only ever done through the reset preview, never by itself.
  *
- * Plain browser JavaScript, no build step. js/admin-grants.js asks kindOf() while it draws a level cell; this file never
- * writes anything.
+ * Plain browser JavaScript, no build step. js/admin-grants.js asks kindOf() while it draws a level cell, and the access
+ * inspector asks classifyPerson() for the person it shows; this file never writes anything.
  */
 (function () {
 	'use strict'
@@ -116,6 +116,55 @@
 		return after === cell.before ? 'redundant' : 'exception'
 	}
 
+	/**
+	 * Asks the preview what each individual cell would be without its value, and classifies it.
+	 *
+	 * @param {Array<Array<object>>} byUser the individual cells, one list per user (see individualCells())
+	 * @param {string} revision the revision the cells were read at
+	 * @return {Promise<Map<string, {kind: string, after: object|null}>>} per cellKey(); it fails when the preview fails or
+	 *     answers at another revision, since what it says may then not be about these values
+	 */
+	async function ask(byUser, revision) {
+		const answers = new Map()
+		for (const chunk of chunks(byUser)) {
+			const reply = await matrix.api('POST', '/api/grants/commands/preview', {
+				commands: chunk.map((cell) => ({ uid: cell.uid, module: cell.module, operation: cell.operation, state: 'inherit' })),
+			})
+			if (typeof reply.revision !== 'string' || reply.revision !== revision) {
+				throw new Error('stale')
+			}
+			for (const answer of Array.isArray(reply.cells) ? reply.cells : []) {
+				answers.set(cellKey(answer.uid, answer.module ?? null, answer.operation), answer)
+			}
+		}
+		const kinds = new Map()
+		for (const cell of byUser.flat()) {
+			const answer = answers.get(cellKey(cell.uid, cell.module, cell.operation))
+			kinds.set(cellKey(cell.uid, cell.module, cell.operation), {
+				kind: kindOfAnswer(cell, answer),
+				after: answer?.after ? { source: answer.after.source, groupIds: answer.after.groupIds || [] } : null,
+			})
+		}
+		return kinds
+	}
+
+	/**
+	 * The classification of the individual values of one person, for the access inspector: the same preview and the same
+	 * rule as the matrix, for any person, at the revision the inspector read.
+	 *
+	 * @param {string} uid the person
+	 * @param {Array<{module: string, operation: string, allowed: boolean|null, source: string}>} cells their individual
+	 *     values, as the inspector reads them
+	 * @param {string} revision the revision of the inspector's answer
+	 * @return {Promise<Map<string, {kind: string, after: object|null}>>} per "module/operation"; it fails as ask() does
+	 */
+	async function classifyPerson(uid, cells, revision) {
+		const individual = cells.filter((cell) => INDIVIDUAL.includes(cell.source))
+			.map((cell) => ({ uid, module: cell.module, operation: cell.operation, before: cell.allowed ?? null, source: cell.source }))
+		const kinds = await ask([individual], revision)
+		return new Map(individual.map((cell) => [cell.module + '/' + cell.operation, kinds.get(cellKey(uid, cell.module, cell.operation))]))
+	}
+
 	/** Reads the classification of the page on screen, once per revision and set of users. */
 	async function classify() {
 		const data = matrix.data()
@@ -136,27 +185,9 @@
 		}
 		const open = result
 		try {
-			const answers = new Map()
-			for (const chunk of chunks(byUser)) {
-				const reply = await matrix.api('POST', '/api/grants/commands/preview', {
-					commands: chunk.map((cell) => ({ uid: cell.uid, module: cell.module, operation: cell.operation, state: 'inherit' })),
-				})
-				// Read at another revision than the table: what it says may not be about the values on screen.
-				if (typeof reply.revision !== 'string' || reply.revision !== data.revision) {
-					throw new Error('stale')
-				}
-				for (const answer of Array.isArray(reply.cells) ? reply.cells : []) {
-					answers.set(cellKey(answer.uid, answer.module ?? null, answer.operation), answer)
-				}
-			}
+			const kinds = await ask(byUser, data.revision)
 			if (result !== open) return
-			for (const cell of all) {
-				const answer = answers.get(cellKey(cell.uid, cell.module, cell.operation))
-				open.cells.set(cellKey(cell.uid, cell.module, cell.operation), {
-					kind: kindOfAnswer(cell, answer),
-					after: answer?.after ? { source: answer.after.source, groupIds: answer.after.groupIds || [] } : null,
-				})
-			}
+			open.cells = kinds
 			open.status = 'done'
 		} catch (e) {
 			if (result !== open) return
@@ -217,8 +248,8 @@
 		const count = redundantCells().length
 		notice.hidden = count === 0
 		noticeText.textContent = count === 0 ? '' : n('mcp',
-			'On this page, %n individual value repeats what the person would inherit. It changes nothing now, but it keeps a change of the groups from reaching that person.',
-			'On this page, %n individual values repeat what the people would inherit. They change nothing now, but they keep a change of the groups from reaching those people.', count)
+			'%n individual value on this page only repeats what is inherited, so a group change would not reach that person.',
+			'%n individual values on this page only repeat what is inherited, so group changes would not reach those people.', count)
 	}
 
 	reviewButton?.addEventListener('click', () => {
@@ -260,5 +291,5 @@
 		}, 0))
 	}
 
-	window.McpAdminExceptions = { kindOf, redundantCells, kindOfAnswer, chunks, status: () => result.status }
+	window.McpAdminExceptions = { kindOf, redundantCells, kindOfAnswer, chunks, classifyPerson, status: () => result.status }
 })()

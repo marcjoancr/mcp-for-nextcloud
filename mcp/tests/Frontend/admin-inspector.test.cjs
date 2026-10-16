@@ -287,3 +287,70 @@ test('F4: the inspector gives the focus to the new "…" of the row when the old
 	ui.ids['mcp-inspector-close'].listeners.click()
 	assert.equal(focused, ui.ids['mcp-inspector-entry'])
 })
+
+test('S11: an individual value that repeats what the person inherits is said as the matrix says it, once the preview answers', async () => {
+	const operations = [
+		row('notes', 'read', true, null, 'individual_allow'),
+		row('notes', 'edit', false, 'grant', 'individual_deny'),
+		row('deck', 'read', true, null, 'individual_allow'),
+		row('deck', 'edit', true, null, 'individual_allow'),
+	]
+	let answer
+	const asked = []
+	const ui = await app((url) => url.startsWith('/apps/mcp/api/inspector/access') ? [200, { revision: '5', operations }] : undefined)
+	ui.window.McpAdminExceptions = { classifyPerson: (uid, cells, revision) => { asked.push({ uid, revision, sources: cells.map((cell) => cell.source) }); return new Promise((resolve, reject) => { answer = { resolve, reject } }) } }
+	ui.ids['mcp-inspector-user'].value = 'alice'
+	await ui.submit('mcp-inspector-form')
+	const modules = () => ui.ids['mcp-inspector-access'].all('li').filter((li) => li.className === 'mcp-inspector-module').map((li) => li.textContent.replace(/\s+/g, ' '))
+	assert.deepEqual(asked, [{ uid: 'alice', revision: '5', sources: ['individual_allow', 'individual_deny', 'individual_allow', 'individual_allow'] }])
+	assert.ok(modules().every((line) => /Set for this person/.test(line)), 'until the preview answers, nothing is said to repeat the inheritance')
+	answer.resolve(new Map([
+		['notes/read', { kind: 'redundant', after: { source: 'group', groupIds: ['comercial'] } }],
+		['notes/edit', { kind: 'redundant', after: { source: 'default', groupIds: [] } }],
+		['deck/read', { kind: 'redundant', after: { source: 'default', groupIds: [] } }],
+		['deck/edit', { kind: 'exception', after: { source: 'default', groupIds: [] } }],
+	]))
+	await tick()
+	const [notes, deck] = modules()
+	assert.match(notes, /Group: comercial — also set for this person, with the same value/)
+	assert.match(deck, /Exception: differs from what the person inherits/, 'one exception makes the module an exception')
+	const cells = ui.ids['mcp-inspector-access'].all('td').map((td) => td.textContent)
+	assert.ok(cells.includes('Group: comercial — also set for this person, with the same value'), 'the table says it per operation')
+	assert.ok(cells.includes('Individual: allowed'), 'an exception stays individual')
+})
+
+test('S11: when the preview cannot answer, or answers after another person was inspected, individual values stay "set for this person"', async () => {
+	const operations = [row('notes', 'read', true, null, 'individual_allow')]
+	const pending = []
+	const ui = await app((url) => url.startsWith('/apps/mcp/api/inspector/access') ? [200, { revision: '5', operations }] : undefined)
+	ui.window.McpAdminExceptions = { classifyPerson: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) }
+	ui.ids['mcp-inspector-user'].value = 'alice'
+	await ui.submit('mcp-inspector-form')
+	pending[0].reject(new Error('stale'))
+	await tick()
+	const text = () => ui.ids['mcp-inspector-access'].textContent.replace(/\s+/g, ' ')
+	assert.match(text(), /Notes Read Set for this person/)
+	ui.ids['mcp-inspector-user'].value = 'bruno'
+	await ui.submit('mcp-inspector-form')
+	ui.ids['mcp-inspector-user'].value = 'carla'
+	await ui.submit('mcp-inspector-form')
+	pending[1].resolve(new Map([['notes/read', { kind: 'redundant', after: { source: 'default', groupIds: [] } }]]))
+	await tick()
+	assert.doesNotMatch(text(), /also set/, 'the answer about bruno is never shown under carla')
+})
+
+test('S11: what was known about one person is never said about the next one', async () => {
+	const operations = [row('notes', 'read', true, null, 'individual_allow')]
+	const pending = []
+	const ui = await app((url) => url.startsWith('/apps/mcp/api/inspector/access') ? [200, { revision: '5', operations }] : undefined)
+	ui.window.McpAdminExceptions = { classifyPerson: () => new Promise((resolve) => pending.push(resolve)) }
+	ui.ids['mcp-inspector-user'].value = 'alice'
+	await ui.submit('mcp-inspector-form')
+	pending[0](new Map([['notes/read', { kind: 'redundant', after: { source: 'default', groupIds: [] } }]]))
+	await tick()
+	const text = () => ui.ids['mcp-inspector-access'].textContent.replace(/\s+/g, ' ')
+	assert.match(text(), /Notes Read Default — also set for this person, with the same value/)
+	ui.ids['mcp-inspector-user'].value = 'bruno'
+	await ui.submit('mcp-inspector-form')
+	assert.match(text(), /Notes Read Set for this person/, 'bruno waits for his own answer')
+})

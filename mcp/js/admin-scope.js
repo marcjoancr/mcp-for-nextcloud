@@ -186,7 +186,7 @@
 				await reload(state).catch(() => {})
 			} else if (current === undefined || state.revision !== current) {
 				state.stale = true
-				state.line = t('mcp', 'Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope.')
+				state.line = t('mcp', 'Changed before the policy moved, so saving will be refused. Discard the changes to load the saved scope.')
 				rerender(state)
 			}
 		}
@@ -318,10 +318,10 @@
 		section.setAttribute('aria-labelledby', heading.id)
 		section.append(heading)
 		if (state.stale) {
-			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope.') }))
+			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Changed before the policy moved, so saving will be refused. Discard the changes to load the saved scope.') }))
 		}
 		if (!state.active) {
-			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Not available yet: the tools of this module do not apply a resource scope in this version, so it cannot be saved and nothing is restricted. You can still browse what the user has.') }))
+			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Not available in this version: the tools of this module do not apply a scope yet, so nothing can be saved. You can still browse.') }))
 		}
 		const fieldset = el('fieldset', {}, [el('legend', { textContent: t('mcp', 'Resources the MCP tools of {user} may reach', { user: uid }, undefined, { escape: false }) })])
 		;[['unrestricted', t('mcp', 'All resources')], ['restricted', t('mcp', 'Only selected')]].forEach(([value, text]) => {
@@ -599,7 +599,7 @@
 		mark.setAttribute('aria-hidden', 'true')
 		const button = el('button', { type: 'button', className: 'mcp-scope-indicator' }, [mark, ' ' + (unknown ? t('mcp', 'Scope unknown') : t('mcp', 'Restricted to {count}', { count: scope.count }, undefined, { escape: false }))])
 		button.title = unknown
-			? t('mcp', 'The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope.')
+			? t('mcp', 'The scope cannot be read now, so the tools of this module refuse until it can. Open the resource scope.')
 			: t('mcp', 'The MCP tools of this user reach only the selected resources of this module. Open the resource scope.')
 		button.addEventListener('click', () => open(target, module, button))
 		return button

@@ -589,7 +589,7 @@ test('B2: the row preview says that overrides in cells the table does not offer 
 	hidden.appsEnabled = { notes: false, files: true }
 	const ui = app([hidden, bob()])
 	await ui.rowButton('alice').click()
-	assert.match(ui.panel.textContent, /1 of these overrides is in a permission the table does not offer for that user/)
+	assert.match(ui.panel.textContent, /1 of these values is in a permission the table does not show for that user/)
 	assert.match(ui.panel.textContent, /It is removed too/)
 	assert.match(ui.panel.textContent, /Notes: edit: Individual override: denied/, 'the override is listed like any other')
 	await ui.panelButton('cancel').click()

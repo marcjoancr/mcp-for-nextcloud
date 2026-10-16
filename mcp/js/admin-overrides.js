@@ -635,8 +635,8 @@
 		}
 		if (result.unseen > 0) {
 			lines.push(el('p', { textContent: n('mcp',
-				'%n of these overrides is in a permission the table does not offer for that user (the account or the app is unavailable, or the column is hidden). It is removed too.',
-				'%n of these overrides are in permissions the table does not offer for those users (the account or the app is unavailable, or the column is hidden). They are removed too.',
+				'%n of these values is in a permission the table does not show for that user. It is removed too.',
+				'%n of these values are in permissions the table does not show for those users. They are removed too.',
 				result.unseen, undefined, { escape: false }) }))
 		}
 		if (result.without > 0) {
