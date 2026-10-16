@@ -366,4 +366,3 @@ Developed by [Sintax](https://sintax.tech) · sintax.tech.
 - GitHub: https://github.com/sintax-tech
 - Contact: contato@sintax.tech
 - Other Nextcloud apps by Sintax: [MCP for Cloud](https://apps.nextcloud.com/apps/mcp) · [Audiolog](https://apps.nextcloud.com/apps/audiolog)
-
