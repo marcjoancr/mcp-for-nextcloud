@@ -1001,6 +1001,10 @@ final class Reorganization {
                 throw new ToolFailure(CommonMessages::notFound());
             }
             if (!$existing instanceof Folder) {
+                // A file in the way is only named when the user may reach it: otherwise "it exists" would tell a
+                // file outside the Files scope from a missing path (D6). A file is never an ancestor of a selected
+                // folder, so this costs no traversal.
+                $this->assertReachable($existing);
                 throw new ToolFailure(FilesMessages::destinationExists());
             }
             $parent = $existing;
@@ -1013,7 +1017,15 @@ final class Reorganization {
      * @throws ToolFailure not found when it is hidden or outside the Files scope
      */
     private function assertBoundary(Folder $folder): void {
-        if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($folder)) {
+        $this->assertReachable($folder);
+    }
+
+    /**
+     * @param Node $node an existing node of a destination path, about to be named in a refusal or written below
+     * @throws ToolFailure not found when it is hidden or outside the Files scope
+     */
+    private function assertReachable(Node $node): void {
+        if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($node)) {
             throw new ToolFailure(CommonMessages::notFound());
         }
     }
@@ -1049,6 +1061,7 @@ final class Reorganization {
                 if ($root->nodeExists($below)) {
                     $existing = $root->get($below);
                     if (!$existing instanceof Folder) {
+                        $this->assertReachable($existing);
                         throw new ToolFailure(FilesMessages::destinationExists());
                     }
                     continue;

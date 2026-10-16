@@ -128,6 +128,8 @@ final class NodeAccess {
                 $next = $folder->get($segment);
                 $guard?->assertTraversable($next);
                 if (!$next instanceof Folder) {
+                    // Named only when reachable: outside the Files scope it answers like a missing path (D6).
+                    $guard?->assertVisible($next);
                     throw new ToolFailure(CommonMessages::fileInTargetFolderPath());
                 }
                 $folder = $next;

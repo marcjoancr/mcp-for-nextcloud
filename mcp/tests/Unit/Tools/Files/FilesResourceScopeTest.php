@@ -226,4 +226,66 @@ final class FilesResourceScopeTest extends FilesToolsTestCase {
         }
         $this->assertSame([], $this->tree->ops);
     }
+
+    /**
+     * A1 of the B5 review (D6): a file or a folder outside the scope on the path of a batch folder answers exactly like
+     * a missing path, in the plan and in the confirmed call; inside the scope the file in the way is still named.
+     */
+    public function testA1ABatchFolderPathNeverTellsWhatExistsOutsideTheScope(): void {
+        $this->restrict('/Projects');
+        $this->tree->addFolder('/alice/files/Other/sub');
+        $answer = function (string $dir): array {
+            $planned = $this->plan('files_move_batch', ['moves' => [['from' => '/Projects/plan.md', 'to' => '/Projects/kept.md']], 'mkdirs' => [$dir]]);
+            $entry = $planned['mkdirs'][0];
+            unset($entry['path']);
+            $planned['mkdirs'] = [$entry];
+            $planned['order'] = [];
+            return ['plan' => json_encode($planned), 'confirm' => $this->failure('files_move_batch',
+                ['moves' => [['from' => '/Projects/plan.md', 'to' => '/Projects/kept.md']], 'mkdirs' => [$dir], 'confirm_shared' => true])];
+        };
+        $missing = $answer('/Other/missing.md/x');
+        $this->assertStringContainsString(json_encode(CommonMessages::notFound()), $missing['plan']);
+        foreach (['/Other/secret plan.md/x', '/Other/secret plan.md', '/Other/sub/x', '/Other/sub', '/Other/other.png/x/y'] as $dir) {
+            $this->assertSame($missing, $answer($dir), $dir);
+        }
+        $this->assertSame([], $this->tree->ops);
+        // Inside the scope a file in the way is reachable, so it is named as before.
+        $this->assertSame(FilesMessages::destinationExists(), $this->plan('files_move_batch',
+            ['moves' => [['from' => '/Projects/plan.md', 'to' => '/Projects/kept.md']], 'mkdirs' => ['/Projects/plan.md/x']])['mkdirs'][0]['reason']);
+    }
+
+    /** A1: the folder helper answers a file outside the scope on the path like a missing level, and creates nothing. */
+    public function testA1EnsureFolderNeverNamesAFileOutsideTheScope(): void {
+        $this->restrict('/Projects');
+        $root = $this->tree->rootFolder();
+        $refusal = function (string $path) use ($root): string {
+            try {
+                \OCA\Mcp\Tools\Common\NodeAccess::ensureFolder($root, $path, $this->visibilityGuard);
+            } catch (ToolFailure $e) {
+                return $e->getMessage();
+            }
+            return 'created';
+        };
+        $this->assertSame(CommonMessages::notFound(), $refusal('/Other/missing.md/x'));
+        $this->assertSame($refusal('/Other/missing.md/x'), $refusal('/Other/secret plan.md/x'));
+        $this->assertSame(CommonMessages::fileInTargetFolderPath(), $refusal('/Projects/plan.md/x'), 'inside the scope it is named');
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    /** A1 sweep: every other place that could say "it exists" checks the scope first (mkdir, copy, move, create, upload). */
+    public function testA1NoOtherDestinationTellsWhatExistsOutsideTheScope(): void {
+        $this->restrict('/Projects');
+        foreach ([['files_mkdir', ['path' => '/Other/secret plan.md'], ['path' => '/Other/missing.md']],
+            ['files_mkdir', ['path' => '/Other/secret plan.md/x'], ['path' => '/Other/missing.md/x']],
+            ['files_copy', ['from' => '/Projects/plan.md', 'to' => '/Other/secret plan.md'], ['from' => '/Projects/plan.md', 'to' => '/Other/missing.md']],
+            ['files_move', ['from' => '/Projects/plan.md', 'to' => '/Other/secret plan.md'], ['from' => '/Projects/plan.md', 'to' => '/Other/missing.md']],
+            ['files_move', ['from' => '/Projects/plan.md', 'to' => '/Other/secret plan.md/x'], ['from' => '/Projects/plan.md', 'to' => '/Other/missing.md/x']],
+            ['files_create', ['path' => '/Other/secret plan.md', 'content' => 'x'], ['path' => '/Other/missing.md', 'content' => 'x']],
+            ['files_create', ['path' => '/Other/secret plan.md/x.md', 'content' => 'x'], ['path' => '/Other/missing.md/x.md', 'content' => 'x']],
+            ['files_upload', ['path' => '/Other/secret plan.md'], ['path' => '/Other/missing.md']]] as [$name, $existing, $missing]) {
+            $this->assertSame($this->planFailure($name, $missing), $this->planFailure($name, $existing), "plan $name " . json_encode($existing));
+            $this->assertSame($this->failure($name, $missing + ['confirm_shared' => true]), $this->failure($name, $existing + ['confirm_shared' => true]), "$name " . json_encode($existing));
+        }
+        $this->assertSame([], $this->tree->ops);
+    }
 }
