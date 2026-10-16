@@ -20,6 +20,8 @@ path = [
   "mcp/composer.lock",
   "mcp/img/app-dark.svg",
   "mcp/img/app.svg",
+  "mcp/l10n/de.js",
+  "mcp/l10n/de.json",
   "mcp/l10n/es.js",
   "mcp/l10n/es.json",
   "mcp/l10n/pt_BR.js",
