@@ -2,7 +2,13 @@
  * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-/* MCP for Cloud settings (admin and personal). Only Nextcloud theme variables are used, so light, dark and high-contrast themes work. */
+/*
+ * MCP for Cloud settings (admin and personal). Only Nextcloud theme variables are used, so light, dark and high-contrast
+ * themes work. The theme colour (--color-primary-element and its -light variants) marks only focus, selection and the
+ * main action: an administrator may pick any colour, red included, so a state drawn in it would read as an error. States
+ * use the semantic colours, always as their -text variants for text and outlines (since Nextcloud 35 --color-error,
+ * --color-warning and --color-success are background colours), and always next to a word or a symbol.
+ */
 #mcp-admin .mcp-hint {
 	color: var(--color-text-maxcontrast);
 	max-width: 900px;
@@ -59,7 +65,7 @@
 }
 
 #mcp-admin .mcp-tab-bar [role="tab"][aria-selected="true"] {
-	color: var(--color-primary-element);
+	color: var(--color-main-text);
 	border-bottom-color: var(--color-primary-element);
 }
 
@@ -154,7 +160,7 @@
 	padding: 4px;
 	list-style: none;
 	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
+	border-radius: var(--border-radius-element, var(--border-radius-large));
 	background-color: var(--color-main-background);
 }
 
@@ -212,7 +218,7 @@
 	background: none;
 	border: none;
 	padding: 0;
-	color: var(--color-primary-element);
+	color: var(--color-main-text);
 	font-size: var(--default-font-size);
 	text-decoration: underline;
 	cursor: pointer;
@@ -258,7 +264,7 @@
 	/* Vertical scrolling inside the wrapper is what lets the header rows stick. */
 	max-height: 70vh;
 	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
+	border-radius: var(--border-radius-element, var(--border-radius-large));
 }
 
 #mcp-admin .mcp-matrix {
@@ -295,14 +301,14 @@
 	cursor: help;
 }
 
-/* Modules alternate between two soft bands so their columns read as groups. */
+/* Modules alternate between two neutral bands so their columns read as groups; the theme colour is not a band. */
 #mcp-admin .mcp-matrix thead th.mcp-band-1 {
-	background-color: var(--color-primary-element-light);
-	color: var(--color-primary-element-light-text, var(--color-main-text));
+	background-color: var(--color-background-darker, var(--color-background-dark));
+	color: var(--color-main-text);
 }
 
 #mcp-admin .mcp-matrix tbody td.mcp-band-1 {
-	background-color: var(--color-primary-element-light-hover, var(--color-background-hover));
+	box-shadow: inset 1px 0 0 var(--color-border), inset -1px 0 0 var(--color-border);
 }
 
 #mcp-admin .mcp-matrix tbody tr:nth-child(even) > * {
@@ -361,9 +367,10 @@
 	display: inline-block;
 	margin-top: 2px;
 	padding: 0 6px;
+	border: 1px solid currentColor;
 	border-radius: var(--border-radius-pill, var(--border-radius));
-	background-color: var(--color-warning);
-	color: var(--color-primary-element-text, var(--color-main-background));
+	background-color: transparent;
+	color: var(--color-warning-text, var(--color-main-text));
 	font-size: 0.85em;
 	font-weight: normal;
 }
@@ -431,7 +438,7 @@
 	margin: 8px 0;
 	padding: 6px 12px;
 	border: 1px solid var(--color-border-dark);
-	border-radius: var(--border-radius-large);
+	border-radius: var(--border-radius-element, var(--border-radius-large));
 	background-color: var(--color-background-dark);
 	color: var(--color-main-text);
 }
@@ -441,16 +448,16 @@
 }
 
 #mcp-admin .mcp-badge-connected {
-	background-color: var(--color-success);
-	color: var(--color-success-text, var(--color-primary-element-text));
+	color: var(--color-success-text, var(--color-main-text));
 }
 
 /*
  * Individual overrides: a cell with its own value is outlined and carries a "back to inherited" button, so it never
- * depends on colour; an invalid stored value uses a solid outline. The reset toolbar sits above the table.
+ * depends on colour; an invalid stored value uses a solid outline in the error colour. The outline is neutral: the theme
+ * colour is not a state. The reset toolbar sits above the table.
  */
 #mcp-admin .mcp-matrix td.mcp-override {
-	outline: 1px dashed var(--color-primary-element);
+	outline: 1px dashed var(--color-border-maxcontrast, var(--color-text-maxcontrast));
 	outline-offset: -2px;
 	white-space: nowrap;
 }
@@ -460,13 +467,25 @@
 	outline-color: var(--color-error-text, var(--color-error));
 }
 
+/* Buttons repeated in every row are tertiary: no fill until hovered, so the table is not painted in the theme colour. */
 #mcp-admin .mcp-reset-cell,
 #mcp-admin .mcp-reset-row {
 	min-height: 0;
 	margin: 0 0 0 4px;
 	padding: 0 4px;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+	background-color: transparent;
+	color: var(--color-main-text);
 	font-size: 0.85em;
+	font-weight: normal;
 	line-height: 1.4;
+}
+
+#mcp-admin .mcp-reset-cell:hover,
+#mcp-admin .mcp-reset-row:hover,
+#mcp-admin .mcp-scope-indicator:hover,
+#mcp-admin .mcp-bulk:hover {
+	background-color: var(--color-background-hover);
 }
 
 #mcp-admin .mcp-reset-row {
@@ -516,7 +535,7 @@
 	flex-basis: 100%;
 	padding: 8px 12px;
 	border: 1px solid var(--color-border-dark);
-	border-radius: var(--border-radius-large);
+	border-radius: var(--border-radius-element, var(--border-radius-large));
 	background-color: var(--color-background-dark);
 }
 
@@ -582,7 +601,7 @@
 	margin-top: 4px;
 	padding: 6px;
 	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
+	border-radius: var(--border-radius-element, var(--border-radius-large));
 	background-color: var(--color-main-background);
 	box-shadow: 0 2px 8px var(--color-box-shadow);
 	text-align: start;
@@ -602,6 +621,9 @@
 #mcp-admin .mcp-bulk {
 	min-height: 0;
 	padding: 0 8px;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+	background-color: transparent;
+	color: var(--color-main-text);
 	font-size: 0.85em;
 	font-weight: normal;
 }
@@ -684,8 +706,8 @@
 }
 
 #mcp-admin .mcp-tag-type-invisible {
-	background-color: var(--color-primary-element);
-	color: var(--color-primary-element-text);
+	background-color: var(--color-background-darker, var(--color-background-dark));
+	color: var(--color-main-text);
 }
 
 #mcp-admin .mcp-tag-type-restricted {
@@ -694,8 +716,8 @@
 }
 
 #mcp-admin .mcp-tag-type-collaborative {
-	background-color: var(--color-warning);
-	color: var(--color-primary-element-text, #000);
+	border: 1px solid currentColor;
+	color: var(--color-warning-text, var(--color-main-text));
 }
 
 #mcp-admin .mcp-tags-warning,
@@ -729,7 +751,7 @@
 	gap: 4px;
 	padding: 10px 14px;
 	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
+	border-radius: var(--border-radius-element, var(--border-radius-large));
 	background-color: var(--color-main-background);
 }
 
@@ -850,6 +872,11 @@
 /* Group policies retain native keyboard controls and expose diagnostics without relying on color. */
 [id="mcp-group-list"] { padding-inline-start: 0; list-style: none; }
 [id="mcp-group-list"] li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 4px; }
+/* A list, not a column of buttons: the rows are tertiary, and only the open group takes the selection colour. */
+[id="mcp-group-list"] li > button { border: 0; background-color: transparent; color: var(--color-main-text); font-weight: normal; text-align: start; }
+[id="mcp-group-list"] li > button:hover { background-color: var(--color-background-hover); }
+[id="mcp-group-list"] li > button[aria-current="true"] { background-color: var(--color-primary-element-light); color: var(--color-primary-element-light-text, var(--color-main-text)); font-weight: bold; }
+[id="mcp-group-list"] li > button:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
 [id="mcp-group-detail"] fieldset { margin-block: 12px; padding: 12px; border: 1px solid var(--color-border); }
 .mcp-group-permissions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 8px; }
 .mcp-group-permissions label { display: inline-flex; align-items: center; gap: 4px; }
@@ -879,12 +906,12 @@
 .mcp-scope-picker .mcp-scope-where, .mcp-scope-picker ul, .mcp-scope-picker .mcp-scope-count { flex-basis: 100%; }
 .mcp-scope-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 8px; }
 .mcp-scope-module :focus-visible, .mcp-scope-indicator:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
-.mcp-scope-indicator { display: block; margin: 2px 0 0; padding: 0 4px; min-height: 0; font-size: 0.85em; white-space: nowrap; }
-#mcp-admin .mcp-badge-error { background-color: var(--color-error); color: var(--color-error-text, var(--color-primary-element-text)); }
+.mcp-scope-indicator { display: block; margin: 2px 0 0; padding: 0 4px; min-height: 0; border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark)); background-color: transparent; color: var(--color-main-text); font-size: 0.85em; font-weight: normal; white-space: nowrap; }
+#mcp-admin .mcp-badge-error { color: var(--color-error-text, var(--color-main-text)); }
 #mcp-admin p[id="mcp-scope-alert"] { color: var(--color-error-text, var(--color-error)); }
 
 /* Self-hosted clients: one card each; redirect URIs one per line, wide enough for a full URL. */
 #mcp-admin .mcp-custom-heading { margin-top: 20px; font-size: 16px; font-weight: bold; }
-#mcp-admin .mcp-custom-client { max-width: 680px; margin: 12px 0; padding: 8px 16px; border: 1px solid var(--color-border); border-radius: var(--border-radius-large, 12px); }
+#mcp-admin .mcp-custom-client { max-width: 680px; margin: 12px 0; padding: 8px 16px; border: 1px solid var(--color-border); border-radius: var(--border-radius-element, var(--border-radius-large, 12px)); }
 #mcp-admin .mcp-custom-client input[type="text"] { width: 100%; max-width: 320px; }
 .mcp-custom-redirects { width: 100%; max-width: 640px; font-family: var(--font-face-monospace, monospace); }

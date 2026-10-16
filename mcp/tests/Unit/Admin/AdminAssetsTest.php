@@ -217,6 +217,20 @@ final class AdminAssetsTest extends TestCase {
         }
         $this->assertStringContainsString("textContent: checked === null ? '—' : '⊘'", $script);
         $this->assertStringContainsString("mark.setAttribute('aria-hidden', 'true')", $script);
+        // None of the three states is told by colour alone: allowed is a checked box, denied an empty box, and an
+        // unavailable cell has no box at all but the ⊘ mark, with the state named in its title and for screen readers.
+        $this->assertStringContainsString("const box = el('input', { type: 'checkbox', checked })", $script);
+        $this->assertStringContainsString("paintState(cell, checked ? 'allowed' : 'denied')", $script);
+        $this->assertStringContainsString("cell.title = detail ? PERMISSION_STATES[key].name() + ': ' + detail : PERMISSION_STATES[key].name()", $script);
+        $this->assertStringContainsString("cell.append(mark, el('span', { className: 'mcp-sr-only'", $script);
+        $legend = (string)file_get_contents($app . '/templates/admin.php');
+        $this->assertStringContainsString('<input type="checkbox" checked disabled aria-hidden="true" tabindex="-1"> <?php p($l->t(\'Allowed\')); ?>', $legend);
+        $this->assertStringContainsString('<input type="checkbox" disabled aria-hidden="true" tabindex="-1"> <?php p($l->t(\'Denied\')); ?>', $legend);
+        $this->assertStringContainsString('<span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t(\'Unavailable\')); ?>', $legend);
+        $css = (string)file_get_contents($app . '/css/admin.css');
+        foreach (['allowed', 'denied'] as $state) {
+            $this->assertDoesNotMatchRegularExpression('/\.mcp-state-' . $state . '\s*\{[^}]*color/s', $css, "$state is told by the box, not by a colour");
+        }
         // A bulk change is one all-or-nothing command, undone by its server receipt, never by replaying old values.
         $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/commands'"), 'the bulk menu sends one command');
         $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })"));
@@ -249,6 +263,31 @@ final class AdminAssetsTest extends TestCase {
         $css = (string)file_get_contents($app . '/css/admin.css');
         $this->assertStringContainsString('.mcp-state-unavailable', $css);
         $this->assertDoesNotMatchRegularExpression('/#mcp-admin \.mcp-(state|bulk-notice|sr-only)[^{]*\{[^}]*#[0-9a-fA-F]{3,6}\b/', $css);
+    }
+
+    /**
+     * The theme colour marks only focus, selection and the main action, never a state: an administrator may pick a red
+     * theme, and a state painted in it reads as an error. Semantic colours are text only through their -text variants
+     * (Nextcloud 35 documents --color-error, --color-warning and --color-success as background colours).
+     */
+    public function testThemeColourMarksOnlyFocusAndSelection(): void {
+        $css = (string)file_get_contents(dirname(__DIR__, 3) . '/css/admin.css');
+        $rules = preg_replace('#/\*.*?\*/#s', '', $css);
+        preg_match_all('/([^{}]+)\{([^{}]*)\}/', (string)$rules, $matches, PREG_SET_ORDER);
+        $this->assertNotEmpty($matches);
+        foreach ($matches as [, $selector, $body]) {
+            $selector = trim($selector);
+            if (str_contains($body, '--color-primary-element')) {
+                $this->assertMatchesRegularExpression('/:focus-visible|\[aria-selected="true"\]|\[aria-current="true"\]/', $selector,
+                    "only focus and selection use the theme colour: $selector");
+            }
+            // A -text variable may fall back to its background colour on themes that lack it; a border may use the
+            // background colour, as NcNoteCard does, since the word next to it carries the state.
+            $text = preg_replace('/var\(--color-(error|warning|success)-text, var\(--color-\1\)\)/', '', $body);
+            $this->assertDoesNotMatchRegularExpression('/(?<![-\w])(color|outline(-color)?)\s*:[^;]*var\(--color-(error|warning|success)\)/', (string)$text,
+                "semantic colours as text or outline take their -text variant: $selector");
+            $this->assertStringNotContainsString('border-radius: var(--border-radius-large', $body, "--border-radius-large is deprecated: $selector");
+        }
     }
 
     /** Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. */
