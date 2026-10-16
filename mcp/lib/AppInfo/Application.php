@@ -93,8 +93,8 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Tools\Tasks\TaskStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Tasks\DavTaskStore($c));
         // The tools read the resource scope from the policy snapshot of their operation.
         $context->registerService(\OCA\Mcp\Service\Scope\ScopeReader::class, static fn (ContainerInterface $c): \OCA\Mcp\Service\Scope\ScopeReader => $c->get(\OCA\Mcp\Service\GrantPolicy::class));
-        // The Files scope step of the structured-reference filter narrows nothing until the Files scope exists.
-        $context->registerService(\OCA\Mcp\Tools\Common\FileReferenceScope::class, static fn (): \OCA\Mcp\Tools\Common\FileReferenceScope => new \OCA\Mcp\Tools\Common\UnrestrictedFileReferenceScope());
+        // The Files scope step of the structured-reference filter: the user's Files resource scope of the operation.
+        $context->registerService(\OCA\Mcp\Tools\Common\FileReferenceScope::class, static fn (ContainerInterface $c): \OCA\Mcp\Tools\Common\FileReferenceScope => $c->get(\OCA\Mcp\Service\Scope\FilesReferenceScope::class));
         $context->registerService(\OCA\Mcp\Tools\Contacts\ContactDav::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Contacts\EmbeddedCardDavDispatcher(
             static fn (): \Sabre\DAV\Server => \OCA\Mcp\Tools\Contacts\EmbeddedCardDavServer::create(),
             new Session($c->get(IUserSession::class)), $c->get(\OCP\IAppConfig::class), $c->get(LoggerInterface::class),
@@ -135,6 +135,8 @@ class Application extends App implements IBootstrap {
             new TextExtractor($c->get(ITempManager::class)),
             new NotesRepository($c->get(IRootFolder::class), $c->get(IConfig::class)),
             $c->get(ToolRegistry::class)->guide(),
+            // nc://files answers to the Files gate, the resource scope included; nc://notes keeps the plain guard (D4).
+            $c->get(\OCA\Mcp\Service\Scope\FilesAccessGuard::class),
         ));
         $context->registerService(McpProtocol::class, static fn (ContainerInterface $c): McpProtocol => new McpProtocol(
             $c->get(ToolRegistry::class),

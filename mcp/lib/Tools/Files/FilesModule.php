@@ -30,7 +30,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
-use OCA\Mcp\Service\VisibilityGuard;
+use OCA\Mcp\Service\Scope\FilesAccessGuard;
 use OCP\App\IAppManager;
 use OCP\Files\Node;
 use OCP\FullTextSearch\IFullTextSearchManager;
@@ -87,7 +87,7 @@ class FilesModule implements ToolModule, PreviewsWrites, RendersPlans, ToolGuide
         private ITimeFactory $time,
         private ImageTools $images,
         private OcrSupport $ocr,
-        private ?VisibilityGuard $visibilityGuard = null,
+        private ?FilesAccessGuard $visibilityGuard = null,
         private ?IAppManager $appManager = null,
         private ?IFullTextSearchManager $ftsManager = null,
         private ?UserTimezone $timezone = null,
@@ -344,6 +344,8 @@ class FilesModule implements ToolModule, PreviewsWrites, RendersPlans, ToolGuide
      * @throws ToolFailure for client-safe failures (not found, forbidden, limits, blocked edit)
      */
     public function call(string $name, array $arguments, string $userId): array {
+        // A Files scope that cannot be read answers 503 before anything runs, never a narrower or a full view.
+        $this->visibilityGuard?->assertScopeReadable();
         $root = $this->rootFolder->getUserFolder($userId);
         $confirmed = (bool)($arguments['confirm_shared'] ?? false);
         return NodeAccess::run(fn (): array => match ($name) {
@@ -438,6 +440,7 @@ class FilesModule implements ToolModule, PreviewsWrites, RendersPlans, ToolGuide
      * asked. Nothing here writes: no backup, no folder, no checkout token.
      */
     public function preview(string $name, array $arguments, string $userId): array {
+        $this->visibilityGuard?->assertScopeReadable();
         $root = $this->rootFolder->getUserFolder($userId);
         $etag = $arguments['etag'] ?? null;
         return NodeAccess::run(fn (): array => match ($name) {
@@ -638,11 +641,16 @@ class FilesModule implements ToolModule, PreviewsWrites, RendersPlans, ToolGuide
 
     /** @return list<array{name:string, path:string, isDir:bool, size:int, mtime:string, contentType:string, access:array<string, mixed>}> */
     private function list(Folder $root, string $userId, string $path): array {
-        $folder = NodeAccess::get($root, $path, $this->visibilityGuard);
-        if (!$folder instanceof Folder) {
-            throw new ToolFailure(FilesMessages::notAFolder());
+        // With a Files scope that does not hold the root, "/" lists the selected folders at their real paths: the
+        // folders above them are never listed.
+        $listing = PathGuard::normalize($path) === '/' ? $this->visibilityGuard?->scopeRoots($root) : null;
+        if ($listing === null) {
+            $folder = NodeAccess::get($root, $path, $this->visibilityGuard);
+            if (!$folder instanceof Folder) {
+                throw new ToolFailure(FilesMessages::notAFolder());
+            }
+            $listing = $folder->getDirectoryListing();
         }
-        $listing = $folder->getDirectoryListing();
         if ($this->visibilityGuard !== null) {
             $listing = $this->visibilityGuard->filter($listing);
         }

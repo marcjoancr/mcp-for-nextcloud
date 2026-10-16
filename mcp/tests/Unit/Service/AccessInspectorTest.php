@@ -43,7 +43,8 @@ final class AccessInspectorTest extends TestCase {
         $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $uid === 'alice' ? $this->fx->tree->rootFolder() : throw new NotFoundException());
         $resolver = $this->fx->resolver($this->writer);
         $this->inspector = new I($resolver, $root, $this->fx->guard,
-            new CalendarAccessExplainer($resolver, new CalendarAccess($this->fx->calendars)));
+            new CalendarAccessExplainer($resolver, new CalendarAccess($this->fx->calendars)),
+            new \OCA\Mcp\Service\Scope\FilesScope($this->fx->policy($this->writer), $this->fx->guard, $this->fx->tree->filesystemRoot()));
     }
 
     /** @return array<string, array> by "module.operation" */

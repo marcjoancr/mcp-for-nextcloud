@@ -183,7 +183,7 @@ final class VersionToolsTest extends TestCase {
         });
         $config = new \OCA\Mcp\Tests\Unit\InMemoryConfig();
         $config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = '["999"]';
-        $guard = new \OCA\Mcp\Service\VisibilityGuard($config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $guard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($config->mock($this), $mapper, $this->tree->filesystemRoot());
         $this->assertTrue($guard->isVisible($this->file()));
         $this->manager->onRollback = static function () use (&$hidden): void { $hidden = true; };
         $this->tree->afterWrite = static function (string $path) use (&$hidden): void {

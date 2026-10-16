@@ -19,6 +19,7 @@ use OCP\Share\IShare;
 use Sabre\VObject\Component;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Property;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use Throwable;
 
 /**
@@ -47,9 +48,24 @@ class OutputReferenceFilter {
      * @return bool whether any gate can refuse a reference for this user; an unreadable exclusion configuration counts
      */
     public function active(string $userId): bool {
-        return !$this->guard->isConfigurationValid()
-            || $this->guard->getHiddenTagIds() !== []
-            || $this->scope->restricts($userId);
+        // The scope is read first, whatever the tags: an unreadable scope is unavailability (503) in every case,
+        // never hidden behind the exclusion that happens to be configured.
+        $restricted = $this->scope->restricts($userId);
+        return $restricted
+            || !$this->guard->isConfigurationValid()
+            || $this->guard->getHiddenTagIds() !== [];
+    }
+
+    /**
+     * Reads the user's Files scope before a file or a share is looked up, so a scope that cannot be read answers the
+     * same 503 for a reference that exists and for one that does not (D6): a lookup that ran first would let the
+     * existing one alone reach the failure.
+     *
+     * @param string $userId authenticated user
+     * @throws PolicyUnavailable when the scope cannot be read
+     */
+    public function assertAvailable(string $userId): void {
+        $this->scope->restricts($userId);
     }
 
     /**
@@ -70,6 +86,8 @@ class OutputReferenceFilter {
                 return null;
             }
             return $this->allowsRoomShare($userId, $share) ? $attachmentId : null;
+        } catch (PolicyUnavailable $e) {
+            throw $e; // unavailability is never a refusal of one reference
         } catch (Throwable) {
             return null;
         }
@@ -89,6 +107,8 @@ class OutputReferenceFilter {
         }
         try {
             return $this->allowsFileId($userId, (int)$share->getNodeId());
+        } catch (PolicyUnavailable $e) {
+            throw $e; // unavailability is never a refusal of one reference
         } catch (Throwable) {
             return false;
         }
@@ -108,6 +128,8 @@ class OutputReferenceFilter {
         }
         try {
             return $this->allowsFileId($userId, (int)$node->getId());
+        } catch (PolicyUnavailable $e) {
+            throw $e; // unavailability is never a refusal of one reference
         } catch (Throwable) {
             return false;
         }
@@ -362,6 +384,8 @@ class OutputReferenceFilter {
             $folder = $this->rootFolder->getUserFolder($userId);
             $nodes = (int)$folder->getId() === $id ? [$folder] : $folder->getById($id);
             return $nodes === [] ? null : $this->allowsNodes($userId, $nodes, $id);
+        } catch (PolicyUnavailable $e) {
+            throw $e; // unavailability is never a refusal of one reference
         } catch (Throwable) {
             return false;
         }
@@ -383,11 +407,15 @@ class OutputReferenceFilter {
             $node = $normalized === '/' ? $folder : $folder->get(ltrim($normalized, '/'));
         } catch (NotFoundException) {
             return null;
+        } catch (PolicyUnavailable $e) {
+            throw $e; // unavailability is never a refusal of one reference
         } catch (Throwable) {
             return false;
         }
         try {
             return $this->allowsNodes($userId, [$node], null);
+        } catch (PolicyUnavailable $e) {
+            throw $e; // unavailability is never a refusal of one reference
         } catch (Throwable) {
             return false;
         }

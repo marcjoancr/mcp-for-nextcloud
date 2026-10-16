@@ -42,7 +42,7 @@ final class ScopeRoutesTest extends TestCase {
         $time = $this->createMock(ITimeFactory::class);
         $time->method('getTime')->willReturn(1760000123);
         return new ScopeController('mcp', $request, $reads ?? $this->fx->scopes, $resources ?? $this->fx->enumerator(), $this->fx->writer($open, $resources), $this->fx->state,
-            $open ? new ScopeActivation(['files' => true, 'calendar' => true, 'tasks' => true]) : new ScopeActivation(),
+            new ScopeActivation(['files' => $open, 'calendar' => $open, 'tasks' => $open]),
             $this->fx->userManager(), $session, $logger, $time);
     }
 
@@ -55,9 +55,9 @@ final class ScopeRoutesTest extends TestCase {
         return ['files' => ['files'], 'calendar' => ['calendar'], 'tasks' => ['tasks']];
     }
 
-    /** F1 over HTTP: as shipped, the PUT of every module is refused with no write, receipt or revision. */
+    /** F1 over HTTP: behind a closed barrier, the PUT of every module is refused with no write, receipt or revision. */
     #[DataProvider('modules')]
-    public function testTheShippedPutIsRefusedForEveryModuleWithoutAnyWrite(string $module): void {
+    public function testAClosedPutIsRefusedForEveryModuleWithoutAnyWrite(string $module): void {
         $before = $this->fx->snapshot();
         foreach ([['mode' => 'restricted', 'items' => []], ['mode' => 'unrestricted']] as $body) {
             $response = $this->controller($body + ['expectedRevision' => $before['revision']])->update('alice', $module);

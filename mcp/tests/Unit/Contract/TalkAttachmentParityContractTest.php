@@ -56,6 +56,8 @@ final class TalkAttachmentParityContractTest extends TestCase {
     private VisibilityGuard $guard;
     /** @var list<string> messages the chat manager was asked to publish */
     private array $published = [];
+    /** The Files scope step; null is a user without a Files scope. */
+    private ?\OCA\Mcp\Tools\Common\FileReferenceScope $scope = null;
 
     /**
      * @return array<string, array{list<string>}> paths at which the participant's tree holds the shared file
@@ -113,7 +115,7 @@ final class TalkAttachmentParityContractTest extends TestCase {
     }
 
     private function filter(IShareManager $shares): OutputReferenceFilter {
-        return OutputReferenceFilters::over($this, $this->caller->filesystemRoot(), $this->guard, $shares);
+        return OutputReferenceFilters::over($this, $this->caller->filesystemRoot(), $this->guard, $shares, $this->scope);
     }
 
     private function conversation(): Conversation {
@@ -251,6 +253,114 @@ final class TalkAttachmentParityContractTest extends TestCase {
         $resolver = new UserFileResolver($this->caller->filesystemRoot(), $this->guard, $this->filter($this->shares()));
 
         self::assertSame(self::FILE_ID, (int)$resolver->resolveShareableFile('alice', 'Docs/plan.pdf')->getId());
+    }
+
+    /**
+     * V9 with the real Files scope (B5): a file only outside alice's Files scope, untagged, is read, quoted and attached
+     * exactly like a missing one, in the plan and in the confirmation; nothing is published.
+     */
+    public function testAFileOnlyOutsideTheFilesScopeAnswersAsAMissingAttachment(): void {
+        $this->given(['/alice/files/Docs/plan.pdf']);
+        $selected = [(string)$this->caller->nodes['/alice/files/Secret']['id']];
+        $this->scope = new \OCA\Mcp\Service\Scope\FilesReferenceScope(\OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes::over(
+            $this, $this->guard, $this->caller->filesystemRoot(), static fn (): array => $selected));
+        $shares = $this->shares();
+
+        self::assertNull($this->readAttachmentId($shares, self::SHARE));
+        self::assertSame($this->quotePreview($shares, self::MISSING_SHARE), $this->quotePreview($shares, self::SHARE));
+        self::assertSame($this->quoteConfirm($shares, self::MISSING_SHARE), $this->quoteConfirm($shares, self::SHARE));
+        $resolver = new UserFileResolver($this->caller->filesystemRoot(), $this->guard, $this->filter($shares));
+        $refusal = static function (callable $resolve): string {
+            try {
+                $resolve();
+            } catch (FileAccessException $e) {
+                return $e->getMessage();
+            }
+            return 'resolved';
+        };
+        self::assertNotSame('resolved', $refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/plan.pdf')));
+        self::assertSame($refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/missing.pdf')),
+            $refusal(fn () => $resolver->resolveShareableFile('alice', 'Docs/plan.pdf')));
+        self::assertSame([], $this->published, 'nothing is published');
+
+        $selected = [(string)$this->caller->nodes['/alice/files/Docs']['id']];
+        $this->scope = new \OCA\Mcp\Service\Scope\FilesReferenceScope(\OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes::over(
+            $this, $this->guard, $this->caller->filesystemRoot(), static fn (): array => $selected));
+        self::assertSame(self::SHARE, $this->readAttachmentId($shares, self::SHARE), 'inside the scope it reads as before');
+    }
+
+    /** @return array<string, array{bool}> whether exclusion tags are configured, the case that used to mask C1 */
+    public static function withTags(): array {
+        return ['without tags' => [false], 'with a tag configured' => [true]];
+    }
+
+    /** The Talk module over the real attach, quote, preview and read paths, the conversation resolved as writable. */
+    private function module(IShareManager $shares): \OCA\Mcp\Tools\Talk\TalkModule {
+        $resolver = $this->createMock(ConversationResolver::class);
+        $resolver->method('resolveForWriting')->willReturn($this->conversation());
+        $resolver->method('resolveForReading')->willReturn($this->conversation());
+        $files = new UserFileResolver($this->caller->filesystemRoot(), $this->guard, $this->filter($shares));
+        $sharer = new FileSharer($shares, $files, $this->writer($shares));
+        $preview = new WritePreview($this->writer($shares), $sharer, $this->access($shares), new ActorNames($this->createMock(IUserManager::class)));
+        return new \OCA\Mcp\Tools\Talk\TalkModule($this->talkServices(), new ConversationReader($this->talkServices(), $resolver,
+            new ActorNames($this->createMock(IUserManager::class)), $this->filter($shares)), $resolver, $this->writer($shares), $sharer, $preview,
+            $this->createMock(\OCA\Mcp\Tools\Talk\UserConversationResolver::class), $this->createMock(\OCA\Mcp\Tools\Talk\GroupCreator::class),
+            $this->createMock(\OCA\Mcp\Tools\Talk\ReferenceLinker::class), $this->createMock(\Psr\Log\LoggerInterface::class));
+    }
+
+    /** @return string what the client gets: the endpoint's 503, or the tool's own answer */
+    private static function answer(callable $run): string {
+        try {
+            return json_encode($run());
+        } catch (\OCA\Mcp\Service\Policy\PolicyUnavailable) {
+            return '503';
+        } catch (\OCA\Mcp\Tools\ToolFailure $e) {
+            return 'refused: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * C1 of the second B5 review (D6, contract B.5): with the Files scope unreadable, attaching or quoting a file that
+     * exists outside the scope and one that does not get the same 503, in the plan and in the confirmed call, with or
+     * without exclusion tags; the scope is read before any file or share is looked up. talk_read_messages too.
+     */
+    #[DataProvider('withTags')]
+    public function testC1AnUnreadableScopeIsTheSame503ForExistingAndMissingReferences(bool $tags): void {
+        $this->given(['/alice/files/Archive/private.txt']);
+        $this->caller->nodes['/alice/files/Archive/private.txt']['id'] = self::FILE_ID;
+        if (!$tags) {
+            $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '[]';
+            $this->guard->clearCache();
+        }
+        $readable = true;
+        $selected = [(string)$this->caller->addFolder('/alice/files/Projects')];
+        $this->scope = new \OCA\Mcp\Service\Scope\FilesReferenceScope(\OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes::over(
+            $this, $this->guard, $this->caller->filesystemRoot(), static function () use (&$readable, $selected): array|false {
+                return $readable ? $selected : false;
+            }));
+        $module = $this->module($this->shares());
+        $cases = [
+            'attach plan' => [fn () => $module->preview('talk_attach_file', ['conversation_token' => 'room1', 'path' => 'Archive/private.txt'], 'alice'),
+                fn () => $module->preview('talk_attach_file', ['conversation_token' => 'room1', 'path' => 'Archive/missing.txt'], 'alice')],
+            'attach' => [fn () => $module->call('talk_attach_file', ['conversation_token' => 'room1', 'path' => 'Archive/private.txt'], 'alice'),
+                fn () => $module->call('talk_attach_file', ['conversation_token' => 'room1', 'path' => 'Archive/missing.txt'], 'alice')],
+            'quote plan' => [fn () => $module->preview('talk_quote_file', ['conversation_token' => 'room1', 'attachment_id' => self::SHARE], 'alice'),
+                fn () => $module->preview('talk_quote_file', ['conversation_token' => 'room1', 'attachment_id' => self::MISSING_SHARE], 'alice')],
+            'quote' => [fn () => $module->call('talk_quote_file', ['conversation_token' => 'room1', 'attachment_id' => self::SHARE], 'alice'),
+                fn () => $module->call('talk_quote_file', ['conversation_token' => 'room1', 'attachment_id' => self::MISSING_SHARE], 'alice')],
+        ];
+        // With the scope readable both are the ordinary refusal, identical: the file is outside the scope.
+        foreach ($cases as $label => [$existing, $missing]) {
+            $this->assertSame(self::answer($missing), self::answer($existing), "readable, $label");
+            $this->assertNotSame('503', self::answer($existing), "readable, $label");
+        }
+        $readable = false;
+        foreach ($cases as $label => [$existing, $missing]) {
+            $this->assertSame('503', self::answer($existing), "unreadable, existing, $label");
+            $this->assertSame('503', self::answer($missing), "unreadable, missing, $label");
+        }
+        $this->assertSame('503', self::answer(fn () => $module->call('talk_read_messages', ['conversation_token' => 'room1', 'limit' => 10], 'alice')));
+        $this->assertSame([], $this->published, 'nothing is published');
     }
 }
 

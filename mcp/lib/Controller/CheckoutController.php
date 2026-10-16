@@ -89,7 +89,7 @@ class CheckoutController extends Controller {
         private LoggerInterface $logger,
         private ?UserL10n $l10n = null,
         private ?IUserManager $userManager = null,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private ?\OCA\Mcp\Service\Scope\FilesAccessGuard $visibilityGuard = null,
         private ?FileCreation $creation = null,
         private ?LockAwareWrite $locks = null,
     ) {
@@ -107,33 +107,64 @@ class CheckoutController extends Controller {
     public function download(): Response {
         try {
             $this->configureUserL10n();
-            $opened = $this->resolve($this->store->find($this->hasher->hash($this->routeToken() ?? '')), CheckoutToken::KIND_DOWNLOAD);
-            if ($opened instanceof Response) {
-                return $opened;
-            }
-            [$row, $file] = $opened;
-            try {
-                NodeAccess::checkEtag($file, $row->etag);
-            } catch (ToolFailure) {
-                return $this->refuse(Http::STATUS_CONFLICT, CommonMessages::conflict());
-            }
-            if ($failure = $this->spend($row)) {
-                return $failure;
-            }
-            $handle = $file->fopen('r');
-            if ($handle === false) {
-                return $this->refuse(Http::STATUS_NOT_FOUND, FilesMessages::tokenInvalid());
-            }
-            // filename*=UTF-8'' is the form that survives a name with spaces or accents; the plain filename
-            // is the percent-encoded fallback for clients that only understand RFC 6266.
-            $name = $file->getName();
-            return new StreamResponse($handle, Http::STATUS_OK, [
-                'Content-Type' => (string)$file->getMimetype(),
-                'Content-Disposition' => sprintf('attachment; filename="%s"; filename*=UTF-8\'\'%s', rawurlencode($name), rawurlencode($name)),
-                'Cache-Control' => 'no-store',
-            ]);
+            $found = $this->store->find($this->hasher->hash($this->routeToken() ?? ''));
+            return $this->asOwner($found, fn (): Response => $this->send($found));
         } finally {
             Translator::reset();
+        }
+    }
+
+    /**
+     * The download itself, inside the operation of the link's owner.
+     *
+     * @param CheckoutToken|null $found the row of the presented token, null when there is none
+     * @return Response the raw bytes, or a refusal without a body
+     */
+    private function send(?CheckoutToken $found): Response {
+        $opened = $this->resolve($found, CheckoutToken::KIND_DOWNLOAD);
+        if ($opened instanceof Response) {
+            return $opened;
+        }
+        [$row, $file] = $opened;
+        try {
+            NodeAccess::checkEtag($file, $row->etag);
+        } catch (ToolFailure) {
+            return $this->refuse(Http::STATUS_CONFLICT, CommonMessages::conflict());
+        }
+        if ($failure = $this->spend($row)) {
+            return $failure;
+        }
+        $handle = $file->fopen('r');
+        if ($handle === false) {
+            return $this->refuse(Http::STATUS_NOT_FOUND, FilesMessages::tokenInvalid());
+        }
+        // filename*=UTF-8'' is the form that survives a name with spaces or accents; the plain filename
+        // is the percent-encoded fallback for clients that only understand RFC 6266.
+        $name = $file->getName();
+        return new StreamResponse($handle, Http::STATUS_OK, [
+            'Content-Type' => (string)$file->getMimetype(),
+            'Content-Disposition' => sprintf('attachment; filename="%s"; filename*=UTF-8\'\'%s', rawurlencode($name), rawurlencode($name)),
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
+     * Runs one use of a link as one policy operation of its owner (GrantPolicy::within): the grant, the Files scope
+     * and every node check of this request read the same snapshot, and the Files gate knows whose scope applies. A
+     * token emitted before a scope change is judged by the scope of now.
+     *
+     * @param CheckoutToken|null $row the row of the presented token; without one nothing is read and no operation opens
+     * @param \Closure(): Response $work the use of the link
+     * @return Response what the use answered, or 503 when the policy cannot be read now
+     */
+    private function asOwner(?CheckoutToken $row, \Closure $work): Response {
+        if ($row === null) {
+            return $work();
+        }
+        try {
+            return $this->policy->within($row->userId, $work);
+        } catch (PolicyUnavailable) {
+            return $this->refuse(Http::STATUS_SERVICE_UNAVAILABLE, FilesMessages::checkoutUnavailable());
         }
     }
 
@@ -185,7 +216,7 @@ class CheckoutController extends Controller {
                 return $this->refuse(Http::STATUS_REQUEST_ENTITY_TOO_LARGE, FilesMessages::uploadTooLarge($limit));
             }
             try {
-                return $create ? $this->create($row, $body) : $this->replace($row, $body);
+                return $this->asOwner($row, fn (): Response => $create ? $this->create($row, $body) : $this->replace($row, $body));
             } finally {
                 @unlink($body);
             }
@@ -367,7 +398,7 @@ class CheckoutController extends Controller {
      */
     private function create(CheckoutToken $row, string $body): Response {
         $uid = $row->userId;
-        if (($refusal = $this->admit($uid, self::OPERATION_CREATE)) !== null) {
+        if (($refusal = $this->admit($uid, self::OPERATION_CREATE) ?? $this->scopeReadable()) !== null) {
             return $refusal;
         }
         if ($this->l10n !== null && $this->userManager !== null && ($user = $this->userManager->get($uid)) !== null) {
@@ -492,6 +523,21 @@ class CheckoutController extends Controller {
         return $allowed ? null : $this->refuse(Http::STATUS_FORBIDDEN, FilesMessages::checkoutRevoked());
     }
 
+    /**
+     * The Files scope of the owner, read once after the grant admitted the step (F3 of the B4 review), so a scope
+     * that cannot be read answers 503 instead of the 404 a later node check would turn it into.
+     *
+     * @return Response|null 503 when it cannot be read; null to proceed
+     */
+    private function scopeReadable(): ?Response {
+        try {
+            $this->visibilityGuard?->assertScopeReadable();
+        } catch (PolicyUnavailable) {
+            return $this->refuse(Http::STATUS_SERVICE_UNAVAILABLE, FilesMessages::checkoutUnavailable());
+        }
+        return null;
+    }
+
     private function ownerUsable(string $uid): bool {
         $user = $this->userManager?->get($uid);
         return $user !== null && $user->isEnabled();
@@ -544,7 +590,7 @@ class CheckoutController extends Controller {
             return $this->refuse(Http::STATUS_NOT_FOUND, FilesMessages::tokenInvalid());
         }
         $uid = $row->userId;
-        if (($refusal = $this->admit($uid, self::OPERATION)) !== null) {
+        if (($refusal = $this->admit($uid, self::OPERATION) ?? $this->scopeReadable()) !== null) {
             return $refusal;
         }
         if ($this->l10n !== null && $this->userManager !== null) {

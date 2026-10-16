@@ -84,7 +84,9 @@ final class CalendarScopeActivationTest extends TestCase {
 
         $this->assertSame($epoch, $this->fx->snapshot()['auth_epoch'], 'a scope moves no epoch');
         $this->assertSame($tokens, $this->fx->oauth->tokens, 'a scope revokes no credential');
+        // A module whose barrier is closed is still refused: injected here, since every shipped barrier is open.
         $this->expectException(ScopeInactive::class);
-        $writer->setResourceScope($this->fx->revision(), 'root', 'alice', 'files', [$this->fx->projects]);
+        $this->fx->writer(false, null, new ScopeActivation(['files' => false, 'calendar' => true, 'tasks' => true]))
+            ->setResourceScope($this->fx->revision(), 'root', 'alice', 'files', [$this->fx->projects]);
     }
 }

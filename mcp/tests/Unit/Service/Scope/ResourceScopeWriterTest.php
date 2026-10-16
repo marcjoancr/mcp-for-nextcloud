@@ -31,11 +31,11 @@ final class ResourceScopeWriterTest extends TestCase {
         return ['files' => ['files'], 'calendar' => ['calendar'], 'tasks' => ['tasks']];
     }
 
-    /** B6 opened calendar and tasks with ScopedCalendarAccess on every calendar and task tool; files waits for B5. */
-    public function testTheShippedBarrierOpensCalendarAndTasksAndKeepsFilesClosed(): void {
-        $this->assertSame(['files' => false, 'calendar' => true, 'tasks' => true], ScopeActivation::MODULES);
+    /** B5 and B6 opened every module: each slice wired all the consumers of its modules. */
+    public function testTheShippedBarrierOpensEveryModule(): void {
+        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true], ScopeActivation::MODULES);
         $this->assertSame(ResourceScopeMapper::MODULES, array_keys(ScopeActivation::MODULES));
-        $this->assertSame(['files' => false, 'calendar' => true, 'tasks' => true], (new ScopeActivation())->modules());
+        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true], (new ScopeActivation())->modules());
         $this->assertFalse((new ScopeActivation())->isActive('notes'));
     }
 

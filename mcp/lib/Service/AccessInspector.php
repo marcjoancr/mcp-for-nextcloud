@@ -12,9 +12,9 @@ use OCA\Mcp\Service\Policy\PolicyOperationContext;
 use OCA\Mcp\Service\Policy\PolicyResolver;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Scope\CalendarAccessExplainer;
+use OCA\Mcp\Service\Scope\FilesScope;
 use OCA\Mcp\Tools\Common\PathGuard;
 use OCP\Files\IRootFolder;
-use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use Throwable;
 
@@ -45,6 +45,7 @@ class AccessInspector {
         private IRootFolder $root,
         private VisibilityGuard $guard,
         private CalendarAccessExplainer $calendars,
+        private FilesScope $filesScope,
     ) {}
 
     /**
@@ -129,7 +130,9 @@ class AccessInspector {
             return self::answer(self::NOT_EVALUATED, 'native_acl');
         }
         try {
-            $ids = $this->mountedChain($node, (int)$home->getId());
+            // The candidates the tools use (mounted chain and owner's chain above a share), built only when this
+            // snapshot restricts Files, so explanation and decision never diverge.
+            $ids = $this->filesScope->candidatesIn($context->scope()->resolution('files'), $node);
         } catch (Throwable) {
             // The candidates of the scope could not be built: the scope gate is the one not evaluated.
             return self::answer(self::NOT_EVALUATED, 'resource_scope');
@@ -153,26 +156,6 @@ class AccessInspector {
             return self::answer(self::NOT_EVALUATED, 'native_acl');
         }
         return $readable ? self::answer(self::ALLOWED, null) : self::answer(self::NO_NATIVE_ACCESS, 'native_acl');
-    }
-
-    /**
-     * The node and its ancestors up to the user's home, in the mounted tree, as canonical decimal ids: the
-     * candidates of the Files scope.
-     *
-     * @return list<string>
-     */
-    private function mountedChain(Node $node, int $homeId): array {
-        $ids = [];
-        for ($current = $node; ; $current = $this->guard->parentOf($current)) {
-            $id = (int)$current->getId();
-            if ($id <= 0 || isset($ids[$id])) {
-                throw new \RuntimeException('Unresolved ancestor');
-            }
-            $ids[$id] = (string)$id;
-            if ($id === $homeId) {
-                return array_values($ids);
-            }
-        }
     }
 
     /**

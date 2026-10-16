@@ -30,8 +30,8 @@ use Throwable;
  * B7 on the real server: what the resource scope panel asks and saves, through the scope, matrix, undo and personal
  * controllers built from the container's own services, as an administrator session of the server: calendars live in
  * the container's DAV app, the writer and the enumerator are the container's. The matrix cell and the personal page
- * read back what the panel saved; a stale save writes nothing; Files is browsable but refused on save while its
- * barrier is closed. The framework's own admin check is proven over HTTP: a non-administrator session gets 403 on
+ * read back what the panel saved; a stale save writes nothing; Files is browsable and saved, its barrier opened by
+ * B5. The framework's own admin check is proven over HTTP: a non-administrator session gets 403 on
  * every scope route. The panel's requests themselves (URLs, CSRF header, bodies) are the node tests' part.
  * It also measures the folder picker on a wide folder (pending item F3 of the B2 review): the native listing
  * materializes the whole folder before the page of 50.
@@ -176,17 +176,18 @@ final class ScopePanelTest extends IntegrationTestCase {
         $this->assertSame('unrestricted', $this->show('calendar')['body']['mode']);
     }
 
-    public function testS14FilesIsBrowsableButItsSaveIsRefusedWhileItsBarrierIsClosed(): void {
+    public function testS14FilesIsBrowsableAndSavedNowThatItsBarrierIsOpen(): void {
         $folder = $this->home()->newFolder('mcp-it-wide-' . $this->run);
         $shown = $this->show('files')['body'];
-        $this->assertFalse($shown['active'], 'the panel says the Files scope does not apply yet');
+        $this->assertTrue($shown['active'], 'B5 wired every Files consumer, so the panel saves the Files scope');
         $root = $this->candidates('files');
         $this->assertSame(200, $root['status']);
         $this->assertContains((string)$folder->getId(), array_column($root['body']['items'], 'id'));
 
-        $refused = $this->save('files', ['expectedRevision' => $shown['revision'], 'mode' => 'restricted', 'items' => [(string)$folder->getId()]]);
-        $this->assertSame([422, 'ScopeInactive'], [$refused['status'], $refused['body']['error'] ?? null]);
-        $this->assertSame('unrestricted', $this->show('files')['body']['mode']);
+        $saved = $this->save('files', ['expectedRevision' => $shown['revision'], 'mode' => 'restricted', 'items' => [(string)$folder->getId()]]);
+        $this->assertSame(200, $saved['status'], json_encode($saved['body']));
+        $this->assertSame(['mode' => 'restricted', 'count' => 1], $saved['body']['scope']);
+        $this->assertSame([(string)$folder->getId()], array_column($this->show('files')['body']['items'], 'id'));
     }
 
     /** B7 review A1: on the real database, a scope that cannot be read is "unavailable" in the matrix, never blank. */
