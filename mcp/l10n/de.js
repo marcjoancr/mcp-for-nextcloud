@@ -1260,6 +1260,19 @@ OC.L10N.register(
     "Review" : "Prüfen",
     "also set for this person, with the same value" : "auch für diese Person festgelegt, mit demselben Wert",
     "Exception: differs from what the person inherits" : "Ausnahme: weicht von dem ab, was die Person erbt",
-    "_On this page, %n individual value repeats what the person would inherit. It changes nothing now, but it keeps a change of the groups from reaching that person._::_On this page, %n individual values repeat what the people would inherit. They change nothing now, but they keep a change of the groups from reaching those people._" : ["Auf dieser Seite wiederholt %n individuelle Einstellung, was die Person erben würde. Sie ändert jetzt nichts, verhindert aber, dass eine Änderung der Gruppen bei dieser Person ankommt.", "Auf dieser Seite wiederholen %n individuelle Einstellungen, was die Personen erben würden. Sie ändern jetzt nichts, verhindern aber, dass eine Änderung der Gruppen bei diesen Personen ankommt."]
+    "_On this page, %n individual value repeats what the person would inherit. It changes nothing now, but it keeps a change of the groups from reaching that person._::_On this page, %n individual values repeat what the people would inherit. They change nothing now, but they keep a change of the groups from reaching those people._" : ["Auf dieser Seite wiederholt %n individuelle Einstellung, was die Person erben würde. Sie ändert jetzt nichts, verhindert aber, dass eine Änderung der Gruppen bei dieser Person ankommt.", "Auf dieser Seite wiederholen %n individuelle Einstellungen, was die Personen erben würden. Sie ändern jetzt nichts, verhindern aber, dass eine Änderung der Gruppen bei diesen Personen ankommt."],
+    "How group grants work" : "So funktionieren Gruppenfreigaben",
+    "Groups" : "Gruppen",
+    "Cannot be edited: invalid group ID" : "Nicht bearbeitbar: ungültige Gruppen-ID",
+    "Source unavailable" : "Quelle nicht verfügbar",
+    "Deleted group" : "Gruppe gelöscht",
+    "Cannot grant access" : "Kann keinen Zugriff gewähren",
+    "Awaiting confirmation" : "Wartet auf Bestätigung",
+    "Deletion pending" : "Löschung ausstehend",
+    "Grants nothing" : "Gewährt nichts",
+    "Grants: {permissions}" : "Gewährt: {permissions}",
+    "ID: {id}" : "ID: {id}",
+    "_%n group_::_%n groups_" : ["%n Gruppe", "%n Gruppen"],
+    "Groups {first}–{last}" : "Gruppen {first}–{last}"
 },
 "nplurals=2; plural=(n != 1);");

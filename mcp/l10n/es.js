@@ -1265,6 +1265,19 @@ OC.L10N.register(
     "Review" : "Revisar",
     "also set for this person, with the same value" : "también definido para esta persona, con el mismo valor",
     "Exception: differs from what the person inherits" : "Excepción: difiere de lo que hereda la persona",
-    "_On this page, %n individual value repeats what the person would inherit. It changes nothing now, but it keeps a change of the groups from reaching that person._::_On this page, %n individual values repeat what the people would inherit. They change nothing now, but they keep a change of the groups from reaching those people._" : ["En esta página, %n definición individual repite lo que la persona heredaría. No cambia nada ahora, pero impide que un cambio en los grupos llegue a esa persona.", "En esta página, %n definiciones individuales repiten lo que las personas heredarían. No cambian nada ahora, pero impiden que un cambio en los grupos llegue a esas personas.", "En esta página, %n definiciones individuales repiten lo que las personas heredarían. No cambian nada ahora, pero impiden que un cambio en los grupos llegue a esas personas."]
+    "_On this page, %n individual value repeats what the person would inherit. It changes nothing now, but it keeps a change of the groups from reaching that person._::_On this page, %n individual values repeat what the people would inherit. They change nothing now, but they keep a change of the groups from reaching those people._" : ["En esta página, %n definición individual repite lo que la persona heredaría. No cambia nada ahora, pero impide que un cambio en los grupos llegue a esa persona.", "En esta página, %n definiciones individuales repiten lo que las personas heredarían. No cambian nada ahora, pero impiden que un cambio en los grupos llegue a esas personas.", "En esta página, %n definiciones individuales repiten lo que las personas heredarían. No cambian nada ahora, pero impiden que un cambio en los grupos llegue a esas personas."],
+    "How group grants work" : "Cómo funcionan las concesiones de grupo",
+    "Groups" : "Grupos",
+    "Cannot be edited: invalid group ID" : "No se puede editar: ID de grupo no válido",
+    "Source unavailable" : "Origen no disponible",
+    "Deleted group" : "Grupo eliminado",
+    "Cannot grant access" : "No puede conceder acceso",
+    "Awaiting confirmation" : "Pendiente de confirmación",
+    "Deletion pending" : "Eliminación pendiente",
+    "Grants nothing" : "No concede nada",
+    "Grants: {permissions}" : "Concede: {permissions}",
+    "ID: {id}" : "ID: {id}",
+    "_%n group_::_%n groups_" : ["%n grupo", "%n de grupos", "%n grupos"],
+    "Groups {first}–{last}" : "Grupos {first}–{last}"
 },
 "nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;");

@@ -870,13 +870,35 @@
 }
 
 /* Group policies retain native keyboard controls and expose diagnostics without relying on color. */
-[id="mcp-group-list"] { padding-inline-start: 0; list-style: none; }
-[id="mcp-group-list"] li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 4px; }
+/* Two columns, like Settings → Users: the list of groups on the start side, the open group beside it. */
+#mcp-admin .mcp-group-rules { margin-block: 4px 12px; }
+#mcp-admin .mcp-group-rules summary { cursor: pointer; color: var(--color-text-maxcontrast); }
+#mcp-admin .mcp-groups { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); border: 1px solid var(--color-border); border-radius: var(--border-radius-element, 8px); min-height: 360px; }
+#mcp-admin .mcp-groups-nav { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-inline-end: 1px solid var(--color-border); background-color: var(--color-background-hover); min-width: 0; }
+#mcp-admin .mcp-groups-nav input[type="search"] { width: 100%; margin: 0; }
+#mcp-admin [id="mcp-group-count"] { margin: 0; padding-inline: 8px; font-size: 0.9em; }
+#mcp-admin .mcp-groups-pager { display: flex; gap: 4px; margin-top: auto; }
+#mcp-admin .mcp-groups-main { padding: 12px 16px; min-width: 0; }
+#mcp-admin .mcp-groups-main > p:empty { display: none; }
+@media (max-width: 760px) {
+	#mcp-admin .mcp-groups { grid-template-columns: minmax(0, 1fr); }
+	#mcp-admin .mcp-groups-nav { border-inline-end: 0; border-bottom: 1px solid var(--color-border); }
+}
+[id="mcp-group-list"] { margin: 0; padding-inline-start: 0; list-style: none; }
+[id="mcp-group-list"] li { margin-block: 2px; }
 /* A list, not a column of buttons: the rows are tertiary, and only the open group takes the selection colour. */
-[id="mcp-group-list"] li > button { border: 0; background-color: transparent; color: var(--color-main-text); font-weight: normal; text-align: start; }
-[id="mcp-group-list"] li > button:hover { background-color: var(--color-background-hover); }
-[id="mcp-group-list"] li > button[aria-current="true"] { background-color: var(--color-primary-element-light); color: var(--color-primary-element-light-text, var(--color-main-text)); font-weight: bold; }
-[id="mcp-group-list"] li > button:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
+#mcp-admin [id="mcp-group-list"] .mcp-group-item { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%; min-height: var(--default-clickable-area, 34px); margin: 0; padding: 6px 10px; border: 0; border-radius: var(--border-radius-element, 8px); background-color: transparent; color: var(--color-main-text); font-weight: normal; text-align: start; }
+#mcp-admin [id="mcp-group-list"] .mcp-group-item:hover { background-color: var(--color-background-dark); }
+#mcp-admin [id="mcp-group-list"] .mcp-group-item[aria-current="true"] { background-color: var(--color-primary-element-light); color: var(--color-primary-element-light-text, var(--color-main-text)); }
+#mcp-admin [id="mcp-group-list"] .mcp-group-item:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
+#mcp-admin .mcp-group-name { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcp-admin .mcp-group-sub { font-size: 0.9em; color: var(--color-text-maxcontrast); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcp-admin .mcp-group-item[aria-current="true"] .mcp-group-sub { color: inherit; }
+#mcp-admin .mcp-group-symbol { margin-inline-end: 4px; }
+#mcp-admin .mcp-group-state-warning { color: var(--color-warning-text, var(--color-warning)); }
+#mcp-admin .mcp-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+#mcp-admin .mcp-group-head h3 { margin: 0; }
+#mcp-admin .mcp-group-note { border-inline-start-color: var(--color-warning, var(--color-border-maxcontrast)); }
 [id="mcp-group-detail"] fieldset { margin-block: 12px; padding: 12px; border: 1px solid var(--color-border); }
 .mcp-group-permissions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 8px; }
 .mcp-group-permissions label { display: inline-flex; align-items: center; gap: 4px; }

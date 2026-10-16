@@ -96,17 +96,29 @@
     <div role="tabpanel" id="mcp-panel-access" aria-labelledby="mcp-tab-access" class="mcp-tab-panel" tabindex="0">
     <div class="section mcp-block" id="mcp-group-editor">
         <h2><?php p($l->t('Group grants')); ?></h2>
-        <p class="mcp-hint"><?php p($l->t('Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.')); ?></p>
-        <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. Group identity protection relies on delivered Nextcloud events; a lost deletion event may let a recreated group inherit the old policy.')); ?></p>
-        <p class="mcp-hint"><?php p($l->t('Removing group eligibility is refused when remaining access is unknown for a credential holder. Check the sources and retry.')); ?></p>
-        <label for="mcp-group-search"><?php p($l->t('Search groups by name or ID')); ?></label>
-        <input type="search" id="mcp-group-search">
-        <ul id="mcp-group-list" aria-busy="true"></ul>
-        <button type="button" id="mcp-group-prev"><?php p($l->t('Previous')); ?></button>
-        <button type="button" id="mcp-group-next"><?php p($l->t('Next')); ?></button>
-        <p id="mcp-group-status" role="status" aria-live="polite"></p>
-        <p id="mcp-group-alert" role="alert" aria-live="assertive"></p>
-        <div id="mcp-group-detail"></div>
+        <details class="mcp-group-rules">
+            <summary><?php p($l->t('How group grants work')); ?></summary>
+            <p class="mcp-hint"><?php p($l->t('Group grants apply to the live group, including future members. Individual overrides take precedence. Nextcloud permissions still apply.')); ?></p>
+            <p class="mcp-hint"><?php p($l->t('Only native Nextcloud groups can grant access. Group identity protection relies on delivered Nextcloud events; a lost deletion event may let a recreated group inherit the old policy.')); ?></p>
+            <p class="mcp-hint"><?php p($l->t('Removing group eligibility is refused when remaining access is unknown for a credential holder. Check the sources and retry.')); ?></p>
+        </details>
+        <div class="mcp-groups">
+            <nav class="mcp-groups-nav" aria-label="<?php p($l->t('Groups')); ?>">
+                <label for="mcp-group-search" class="mcp-sr-only"><?php p($l->t('Search groups by name or ID')); ?></label>
+                <input type="search" id="mcp-group-search" placeholder="<?php p($l->t('Search groups by name or ID')); ?>">
+                <p id="mcp-group-count" class="mcp-hint"></p>
+                <ul id="mcp-group-list" aria-busy="true"></ul>
+                <div class="mcp-groups-pager">
+                    <button type="button" id="mcp-group-prev"><?php p($l->t('Previous')); ?></button>
+                    <button type="button" id="mcp-group-next"><?php p($l->t('Next')); ?></button>
+                </div>
+            </nav>
+            <div class="mcp-groups-main">
+                <p id="mcp-group-status" role="status" aria-live="polite"></p>
+                <p id="mcp-group-alert" role="alert" aria-live="assertive"></p>
+                <div id="mcp-group-detail"></div>
+            </div>
+        </div>
     </div>
     <div class="section mcp-block" id="mcp-block-matrix">
         <h2><?php p($l->t('Permissions')); ?></h2>

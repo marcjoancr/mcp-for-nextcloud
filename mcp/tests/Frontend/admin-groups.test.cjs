@@ -45,7 +45,7 @@ const stored = (extra = {}) => ({
 })
 async function app(handler, group = stored()) {
 	const document = { activeElement: null }
-	const ids = Object.fromEntries(['editor', 'search', 'list', 'detail', 'status', 'alert', 'prev', 'next'].map((id) => ['mcp-group-' + id, new Element('div', document)]))
+	const ids = Object.fromEntries(['editor', 'search', 'count', 'list', 'detail', 'status', 'alert', 'prev', 'next'].map((id) => ['mcp-group-' + id, new Element('div', document)]))
 	const template = fs.readFileSync(path.join(__dirname, '../../templates/admin.php'), 'utf8')
 	for (const id of ['status', 'alert']) {
 		const markup = template.match(new RegExp('<p id="mcp-group-' + id + '"[^>]+>'))[0]
@@ -65,6 +65,7 @@ async function app(handler, group = stored()) {
 		window: { dispatchEvent: (event) => events.push(event.type), confirm: (message) => { confirmations.messages.push(message); return confirmations.allow } },
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		t: (_, text, params = {}) => text.replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
+		n: (_, one, many, count, params = {}) => (count === 1 ? one : many).replace('%n', String(count)).replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
 		setTimeout: (fn, ms) => { if (ms === 300) { fn(); return 1 } timers.set(++timerId, fn); return timerId }, clearTimeout: (id) => { timers.delete(id) },
 		fetch: async (url, options) => {
 			const call = { url, method: options.method, body: options.body ? JSON.parse(options.body) : undefined }
@@ -287,4 +288,68 @@ test('O2: a success that follows an error cancels the pending announcement of th
 	await tick()
 	assert.equal(ui.ids['mcp-group-alert'].textContent, '')
 	assert.match(ui.ids['mcp-group-status'].textContent, /Review the impact/)
+})
+
+/** S7: a page of the directory with one group of each state. */
+const directory = [
+	{ groupId: 'staff', displayName: 'staff', trusted: true, exists: true, state: 'active', grants: { _system: ['eligible'], notes: ['read'] } },
+	{ groupId: 'ti-interno', displayName: 'Equipe TI', trusted: true, exists: true, state: 'active', grants: [] },
+	{ groupId: 'finance', displayName: 'Finance', trusted: true, exists: true, state: 'needs_confirm', grants: {} },
+	{ groupId: 'sales-ldap', displayName: 'Sales', trusted: false, exists: true, state: 'active', grants: {} },
+	{ groupId: 'gone', displayName: 'gone', trusted: true, exists: false, state: 'active', grants: {} },
+	{ groupId: 'leaving', displayName: 'leaving', trusted: true, exists: true, state: 'pending_delete', grants: {} },
+	{ groupId: 'remote', displayName: 'remote', trusted: null, exists: null, state: null, grants: {} },
+]
+const items = (ui) => ui.ids['mcp-group-list'].all('button')
+test('S7: a row shows the ID only when it differs from the name, and its state in words next to a symbol', async () => {
+	const ui = await app((call) => call.url.includes('/detail?') ? undefined : [200, { groups: directory, hasMore: false }])
+	const [staff, ti, finance, sales, gone, leaving, remote] = items(ui).map((item) => item.textContent)
+	assert.doesNotMatch(staff, /ID:/)
+	assert.match(staff, /Grants: Can connect, Notes/)
+	assert.match(ti, /Equipe TI/)
+	assert.match(ti, /ID: ti-interno/)
+	assert.match(ti, /Grants nothing/)
+	assert.match(finance, /⚠ Awaiting confirmation/)
+	assert.match(sales, /🔒 Cannot grant access/)
+	assert.match(gone, /⊘ Deleted group/)
+	assert.match(leaving, /⚠ Deletion pending/)
+	assert.match(remote, /\? Source unavailable/)
+	for (const item of items(ui)) {
+		const symbol = item.all('span').find((span) => span.className === 'mcp-group-symbol')
+		if (symbol) assert.equal(symbol.attributes['aria-hidden'], 'true', 'the symbol is decoration; the words carry the state')
+	}
+	assert.equal(ui.ids['mcp-group-count'].textContent, '7 groups')
+})
+test('S7: only the open group is marked with aria-current, and the list keeps the mark across pages of the detail', async () => {
+	const ui = await app((call) => call.url.includes('/detail?') ? [200, stored({ groupId: 'ti-interno' })] : [200, { groups: directory, hasMore: false }])
+	assert.deepEqual(items(ui).map((item) => item.attributes['aria-current']), directory.map(() => 'false'))
+	await items(ui)[1].click()
+	await tick()
+	assert.deepEqual(items(ui).map((item) => item.attributes['aria-current']), ['false', 'true', 'false', 'false', 'false', 'false', 'false'])
+	assert.equal(ui.document.activeElement.textContent, 'Equipe TI', 'the detail names the group as the list does')
+	assert.match(ui.ids['mcp-group-detail'].textContent, /ID: ti-interno/)
+})
+test('S7: the counter tells the range when there are more pages, and nothing when the list failed', async () => {
+	let fail = false
+	const ui = await app((call) => fail ? [503, {}] : call.url.includes('/detail?') ? undefined : [200, { groups: directory.slice(0, 3), hasMore: true }])
+	assert.equal(ui.ids['mcp-group-count'].textContent, 'Groups 1–3')
+	await ui.ids['mcp-group-next'].listeners.click()
+	await tick()
+	assert.equal(ui.ids['mcp-group-count'].textContent, 'Groups 51–53')
+	fail = true
+	await ui.ids['mcp-group-prev'].listeners.click()
+	await tick()
+	assert.equal(ui.ids['mcp-group-count'].textContent, '')
+	assert.match(ui.ids['mcp-group-alert'].textContent, /Could not load groups/)
+})
+test('S7: the notices of a group live in its detail, with the action they ask for', async () => {
+	const ui = await app(undefined, stored({ state: 'needs_confirm' }))
+	await ui.open()
+	const note = ui.ids['mcp-group-detail'].all('div').find((node) => node.className.includes('mcp-group-note'))
+	assert.equal(note.hidden, false)
+	assert.match(note.textContent, /awaiting confirmation/)
+	assert.ok(note.all('button').some((button) => button.textContent === 'Confirm current policy'))
+	const quiet = await app()
+	await quiet.open()
+	assert.equal(quiet.ids['mcp-group-detail'].all('div').find((node) => node.className.includes('mcp-group-note')).hidden, true)
 })

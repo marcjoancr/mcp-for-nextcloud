@@ -14,10 +14,15 @@
 	const alert = document.getElementById('mcp-group-alert')
 	const prev = document.getElementById('mcp-group-prev')
 	const next = document.getElementById('mcp-group-next')
+	const counter = document.getElementById('mcp-group-count')
 	let page = 1
+	/** Rows of the page on screen, kept so the open group can be marked without reading the list again. */
+	let rows = []
 	let listSeq = 0
 	let detailSeq = 0
 	let current = null
+	/** Name of the open group as the list shows it; the detail API returns only the ID. */
+	let shownName = null
 	let draft = {}
 	let preview = null
 	let busy = false
@@ -25,6 +30,10 @@
 	let sayTimer
 	/** Milliseconds between clearing a live region and writing into it. */
 	const SAY_DELAY = 60
+	/** Groups per page of the directory API. */
+	const PAGE_SIZE = 50
+	/** Options of t() for text written with textContent, which escapes by itself. */
+	const RAW = { escape: false }
 
 	function el(tag, props = {}, children = []) {
 		const node = document.createElement(tag)
@@ -89,6 +98,49 @@
 		if (group.state === 'pending_delete') return t('mcp', 'Group deletion is pending. This policy does not grant access. Check the group before confirming it.')
 		return ''
 	}
+	/**
+	 * The state of a group in one short phrase, for its row in the list; '' when the group can grant normally. The
+	 * phrase always carries the state in words, next to a symbol, so it never depends on colour.
+	 *
+	 * @return {{symbol: string, text: string, warning: boolean}|null}
+	 */
+	function rowState(group) {
+		if (group.invalidId) return { symbol: '⊘', text: t('mcp', 'Cannot be edited: invalid group ID'), warning: false }
+		if (group.trusted === null) return { symbol: '?', text: t('mcp', 'Source unavailable'), warning: true }
+		if (group.exists === false) return { symbol: '⊘', text: t('mcp', 'Deleted group'), warning: false }
+		if (!group.trusted) return { symbol: '🔒', text: t('mcp', 'Cannot grant access'), warning: false }
+		if (group.state === 'needs_confirm') return { symbol: '⚠', text: t('mcp', 'Awaiting confirmation'), warning: true }
+		if (group.state === 'pending_delete') return { symbol: '⚠', text: t('mcp', 'Deletion pending'), warning: true }
+		return null
+	}
+	/** @return {string} what a group grants, in a few words, for its row in the list */
+	function grantSummary(group) {
+		const granted = Object.entries(group.grants || {}).filter(([, operations]) => operations.length > 0).map(([module]) => module)
+		if (granted.length === 0) return t('mcp', 'Grants nothing')
+		return t('mcp', 'Grants: {permissions}', { permissions: granted.map((module) => module === '_system' ? t('mcp', 'Can connect') : moduleName(module)).join(', ') }, undefined, RAW)
+	}
+	/** One row of the list: the name, the ID only when it differs from the name, and the state or what the group grants. */
+	function groupRow(group) {
+		const children = [el('span', { className: 'mcp-group-name', textContent: group.displayName })]
+		if (group.groupId !== null && group.groupId !== group.displayName) {
+			children.push(el('span', { className: 'mcp-group-sub', textContent: t('mcp', 'ID: {id}', { id: group.groupId }, undefined, RAW) }))
+		}
+		const state = rowState(group)
+		if (state) {
+			const symbol = el('span', { className: 'mcp-group-symbol', textContent: state.symbol })
+			symbol.setAttribute('aria-hidden', 'true')
+			children.push(el('span', { className: 'mcp-group-sub mcp-group-state' + (state.warning ? ' mcp-group-state-warning' : '') }, [symbol, state.text]))
+		} else {
+			children.push(el('span', { className: 'mcp-group-sub', textContent: grantSummary(group) }))
+		}
+		const button = el('button', { type: 'button', className: 'mcp-group-item', disabled: group.invalidId === true, onclick: () => open(group.groupId, false, false, group.displayName) }, children)
+		button.setAttribute('aria-current', String(current !== null && group.groupId !== null && current.groupId === group.groupId))
+		return el('li', {}, [button])
+	}
+	function drawList() {
+		list.replaceChildren(...rows.map(groupRow))
+		if (!rows.length) list.append(el('li', { className: 'mcp-hint', textContent: t('mcp', 'No groups found.') }))
+	}
 	async function loadList() {
 		const seq = ++listSeq
 		list.setAttribute('aria-busy', 'true')
@@ -96,17 +148,19 @@
 		try {
 			const data = await api('GET', '/api/group-directory?' + new URLSearchParams({ search: search.value.trim(), page: String(page) }))
 			if (seq !== listSeq) return
-			list.replaceChildren(...data.groups.map((group) => {
-				const reason = diagnosis(group)
-				const button = el('button', { type: 'button', textContent: group.groupId === null ? group.displayName : group.displayName + ' (' + group.groupId + ')', disabled: group.invalidId === true, onclick: () => open(group.groupId), })
-				return el('li', {}, [button, el('span', { className: 'mcp-hint', textContent: reason })])
-			}))
-			if (!data.groups.length) list.append(el('li', { textContent: t('mcp', 'No groups found.') }))
+			rows = data.groups
+			drawList()
+			const first = (page - 1) * PAGE_SIZE + 1
+			counter.textContent = page === 1 && !data.hasMore
+				? n('mcp', '%n group', '%n groups', rows.length)
+				: rows.length === 0 ? '' : t('mcp', 'Groups {first}–{last}', { first, last: first + rows.length - 1 }, undefined, RAW)
 			prev.disabled = page <= 1
 			next.disabled = !data.hasMore
 			say('')
 		} catch (e) {
 			if (seq !== listSeq) return
+			rows = []
+			counter.textContent = ''
 			list.replaceChildren(el('li', {}, [t('mcp', 'Could not load groups.'), retry(loadList)]))
 			say(t('mcp', 'Could not load groups.'), true)
 		} finally {
@@ -116,8 +170,9 @@
 	function retry(action) {
 		return el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: action })
 	}
-	async function open(gid, preserve = false, keepMessage = false) {
+	async function open(gid, preserve = false, keepMessage = false, displayName = null) {
 		if (busy || (!preserve && !discardDraft())) return
+		if (displayName !== null) shownName = displayName
 		const seq = ++detailSeq
 		// Keep the draft's base until a read succeeds, including after a failed refresh.
 		preview = null
@@ -128,6 +183,7 @@
 			current = data
 			if (!preserve) draft = copyGrants(data.grants)
 			if (!keepMessage) say('')
+			drawList()
 			render()
 			detail.querySelector('h3').focus()
 		} catch (e) {
@@ -137,8 +193,11 @@
 		}
 	}
 	function render() {
-		const heading = el('h3', { tabIndex: -1, textContent: current.groupId })
+		const name = shownName ?? current.groupId
+		const heading = el('h3', { tabIndex: -1, textContent: name })
 		heading.setAttribute('aria-describedby', 'mcp-group-alert mcp-group-diagnosis')
+		const head = el('div', { className: 'mcp-group-head' }, [heading])
+		if (name !== current.groupId) head.append(el('span', { className: 'mcp-hint', textContent: t('mcp', 'ID: {id}', { id: current.groupId }, undefined, RAW) }))
 		const fields = el('fieldset', { disabled: busy || current.trusted !== true })
 		fields.setAttribute('aria-describedby', 'mcp-group-diagnosis')
 		fields.append(el('legend', { textContent: t('mcp', 'Group grants') }))
@@ -204,7 +263,10 @@
 			run('preview')
 		} })
 		for (const button of [review, confirm, clear, save]) button.setAttribute('aria-describedby', 'mcp-group-diagnosis')
-		detail.replaceChildren(heading, el('p', { id: 'mcp-group-diagnosis', className: 'mcp-hint', textContent: diagnosis(current) }), summary, fields, comparison, table, review, confirm, clear, impact, save)
+		// The group's notices live in its detail, under the title, with the action they ask for.
+		const reason = diagnosis(current)
+		const note = el('div', { className: 'mcp-note mcp-group-note', hidden: reason === '' }, [el('p', { id: 'mcp-group-diagnosis', textContent: reason }), confirm])
+		detail.replaceChildren(head, note, summary, fields, comparison, table, review, clear, impact, save)
 	}
 	async function run(action) {
 		if (busy || !current || (action === 'save' && !preview)) return
