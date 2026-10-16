@@ -33,7 +33,7 @@
 
 ## Clients
 
-Claude (claude.ai and Claude Desktop), ChatGPT and Gemini CLI sign in with OAuth: the user logs into their own Nextcloud and clicks **Allow**. Other MCP clients can use an app password.
+Claude (claude.ai and Claude Desktop), ChatGPT and Gemini CLI sign in with OAuth: the user logs into their own Nextcloud and clicks **Allow**. Other MCP clients can use an app password. In *Clients and connections*, the administrator can also register the self-hosted programs the organization runs itself, each with its own client ID and the exact address it comes back to, port included; turning one of them off or deleting it ends its sessions at once.
 
 ## Requirements
 
@@ -67,7 +67,7 @@ Nextcloud 32–35 and PHP 8.2 or later. Deck and Talk are optional: their tools 
 
 ## Clientes
 
-O Claude (claude.ai e Claude Desktop), o ChatGPT e o Gemini CLI entram com OAuth: o usuário faz login no próprio Nextcloud e clica em **Permitir**. Outros clientes MCP podem usar uma senha de app.
+O Claude (claude.ai e Claude Desktop), o ChatGPT e o Gemini CLI entram com OAuth: o usuário faz login no próprio Nextcloud e clica em **Permitir**. Outros clientes MCP podem usar uma senha de app. Em *Clientes e conexões*, o administrador também pode cadastrar os programas auto-hospedados que a própria organização executa, cada um com seu próprio ID de cliente e o endereço exato de retorno, com a porta incluída; desligar ou apagar um deles encerra as sessões dele na hora.
 
 ## Requisitos
 
@@ -101,7 +101,7 @@ Nextcloud 32–35 e PHP 8.2 ou superior. O Deck e o Talk são opcionais: as ferr
 
 ## Clientes
 
-Claude (claude.ai y Claude Desktop), ChatGPT y Gemini CLI inician sesión con OAuth: el usuario entra en su propio Nextcloud y pulsa **Permitir**. Otros clientes MCP pueden usar una contraseña de aplicación.
+Claude (claude.ai y Claude Desktop), ChatGPT y Gemini CLI inician sesión con OAuth: el usuario entra en su propio Nextcloud y pulsa **Permitir**. Otros clientes MCP pueden usar una contraseña de aplicación. En *Clientes y conexiones*, el administrador también puede registrar los programas autoalojados que ejecuta la propia organización, cada uno con su propio ID de cliente y la dirección exacta a la que vuelve, con el puerto incluido; desactivar o eliminar uno de ellos cierra sus sesiones de inmediato.
 
 ## Requisitos
 
