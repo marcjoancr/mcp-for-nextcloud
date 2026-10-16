@@ -1254,6 +1254,10 @@
     "inherits allowed" : "erbt erlaubt",
     "inherits denied" : "erbt verweigert",
     "Turn off “Can connect” for {user}?" : "„Verbindung möglich“ für {user} ausschalten?",
-    "This signs the person out of every MCP client, and undoing it does not sign them back in." : "Damit wird die Person von allen MCP-Clients abgemeldet. Rückgängig machen meldet sie nicht wieder an."
+    "This signs the person out of every MCP client, and undoing it does not sign them back in." : "Damit wird die Person von allen MCP-Clients abgemeldet. Rückgängig machen meldet sie nicht wieder an.",
+    "Review" : "Prüfen",
+    "also set for this person, with the same value" : "auch für diese Person festgelegt, mit demselben Wert",
+    "Exception: differs from what the person inherits" : "Ausnahme: weicht von dem ab, was die Person erbt",
+    "_On this page, %n individual value repeats what the person would inherit. It changes nothing now, but it keeps a change of the groups from reaching that person._::_On this page, %n individual values repeat what the people would inherit. They change nothing now, but they keep a change of the groups from reaching those people._" : ["Auf dieser Seite wiederholt %n individuelle Einstellung, was die Person erben würde. Sie ändert jetzt nichts, verhindert aber, dass eine Änderung der Gruppen bei dieser Person ankommt.", "Auf dieser Seite wiederholen %n individuelle Einstellungen, was die Personen erben würden. Sie ändern jetzt nichts, verhindern aber, dass eine Änderung der Gruppen bei diesen Personen ankommt."]
 },"pluralForm":"nplurals=2; plural=(n != 1);"
 }

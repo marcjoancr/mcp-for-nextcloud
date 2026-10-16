@@ -743,3 +743,24 @@ test('Allow over an inherited Allow: the toolbar carries a short help text sayin
 	assert.match(help.textContent, /To keep that Allow if the group changes, uncheck the box \(Deny\) and then check it again \(Allow\)/)
 	assert.match(help.textContent, /Do not do this for “Can connect”: denying it signs the user out/)
 })
+
+test('S4: the review of redundant values resets exactly the cells it names, user by user, through the same preview and command', async () => {
+	const ui = app([alice(), bob(), carol()])
+	// alice: eligibility, notes:edit and files:read are individual; only files:read is named for her, and bob's own cells.
+	const bobCells = ui.window.McpAdminOverrides.plan([bob()], null).targets[0].cells
+	const named = [{ uid: 'alice', module: 'files', operation: 'read' }, ...bobCells.map((cell) => ({ uid: 'bob', module: cell.module, operation: cell.operation }))]
+	const trigger = new Element('button', { activeElement: null })
+	ui.window.McpAdminOverrides.reviewCells(named, trigger)
+	assert.equal(ui.panel.hidden, false, 'the usual reset preview opens')
+	assert.equal(ui.commands().length, 0, 'the review writes nothing by itself')
+	await tick()
+	await ui.panelButton('confirm').click()
+	await tick()
+	const [call] = ui.commands()
+	assert.deepEqual(plain(call.body.commands), [
+		{ uid: 'alice', module: 'files', operation: 'read', state: 'inherit' },
+		...bobCells.map((cell) => ({ uid: 'bob', module: cell.module, operation: cell.operation, state: 'inherit' })),
+	], 'alice keeps her other individual values')
+	const filtered = ui.window.McpAdminOverrides.plan([alice()], (person, cell) => cell.module === 'notes')
+	assert.deepEqual(plain(filtered.targets[0].cells.map((cell) => cell.module + ':' + cell.operation)), ['notes:edit'], 'a function filter keeps cells per user')
+})

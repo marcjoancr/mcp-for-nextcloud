@@ -917,7 +917,7 @@
 			cell.append(mark, ' ', word, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + name + ': ' + cell.title }))
 			if (unknown) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
 		} else {
-			const origin = levels.originOf(operations, user.origins?.grants?.[module])
+			const { origin, mark: kind } = originMark(user, module, operations)
 			const labels = operationLabels()
 			const allowed = operations.filter((operation) => user.grants[module][operation] === true)
 			const levelName = levelLabels()[level] || level
@@ -925,9 +925,9 @@
 				? t('mcp', 'Allows nothing')
 				: t('mcp', 'Allows: {operations}', { operations: allowed.map((operation) => labels[operation] || operation).join(', ') }, undefined, { escape: false })
 			paintState(cell, allowed.length === 0 ? 'denied' : 'allowed')
-			const source = originText(origin)
-			const individual = origin.source === 'individual' || origin.source === 'invalid'
-			const icon = individual ? 'icon-user' : origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null
+			const source = markText(origin, kind)
+			const individual = kind === 'exception'
+			const icon = markIcon(origin, kind)
 			const parts = []
 			if (icon !== null) {
 				const glyph = el('span', { className: 'mcp-origin-icon ' + icon })
@@ -941,12 +941,65 @@
 			cell.title = button.title
 			cell.dataset.level = level
 			cell.dataset.origin = origin.source
+			cell.dataset.mark = kind
 			cell.append(button)
 		}
 		// "Restricted to N" or "Scope unknown" of a resource scope, drawn and opened by js/admin-scope.js.
 		const mark = user.scope?.[module] && window.McpScopeUi ? window.McpScopeUi.indicator(user.uid, module, user.scope[module]) : null
 		if (mark) cell.append(mark)
 		return cell
+	}
+
+	/** Sources of an individual value, as the API sends them. */
+	const INDIVIDUAL_SOURCES = ['individual_allow', 'individual_deny', 'invalid']
+
+	/**
+	 * Where a cell's values come from and how to mark it. Only a real exception, an individual value that differs from what
+	 * the person would inherit (js/admin-exceptions.js), gets the person icon; individual values that only repeat the
+	 * inheritance are drawn like what they repeat, and while that is not known yet they get no mark. Without the
+	 * classification every individual value is an exception, never fewer.
+	 *
+	 * @param {object} user row from the API
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string[]} operations the module's operations, or ["eligible"]
+	 * @return {{origin: {source: string, groupIds: string[]}, mark: string}} mark is exception, redundant, pending, or the
+	 *     source (group, unknown, default) of a cell with no individual value
+	 */
+	function originMark(user, module, operations) {
+		const levels = window.McpAdminLevels
+		const origins = module === null ? { eligible: user.origins?.eligible } : user.origins?.grants?.[module]
+		const origin = levels.originOf(operations, origins)
+		if (origin.source !== 'individual' && origin.source !== 'invalid') {
+			return { origin, mark: origin.source }
+		}
+		const exceptions = window.McpAdminExceptions
+		const individual = operations.filter((operation) => INDIVIDUAL_SOURCES.includes(origins?.[operation]?.source))
+		const kinds = exceptions ? individual.map((operation) => exceptions.kindOf(user.uid, module, operation)) : []
+		if (!exceptions || origin.source === 'invalid' || kinds.some((kind) => kind.kind === 'exception')) {
+			return { origin, mark: 'exception' }
+		}
+		if (kinds.some((kind) => kind.kind === 'pending')) {
+			return { origin, mark: 'pending' }
+		}
+		const repeated = Object.fromEntries(operations.map((operation) => {
+			const index = individual.indexOf(operation)
+			return [operation, index < 0 ? origins?.[operation] : kinds[index].after || { source: 'default', groupIds: [] }]
+		}))
+		return { origin: levels.originOf(operations, repeated), mark: 'redundant' }
+	}
+
+	/** @return {string|null} the icon class of a mark: a person for an exception, a group for a group, none otherwise */
+	function markIcon(origin, mark) {
+		if (mark === 'exception') return 'icon-user'
+		if (mark === 'pending') return null
+		return origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null
+	}
+
+	/** @return {string} where a cell's values come from, in words */
+	function markText(origin, mark) {
+		if (mark === 'pending') return t('mcp', 'Set for this person')
+		if (mark === 'redundant') return originText(origin) + ' — ' + t('mcp', 'also set for this person, with the same value')
+		return originText(origin)
 	}
 
 	/**
@@ -992,9 +1045,9 @@
 			if (unknown) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
 			return cell
 		}
-		const origin = window.McpAdminLevels.originOf(['eligible'], { eligible: user.origins?.eligible })
-		const individual = origin.source === 'individual' || origin.source === 'invalid'
-		const icon = individual ? 'icon-user' : origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null
+		const { origin, mark: kind } = originMark(user, null, ['eligible'])
+		const individual = kind === 'exception'
+		const icon = markIcon(origin, kind)
 		const parts = []
 		if (icon !== null) {
 			const glyph = el('span', { className: 'mcp-origin-icon ' + icon })
@@ -1004,13 +1057,14 @@
 		const word = user.eligible ? t('mcp', 'Yes') : t('mcp', 'No')
 		parts.push(el('span', { className: 'mcp-level-word', textContent: word }))
 		paintState(cell, user.eligible ? 'allowed' : 'denied')
-		const source = originText(origin)
+		const source = markText(origin, kind)
 		const button = levelButton(user, null, 'mcp-level mcp-level-' + (user.eligible ? 'read' : 'none') + (individual ? ' mcp-level-individual' : ''), parts,
 			canConnect + ': ' + word + ' — ' + source,
 			t('mcp', '{user}, {module}: {level}. {source}.', { user: user.displayName, module: canConnect, level: word, source }, undefined, { escape: false }))
 		cell.title = button.title
 		cell.dataset.level = user.eligible ? 'read' : 'none'
 		cell.dataset.origin = origin.source
+		cell.dataset.mark = kind
 		cell.append(button)
 		return cell
 	}

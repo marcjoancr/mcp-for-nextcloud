@@ -1259,6 +1259,10 @@
     "inherits allowed" : "herda permitido",
     "inherits denied" : "herda negado",
     "Turn off “Can connect” for {user}?" : "Desligar o “Pode conectar” de {user}?",
-    "This signs the person out of every MCP client, and undoing it does not sign them back in." : "Isso desconecta a pessoa de todos os clientes MCP, e desfazer não a conecta de volta."
+    "This signs the person out of every MCP client, and undoing it does not sign them back in." : "Isso desconecta a pessoa de todos os clientes MCP, e desfazer não a conecta de volta.",
+    "Review" : "Revisar",
+    "also set for this person, with the same value" : "também definido para esta pessoa, com o mesmo valor",
+    "Exception: differs from what the person inherits" : "Exceção: difere do que a pessoa herda",
+    "_On this page, %n individual value repeats what the person would inherit. It changes nothing now, but it keeps a change of the groups from reaching that person._::_On this page, %n individual values repeat what the people would inherit. They change nothing now, but they keep a change of the groups from reaching those people._" : ["Nesta página, %n definição individual repete o que a pessoa herdaria. Ela não muda nada hoje, mas impede que uma mudança nos grupos chegue a essa pessoa.", "Nesta página, %n definições individuais repetem o que as pessoas herdariam. Elas não mudam nada hoje, mas impedem que uma mudança nos grupos chegue a essas pessoas.", "Nesta página, %n definições individuais repetem o que as pessoas herdariam. Elas não mudam nada hoje, mas impedem que uma mudança nos grupos chegue a essas pessoas."]
 },"pluralForm" :"nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

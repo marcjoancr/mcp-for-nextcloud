@@ -135,10 +135,10 @@ class Node {
 	find(name) { return this.all().find((node) => node.classes.has(name)) ?? null }
 }
 
-function cellKit({ appsEnabled = true, scope = null } = {}) {
+function cellKit({ appsEnabled = true, scope = null, exceptions } = {}) {
 	const opened = []
 	const sandbox = {
-		window: { McpAdminLevels: Levels, McpLevelPopover: { open: (trigger, uid, module) => opened.push([module, uid, trigger.classes.has('mcp-level')]) }, McpScopeUi: { indicator: (uid, module, value) => Object.assign(new Node('button'), { className: 'mcp-scope-indicator', textContent: 'Restricted to ' + value.count }) } },
+		window: { McpAdminLevels: Levels, McpAdminExceptions: exceptions, McpLevelPopover: { open: (trigger, uid, module) => opened.push([module, uid, trigger.classes.has('mcp-level')]) }, McpScopeUi: { indicator: (uid, module, value) => Object.assign(new Node('button'), { className: 'mcp-scope-indicator', textContent: 'Restricted to ' + value.count }) } },
 		t: (app, text, vars) => text.replace(/\{(\w+)\}/g, (_, key) => vars?.[key] ?? '{' + key + '}'),
 		el: (tag, props = {}, children = []) => {
 			const node = new Node(tag)
@@ -151,7 +151,7 @@ function cellKit({ appsEnabled = true, scope = null } = {}) {
 		unavailableReason: () => appsEnabled ? null : 'This app is unavailable for this user; the saved permission is kept.',
 		reloadLocked: () => {},
 	}
-	vm.runInNewContext([cut('const PERMISSION_STATES = {'), cut('function paintState('), cut('function levelLabels('), cut('function originText('), cut('function levelCell('), cut('function levelButton(')].join('\n')
+	vm.runInNewContext([cut('const PERMISSION_STATES = {'), cut('function paintState('), cut('function levelLabels('), cut('function originText('), cut('function levelCell('), cut('function levelButton('), cut('const INDIVIDUAL_SOURCES = '), cut('function originMark('), cut('function markIcon('), cut('function markText(')].join('\n')
 		+ '\nthis.levelCell = levelCell', sandbox)
 	const files = catalog().files
 	const user = (allowed, sources = {}) => ({
@@ -223,4 +223,39 @@ test('the resource scope mark stays in the module cell', () => {
 	const u = kit.user(['read'])
 	u.scope = { files: { mode: 'restricted', count: 3 } }
 	assert.equal(kit.cell(u).find('mcp-scope-indicator').textContent, 'Restricted to 3')
+})
+
+test('S4: only a real exception gets the person icon; a value that repeats the inheritance is drawn like what it repeats', () => {
+	const edit = { edit: { source: 'individual_allow', groupIds: [] } }
+	const kinds = (kind, after) => ({ kindOf: () => ({ kind, after }) })
+	const exception = cellKit({ exceptions: kinds('exception', null) })
+	const real = exception.cell(exception.user(['read', 'edit'], edit))
+	assert.ok(real.find('mcp-origin-icon').classes.has('icon-user'))
+	assert.ok(real.find('mcp-level').classes.has('mcp-level-individual'))
+	assert.equal(real.dataset.mark, 'exception')
+
+	const viaGroup = cellKit({ exceptions: kinds('redundant', { source: 'group', groupIds: ['comercial'] }) })
+	const repeated = viaGroup.cell(viaGroup.user(['read', 'edit'], edit))
+	assert.ok(repeated.find('mcp-origin-icon').classes.has('icon-group'), 'drawn like the group it repeats')
+	assert.ok(!repeated.find('mcp-level').classes.has('mcp-level-individual'))
+	assert.equal(repeated.dataset.mark, 'redundant')
+	assert.match(repeated.title, /Granted by groups: comercial — also set for this person, with the same value$/)
+
+	const viaDefault = cellKit({ exceptions: kinds('redundant', { source: 'default', groupIds: [] }) })
+	const quiet = viaDefault.cell(viaDefault.user(['read'], { read: { source: 'individual_allow', groupIds: [] } }))
+	assert.equal(quiet.find('mcp-origin-icon'), null, 'a value that repeats the default is silent')
+	assert.match(quiet.title, /Default — also set for this person, with the same value$/)
+
+	const pending = cellKit({ exceptions: kinds('pending', null) })
+	const waiting = pending.cell(pending.user(['read', 'edit'], edit))
+	assert.equal(waiting.find('mcp-origin-icon'), null, 'no exception mark before the answer')
+	assert.equal(waiting.dataset.mark, 'pending')
+	assert.match(waiting.find('mcp-level').attributes['aria-label'], /Set for this person\.$/)
+
+	// An invalid stored value is always an exception, whatever the classification says.
+	const invalid = viaDefault.cell(viaDefault.user(['read'], { share: { source: 'invalid', groupIds: [] } }))
+	assert.ok(invalid.find('mcp-origin-icon').classes.has('icon-user'))
+	// Without the classification every individual value is an exception, never fewer.
+	const none = cellKit()
+	assert.ok(none.cell(none.user(['read', 'edit'], edit)).find('mcp-origin-icon').classes.has('icon-user'))
 })

@@ -480,6 +480,7 @@
 		if (restoreFocus && trigger?.isConnected) {
 			trigger.focus()
 		}
+		window.dispatchEvent?.(new Event('mcp-level-popover-closed'))
 	}
 
 	popover.addEventListener('keydown', (event) => {

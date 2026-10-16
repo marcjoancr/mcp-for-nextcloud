@@ -123,7 +123,8 @@
 	 * What a reset removes, computed from the table on screen.
 	 *
 	 * @param {object[]} users users to reset
-	 * @param {Array<{module: string|null, operation: string}>|null} only restrict to these cells, null for every override
+	 * @param {Array<{module: string|null, operation: string}>|Function|null} only restrict to these cells, or to the cells a
+	 *     function (user, cell) keeps; null for every override
 	 * @return {object} {targets, users, cells, allow, deny, invalid, eligibleAllow, eligibleDeny, unseen, without, tooMany}:
 	 *     eligibleDeny counts a Deny and an invalid value of "Can connect", both of which deny now and may stop denying;
 	 *     unseen counts the overrides in a cell the table does not offer to the user (see unseenCell())
@@ -132,7 +133,7 @@
 		const result = { targets: [], users: 0, cells: 0, allow: 0, deny: 0, invalid: 0, eligibleAllow: 0, eligibleDeny: 0, unseen: 0, without: 0, tooMany: false }
 		for (const user of users) {
 			const cells = overrideCells(user).filter((cell) => only === null
-				|| only.some((wanted) => wanted.module === cell.module && wanted.operation === cell.operation))
+				|| (typeof only === 'function' ? only(user, cell) : only.some((wanted) => wanted.module === cell.module && wanted.operation === cell.operation)))
 			if (cells.length === 0) {
 				result.without++
 				continue
@@ -643,7 +644,20 @@
 		matrix.focusUndo(undo)
 	}
 
-	window.McpAdminOverrides = { decorateRow, decorateCell, plan }
+	/**
+	 * Opens the reset preview for exactly these cells of these users, as js/admin-exceptions.js does for the values that only
+	 * repeat what the people inherit. The reset itself is the same command and the same preview as any other.
+	 *
+	 * @param {Array<{uid: string, module: string|null, operation: string}>} cells cells of the users on the page
+	 * @param {HTMLElement} trigger control that asked
+	 */
+	function reviewCells(cells, trigger) {
+		const keys = new Set(cells.map((cell) => afterKey(cell.uid, cell.module, cell.operation)))
+		const uids = new Set(cells.map((cell) => cell.uid))
+		start(pageUsers().filter((user) => uids.has(user.uid)), (user, cell) => keys.has(afterKey(user.uid, cell.module, cell.operation)), trigger)
+	}
+
+	window.McpAdminOverrides = { decorateRow, decorateCell, plan, reviewCells }
 	// The matrix may have been drawn before this file ran: draw it again so its rows carry the controls.
 	matrix.refresh()
 })()

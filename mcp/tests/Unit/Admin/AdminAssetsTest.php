@@ -64,10 +64,11 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(11, $matches);
+        $this->assertCount(12, $matches);
         // The levels mapping is read by the matrix, so it loads before it; the level popover uses the matrix, so after it.
         $this->assertLessThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-levels')"));
         $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-level-popover')"));
+        $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-exceptions')"));
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -237,11 +238,12 @@ final class AdminAssetsTest extends TestCase {
         // The levels view keeps the rule: the level is a word, the origin an icon next to it, and an unavailable or
         // unknown module the same mark as above, a word and no control.
         $this->assertStringContainsString("el('span', { className: 'mcp-level-word', textContent: levelName })", $script);
-        $this->assertStringContainsString("const icon = individual ? 'icon-user' : origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null", $script);
+        $this->assertStringContainsString("if (mark === 'exception') return 'icon-user'", $script);
+        $this->assertStringContainsString("return origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null", $script);
         $this->assertStringContainsString("glyph.setAttribute('aria-hidden', 'true')", $script);
         $this->assertStringContainsString("textContent: unknown ? t('mcp', 'Unknown') : t('mcp', 'Unavailable')", $script);
         $this->assertStringContainsString("cell.append(mark, ' ', word, el('span', { className: 'mcp-sr-only'", $script);
-        $this->assertStringContainsString('<span class="mcp-origin-icon icon-user" aria-hidden="true"></span> <?php p($l->t(\'Set for this person\')); ?>', $legend);
+        $this->assertStringContainsString('<span class="mcp-origin-icon icon-user" aria-hidden="true"></span> <?php p($l->t(\'Exception: differs from what the person inherits\')); ?>', $legend);
         $this->assertStringContainsString('<span class="mcp-origin-icon icon-group" aria-hidden="true"></span> <?php p($l->t(\'From a group\')); ?>', $legend);
         // A bulk change is one all-or-nothing command, undone by its server receipt, never by replaying old values.
         $this->assertSame(1, substr_count($script, "api('POST', '/api/grants/commands'"), 'the bulk menu sends one command');

@@ -1170,3 +1170,27 @@ body[data-themes*="dark"] #mcp-admin {
 	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
 }
+
+/* Notices above the matrix (js/admin-exceptions.js), like NcNoteCard: a bar on the start side and the words. */
+#mcp-admin .mcp-note {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	max-width: 900px;
+	margin: 8px 0;
+	padding: 8px 12px;
+	border-inline-start: 4px solid var(--color-info, var(--color-border-maxcontrast));
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+	background-color: var(--color-background-hover);
+	color: var(--color-main-text);
+}
+
+#mcp-admin .mcp-note[hidden] {
+	display: none;
+}
+
+#mcp-admin .mcp-note p {
+	flex: 1 1 300px;
+	margin: 0;
+}

@@ -21,6 +21,7 @@
 \OCP\Util::addScript('mcp', 'admin-levels');
 \OCP\Util::addScript('mcp', 'admin-grants');
 \OCP\Util::addScript('mcp', 'admin-level-popover');
+\OCP\Util::addScript('mcp', 'admin-exceptions');
 \OCP\Util::addScript('mcp', 'admin-overrides');
 \OCP\Util::addScript('mcp', 'admin-groups');
 \OCP\Util::addScript('mcp', 'admin-scope');
@@ -144,6 +145,10 @@
                 <button type="button" id="mcp-next"><?php p($l->t('Next')); ?></button>
             </span>
         </div>
+        <div id="mcp-redundant-notice" class="mcp-note mcp-note-info" role="status" hidden>
+            <p id="mcp-redundant-notice-text"></p>
+            <button type="button" id="mcp-redundant-review"><?php p($l->t('Review')); ?></button>
+        </div>
         <div class="mcp-matrix-wrap">
             <table class="mcp-matrix" id="mcp-matrix" aria-busy="true">
                 <thead></thead>
@@ -157,7 +162,7 @@
         </div>
         <div class="mcp-toolbar mcp-toolbar-bottom">
             <p class="mcp-legend mcp-legend-levels" id="mcp-legend-levels">
-                <span class="mcp-legend-item"><span class="mcp-origin-icon icon-user" aria-hidden="true"></span> <?php p($l->t('Set for this person')); ?></span>
+                <span class="mcp-legend-item"><span class="mcp-origin-icon icon-user" aria-hidden="true"></span> <?php p($l->t('Exception: differs from what the person inherits')); ?></span>
                 <span class="mcp-legend-item"><span class="mcp-origin-icon icon-group" aria-hidden="true"></span> <?php p($l->t('From a group')); ?></span>
                 <span class="mcp-legend-item"><?php p($l->t('No icon: default')); ?></span>
                 <span class="mcp-legend-item"><span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t('Unavailable')); ?></span>
