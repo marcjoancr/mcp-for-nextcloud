@@ -64,7 +64,7 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(8, $matches);
+        $this->assertCount(9, $matches);
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -173,11 +173,18 @@ final class AdminAssetsTest extends TestCase {
     }
 
     /** Ten blocks, each a core settings section with its own heading, in the tab order. */
+    /** The matrix draws "Restricted to N" through js/admin-scope.js and reloads after a scope is saved (B7). */
+    public function testTheMatrixShowsTheResourceScopeOfARestrictedModule(): void {
+        $script = (string)file_get_contents(dirname(__DIR__, 3) . '/js/admin-grants.js');
+        $this->assertStringContainsString("window.McpScopeUi.indicator(user.uid, module, user.scope[module])", $script);
+        $this->assertStringContainsString("window.addEventListener('mcp-scope-saved', reloadLocked)", $script);
+    }
+
     public function testAdminPageHasTenSectionBlocks(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
         preg_match_all('/<div class="section mcp-block" id="([^"]+)"[^>]*>\s*<h2><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
-        $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-inspector', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
-        $this->assertSame(['Status', 'Group grants', 'Permissions', 'Access inspector', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
+        $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-scope', 'mcp-inspector', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
+        $this->assertSame(['Status', 'Group grants', 'Permissions', 'Resource scope', 'Access inspector', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         $this->assertStringContainsString('data-scope="admin"', $template);
     }
 

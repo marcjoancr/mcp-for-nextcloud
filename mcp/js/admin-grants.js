@@ -533,6 +533,9 @@
 				cell.classList.add('mcp-band-' + (index % 2))
 				if (i === 0) {
 					cell.classList.add('mcp-module')
+					// "Restricted to N" or "Scope unknown" of a resource scope, drawn and opened by js/admin-scope.js.
+					const mark = user.scope?.[module] && window.McpScopeUi ? window.McpScopeUi.indicator(user.uid, module, user.scope[module]) : null
+					if (mark) cell.append(mark)
 				}
 				row.append(cell)
 			})
@@ -968,6 +971,7 @@
 	})
 
 	window.addEventListener('mcp-group-policy-saved', reloadLocked)
+	window.addEventListener('mcp-scope-saved', reloadLocked)
 
 	let searchTimer = null
 	searchInput.addEventListener('input', () => {

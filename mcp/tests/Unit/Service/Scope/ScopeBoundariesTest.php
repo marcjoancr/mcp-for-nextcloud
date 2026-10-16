@@ -11,7 +11,6 @@ use OCA\Mcp\Service\GrantMatrix;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\LogsAccess;
 use OCA\Mcp\Service\Policy\PolicyEventPayload;
-use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\App\IAppManager;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
@@ -53,10 +52,15 @@ final class ScopeBoundariesTest extends TestCase {
         $this->assertStringNotContainsString($this->fx->projects, (string)json_encode($rows));
     }
 
-    public function testTheMatrixFailsInsteadOfShowingUnrestrictedWhenScopesCannotBeRead(): void {
+    /** B7 review A1: an unreadable scope is "unavailable" in every cell, never unrestricted, never blank; grants stay. */
+    public function testAnUnreadableScopeIsUnavailableInTheMatrixNeverUnrestricted(): void {
         $this->fx->database->dbal->insert(ResourceScopeMapper::MODES_TABLE, ['user_key' => \OCA\Mcp\Db\IdentityKey::user('alice'), 'module' => 'files', 'user_id' => 'mallory', 'policy_rev' => '1']);
-        $this->expectException(PolicyUnavailable::class);
-        $this->matrix($this->fx->scopes)->rows([$this->fx->user('alice')]);
+        $rows = $this->matrix($this->fx->scopes)->rows([$this->fx->user('alice'), $this->fx->user('bob')]);
+        // The page is still drawn, so the grants stay editable; only the scope cells say they cannot be read.
+        $this->assertSame(['alice', 'bob'], array_column($rows, 'uid'));
+        foreach ($rows as $row) {
+            $this->assertSame(array_fill_keys(ResourceScopeMapper::MODULES, ['mode' => 'unavailable', 'count' => null]), $row['scope'], $row['uid']);
+        }
     }
 
     /** Review F1 of B1: a mode and its items come from one statement, never from two reads of different commits. */
