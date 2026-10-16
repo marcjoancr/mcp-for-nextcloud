@@ -133,7 +133,7 @@ final class CalendarSelftestService {
             $tokens = [$this->token($a), $this->token($b)];
             $this->tool($this->moveEvent->execute(['calendar' => $a->path, 'uid' => $suppressedUid, 'targetCalendar' => $b->path], $uid));
             $moved = $this->live($b, $suppressedUid);
-            $this->require($this->store->objectByUid($a->id, $suppressedUid) === null && $this->token($a) > $tokens[0] && $this->token($b) > $tokens[1], CalendarSelftestMessages::assertion('move-presence-sync'));
+            $this->require($this->store->objectByUid($a->id, $suppressedUid, 'VEVENT') === null && $this->token($a) > $tokens[0] && $this->token($b) > $tokens[1], CalendarSelftestMessages::assertion('move-presence-sync'));
             $this->assertSuppressed($moved);
             $this->ok($report, $step, CalendarSelftestMessages::detail('move'));
 
@@ -150,7 +150,7 @@ final class CalendarSelftestService {
             $step = 'delete';
             $this->delete($uid, $b, $suppressedUid);
             $trashed = \OCA\Mcp\Tools\Calendar\TrashedObject::row($this->store, $b->id, $suppressedUri);
-            $this->require($trashed !== null && $this->store->objectByUid($b->id, $suppressedUid) === null, CalendarSelftestMessages::assertion('deleted-object'));
+            $this->require($trashed !== null && $this->store->objectByUid($b->id, $suppressedUid, 'VEVENT') === null, CalendarSelftestMessages::assertion('deleted-object'));
             $this->assertSuppressed($trashed);
             $this->ok($report, $step, CalendarSelftestMessages::detail('delete'));
 
@@ -220,7 +220,7 @@ final class CalendarSelftestService {
                 }
                 foreach ($external as $entry) {
                     $attempt($entry['calendar']->path . $entry['uid'], function () use ($uid, $entry): void {
-                        if ($this->store->objectByUid($entry['calendar']->id, $entry['uid']) !== null) { $this->delete($uid, $entry['calendar'], $entry['uid']); }
+                        if ($this->store->objectByUid($entry['calendar']->id, $entry['uid'], 'VEVENT') !== null) { $this->delete($uid, $entry['calendar'], $entry['uid']); }
                     });
                 }
                 foreach ($owned as $uri => $calendar) {
@@ -290,7 +290,7 @@ final class CalendarSelftestService {
 
     /** @return array<string,mixed> live readback by generated UID */
     private function live(Calendar $calendar, string $uid): array {
-        $row = $this->store->objectByUid($calendar->id, $uid);
+        $row = $this->store->objectByUid($calendar->id, $uid, 'VEVENT');
         $this->require($row !== null && !$row['deleted'], CalendarSelftestMessages::assertion('live-object'));
         return $row;
     }
@@ -338,7 +338,7 @@ final class CalendarSelftestService {
     private function copies(string $uid, string $eventUid): array {
         $copies = [];
         foreach ($this->access->visible($uid) as $calendar) {
-            if ($calendar->ownerId === $uid && ($row = $this->store->objectByUid($calendar->id, $eventUid)) !== null) { $copies[] = ['calendar' => $calendar, 'row' => $row]; }
+            if ($calendar->ownerId === $uid && ($row = $this->store->objectByUid($calendar->id, $eventUid, 'VEVENT')) !== null) { $copies[] = ['calendar' => $calendar, 'row' => $row]; }
         }
         return $copies;
     }
@@ -362,7 +362,7 @@ final class CalendarSelftestService {
         $attendee = $entry['attendee'];
         $uid = $entry['uid'];
         try {
-            if ($this->store->objectByUid($entry['calendar']->id, $uid) !== null) { $this->delete($organizer->getUID(), $entry['calendar'], $uid, true); }
+            if ($this->store->objectByUid($entry['calendar']->id, $uid, 'VEVENT') !== null) { $this->delete($organizer->getUID(), $entry['calendar'], $uid, true); }
         } finally {
             $this->session->setVolatileActiveUser($attendee);
             try {

@@ -14,7 +14,7 @@ use OCA\Mcp\Tests\Unit\L10n\JsonL10n;
 use OCA\Mcp\Tests\Unit\Tools\Calendar\FakeCalendarDav;
 use OCA\Mcp\Tests\Unit\Tools\Calendar\FakeCalendarStore;
 use OCA\Mcp\Tools\Calendar\AttendeeResolver;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub;
 use OCA\Mcp\Tools\Calendar\CalendarModule;
 use OCA\Mcp\Tools\Calendar\Classification;
 use OCA\Mcp\Tools\Calendar\DateInput;
@@ -224,7 +224,7 @@ final class ToolErrorsLanguagesTest extends TestCase {
 
     private function calendarModule(): CalendarModule {
         $store = new FakeCalendarStore();
-        $access = new CalendarAccess($store);
+        $access = ScopeStub::access($store);
         $classification = new Classification();
         $repository = new EventRepository($store, $classification);
         $dates = new DateInput();

@@ -158,6 +158,7 @@ final class RoutesTest extends TestCase {
             'checkout_limit#show' => [], 'checkout_limit#update' => [],
             'tags#index' => [], 'tags#update' => [],
             'scope#show' => [], 'scope#candidates' => [], 'scope#update' => [],
+            'inspector#access' => [], 'inspector#path' => [], 'inspector#calendar' => [],
             // Discovery documents are public by design.
             'metadata#protectedResource' => ['NoCSRFRequired', 'PublicPage'], 'metadata#authorizationServer' => ['NoCSRFRequired', 'PublicPage'],
             'metadata#oauthServer' => ['NoCSRFRequired', 'PublicPage'], 'metadata#jwks' => ['NoCSRFRequired', 'PublicPage'],

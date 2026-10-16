@@ -13,7 +13,7 @@ use OCA\Deck\NoPermissionException;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCA\Mcp\Tools\Calendar\Calendar;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarException;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\Classification;
@@ -36,27 +36,29 @@ class ReferenceLinkerTest extends TestCase {
     private const CALENDAR_PATH = '/remote.php/dav/calendars/alice/pessoal/';
 
     private DeckGatewayInterface&MockObject $deck;
-    private CalendarAccess&MockObject $calendars;
+    private ScopedCalendarAccess&MockObject $calendars;
     private CalendarStore&MockObject $store;
     private IAppManager&MockObject $appManager;
     private GrantPolicy $grants;
     /** @var list<string> apps enabled for the user */
     private array $enabledApps = ['deck', 'calendar'];
     private ReferenceLinker $linker;
+    private IUserManager $users;
+    private IURLGenerator $urls;
 
     protected function setUp(): void {
         parent::setUp();
         $this->deck = $this->createMock(DeckGatewayInterface::class);
-        $this->calendars = $this->createMock(CalendarAccess::class);
+        $this->calendars = $this->createMock(ScopedCalendarAccess::class);
         $this->store = $this->createMock(CalendarStore::class);
         $this->appManager = $this->createMock(IAppManager::class);
         $this->appManager->method('isEnabledForUser')
             ->willReturnCallback(fn (string $app): bool => in_array($app, $this->enabledApps, true));
-        $users = $this->createMock(IUserManager::class);
+        $users = $this->users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturnCallback(fn (string $uid): ?IUser => $uid === 'alice' ? $this->createMock(IUser::class) : null);
         $this->grants = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy((new InMemoryConfig())->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
 
-        $urls = $this->createMock(IURLGenerator::class);
+        $urls = $this->urls = $this->createMock(IURLGenerator::class);
         $urls->method('linkToRouteAbsolute')->willReturnCallback(
             static fn (string $route, array $parameters): string => $route === 'deck.page.indexCard'
                 ? 'https://cloud.example/apps/deck/board/' . $parameters['boardId'] . '/card/' . $parameters['cardId']
@@ -175,6 +177,54 @@ class ReferenceLinkerTest extends TestCase {
             'https://cloud.example/apps/calendar/edit/' . base64_encode(self::CALENDAR_PATH . 'reuniao.ics'),
             $item['url'],
         );
+    }
+
+    /**
+     * B6-R1: with the scope unreadable, a calendar alice has and one that does not exist answer the same 503, decided
+     * before any native lookup; nothing tells them apart and no event is read.
+     */
+    public function testAnUnreadableScopeAnswersTheSameForAnExistingAndAMissingCalendar(): void {
+        $store = new \OCA\Mcp\Tests\Unit\Tools\Calendar\FakeCalendarStore();
+        $store->addCalendar('principals/users/alice', 3, 'pessoal', 'principals/users/alice');
+        $scope = (new \OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub())->restrict('calendar', []);
+        $scope->unavailable = true;
+        $classification = new Classification();
+        $linker = new ReferenceLinker($this->deck, \OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub::access($store, $scope), $store,
+            new EventRepository($store, $classification), $classification, $this->appManager, $this->users, $this->grants, $this->urls);
+        $outcomes = [];
+        foreach ([self::CALENDAR_PATH, '/remote.php/dav/calendars/alice/missing/'] as $path) {
+            try {
+                $linker->resolve('alice', ['type' => 'calendar_event', 'calendar' => $path, 'uid' => 'ev-1']);
+                $outcomes[] = 'linked';
+            } catch (\Throwable $e) {
+                $outcomes[] = [$e::class, $e->getMessage()];
+            }
+        }
+        $this->assertSame([\OCA\Mcp\Service\Policy\PolicyUnavailable::class, 'Resource scope unavailable'], $outcomes[0]);
+        $this->assertSame($outcomes[0], $outcomes[1]);
+        $this->assertSame([], $store->rangesAsked);
+    }
+
+    /** B6-S1: a task of a calendar that holds both components is no calendar_event, as unknown as a missing UID. */
+    public function testATaskUidIsRefusedExactlyLikeAMissingEvent(): void {
+        $store = new \OCA\Mcp\Tests\Unit\Tools\Calendar\FakeCalendarStore();
+        $store->addCalendar('principals/users/alice', 3, 'pessoal', 'principals/users/alice');
+        $store->addObject(3, 'todo1.ics', "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nBEGIN:VTODO\r\nUID:todo1\r\n"
+            . "DTSTAMP:20261001T100000Z\r\nSUMMARY:A task\r\nEND:VTODO\r\nEND:VCALENDAR\r\n");
+        $scope = (new \OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub())->restrict('calendar', ['3'])->restrict('tasks', []);
+        $classification = new Classification();
+        $linker = new ReferenceLinker($this->deck, \OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub::access($store, $scope), $store,
+            new EventRepository($store, $classification), $classification, $this->appManager, $this->users, $this->grants, $this->urls);
+        $outcomes = [];
+        foreach (['todo1', 'no-such-uid'] as $uid) {
+            try {
+                $outcomes[] = ['linked', $linker->resolve('alice', ['type' => 'calendar_event', 'calendar' => self::CALENDAR_PATH, 'uid' => $uid])];
+            } catch (\Throwable $e) {
+                $outcomes[] = [$e::class, $e->getMessage()];
+            }
+        }
+        $this->assertSame([ConversationAccessException::class, Messages::referenceNotFound()], $outcomes[0]);
+        $this->assertSame($outcomes[1], $outcomes[0]);
     }
 
     public function testACalendarTheCallerCannotSeeIsRefusedWithoutReadingEvents(): void {

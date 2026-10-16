@@ -11,7 +11,7 @@ use InvalidArgumentException;
 use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Service\UserTimezone;
 use OCA\Mcp\Tools\Calendar\Calendar;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarDav;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\SharedGuard;
@@ -37,7 +37,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
     /**
      * Receives VTODO queries, calendar access, native CalDAV writes and retention policy.
      *
-     * @param CalendarAccess $access collection visibility and write-access resolver
+     * @param ScopedCalendarAccess $access the calendars the tools may reach: native visibility and ACL, narrowed by the resource scope
      * @param CalendarStore $store read-only storage port
      * @param TaskStore $tasks live VTODO query port
      * @param CalendarDav $dav native DAV write port
@@ -50,7 +50,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @return void
      */
     public function __construct(
-        private CalendarAccess $access,
+        private ScopedCalendarAccess $access,
         private CalendarStore $store,
         private TaskStore $tasks,
         private CalendarDav $dav,
@@ -428,7 +428,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @throws ToolFailure when no task object has that UID
      */
     private function row(int $id, string $uid): array {
-        return $this->store->objectByUid($id, $uid) ?? throw new ToolFailure(CommonMessages::notFound());
+        return $this->store->objectByUid($id, $uid, 'VTODO') ?? throw new ToolFailure(CommonMessages::notFound());
     }
 
     /**

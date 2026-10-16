@@ -960,4 +960,109 @@ final class VisibilityGuardTest extends TestCase {
         );
         return $storage;
     }
+
+    // --- explain(): the administrator's reason is the decision of isVisible() (issue #4, A5) ---------------------
+
+    /** @return array{reason:string, folder:?string} explain() with the folder as its path, for comparison */
+    private static function explained(VisibilityGuard $guard, Node $node): array {
+        $why = $guard->explain($node);
+        return ['reason' => $why['reason'], 'folder' => $why['folder']?->getPath()];
+    }
+
+    public function testA5ExplainNamesADirectTagAndTheFolderAnExclusionIsInheritedFrom(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $guard = $this->guard();
+        $secret = $this->tree->addFolder('/alice/files/Secret');
+        $this->tree->addFolder('/alice/files/Secret/Deep');
+        $this->tree->addFile('/alice/files/Secret/Deep/plan.md', 'x');
+        $this->tree->addFile('/alice/files/open.md', 'x');
+        $this->tagAssignments[(string)$secret] = ['7'];
+
+        $cases = [
+            '/alice/files/Secret' => ['reason' => VisibilityGuard::EXPLAINED_TAG_DIRECT, 'folder' => null],
+            '/alice/files/Secret/Deep/plan.md' => ['reason' => VisibilityGuard::EXPLAINED_TAG_FOLDER, 'folder' => '/alice/files/Secret'],
+            '/alice/files/open.md' => ['reason' => VisibilityGuard::EXPLAINED_VISIBLE, 'folder' => null],
+        ];
+        foreach ($cases as $path => $expected) {
+            $node = $this->tree->node($path);
+            $this->assertSame($expected, self::explained($guard, $node), $path);
+            // The decision the tools get, after an explanation and without one, is the same.
+            $this->assertSame($expected['reason'] === VisibilityGuard::EXPLAINED_VISIBLE, $guard->isVisible($node), $path);
+            $this->assertSame($expected['reason'] === VisibilityGuard::EXPLAINED_VISIBLE, $this->guard()->isVisible($node), $path);
+        }
+    }
+
+    public function testA5AnExplanationIsNotHiddenByAReasonCachedEarlier(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $guard = $this->guard();
+        $secret = $this->tree->addFolder('/alice/files/Secret');
+        $this->tree->addFile('/alice/files/Secret/a.md', 'x');
+        $this->tagAssignments[(string)$secret] = ['7'];
+        $this->assertFalse($guard->isVisible($this->tree->node('/alice/files/Secret/a.md')));
+
+        $this->assertSame(VisibilityGuard::EXPLAINED_TAG_FOLDER, $guard->explain($this->tree->node('/alice/files/Secret/a.md'))['reason']);
+    }
+
+    public function testA5ExplainNamesTheShareOrigin(): void {
+        [$guard, $alias] = $this->sharedFixture(false, 1, false, true, true);
+        $this->tagAssignments['10'] = ['42'];
+        $this->assertSame(['reason' => VisibilityGuard::EXPLAINED_TAG_SHARE_ORIGIN, 'folder' => null], self::explained($guard, $alias));
+        $this->assertFalse($guard->isVisible($alias));
+    }
+
+    public function testA5AnUnresolvedOwnerTreeIsNotEvaluatedNeverVisible(): void {
+        [$guard, $alias] = $this->sharedFixture(true);
+        $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($alias)['reason']);
+    }
+
+    public function testA5ABackupOfAnExcludedOriginalIsNamedAsSuch(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $guard = $this->guard();
+        $original = $this->tree->addFile('/alice/files/docs/secret.txt', 'secret');
+        $this->tagAssignments[(string)$original] = ['7'];
+        $backup = '/alice/files/' . FileBackup::FOLDER . '/docs/secret.txt.20261001-120000.bak';
+        $this->tree->addFile($backup, 'secret');
+
+        // The original's own reason (a direct tag) is not the backup's.
+        $this->assertSame(['reason' => VisibilityGuard::EXPLAINED_BACKUP, 'folder' => null], self::explained($guard, $this->tree->node($backup)));
+        $this->assertSame(VisibilityGuard::EXPLAINED_TAG_DIRECT, $guard->explain($this->tree->node('/alice/files/docs/secret.txt'))['reason']);
+    }
+
+    /** M1 of the 13/A5 review: a backup whose original could not be checked is not evaluated, not "a backup of an excluded file". */
+    public function testA5ABackupWhoseOriginalCannotBeEvaluatedIsNotEvaluated(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $original = (string)$this->tree->addFile('/alice/files/docs/plain.txt', 'plain');
+        $backup = '/alice/files/' . FileBackup::FOLDER . '/docs/plain.txt.20261001-120000.bak';
+        $this->tree->addFile($backup, 'plain');
+        $mapper = $this->createMock(ISystemTagObjectMapper::class);
+        $mapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use ($original): array {
+            if (in_array($original, array_map('strval', $ids), true)) {
+                throw new \RuntimeException('tag read of the original failed');
+            }
+            return array_fill_keys(array_map('strval', $ids), []);
+        });
+        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+
+        $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($this->tree->node($backup))['reason']);
+        $this->assertFalse($guard->isVisible($this->tree->node($backup)), 'still refused');
+    }
+
+    public function testA5AnInvalidConfigurationAndAFailedTagReadAreNamed(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '{"0":"42"}';
+        $this->tree->addFile('/alice/files/plain.txt', 'plain');
+        $plain = $this->tree->node('/alice/files/plain.txt');
+        $this->assertSame(VisibilityGuard::EXPLAINED_INVALID_CONFIGURATION, $this->guard()->explain($plain)['reason']);
+
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $mapper = $this->createMock(ISystemTagObjectMapper::class);
+        $mapper->method('getTagIdsForObjects')->willThrowException(new \RuntimeException('down'));
+        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($plain)['reason']);
+        $this->assertFalse($guard->isVisible($plain));
+    }
+
+    public function testA5WithoutAnyTagEverythingIsVisible(): void {
+        $this->tree->addFile('/alice/files/plain.txt', 'plain');
+        $this->assertSame(VisibilityGuard::EXPLAINED_VISIBLE, $this->guard()->explain($this->tree->node('/alice/files/plain.txt'))['reason']);
+    }
 }

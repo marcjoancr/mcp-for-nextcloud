@@ -33,6 +33,16 @@ use OCP\SystemTag\ISystemTagObjectMapper;
 class VisibilityGuard {
     public const CONFIG_KEY = 'hidden_system_tags';
 
+    /** Reasons explain() gives; only the administrator's inspector shows them, the tools answer "not found". */
+    public const EXPLAINED_VISIBLE = 'visible';
+    public const EXPLAINED_TAG_DIRECT = 'tag_direct';
+    public const EXPLAINED_TAG_FOLDER = 'tag_folder';
+    public const EXPLAINED_TAG_SHARE_ORIGIN = 'tag_share_origin';
+    public const EXPLAINED_BACKUP = 'backup_of_excluded';
+    public const EXPLAINED_INVALID_CONFIGURATION = 'invalid_configuration';
+    /** The check failed (a tag, an ancestor or the owner's tree could not be read): refused, reason unknown. */
+    public const EXPLAINED_NOT_EVALUATED = 'not_evaluated';
+
     /** @var list<string>|null cached list of hidden system tag IDs */
     private ?array $hiddenTagIds = null;
 
@@ -53,6 +63,12 @@ class VisibilityGuard {
 
     /** @var array<string, array{node: Node, mount: string}|null> share root by ancestor id and mounted path */
     private array $shareRootCache = [];
+
+    /**
+     * @var array{reason?: string, folder?: Node}|null while explain() runs, the first reason the one decision of
+     *      checkVisibility() refused for; null otherwise, so the tools' checks record nothing
+     */
+    private ?array $explanation = null;
 
     public function __construct(
         private IConfig $config,
@@ -93,9 +109,42 @@ class VisibilityGuard {
         }
     }
 
+    /**
+     * Why the tools see or do not see a node, for the administrator's inspector (contract A.4, decision D5): the very
+     * decision of isVisible(), with the reason recorded where it refuses, never a second evaluation of the rules. The
+     * per-request caches are cleared first, since a cached refusal carries no reason.
+     *
+     * @param Node $node file or folder, resolved in the inspected user's tree
+     * @return array{reason: string, folder: ?Node} reason is one of EXPLAINED_*; folder is the tagged ancestor for
+     *         EXPLAINED_TAG_FOLDER, the only reason that names another node
+     */
+    public function explain(Node $node): array {
+        $this->clearCache();
+        $this->explanation = [];
+        try {
+            $visible = $this->isVisible($node);
+            $why = $this->explanation;
+        } finally {
+            $this->explanation = null;
+        }
+        if ($visible) {
+            return ['reason' => self::EXPLAINED_VISIBLE, 'folder' => null];
+        }
+        // A refusal that recorded nothing is never reported as a known reason.
+        return ['reason' => $why['reason'] ?? self::EXPLAINED_NOT_EVALUATED, 'folder' => $why['folder'] ?? null];
+    }
+
+    /** Records the first reason of a refusal while explain() runs. */
+    private function because(string $reason, ?Node $folder = null): void {
+        if ($this->explanation !== null && !isset($this->explanation['reason'])) {
+            $this->explanation = ['reason' => $reason] + ($folder === null ? [] : ['folder' => $folder]);
+        }
+    }
+
     private function checkVisibility(Node $node): bool {
         if (!$this->isConfigurationValid()) {
             $this->warnInvalidConfiguration();
+            $this->because(self::EXPLAINED_INVALID_CONFIGURATION);
             return false;
         }
         $hiddenTags = $this->getHiddenTagIds();
@@ -178,6 +227,11 @@ class VisibilityGuard {
                     if (in_array((string)$tagId, $hiddenTags, true)) {
                         $foundHidden = true;
                         $this->cache[$cacheKey] = false;
+                        if ($cid === $nodeId) {
+                            $this->because(self::EXPLAINED_TAG_DIRECT);
+                        } else {
+                            $this->because(self::EXPLAINED_TAG_FOLDER, $chainNode);
+                        }
                         break;
                     }
                 }
@@ -197,6 +251,7 @@ class VisibilityGuard {
 
         // Check /MCP backups mirror rule
         if ($this->isHiddenBackup($node, $chain)) {
+            $this->because(self::EXPLAINED_BACKUP);
             if ($nodeId > 0) {
                 $this->cache[$nodeKey] = false;
             }
@@ -325,6 +380,7 @@ class VisibilityGuard {
             foreach ($ids as $cid) {
                 foreach ($tagsByObject[$cid] ?? [] as $tagId) {
                     if (in_array((string)$tagId, $hiddenTags, true)) {
+                        $this->because(self::EXPLAINED_TAG_SHARE_ORIGIN);
                         return $this->ownerCache[$id] = false;
                     }
                 }
@@ -376,6 +432,7 @@ class VisibilityGuard {
 
     /** Logs a privacy refusal without node names, paths or exception details. */
     private function warnVisibilityFailure(): void {
+        $this->because(self::EXPLAINED_NOT_EVALUATED);
         $this->logger?->warning('MCP visibility check failed; access refused', ['app' => 'mcp']);
     }
 
@@ -715,7 +772,19 @@ class VisibilityGuard {
 
         try {
             $originalNode = $userFolder->get($originalRelPath);
-            return !$this->isVisible($originalNode);
+            // The original's own reason is not the backup's: it is recorded apart while the original is checked, and
+            // only an original that could not be evaluated is carried over (A.4: the gate not evaluated is named).
+            [$explaining, $this->explanation] = [$this->explanation, $this->explanation === null ? null : []];
+            try {
+                $hidden = !$this->isVisible($originalNode);
+                $original = $this->explanation;
+            } finally {
+                $this->explanation = $explaining;
+            }
+            if ($hidden && $original !== null && ($original['reason'] ?? self::EXPLAINED_NOT_EVALUATED) === self::EXPLAINED_NOT_EVALUATED) {
+                $this->because(self::EXPLAINED_NOT_EVALUATED);
+            }
+            return $hidden;
         } catch (\Throwable) {
             $this->warnVisibilityFailure();
             return true;

@@ -759,3 +759,9 @@
 .mcp-group-counts th, .mcp-group-counts td { text-align: start; padding: 6px; }
 [id="mcp-group-alert"] { color: var(--color-error); }
 [id="mcp-group-detail"] :focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
+.mcp-inspector-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 8px; }
+.mcp-inspector-table { width: 100%; margin-block: 16px; }
+.mcp-inspector-table th, .mcp-inspector-table td { text-align: start; padding: 6px; }
+.mcp-inspector-blocked { color: var(--color-error); }
+.mcp-inspector-unknown { color: var(--color-warning); font-weight: bold; }
+[id="mcp-inspector-alert"] { color: var(--color-error); }

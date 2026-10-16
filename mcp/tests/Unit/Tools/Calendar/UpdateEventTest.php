@@ -150,6 +150,8 @@ final class UpdateEventTest extends CalendarTestCase {
     public function testInvalidDataIsBlocked(): void {
         $this->store->addObject(2, 'bad.ics', "BEGIN:VCALENDAR\r\nUID:bad\r\nBROKEN");
         $this->store->objects[2]['bad.ics']['data'] = "not ical\r\nUID:bad\r\n";
+        // The server stored it as an event when it was written; only its data is broken now.
+        $this->store->objects[2]['bad.ics']['component'] = 'VEVENT';
         self::assertToolError($this->call('calendar_update_event', ['calendar' => self::WORK, 'uid' => 'bad', 'summary' => 'x']), 'dados inválidos');
     }
 
