@@ -99,17 +99,19 @@
 		if (group.state === 'pending_delete') return t('mcp', 'Group deletion is pending. This policy does not grant access. Check the group before confirming it.')
 		return ''
 	}
+	/** Material Design Icons "lock-outline", in the text colour, so it follows the theme; decoration, hidden from assistive technology. */
+	const LOCK_ICON = '<svg class="mcp-group-lock" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12,17C10.89,17 10,16.1 10,15C10,13.89 10.89,13 12,13A2,2 0 0,1 14,15A2,2 0 0,1 12,17M18,20V10H6V20H18M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V10C4,8.89 4.89,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/></svg>'
 	/**
 	 * The state of a group in one short phrase, for its row in the list; '' when the group can grant normally. The
 	 * phrase always carries the state in words, next to a symbol, so it never depends on colour.
 	 *
-	 * @return {{symbol: string, text: string, warning: boolean}|null}
+	 * @return {{symbol: string, lock?: boolean, text: string, warning: boolean}|null} a lock is drawn as an icon, not as a symbol
 	 */
 	function rowState(group) {
 		if (group.invalidId) return { symbol: '⊘', text: t('mcp', 'Cannot be edited: invalid group ID'), warning: false }
 		if (group.trusted === null) return { symbol: '?', text: t('mcp', 'Source unavailable'), warning: true }
 		if (group.exists === false) return { symbol: '⊘', text: t('mcp', 'Deleted group'), warning: false }
-		if (!group.trusted) return { symbol: '🔒', text: t('mcp', 'Cannot grant access'), warning: false }
+		if (!group.trusted) return { symbol: '', lock: true, text: t('mcp', 'Cannot grant access'), warning: false }
 		if (group.state === 'needs_confirm') return { symbol: '⚠', text: t('mcp', 'Awaiting confirmation'), warning: true }
 		if (group.state === 'pending_delete') return { symbol: '⚠', text: t('mcp', 'Deletion pending'), warning: true }
 		return null
@@ -142,6 +144,7 @@
 		let end
 		if (state) {
 			end = el('span', { className: 'mcp-group-end mcp-group-state' + (state.warning ? ' mcp-group-state-warning' : ''), textContent: state.symbol })
+			if (state.lock) end.innerHTML = LOCK_ICON
 		} else {
 			end = el('span', { className: 'mcp-group-end', textContent: grantShort(group) })
 		}
