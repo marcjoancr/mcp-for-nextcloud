@@ -143,6 +143,8 @@
 		menu.replaceChildren()
 		trigger.setAttribute('aria-expanded', 'false')
 		if (restoreFocus && trigger.isConnected) trigger.focus()
+		// js/admin-exceptions.js waits for this to draw the table again.
+		window.dispatchEvent?.(new Event('mcp-row-menu-closed'))
 	}
 
 	/**

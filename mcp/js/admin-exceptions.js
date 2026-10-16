@@ -34,10 +34,12 @@
 	const INDIVIDUAL = ['individual_allow', 'individual_deny', 'invalid']
 
 	/**
-	 * The classification of the page on screen: key (revision and users of the page it was read for), status (pending,
-	 * done or failed) and, per cell, {kind: exception|redundant, after}.
+	 * The classification of the page on screen: the read of the table it is about (data, the object matrix.data() returned,
+	 * and key, its revision and users), status (pending, done or failed) and, per cell, {kind: exception|redundant, after}.
+	 * A new read of the table is a new classification even at the same revision and with the same users: a group can lose
+	 * a member without moving the revision, and what was redundant becomes an exception.
 	 */
-	let result = { key: null, status: 'pending', cells: new Map() }
+	let result = { data: null, key: null, status: 'pending', cells: new Map() }
 	/** A redraw waits while the level popover is open, so the answer never closes what the administrator is using. */
 	let refreshWaiting = false
 
@@ -53,6 +55,11 @@
 	/** @return {string} key of the page on screen: a new revision or another set of users is another classification */
 	function pageKey(data) {
 		return data.revision + '\0' + data.users.map((user) => user.uid).join('\0')
+	}
+
+	/** @return {boolean} whether the classification is about this read of the table */
+	function current(data) {
+		return result.data === data && result.key === pageKey(data)
 	}
 
 	/**
@@ -115,14 +122,14 @@
 		if (!data) {
 			return
 		}
-		const key = pageKey(data)
-		if (result.key === key) {
+		if (current(data)) {
 			renderNotice()
 			return
 		}
+		const key = pageKey(data)
 		const byUser = data.users.map(individualCells)
 		const all = byUser.flat()
-		result = { key, status: all.length === 0 ? 'done' : 'pending', cells: new Map() }
+		result = { data, key, status: all.length === 0 ? 'done' : 'pending', cells: new Map() }
 		renderNotice()
 		if (all.length === 0) {
 			return
@@ -159,26 +166,34 @@
 		refresh()
 	}
 
-	/** Draws the table again with the classification, keeping the focus on the cell that had it. */
+	/**
+	 * Draws the table again with the classification. It waits while the level popover or a row's actions menu is open, so
+	 * the answer never closes what the administrator is using, and otherwise gives the focus back to the same control of
+	 * the same cell of the same row: a level button, a box, the "…" button or the selection box.
+	 */
 	function refresh() {
 		const popover = document.getElementById('mcp-level-popover')
-		if (popover && !popover.hidden) {
+		const menu = document.getElementById('mcp-row-menu')
+		if ((popover && !popover.hidden) || (menu && !menu.hidden)) {
 			refreshWaiting = true
 			return
 		}
 		refreshWaiting = false
 		const active = document.activeElement
-		const cell = active?.closest?.('td')
+		const cell = active?.closest?.('td, th')
 		const uid = cell?.parentElement?.dataset?.uid
-		const levelKey = cell?.dataset?.levelKey
+		const index = cell?.cellIndex
+		const kind = active?.classList?.[0] || null
+		const tag = active?.tagName?.toLowerCase?.() || null
 		matrix.refresh()
-		if (uid === undefined || levelKey === undefined) {
+		if (uid === undefined || index === undefined || tag === null) {
 			return
 		}
 		const table = document.getElementById('mcp-matrix')
 		const row = [...(table?.tBodies?.[0]?.rows || [])].find((candidate) => candidate.dataset.uid === uid)
-		const again = [...(row?.cells || [])].find((candidate) => candidate.dataset.levelKey === levelKey)
-		again?.querySelector('button')?.focus()
+		const again = row?.cells?.[index]
+		const target = (kind !== null && again?.querySelector(tag + '.' + kind)) || again?.querySelector(tag)
+		target?.focus()
 	}
 
 	/** @return {Array<{uid: string, module: string|null, operation: string}>} the redundant cells of the page */
@@ -222,7 +237,7 @@
 	 */
 	function kindOf(uid, module, operation) {
 		const data = matrix.data()
-		if (!data || result.key !== pageKey(data) || result.status === 'pending') {
+		if (!data || !current(data) || result.status === 'pending') {
 			return { kind: 'pending', after: null }
 		}
 		if (result.status === 'failed') {
@@ -232,9 +247,14 @@
 	}
 
 	window.addEventListener('mcp-matrix-rendered', classify)
-	window.addEventListener('mcp-level-popover-closed', () => {
-		if (refreshWaiting) refresh()
-	})
+	// A save of one cell moves the revision and updates its row without drawing the table again: the classification is
+	// read again once that write has finished updating the page.
+	window.addEventListener('mcp-revision-moved', () => setTimeout(classify, 0))
+	for (const closed of ['mcp-level-popover-closed', 'mcp-row-menu-closed']) {
+		window.addEventListener(closed, () => {
+			if (refreshWaiting) refresh()
+		})
+	}
 
 	window.McpAdminExceptions = { kindOf, redundantCells, kindOfAnswer, chunks, status: () => result.status }
 })()

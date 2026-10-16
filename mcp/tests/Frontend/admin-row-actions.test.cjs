@@ -75,7 +75,7 @@ function setup({ overrides = true, clipboard = true } = {}) {
 	scope.scrollIntoView = () => { log.scrolled.push('scope') }
 	document.getElementById = (id) => ({ 'mcp-row-menu': menu, 'mcp-inspector': inspector, 'mcp-scope': scope })[id] ?? null
 	document.addEventListener = (name, action) => { (document.listeners[name] ||= []).push(action) }
-	const log = { inspected: [], scoped: [], resets: [], copied: [], notices: [], errors: [], scrolled: [] }
+	const log = { inspected: [], scoped: [], resets: [], copied: [], notices: [], errors: [], scrolled: [], events: [] }
 	const users = [{ uid: 'ana', displayName: 'Ana Souza' }, { uid: 'bruno', displayName: 'Bruno Lima' }]
 	const listeners = {}
 	const window = {
@@ -88,12 +88,13 @@ function setup({ overrides = true, clipboard = true } = {}) {
 		McpScopeUi: { open: (uid, module, trigger) => log.scoped.push([uid, module, trigger]) },
 		McpAdminOverrides: overrides ? { hasOverrides: (user) => user.uid === 'ana', resetUser: (user, trigger) => log.resets.push([user.uid, trigger]) } : undefined,
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
+		dispatchEvent: (event) => log.events.push(event.type),
 	}
 	const navigator = !clipboard ? {} : { clipboard: { writeText: async (text) => {
 		if (clipboard === 'refuses') throw new Error('NotAllowedError')
 		log.copied.push(text)
 	} } }
-	vm.runInNewContext(fs.readFileSync(path.join(root, 'js/admin-row-actions.js'), 'utf8'), { window, document, navigator, t })
+	vm.runInNewContext(fs.readFileSync(path.join(root, 'js/admin-row-actions.js'), 'utf8'), { window, document, navigator, t, Event: class { constructor(type) { this.type = type } } })
 	const button = (uid) => {
 		const trigger = window.McpRowActions.button(users.find((user) => user.uid === uid))
 		block.append(trigger)
@@ -169,6 +170,7 @@ test('the keyboard: arrows move, Home and End jump, Escape closes and gives the 
 	assert.equal(kit.document.activeElement, kit.menu.children[0])
 	await key('Escape')
 	assert.equal(kit.menu.hidden, true)
+	assert.deepEqual(kit.log.events, ['mcp-row-menu-closed'], 'the matrix may draw itself again now (F3)')
 	assert.equal(trigger.getAttribute('aria-expanded'), 'false')
 	assert.equal(kit.document.activeElement, trigger)
 	await trigger.click()

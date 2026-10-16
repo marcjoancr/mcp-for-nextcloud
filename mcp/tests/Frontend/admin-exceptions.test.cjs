@@ -29,10 +29,10 @@ function user(uid, values, origins = {}) {
 	}
 }
 
-function setup({ users, preview, popoverOpen = false } = {}) {
+function setup({ users, preview, popoverOpen = false, menuOpen = false, table = null } = {}) {
 	const listeners = {}
 	const element = (hidden = false) => ({ hidden, textContent: '', listeners: {}, addEventListener(name, action) { (this.listeners[name] ||= []).push(action) } })
-	const elements = { 'mcp-redundant-notice': element(true), 'mcp-redundant-notice-text': element(), 'mcp-redundant-review': element(), 'mcp-level-popover': element(!popoverOpen) }
+	const elements = { 'mcp-redundant-notice': element(true), 'mcp-redundant-notice-text': element(), 'mcp-redundant-review': element(), 'mcp-level-popover': element(!popoverOpen), 'mcp-row-menu': element(!menuOpen), 'mcp-matrix': table }
 	const document = { activeElement: null, getElementById: (id) => elements[id] ?? null }
 	const calls = []
 	const reviews = []
@@ -45,7 +45,7 @@ function setup({ users, preview, popoverOpen = false } = {}) {
 			if (preview instanceof Error) throw preview
 			return preview(body)
 		},
-		refresh: () => { refreshes++; fire('mcp-matrix-rendered') },
+		refresh: () => { refreshes++; onRefresh?.(); fire('mcp-matrix-rendered') },
 	}
 	const window = {
 		McpAdminMatrix: matrix,
@@ -53,8 +53,9 @@ function setup({ users, preview, popoverOpen = false } = {}) {
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
 	}
 	function fire(name) { for (const action of listeners[name] || []) action() }
+	let onRefresh = null
 	const n = (app, one, many, count) => (count === 1 ? one : many).replace('%n', count)
-	vm.runInNewContext(fs.readFileSync(path.join(root, 'js/admin-exceptions.js'), 'utf8'), { window, document, n })
+	vm.runInNewContext(fs.readFileSync(path.join(root, 'js/admin-exceptions.js'), 'utf8'), { window, document, n, setTimeout })
 	return {
 		api: window.McpAdminExceptions,
 		elements,
@@ -63,6 +64,10 @@ function setup({ users, preview, popoverOpen = false } = {}) {
 		refreshes: () => refreshes,
 		rendered: async () => { fire('mcp-matrix-rendered'); await tick() },
 		popoverClosed: async () => { elements['mcp-level-popover'].hidden = true; fire('mcp-level-popover-closed'); await tick() },
+		menuClosed: async () => { elements['mcp-row-menu'].hidden = true; fire('mcp-row-menu-closed'); await tick() },
+		revisionMoved: async () => { fire('mcp-revision-moved'); await new Promise((resolve) => setTimeout(resolve, 5)); await tick() },
+		onRefresh: (action) => { onRefresh = action },
+		document,
 		setData: (next) => { data = next },
 	}
 }
@@ -174,4 +179,84 @@ test('cells are split so that no preview has more than 50 users or 2,500 cells',
 	assert.deepEqual(plain(kit.api.chunks(Array.from({ length: 51 }, () => cells(1))).map((chunk) => chunk.length)), [50, 1])
 	assert.deepEqual(plain(kit.api.chunks([cells(1500), cells(1500)]).map((chunk) => chunk.length)), [1500, 1500])
 	assert.deepEqual(plain(kit.api.chunks([cells(0), cells(3)]).map((chunk) => chunk.length)), [3], 'users without individual values do not count')
+})
+
+test('F2: every new read of the table is classified again, even at the same revision and with the same users', async () => {
+	// Ana's individual Allow of edit repeats what a group gives; then the group loses her without moving the revision.
+	let inherited = true
+	const ana = () => [user('ana', { edit: true }, { edit: o('individual_allow') })]
+	const kit = setup({ users: ana(), preview: previewOf(() => inherited) })
+	await kit.rendered()
+	assert.equal(kit.api.kindOf('ana', 'files', 'edit').kind, 'redundant')
+	inherited = false
+	kit.setData({ revision: REVISION, users: ana() })
+	assert.equal(kit.api.kindOf('ana', 'files', 'edit').kind, 'pending', 'a new read is unknown until classified')
+	await kit.rendered()
+	assert.equal(kit.calls.length, 2, 'the preview is asked again for the new read')
+	assert.equal(kit.api.kindOf('ana', 'files', 'edit').kind, 'exception')
+	assert.equal(kit.refreshes(), 2, 'once per read, never in a loop')
+})
+
+test('F2: a failed second read falls back to marking every individual value as an exception', async () => {
+	let fail = false
+	const kit = setup({ users: [user('ana', { edit: true }, { edit: o('individual_allow') })], preview: (body) => {
+		if (fail) throw new Error('503')
+		return previewOf(() => true)(body)
+	} })
+	await kit.rendered()
+	assert.equal(kit.api.kindOf('ana', 'files', 'edit').kind, 'redundant')
+	fail = true
+	kit.setData({ revision: REVISION, users: [user('ana', { edit: true }, { edit: o('individual_allow') })] })
+	await kit.rendered()
+	assert.equal(kit.api.status(), 'failed')
+	assert.equal(kit.api.kindOf('ana', 'files', 'edit').kind, 'exception')
+})
+
+test('F2: a write that moves the revision without drawing the table again is classified again', async () => {
+	const data = { revision: REVISION, users: [user('ana', { edit: true }, { edit: o('individual_allow') })] }
+	const kit = setup({ users: data.users, preview: previewOf(() => true) })
+	kit.setData(data)
+	await kit.rendered()
+	assert.equal(kit.calls.length, 1)
+	// A save of one cell: the same table object, a new revision and the row replaced.
+	data.revision = '9007199254740994'
+	data.users[0] = user('ana', { edit: false }, { edit: o('individual_deny') })
+	await kit.revisionMoved()
+	assert.equal(kit.calls.length, 2)
+	assert.deepEqual(kit.calls[1].body.commands, [{ uid: 'ana', module: 'files', operation: 'edit', state: 'inherit' }])
+	assert.equal(kit.api.kindOf('ana', 'files', 'edit').kind, 'exception', 'Deny against an inherited Allow')
+})
+
+test('F3: the redraw waits while a row actions menu is open and comes when it closes', async () => {
+	const kit = setup({ users: [user('ana', {}, { read: o('individual_allow') })], preview: previewOf(() => true), menuOpen: true })
+	await kit.rendered()
+	assert.equal(kit.refreshes(), 0, 'the answer does not close the menu in use, nor drop its focus')
+	await kit.menuClosed()
+	assert.equal(kit.refreshes(), 1)
+})
+
+test('F3: otherwise the focus goes back to the same control of the same cell of the same row', async () => {
+	// A minimal table: one row for ana with two cells; the focus is on the "…" button of the second.
+	const make = (tag, className) => ({ tagName: tag.toUpperCase(), classList: className ? [className] : [], children: [], focus() { kit.document.activeElement = this } })
+	let cells
+	const row = { dataset: { uid: 'ana' }, get cells() { return cells } }
+	const draw = () => {
+		const cellOf = (index, control) => ({ cellIndex: index, parentElement: row, dataset: {}, querySelector: (selector) => selector === 'button.mcp-row-actions-button' || selector === 'button' ? control : null })
+		const select = make('input', 'mcp-row-select')
+		const actions = make('button', 'mcp-row-actions-button')
+		cells = [cellOf(0, select), cellOf(1, actions)]
+		select.closest = () => cells[0]
+		actions.closest = () => cells[1]
+		return actions
+	}
+	const table = { tBodies: [{ get rows() { return [row] } }] }
+	const kit = setup({ users: [user('ana', {}, { read: o('individual_allow') })], preview: previewOf(() => true), table })
+	const before = draw()
+	kit.document.activeElement = before
+	let after = null
+	kit.onRefresh(() => { after = draw() })
+	await kit.rendered()
+	assert.equal(kit.refreshes(), 1)
+	assert.notEqual(after, before, 'the table was drawn again')
+	assert.equal(kit.document.activeElement, after, 'the new "…" button of the same row has the focus')
 })
