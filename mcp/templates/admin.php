@@ -20,6 +20,7 @@
 \OCP\Util::addScript('mcp', 'admin-picker');
 \OCP\Util::addScript('mcp', 'admin-levels');
 \OCP\Util::addScript('mcp', 'admin-grants');
+\OCP\Util::addScript('mcp', 'admin-level-popover');
 \OCP\Util::addScript('mcp', 'admin-overrides');
 \OCP\Util::addScript('mcp', 'admin-groups');
 \OCP\Util::addScript('mcp', 'admin-scope');
@@ -149,6 +150,7 @@
                 <tbody><tr><td class="mcp-empty"><?php p($l->t('Loading…')); ?></td></tr></tbody>
             </table>
         </div>
+        <div id="mcp-level-popover" class="mcp-popover" role="dialog" aria-labelledby="mcp-level-popover-title" hidden></div>
         <div class="mcp-bulk-notice" id="mcp-bulk-notice" role="status" aria-live="polite">
             <span id="mcp-bulk-notice-text" tabindex="-1"></span>
             <button type="button" id="mcp-bulk-undo" hidden><?php p($l->t('Undo')); ?></button>
@@ -159,7 +161,7 @@
                 <span class="mcp-legend-item"><span class="mcp-origin-icon icon-group" aria-hidden="true"></span> <?php p($l->t('From a group')); ?></span>
                 <span class="mcp-legend-item"><?php p($l->t('No icon: default')); ?></span>
                 <span class="mcp-legend-item"><span class="mcp-state-mark" aria-hidden="true">⊘</span> <?php p($l->t('Unavailable')); ?></span>
-                <span><?php p($l->t('Choose a level to see and change its operations.')); ?></span>
+                <span><?php p($l->t('Choose a cell to change its level or its operations.')); ?></span>
             </p>
             <p class="mcp-legend" id="mcp-legend-operations" hidden>
                 <span class="mcp-legend-item"><input type="checkbox" checked disabled aria-hidden="true" tabindex="-1"> <?php p($l->t('Allowed')); ?></span>

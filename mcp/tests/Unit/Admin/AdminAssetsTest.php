@@ -64,9 +64,10 @@ final class AdminAssetsTest extends TestCase {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         preg_match_all("/Util::add(Script|Style)\\(\\s*'mcp'\\s*,\\s*'([^']+)'/", $template, $matches, PREG_SET_ORDER);
-        $this->assertCount(10, $matches);
-        // The levels mapping is read by the matrix, so it loads before it.
+        $this->assertCount(11, $matches);
+        // The levels mapping is read by the matrix, so it loads before it; the level popover uses the matrix, so after it.
         $this->assertLessThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-levels')"));
+        $this->assertGreaterThan(strpos($template, "addScript('mcp', 'admin-grants')"), strpos($template, "addScript('mcp', 'admin-level-popover')"));
         foreach ($matches as [, $kind, $name]) {
             $file = $kind === 'Script' ? "$app/js/$name.js" : "$app/css/$name.css";
             $this->assertFileExists($file);
@@ -299,6 +300,22 @@ final class AdminAssetsTest extends TestCase {
                 "semantic colours as text or outline take their -text variant: $selector");
             $this->assertStringNotContainsString('border-radius: var(--border-radius-large', $body, "--border-radius-large is deprecated: $selector");
         }
+    }
+
+    /**
+     * Taking "Can connect" away signs the person out of every MCP client, so neither view does it without an explicit yes:
+     * the checkbox of the operations view asks before saving, and the level popover asks before its command.
+     */
+    public function testCanConnectIsNeverTakenAwayWithoutConfirmation(): void {
+        $app = dirname(__DIR__, 3);
+        $grants = (string)file_get_contents($app . '/js/admin-grants.js');
+        $this->assertMatchesRegularExpression("/if \(module === null && !value && !window\.confirm\(t\('mcp', 'Turn off “Can connect” for \{user\}\?'.*?\)\) \{\s*box\.checked = true\s*return\s*\}/s", $grants);
+        $this->assertLessThan(strpos($grants, "api('PUT', '/api/grants/' + encodeURIComponent(user.uid)"), strpos($grants, "Turn off “Can connect” for {user}?"), 'asked before the save');
+        $popover = (string)file_get_contents($app . '/js/admin-level-popover.js');
+        $this->assertMatchesRegularExpression("/if \(losesEligibility\(.*?&& !window\.confirm\(.*?\) \{\s*render\(\)\s*return\s*\}/s", $popover);
+        $this->assertLessThan(strpos($popover, "matrix.api('POST', '/api/grants/commands'"), strpos($popover, 'if (losesEligibility('), 'asked before the command');
+        $template = (string)file_get_contents($app . '/templates/admin.php');
+        $this->assertStringContainsString('<div id="mcp-level-popover" class="mcp-popover" role="dialog" aria-labelledby="mcp-level-popover-title" hidden></div>', $template);
     }
 
     /** Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. */

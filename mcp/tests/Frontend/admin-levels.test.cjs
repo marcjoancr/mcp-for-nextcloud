@@ -138,7 +138,7 @@ class Node {
 function cellKit({ appsEnabled = true, scope = null } = {}) {
 	const opened = []
 	const sandbox = {
-		window: { McpAdminLevels: Levels, McpScopeUi: { indicator: (uid, module, value) => Object.assign(new Node('button'), { className: 'mcp-scope-indicator', textContent: 'Restricted to ' + value.count }) } },
+		window: { McpAdminLevels: Levels, McpLevelPopover: { open: (trigger, uid, module) => opened.push([module, uid, trigger.classes.has('mcp-level')]) }, McpScopeUi: { indicator: (uid, module, value) => Object.assign(new Node('button'), { className: 'mcp-scope-indicator', textContent: 'Restricted to ' + value.count }) } },
 		t: (app, text, vars) => text.replace(/\{(\w+)\}/g, (_, key) => vars?.[key] ?? '{' + key + '}'),
 		el: (tag, props = {}, children = []) => {
 			const node = new Node(tag)
@@ -150,9 +150,8 @@ function cellKit({ appsEnabled = true, scope = null } = {}) {
 		operationLabels: () => ({ read: 'read', edit: 'edit', create: 'create', move: 'move', restore: 'restore', share: 'share', link: 'public link' }),
 		unavailableReason: () => appsEnabled ? null : 'This app is unavailable for this user; the saved permission is kept.',
 		reloadLocked: () => {},
-		openOperations: (module, uid) => opened.push([module, uid]),
 	}
-	vm.runInNewContext([cut('const PERMISSION_STATES = {'), cut('function paintState('), cut('function levelLabels('), cut('function originText('), cut('function levelCell(')].join('\n')
+	vm.runInNewContext([cut('const PERMISSION_STATES = {'), cut('function paintState('), cut('function levelLabels('), cut('function originText('), cut('function levelCell('), cut('function levelButton(')].join('\n')
 		+ '\nthis.levelCell = levelCell', sandbox)
 	const files = catalog().files
 	const user = (allowed, sources = {}) => ({
@@ -175,7 +174,9 @@ test('a level cell names the level in words and its origin by an icon, never by 
 	const icon = button.find('mcp-origin-icon')
 	assert.ok(icon.classes.has('icon-user'))
 	assert.equal(icon.attributes['aria-hidden'], 'true', 'the icon is decoration; the words carry the state')
-	assert.equal(button.attributes['aria-label'], 'Ana Souza, Files: Edit. Set for this person. Open the operations.')
+	assert.equal(button.attributes['aria-label'], 'Ana Souza, Files: Edit. Set for this person.')
+	assert.equal(button.attributes['aria-haspopup'], 'dialog')
+	assert.equal(button.attributes['aria-expanded'], 'false')
 	assert.equal(individual.title, 'Edit. Allows: read, edit, create, move, restore — Set for this person')
 	assert.equal(individual.dataset.level, 'edit')
 	assert.ok(individual.classes.has('mcp-state-allowed'))
@@ -194,10 +195,10 @@ test('a level cell names the level in words and its origin by an icon, never by 
 	assert.equal(kit.cell(kit.user(['read', 'share'])).find('mcp-level-word').textContent, 'Custom')
 })
 
-test('choosing a level cell opens that module\'s operations for the user', async () => {
+test('choosing a level cell opens its popover for that user and module', async () => {
 	const kit = cellKit()
 	kit.cell(kit.user(['read'])).find('mcp-level').onclick()
-	assert.deepEqual(kit.opened, [['files', 'ana']])
+	assert.deepEqual(kit.opened, [['files', 'ana', true]])
 })
 
 test('an unavailable module keeps the no entry mark without a control, and an unknown one the dash with a retry', () => {

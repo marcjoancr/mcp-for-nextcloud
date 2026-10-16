@@ -1006,3 +1006,167 @@
 #mcp-admin .mcp-level-cell .mcp-level-word {
 	white-space: nowrap;
 }
+
+/*
+ * Native boxes and radios follow the Nextcloud theme, not the operating system: without this a light Nextcloud on a dark
+ * system draws them dark, and an empty box looks filled. The "default" theme follows the system like Nextcloud does.
+ */
+#mcp-admin {
+	color-scheme: light;
+}
+
+body[data-themes*="dark"] #mcp-admin {
+	color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+	body[data-themes*="default"] #mcp-admin {
+		color-scheme: dark;
+	}
+}
+
+/* The secondary action of the popover is neutral: the theme colour stays for focus and selection. */
+#mcp-admin .mcp-popover-inherit-all {
+	background-color: var(--color-background-dark);
+	color: var(--color-main-text);
+}
+
+/* Popover of a level cell (js/admin-level-popover.js), placed under the cell inside the matrix block. */
+#mcp-admin [id="mcp-block-matrix"] {
+	position: relative;
+}
+
+#mcp-admin .mcp-popover {
+	position: absolute;
+	z-index: 20;
+	box-sizing: border-box;
+	width: 380px;
+	max-width: calc(100% - 16px);
+	padding: 12px 16px;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+	background-color: var(--color-main-background);
+	color: var(--color-main-text);
+	box-shadow: 0 2px 16px var(--color-box-shadow);
+}
+
+#mcp-admin .mcp-popover[hidden] {
+	display: none;
+}
+
+#mcp-admin .mcp-popover h3 {
+	margin: 0 32px 2px 0;
+	font-size: 1.1em;
+}
+
+#mcp-admin .mcp-popover-close {
+	position: absolute;
+	top: 6px;
+	inset-inline-end: 6px;
+	min-height: 0;
+	margin: 0;
+	padding: 4px 8px;
+	border: 0;
+	background-color: transparent;
+	color: var(--color-main-text);
+}
+
+#mcp-admin .mcp-popover-inherit,
+#mcp-admin .mcp-popover-hint {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+}
+
+#mcp-admin .mcp-popover-levels {
+	display: flex;
+	flex-direction: column;
+	margin: 8px 0;
+}
+
+#mcp-admin .mcp-popover-choice {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 6px 8px;
+	border-radius: var(--border-radius-element, var(--border-radius));
+	cursor: pointer;
+}
+
+#mcp-admin .mcp-popover-choice:hover {
+	background-color: var(--color-background-hover);
+}
+
+#mcp-admin .mcp-popover-choice input {
+	margin: 3px 0 0;
+}
+
+#mcp-admin .mcp-popover-choice > span {
+	display: flex;
+	flex-direction: column;
+}
+
+#mcp-admin .mcp-popover-inherit-all {
+	margin: 0 0 8px;
+}
+
+#mcp-admin .mcp-popover-operations {
+	margin: 4px 0 8px;
+	padding-top: 6px;
+	border-top: 1px solid var(--color-border);
+}
+
+#mcp-admin .mcp-popover-operations summary {
+	padding: 4px 0;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+#mcp-admin .mcp-popover-operation {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 0 8px;
+	align-items: center;
+	padding: 4px 0;
+}
+
+#mcp-admin .mcp-popover-operation .mcp-popover-hint {
+	grid-column: 1;
+}
+
+#mcp-admin .mcp-popover-operation .mcp-tri-group {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+	display: inline-flex;
+	overflow: hidden;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+	border-radius: var(--border-radius-element, var(--border-radius));
+}
+
+#mcp-admin .mcp-tri {
+	min-height: 0;
+	margin: 0;
+	padding: 2px 8px;
+	border: 0;
+	border-radius: 0;
+	background-color: transparent;
+	color: var(--color-main-text);
+	font-size: 0.9em;
+	font-weight: normal;
+}
+
+#mcp-admin .mcp-tri + .mcp-tri {
+	border-inline-start: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+}
+
+/* The pressed state carries a check mark too, so it never depends on the fill colour. */
+#mcp-admin .mcp-tri[aria-pressed="true"] {
+	background-color: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text, var(--color-main-text));
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-popover :focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
+}

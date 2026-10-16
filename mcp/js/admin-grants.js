@@ -406,7 +406,10 @@
 	 */
 	function setView(view, app) {
 		state.view = view
-		if (app !== undefined) {
+		// The levels view shows every module, so the app filter of the operations view leaves the address with it.
+		if (view === 'levels') {
+			state.app = ''
+		} else if (app !== undefined) {
 			state.app = app
 		}
 		if (state.data) {
@@ -652,7 +655,7 @@
 			name.append(el('span', { className: 'mcp-badge mcp-badge-connected', textContent: t('mcp', 'connected') }))
 		}
 		row.append(name)
-		row.append(permissionCell(user, null, user.eligible, t('mcp', 'Can connect'), { eligible: null }))
+		row.append(isLevelsView() ? eligibleCell(user) : permissionCell(user, null, user.eligible, t('mcp', 'Can connect'), { eligible: null }))
 		const rowReason = rowUnavailableReason(user)
 		if (rowReason !== null) {
 			// One notice instead of a mark in every column; the saved permissions come back with "Can connect".
@@ -811,6 +814,12 @@
 				box.checked = !value
 				return
 			}
+			// Taking "Can connect" away signs the person out of every MCP client: never without asking.
+			if (module === null && !value && !window.confirm(t('mcp', 'Turn off “Can connect” for {user}?', { user: user.displayName }, undefined, { escape: false }) + '\n'
+				+ t('mcp', 'This signs the person out of every MCP client, and undoing it does not sign them back in.'))) {
+				box.checked = true
+				return
+			}
 			const payload = Object.fromEntries(Object.entries(body).map(([key, v]) => [key, v === null ? value : v]))
 			const hadFocus = document.activeElement === box
 			// The focus comes back to this checkbox only when the admin did not move it during the save.
@@ -894,6 +903,7 @@
 		const levels = window.McpAdminLevels
 		const cell = el('td', { className: 'mcp-cell mcp-level-cell mcp-module mcp-band-' + (index % 2) })
 		cell.dataset.module = module
+		cell.dataset.levelKey = module
 		const name = moduleLabels()[module] || module
 		const level = levels.levelOf(module, operations, user.grants[module])
 		const reason = unavailableReason(user, module)
@@ -925,13 +935,9 @@
 				parts.push(glyph)
 			}
 			parts.push(el('span', { className: 'mcp-level-word', textContent: levelName }))
-			const button = el('button', {
-				type: 'button',
-				className: 'mcp-level mcp-level-' + level + (individual ? ' mcp-level-individual' : ''),
-				title: levelName + '. ' + summary + ' — ' + source,
-				onclick: () => openOperations(module, user.uid),
-			}, parts)
-			button.setAttribute('aria-label', t('mcp', '{user}, {module}: {level}. {source}. Open the operations.', { user: user.displayName, module: name, level: levelName, source }, undefined, { escape: false }))
+			const button = levelButton(user, module, 'mcp-level mcp-level-' + level + (individual ? ' mcp-level-individual' : ''), parts,
+				levelName + '. ' + summary + ' — ' + source,
+				t('mcp', '{user}, {module}: {level}. {source}.', { user: user.displayName, module: name, level: levelName, source }, undefined, { escape: false }))
 			cell.title = button.title
 			cell.dataset.level = level
 			cell.dataset.origin = origin.source
@@ -944,15 +950,69 @@
 	}
 
 	/**
-	 * Opens the operations of one module for editing, with the focus on the first operation of the chosen user.
+	 * The control of a level cell: it opens the popover of js/admin-level-popover.js, where the level is chosen.
 	 *
-	 * @param {string} module module id
-	 * @param {string} uid user whose row keeps the focus
+	 * @param {object} user row from the API
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string} className classes of the button
+	 * @param {Array<Node>} parts icon and word
+	 * @param {string} title tooltip
+	 * @param {string} label accessible name, which says the state in words
+	 * @return {HTMLButtonElement}
 	 */
-	function openOperations(module, uid) {
-		setView('operations', module)
-		const row = [...table.tBodies[0].rows].find((candidate) => candidate.dataset.uid === uid)
-		row?.querySelector('td[data-module="' + module + '"] input')?.focus()
+	function levelButton(user, module, className, parts, title, label) {
+		const button = el('button', { type: 'button', className, title }, parts)
+		button.onclick = () => window.McpLevelPopover?.open(button, user.uid, module)
+		button.setAttribute('aria-label', label)
+		button.setAttribute('aria-haspopup', 'dialog')
+		button.setAttribute('aria-expanded', 'false')
+		return button
+	}
+
+	/**
+	 * "Can connect" in the levels view: Yes or No in words, its origin as an icon like the module cells, and the popover to
+	 * change it. A disabled account has no control, as in the operations view.
+	 *
+	 * @param {object} user row from the API
+	 * @return {HTMLTableCellElement}
+	 */
+	function eligibleCell(user) {
+		const cell = el('td', { className: 'mcp-cell mcp-level-cell' })
+		cell.dataset.levelKey = 'eligible'
+		const canConnect = t('mcp', 'Can connect')
+		const reason = user.eligible === null ? t('mcp', 'Access is unknown. A group policy or directory is unavailable; retry after checking the group.') : unavailableReason(user, null)
+		if (reason !== null) {
+			const unknown = user.eligible === null
+			paintState(cell, 'unavailable', reason)
+			const mark = el('span', { className: 'mcp-state-mark', textContent: unknown ? '—' : '⊘' })
+			mark.setAttribute('aria-hidden', 'true')
+			const word = el('span', { className: 'mcp-level-word', textContent: unknown ? t('mcp', 'Unknown') : t('mcp', 'Unavailable') })
+			word.setAttribute('aria-hidden', 'true')
+			cell.append(mark, ' ', word, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + canConnect + ': ' + cell.title }))
+			if (unknown) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
+			return cell
+		}
+		const origin = window.McpAdminLevels.originOf(['eligible'], { eligible: user.origins?.eligible })
+		const individual = origin.source === 'individual' || origin.source === 'invalid'
+		const icon = individual ? 'icon-user' : origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null
+		const parts = []
+		if (icon !== null) {
+			const glyph = el('span', { className: 'mcp-origin-icon ' + icon })
+			glyph.setAttribute('aria-hidden', 'true')
+			parts.push(glyph)
+		}
+		const word = user.eligible ? t('mcp', 'Yes') : t('mcp', 'No')
+		parts.push(el('span', { className: 'mcp-level-word', textContent: word }))
+		paintState(cell, user.eligible ? 'allowed' : 'denied')
+		const source = originText(origin)
+		const button = levelButton(user, null, 'mcp-level mcp-level-' + (user.eligible ? 'read' : 'none') + (individual ? ' mcp-level-individual' : ''), parts,
+			canConnect + ': ' + word + ' — ' + source,
+			t('mcp', '{user}, {module}: {level}. {source}.', { user: user.displayName, module: canConnect, level: word, source }, undefined, { escape: false }))
+		cell.title = button.title
+		cell.dataset.level = user.eligible ? 'read' : 'none'
+		cell.dataset.origin = origin.source
+		cell.append(button)
+		return cell
 	}
 
 	/** Seconds the undo of a bulk change stays offered; it waits while the pointer or focus is on it. */
@@ -2021,6 +2081,7 @@
 		announce,
 		reload: reloadLocked,
 		policyError,
+		notifyError,
 		isBusy: () => bulkBusy || matrixLocked,
 		setBusy: setBulkBusy,
 		labels: () => ({ modules: moduleLabels(), operations: operationLabels() }),
