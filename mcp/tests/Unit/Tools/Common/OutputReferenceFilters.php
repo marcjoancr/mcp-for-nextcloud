@@ -21,6 +21,16 @@ use PHPUnit\Framework\TestCase;
 /** Builds the structured-reference filter for module tests. */
 final class OutputReferenceFilters {
     /**
+     * The exclusion guard of an instance without any exclusion tag: it hides nothing, for tests of the other gates.
+     *
+     * @param TestCase $test test creating the doubles
+     * @return VisibilityGuard the guard
+     */
+    public static function openGuard(TestCase $test): VisibilityGuard {
+        return new VisibilityGuard((new InMemoryConfig())->mock($test), self::mock($test, ISystemTagObjectMapper::class));
+    }
+
+    /**
      * The filter as it runs with no exclusion and no Files scope: every reference passes untouched.
      *
      * @param TestCase $test test creating the doubles

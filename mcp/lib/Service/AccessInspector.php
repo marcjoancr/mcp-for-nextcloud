@@ -135,7 +135,7 @@ class AccessInspector {
             $ids = $this->filesScope->candidatesIn($context->scope()->resolution('files'), $node);
         } catch (Throwable) {
             // The candidates of the scope could not be built: the scope gate is the one not evaluated.
-            return self::answer(self::NOT_EVALUATED, 'resource_scope');
+            return self::answer(self::NOT_EVALUATED, 'resource_scope_unknown');
         }
         $scoped = $context->resolveEffective('files', 'read', $ids);
         if ($scoped->allowed !== true) {

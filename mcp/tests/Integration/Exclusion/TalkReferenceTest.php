@@ -14,8 +14,9 @@ use OCP\Share\IManager as IShareManager;
 /**
  * V9, phase 1 (real): a real Talk conversation with a real room share of a file. When the file is excluded by a tag,
  * directly or through an ancestor, talk_read_messages keeps the message and its type and withholds the attachment id
- * for every participant; attaching or quoting the excluded file is refused like a file that does not exist. The
- * phase 2 case, a file only outside the scope of Files with no tag, belongs to B8 and is not claimed here.
+ * for every participant; attaching or quoting the excluded file is refused like a file that does not exist. A file
+ * only outside the Files scope, with no tag, is refused the same way, and an unreadable scope is a 503 for the existing
+ * and the missing reference alike; the wiring of the scope into those gates is checked on the real container.
  */
 final class TalkReferenceTest extends ExclusionTestCase {
     /** @return array{string, int} conversation token and attachment id of a freshly attached file */
@@ -143,5 +144,80 @@ final class TalkReferenceTest extends ExclusionTestCase {
             $this->assertSame($bogus->fingerprint(), $reply->fingerprint(), 'and answers like an attachment that does not exist (status and whole result)');
         }
         $this->assertCount($before, $this->messages($alice, $token), 'nothing was posted');
+    }
+
+    /**
+     * The real container wires the Files scope into every gate that could skip it (M1 of the B5 merge review): the
+     * Talk resolvers get the structured-reference filter with the user's Files scope, and the Files gate of the tools
+     * and of nc://files gets the FilesScope.
+     */
+    public function testTheContainerWiresTheFilesScopeIntoEveryFileReferenceGate(): void {
+        $property = static fn (object $object, string $name): mixed => (new \ReflectionProperty($object, $name))->getValue($object);
+        foreach ([\OCA\Mcp\Tools\Talk\UserFileResolver::class, \OCA\Mcp\Tools\Talk\AttachmentAccess::class] as $class) {
+            $filter = $property(Server::get($class), 'references');
+            $this->assertInstanceOf(\OCA\Mcp\Tools\Common\OutputReferenceFilter::class, $filter, $class);
+            $this->assertInstanceOf(\OCA\Mcp\Service\Scope\FilesReferenceScope::class, $property($filter, 'scope'), $class);
+        }
+        $this->assertInstanceOf(\OCA\Mcp\Service\Scope\FilesScope::class,
+            $property($property(Server::get(\OCA\Mcp\Service\ResourceRegistry::class), 'filesGuard'), 'scope'), 'nc://files');
+        $this->assertInstanceOf(\OCA\Mcp\Service\Scope\FilesScope::class,
+            $property($property(Server::get(\OCA\Mcp\Tools\Files\FilesModule::class), 'visibilityGuard'), 'scope'), 'files tools');
+    }
+
+    /**
+     * V9 with the Files scope on the real server, with no exclusion tag: alice's Files scope holds one folder only.
+     * Attaching a file outside it, and quoting the attachment of a file outside it, answer exactly like a missing file
+     * or attachment, as a plan and confirmed, and post nothing. When her scope cannot be read, the same calls answer the
+     * endpoint's 503 for the existing and the missing reference alike (C1 of the second B5 review).
+     */
+    public function testAFileOnlyOutsideTheFilesScopeIsRefusedLikeAMissingOneAndAnUnreadableScopeIs503(): void {
+        $alice = $this->mcp();
+        [$token, $id] = $this->conversationWithAttachment($alice);
+        $this->makeFile('home', 'outside/out.txt', 'outside the scope');
+        $this->makeFile('home', 'scoped/in.txt', 'inside the scope');
+        $this->later(function (): void {
+            foreach ([\OCA\Mcp\Db\ResourceScopeMapper::MODES_TABLE, \OCA\Mcp\Db\ResourceScopeMapper::ITEMS_TABLE] as $table) {
+                $qb = $this->official()->getQueryBuilder();
+                $qb->delete($table)->where($qb->expr()->eq('user_key', $qb->createNamedParameter(\OCA\Mcp\Db\IdentityKey::user(self::ALICE))))->executeStatement();
+            }
+        });
+        Server::get(\OCA\Mcp\Service\Policy\PolicyWriter::class)->setResourceScope(
+            Server::get(\OCA\Mcp\Db\PolicyStateMapper::class)->state()['revision'], 'admin', self::ALICE, 'files',
+            [(string)$this->node(self::ALICE, $this->path('home', 'scoped'))->getId()]);
+        $before = count($this->messages($alice, $token));
+
+        $outside = ['conversation_token' => $token, 'path' => $this->path('home', 'outside', 'out.txt')];
+        $missing = ['conversation_token' => $token, 'path' => $this->path('home', 'outside', 'nothing-here.txt')];
+        $quoted = ['conversation_token' => $token, 'attachment_id' => $id];
+        $bogus = ['conversation_token' => $token, 'attachment_id' => 2000000000];
+        $reference = $alice->tool('talk_attach_file', $missing);
+        $this->assertTrue($reference->isError(), 'a missing file is refused: ' . $reference->describe());
+        foreach (['plan' => $alice->tool('talk_attach_file', $outside), 'confirmed' => $alice->write('talk_attach_file', $outside)] as $step => $reply) {
+            $this->assertSame($reference->fingerprint(), $reply->fingerprint(), "attach $step: a file only outside the scope answers like a missing one");
+        }
+        $noAttachment = $alice->tool('talk_quote_file', $bogus);
+        $this->assertTrue($noAttachment->isError(), $noAttachment->describe());
+        foreach (['plan' => $alice->tool('talk_quote_file', $quoted), 'confirmed' => $alice->write('talk_quote_file', $quoted)] as $step => $reply) {
+            $this->assertSame($noAttachment->fingerprint(), $reply->fingerprint(), "quote $step: the attachment of a file outside the scope answers like a missing one");
+            $this->assertStringNotContainsString('talk.txt', $reply->raw, "quote $step: no file name");
+        }
+        $this->assertTrue($alice->tool('talk_attach_file', ['conversation_token' => $token, 'path' => $this->path('home', 'scoped', 'in.txt')])->ok(),
+            'a file inside the scope can still be attached (plan)');
+        $this->assertCount($before, $this->messages($alice, $token), 'nothing was posted');
+
+        // An inconsistent mode row (another uid behind alice's key) makes her scope read fail closed.
+        $qb = $this->official()->getQueryBuilder();
+        $qb->insert(\OCA\Mcp\Db\ResourceScopeMapper::MODES_TABLE)
+            ->setValue('user_key', $qb->createNamedParameter(\OCA\Mcp\Db\IdentityKey::user(self::ALICE)))
+            ->setValue('module', $qb->createNamedParameter('calendar'))
+            ->setValue('user_id', $qb->createNamedParameter('mcp-it-collision'))
+            ->setValue('policy_rev', $qb->createNamedParameter('1'))
+            ->executeStatement();
+        foreach (['attach plan, existing' => $alice->tool('talk_attach_file', $outside), 'attach plan, missing' => $alice->tool('talk_attach_file', $missing),
+            'attach, existing' => $alice->write('talk_attach_file', $outside), 'attach, missing' => $alice->write('talk_attach_file', $missing),
+            'quote plan, existing' => $alice->tool('talk_quote_file', $quoted), 'quote plan, missing' => $alice->tool('talk_quote_file', $bogus),
+            'quote, existing' => $alice->write('talk_quote_file', $quoted), 'quote, missing' => $alice->write('talk_quote_file', $bogus)] as $step => $reply) {
+            $this->assertSame(503, $reply->status, "$step: an unreadable scope is the endpoint's 503: " . $reply->describe());
+        }
     }
 }
