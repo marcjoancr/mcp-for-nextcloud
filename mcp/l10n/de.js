@@ -1203,6 +1203,20 @@ OC.L10N.register(
     "Your administrator can restrict what your MCP clients reach to selected folders, calendars and task lists. It never changes what you can do in Nextcloud itself." : "Deine Administration kann den Zugriff deiner MCP-Clients auf ausgewählte Ordner, Kalender und Aufgabenlisten einschränken. Das ändert niemals, was du in Nextcloud selbst tun kannst.",
     "Unsaved changes here were made before the policy changed, so saving them will be refused. Discard them to load the saved scope." : "Nicht gespeicherte Änderungen hier wurden vorgenommen, bevor sich die Richtlinie geändert hat. Das Speichern wird daher abgelehnt. Verwerfe sie, um den gespeicherten Ressourcenbereich zu laden.",
     "Scope unknown" : "Ressourcenbereich unbekannt",
-    "The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope." : "Der Ressourcenbereich dieses Benutzers kann derzeit nicht gelesen werden. Daher verweigern die Werkzeuge dieses Moduls die Ausführung, bis der Ressourcenbereich wieder gelesen werden kann. Öffne den Ressourcenbereich."
+    "The resource scope of this user cannot be read right now, so the tools of this module refuse until it can. Open the resource scope." : "Der Ressourcenbereich dieses Benutzers kann derzeit nicht gelesen werden. Daher verweigern die Werkzeuge dieses Moduls die Ausführung, bis der Ressourcenbereich wieder gelesen werden kann. Öffne den Ressourcenbereich.",
+    "Could not change the self-hosted client." : "Der selbst gehostete Client konnte nicht geändert werden.",
+    "Self-hosted clients (custom redirect URIs)" : "Selbst gehostete Clients (eigene Weiterleitungs-URIs)",
+    "For self-hosted programs that take a client_id in their settings and return to their own domain. Add one client per program: its name is shown to people on the consent screen and in their connections. Turning a client off, deleting it or removing one of its redirect URIs signs out its connections." : "Für selbst gehostete Programme, die eine client_id in ihren Einstellungen übernehmen und zu ihrer eigenen Domain zurückkehren. Füge je Programm einen Client hinzu: Sein Name wird Personen auf dem Einwilligungsbildschirm und in ihren Verbindungen angezeigt. Wenn du einen Client deaktivierst, ihn löschst oder eine seiner Weiterleitungs-URIs entfernst, werden seine Verbindungen abgemeldet.",
+    "Add client" : "Client hinzufügen",
+    "%s (added by your administrator)" : "%s (von der Administration hinzugefügt)",
+    "Self-hosted client" : "Selbst gehosteter Client",
+    "Delete" : "Löschen",
+    "Could not copy the client_id." : "Die client_id konnte nicht kopiert werden.",
+    "One URI per line, exactly as the client sends it, port included: https (http only for 127.0.0.1, localhost or [::1]), no wildcard or fragment, up to 2000 bytes." : "Eine URI pro Zeile, genau so, wie der Client sie sendet, Port eingeschlossen: https (http nur für 127.0.0.1, localhost oder [::1]), kein Platzhalter oder Fragment, höchstens 2000 Bytes.",
+    "The OAuth client settings were changed in another window or by another administrator. The current settings were loaded; nothing was overwritten." : "Die OAuth-Client-Einstellungen wurden in einem anderen Fenster oder von einer anderen Person aus der Administration geändert. Die aktuellen Einstellungen wurden geladen; es wurde nichts überschrieben.",
+    "The server could not confirm whether the change was saved. The current settings were loaded." : "Der Server konnte nicht bestätigen, ob die Änderung gespeichert wurde. Die aktuellen Einstellungen wurden geladen.",
+    "Not saved: each client needs a name of up to 64 characters that no other client has, and 1 to 20 redirect URIs (absolute https URIs, without user name, wildcard or fragment)." : "Nicht gespeichert: Jeder Client benötigt einen Namen mit höchstens 64 Zeichen, den kein anderer Client hat, und 1 bis 20 Weiterleitungs-URIs (absolute https-URIs, ohne Benutzername, Platzhalter oder Fragment).",
+    "Delete the client “{name}”? Its connections are signed out at once." : "Client „{name}“ löschen? Seine Verbindungen werden sofort abgemeldet.",
+    "Could not delete the self-hosted client." : "Der selbst gehostete Client konnte nicht gelöscht werden."
 },
 "nplurals=2; plural=(n != 1);");
