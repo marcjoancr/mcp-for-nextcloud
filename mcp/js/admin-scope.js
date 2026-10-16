@@ -241,6 +241,21 @@
 		if (focus) document.getElementById('mcp-scope-tab-' + module)?.focus?.()
 	}
 
+	/**
+	 * Puts the open drawer right under the Nextcloud header. A drawer is position: fixed, but Nextcloud 35 blurs the content
+	 * behind it (backdrop-filter on #content-vue), which makes that box, not the window, the one it is placed in: its top
+	 * would then be counted from the box, one header too low. The offset is measured, not assumed, since a theme may turn
+	 * the blur off.
+	 */
+	function placeDrawer() {
+		root.style?.removeProperty?.('top')
+		const rect = root.getBoundingClientRect?.()
+		if (!rect) return
+		const header = document.getElementById('header')?.getBoundingClientRect?.().bottom ?? 0
+		const shift = rect.top - header
+		if (Math.abs(shift) >= 1) root.style.top = (parseFloat(getComputedStyle(root).top) - shift) + 'px'
+	}
+
 	/** Opens the drawer; the focus goes back to `trigger` when it closes. */
 	function openDrawer(trigger) {
 		// Only one drawer is open at a time: the inspector closes when the scope opens.
@@ -251,6 +266,7 @@
 		returnRow = returnFocus?.closest?.('tr')?.dataset?.uid ?? null
 		root.classList?.add('mcp-drawer-open')
 		root.setAttribute('role', 'dialog')
+		placeDrawer()
 	}
 
 	/** @return {boolean} whether a module has a draft that is not saved */
@@ -280,6 +296,7 @@
 		}
 		root.classList.remove('mcp-drawer-open')
 		root.removeAttribute?.('role')
+		root.style?.removeProperty?.('top')
 		const target = returnFocus
 		returnFocus = null
 		focusBack(target)

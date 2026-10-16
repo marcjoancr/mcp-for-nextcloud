@@ -387,6 +387,11 @@ final class AdminAssetsTest extends TestCase {
         $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-actions-col \{[^}]*position: sticky;[^}]*inset-inline-end: 0;[^}]*z-index: 1;/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead \.mcp-select-col,\s*#mcp-admin \.mcp-matrix thead \.mcp-actions-col \{[^}]*z-index: 3;/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix-wrap \{[^}]*overflow: auto;[^}]*max-width: 100%;/s', $css, 'the matrix scrolls inside its block, never the page');
+        // On a phone a long name wraps between words, never down to one letter per line, and a drawer that reaches the
+        // start of the page leaves the corner of the Nextcloud navigation toggle free.
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*min-width: 6\.5em;[^}]*max-width: 38vw;[^}]*white-space: normal;[^}]*overflow-wrap: break-word;/s', $css);
+        $this->assertStringNotContainsString('overflow-wrap: anywhere', $css);
+        $this->assertMatchesRegularExpression('/@media \(max-width: 560px\) \{\s*#mcp-admin \.mcp-drawer\.mcp-drawer-open \.mcp-drawer-head \{[^}]*padding-inline-start: calc\(var\(--default-clickable-area\) \+ 4px\);/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead th \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 2;/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead \.mcp-user-col \{[^}]*z-index: 3;/s', $css);
         $this->assertStringContainsString('#app-content-vue #mcp-admin .mcp-tab-bar', $css);

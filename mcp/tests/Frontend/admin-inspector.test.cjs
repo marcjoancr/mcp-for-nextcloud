@@ -52,6 +52,7 @@ async function app(handler) {
 	const window = {}
 	const context = {
 		document, window, URLSearchParams,
+		getComputedStyle: (node) => ({ top: node.cssTop || '44px' }),
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		t: (_, text, params = {}) => text.replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
 		fetch: async (url, options) => {
@@ -353,4 +354,25 @@ test('S11: what was known about one person is never said about the next one', as
 	ui.ids['mcp-inspector-user'].value = 'bruno'
 	await ui.submit('mcp-inspector-form')
 	assert.match(text(), /Notes Read Set for this person/, 'bruno waits for his own answer')
+})
+
+test('S12: the open drawer sits right under the Nextcloud header, even when the page box it is placed in starts lower', async () => {
+	const ui = await app()
+	const root = ui.ids['mcp-inspector']
+	const style = { top: '', removeProperty(key) { this[key] = '' } }
+	root.style = style
+	// Nextcloud 35 blurs the content box, which then places the fixed drawer: its 44px top lands 44px too low.
+	let boxTop = 44
+	root.getBoundingClientRect = () => ({ top: style.top === '' ? 44 + boxTop : parseFloat(style.top) + boxTop })
+	ui.ids.header = { getBoundingClientRect: () => ({ bottom: 44 }) }
+	ui.window.McpInspectorUi.open('alice', new Element('button'))
+	await tick()
+	assert.equal(style.top, '0px', 'moved up by exactly the offset of the box')
+	ui.ids['mcp-inspector-close'].listeners.click()
+	assert.equal(style.top, '', 'a closed drawer keeps no position of its own')
+	// Without the blur the window places it, and nothing is moved.
+	boxTop = 0
+	ui.window.McpInspectorUi.open('alice', new Element('button'))
+	await tick()
+	assert.equal(style.top, '')
 })

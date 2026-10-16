@@ -78,6 +78,7 @@ async function app(handler = () => undefined, options = {}) {
 	const timers = []
 	const context = {
 		document, URLSearchParams,
+		getComputedStyle: () => ({ top: '44px' }),
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		// Like Nextcloud's t(): the values are HTML-escaped unless the caller passes { escape: false }.
 		t: (_, text, params = {}, count, options = {}) => text.replace(/\{(\w+)\}/g, (match, key) => key in params
@@ -543,4 +544,18 @@ test('F6: close() says whether the drawer closed, and a draft given up does not 
 	assert.deepEqual(ui.ids['mcp-scope-tabs'].children, [], 'the draft that was given up is gone')
 	assert.equal(ui.ui.open('bruno', undefined, new Element('button')), true)
 	assert.equal(ui.confirms.length, 1, 'only the closing asked')
+})
+
+test('S12: the open drawer sits right under the Nextcloud header, and keeps no position once closed', async () => {
+	const ui = await app(undefined, { drawer: true })
+	const root = ui.ids['mcp-scope']
+	const style = { top: '', removeProperty(key) { this[key] = '' } }
+	root.style = style
+	root.getBoundingClientRect = () => ({ top: style.top === '' ? 88 : parseFloat(style.top) + 44 })
+	ui.ids.header = { getBoundingClientRect: () => ({ bottom: 44 }) }
+	ui.ui.open('alice', undefined, new Element('button'))
+	await tick()
+	assert.equal(style.top, '0px')
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(style.top, '')
 })

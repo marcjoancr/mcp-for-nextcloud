@@ -1498,7 +1498,24 @@ body[data-themes*="dark"] #mcp-admin {
 }
 
 @media (max-width: 768px) {
-	/* The toolbar stacks, but the two-button switches stay side by side. */
+	/* The toolbar of the matrix wraps in rows of two instead of stacking one control per line; the search and the
+	   count keep a row each, and the two-button switches stay side by side. */
+	#mcp-admin .mcp-matrix-block .mcp-toolbar {
+		flex-direction: row;
+		align-items: stretch;
+	}
+
+	#mcp-admin .mcp-matrix-block .mcp-toolbar > * {
+		flex: 1 1 120px;
+		min-width: 0;
+	}
+
+	#mcp-admin .mcp-matrix-block .mcp-toolbar > input[type="search"],
+	#mcp-admin .mcp-matrix-block .mcp-toolbar > .mcp-view,
+	#mcp-admin .mcp-matrix-block .mcp-toolbar > .mcp-count {
+		flex-basis: 100%;
+	}
+
 	#mcp-admin .mcp-toolbar .mcp-view {
 		display: flex;
 	}
@@ -1507,11 +1524,12 @@ body[data-themes*="dark"] #mcp-admin {
 		flex: 1 1 0;
 	}
 
-	/* A long name wraps instead of pushing the cells out of the block. */
+	/* A long name wraps between words instead of pushing the cells out of the block, and never below a short word. */
 	#mcp-admin .mcp-matrix .mcp-user-col {
+		min-width: 6.5em;
 		max-width: 38vw;
 		white-space: normal;
-		overflow-wrap: anywhere;
+		overflow-wrap: break-word;
 	}
 
 	#mcp-admin .mcp-matrix-wrap {
@@ -1524,5 +1542,13 @@ body[data-themes*="dark"] #mcp-admin {
 
 	#mcp-admin .mcp-inspector-module .mcp-hint {
 		grid-column: 1 / -1;
+	}
+}
+
+/* Where a drawer reaches the start of the page, the Nextcloud navigation toggle stays above it at its corner: the
+   drawer's heading starts after it instead of under it. */
+@media (max-width: 560px) {
+	#mcp-admin .mcp-drawer.mcp-drawer-open .mcp-drawer-head {
+		padding-inline-start: calc(var(--default-clickable-area) + 4px);
 	}
 }
