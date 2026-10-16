@@ -240,6 +240,8 @@
 
 	/** Opens the drawer; the focus goes back to `trigger` when it closes. */
 	function openDrawer(trigger) {
+		// Only one drawer is open at a time: the inspector closes when the scope opens.
+		window.McpInspectorUi?.close?.()
 		returnFocus = trigger || document.activeElement || null
 		root.classList?.add('mcp-drawer-open')
 		root.setAttribute('role', 'dialog')

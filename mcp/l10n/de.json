@@ -1047,7 +1047,6 @@
     "Reached: every check passed." : "Erreichbar: Alle Prüfungen bestanden.",
     "Restricted to {count}" : "Eingeschränkt auf {count}",
     "Result" : "Ergebnis",
-    "Shows what the MCP tools of one user may do now and the first check that blocks each operation, with the same rules the tools use. It only reads: nothing is changed." : "Zeigt, was die MCP-Werkzeuge eines Benutzers jetzt tun dürfen, und die erste Prüfung, die jeden Vorgang blockiert – nach denselben Regeln, die die Werkzeuge verwenden. Es wird nur gelesen: Es wird nichts geändert.",
     "The MCP policy cannot be read right now, so nothing can be confirmed. Try again shortly." : "Die MCP-Richtlinie kann derzeit nicht gelesen werden, daher kann nichts bestätigt werden. Versuche es in Kürze erneut.",
     "The MCP service is switched off." : "Der MCP-Dienst ist abgeschaltet.",
     "The account does not exist or is disabled." : "Das Konto existiert nicht oder ist deaktiviert.",
@@ -1273,6 +1272,22 @@
     "{module}: {count}" : "{module}: {count}",
     "{module}: all" : "{module}: alle",
     "not saved" : "nicht gespeichert",
-    "Close the resource scope? The changes that are not saved are lost." : "Ressourcenbereich schließen? Nicht gespeicherte Änderungen gehen verloren."
+    "Close the resource scope? The changes that are not saved are lost." : "Ressourcenbereich schließen? Nicht gespeicherte Änderungen gehen verloren.",
+    "See what the MCP tools of one person can do now and what blocks the rest. It only reads." : "Sieh, was die MCP-Werkzeuge einer Person jetzt tun können und was den Rest blockiert. Es wird nur gelesen.",
+    "Inspect a person…" : "Eine Person prüfen …",
+    "Turn the service on in the Overview tab." : "Schalte den Dienst im Tab Übersicht ein.",
+    "Turn on “Can connect” in the matrix or through a group." : "Schalte „Verbindung möglich“ in der Matrix oder über eine Gruppe ein.",
+    "They turn it on in their personal settings, under MCP for Cloud." : "Die Person schaltet es in ihren persönlichen Einstellungen unter MCP for Cloud ein.",
+    "Account active" : "Konto aktiv",
+    "MCP service on" : "MCP-Dienst eingeschaltet",
+    "Personal connection on" : "Persönliche Verbindung eingeschaltet",
+    "passed" : "bestanden",
+    "blocks" : "blockiert",
+    "not confirmed" : "nicht bestätigt",
+    "not checked" : "nicht geprüft",
+    "{user} can use the MCP tools: the general checks passed." : "{user} kann die MCP-Werkzeuge nutzen: Die allgemeinen Prüfungen sind bestanden.",
+    "{user} cannot use any MCP tool." : "{user} kann kein MCP-Werkzeug nutzen.",
+    "Every operation" : "Alle Vorgänge",
+    "What each module grants, once the general check is fixed:" : "Was jedes Modul gewährt, sobald die allgemeine Prüfung behoben ist:"
 },"pluralForm":"nplurals=2; plural=(n != 1);"
 }

@@ -414,9 +414,12 @@ test('S9: the drawer opens on a user from the matrix, shows one module per tab w
 	const ui = await app(undefined, { drawer: true })
 	const root = ui.ids['mcp-scope']
 	const trigger = new Element('button')
+	let inspectorClosed = 0
+	ui.window.McpInspectorUi = { close: () => { inspectorClosed++ } }
 	ui.ui.open('alice', 'calendar', trigger)
 	await tick()
 	assert.ok(root.classes.has('mcp-drawer-open'))
+	assert.equal(inspectorClosed, 1, 'only one drawer is open at a time')
 	assert.equal(root.attributes.role, 'dialog')
 	assert.equal(ui.ids['mcp-scope-user'].value, 'alice')
 	const tabs = ui.ids['mcp-scope-tabs'].children

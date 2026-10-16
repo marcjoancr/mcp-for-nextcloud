@@ -200,9 +200,16 @@
             <p class="mcp-hint"><?php p($l->t('Restricting does not end the sessions of the user: it applies from their next MCP call.')); ?></p>
         </div>
     </div>
-    <div class="section mcp-block" id="mcp-inspector">
-        <h2><?php p($l->t('Access inspector')); ?></h2>
-        <p class="mcp-hint"><?php p($l->t('Shows what the MCP tools of one user may do now and the first check that blocks each operation, with the same rules the tools use. It only reads: nothing is changed.')); ?></p>
+    <div class="section mcp-block mcp-drawer" id="mcp-inspector" aria-labelledby="mcp-inspector-title">
+        <div class="mcp-drawer-head">
+            <h2 id="mcp-inspector-title" tabindex="-1"><?php p($l->t('Access inspector')); ?></h2>
+            <button type="button" id="mcp-inspector-close" class="mcp-drawer-close" aria-label="<?php p($l->t('Close')); ?>">✕</button>
+        </div>
+        <div class="mcp-drawer-entry">
+            <p class="mcp-hint"><?php p($l->t('See what the MCP tools of one person can do now and what blocks the rest. It only reads.')); ?></p>
+            <button type="button" id="mcp-inspector-entry"><?php p($l->t('Inspect a person…')); ?></button>
+        </div>
+        <div class="mcp-drawer-body">
         <form id="mcp-inspector-form" class="mcp-inspector-form">
             <label for="mcp-inspector-user"><?php p($l->t('User ID')); ?></label>
             <input type="text" id="mcp-inspector-user" autocomplete="off" spellcheck="false">
@@ -211,8 +218,8 @@
         <p id="mcp-inspector-status" role="status" aria-live="polite"></p>
         <p id="mcp-inspector-alert" role="alert" aria-live="assertive"></p>
         <div id="mcp-inspector-access"></div>
-        <div id="mcp-inspector-resources" hidden>
-            <h3><?php p($l->t('Why a file or calendar is reached or not')); ?></h3>
+        <details id="mcp-inspector-resources" class="mcp-inspector-why" hidden>
+            <summary><?php p($l->t('Why a file or calendar is reached or not')); ?></summary>
             <p class="mcp-hint"><?php p($l->t('Names appear only here, for administrators. To the MCP tools, anything they cannot reach is simply not found.')); ?></p>
             <form id="mcp-inspector-path-form" class="mcp-inspector-form">
                 <label for="mcp-inspector-path"><?php p($l->t('Path in the files of the user')); ?></label>
@@ -233,6 +240,7 @@
                 <button type="submit"><?php p($l->t('Explain')); ?></button>
             </form>
             <p id="mcp-inspector-calendar-result" aria-live="polite"></p>
+        </details>
         </div>
     </div>
     </div>

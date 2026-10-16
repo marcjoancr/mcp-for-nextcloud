@@ -37,17 +37,6 @@
 		return matrix.data()?.users.find((user) => user.uid === uid)
 	}
 
-	/** Puts the page on a block and the focus on its heading, so the result of an action is where the eye goes. */
-	function reveal(id) {
-		const block = document.getElementById(id)
-		block?.scrollIntoView?.({ block: 'start' })
-		const heading = block?.querySelector('h2')
-		if (heading) {
-			heading.tabIndex = -1
-			heading.focus()
-		}
-	}
-
 	/** @return {Array<{label: string, run: Function, disabled: boolean}>} the actions of a user, in menu order */
 	function actions(user, trigger) {
 		const overrides = window.McpAdminOverrides
@@ -55,10 +44,8 @@
 			{
 				label: t('mcp', 'Inspect access'),
 				disabled: !window.McpInspectorUi,
-				run: () => {
-					window.McpInspectorUi.open(user.uid)
-					reveal('mcp-inspector')
-				},
+				// The inspector opens as a drawer that takes the focus and gives it back to this button.
+				run: () => window.McpInspectorUi.open(user.uid, trigger),
 			},
 			{
 				label: t('mcp', 'Restrict resources'),

@@ -84,7 +84,7 @@ function setup({ overrides = true, clipboard = true } = {}) {
 			offerUndo: (message, saved) => log.notices.push({ message, saved }),
 			notifyError: (message) => log.errors.push(message),
 		},
-		McpInspectorUi: { open: (uid) => log.inspected.push(uid) },
+		McpInspectorUi: { open: (uid, trigger) => log.inspected.push([uid, trigger]) },
 		McpScopeUi: { open: (uid, module, trigger) => log.scoped.push([uid, module, trigger]) },
 		McpAdminOverrides: overrides ? { hasOverrides: (user) => user.uid === 'ana', resetUser: (user, trigger) => log.resets.push([user.uid, trigger]) } : undefined,
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
@@ -135,10 +135,8 @@ test('each action does what it says, and the menu closes first', async () => {
 	const trigger = kit.button('ana')
 	await trigger.click()
 	await kit.menu.children[0].click()
-	assert.deepEqual(kit.log.inspected, ['ana'])
-	assert.deepEqual(kit.log.scrolled, ['inspector'])
+	assert.deepEqual(kit.log.inspected, [['ana', trigger]], 'the inspector drawer gives the focus back to the menu button')
 	assert.equal(kit.menu.hidden, true)
-	assert.equal(kit.document.activeElement.tag, 'h2', 'the focus goes to the block that shows the result')
 
 	await trigger.click()
 	await kit.menu.children[1].click()

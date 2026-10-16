@@ -40,7 +40,6 @@
     "Reached: every check passed." : "Alcanzado: todas las comprobaciones se superaron.",
     "Restricted to {count}" : "Restringido a {count}",
     "Result" : "Resultado",
-    "Shows what the MCP tools of one user may do now and the first check that blocks each operation, with the same rules the tools use. It only reads: nothing is changed." : "Muestra lo que las herramientas MCP de un usuario pueden hacer ahora y la primera comprobación que bloquea cada operación, con las mismas reglas que usan las herramientas. Solo lee: no se cambia nada.",
     "The MCP policy cannot be read right now, so nothing can be confirmed. Try again shortly." : "La política de MCP no se puede leer ahora, así que no se puede confirmar nada. Inténtalo de nuevo en unos momentos.",
     "The MCP service is switched off." : "El servicio MCP está desactivado.",
     "The account does not exist or is disabled." : "La cuenta no existe o está desactivada.",
@@ -1278,6 +1277,22 @@
     "{module}: {count}" : "{module}: {count}",
     "{module}: all" : "{module}: todos",
     "not saved" : "no guardado",
-    "Close the resource scope? The changes that are not saved are lost." : "¿Cerrar la restricción por recurso? Se pierden los cambios no guardados."
+    "Close the resource scope? The changes that are not saved are lost." : "¿Cerrar la restricción por recurso? Se pierden los cambios no guardados.",
+    "See what the MCP tools of one person can do now and what blocks the rest. It only reads." : "Mira lo que las herramientas MCP de una persona pueden hacer ahora y qué bloquea el resto. Solo lee.",
+    "Inspect a person…" : "Inspeccionar a una persona…",
+    "Turn the service on in the Overview tab." : "Activa el servicio en la pestaña Vista general.",
+    "Turn on “Can connect” in the matrix or through a group." : "Activa “Puede conectar” en la matriz o mediante un grupo.",
+    "They turn it on in their personal settings, under MCP for Cloud." : "La persona lo activa en su configuración personal, en MCP for Cloud.",
+    "Account active" : "Cuenta activa",
+    "MCP service on" : "Servicio MCP activado",
+    "Personal connection on" : "Conexión personal activada",
+    "passed" : "superado",
+    "blocks" : "bloquea",
+    "not confirmed" : "no confirmado",
+    "not checked" : "no comprobado",
+    "{user} can use the MCP tools: the general checks passed." : "{user} puede usar las herramientas MCP: las comprobaciones generales se superaron.",
+    "{user} cannot use any MCP tool." : "{user} no puede usar ninguna herramienta MCP.",
+    "Every operation" : "Todas las operaciones",
+    "What each module grants, once the general check is fixed:" : "Lo que concede cada módulo, cuando se resuelva la comprobación general:"
 },"pluralForm" :"nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }
