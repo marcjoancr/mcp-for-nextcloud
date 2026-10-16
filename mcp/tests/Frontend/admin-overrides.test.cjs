@@ -111,7 +111,10 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 		data: () => data,
 		api: async (method, apiPath, body) => {
 			log.calls.push({ method, path: apiPath, body })
-			const [status, result] = answer({ method, path: apiPath, body })
+			// The read-only preview of the reset: unreadable unless a test gives it an answer.
+			const [status, result] = apiPath === '/api/grants/commands/preview'
+				? (options.preview ? options.preview(body) : [503, { error: 'Unavailable' }])
+				: answer({ method, path: apiPath, body })
 			if (status >= 400) throw Object.assign(new Error(String(status)), { data: result })
 			return result
 		},
@@ -167,6 +170,7 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 		rowButton: (uid) => rows.get(uid).querySelector('button.mcp-reset-row'),
 		panelButton: (name) => ui.panel.querySelector('button.mcp-reset-' + name),
 		commands: () => log.calls.filter((call) => call.path === '/api/grants/commands'),
+		previews: () => log.calls.filter((call) => call.path === '/api/grants/commands/preview'),
 	}
 	return ui
 }
@@ -204,7 +208,7 @@ test('T16: the selected users are reset together; users without overrides are na
 	await ui.resetSelected.click()
 	assert.match(ui.panel.textContent, /Back to group inheritance for 1 users?/)
 	assert.match(ui.panel.textContent, /1 selected user has no individual overrides and is left out/)
-	assert.match(ui.panel.textContent, /Alice: Can connect \(allowed\), Notes: edit \(denied\), Files: read \(invalid, denied\)/)
+	assert.match(ui.panel.textContent, /Alice: Can connect: Individual override: allowed → Unknown; Notes: edit: Individual override: denied → Unknown; Files: read: Invalid stored override \(denied\) → Unknown/)
 	assert.doesNotMatch(ui.panel.textContent, /Carol:/)
 	await ui.panelButton('confirm').click()
 	await tick()
@@ -441,8 +445,11 @@ test('T16: while a change is saving the controls are locked and a second reset i
 	let release
 	const ui = app([alice(), bob()], () => [200, { revision: '2', changed: 1, receiptId: null }])
 	const original = ui.window.McpAdminMatrix.api
-	ui.window.McpAdminMatrix.api = (...args) => new Promise((resolve) => { release = () => resolve(original(...args)) })
+	ui.window.McpAdminMatrix.api = (...args) => args[1].endsWith('/preview')
+		? original(...args)
+		: new Promise((resolve) => { release = () => resolve(original(...args)) })
 	await ui.rowButton('alice').click()
+	await tick()
 	const pending = ui.panelButton('confirm').click()
 	await tick()
 	assert.equal(ui.resetSelected.disabled, true)
@@ -540,7 +547,7 @@ test('B2: the row preview says that overrides in cells the table does not offer 
 	await ui.rowButton('alice').click()
 	assert.match(ui.panel.textContent, /1 of these overrides is in a permission the table does not offer for that user/)
 	assert.match(ui.panel.textContent, /It is removed too/)
-	assert.match(ui.panel.textContent, /Notes: edit \(denied\)/, 'the override is listed like any other')
+	assert.match(ui.panel.textContent, /Notes: edit: Individual override: denied/, 'the override is listed like any other')
 	await ui.panelButton('cancel').click()
 	const disabled = bob()
 	disabled.enabled = false
@@ -557,7 +564,7 @@ test('B2: the row preview says that overrides in cells the table does not offer 
 test('B3: an invalid stored value of “Can connect” gets the same “may give access” warning as a Deny', async () => {
 	const ui = app([user('frank', { eligible: 'invalid' })])
 	await ui.rowButton('frank').click()
-	assert.match(ui.panel.textContent, /Can connect \(invalid, denied\)/)
+	assert.match(ui.panel.textContent, /Can connect: Invalid stored override \(denied\)/)
 	assert.match(ui.panel.textContent, /Removing an individual Deny for “Can connect” lets the groups decide again, which may give access/)
 	assert.doesNotMatch(ui.panel.textContent, /signed out/)
 })
@@ -572,4 +579,115 @@ test('B4: without the matrix wrapper the toolbar goes before the table; with not
 	assert.equal(detached.toolbar, null)
 	assert.equal(detached.window.McpAdminOverrides, undefined, 'no hooks: the matrix keeps working without the reset')
 	assert.equal(detached.log.reloads, 0)
+})
+
+/** The server's answer to a preview: what each cell has before and after, by "uid:module:operation". */
+const previewOf = (table) => (body) => [200, { revision: REVISION, cells: body.commands.map((command) => {
+	const [before, after] = table[command.uid + ':' + (command.module ?? '_') + ':' + command.operation] || [[null, 'unknown'], [null, 'unknown']]
+	const side = ([allowed, source, groupIds = []]) => ({ allowed, source, groupIds })
+	return { uid: command.uid, module: command.module, operation: command.operation, before: side(before), after: side(after) }
+}) }]
+
+test('T16: the preview asks the server for the same commands, read only, and shows before → after per cell', async () => {
+	const ui = app([alice()], undefined, { preview: previewOf({
+		'alice:_:eligible': [[true, 'individual_allow'], [true, 'group', ['staff']]],
+		'alice:notes:edit': [[false, 'individual_deny'], [true, 'group', ['staff']]],
+		'alice:files:read': [[false, 'invalid'], [true, 'default']],
+	}) })
+	await ui.rowButton('alice').click()
+	await tick()
+	assert.equal(ui.previews().length, 1)
+	assert.deepEqual(plain(ui.previews()[0].body), { commands: [
+		{ uid: 'alice', module: null, operation: 'eligible', state: 'inherit' },
+		{ uid: 'alice', module: 'notes', operation: 'edit', state: 'inherit' },
+		{ uid: 'alice', module: 'files', operation: 'read', state: 'inherit' },
+	] })
+	assert.equal(ui.commands().length, 0, 'a preview never writes')
+	const text = ui.panel.textContent
+	assert.match(text, /Can connect: Individual override: allowed → Granted by groups: staff/)
+	assert.match(text, /Notes: edit: Individual override: denied → Granted by groups: staff/)
+	assert.match(text, /Files: read: Invalid stored override \(denied\) → Allowed by default/)
+	assert.match(text, /Results that change: 2\. Unchanged: 1\. Unknown: 0\./)
+	ui.flush()
+	assert.match(ui.status.textContent, /The result after the reset is shown/)
+})
+
+test('T16/F2: a known "Can connect" kept by a group says nobody is signed out; no “may”, no “will”', async () => {
+	const ui = app([alice()], undefined, { preview: previewOf({ 'alice:_:eligible': [[true, 'individual_allow'], [true, 'group', ['staff']]] }) })
+	await ui.rowButton('alice').click()
+	await tick()
+	assert.match(ui.panel.textContent, /1 user keeps “Can connect” through a group, so nobody is signed out for it/)
+	assert.doesNotMatch(ui.panel.textContent, /may be signed out|will be signed out|connections are revoked/)
+})
+
+test('T16/F2: a known loss of "Can connect" says the connections are revoked and that undo does not reconnect', async () => {
+	const ui = app([alice(), bob()], undefined, { preview: previewOf({ 'alice:_:eligible': [[true, 'individual_allow'], [false, 'default']] }) })
+	await ui.rowButton('alice').click()
+	await tick()
+	assert.match(ui.panel.textContent, /1 user loses “Can connect” and the access it gives\. Their MCP connections are revoked, and undoing this does not sign them back in/)
+	assert.doesNotMatch(ui.panel.textContent, /may be signed out|keeps “Can connect”/)
+	assert.match(ui.panel.textContent, /Can connect: Individual override: allowed → Denied by default/)
+})
+
+test('T16/F2: an unknown "after" is shown as Unknown, never as a value, and the reset is said to be refused', async () => {
+	const ui = app([alice()], undefined, { preview: previewOf({
+		'alice:_:eligible': [[true, 'individual_allow'], [null, 'unknown', ['broken']]],
+		'alice:notes:edit': [[false, 'individual_deny'], [null, 'unknown', ['broken']]],
+	}) })
+	await ui.rowButton('alice').click()
+	await tick()
+	assert.match(ui.panel.textContent, /Can connect: Individual override: allowed → Unknown/)
+	assert.match(ui.panel.textContent, /Notes: edit: Individual override: denied → Unknown/)
+	assert.match(ui.panel.textContent, /Unknown: 3/, 'the third cell has no answer: also unknown')
+	assert.match(ui.panel.textContent, /The “Can connect” of 1 user after the reset is unknown\. The reset is refused until the groups can be read/)
+	assert.doesNotMatch(ui.panel.textContent, /Denied by default|Allowed by default|revoked/)
+})
+
+test('T16: an unreadable preview shows the conservative warning, says so, and does not block the reset', async () => {
+	const ui = app([alice()])
+	await ui.rowButton('alice').click()
+	await tick()
+	ui.flush()
+	assert.match(ui.panel.textContent, /The result after the reset could not be read, so it is shown as unknown/)
+	assert.match(ui.panel.textContent, /may be signed out of their MCP clients/)
+	assert.doesNotMatch(ui.panel.textContent, /will be signed out|connections are revoked/)
+	assert.match(ui.alert.textContent, /could not be read/)
+	assert.equal(ui.panelButton('confirm').disabled, false)
+	await ui.panelButton('confirm').click()
+	await tick()
+	assert.equal(ui.commands().length, 1)
+})
+
+test('T16: the reset cannot be confirmed while the preview loads, and the focus stays on the heading when it arrives', async () => {
+	let release
+	const ui = app([alice()])
+	const original = ui.window.McpAdminMatrix.api
+	ui.window.McpAdminMatrix.api = (method, apiPath, body) => apiPath.endsWith('/preview')
+		? new Promise((resolve) => { release = () => resolve(previewOf({})(body)[1]) })
+		: original(method, apiPath, body)
+	await ui.rowButton('alice').click()
+	assert.equal(ui.panelButton('confirm').disabled, true)
+	assert.match(ui.panel.textContent, /Checking what these users inherit/)
+	assert.equal(ui.document.activeElement, ui.panel.querySelector('h3'))
+	release()
+	await tick()
+	assert.equal(ui.panelButton('confirm').disabled, false)
+	assert.equal(ui.document.activeElement, ui.panel.querySelector('h3'), 'the redrawn heading keeps the focus')
+})
+
+test('T16: an answer for a preview that was closed meanwhile is dropped', async () => {
+	let release
+	const ui = app([alice()])
+	const original = ui.window.McpAdminMatrix.api
+	ui.window.McpAdminMatrix.api = (method, apiPath, body) => apiPath.endsWith('/preview')
+		? new Promise((resolve) => { release = () => resolve(previewOf({})(body)[1]) })
+		: original(method, apiPath, body)
+	await ui.rowButton('alice').click()
+	await ui.panelButton('cancel').click()
+	release()
+	await tick()
+	assert.equal(ui.panel.hidden, true)
+	assert.equal(ui.panel.children.length, 0)
+	ui.flush()
+	assert.equal(ui.status.textContent, '')
 })

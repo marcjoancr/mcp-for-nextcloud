@@ -11,11 +11,13 @@
  * draws and exposes window.McpAdminMatrix; this file never reads or writes the matrix state itself. A reset is the
  * command {state: "inherit"} of POST /apps/mcp/api/grants/commands: one transaction, which writes every cell or none.
  *
- * What the page may promise: the table only knows each cell's current source (individual allow, individual deny, or
- * inherited), never what the groups would give once an override is gone. So the preview names the exact cells that
- * lose their override, says that credentials are cut only when nothing else keeps the user eligible ("may be signed
- * out", never "will be"), and a 503 means nothing was written: the preview, the selection and the table stay as they
- * are and the administrator can try again. A reset is never reported before the server confirmed it.
+ * What the page may promise: the table only knows each cell's current source, never what the groups would give once an
+ * override is gone, so the preview asks the server (POST /apps/mcp/api/grants/commands/preview, read only) for the value
+ * and source of every cell before and after, and shows both; an answer that is unknown is shown as unknown, never as a
+ * value. Only a known "Can connect" lost after the reset says the connections are revoked, and a known one kept through a
+ * group says nobody is signed out. When the preview cannot be read the page falls back to "may be signed out", never
+ * "will be". A 503 of the command means nothing was written: the preview, the selection and the table stay as they are
+ * and the administrator can try again. A reset is never reported before the server confirmed it.
  */
 (function () {
 	'use strict'
@@ -337,10 +339,56 @@
 			return
 		}
 		say('')
-		review = { plan: result, trigger, retry: false }
+		review = { plan: result, trigger, retry: false, after: null, loading: true, unavailable: false }
 		renderReview()
 		panel.hidden = false
 		panel.querySelector('h3').focus()
+		loadAfter(review)
+	}
+
+	/**
+	 * @param {object} result a plan
+	 * @return {Array<{uid: string, module: string|null, operation: string, state: string}>} its inherit commands
+	 */
+	function commandsOf(result) {
+		return result.targets.flatMap((target) => target.cells.map((cell) => ({
+			uid: target.user.uid,
+			module: cell.module,
+			operation: cell.operation,
+			state: 'inherit',
+		})))
+	}
+
+	/**
+	 * Asks the server what each cell has before and after the reset and redraws the preview with it. Read only. A preview
+	 * that cannot be read leaves every "after" unknown and the warning conservative; it never blocks the reset itself,
+	 * whose command refuses on its own what it cannot determine.
+	 *
+	 * @param {object} current the preview that asked; an answer for a preview that was closed or replaced is dropped
+	 */
+	async function loadAfter(current) {
+		try {
+			const data = await matrix.api('POST', '/api/grants/commands/preview', { commands: commandsOf(current.plan) })
+			if (review !== current) {
+				return
+			}
+			current.after = new Map((Array.isArray(data.cells) ? data.cells : []).map((cell) => [afterKey(cell.uid, cell.module, cell.operation), cell]))
+		} catch (e) {
+			if (review !== current) {
+				return
+			}
+			current.unavailable = true
+		}
+		current.loading = false
+		renderReview()
+		say(current.unavailable
+			? t('mcp', 'The result after the reset could not be read, so it is shown as unknown.')
+			: t('mcp', 'The result after the reset is shown.'), current.unavailable)
+	}
+
+	/** @return {string} key of one cell of one user */
+	function afterKey(uid, module, operation) {
+		return uid + '\0' + (module ?? '') + '\0' + operation
 	}
 
 	/** @param {boolean} restoreFocus give the focus back to the control that opened the preview */
@@ -367,34 +415,110 @@
 	}
 
 	/**
-	 * @param {{user: object, cells: object[]}} target one user of the plan
-	 * @return {string} "Ana: Can connect (allowed), Notes: edit (denied)"
+	 * @param {{allowed: boolean|null, source: string, groupIds: string[]}|undefined} outcome the cell after the reset
+	 * @return {string} what it will be, or "Unknown": a missing or null answer is never shown as a value
 	 */
-	function describeTarget(target) {
-		const parts = target.cells.map((cell) => {
-			const permission = permissionName(cell.module, cell.operation)
-			return cell.kind === 'allow'
-				? t('mcp', '{permission} (allowed)', { permission }, undefined, { escape: false })
-				: cell.kind === 'deny'
-					? t('mcp', '{permission} (denied)', { permission }, undefined, { escape: false })
-					: t('mcp', '{permission} (invalid, denied)', { permission }, undefined, { escape: false })
-		})
-		return t('mcp', '{user}: {permissions}', { user: target.user.displayName, permissions: parts.join(', ') }, undefined, { escape: false })
+	function afterText(outcome) {
+		if (!outcome || outcome.allowed === null || outcome.allowed === undefined) {
+			return t('mcp', 'Unknown')
+		}
+		if (outcome.allowed) {
+			return outcome.source === 'group'
+				? t('mcp', 'Granted by groups: {groups}', { groups: outcome.groupIds.join(', ') }, undefined, { escape: false })
+				: t('mcp', 'Allowed by default')
+		}
+		return t('mcp', 'Denied by default')
 	}
 
-	/** Draws the preview: the exact cells, what may change and the buttons. */
+	/**
+	 * @param {{user: object, cells: object[]}} target one user of the plan
+	 * @return {string} "Ana: Can connect: Individual override: allowed → Granted by groups: staff; Notes: edit: …"
+	 */
+	function describeTarget(target) {
+		const names = {
+			allow: t('mcp', 'Individual override: allowed'),
+			deny: t('mcp', 'Individual override: denied'),
+			invalid: t('mcp', 'Invalid stored override (denied)'),
+		}
+		const parts = target.cells.map((cell) => {
+			const outcome = review.after?.get(afterKey(target.user.uid, cell.module, cell.operation))?.after
+			return t('mcp', '{permission}: {before} → {after}', { permission: permissionName(cell.module, cell.operation), before: names[cell.kind], after: afterText(outcome) }, undefined, { escape: false })
+		})
+		return t('mcp', '{user}: {permissions}', { user: target.user.displayName, permissions: parts.join('; ') }, undefined, { escape: false })
+	}
+
+	/**
+	 * What the server says about the results of a reset, once it was read.
+	 *
+	 * @param {object} current the open preview
+	 * @return {{changed: number, same: number, unknown: number, lost: number, kept: number, lostUnknown: number}}
+	 */
+	function outcomes(current) {
+		const out = { changed: 0, same: 0, unknown: 0, lost: 0, kept: 0, lostUnknown: 0 }
+		for (const target of current.plan.targets) {
+			for (const cell of target.cells) {
+				const answer = current.after.get(afterKey(target.user.uid, cell.module, cell.operation))
+				const after = answer?.after?.allowed ?? null
+				const before = answer?.before?.allowed ?? null
+				if (after === null || before === null) {
+					out.unknown++
+				} else if (after === before) {
+					out.same++
+				} else {
+					out.changed++
+				}
+				if (cell.module === null && cell.kind === 'allow') {
+					// An individual Allow of "Can connect": what the user is left with decides whether the connections stay.
+					after === null ? out.lostUnknown++ : after ? out.kept++ : out.lost++
+				}
+			}
+		}
+		return out
+	}
+
+	/** Draws the preview: the exact cells, what each has before and after, what may change and the buttons. */
 	function renderReview() {
 		const result = review.plan
+		// The preview is drawn again when the server's answer arrives: the focus stays on what had it.
+		const focused = ['h3', 'button.mcp-reset-confirm', 'button.mcp-reset-cancel'].find((selector) => {
+			const node = panel.querySelector(selector)
+			return node !== null && document.activeElement === node
+		})
 		const heading = el('h3', {
 			tabIndex: -1,
 			textContent: n('mcp', 'Back to group inheritance for %n user', 'Back to group inheritance for %n users', result.users, undefined, { escape: false }),
 		})
 		const lines = [
 			el('p', { textContent: t('mcp', 'Overrides to remove: {allow} allowed, {deny} denied, {invalid} invalid.', { allow: result.allow, deny: result.deny, invalid: result.invalid }, undefined, { escape: false }) }),
-			el('p', { textContent: t('mcp', 'Each removed override is replaced by what the groups and defaults give, so some permissions may change.') }),
 		]
-		if (result.eligibleAllow > 0) {
-			// Never "will": a group or another rule may keep the user eligible, and the page cannot tell which.
+		const known = review.after !== null
+		const counts = known ? outcomes(review) : null
+		if (review.loading) {
+			lines.push(el('p', { textContent: t('mcp', 'Checking what these users inherit…') }))
+		} else if (review.unavailable) {
+			lines.push(el('p', { textContent: t('mcp', 'The result after the reset could not be read, so it is shown as unknown.') }))
+		}
+		lines.push(el('p', { textContent: known
+			? t('mcp', 'Results that change: {changed}. Unchanged: {same}. Unknown: {unknown}.', counts, undefined, { escape: false })
+			: t('mcp', 'Each removed override is replaced by what the groups and defaults give, so some permissions may change.') }))
+		if (known) {
+			if (counts.lost > 0) {
+				lines.push(el('p', { className: 'mcp-reset-warning', textContent: n('mcp',
+					'%n user loses “Can connect” and the access it gives. Their MCP connections are revoked, and undoing this does not sign them back in.',
+					'%n users lose “Can connect” and the access it gives. Their MCP connections are revoked, and undoing this does not sign them back in.',
+					counts.lost, undefined, { escape: false }) }))
+			}
+			if (counts.kept > 0) {
+				lines.push(el('p', { textContent: n('mcp', '%n user keeps “Can connect” through a group, so nobody is signed out for it.', '%n users keep “Can connect” through a group, so nobody is signed out for it.', counts.kept, undefined, { escape: false }) }))
+			}
+			if (counts.lostUnknown > 0) {
+				lines.push(el('p', { className: 'mcp-reset-warning', textContent: n('mcp',
+					'The “Can connect” of %n user after the reset is unknown. The reset is refused until the groups can be read.',
+					'The “Can connect” of %n users after the reset is unknown. The reset is refused until the groups can be read.',
+					counts.lostUnknown, undefined, { escape: false }) }))
+			}
+		} else if (result.eligibleAllow > 0) {
+			// The server's answer is missing: never "will", a group or another rule may keep the user eligible.
 			lines.push(el('p', { className: 'mcp-reset-warning', textContent: n('mcp',
 				'%n user loses an individual Allow for “Can connect”. Unless a group or another rule keeps them eligible, they may be signed out of their MCP clients, and undoing this does not sign them back in.',
 				'%n users lose an individual Allow for “Can connect”. Unless a group or another rule keeps them eligible, they may be signed out of their MCP clients, and undoing this does not sign them back in.',
@@ -419,10 +543,14 @@
 			type: 'button',
 			className: 'primary mcp-reset-confirm',
 			textContent: review.retry ? t('mcp', 'Try again') : t('mcp', 'Remove overrides'),
+			disabled: review.loading,
 			onclick: execute,
 		})
 		const cancel = el('button', { type: 'button', className: 'mcp-reset-cancel', textContent: t('mcp', 'Cancel'), onclick: () => close(true) })
 		panel.replaceChildren(heading, ...lines, list, el('div', { className: 'mcp-reset-actions' }, [confirm, ' ', cancel]))
+		if (focused) {
+			panel.querySelector(focused).focus()
+		}
 	}
 
 	/** Sends the command of the open preview. Nothing is repeated on its own: a retry is the administrator's click. */
@@ -431,12 +559,7 @@
 			return
 		}
 		const current = review
-		const commands = current.plan.targets.flatMap((target) => target.cells.map((cell) => ({
-			uid: target.user.uid,
-			module: cell.module,
-			operation: cell.operation,
-			state: 'inherit',
-		})))
+		const commands = commandsOf(current.plan)
 		saving = true
 		matrix.setBusy(true)
 		for (const button of panel.querySelectorAll('button')) {

@@ -75,6 +75,21 @@ final class AdminOverridesAssetsTest extends TestCase {
         $this->assertStringNotContainsString('granted', $overrides, 'the form with a boolean is never mixed with the triestate command');
     }
 
+    /** The preview is read only: one POST, to the route that has no write and answers 403 before it resolves anything. */
+    public function testThePreviewRouteIsTheOneThePageReadsAndItsControllerGuardsFirst(): void {
+        $app = self::app();
+        $this->assertStringContainsString("'/api/grants/commands/preview'", (string)file_get_contents($app . '/js/admin-overrides.js'));
+        $this->assertStringContainsString("'url' => '/api/grants/commands/preview', 'verb' => 'POST'", (string)file_get_contents($app . '/appinfo/routes.php'));
+        $controller = (string)file_get_contents($app . '/lib/Controller/OverridePreviewController.php');
+        $this->assertLessThan(strpos($controller, '$this->preview->preview('), strpos($controller, 'isAdmin('), 'the administrator check precedes the resolution');
+        $this->assertStringNotContainsString('NoAdminRequired', $controller);
+        $service = (string)file_get_contents($app . '/lib/Service/OverridePreview.php');
+        foreach (['setUserValue', 'deleteUserValue', 'applyCells', 'runInternal', 'beginTransaction'] as $write) {
+            $this->assertStringNotContainsString($write, $service, 'a preview never writes');
+        }
+        $this->assertStringContainsString('admin counting only, not an access decision', $service);
+    }
+
     /** I2/O2: two fixed live regions and a delayed write, in the groups editor and in the reset toolbar. */
     public function testTheLiveRegionsAreFixedAndWrittenAfterTheyAreCleared(): void {
         $app = self::app();
