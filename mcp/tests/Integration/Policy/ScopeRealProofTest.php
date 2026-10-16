@@ -9,6 +9,8 @@ namespace OCA\Mcp\Tests\Integration\Policy;
 
 use OCA\Mcp\Db\AuthUsersMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
+use OCA\Mcp\Db\ResourceScopeMapper;
+use OCA\Mcp\Service\Policy\ScopeItemsInaccessible;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Integration\Support\Credential;
@@ -86,7 +88,16 @@ final class ScopeRealProofTest extends ExclusionTestCase {
         $this->scope(self::BOB, [$received]);
         $this->assertReadable($bob, $target . '/moving.txt', 'outside then inside', 'recipient selects own mounted folder');
         $this->assertReadable($alice, $this->path('home', 'private/private.txt'), 'no native access for bob', 'private file selected by the owner');
-        $this->assertRefusedAsMissing($bob, $bob->tool('files_read', ['path' => $this->path('home', 'private/private.txt')]), 'scope never grants native ACL');
+        $beforeRevision = Server::get(PolicyStateMapper::class)->state()['revision'];
+        $beforeScope = Server::get(ResourceScopeMapper::class)->forUser(self::BOB);
+        try {
+            $this->scope(self::BOB, [$private]);
+            $this->fail('An owner-only folder must not be selectable for the recipient');
+        } catch (ScopeItemsInaccessible $e) {
+            $this->assertSame([(string)$private->getId()], $e->items);
+        }
+        $this->assertSame($beforeRevision, Server::get(PolicyStateMapper::class)->state()['revision'], 'inaccessible selection writes no revision');
+        $this->assertSame($beforeScope, Server::get(ResourceScopeMapper::class)->forUser(self::BOB), 'the recipient scope is unchanged');
 
         $this->dav()->move($inside, $outside);
         $this->assertRefusedAsMissing($alice, $alice->tool('files_read', ['path' => $outside]), 'owner after native MOVE out');
@@ -140,6 +151,21 @@ final class ScopeRealProofTest extends ExclusionTestCase {
         $control = $bob->tool('talk_quote_file', ['conversation_token' => $token, 'attachment_id' => $id]);
         $this->assertTrue($control->ok(), 'native ACL also permits the quote draft before scope: ' . $control->describe());
         $this->assertStringContainsString('scope-secret.txt', $control->raw);
+        // Read envelopes omit names structurally; only attachmentId depends on Files scope.
+        $this->assertStringNotContainsString('scope-secret.txt', $before->raw);
+        $replyArguments = ['conversation_token' => $token, 'message' => 'Answer without attachment metadata', 'reply_to' => (int)$messageId];
+        $replyControls = [];
+        foreach ([false, true] as $confirm) {
+            $replyControl = $bob->tool('talk_reply', $replyArguments + ['confirm' => $confirm]);
+            $this->assertTrue($replyControl->ok(), 'unrestricted reply control: ' . $replyControl->describe());
+            $this->assertStringNotContainsString('scope-secret.txt', $replyControl->raw);
+            $controlData = $confirm ? $replyControl->json() : $replyControl->structured();
+            $this->assertIsArray($controlData, $replyControl->describe());
+            $this->assertNotSame([], $controlData, 'the real reply control has a payload');
+            $this->assertArrayNotHasKey('attachmentId', $controlData);
+            $replyControls[(int)$confirm] = $controlData;
+        }
+        $countBeforeScope = count($read()->json()['messages']);
         $share = Server::get(IManager::class)->getShareById('ocRoomShare:' . $id, self::BOB);
         $this->assertSame((int)$file->getId(), (int)$share->getNode()->getId(), 'a real readable room share');
         $this->cleanScope(self::BOB);
@@ -163,12 +189,21 @@ final class ScopeRealProofTest extends ExclusionTestCase {
             $this->assertStringNotContainsString('scope-secret.txt', $quote->raw);
             $this->assertArrayNotHasKey('attachmentId', $quote->json() ?? []);
         }
-        $this->assertCount(count($before->json()['messages']), $read()->json()['messages'], 'refused quotes post nothing');
+        $this->assertCount($countBeforeScope, $read()->json()['messages'], 'refused quotes post nothing');
         foreach ([false, true] as $confirm) {
-            $reply = $bob->tool('talk_reply', ['conversation_token' => $token, 'message' => 'Answer without attachment metadata', 'reply_to' => (int)$messageId, 'confirm' => $confirm]);
+            $reply = $bob->tool('talk_reply', $replyArguments + ['confirm' => $confirm]);
             $this->assertTrue($reply->ok(), $reply->describe());
             $this->assertStringNotContainsString('scope-secret.txt', $reply->raw);
-            $this->assertNull($reply->json()['attachmentId'] ?? null, 'reply result/plan carries no attachment id');
+            $actualBody = $confirm ? $reply->json() : $reply->structured();
+            $this->assertIsArray($actualBody, $reply->describe());
+            $this->assertArrayNotHasKey('attachmentId', $actualBody, 'reply result/plan carries no attachment id');
+            $controlBody = $replyControls[(int)$confirm];
+            if ($confirm) {
+                $this->assertIsInt($controlBody['messageId']);
+                $this->assertIsInt($actualBody['messageId']);
+                unset($controlBody['messageId'], $actualBody['messageId']);
+            }
+            $this->assertSame($controlBody, $actualBody, 'reply format is identical with open and restricted Files scope');
         }
         $this->assertStringNotContainsString('scope-secret.txt', $read()->raw);
     }

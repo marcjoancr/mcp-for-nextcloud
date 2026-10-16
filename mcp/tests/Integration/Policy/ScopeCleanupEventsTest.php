@@ -13,6 +13,7 @@ use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Service\Policy\ScopeCleanup;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Tests\Integration\Support\LoginFactory;
+use OCA\Mcp\Tests\Integration\Support\Credential;
 use OCA\Mcp\Tests\Integration\Support\Http;
 use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCA\Mcp\Tests\Integration\Support\EventProbe;
@@ -49,8 +50,19 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
         foreach ($this->touched as [$uid, $module]) {
             $this->replace($uid, $module, null);
         }
-        foreach ($this->created as $uid) {
-            Server::get(IUserManager::class)->get($uid)?->delete();
+        if ($this->created !== []) {
+            // Destructive provisioning calls require the real admin password, not an app password.
+            $password = getenv('NEXTCLOUD_ADMIN_PASSWORD');
+            $this->assertIsString($password, 'the disposable server supplies its admin password');
+            $this->assertNotSame('', $password);
+            $headers = ['Authorization: ' . Credential::basic('admin', $password)->authorization(), 'OCS-APIRequest: true'];
+            foreach ($this->created as $uid) {
+                // A rolled-back deletion can leave this CLI's user cache saying absent. Use a fresh core request.
+                $url = Http::BASE . '/ocs/v2.php/cloud/users/' . rawurlencode($uid) . '?format=json';
+                $deleted = Http::request('DELETE', $url, $headers);
+                $this->assertContains($deleted['status'], [200, 404], 'native OCS account cleanup: ' . $deleted['body']);
+                $this->assertSame(404, Http::request('GET', $url, $headers)['status'], 'the fixture account is absent after OCS cleanup');
+            }
         }
         Server::get(IAppConfig::class)->deleteKey('mcp', ScopeCleanup::CURSOR_KEY);
         parent::tearDown();
@@ -79,6 +91,12 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
         $this->assertNotNull(Server::get(IUserManager::class)->createUser($uid, bin2hex(random_bytes(16))), 'the account was created');
         $this->created[] = $uid;
         return $uid;
+    }
+
+    /** Count from the beginning of the same diagnostic population, independently of a previous pass's cursor. */
+    private function absentCount(): int {
+        Server::get(IAppConfig::class)->deleteKey('mcp', ScopeCleanup::CURSOR_KEY);
+        return Server::get(ScopeCleanup::class)->reconcile();
     }
 
     private function revision(): string {
@@ -125,15 +143,15 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
 
     public function testTheJobKeepsAndCountsTheScopeOfAnAccountThatIsGoneAndKeepsThatOfOneThatExists(): void {
         $gone = 'mcp-it-scope-gone-' . bin2hex(random_bytes(4));
+        $absentBefore = $this->absentCount();
         $this->replace($gone, 'tasks', ['400']);
         $this->replace(Fixtures::ALICE, 'files', ['200']);
         $before = $this->revision();
-        $job = Server::get(ScopeCleanup::class);
 
         $absent = 0;
         for ($pass = 0; $pass < 3; ++$pass) {
-            $absent = $job->reconcile();
-            $this->assertGreaterThanOrEqual(1, $absent, 'the account no backend knows is counted as absent');
+            $absent = $this->absentCount();
+            $this->assertSame($absentBefore + 1, $absent, 'this orphan adds exactly one absent account');
         }
 
         $this->assertSame(['400'], $this->scopes($gone)['tasks']['items'], 'the scope of an absent account is kept: only the event removes it');
@@ -169,14 +187,14 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
             ['Authorization: ' . LoginFactory::basic('admin')->authorization(), 'OCS-APIRequest: true']);
         $this->assertSame(200, $account['status']);
         $this->assertSame($uid, json_decode($account['body'], true)['ocs']['data']['id'] ?? null, 'the native account deletion was rolled back');
-        Server::get(ScopeCleanup::class)->reconcile();
-        $this->assertSame($before, $this->scopes($uid), 'rollback and the job never lift the restriction');
+        $this->assertSame($before, $this->scopes($uid), 'the caller rollback leaves every scope intact');
     }
 
     public function testAnActuallyDeletedAndRecreatedAccountKeepsItsRestrictionThroughTheJobAndMcp(): void {
         $uid = $this->account();
         $this->replace($uid, 'files', []);
         $before = $this->scopes($uid);
+        $absentBefore = $this->absentCount();
         $probe = new EventProbe(Server::get(IEventDispatcher::class), $this->official());
         $probe->record(BeforeUserDeletedEvent::class);
         $probe->record(UserDeletedEvent::class);
@@ -192,7 +210,7 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
         $this->assertCount(2, $probe->seen());
         $this->assertSame($before, $this->scopes($uid));
         $this->assertNull(Server::get(IUserManager::class)->get($uid), 'the account really is absent');
-        $this->assertGreaterThanOrEqual(1, Server::get(ScopeCleanup::class)->reconcile(), 'the job counts the absent account');
+        $this->assertSame($absentBefore + 1, $this->absentCount(), 'this real deletion adds exactly one absent account');
         $this->assertSame($before, $this->scopes($uid), 'it never removes the orphan restriction');
         $this->assertNotNull(Server::get(IUserManager::class)->createUser($uid, bin2hex(random_bytes(16))), 'same UID is really recreated');
         $home = Server::get(IRootFolder::class)->getUserFolder($uid);

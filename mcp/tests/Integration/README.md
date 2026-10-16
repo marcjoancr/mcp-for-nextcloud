@@ -286,11 +286,16 @@ Run locally with `ci/run-local.sh 35 pgsql fresh` and `ci/run-local.sh 32 mariad
 
 | Scenario | Real proof |
 | --- | --- |
-| S4 / S5 | A native user share, the recipient's independent scope and native WebDAV read, then WebDAV MOVE into, out of and back into the selected folder. The same MCP clients observe each change on their next HTTP call. A selected folder never grants the recipient access to an unshared private folder. |
+| S4 / S5 | A native user share, the recipient's independent scope and native WebDAV read, then WebDAV MOVE into, out of and back into the selected folder. The same MCP clients observe each change on their next HTTP call. Selecting the owner-only folder id for the recipient throws `ScopeItemsInaccessible`, preserving the revision and the recipient's saved scope. |
 | S9 | The same Basic and OAuth credentials read before and after replacing the selected folder; both apply the current scope, remain authenticated and leave OAuth generations and the global auth epoch unchanged. |
 | S12 | `Policy/ScopeCleanupEventsTest.php`: on-time real deletion removes old rows; actual account recreation before the late handler preserves newer rows; both core deletion events inside a caller's rolled-back transaction keep scopes; committed deferred deletion, diagnostic job, actual same-UID recreation and MCP reads keep the old restriction. The job counts absent accounts and never removes scopes. |
-| V9 phase 2 | A real Talk room share, no exclusion tags configured, native ACL allowing the participant and only Files scope blocking it. The attachment message stays with its type and explicit null attachmentId, without its filename. Quote draft and confirmation match an absent attachment and publish nothing. Reply draft and confirmation quoting that message expose neither filename nor attachmentId. |
+| V9 phase 2 | A real Talk room share, no exclusion tags configured, native ACL allowing the participant and only Files scope blocking it. The attachment message stays with its type and explicit null attachmentId, without its filename. Quote draft and confirmation match an absent attachment and publish nothing. Reply draft and confirmation quoting the same attachment are also called before restricting scope: their formats remain identical afterward (apart from the new reply message id). Read envelopes omit filenames and reply results/plans omit attachmentId structurally, even with open scope; the effective scope checks are the read attachmentId becoming null and the quote refusal. |
 | D6 | Full HTTP status/result comparisons against the same tool's nonexistent resource, including Files reads and Talk quote plans and confirmations. |
+
+S12 outside-transaction failure (Before without After because deletion failed) is covered only by unit contract,
+not by this real proof. It is safe by construction: scope removal requires the After event. The real failure case
+here is the caller transaction rollback with both native events delivered. Rollback fixtures are deleted through
+native OCS HTTP in teardown, with a subsequent 404 check, independently of the CLI user cache.
 
 Existing coverage is reused: `FilesScopeTest::testS2S5TheToolsReachOnlyTheSelectedFoldersAndCreateNothingOutside`
 proves nested destinations, refusals without partial writes, checkout and resource reads; `CalendarScopeTest` proves
