@@ -188,6 +188,8 @@ cmd_install_app() {
         occ migrations:status mcp || true
         # Credentials issued by the baseline itself, checked after the upgrade (validation T12).
         docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
+        # Preferences the baseline writes through its own setters, and its answers for them (validation T12/T13).
+        docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-policy.php seed /tmp/mcp-it-snapshot.json
     fi
     if [ "$MCP_IT_MODE" = baseline ]; then
         # Diagnostic mode (local runs): the released baseline stays installed and is never upgraded.
@@ -233,6 +235,12 @@ cmd_fixtures() {
     for uid in mcp-it-alice mcp-it-bob mcp-it-legacy; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
+    if [ "$MCP_IT_MODE" = upgrade ]; then
+        # Owners of the snapshot the baseline wrote before the upgrade (Compat/SnapshotProbe::uids).
+        for i in 0 1 2 3 4 5 6 7 8; do
+            docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "mcp-it-snap-$i"
+        done
+    fi
     occ group:add mcp-it-staff
     occ group:add mcp-it-empty
     occ group:adduser mcp-it-staff mcp-it-alice
@@ -405,6 +413,7 @@ cmd_test() {
     expected=$(cat "$WORK/expected-version")
     set -- -e NEXTCLOUD_ROOT=/var/www/html -e MCP_IT_NC="$MCP_IT_NC" -e MCP_IT_DB="$MCP_IT_DB" \
         -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json \
+        -e MCP_IT_SNAPSHOT=/tmp/mcp-it-snapshot.json -e MCP_IT_BASELINE_APP=/tmp/mcp-previous \
         -e MCP_IT_PROVISION_FAILURES="$(tr '\n' ' ' < "$WORK/provision-failures" 2>/dev/null || true)" \
         -e MCP_IT_GF_NAME="$GF_NAME"
     if [ "$MCP_IT_DB" = pgsql ]; then

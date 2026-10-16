@@ -108,6 +108,31 @@ store; `OAuth/LegacyCredentialsTest.php` then checks after `occ upgrade` that ev
 that they carry epoch 0 and generation 1, and that they still authenticate, exchange, rotate and detect the replay.
 It is skipped in fresh cells. These tests do not certify how later tickets use the columns, nor the full T19 matrix.
 
+## Upgrade snapshot without groups (T12, T13 first part)
+
+In the upgrade cells, `ci/legacy-policy.php seed` runs right after `ci/legacy-credentials.php`, with the baseline
+still installed: it writes the synthetic snapshot of `Compat/SnapshotProbe` through the baseline's own `GrantPolicy`
+setters (nine users, one per eligible × connected pair over '1', '0' and absent; every CATALOG operation stored as
+'1', '0' and absent three times each), issues one access token per user through the baseline's store, and records
+the stored bytes (value, type, lazy flag, flags of every key, read through the config services) and every answer of
+that release under each state of the service switch. The fixture step then creates those nine accounts.
+
+`Compat/UpgradeSnapshotTest`, in the `compat` suite that runs before every other one, checks after `occ upgrade`:
+the bytes and keys are unchanged, also after every migration of the app runs again (the core `MigrationService::executeStep`, what
+`occ migrations:execute` runs) and the seed step with it; no policy key was materialized in the app config; the global epoch is 0, no user was cut and every
+baseline token keeps its row with epoch 0 and generation 1; the branch's answers equal the baseline's; the baseline's
+own `GrantPolicy`, loaded by `ci/legacy-policy.php read` from the copy the upgrade moved aside
+(`MCP_IT_BASELINE_APP`), reads the same bytes into the same answers (the script refuses any class of the app the
+reading loaded from elsewhere, and any Service, OAuth or Db class the server's boot loaded from the branch first); and each baseline access token authenticates, and its refresh token rotates, exactly
+when the baseline's `canConnect` allowed it, while with the service off or absent none does. The seed records the
+app version it ran under, which must be the baseline's. The tests rely on declaration order (`executionOrder="default"`
+in `phpunit.xml`): the last one cuts the snapshot's users. Skipped in fresh cells.
+
+That 1.0.8 can still read the preferences is a property of the data, not a statement that going back to 1.0.8 is
+safe: it is not, even before groups are adopted, because 1.0.8 knows neither the epoch nor the cuts that revoke
+credentials in 1.1.0 (decisions of 1.1.0). The coordinated recovery rehearsal of T13 (backup of installation and
+database, service closed) belongs to the release gate and is not part of this suite.
+
 ## Revocation by generation and epoch (T7/T11 OAuth part)
 
 `OAuth/GenerationCutTest.php` runs the production token service, writer and account listener on an account it
