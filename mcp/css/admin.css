@@ -1515,12 +1515,19 @@ body[data-themes*="dark"] #mcp-admin {
 
 	#mcp-admin .mcp-matrix-block .mcp-toolbar > input[type="search"],
 	#mcp-admin .mcp-matrix-block .mcp-toolbar > .mcp-view,
-	#mcp-admin .mcp-matrix-block .mcp-toolbar > .mcp-count {
+	#mcp-admin .mcp-matrix-block .mcp-toolbar > .mcp-count,
+	#mcp-admin .mcp-matrix-block .mcp-toolbar > .mcp-legend,
+	#mcp-admin .mcp-matrix-block .mcp-toolbar > .mcp-pager {
 		flex-basis: 100%;
 	}
 
 	#mcp-admin .mcp-toolbar .mcp-view {
 		display: flex;
+	}
+
+	/* The pager under the table wraps instead of pushing "Next" past the edge. */
+	#mcp-admin .mcp-matrix-block .mcp-pager {
+		flex-wrap: wrap;
 	}
 
 	#mcp-admin .mcp-toolbar .mcp-view button {
