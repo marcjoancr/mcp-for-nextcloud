@@ -1217,7 +1217,9 @@ OC.L10N.register(
     "Self-hosted client" : "Cliente auto-hospedado",
     "Delete" : "Excluir",
     "Could not copy the client_id." : "Não foi possível copiar o client_id.",
-    "One URI per line, exactly as the client sends it: https, no wildcard or fragment." : "Uma URI por linha, exatamente como o cliente envia: https, sem curinga nem fragmento.",
+    "One URI per line, exactly as the client sends it, port included: https (http only for 127.0.0.1, localhost or [::1]), no wildcard or fragment, up to 2000 bytes." : "Uma URI por linha, exatamente como o cliente envia, porta incluída: https (http só para 127.0.0.1, localhost ou [::1]), sem curinga nem fragmento, até 2000 bytes.",
+    "The OAuth client settings were changed in another window or by another administrator. The current settings were loaded; nothing was overwritten." : "As configurações dos clientes OAuth foram alteradas em outra janela ou por outro administrador. As configurações atuais foram carregadas; nada foi sobrescrito.",
+    "The server could not confirm whether the change was saved. The current settings were loaded." : "O servidor não conseguiu confirmar se a alteração foi salva. As configurações atuais foram carregadas.",
     "Not saved: each client needs a name of up to 64 characters that no other client has, and 1 to 20 redirect URIs (absolute https URIs, without user name, wildcard or fragment)." : "Não salvo: cada cliente precisa de um nome de até 64 caracteres que nenhum outro cliente tenha e de 1 a 20 URIs de redirecionamento (URIs https absolutas, sem nome de usuário, curinga nem fragmento).",
     "Delete the client “{name}”? Its connections are signed out at once." : "Excluir o cliente “{name}”? As conexões dele são desconectadas na hora.",
     "Could not delete the self-hosted client." : "Não foi possível excluir o cliente auto-hospedado."

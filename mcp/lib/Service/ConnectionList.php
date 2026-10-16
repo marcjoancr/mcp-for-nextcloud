@@ -13,7 +13,7 @@ use OCA\Mcp\OAuth\NativeClient;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\OAuth\TokenService;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IConfig;
+use OCA\Mcp\Db\OAuthClientsMapper;
 use OCP\IUserManager;
 
 /**
@@ -34,7 +34,7 @@ class ConnectionList {
         private TokenService $tokens,
         private IUserManager $userManager,
         private ITimeFactory $time,
-        private IConfig $config,
+        private OAuthClientsMapper $clients,
     ) {}
 
     /**
@@ -52,7 +52,12 @@ class ConnectionList {
         $rows = $this->store->listGrants($uid, $search, self::PAGE_SIZE + 1, ($page - 1) * self::PAGE_SIZE, $this->time->getTime());
         $hasMore = count($rows) > self::PAGE_SIZE;
         $names = [];
-        $clients = CustomClient::names($this->config);
+        try {
+            $clients = CustomClient::names($this->clients);
+        } catch (\UnexpectedValueException) {
+            // A row that does not validate names nobody; the list still shows the client_id.
+            $clients = [];
+        }
         $connections = array_map(function (array $row) use (&$names, $clients): array {
             $owner = $row['user_id'];
             $names[$owner] ??= $this->userManager->get($owner)?->getDisplayName() ?? $owner;

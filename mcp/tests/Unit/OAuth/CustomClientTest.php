@@ -23,18 +23,18 @@ final class CustomClientTest extends TestCase {
     private const A = 'aaaaaaaaaaaa';
     private const B = 'bbbbbbbbbbbb';
 
-    private InMemoryConfig $config;
+    private ClientsTable $clients;
 
     private function resolver(): ClientResolver {
-        $this->config = new InMemoryConfig();
+        $this->clients = new ClientsTable($this);
         $fetcher = $this->createMock(ClientMetadataFetcher::class);
         $fetcher->expects($this->never())->method('fetch');
-        return new ClientResolver($fetcher, $this->config->mock($this));
+        return new ClientResolver($fetcher, $this->clients->mapper);
     }
 
     /** @param list<array<string, mixed>> $clients */
     private function store(array $clients): void {
-        $this->config->app['mcp'][CustomClient::CLIENTS_KEY] = json_encode($clients);
+        $this->clients->custom($clients);
     }
 
     /** @return array{id:string, name:string, enabled:bool, redirectUris:list<string>} */
@@ -52,25 +52,53 @@ final class CustomClientTest extends TestCase {
         }
     }
 
-    public function testNoClientIsAcceptedUntilOneIsAddedAndAnUnreadableValueCountsAsNone(): void {
+    public function testNoClientIsAcceptedUntilOneIsAdded(): void {
         $resolver = $this->resolver();
         $this->assertInvalidClient($resolver, CustomClient::clientId(self::A));
         $this->assertInvalidClient($resolver, 'nextcloud-mcp-custom');
-        $this->config->app['mcp'][CustomClient::CLIENTS_KEY] = 'not json';
-        $this->assertSame([], CustomClient::clients($this->config->mock($this)));
-        $this->assertInvalidClient($resolver, CustomClient::clientId(self::A));
+        $this->assertSame([], CustomClient::clients($this->clients->mapper));
     }
 
-    public function testMalformedStoredEntriesAreSkipped(): void {
-        $this->resolver();
-        $this->store([
-            self::client(self::A, 'QwenPaw'),
-            ['id' => 'short', 'name' => 'x', 'enabled' => true, 'redirectUris' => [self::URI]],
-            ['id' => self::B, 'name' => '', 'enabled' => true, 'redirectUris' => [self::URI]],
-            ['id' => self::B, 'name' => 'y', 'enabled' => '1', 'redirectUris' => [self::URI]],
-            'junk',
-        ]);
-        $this->assertSame([self::client(self::A, 'QwenPaw')], CustomClient::clients($this->config->mock($this)));
+    /**
+     * A stored row that does not validate (unreadable URIs, a generation that is not a canonical positive counter, as an
+     * overflow or a manual edit would leave) fails closed: the client is refused and never read with a default gen.
+     *
+     * @return array<string, array{array<string, mixed>}>
+     */
+    public static function invalidRows(): array {
+        return [
+            'unreadable URIs' => [['redirect_uris' => 'not json']],
+            'gen above BIGINT' => [['gen' => '9223372036854775808']],
+            'gen zero' => [['gen' => '0']],
+            'gen negative' => [['gen' => '-1']],
+            'gen as float' => [['gen' => '9.2233720368548E+18']],
+            'enabled not 0 or 1' => [['enabled' => 2]],
+        ];
+    }
+
+    #[DataProvider('invalidRows')]
+    public function testAStoredRowThatDoesNotValidateRefusesTheClient(array $columns): void {
+        $resolver = $this->resolver();
+        $this->store([self::client(self::A, 'QwenPaw')]);
+        $this->clients->db->dbal->update(\OCA\Mcp\Db\OAuthClientsMapper::TABLE, $columns, ['client_id' => CustomClient::clientId(self::A)]);
+        $this->assertInvalidClient($resolver, CustomClient::clientId(self::A));
+        $this->assertFalse(CustomClient::active($this->clients->mapper, CustomClient::clientId(self::A)));
+        $this->assertFalse(CustomClient::admits($this->clients->mapper, CustomClient::clientId(self::A), null, null));
+        $this->assertTrue(ClientResolver::builtInDisabled($this->clients->mapper, CustomClient::clientId(self::A)));
+        $this->expectException(\UnexpectedValueException::class);
+        CustomClient::clients($this->clients->mapper);
+    }
+
+    /** R3 of the re-reading: the generation is a canonical BIGINT that never wraps nor falls back to 1. */
+    public function testTheGenerationAdvancesByDecimalCarryAndAnExhaustedOneRefuses(): void {
+        $id = CustomClient::clientId(self::A);
+        $next = [self::client(self::A, 'QwenPaw', false)];
+        $this->assertSame('10', CustomClient::stamped($next, [self::client(self::A, 'QwenPaw') + ['gen' => '9']], [$id])[0]['gen']);
+        $this->assertSame('9223372036854775807', CustomClient::stamped($next, [self::client(self::A, 'QwenPaw') + ['gen' => '9223372036854775806']], [$id])[0]['gen']);
+        $this->assertSame('9223372036854775807', CustomClient::stamped($next, [self::client(self::A, 'QwenPaw') + ['gen' => '9223372036854775807']], [])[0]['gen'],
+            'a client that is not withdrawn keeps its generation');
+        $this->expectException(\OCA\Mcp\Service\Policy\PolicyUnavailable::class);
+        CustomClient::stamped($next, [self::client(self::A, 'QwenPaw') + ['gen' => '9223372036854775807']], [$id]);
     }
 
     public function testEachClientResolvesWithItsNameAndOnlyItsOwnUris(): void {
@@ -106,14 +134,13 @@ final class CustomClientTest extends TestCase {
 
     public function testBuiltInDisabledCoversTheNativeClientAndEverySelfHostedIdThatIsNotActive(): void {
         $this->resolver();
-        $config = $this->config->mock($this);
         $this->store([self::client(self::A, 'QwenPaw'), self::client(self::B, 'Other', false)]);
-        $this->assertFalse(ClientResolver::builtInDisabled($config, CustomClient::clientId(self::A)));
-        $this->assertTrue(ClientResolver::builtInDisabled($config, CustomClient::clientId(self::B)));
-        $this->assertTrue(ClientResolver::builtInDisabled($config, CustomClient::clientId('cccccccccccc')));
-        $this->assertTrue(ClientResolver::builtInDisabled($config, 'nextcloud-mcp-custom'));
-        $this->assertTrue(ClientResolver::builtInDisabled($config, NativeClient::CLIENT_ID));
-        $this->assertFalse(ClientResolver::builtInDisabled($config, 'https://claude.ai/c'));
+        $this->assertFalse(ClientResolver::builtInDisabled($this->clients->mapper, CustomClient::clientId(self::A)));
+        $this->assertTrue(ClientResolver::builtInDisabled($this->clients->mapper, CustomClient::clientId(self::B)));
+        $this->assertTrue(ClientResolver::builtInDisabled($this->clients->mapper, CustomClient::clientId('cccccccccccc')));
+        $this->assertTrue(ClientResolver::builtInDisabled($this->clients->mapper, 'nextcloud-mcp-custom'));
+        $this->assertTrue(ClientResolver::builtInDisabled($this->clients->mapper, NativeClient::CLIENT_ID));
+        $this->assertFalse(ClientResolver::builtInDisabled($this->clients->mapper, 'https://claude.ai/c'));
     }
 
     public function testValidationGivesNewClientsARandomIdAndKeepsStoredOnes(): void {
@@ -179,6 +206,8 @@ final class CustomClientTest extends TestCase {
             'empty entry' => [['  ']],
             'too many' => [array_map(fn (int $i) => self::URI . $i, range(0, CustomClient::MAX_URIS))],
             'too long' => [['https://harness.example.com/' . str_repeat('a', CustomClient::MAX_LENGTH)]],
+            // 1,021 characters but 2,043 bytes: the limit is in bytes, so it always fits the 2000-long column.
+            'short in characters, long in bytes' => [['https://harness.example.com/' . str_repeat('é', 1000)]],
             'http on a public host' => [['http://harness.example.com/cb']],
             'relative' => [['/oauth/callback']],
             'no host' => [['https:///cb']],
@@ -194,6 +223,16 @@ final class CustomClientTest extends TestCase {
             'newline' => [["https://harness.example.com/cb\nhttps://evil.example/cb"]],
             'backslash' => [['https://harness.example.com\\@evil.example/cb']],
         ];
+    }
+
+    public function testTheUriLimitCountsBytesAndTheLimitItselfFits(): void {
+        $base = 'https://harness.example.com/';
+        $atLimit = $base . str_repeat('a', CustomClient::MAX_LENGTH - strlen($base));
+        $this->assertSame([$atLimit], CustomClient::validateUris([$atLimit]));
+        $this->assertSame(CustomClient::MAX_LENGTH, strlen($atLimit));
+        $multibyte = $base . str_repeat('é', (int)((CustomClient::MAX_LENGTH - strlen($base)) / 2));
+        $this->assertLessThanOrEqual(CustomClient::MAX_LENGTH, strlen($multibyte));
+        $this->assertSame([$multibyte], CustomClient::validateUris([$multibyte]));
     }
 
     #[DataProvider('invalidUris')]

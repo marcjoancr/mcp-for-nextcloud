@@ -8,24 +8,39 @@ declare(strict_types=1);
 namespace OCA\Mcp\OAuth;
 
 use InvalidArgumentException;
-use OCP\IConfig;
+use OCA\Mcp\Db\OAuthClientsMapper;
+use OCA\Mcp\Service\Policy\DecimalCounter;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 
 /**
  * Self-hosted clients: public clients the administrator adds one by one for harnesses that take a manually
  * configured client_id and return to their own domain. Each has a name chosen by the administrator (shown on the
  * consent screen and in the connection lists), its own Enabled setting, the exact redirect URIs it may return to,
  * and a client_id "nextcloud-mcp-custom-" followed by 12 random hex characters. They use PKCE like every client;
- * redirect URIs match exactly as stored (loopback http ignores the port, see RedirectUriMatcher). With none added,
- * none is accepted.
+ * redirect URIs match exactly as stored, loopback http included: the port is part of the match, unlike the native
+ * client's (see ClientMetadata::allowsRedirect). With none added, none is accepted.
+ *
+ * The clients live in the app's own table, one row each (OAuthClientsMapper), read from the database by every decision
+ * that admits or refuses a credential and written only by OAuthClientsService, in the same transaction that deletes
+ * the credentials a change withdraws. The app configuration is never consulted: its cache loader can publish a
+ * snapshot older than a withdrawal.
+ *
+ * Each stored client also has a generation, a canonical BIGINT that starts at 1 and advances whenever the client is
+ * turned off or loses a redirect URI; an exhausted counter refuses the change instead of wrapping. A consent page opened before that carries the older generation and can no longer issue a code, even
+ * if the client was turned on again or the URI added back (a deleted client has a new id when recreated).
  */
 final class CustomClient {
     /** Every client_id starting with this is a self-hosted client, valid only while it is stored and enabled. */
     public const ID_PREFIX = 'nextcloud-mcp-custom';
+    /** Pre-release storage in the app configuration; only the upgrade migration still reads it, to import it. */
     public const CLIENTS_KEY = 'oauth_custom_clients';
     public const MAX_CLIENTS = 20;
     public const MAX_NAME = 64;
     public const MAX_URIS = 20;
-    /** Length of the redirect_uri column of the authorization codes. */
+    /**
+     * Longest redirect URI, in bytes (strlen): the redirect_uri column of the authorization codes is 2000 long, and
+     * databases count that in characters or in bytes, so the byte length is the one that always fits.
+     */
     public const MAX_LENGTH = 2000;
 
     /**
@@ -42,69 +57,118 @@ final class CustomClient {
     }
 
     /**
-     * @param IConfig $config app configuration
-     * @return list<array{id:string, name:string, enabled:bool, redirectUris:list<string>}> the stored clients; an
-     *     unreadable value counts as none and a malformed entry is skipped
+     * @param OAuthClientsMapper $table the authoritative table
+     * @return list<array{id:string, name:string, enabled:bool, redirectUris:list<string>, gen:string}> the stored clients
+     * @throws \UnexpectedValueException for a stored row that does not validate
+     * @throws \OCP\DB\Exception when the query fails
      */
-    public static function clients(IConfig $config): array {
-        $decoded = json_decode($config->getAppValue('mcp', self::CLIENTS_KEY, '[]'), true);
-        if (!is_array($decoded)) {
-            return [];
-        }
-        $clients = [];
-        foreach ($decoded as $entry) {
-            if (is_array($entry) && is_string($entry['id'] ?? null) && preg_match('/^[0-9a-f]{12}$/', $entry['id']) === 1
-                && is_string($entry['name'] ?? null) && $entry['name'] !== '' && is_bool($entry['enabled'] ?? null)
-                && is_array($entry['redirectUris'] ?? null)) {
-                $clients[] = [
-                    'id' => $entry['id'],
-                    'name' => $entry['name'],
-                    'enabled' => $entry['enabled'],
-                    'redirectUris' => array_values(array_filter($entry['redirectUris'], 'is_string')),
-                ];
-            }
-        }
-        return $clients;
+    public static function clients(OAuthClientsMapper $table): array {
+        return array_map(self::client(...), $table->custom());
     }
 
     /**
-     * @param IConfig $config app configuration
+     * @param OAuthClientsMapper $table the authoritative table
      * @param string $clientId client_id from a request or a stored grant
-     * @return array{id:string, name:string, enabled:bool, redirectUris:list<string>}|null the stored client, or null
+     * @return array{id:string, name:string, enabled:bool, redirectUris:list<string>, gen:string}|null the stored client, or null
+     * @throws \UnexpectedValueException for a stored row that does not validate
+     * @throws \OCP\DB\Exception when the query fails
      */
-    public static function find(IConfig $config, string $clientId): ?array {
-        foreach (self::clients($config) as $client) {
-            if (self::clientId($client['id']) === $clientId) {
-                return $client;
-            }
-        }
-        return null;
+    public static function find(OAuthClientsMapper $table, string $clientId): ?array {
+        $row = self::owns($clientId) ? $table->find($clientId) : null;
+        return $row === null || $row['kind'] !== OAuthClientsMapper::KIND_CUSTOM ? null : self::client($row);
     }
 
     /**
-     * @param IConfig $config app configuration
+     * @param OAuthClientsMapper $table the authoritative table
      * @param string $clientId client_id of a stored grant
-     * @return bool true when it is a self-hosted client that is stored and enabled
+     * @return bool true when it is a self-hosted client that is stored and enabled; false also for a row that does
+     *     not validate (fail-closed)
+     * @throws \OCP\DB\Exception when the query fails
      */
-    public static function active(IConfig $config, string $clientId): bool {
-        return self::find($config, $clientId)['enabled'] ?? false;
+    public static function active(OAuthClientsMapper $table, string $clientId): bool {
+        try {
+            return self::find($table, $clientId)['enabled'] ?? false;
+        } catch (\UnexpectedValueException) {
+            return false;
+        }
     }
 
     /**
-     * @param IConfig $config app configuration
+     * @param OAuthClientsMapper $table the authoritative table
      * @return array<string, string> the name of each stored client by client_id
+     * @throws \UnexpectedValueException for a stored row that does not validate
+     * @throws \OCP\DB\Exception when the query fails
      */
-    public static function names(IConfig $config): array {
+    public static function names(OAuthClientsMapper $table): array {
         $names = [];
-        foreach (self::clients($config) as $client) {
+        foreach (self::clients($table) as $client) {
             $names[self::clientId($client['id'])] = $client['name'];
         }
         return $names;
     }
 
-    /** @param array{id:string, name:string, redirectUris:list<string>} $client a stored client */
+    /** @param array{id:string, name:string, redirectUris:list<string>, gen:string} $client a stored client */
     public static function metadata(array $client): ClientMetadata {
-        return new ClientMetadata(self::clientId($client['id']), $client['name'], $client['redirectUris']);
+        return new ClientMetadata(self::clientId($client['id']), $client['name'], $client['redirectUris'], $client['gen']);
+    }
+
+    /**
+     * Whether a request of a stored client still stands: the client is stored, enabled, in the generation the request
+     * was made in, and (given $redirectUri) still lists that redirect URI. A row that does not validate refuses.
+     *
+     * @param OAuthClientsMapper $table the authoritative table
+     * @param string $clientId client_id of the request
+     * @param string|null $generation generation of the client when the request was validated, null to accept any (a
+     *     code or a grant: a withdrawal deletes those, so the generation only matters for a request not issued yet)
+     * @param string|null $redirectUri redirect URI the request would return to, null for a grant that has none
+     * @throws \OCP\DB\Exception when the query fails
+     */
+    public static function admits(OAuthClientsMapper $table, string $clientId, ?string $generation, ?string $redirectUri): bool {
+        try {
+            $client = self::find($table, $clientId);
+        } catch (\UnexpectedValueException) {
+            return false;
+        }
+        return $client !== null && $client['enabled'] && $client['redirectUris'] !== []
+            && ($generation === null || $client['gen'] === $generation)
+            && ($redirectUri === null || in_array($redirectUri, $client['redirectUris'], true));
+    }
+
+    /**
+     * @param array{clientId:string, name:string, enabled:bool, redirectUris:list<string>, gen:string} $row a row of the table
+     * @return array{id:string, name:string, enabled:bool, redirectUris:list<string>, gen:string}
+     */
+    private static function client(array $row): array {
+        return ['id' => substr($row['clientId'], strlen(self::ID_PREFIX) + 1), 'name' => $row['name'], 'enabled' => $row['enabled'],
+            'redirectUris' => $row['redirectUris'], 'gen' => $row['gen']];
+    }
+
+    /**
+     * The list as it is stored: the validated clients with their generations, which advance for each client that is
+     * withdrawn ($withdrawn, from withdrawn()). A client new to the list starts at 1. The counter is a canonical BIGINT
+     * advanced by decimal carry: it never wraps nor falls back to 1.
+     *
+     * @param list<array{id:string, name:string, enabled:bool, redirectUris:list<string>}> $next validated clients
+     * @param list<array{id:string, gen:string}> $before the stored clients
+     * @param list<string> $withdrawn client_ids withdrawn()
+     * @return list<array{id:string, name:string, enabled:bool, redirectUris:list<string>, gen:string}>
+     * @throws PolicyUnavailable when the generation of a withdrawn client is exhausted; nothing may be written then
+     */
+    public static function stamped(array $next, array $before, array $withdrawn): array {
+        $gens = array_column($before, 'gen', 'id');
+        $stamped = [];
+        foreach ($next as $client) {
+            $gen = $gens[$client['id']] ?? '1';
+            if (in_array(self::clientId($client['id']), $withdrawn, true)) {
+                try {
+                    $gen = DecimalCounter::increment($gen);
+                } catch (InvalidArgumentException $e) {
+                    throw new PolicyUnavailable('OAuth client generation exhausted', previous: $e);
+                }
+            }
+            $stamped[] = $client + ['gen' => $gen];
+        }
+        return $stamped;
     }
 
     /**

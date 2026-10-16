@@ -278,6 +278,29 @@ final class InMemoryConfig {
             new \OCA\Mcp\Db\GroupGrantsMapper($db), new \OCA\Mcp\Db\GroupLifeMapper($db), new \OCA\Mcp\OAuth\OAuthStore($db));
     }
 
+    /**
+     * An IAppConfig mock that reads and writes the same app values as the IConfig mocks of this class, with no cache
+     * of its own: the lazy value of the self-hosted clients is read and written here, over the same data.
+     */
+    public function appConfig(TestCase $test): \OCP\IAppConfig {
+        $appConfig = (new \ReflectionMethod($test, 'createMock'))->invoke($test, \OCP\IAppConfig::class);
+        $appConfig->method('hasKey')->willReturnCallback(fn ($app, $key): bool => array_key_exists($key, $this->app[$app] ?? []));
+        $appConfig->method('setValueString')->willReturnCallback(function ($app, $key, $value): bool {
+            $this->accessed[] = ['app', $app, $key];
+            $this->app[$app][$key] = $value;
+            return true;
+        });
+        $appConfig->method('deleteKey')->willReturnCallback(function ($app, $key): void {
+            $this->accessed[] = ['app', $app, $key];
+            unset($this->app[$app][$key]);
+        });
+        $appConfig->method('getValueString')->willReturnCallback(function ($app, $key, $default = ''): string {
+            $this->accessed[] = ['app', $app, $key];
+            return (string)($this->app[$app][$key] ?? $default);
+        });
+        return $appConfig;
+    }
+
     public function mock(TestCase $test): IConfig {
         $config = (new \ReflectionMethod($test, 'createMock'))->invoke($test, IConfig::class);
         $userConfig = (new \ReflectionMethod($test, 'createMock'))->invoke($test, IUserConfig::class);

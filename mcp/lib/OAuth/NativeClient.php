@@ -14,6 +14,7 @@ namespace OCA\Mcp\OAuth;
  */
 final class NativeClient {
     public const CLIENT_ID = 'nextcloud-mcp-native';
+    /** The 1.0.8 switch in the app configuration; only the upgrade migration still reads it, to import it. */
     public const CONFIG_KEY = 'oauth_native_client_enabled';
     public const NAME = 'Local program (native client)';
     /** Loopback callbacks; the port is free per RFC 8252 7.3 (see RedirectUriMatcher). */
@@ -23,8 +24,11 @@ final class NativeClient {
         'http://[::1]/oauth/callback',
     ];
 
-    /** @return ClientMetadata metadata of the native client */
-    public static function metadata(): ClientMetadata {
-        return new ClientMetadata(self::CLIENT_ID, self::NAME, self::REDIRECT_URIS);
+    /**
+     * @param string $generation the client's generation, which advances each time the administrator turns it off
+     * @return ClientMetadata metadata of the native client
+     */
+    public static function metadata(string $generation = '1'): ClientMetadata {
+        return new ClientMetadata(self::CLIENT_ID, self::NAME, self::REDIRECT_URIS, $generation);
     }
 }

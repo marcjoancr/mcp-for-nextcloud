@@ -39,6 +39,7 @@ final class TokenFlowTest extends TestCase {
     private int $now = 1_000_000;
     private TokenService $service;
     private InMemoryConfig $appConfig;
+    private ClientsTable $clients;
     private AccessTokenAuthenticator $authenticator;
     private bool $aliceEnabled = true;
     private bool $aliceExists = true;
@@ -64,10 +65,11 @@ final class TokenFlowTest extends TestCase {
         $writer = InMemoryConfig::writer($appConfigMock, $this->store);
         $gate = new TokenOwnerGate($users, $this->policy, $writer, $this->createMock(IUserConfig::class),
             $this->createMock(IAppConfig::class), new NullLogger(), InMemoryConfig::noCauses($this));
-        $this->service = new TokenService($this->store, $hasher, $time, $gate, $appConfigMock, $writer,
-            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::processor($appConfigMock));
-        $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate, $appConfigMock,
-            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::state($appConfigMock));
+        $this->clients = new ClientsTable($this);
+        $this->service = new TokenService($this->store, $hasher, $time, $gate, $writer,
+            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::processor($appConfigMock), $this->clients->mapper);
+        $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate,
+            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::state($appConfigMock), $this->clients->mapper);
     }
 
     private function code(): string {
@@ -91,37 +93,37 @@ final class TokenFlowTest extends TestCase {
     }
 
     public function testNativeClientExchangesAndRefreshesWhileEnabled(): void {
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '1';
+        $this->clients->native(true);
         $tokens = $this->nativeExchange($this->nativeCode());
         $next = $this->service->refresh(['refresh_token' => $tokens['refresh_token'], 'client_id' => NativeClient::CLIENT_ID]);
         $this->assertNotSame($tokens['refresh_token'], $next['refresh_token']);
     }
 
     public function testDisabledNativeClientCannotExchangeAnIssuedCode(): void {
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '1';
+        $this->clients->native(true);
         $code = $this->nativeCode();
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '0';
+        $this->clients->native(false);
         $this->assertGrantFails(fn () => $this->nativeExchange($code));
     }
 
     public function testDisabledNativeClientCannotRefresh(): void {
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '1';
+        $this->clients->native(true);
         $tokens = $this->nativeExchange($this->nativeCode());
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '0';
+        $this->clients->native(false);
         $this->assertGrantFails(fn () => $this->service->refresh(['refresh_token' => $tokens['refresh_token'], 'client_id' => NativeClient::CLIENT_ID]));
     }
 
     public function testDisabledNativeClientAccessTokenStopsAuthenticating(): void {
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '1';
+        $this->clients->native(true);
         $native = $this->nativeExchange($this->nativeCode());
         $this->assertNotNull($this->authenticator->authenticate('Bearer ' . $native['access_token'], self::RESOURCE));
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '0';
+        $this->clients->native(false);
         $this->assertNull($this->authenticator->authenticate('Bearer ' . $native['access_token'], self::RESOURCE));
     }
 
     public function testDisabledNativeClientDoesNotAffectCimdTokens(): void {
         $tokens = $this->exchange($this->code());
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '0';
+        $this->clients->native(false);
         $this->assertNotNull($this->authenticator->authenticate('Bearer ' . $tokens['access_token'], self::RESOURCE));
     }
 
@@ -131,7 +133,7 @@ final class TokenFlowTest extends TestCase {
 
     /** Stores self-hosted clients A and B, each with its own redirect URI, and the Enabled setting of each. */
     private function customClients(bool $a = true, bool $b = true): void {
-        $this->appConfig->app['mcp'][CustomClient::CLIENTS_KEY] = json_encode([
+        $this->clients->custom([
             ['id' => 'aaaaaaaaaaaa', 'name' => 'QwenPaw', 'enabled' => $a, 'redirectUris' => [self::CUSTOM_REDIRECT]],
             ['id' => 'bbbbbbbbbbbb', 'name' => 'Other', 'enabled' => $b, 'redirectUris' => ['https://other.example.org/cb']],
         ]);
@@ -140,7 +142,7 @@ final class TokenFlowTest extends TestCase {
     private function customCode(string $clientId = self::CUSTOM_A, string $redirect = self::CUSTOM_REDIRECT): string {
         $request = new AuthorizationRequest(new ClientMetadata($clientId, 'QwenPaw', [$redirect]),
             $redirect, 'xyz', self::CHALLENGE, self::RESOURCE, 'mcp');
-        return $this->service->createCode($request, 'alice');
+        return $this->service->consent($request, 'alice');
     }
 
     private function customExchange(string $code, string $redirect = self::CUSTOM_REDIRECT, string $clientId = self::CUSTOM_A): array {
@@ -179,13 +181,13 @@ final class TokenFlowTest extends TestCase {
     public function testDeletedSelfHostedClientCannotRefreshOrAuthenticate(): void {
         $this->customClients();
         $tokens = $this->customExchange($this->customCode());
-        unset($this->appConfig->app['mcp'][CustomClient::CLIENTS_KEY]);
+        $this->clients->custom([]);
         $this->assertNull($this->authenticator->authenticate('Bearer ' . $tokens['access_token'], self::RESOURCE));
         $this->assertGrantFails(fn () => $this->service->refresh(['refresh_token' => $tokens['refresh_token'], 'client_id' => self::CUSTOM_A]));
     }
 
     public function testDisabledSelfHostedClientDoesNotAffectCimdOrNativeTokens(): void {
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '1';
+        $this->clients->native(true);
         $native = $this->nativeExchange($this->nativeCode());
         $cimd = $this->exchange($this->code());
         $this->customClients(false, false);
@@ -194,7 +196,7 @@ final class TokenFlowTest extends TestCase {
     }
 
     public function testDeleteForClientRemovesOnlyThatClientsRows(): void {
-        $this->appConfig->app['mcp'][NativeClient::CONFIG_KEY] = '1';
+        $this->clients->native(true);
         $this->nativeExchange($this->nativeCode());
         $this->nativeCode();
         $this->exchange($this->code());

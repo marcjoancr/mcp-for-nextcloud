@@ -127,8 +127,8 @@ final class GenerationCutTest extends TestCase {
                 })]));
         $gate = new TokenOwnerGate($users, $this->policy, $this->writer, $userConfig, $apps, new NullLogger(), InMemoryConfig::noCauses($this));
         $hasher = $this->hasher;
-        $this->service = new TokenService($this->store, $hasher, $time, $gate, $config, $this->writer, $this->authUsers, $processor);
-        $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate, $config, $this->authUsers, $this->state);
+        $this->service = new TokenService($this->store, $hasher, $time, $gate, $this->writer, $this->authUsers, $processor, (new ClientsTable($this))->mapper);
+        $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate, $this->authUsers, $this->state, (new ClientsTable($this))->mapper);
         $this->policy->setGlobalEnabled(true);
         $this->policy->setEligible('alice', true);
     }

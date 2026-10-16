@@ -77,7 +77,7 @@ final class GenerationCutTest extends OAuthAccountTestCase {
             }
         };
         $tokens = new TokenService($failing, Server::get(TokenHasher::class), Server::get(ITimeFactory::class), Server::get(TokenOwnerGate::class),
-            Server::get(IConfig::class), Server::get(PolicyWriter::class), Server::get(AuthUsersMapper::class), Server::get(PolicyEventProcessor::class));
+            Server::get(PolicyWriter::class), Server::get(AuthUsersMapper::class), Server::get(PolicyEventProcessor::class), Server::get(\OCA\Mcp\Db\OAuthClientsMapper::class));
         try {
             $tokens->consent($this->request(), $this->uid);
             $this->fail('Injected failure swallowed');

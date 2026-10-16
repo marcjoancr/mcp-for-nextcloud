@@ -11,13 +11,14 @@ use OCA\Mcp\Db\AuthUsersMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IConfig;
+use OCA\Mcp\Db\OAuthClientsMapper;
 use OCP\IUser;
 use Throwable;
 
 /**
  * Resolves an `Authorization: Bearer` access token issued by this app into its user: the hash must exist, the token
- * must not be expired, a native-client token needs the native client enabled, its audience must be this MCP server,
+ * must not be expired, a token of the native client or of a self-hosted client needs that client enabled (and stored,
+ * for a self-hosted one), read from the app's table on every request, its audience must be this MCP server,
  * its (epoch, generation) must still be valid (CredentialGeneration) and the owner must pass the TokenOwnerGate.
  * Validation takes no lock and writes nothing, except the consumption of the owner's pending recheck causes and the
  * cut of an owner observed unusable.
@@ -28,9 +29,9 @@ class AccessTokenAuthenticator {
         private TokenHasher $hasher,
         private ITimeFactory $time,
         private TokenOwnerGate $gate,
-        private IConfig $config,
         private AuthUsersMapper $authUsers,
         private PolicyStateMapper $state,
+        private OAuthClientsMapper $clients,
     ) {}
 
     /** @return bool true when the header carries a token issued by this app */
@@ -55,7 +56,10 @@ class AccessTokenAuthenticator {
                 || !ResourceUrl::sameResource((string)$row['resource'], $resource)) {
                 return null;
             }
-            if ($row['client_id'] === NativeClient::CLIENT_ID && !ClientResolver::nativeEnabled($this->config)) {
+            $clientId = (string)$row['client_id'];
+            // The client's row is read from the app's table on every request, never from the AppConfig caches. The
+            // check sits before the owner gate, which keeps the issue_seq read below for its cut.
+            if (($clientId === NativeClient::CLIENT_ID || CustomClient::owns($clientId)) && ClientResolver::builtInDisabled($this->clients, $clientId)) {
                 return null;
             }
             $uid = (string)$row['user_id'];

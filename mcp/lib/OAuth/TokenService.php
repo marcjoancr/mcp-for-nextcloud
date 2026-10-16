@@ -12,7 +12,7 @@ use OCA\Mcp\Service\Policy\PolicyEventProcessor;
 use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IConfig;
+use OCA\Mcp\Db\OAuthClientsMapper;
 use Throwable;
 
 /**
@@ -37,10 +37,10 @@ class TokenService {
         private TokenHasher $hasher,
         private ITimeFactory $time,
         private TokenOwnerGate $gate,
-        private IConfig $config,
         private PolicyWriter $writer,
         private AuthUsersMapper $authUsers,
         private PolicyEventProcessor $events,
+        private OAuthClientsMapper $clients,
     ) {}
 
     /**
@@ -52,6 +52,8 @@ class TokenService {
      * @return string|null the one-time authorization code, or null when the service is off, the account is disabled
      *     or the user is not eligible (nothing was written)
      * @throws \InvalidArgumentException for a user the server does not know
+     * @throws OAuthException invalid_client when, under the mutex, the client was turned off, deleted or withdrawn
+     *     (a redirect URI removed, or turned off and on again) since the request was validated; nothing was written
      * @throws PolicyUnavailable when the eligibility is unknown, the policy storage fails or keeps changing; nothing
      *     was issued
      */
@@ -59,6 +61,11 @@ class TokenService {
         $code = $this->hasher->generate('code');
         $allowed = $this->writer->consent($uid, fn (): ?array => $this->gate->admission($uid, false),
             function (string $generation, string $epoch) use ($request, $uid, $code): void {
+            // The last word on the client, read from the app's table under the mutex: a withdrawal commits under the
+            // same mutex, so it either precedes this check or deletes this code afterwards.
+            if (!$this->clientAdmitted($request->client->clientId, $request->client->generation, $request->redirectUri)) {
+                throw new OAuthException('invalid_client', 'Unknown or not allowed client');
+            }
             $now = $this->time->getTime();
             $this->store->insertCode([
                 'code_hash' => $this->hasher->hash($code),
@@ -109,7 +116,7 @@ class TokenService {
                 $error = new OAuthException('invalid_grant', 'Invalid authorization code');
                 return;
             }
-            if (!$this->clientEnabled((string)$row['client_id'])) {
+            if (!$this->clientAdmitted((string)$row['client_id'], null, (string)$row['redirect_uri'])) {
                 $error = new OAuthException('invalid_grant', 'This client is disabled');
                 return;
             }
@@ -143,17 +150,15 @@ class TokenService {
         if ((int)$row['refresh_expires'] < $now || $row['client_id'] !== $get('client_id')) {
             throw new OAuthException('invalid_grant', 'Invalid refresh token');
         }
-        if (!$this->clientEnabled((string)$row['client_id'])) {
-            throw new OAuthException('invalid_grant', 'This client is disabled');
-        }
         $uid = (string)$row['user_id'];
         $observed = $this->read(fn () => $this->authUsers->generations($uid))['issue_seq'];
         $access = $this->hasher->generate('at');
         $refresh = $this->hasher->generate('rt');
         $lost = false;
         $revoked = false;
-        $this->asOwner($uid, $observed, function (array $state, array $generations) use ($oldHash, $row, $now, $access, $refresh, &$lost, &$revoked): void {
-            [$lost, $revoked] = [false, false];
+        $disabled = false;
+        $this->asOwner($uid, $observed, function (array $state, array $generations) use ($oldHash, $row, $now, $access, $refresh, &$lost, &$revoked, &$disabled): void {
+            [$lost, $revoked, $disabled] = [false, false, false];
             $current = $this->store->findByRefresh($oldHash);
             if ($current === null || (int)$current['id'] !== (int)$row['id']) {
                 $lost = true;
@@ -163,12 +168,20 @@ class TokenService {
                 $revoked = true;
                 return;
             }
+            // Under the mutex, not before it: a client withdrawn after the external phase refuses this rotation.
+            if (!$this->clientAdmitted((string)$current['client_id'], null, null)) {
+                $disabled = true;
+                return;
+            }
             $lost = !$this->store->rotate((int)$row['id'], $oldHash, $this->hasher->hash($access), $now + self::ACCESS_TTL,
                 $this->hasher->hash($refresh), $now + self::REFRESH_TTL);
         });
         if ($lost) {
             // Another request rotated this token first: a reuse, handled like any replay of a spent token.
             $this->replayed($oldHash, $get('client_id'));
+        }
+        if ($disabled) {
+            throw new OAuthException('invalid_grant', 'This client is disabled');
         }
         if ($lost || $revoked) {
             throw new OAuthException('invalid_grant', 'Invalid refresh token');
@@ -285,9 +298,22 @@ class TokenService {
         }
     }
 
-    /** @return bool false for a grant of the native client while it is disabled */
-    private function clientEnabled(string $clientId): bool {
-        return $clientId !== NativeClient::CLIENT_ID || ClientResolver::nativeEnabled($this->config);
+    /**
+     * The admission of a client, read under the mutex from the app's own table (never through the AppConfig caches,
+     * whose loader may publish a snapshot older than a withdrawal): the native client must be on, a self-hosted one
+     * stored and enabled, with the redirect URI and generation of the request when given. A CIMD client has nothing
+     * to withdraw. A stored row that does not validate refuses.
+     *
+     * @param string|null $generation generation the consent page was made in; null for a code or a grant
+     * @param string|null $redirectUri redirect URI of the consent or of the code; null for a grant
+     * @return bool false when the administrator withdrew the client
+     */
+    private function clientAdmitted(string $clientId, ?string $generation, ?string $redirectUri): bool {
+        if ($clientId === NativeClient::CLIENT_ID) {
+            $current = ClientResolver::nativeGeneration($this->clients);
+            return $current !== null && ($generation === null || $generation === $current);
+        }
+        return !CustomClient::owns($clientId) || CustomClient::admits($this->clients, $clientId, $generation, $redirectUri);
     }
 
     /**

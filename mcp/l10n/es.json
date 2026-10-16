@@ -1215,7 +1215,9 @@
     "Self-hosted client" : "Cliente autoalojado",
     "Delete" : "Eliminar",
     "Could not copy the client_id." : "No se pudo copiar el client_id.",
-    "One URI per line, exactly as the client sends it: https, no wildcard or fragment." : "Una URI por línea, exactamente como la envía el cliente: https, sin comodín ni fragmento.",
+    "One URI per line, exactly as the client sends it, port included: https (http only for 127.0.0.1, localhost or [::1]), no wildcard or fragment, up to 2000 bytes." : "Una URI por línea, exactamente como la envía el cliente, puerto incluido: https (http solo para 127.0.0.1, localhost o [::1]), sin comodín ni fragmento, hasta 2000 bytes.",
+    "The OAuth client settings were changed in another window or by another administrator. The current settings were loaded; nothing was overwritten." : "La configuración de los clientes OAuth se cambió en otra ventana o por otro administrador. Se cargó la configuración actual; no se sobrescribió nada.",
+    "The server could not confirm whether the change was saved. The current settings were loaded." : "El servidor no pudo confirmar si el cambio se guardó. Se cargó la configuración actual.",
     "Not saved: each client needs a name of up to 64 characters that no other client has, and 1 to 20 redirect URIs (absolute https URIs, without user name, wildcard or fragment)." : "No guardado: cada cliente necesita un nombre de hasta 64 caracteres que ningún otro cliente tenga y de 1 a 20 URI de redirección (URI https absolutas, sin nombre de usuario, comodín ni fragmento).",
     "Delete the client “{name}”? Its connections are signed out at once." : "¿Eliminar el cliente «{name}»? Sus conexiones se cierran de inmediato.",
     "Could not delete the self-hosted client." : "No se pudo eliminar el cliente autoalojado."

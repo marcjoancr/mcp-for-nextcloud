@@ -53,7 +53,7 @@ final class MyConnectionsControllerTest extends TestCase {
     }
 
     public function testASelfHostedClientIsListedUnderTheNameTheAdministratorGaveIt(): void {
-        $this->fx->config->app['mcp']['oauth_custom_clients'] = json_encode([
+        $this->fx->clients->custom([
             ['id' => 'aaaaaaaaaaaa', 'name' => 'QwenPaw', 'enabled' => true, 'redirectUris' => ['https://harness.example.com/cb']]]);
         $this->fx->grant('alice', 'nextcloud-mcp-custom-aaaaaaaaaaaa', 10);
         $this->fx->grant('alice', 'nextcloud-mcp-custom-bbbbbbbbbbbb', 5);
