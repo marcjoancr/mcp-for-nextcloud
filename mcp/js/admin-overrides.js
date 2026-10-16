@@ -198,11 +198,9 @@
 			close(true)
 		}
 	})
-	// The one thing a cell cannot do directly: pin an Allow that the groups already give.
-	const help = el('p', { className: 'mcp-hint mcp-reset-help', textContent: t('mcp', 'A cell allowed only through a group has no value of its own. To keep that Allow if the group changes, uncheck the box (Deny) and then check it again (Allow). Do not do this for “Can connect”: denying it signs the user out.') })
 	toolbar.append(
 		el('span', { className: 'mcp-reset-select' }, [selectAll, ' ', el('label', { htmlFor: 'mcp-select-all', textContent: t('mcp', 'Select every user on this page') })]),
-		' ', resetSelected, help, statusLine, alertLine, panel)
+		' ', resetSelected, statusLine, alertLine, panel)
 	// Focusable only by script: where the focus goes when nothing more specific is left to take it.
 	toolbar.tabIndex = -1
 	anchor.before(toolbar)
@@ -252,32 +250,45 @@
 	// --- Rows and cells -----------------------------------------------------------------------------------------
 
 	/**
-	 * Adds the selection box and, when the user has an individual override, the reset button to a row.
+	 * Adds the selection box to a row. The reset of the whole row is in the row's actions menu (js/admin-row-actions.js),
+	 * through resetUser(), so the row carries no button repeated on every line.
 	 *
-	 * @param {HTMLTableRowElement} row row drawn by admin-grants.js; its first child is the user header cell
+	 * @param {HTMLTableRowElement} row row drawn by admin-grants.js; its first child is the selection cell
 	 * @param {object} user row from the API
 	 */
 	function decorateRow(row, user) {
-		const header = row.children[0]
+		const slot = row.children[0]
 		const box = el('input', { type: 'checkbox', className: 'mcp-row-select', checked: selected.has(user.uid) })
 		box.setAttribute('aria-label', t('mcp', 'Select {user}', { user: user.displayName }, undefined, { escape: false }))
 		box.addEventListener('change', () => {
 			box.checked ? selected.add(user.uid) : selected.delete(user.uid)
 			updateToolbar()
 		})
-		header.append(box)
-		if (overrideCells(user).length > 0) {
-			const reset = el('button', { type: 'button', className: 'mcp-reset-row', textContent: t('mcp', 'Back to group'), title: t('mcp', 'Remove the individual overrides of this user, so groups and defaults decide again.') })
-			reset.setAttribute('aria-label', t('mcp', 'Back to group inheritance: {user}', { user: user.displayName }, undefined, { escape: false }))
-			reset.addEventListener('click', () => start([user], null, reset))
-			header.append(reset)
-		}
+		slot.append(box)
 		updateToolbar()
 	}
 
+	/** @return {boolean} whether the user has any individual value a reset would remove */
+	function hasOverrides(user) {
+		return overrideCells(user).length > 0
+	}
+
 	/**
-	 * Names the state of a cell (individual allow, individual deny or inherited) for the eye, the tooltip and the screen
-	 * reader, and gives an overridden cell its own "back to inherited" button.
+	 * Opens the reset preview for every individual value of one user, as the row's actions menu asks.
+	 *
+	 * @param {object} user row from the API
+	 * @param {HTMLElement} trigger control that asked, which gets the focus back when the preview is cancelled
+	 */
+	function resetUser(user, trigger) {
+		start([user], null, trigger)
+	}
+
+	/**
+	 * Names the state of a cell (individual allow, individual deny or inherited) for the tooltip and the screen reader, and
+	 * outlines it only when it is a real exception (js/admin-exceptions.js): an individual value that repeats what the
+	 * person inherits is named but not outlined, and before that is known nothing is outlined. Without the classification
+	 * every individual value is outlined, never fewer. A single value goes back to inheritance from the level popover, a
+	 * whole row from its actions menu.
 	 *
 	 * @param {HTMLTableCellElement} cell the permission cell
 	 * @param {HTMLInputElement|null} box its checkbox, null for an unavailable cell, which has none
@@ -297,10 +308,15 @@
 			// An unavailable cell without an override of its own says nothing more than it already does.
 			return
 		}
-		const stateName = kind ? names[kind] : t('mcp', 'Inherited')
+		const exceptions = window.McpAdminExceptions
+		const mark = !kind ? null : kind === 'invalid' || !exceptions ? 'exception' : exceptions.kindOf(user.uid, module, operation).kind
+		const stateName = !kind ? t('mcp', 'Inherited') : mark === 'redundant' ? names[kind] + ' — ' + t('mcp', 'the same as inherited') : names[kind]
 		cell.classList.add(kind ? 'mcp-override' : 'mcp-inherited')
 		if (kind) {
 			cell.classList.add('mcp-override-' + kind)
+			if (mark === 'exception') {
+				cell.classList.add('mcp-override-exception')
+			}
 		}
 		cell.title += ' — ' + stateName
 		if (box !== null) {
@@ -309,13 +325,6 @@
 			// An unavailable cell has no checkbox: its saved override is named for screen readers next to its reason.
 			cell.append(el('span', { className: 'mcp-sr-only', textContent: stateName }))
 		}
-		if (!kind) {
-			return
-		}
-		const reset = el('button', { type: 'button', className: 'mcp-reset-cell', textContent: '↺', title: t('mcp', 'Remove this individual override: groups and defaults decide again.') })
-		reset.setAttribute('aria-label', t('mcp', 'Back to inherited: {user} — {permission}', { user: user.displayName, permission: permissionName(module, operation) }, undefined, { escape: false }))
-		reset.addEventListener('click', () => start([user], [{ module, operation }], reset))
-		cell.append(reset)
 	}
 
 	// --- Preview and reset ------------------------------------------------------------------------------------
@@ -657,7 +666,7 @@
 		start(pageUsers().filter((user) => uids.has(user.uid)), (user, cell) => keys.has(afterKey(user.uid, cell.module, cell.operation)), trigger)
 	}
 
-	window.McpAdminOverrides = { decorateRow, decorateCell, plan, reviewCells }
+	window.McpAdminOverrides = { decorateRow, decorateCell, plan, reviewCells, resetUser, hasOverrides }
 	// The matrix may have been drawn before this file ran: draw it again so its rows carry the controls.
 	matrix.refresh()
 })()

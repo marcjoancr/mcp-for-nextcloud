@@ -319,15 +319,6 @@
 	background-color: var(--color-background-dark);
 }
 
-#mcp-admin .mcp-matrix.mcp-compact th,
-#mcp-admin .mcp-matrix.mcp-compact td {
-	padding: 1px 6px;
-}
-
-#mcp-admin .mcp-matrix.mcp-compact .mcp-uid {
-	display: none;
-}
-
 #mcp-admin .mcp-matrix.mcp-loading tbody {
 	opacity: 0.5;
 }
@@ -447,16 +438,13 @@
 	display: flex;
 }
 
-#mcp-admin .mcp-badge-connected {
-	color: var(--color-success-text, var(--color-main-text));
-}
-
 /*
- * Individual overrides: a cell with its own value is outlined and carries a "back to inherited" button, so it never
- * depends on colour; an invalid stored value uses a solid outline in the error colour. The outline is neutral: the theme
- * colour is not a state. The reset toolbar sits above the table.
+ * Individual values in the operations view: only a real exception (js/admin-exceptions.js) is outlined, and its state
+ * is named in the tooltip and for screen readers, so it never depends on colour; an invalid stored value uses a solid
+ * outline in the error colour. The outline is neutral: the theme colour is not a state. The reset toolbar sits above the
+ * table.
  */
-#mcp-admin .mcp-matrix td.mcp-override {
+#mcp-admin .mcp-matrix td.mcp-override-exception {
 	outline: 1px dashed var(--color-border-maxcontrast, var(--color-text-maxcontrast));
 	outline-offset: -2px;
 	white-space: nowrap;
@@ -467,34 +455,13 @@
 	outline-color: var(--color-error-text, var(--color-error));
 }
 
-/* Buttons repeated in every row are tertiary: no fill until hovered, so the table is not painted in the theme colour. */
-#mcp-admin .mcp-reset-cell,
-#mcp-admin .mcp-reset-row {
-	min-height: 0;
-	margin: 0 0 0 4px;
-	padding: 0 4px;
-	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
-	background-color: transparent;
-	color: var(--color-main-text);
-	font-size: 0.85em;
-	font-weight: normal;
-	line-height: 1.4;
-}
-
-#mcp-admin .mcp-reset-cell:hover,
-#mcp-admin .mcp-reset-row:hover,
 #mcp-admin .mcp-scope-indicator:hover,
 #mcp-admin .mcp-bulk:hover {
 	background-color: var(--color-background-hover);
 }
 
-#mcp-admin .mcp-reset-row {
-	display: block;
-	margin: 2px 0 0;
-}
-
 #mcp-admin .mcp-matrix .mcp-row-select {
-	margin: 0 6px 0 0;
+	margin: 0;
 }
 
 #mcp-admin .mcp-reset-toolbar {
@@ -509,11 +476,6 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-}
-
-#mcp-admin .mcp-reset-help {
-	flex-basis: 100%;
-	margin: 0;
 }
 
 #mcp-admin .mcp-reset-status:empty,
@@ -555,8 +517,6 @@
 }
 
 #mcp-admin .mcp-reset-toolbar :focus-visible,
-#mcp-admin .mcp-reset-cell:focus-visible,
-#mcp-admin .mcp-reset-row:focus-visible,
 #mcp-admin .mcp-row-select:focus-visible {
 	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
@@ -1193,4 +1153,86 @@ body[data-themes*="dark"] #mcp-admin {
 #mcp-admin .mcp-note p {
 	flex: 1 1 300px;
 	margin: 0;
+}
+
+/* The row: a narrow selection column first, the name with one quiet line under it, and the actions menu last. */
+#mcp-admin .mcp-matrix .mcp-select-col {
+	width: 32px;
+	padding-inline: 6px;
+	text-align: center;
+}
+
+#mcp-admin .mcp-matrix .mcp-actions-col {
+	width: 44px;
+	text-align: end;
+}
+
+#mcp-admin .mcp-user-connected {
+	color: var(--color-success-text, var(--color-main-text));
+}
+
+#mcp-admin .mcp-connected-mark {
+	font-size: 0.8em;
+}
+
+#mcp-admin .mcp-row-actions-button {
+	min-width: var(--default-clickable-area);
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background-color: transparent;
+	color: var(--color-main-text);
+	font-size: 1.3em;
+	font-weight: bold;
+	line-height: 1;
+}
+
+#mcp-admin .mcp-row-actions-button:hover {
+	background-color: var(--color-background-dark);
+}
+
+#mcp-admin .mcp-row-actions-button:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
+}
+
+#mcp-admin .mcp-row-menu {
+	position: absolute;
+	z-index: 21;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	width: 260px;
+	padding: 4px;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-border-dark));
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+	background-color: var(--color-main-background);
+	box-shadow: 0 2px 16px var(--color-box-shadow);
+}
+
+#mcp-admin .mcp-row-menu[hidden] {
+	display: none;
+}
+
+#mcp-admin .mcp-row-menu-item {
+	min-height: var(--default-clickable-area);
+	margin: 0;
+	padding: 0 12px;
+	border: 0;
+	border-radius: var(--border-radius-element, var(--border-radius));
+	background-color: transparent;
+	color: var(--color-main-text);
+	font-weight: normal;
+	text-align: start;
+}
+
+#mcp-admin .mcp-row-menu-item:hover:not(:disabled) {
+	background-color: var(--color-background-hover);
+}
+
+#mcp-admin .mcp-row-menu-item:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: -2px;
 }

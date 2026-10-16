@@ -205,6 +205,13 @@
 	}
 
 	form.addEventListener('submit', (event) => { event.preventDefault(); inspect() })
+	// The actions menu of a matrix row inspects that user (js/admin-row-actions.js).
+	window.McpInspectorUi = {
+		open(target) {
+			user.value = target
+			inspect()
+		},
+	}
 	pathForm.addEventListener('submit', (event) => {
 		event.preventDefault()
 		const path = pathInput.value.trim()

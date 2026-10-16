@@ -44,8 +44,9 @@ async function app(handler) {
 	ids['mcp-inspector-calendar-module'].value = 'calendar'
 	const document = { getElementById: (id) => ids[id], createElement: (tag) => new Element(tag) }
 	const calls = []
+	const window = {}
 	const context = {
-		document, URLSearchParams,
+		document, window, URLSearchParams,
 		OC: { generateUrl: (url) => url, requestToken: 'token' },
 		t: (_, text, params = {}) => text.replace(/\{(\w+)\}/g, (match, key) => params[key] ?? match),
 		fetch: async (url, options) => {
@@ -57,7 +58,7 @@ async function app(handler) {
 	}
 	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-inspector.js'), 'utf8'), context)
 	const submit = async (id) => { await ids[id].listeners.submit({ preventDefault() {} }); await tick() }
-	return { ids, calls, submit }
+	return { ids, calls, submit, window }
 }
 
 test('T9: every operation shows its result, first gate and grant; unknown is never shown as allowed', async () => {
@@ -136,4 +137,12 @@ test('B4: a failed explanation is announced in the alert region', async () => {
 	await ui.submit('mcp-inspector-path-form')
 	assert.equal(ui.ids['mcp-inspector-alert'].textContent, 'The MCP policy cannot be read right now, so nothing can be confirmed. Try again shortly.')
 	assert.equal(ui.ids['mcp-inspector-path-result'].textContent, '')
+})
+
+test('S5: the actions menu of a matrix row inspects that user, as the form does', async () => {
+	const ui = await app()
+	ui.window.McpInspectorUi.open('alice')
+	await tick()
+	assert.equal(ui.ids['mcp-inspector-user'].value, 'alice')
+	assert.ok(ui.calls.some((call) => call.url === '/apps/mcp/api/inspector/access?uid=alice'))
 })
