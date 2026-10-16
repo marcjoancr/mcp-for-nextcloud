@@ -205,6 +205,9 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @throws InvalidArgumentException when the tool or supplied fields are invalid
      */
     public function preview(string $name, array $arguments, string $userId): array {
+        // Task output can carry ATTACH references to Files nodes: an unreadable Files scope is the same 503 before
+        // any task is looked up, whether it exists or not.
+        $this->references->assertAvailable($userId);
         return $this->prepare($name, $arguments, $userId)['plan'];
     }
 
@@ -234,6 +237,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @throws RuntimeException when the native write or its read-back verification fails
      */
     public function call(string $name, array $arguments, string $userId): array {
+        $this->references->assertAvailable($userId);
         if ($name === 'tasks_list_calendars') {
             return ToolResult::json(
                 array_map(static fn ($calendar) => (array) $calendar, $this->access->visible($userId, 'VTODO'))

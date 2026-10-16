@@ -11,7 +11,6 @@ use OCA\Mcp\Service\VisibilityGuard;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCA\Mcp\Tools\Common\FileReferenceScope;
 use OCA\Mcp\Tools\Common\OutputReferenceFilter;
-use OCA\Mcp\Tools\Common\UnrestrictedFileReferenceScope;
 use OCP\Files\IRootFolder;
 use OCP\IConfig;
 use OCP\IURLGenerator;

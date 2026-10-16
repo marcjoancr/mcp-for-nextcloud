@@ -39,7 +39,7 @@ final class Reorganization {
         private SharedWriteGuard $guard,
         private MoveReport $report,
         private \OCP\IUserManager $userManager,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private ?\OCA\Mcp\Service\Scope\FilesAccessGuard $visibilityGuard = null,
         private ?LockAwareWrite $locks = null,
     ) {}
 
@@ -62,18 +62,23 @@ final class Reorganization {
      */
     public function tree(Folder $root, string $userId, string $path, int $depth, int $limit): array {
         $path = PathGuard::normalize($path);
-        $start = NodeAccess::get($root, $path, $this->visibilityGuard);
-        if (!$start instanceof Folder) {
-            throw new ToolFailure(FilesMessages::notAFolder());
+        // With a Files scope that does not hold the root, the walk of "/" starts from the selected folders, which are
+        // its first level at their real paths; the folders above them are never listed.
+        $roots = $path === '/' ? $this->visibilityGuard?->scopeRoots($root) : null;
+        if ($roots === null) {
+            $start = NodeAccess::get($root, $path, $this->visibilityGuard);
+            if (!$start instanceof Folder) {
+                throw new ToolFailure(FilesMessages::notAFolder());
+            }
         }
         $entries = [];
         $truncated = false;
         // Each level is a list of [node, depth below $path]; folders at the deepest level are not descended.
-        $level = [[$start, 0]];
+        $level = $roots === null ? [[$start, 0]] : [[null, 0]];
         for ($current = 0; $current < $depth && $level !== []; $current++) {
             $next = [];
             foreach ($level as [$folder, $levelBelow]) {
-                foreach ($this->sorted($folder) as $node) {
+                foreach ($folder === null ? $roots : $this->sorted($folder) as $node) {
                     if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($node)) {
                         continue;
                     }
@@ -981,21 +986,47 @@ final class Reorganization {
             $walk[] = $segment;
             $below = implode('/', $walk);
             if (!$root->nodeExists($below)) {
-                // The first missing level is created in the last one that exists, so that one has to take it.
+                // The first missing level is created in the last one that exists, so that one has to be reachable,
+                // inside the Files scope (the boundary of F5), and take it.
+                $this->assertBoundary($parent);
                 if (!$parent->isCreatable()) {
                     throw new ToolFailure(CommonMessages::forbidden());
                 }
                 return;
             }
             $existing = $root->get($below);
-            if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($existing)) {
+            // An existing level is crossed by metadata: excluded ones refuse, ancestors of a selected folder pass.
+            if ($this->visibilityGuard !== null && !$this->visibilityGuard->isTraversable($existing)) {
                 // Excluded destinations always use the same generic resource refusal.
                 throw new ToolFailure(CommonMessages::notFound());
             }
             if (!$existing instanceof Folder) {
+                // A file in the way is only named when the user may reach it: otherwise "it exists" would tell a
+                // file outside the Files scope from a missing path (D6). A file is never an ancestor of a selected
+                // folder, so this costs no traversal.
+                $this->assertReachable($existing);
                 throw new ToolFailure(FilesMessages::destinationExists());
             }
             $parent = $existing;
+        }
+        $this->assertBoundary($parent);
+    }
+
+    /**
+     * @param Folder $folder the deepest existing folder of a destination
+     * @throws ToolFailure not found when it is hidden or outside the Files scope
+     */
+    private function assertBoundary(Folder $folder): void {
+        $this->assertReachable($folder);
+    }
+
+    /**
+     * @param Node $node an existing node of a destination path, about to be named in a refusal or written below
+     * @throws ToolFailure not found when it is hidden or outside the Files scope
+     */
+    private function assertReachable(Node $node): void {
+        if ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($node)) {
+            throw new ToolFailure(CommonMessages::notFound());
         }
     }
 
@@ -1030,6 +1061,7 @@ final class Reorganization {
                 if ($root->nodeExists($below)) {
                     $existing = $root->get($below);
                     if (!$existing instanceof Folder) {
+                        $this->assertReachable($existing);
                         throw new ToolFailure(FilesMessages::destinationExists());
                     }
                     continue;

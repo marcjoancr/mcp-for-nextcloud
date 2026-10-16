@@ -31,8 +31,8 @@ missing destination can succeed; an excluded destination always refuses with
 | V13 | New guard tests cover unreadable config with retry, invalid/cyclic ancestry including backup tagging, excluded root preflight, late metadata failure without a positive cache entry, and mounted alias cache isolation. Existing tests cover mapper retry, malformed configuration and failed settings saves preserving prior protection. | Native core resolution and storage failures are additionally exercised by A4. |
 | V14 | `testV14RepeatedOperationsReflectTagAndMoveChanges` models request boundaries with cache invalidation; the event test exercises assignment/unassignment on the same guard instance. No credential is revoked. | A4: actual existing Bearer and Basic sessions, tag changes and moves across requests. Local tests do not claim authentication-session certification. |
 
-A2 adds `OutputReferenceFilter` with an empty Files scope step (`FileReferenceScope`, registered as
-`UnrestrictedFileReferenceScope` until B5). It changes no schema: `attachmentId` was already nullable in
+A2 adds `OutputReferenceFilter` with a Files scope step (`FileReferenceScope`), empty until B5, which registers
+`FilesReferenceScope`, the user's Files resource scope of the operation. It changes no schema: `attachmentId` was already nullable in
 `talk_read_messages`, and a task's `icalendar` stays a string. With no exclusion and no scope nothing is resolved
 and every reference passes untouched.
 

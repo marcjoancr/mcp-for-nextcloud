@@ -829,7 +829,7 @@ final class CheckoutControllerTest extends TestCase {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string)$this->tree->nodes['/alice/files/Documentos/ata.md']['id'] => ['999']]);
-        $guard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->tree->filesystemRoot());
+        $guard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tagMapper, $this->tree->filesystemRoot());
 
         $root = $this->createMock(IRootFolder::class);
         $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $uid === 'alice'
@@ -862,5 +862,72 @@ final class CheckoutControllerTest extends TestCase {
         $this->assertStringContainsString(\OCA\Mcp\Tools\Common\CommonMessages::notFound(), json_encode($res->getData()));
         $this->assertSame(json_encode($missing->getData()), json_encode($res->getData()));
         $this->assertSame([], $this->tree->ops);
+    }
+
+    /**
+     * A controller whose Files gate reads $items as alice's Files scope, and knows whose scope applies only from the
+     * policy operation the controller itself opens for the link's owner.
+     *
+     * @param \Closure(): (list<string>|null|false) $items selected folders, null unrestricted, false unreadable
+     */
+    private function scopedController(string $method, \Closure $items): TestableCheckoutController {
+        $policy = $this->createMock(\OCA\Mcp\Service\GrantPolicy::class);
+        $policy->method('operationUser')->willReturnCallback(fn (): ?string => $this->policy->operationUser());
+        $policy->method('scopeItems')->willReturnCallback(static function () use ($items): ?array {
+            $value = $items();
+            return $value === false ? throw new \OCA\Mcp\Service\Policy\PolicyUnavailable('Resource scope unavailable') : $value;
+        });
+        $tags = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
+        $tags->method('getTagIdsForObjects')->willReturn([]);
+        $plain = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tags, $this->tree->filesystemRoot());
+        $guard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tags, $this->tree->filesystemRoot(), null, null, null,
+            new \OCA\Mcp\Service\Scope\FilesScope($policy, $plain, $this->tree->filesystemRoot()));
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $uid === 'alice' ? $this->tree->rootFolder() : throw new \LogicException('other user'));
+        $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
+        $request = $this->createMock(IRequest::class);
+        $request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
+        $request->method('getMethod')->willReturn($method === 'download' ? 'GET' : 'PUT');
+        $controller = new TestableCheckoutController('mcp', $request, $root, $this->session,
+            $this->temp, $this->time, $this->policy, $this->store, $this->hasher,
+            new CheckoutService($this->createMock(IURLGenerator::class), $this->config->mock($this), $this->time, $this->hasher, $this->store, $this->apps, $this->users),
+            new FileBackup($this->apps, $this->users, $this->time, $this->config->mock($this)), new SharedWriteGuard($access), $access,
+            $this->createMock(LoggerInterface::class), null, $this->users, $guard, locks: $this->locks->service($this));
+        $controller->route = ['token' => self::TOKEN];
+        $controller->staged = 'new content';
+        $this->headers['Content-Length'] = '11';
+        return $controller;
+    }
+
+    /**
+     * S2: a link issued before a Files scope is judged by the scope of its use. Outside the scope it answers exactly
+     * like a missing file (D6); inside it works; an unreadable scope answers 503 without spending the link.
+     *
+     * @dataProvider checkoutVisibilityKinds
+     */
+    public function testS2ALinkIssuedBeforeTheScopeFollowsTheScopeOfItsUse(string $kind, string $method): void {
+        $items = null;
+        $controller = $this->scopedController($method, function () use (&$items): array|null|false {
+            return $items;
+        });
+        $this->issue($kind);
+        $items = [(string)$this->tree->addFolder('/alice/files/Projects')];
+        $outside = $controller->$method();
+        $this->assertSame(404, $this->code($outside));
+        $file = $this->tree->nodes[self::FILE];
+        unset($this->tree->nodes[self::FILE]);
+        $missing = $controller->$method();
+        $this->tree->nodes[self::FILE] = $file;
+        $this->assertSame(json_encode($missing->getData()), json_encode($outside->getData()), 'outside the scope is byte-identical to missing');
+        $this->assertSame([], $this->tree->ops);
+
+        $items = false;
+        $unavailable = $controller->$method();
+        $this->assertSame(503, $this->code($unavailable));
+        $this->assertSame(\OCA\Mcp\Tools\Files\FilesMessages::checkoutUnavailable(), $unavailable->getData());
+
+        $items = [(string)$this->tree->nodes['/alice/files/Documentos']['id']];
+        $this->assertSame(200, $this->code($controller->$method()), 'no refusal spent the link');
+        $this->assertNull($this->policy->operationUser(), 'the operation of the link is closed afterwards');
     }
 }

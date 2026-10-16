@@ -16,11 +16,12 @@ namespace OCA\Mcp\Service\Scope;
  */
 class ScopeActivation {
     /**
-     * Whether saving a scope is open, by scope module (decision D1). calendar and tasks opened with B6, which narrows
-     * every calendar and task tool through ScopedCalendarAccess; files stays closed until B5 wires its consumers.
+     * Whether saving a scope is open, by scope module (decision D1). Every module is open: B5 narrows every Files
+     * consumer through the Files gate (tools, nc://files, checkout) and the structured references through the Files
+     * scope step; B6 narrows every calendar and task tool through ScopedCalendarAccess.
      */
     public const MODULES = [
-        'files' => false,
+        'files' => true,
         'calendar' => true,
         'tasks' => true,
     ];

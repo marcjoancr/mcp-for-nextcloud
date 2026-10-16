@@ -273,5 +273,11 @@ final class ApplicationRegistrationTest extends TestCase {
         $guide = (new \ReflectionProperty(\OCA\Mcp\Service\ResourceRegistry::class, 'guide'))
             ->getValue($container->get(\OCA\Mcp\Service\ResourceRegistry::class));
         $this->assertSame($tools->guide(), $guide);
+
+        // B5: nc://files and the structured references answer to the Files scope; a missing wiring would read as
+        // "unrestricted" for the resources, which no unit test of the registry itself can see.
+        $this->assertInstanceOf(\OCA\Mcp\Service\Scope\FilesAccessGuard::class, (new \ReflectionProperty(\OCA\Mcp\Service\ResourceRegistry::class, 'filesGuard'))
+            ->getValue($container->get(\OCA\Mcp\Service\ResourceRegistry::class)));
+        $this->assertInstanceOf(\OCA\Mcp\Service\Scope\FilesReferenceScope::class, $container->get(\OCA\Mcp\Tools\Common\FileReferenceScope::class));
     }
 }

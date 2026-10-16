@@ -5,14 +5,12 @@
  */
 declare(strict_types=1);
 
-namespace OCA\Mcp\Tools\Common;
+namespace OCA\Mcp\Tests\Unit\Tools\Common;
 
+use OCA\Mcp\Tools\Common\FileReferenceScope;
 use OCP\Files\Node;
 
-/**
- * The empty scope step: no Files scope exists yet, so it narrows nothing. The Files scope slice replaces this
- * registration with the ScopeGuard; the order of the gates stays in {@see OutputReferenceFilter}.
- */
+/** A user without a Files scope: the scope step narrows nothing, for tests of the other steps of the filter. */
 final class UnrestrictedFileReferenceScope implements FileReferenceScope {
     public function restricts(string $userId): bool {
         return false;

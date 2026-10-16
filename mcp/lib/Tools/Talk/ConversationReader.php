@@ -100,6 +100,9 @@ class ConversationReader {
         if ($limit < 1 || $limit > self::MAX_MESSAGES) {
             throw new InvalidArgumentException(Messages::invalidLimit());
         }
+        // Messages can carry attachments: an unreadable Files scope is the same 503 before the conversation is
+        // looked up, whatever it holds.
+        $this->references->assertAvailable($userId);
 
         $conversation = $this->resolver->resolveForReading($userId, $token);
         $chatManager = $this->talkServices->chatManager($userId);

@@ -37,12 +37,14 @@ use OCP\Share\IManager as IShareManager;
 use OCP\Share\IShare;
 use OCP\SystemTag\ISystemTagObjectMapper;
 use PHPUnit\Framework\Attributes\DataProvider;
+use OCA\Mcp\Service\Scope\FilesReferenceScope;
+use OCA\Mcp\Tests\Unit\Service\Scope\FilesScopes;
 use PHPUnit\Framework\TestCase;
 use Sabre\VObject\Reader;
 
 /**
  * V9 and V10: structured references to Files nodes in Talk messages and task calendars, for a file excluded by tag
- * and for a file only outside the Files scope (with a scope double, until the Files scope slice wires the real one).
+ * and for a file only outside the user's Files scope, the real one of B5.
  * The source DAV object is never what is sanitized.
  */
 final class StructuredReferenceContractTest extends TestCase {
@@ -99,16 +101,10 @@ final class StructuredReferenceContractTest extends TestCase {
         return OutputReferenceFilters::over($this, $this->tree->filesystemRoot(), $this->guard, $shares, $this->scope);
     }
 
-    /** Files scope double: /Docs and /Secret are inside it, /Other is not. */
+    /** The real Files scope of alice: /Docs and /Secret are selected, /Other is not. */
     private function useScope(): void {
-        $this->scope = new class implements FileReferenceScope {
-            public function restricts(string $userId): bool {
-                return true;
-            }
-            public function allows(string $userId, Node $node): bool {
-                return !str_starts_with($node->getPath(), '/alice/files/Other/');
-            }
-        };
+        $selected = [(string)$this->tree->nodes['/alice/files/Docs']['id'], (string)$this->tree->nodes['/alice/files/Secret']['id']];
+        $this->scope = new FilesReferenceScope(FilesScopes::over($this, $this->guard, $this->tree->filesystemRoot(), static fn (): array => $selected));
     }
 
     // V9 — Talk
@@ -352,6 +348,38 @@ final class StructuredReferenceContractTest extends TestCase {
 
         self::assertSame($stored, self::attaches($this->data));
         self::assertSame($this->expected(false), self::attaches($result['icalendar']));
+    }
+
+    /**
+     * C1 of the second B5 review, for Tasks: with the Files scope unreadable, every task tool and plan answers the same
+     * 503 for a task that exists and one that does not, with or without exclusion tags, before any task is read.
+     */
+    #[DataProvider('gates')]
+    public function testC1AnUnreadableScopeIsTheSame503ForEveryTaskTool(bool $tagsOff): void {
+        if ($tagsOff) {
+            $this->tags = [];
+            $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '[]';
+        }
+        $this->scope = new FilesReferenceScope(FilesScopes::over($this, $this->guard, $this->tree->filesystemRoot(), static fn (): bool => false));
+        $module = $this->module();
+        $this->dav->expects(self::never())->method('update');
+        $this->dav->expects(self::never())->method('delete');
+        foreach (['t1', 'missing'] as $uid) {
+            foreach ([fn () => $module->call('tasks_read_task', ['calendar' => self::PATH, 'uid' => $uid], 'alice'),
+                fn () => $module->call('tasks_list_tasks', ['calendar' => self::PATH], 'alice'),
+                fn () => $module->call('tasks_edit_task', ['calendar' => self::PATH, 'uid' => $uid, 'summary' => 'x'], 'alice'),
+                fn () => $module->preview('tasks_complete_task', ['calendar' => self::PATH, 'uid' => $uid], 'alice'),
+                // A list that does not exist either: the scope is read before the calendar is resolved.
+                fn () => $module->preview('tasks_complete_task', ['calendar' => '/remote.php/dav/calendars/alice/nope/', 'uid' => $uid], 'alice'),
+                fn () => $module->call('tasks_read_task', ['calendar' => '/remote.php/dav/calendars/alice/nope/', 'uid' => $uid], 'alice')] as $i => $run) {
+                try {
+                    $run();
+                    self::fail("task tool $i answered for $uid");
+                } catch (\OCA\Mcp\Service\Policy\PolicyUnavailable) {
+                    $this->addToAssertionCount(1);
+                }
+            }
+        }
     }
 
     /** @return list<string> ATTACH values tasks_read_task shows for a stored task carrying the given ATTACH lines */

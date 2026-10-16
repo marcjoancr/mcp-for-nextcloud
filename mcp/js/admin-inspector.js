@@ -183,7 +183,7 @@
 		}
 	}
 
-	async function explain(kind, target, path, query) {
+	async function explain(kind, target, path, query, module) {
 		const mine = ++asked[kind]
 		const user = inspected
 		target.textContent = t('mcp', 'Checking…')
@@ -191,6 +191,11 @@
 			const answer = await get(path, Object.assign({ uid: user }, query))
 			if (stale(kind, mine, user)) return
 			target.textContent = explanation(answer)
+			if (answer.reason === 'out_of_scope' && window.McpScopeUi) {
+				const change = el('button', { type: 'button', textContent: t('mcp', 'Open the resource scope') })
+				change.addEventListener('click', () => window.McpScopeUi.open(user, module))
+				target.append(' ', change)
+			}
 		} catch (error) {
 			if (stale(kind, mine, user)) return
 			// An error is announced like every other error of the inspector, in its alert region.
@@ -204,12 +209,12 @@
 		event.preventDefault()
 		const path = pathInput.value.trim()
 		if (inspected === null || path === '') return
-		explain('path', pathResult, '/api/inspector/path', { path: path.startsWith('/') ? path : '/' + path })
+		explain('path', pathResult, '/api/inspector/path', { path: path.startsWith('/') ? path : '/' + path }, 'files')
 	})
 	calendarModule.addEventListener('change', () => { if (inspected !== null) loadCalendars() })
 	calendarForm.addEventListener('submit', (event) => {
 		event.preventDefault()
 		if (inspected === null || calendarSelect.value === '') return
-		explain('calendar', calendarResult, '/api/inspector/calendar', { module: calendarModule.value, calendarId: calendarSelect.value, operation: calendarOperation.value })
+		explain('calendar', calendarResult, '/api/inspector/calendar', { module: calendarModule.value, calendarId: calendarSelect.value, operation: calendarOperation.value }, calendarModule.value)
 	})
 })()

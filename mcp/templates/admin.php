@@ -8,6 +8,7 @@
  * `role="tabpanel"` holding the core `.section` blocks of its area — overview (status), access and
  * permissions (the users × permissions matrix), clients and connections (OAuth clients and active
  * connections), data protection (exclusion tags) and advanced (server log, log privacy, OCR).
+ * The resource scope panel is js/admin-scope.js.
  * js/admin-tabs.js provides the tab behavior and the URL hash mapping; js/admin-picker.js is the
  * readable-search multi-select of the log groups and the exclusion tags; the matrix, OAuth clients,
  * tags and log groups are filled by js/admin-grants.js, the connections by js/connections.js. Without
@@ -20,6 +21,7 @@
 \OCP\Util::addScript('mcp', 'admin-grants');
 \OCP\Util::addScript('mcp', 'admin-overrides');
 \OCP\Util::addScript('mcp', 'admin-groups');
+\OCP\Util::addScript('mcp', 'admin-scope');
 \OCP\Util::addScript('mcp', 'admin-inspector');
 \OCP\Util::addScript('mcp', 'connections');
 \OCP\Util::addScript('mcp', 'admin-tabs');
@@ -157,6 +159,19 @@
                 <button type="button" id="mcp-next-bottom"><?php p($l->t('Next')); ?></button>
             </span>
         </div>
+    </div>
+    <div class="section mcp-block" id="mcp-scope">
+        <h2><?php p($l->t('Resource scope')); ?></h2>
+        <p class="mcp-hint"><?php p($l->t('Optionally restrict the MCP tools of one user to selected folders, calendars and task lists. A scope only narrows: it never gives access the user does not already have in Nextcloud, and an item excluded by a tag stays excluded.')); ?></p>
+        <p class="mcp-hint"><?php p($l->t('Restricting does not end the sessions of the user: it applies from their next MCP call.')); ?></p>
+        <form id="mcp-scope-form" class="mcp-inspector-form">
+            <label for="mcp-scope-user"><?php p($l->t('User ID')); ?></label>
+            <input type="text" id="mcp-scope-user" autocomplete="off" spellcheck="false">
+            <button type="submit"><?php p($l->t('Open')); ?></button>
+        </form>
+        <p id="mcp-scope-status" role="status" aria-live="polite"></p>
+        <p id="mcp-scope-alert" role="alert" aria-live="assertive"></p>
+        <div id="mcp-scope-modules"></div>
     </div>
     <div class="section mcp-block" id="mcp-inspector">
         <h2><?php p($l->t('Access inspector')); ?></h2>

@@ -34,9 +34,12 @@ class UserFileResolver {
      * @return File The file, guaranteed to be a file the user may read and share
      * @throws InvalidArgumentException When the path is empty, malformed or tries to escape the user folder
      * @throws FileAccessException When the file is missing, is a folder or cannot be shared
+     * @throws \OCA\Mcp\Service\Policy\PolicyUnavailable When the user's Files scope cannot be read, before any lookup
      */
     public function resolveShareableFile(string $userId, string $path): File {
         $cleanPath = $this->assertUsablePath($path);
+        // Before the lookup: an unreadable Files scope is the same 503 for a file that exists and one that does not.
+        $this->references?->assertAvailable($userId);
 
         try {
             $node = $this->rootFolder->getUserFolder($userId)->get($cleanPath);
