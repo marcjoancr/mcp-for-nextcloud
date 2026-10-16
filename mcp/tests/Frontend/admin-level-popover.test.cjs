@@ -409,3 +409,18 @@ test('F1: "Can connect" No is always a deny, asked first; Yes goes back to inher
 	assert.deepEqual(posts(yes)[0].body.commands, [{ uid: 'ana', module: null, operation: 'eligible', state: 'inherit' }])
 	assert.deepEqual(yes.confirms, [])
 })
+
+test('P2 focus: the popover is brought into view whole when it opens; its height is capped and it scrolls inside', async () => {
+	const kit = setup({ users: [user('ana', ['read'])] })
+	const asked = []
+	kit.popover.scrollIntoView = (options) => asked.push(options)
+	kit.api.open(kit.trigger, 'ana', 'files')
+	await new Promise(setImmediate)
+	assert.ok(asked.length >= 1, 'the page moves only as far as showing it takes')
+	assert.deepEqual(JSON.parse(JSON.stringify(asked[0])), { block: 'nearest', inline: 'nearest' })
+	const opened = asked.length
+	await kit.popover.fire('toggle')
+	assert.equal(asked.length, opened + 1, 'opening "Operations" brings the taller popover back into view')
+	const css = fs.readFileSync(path.join(root, 'css/admin.css'), 'utf8')
+	assert.match(css, /\.mcp-popover \{[^}]*max-height: calc\(100vh - var\(--header-height, 50px\) - var\(--default-clickable-area, 34px\) - 24px\);[^}]*overflow-y: auto;[^}]*scroll-margin-block: calc\(var\(--default-clickable-area, 34px\) \+ 12px\) 8px;/s)
+})

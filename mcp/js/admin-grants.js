@@ -1411,6 +1411,48 @@
 	window.addEventListener('mcp-group-policy-saved', reloadLocked)
 	window.addEventListener('mcp-scope-saved', reloadLocked)
 
+	/**
+	 * Keeps the control that takes the focus clear of the sticky columns of its row (the selection box and the name at the
+	 * start, the "…" menu at the end, js/admin.css), and inside the block. The browser scrolls a focused control into the
+	 * matrix block, but not out from under those columns, and it leaves one that shows in part where it is, so a cell
+	 * reached by Tab could be hidden (WCAG 2.4.11). Measured on screen, so it holds at any width and in either direction.
+	 *
+	 * @param {FocusEvent} event focusin on the scrolling block of the matrix
+	 */
+	function revealFocus(event) {
+		const wrap = event.currentTarget
+		const target = event.target
+		const cell = target?.closest?.('td, th')
+		const row = cell?.parentElement
+		if (!cell || !row) return
+		const rect = target.getBoundingClientRect()
+		// The sticky cells before this one in the row sit at its start side, the ones after it at its end side; which
+		// physical side that is depends on the direction of the page.
+		const rtl = getComputedStyle(row).direction === 'rtl'
+		// The visible part of the block itself: the browser leaves a control that shows in part where it is.
+		const block = wrap.getBoundingClientRect()
+		let left = block.left + (wrap.clientLeft || 0)
+		let right = left + wrap.clientWidth
+		let before = true
+		for (const other of row.children) {
+			if (other === cell) {
+				before = false
+				continue
+			}
+			if (getComputedStyle(other).position !== 'sticky') continue
+			const box = other.getBoundingClientRect()
+			if (before !== rtl) left = Math.max(left, box.right)
+			else right = Math.min(right, box.left)
+		}
+		if (rect.left < left) {
+			wrap.scrollLeft -= left - rect.left + 4
+		} else if (rect.right > right) {
+			// A control wider than the room left keeps its start in view.
+			wrap.scrollLeft += Math.min(rect.right - right + 4, rect.left - left)
+		}
+	}
+	table.parentElement?.addEventListener('focusin', revealFocus)
+
 	let searchTimer = null
 	searchInput.addEventListener('input', () => {
 		clearTimeout(searchTimer)
