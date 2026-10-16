@@ -13,6 +13,7 @@ use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Service\Policy\ScopeCleanup;
 use OCA\Mcp\Tests\Unit\InMemoryAppConfig;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
@@ -34,6 +35,8 @@ final class ScopeCleanupTest extends TestCase {
     private array $failing = [];
     /** @var bool whether the object lookup says missing while the backend's existence answer says present */
     private bool $backendSaysPresent = false;
+    /** The job's clock. */
+    private int $now = 1_760_000_000;
     /** @var (\Closure(string): void)|null runs inside every account read */
     private ?\Closure $readHook = null;
     /** @var list<string> */
@@ -67,7 +70,9 @@ final class ScopeCleanupTest extends TestCase {
                 $this->log[] = [(string)$level, (string)$message, $context];
             }
         };
-        return new ScopeCleanup($this->writer, $this->fx->scopes, $users, $this->apps->worker($this), $logger);
+        $time = $this->createMock(ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        return new ScopeCleanup($this->writer, $this->fx->scopes, $users, $this->apps->worker($this), $logger, $time);
     }
 
     private function read(string $uid): void {
@@ -187,6 +192,24 @@ final class ScopeCleanupTest extends TestCase {
 
     // --- job ------------------------------------------------------------------------------------------------------
 
+    private const DAY = ScopeCleanup::ABSENCE_WINDOW;
+
+    /** The first sighting of every absent account, then a day later: the state in which the next pass may remove. */
+    private function seenTwice(): void {
+        $this->cleanup->reconcile();
+        $this->now += self::DAY;
+    }
+
+    /** @return array<string, int> the notes of the first sightings, as stored */
+    private function notes(): array {
+        $raw = $this->apps->stored['mcp'][ScopeCleanup::ABSENCE_KEY] ?? '';
+        return $raw === '' ? [] : json_decode($raw, true);
+    }
+
+    private function key(string $uid): string {
+        return \OCA\Mcp\Db\IdentityKey::user($uid);
+    }
+
     public function testTheJobKeepsTheScopeOfAnAccountThatExistsWithoutTakingTheMutex(): void {
         $this->existing = ['alice'];
         $this->save('alice', 'files', ['10']);
@@ -197,13 +220,38 @@ final class ScopeCleanupTest extends TestCase {
         $this->assertSame($before, $this->fx->snapshot());
         $this->assertSame(['10'], $this->scopes('alice')['files']['items']);
         $this->assertSame(['alice'], $this->reads, 'one fresh read of the account, and no second proof under a command');
+        $this->assertSame([], $this->notes());
     }
 
-    public function testTheJobRemovesTheScopeOfAnAccountProvenGoneAndAdvancesTheRevision(): void {
-        $this->existing = ['bob'];
+    public function testOneSightingOfAnAbsentAccountRemovesNothingAndOnlyNotesTheTime(): void {
+        $this->save('alice', 'files', ['10']);
+        $before = $this->fx->snapshot();
+
+        $this->assertSame(0, $this->cleanup->reconcile());
+
+        $this->assertSame($before, $this->fx->snapshot(), 'no command, no revision, no event');
+        $this->assertSame(['10'], $this->scopes('alice')['files']['items']);
+        $this->assertSame([$this->key('alice') => $this->now], $this->notes());
+    }
+
+    public function testTwoSightingsLessThanADayApartRemoveNothingAndKeepTheFirstNote(): void {
+        $this->save('alice', 'files', ['10']);
+        $first = $this->now;
+        $this->cleanup->reconcile();
+        $this->now += self::DAY - 1;
+
+        $this->assertSame(0, $this->cleanup->reconcile());
+
+        $this->assertSame(['10'], $this->scopes('alice')['files']['items']);
+        $this->assertSame([$this->key('alice') => $first], $this->notes(), 'the second sighting does not move the first one');
+    }
+
+    public function testTwoSightingsExactlyADayApartRemoveTheScopeAndTheNote(): void {
         $this->save('alice', 'files', ['10']);
         $this->save('alice', 'tasks', ['40']);
         $this->save('bob', 'files', ['20']);
+        $this->existing = ['bob'];
+        $this->seenTwice();
         $before = $this->revision();
 
         $this->assertSame(1, $this->cleanup->reconcile());
@@ -211,23 +259,93 @@ final class ScopeCleanupTest extends TestCase {
         $this->assertSame([], $this->scopes('alice'));
         $this->assertSame(['20'], $this->scopes('bob')['files']['items']);
         $this->assertNotSame($before, $this->revision());
+        $this->assertSame([], $this->notes());
         $this->assertContains('MCP resource scope removed with its deleted account', $this->logs('info'));
+    }
+
+    public function testSightingsMoreThanADayApartRemoveTheScope(): void {
+        $this->save('alice', 'files', ['10']);
+        $this->cleanup->reconcile();
+        $this->now += 5 * self::DAY;
+
+        $this->assertSame(1, $this->cleanup->reconcile());
+        $this->assertSame([], $this->scopes('alice'));
+    }
+
+    public function testASightingThatSaysTheAccountExistsErasesTheNoteAndTheCountStartsOver(): void {
+        $this->save('alice', 'files', ['10']);
+        $this->cleanup->reconcile();
+        $this->now += 3 * 3600;
+        $this->existing = ['alice']; // seen again in between
+        $this->assertSame(0, $this->cleanup->reconcile());
+        $this->assertSame([], $this->notes());
+
+        $this->existing = [];
+        $this->now += 22 * 3600; // more than a day after the first sighting, but the count was erased
+        $this->assertSame(0, $this->cleanup->reconcile());
+        $this->assertSame(['10'], $this->scopes('alice')['files']['items'], 'not removed on the strength of the erased sighting');
+        $this->assertSame([$this->key('alice') => $this->now], $this->notes());
+
+        $this->now += self::DAY;
+        $this->assertSame(1, $this->cleanup->reconcile());
+        $this->assertSame([], $this->scopes('alice'));
+    }
+
+    public function testAnErrorReadingTheAccountErasesTheNoteAndTheCountStartsOver(): void {
+        $this->save('alice', 'files', ['10']);
+        $this->cleanup->reconcile();
+        $this->now += 3 * 3600;
+        $this->failing['alice'] = new \RuntimeException('directory down');
+        $this->assertSame(0, $this->cleanup->reconcile());
+        $this->assertSame([], $this->notes());
+        $this->assertNotEmpty($this->logs('warning'));
+
+        unset($this->failing['alice']);
+        $this->now += 22 * 3600;
+        $this->assertSame(0, $this->cleanup->reconcile());
+        $this->assertSame(['10'], $this->scopes('alice')['files']['items']);
+        $this->now += self::DAY;
+        $this->assertSame(1, $this->cleanup->reconcile());
+    }
+
+    public function testABackendThatSaysPresentNeverLetsTheCountReachTheRemoval(): void {
+        $this->save('alice', 'files', ['10']);
+        $this->backendSaysPresent = true; // the object lookup says missing, the backend's own answer says present
+        for ($pass = 0; $pass < 4; ++$pass) {
+            $this->assertSame(0, $this->cleanup->reconcile());
+            $this->now += self::DAY;
+        }
+        $this->assertSame(['10'], $this->scopes('alice')['files']['items']);
+        $this->assertSame([], $this->notes());
+    }
+
+    public function testAFailedRemovalErasesTheNoteToo(): void {
+        $this->save('alice', 'files', ['10']);
+        $this->fx->database->dbal->insert('mcp_scope_items', ['user_key' => $this->key('alice'), 'module' => 'tasks',
+            'resource_key' => str_repeat('0', 64), 'resource_id' => '5']);
+        $this->seenTwice();
+        $this->assertSame(0, $this->cleanup->reconcile(), 'the invalid row blocks the removal');
+        $this->assertSame([], $this->notes(), 'and the sightings are counted again afterwards');
+        $this->assertSame(['10'], $this->scopes_unverified('alice'));
     }
 
     public function testAnAccountRecreatedBeforeTheJobKeepsItsInheritedRestrictionAndNeverBecomesUnrestricted(): void {
         $this->save('alice', 'files', ['10', '11']);
-        // The deletion was deferred, the account was recreated under the same id, and the job runs now.
+        $this->seenTwice();
+        // The deletion was deferred, the account was recreated under the same id, and the job runs again now.
         $this->existing = ['alice'];
 
         $this->assertSame(0, $this->cleanup->reconcile());
 
         $this->assertSame(['10', '11'], $this->scopes('alice')['files']['items'], 'still restricted to the old items');
         $this->assertNotNull($this->fx->scopes->forModule('alice', 'files'));
+        $this->assertSame([], $this->notes());
     }
 
     public function testAnAccountRecreatedAndReconfiguredWhileTheJobProvesItGoneReplaysTheAttemptAndKeepsEverything(): void {
         $this->save('alice', 'files', ['10']);
         $revision = $this->revision();
+        $this->seenTwice();
         // The pre-check reads the account gone (reads 1 and 2: object, backend); during the proof of the command (read 3)
         // the account comes back and an administrator saves a new scope, which moves the revision under the command.
         $reads = 0;
@@ -237,18 +355,21 @@ final class ScopeCleanupTest extends TestCase {
                 $this->save('alice', 'calendar', ['30']);
             }
         };
+
         $this->assertSame(0, $this->cleanup->reconcile());
 
         $this->assertSame(['calendar', 'files'], array_keys($this->scopes('alice')));
         $this->assertSame(1, DecimalCounter::compare($this->scopes('alice')['calendar']['policyRev'], $revision));
+        $this->assertSame([], $this->notes(), 'the account was seen to exist again');
     }
 
     public function testARevisionChangedBetweenTheProofAndTheMutexReplaysTheProofAndThenRemoves(): void {
         $this->save('alice', 'files', ['10']);
         $proofs = 0;
         $hook = function () use (&$proofs): void {
-            // Read 1 is the pre-check; read 2 is the proof of the command, which moves the revision once.
-            if (++$proofs === 2) {
+            // Read 1 is the first sighting; reads 2 and 3 are the pre-check of the second pass and the proof of its
+            // command, which moves the revision once; read 4 is the replayed proof.
+            if (++$proofs === 3) {
                 $this->writer->setGlobalEnabled(true);
             }
         };
@@ -258,45 +379,48 @@ final class ScopeCleanupTest extends TestCase {
             return null;
         });
         $users->method('userExists')->willReturn(false);
-        $cleanup = new ScopeCleanup($this->writer, $this->fx->scopes, $users, $this->apps->worker($this), new \Psr\Log\NullLogger());
+        $time = $this->createMock(ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        $cleanup = new ScopeCleanup($this->writer, $this->fx->scopes, $users, $this->apps->worker($this), new \Psr\Log\NullLogger(), $time);
+        $cleanup->reconcile();
+        $this->now += self::DAY;
 
         $this->assertSame(1, $cleanup->reconcile());
 
         $this->assertSame([], $this->scopes('alice'));
-        $this->assertSame(3, $proofs, 'the proof was read again after the revision moved');
+        $this->assertSame(4, $proofs, 'the proof was read again after the revision moved');
     }
 
     public function testWhatCannotBeProvenKeepsTheScope(): void {
         $this->save('alice', 'files', ['10']);
         $this->failing['alice'] = new \RuntimeException('directory down');
         $before = $this->fx->snapshot();
-        $this->assertSame(0, $this->cleanup->reconcile());
+        for ($pass = 0; $pass < 3; ++$pass) {
+            $this->assertSame(0, $this->cleanup->reconcile());
+            $this->now += self::DAY;
+        }
         $this->assertSame($before, $this->fx->snapshot());
         $this->assertNotEmpty($this->logs('warning'));
-
-        unset($this->failing['alice']);
-        // The object lookup says missing but the backend still answers that the account exists.
-        $this->backendSaysPresent = true;
-        $this->assertSame(0, $this->cleanup->reconcile());
-        $this->assertSame($before, $this->fx->snapshot());
         $this->assertSame(['10'], $this->scopes('alice')['files']['items']);
     }
 
     public function testAnInvalidRowOfOneUserBlocksOnlyThatUserAndIsDiagnosed(): void {
         $this->save('alice', 'files', ['10']);
         $this->save('bob', 'files', ['20']);
-        $this->fx->database->dbal->insert('mcp_scope_items', ['user_key' => \OCA\Mcp\Db\IdentityKey::user('alice'), 'module' => 'tasks',
+        $this->fx->database->dbal->insert('mcp_scope_items', ['user_key' => $this->key('alice'), 'module' => 'tasks',
             'resource_key' => str_repeat('0', 64), 'resource_id' => '5']);
+        $this->seenTwice();
 
-        $this->assertSame(1, $this->cleanup->reconcile(), 'bob, whose rows are valid, is still cleaned');
+        $this->assertSame(1, $this->cleanup->reconcile(), 'bob, whose rows are valid, is cleaned on his second sighting');
 
         $this->assertSame(['10'], $this->scopes_unverified('alice'));
         $this->assertSame([], $this->scopes('bob'));
         $diagnostic = array_values(array_filter($this->logged, static fn (array $entry): bool => $entry[1] === 'MCP resource scope cleanup pass'));
-        $this->assertCount(1, $diagnostic);
-        $this->assertSame(2, $diagnostic[0][2]['users']);
-        $this->assertSame(1, $diagnostic[0][2]['blocked_or_failed']);
-        $this->assertSame(1, $diagnostic[0][2]['cleaned']);
+        $this->assertCount(2, $diagnostic);
+        $this->assertSame(2, $diagnostic[1][2]['users']);
+        $this->assertSame(1, $diagnostic[1][2]['blocked_or_failed']);
+        $this->assertSame(1, $diagnostic[1][2]['cleaned']);
+        $this->assertSame(2, $diagnostic[0][2]['waiting_second_sighting'], 'the first pass only noted both');
     }
 
     public function testAModeWhoseStoredOwnerDoesNotMatchItsKeyIsNeverJudgedByTheDirectory(): void {
@@ -305,11 +429,35 @@ final class ScopeCleanupTest extends TestCase {
         $this->fx->database->dbal->executeStatement('UPDATE mcp_scope_modes SET user_id = ?', ['mallory']);
         $before = $this->fx->snapshot();
 
+        $this->seenTwice();
         $this->assertSame(0, $this->cleanup->reconcile());
 
         $this->assertSame([], $this->reads, 'no directory read for an owner that fails its digest');
         $this->assertSame($before, $this->fx->snapshot());
+        $this->assertSame([], $this->notes());
         $this->assertNotEmpty($this->logs('warning'));
+    }
+
+    public function testNotesOfUsersWhoNoLongerHaveAScopeAreDroppedAfterACompletePass(): void {
+        $this->save('alice', 'files', ['10']);
+        $this->save('bob', 'files', ['20']);
+        $this->cleanup->reconcile();
+        $this->assertCount(2, $this->notes());
+        $this->save('bob', 'files', null); // an administrator lifted bob's restriction in the meantime
+        $this->now += 3600;
+        $this->cleanup->reconcile();
+        $this->assertSame([$this->key('alice') => $this->now - 3600], $this->notes(), 'bob has no scope any more: his note is gone, alice keeps hers');
+    }
+
+    public function testMalformedNotesAreNoNotesAndNeverBringARemovalForward(): void {
+        $this->save('alice', 'files', ['10']);
+        foreach (['not json', '[1,2]', '{"x":1}', json_encode([$this->key('alice') => 'yesterday']), json_encode([$this->key('alice') => -5])] as $garbage) {
+            $this->apps->stored['mcp'][ScopeCleanup::ABSENCE_KEY] = $garbage;
+            // A new request: the worker of the earlier pass kept the value it read.
+            $this->assertSame(0, $this->cleanup()->reconcile(), "notes '$garbage'");
+            $this->assertSame(['10'], $this->scopes('alice')['files']['items']);
+            $this->assertSame([$this->key('alice') => $this->now], $this->notes(), 'the count starts at this sighting');
+        }
     }
 
     public function testOrphanItemsAreCountedInTheDiagnosticAndLeftInPlace(): void {
@@ -330,29 +478,26 @@ final class ScopeCleanupTest extends TestCase {
             $this->save($uid, 'files', ['10']);
         }
         $this->existing = ['bob', 'carol'];
-        $keys = [];
-        foreach (['alice', 'bob', 'carol'] as $uid) {
-            $keys[\OCA\Mcp\Db\IdentityKey::user($uid)] = $uid;
-        }
-        ksort($keys);
-        $order = array_values($keys);
 
-        // Page size 1: each run looks at one user; the one that is gone is cleaned when its turn comes.
+        // Page size 1: each run looks at one user. alice, who is gone, is seen on two runs a cycle apart, a day or more
+        // apart, and only then cleaned; the others exist and are never touched.
         $cleaned = 0;
-        for ($run = 0; $run < 4; ++$run) {
+        for ($run = 0; $run < 8; ++$run) {
             $cleaned += $this->cleanup->reconcile(1);
+            $this->now += self::DAY;
         }
         $this->assertSame(1, $cleaned);
         $this->assertSame([], $this->scopes('alice'));
         $this->assertNotSame([], $this->scopes('bob'));
         $this->assertNotSame([], $this->scopes('carol'));
-        $this->assertEqualsCanonicalizing(['alice', 'bob', 'carol'], array_unique($this->reads), 'every user got its turn (order ' . implode(',', $order) . ')');
+        $this->assertEqualsCanonicalizing(['alice', 'bob', 'carol'], array_unique($this->reads), 'every user got its turn');
     }
 
     public function testNoDirectoryReadHappensUnderTheMutexOrInsideAnyTransaction(): void {
         $this->save('alice', 'files', ['10']);
         $this->save('bob', 'files', ['20']);
         $this->existing = ['bob'];
+        $this->seenTwice();
         $this->cleanup->reconcile();
         // read() asserts, on every account read, that no transaction is open; the removal itself ran in one.
         $this->assertNotEmpty($this->reads);

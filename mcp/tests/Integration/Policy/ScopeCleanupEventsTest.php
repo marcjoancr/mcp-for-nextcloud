@@ -13,10 +13,13 @@ use OCA\Mcp\Service\Policy\PolicyWriter;
 use OCA\Mcp\Service\Policy\ScopeCleanup;
 use OCA\Mcp\Tests\Integration\Fixtures;
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
+use OCP\IAppConfig;
 use OCP\IUserManager;
 use OCP\Server;
 use OCP\User\Events\UserDeletedEvent;
+use Psr\Log\LoggerInterface;
 
 /**
  * The account cleanup of the resource scope (contracts B.3, F3, validation S12) against the real server: the real
@@ -24,6 +27,8 @@ use OCP\User\Events\UserDeletedEvent;
  * began and nothing saved after it; the 15-minute job removes the scope of an account that is gone and keeps that of
  * one that exists. The scope rows are written the way a save writes them (the writer's transaction, policy_rev = the
  * revision of the commit), without the native-resource validation of the admin route, which is not under test here.
+ * The job runs with the real writer, mapper, directory and app config and a clock the test moves: it removes a scope
+ * only on the second sighting of the absence, a day or more after the first.
  */
 final class ScopeCleanupEventsTest extends IntegrationTestCase {
     /** @var list<string> accounts created by a test, deleted at the end */
@@ -32,6 +37,7 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
     private array $listeners = [];
     /** @var list<array{string, string}> uid and module of scope rows a test may leave behind */
     private array $touched = [];
+    private int $now = 1_760_000_000;
 
     protected function tearDown(): void {
         foreach ($this->listeners as [$event, $listener]) {
@@ -42,6 +48,9 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
         }
         foreach ($this->created as $uid) {
             Server::get(IUserManager::class)->get($uid)?->delete();
+        }
+        foreach ([ScopeCleanup::ABSENCE_KEY, ScopeCleanup::CURSOR_KEY] as $key) {
+            Server::get(IAppConfig::class)->deleteKey('mcp', $key);
         }
         parent::tearDown();
     }
@@ -69,6 +78,14 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
         $this->assertNotNull(Server::get(IUserManager::class)->createUser($uid, bin2hex(random_bytes(16))), 'the account was created');
         $this->created[] = $uid;
         return $uid;
+    }
+
+    /** The job with every real service and a clock this test moves. */
+    private function job(): ScopeCleanup {
+        $time = $this->createMock(ITimeFactory::class);
+        $time->method('getTime')->willReturnCallback(fn (): int => $this->now);
+        return new ScopeCleanup(Server::get(PolicyWriter::class), Server::get(ResourceScopeMapper::class), Server::get(IUserManager::class),
+            Server::get(IAppConfig::class), Server::get(LoggerInterface::class), $time);
     }
 
     private function revision(): string {
@@ -111,22 +128,33 @@ final class ScopeCleanupEventsTest extends IntegrationTestCase {
         $this->created = array_values(array_diff($this->created, [$uid]));
     }
 
-    public function testTheJobRemovesTheScopeOfAnAccountThatIsGoneAndKeepsThatOfOneThatExists(): void {
+    public function testTheJobRemovesTheScopeOfAnAccountThatIsGoneOnlyOnTheSecondSightingADayLater(): void {
         $gone = 'mcp-it-scope-gone-' . bin2hex(random_bytes(4));
         $this->replace($gone, 'tasks', ['400']);
         $this->replace(Fixtures::ALICE, 'files', ['200']);
+        $job = $this->job();
 
-        Server::get(ScopeCleanup::class)->reconcile();
+        $job->reconcile();
+        $this->assertSame(['400'], $this->scopes($gone)['tasks']['items'], 'the first sighting only notes the absence');
+        $this->now += ScopeCleanup::ABSENCE_WINDOW - 1;
+        $job->reconcile();
+        $this->assertSame(['400'], $this->scopes($gone)['tasks']['items'], 'less than a day later it is still kept');
+        $this->now += 1;
+        $job->reconcile();
 
-        $this->assertSame([], $this->scopes($gone), 'an id no backend knows is proven gone');
+        $this->assertSame([], $this->scopes($gone), 'an id no backend knows, seen twice a day apart, is removed');
         $this->assertSame(['200'], $this->scopes(Fixtures::ALICE)['files']['items'], 'an account that exists keeps its scope');
     }
 
     public function testAnAccountRecreatedBeforeTheJobKeepsItsRestriction(): void {
         $uid = $this->account();
         $this->replace($uid, 'files', ['100']);
-        // The deletion event never reached the app (deferred or lost); the same id exists again when the job runs.
-        Server::get(ScopeCleanup::class)->reconcile();
+        // The deletion event never reached the app (deferred or lost); the same id exists when the job runs.
+        $job = $this->job();
+        for ($pass = 0; $pass < 3; ++$pass) {
+            $job->reconcile();
+            $this->now += ScopeCleanup::ABSENCE_WINDOW;
+        }
 
         $this->assertSame(['100'], $this->scopes($uid)['files']['items'], 'never lifted while the account exists');
     }
