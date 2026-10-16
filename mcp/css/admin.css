@@ -259,6 +259,9 @@
 }
 
 #mcp-admin .mcp-matrix-wrap {
+	/* Positioned, so the screen-reader texts of the cells (absolute) are clipped by its scrolling too: otherwise they
+	   escape it and make the Nextcloud content box scroll sideways (S12). */
+	position: relative;
 	overflow: auto;
 	max-width: 100%;
 	/* Vertical scrolling inside the wrapper is what lets the header rows stick. */

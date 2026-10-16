@@ -386,7 +386,7 @@ final class AdminAssetsTest extends TestCase {
         $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*position: sticky;[^}]*inset-inline-start: 44px;[^}]*z-index: 1;/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-actions-col \{[^}]*position: sticky;[^}]*inset-inline-end: 0;[^}]*z-index: 1;/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead \.mcp-select-col,\s*#mcp-admin \.mcp-matrix thead \.mcp-actions-col \{[^}]*z-index: 3;/s', $css);
-        $this->assertMatchesRegularExpression('/\.mcp-matrix-wrap \{[^}]*overflow: auto;[^}]*max-width: 100%;/s', $css, 'the matrix scrolls inside its block, never the page');
+        $this->assertMatchesRegularExpression('/\.mcp-matrix-wrap \{[^}]*position: relative;[^}]*overflow: auto;[^}]*max-width: 100%;/s', $css, 'the matrix scrolls inside its block, never the page');
         // On a phone a long name wraps between words, never down to one letter per line, and a drawer that reaches the
         // start of the page leaves the corner of the Nextcloud navigation toggle free.
         $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*min-width: 6\.5em;[^}]*max-width: 38vw;[^}]*white-space: normal;[^}]*overflow-wrap: break-word;/s', $css);
