@@ -39,6 +39,7 @@ final class NextcloudApiUsage {
         'OCP\\FilesMetadata\\Model\\IFilesMetadata',
         'OCA\\DAV\\CalDAV\\Schedule\\Plugin',
         'OCP\\Log\\IWriter',
+        'OCP\\Group\\Backend\\IIsAdminBackend',
     ];
 
     /**
@@ -48,6 +49,8 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        // Fresh native administration follows the manager's public optional backend contract.
+        'OCP\\Group\\Backend\\IIsAdminBackend::isAdmin' => ['uid'],
         // Talk, held untyped by OCA\Mcp\Tools\Talk.
         'OCA\\Talk\\Manager::getRoomForUserByToken' => ['token', 'userId'],
         'OCA\\Talk\\Manager::getRoomsForUser' => ['userId'],
@@ -267,11 +270,6 @@ final class NextcloudApiUsage {
             'fallback' => 'OCA\\DAV\\CalDAV\\InvitationResponse\\InvitationResponseServer',
             'by' => \OCA\Mcp\Tools\Calendar\EmbeddedCalDavServerFactory::class,
         ],
-        'OCP\\Config\\IUserConfig' => [
-            'missing' => ['31'],
-            'fallback' => 'OCP\\IConfig::getUsersForUserValue',
-            'by' => \OCA\Mcp\Service\GrantPolicy::class,
-        ],
         'OCP\\App\\IAppManager::isEnabledForAnyone' => [
             'missing' => ['31'],
             'fallback' => 'OCP\\App\\IAppManager::isInstalled',
@@ -323,5 +321,6 @@ final class NextcloudApiUsage {
         'OCA\\Deck\\Db\\Acl::getCreatedAt' => 'OCA\\Deck\\Db\\Card::getCreatedAt, in Tools/Deck/DeckServiceGateway',
         'OCP\\Files\\IRootFolder::removeListener' => 'Sabre\\DAV\\Server::removeListener, in Tools/Calendar/EmbeddedDavDispatcher',
         'OCP\\DB\\QueryBuilder\\IQueryBuilder::execute' => 'the app\'s own tools, in Tools/Calendar/CalendarModule and Service/Calendar/CalendarSelftestService',
+        'OCP\\BackgroundJob\\TimedJob::execute' => 'the app\'s own tools, in Tools/Calendar/CalendarModule and Service/Calendar/CalendarSelftestService',
     ];
 }

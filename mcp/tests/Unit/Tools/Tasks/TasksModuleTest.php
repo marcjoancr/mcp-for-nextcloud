@@ -9,7 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Tools\Tasks;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tests\Unit\Tools\Calendar\ScopeStub;
 use OCA\Mcp\Tools\Calendar\CalendarDav;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\DavResult;
@@ -92,14 +92,15 @@ final class TasksModuleTest extends TestCase {
         $time = $this->createMock(ITimeFactory::class);
         $time->method('now')->willReturn(new DateTimeImmutable('2026-10-01T12:00:00Z'));
         $this->module = new TasksModule(
-            new CalendarAccess($this->store),
+            ScopeStub::access($this->store),
             $this->store,
             $tasks,
             $this->dav,
             new TaskData(),
             new SharedGuard($this->createMock(IUserManager::class)),
             new TrashPolicy($config),
-            $time
+            $time,
+            \OCA\Mcp\Tests\Unit\Tools\Common\OutputReferenceFilters::inactive($this)
         );
     }
 

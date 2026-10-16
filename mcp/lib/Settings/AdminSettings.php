@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Settings;
 
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\Service\Compat\AppEnablement;
 use OCA\Mcp\Service\ConnectionList;
 use OCA\Mcp\Service\GrantPolicy;
@@ -38,15 +39,22 @@ class AdminSettings implements ISettings {
 
     /** @return TemplateResponse the rendered settings section */
     public function getForm(): TemplateResponse {
-        $eligible = $this->policy->flaggedUsers(GrantPolicy::ELIGIBLE_KEY);
+        try {
+            // Eligible by an individual Allow or by a group that may grant it; connected needs both.
+            $eligible = count($this->policy->flaggedUsers(GrantPolicy::ELIGIBLE_KEY));
+            $connected = count($this->policy->connectedUsers());
+        } catch (PolicyUnavailable) {
+            // No total is better than a wrong one: the cards show a dash, never a fictitious zero.
+            $eligible = $connected = null;
+        }
         return new TemplateResponse('mcp', 'admin', [
             'endpoint' => $this->urlGenerator->linkToRouteAbsolute('mcp.mcp.post'),
             'serviceEnabled' => $this->policy->globalEnabled(),
             'ocrActive' => $this->ocr->isActive(),
             'ocrUrl' => OcrSupport::APP_URL,
             'version' => $this->appManager->getAppVersion('mcp'),
-            'eligibleUsers' => count($eligible),
-            'connectedUsers' => count($this->policy->connectedUsers()),
+            'eligibleUsers' => $eligible,
+            'connectedUsers' => $connected,
             'activeConnections' => $this->connections->count(),
             'unsupportedApps' => $this->unsupportedApps(),
             'logsAvailable' => $this->logs->available(),

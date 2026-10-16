@@ -33,11 +33,24 @@ use OCP\SystemTag\ISystemTagObjectMapper;
 class VisibilityGuard {
     public const CONFIG_KEY = 'hidden_system_tags';
 
+    /** Reasons explain() gives; only the administrator's inspector shows them, the tools answer "not found". */
+    public const EXPLAINED_VISIBLE = 'visible';
+    public const EXPLAINED_TAG_DIRECT = 'tag_direct';
+    public const EXPLAINED_TAG_FOLDER = 'tag_folder';
+    public const EXPLAINED_TAG_SHARE_ORIGIN = 'tag_share_origin';
+    public const EXPLAINED_BACKUP = 'backup_of_excluded';
+    public const EXPLAINED_INVALID_CONFIGURATION = 'invalid_configuration';
+    /** The check failed (a tag, an ancestor or the owner's tree could not be read): refused, reason unknown. */
+    public const EXPLAINED_NOT_EVALUATED = 'not_evaluated';
+
     /** @var list<string>|null cached list of hidden system tag IDs */
     private ?array $hiddenTagIds = null;
 
-    /** @var array<int, bool> per-request node visibility cache: [nodeId => isVisible] */
+    /** @var array<string, bool> per-request visibility by file id and mounted path */
     private array $cache = [];
+
+    /** @var array<string, true> complete mounted ancestor chains checked clean for tags, not final visibility */
+    private array $tagClean = [];
 
     /** whether the stored configuration could not be read as a list of tag IDs */
     private bool $configInvalid = false;
@@ -50,6 +63,12 @@ class VisibilityGuard {
 
     /** @var array<string, array{node: Node, mount: string}|null> share root by ancestor id and mounted path */
     private array $shareRootCache = [];
+
+    /**
+     * @var array{reason?: string, folder?: Node}|null while explain() runs, the first reason the one decision of
+     *      checkVisibility() refused for; null otherwise, so the tools' checks record nothing
+     */
+    private ?array $explanation = null;
 
     public function __construct(
         private IConfig $config,
@@ -82,8 +101,50 @@ class VisibilityGuard {
      * @return bool false when the node or any ancestor has a hidden tag, or is a backup of a hidden file
      */
     public function isVisible(Node $node): bool {
+        try {
+            return $this->checkVisibility($node);
+        } catch (\Throwable) {
+            $this->warnVisibilityFailure();
+            return false;
+        }
+    }
+
+    /**
+     * Why the tools see or do not see a node, for the administrator's inspector (contract A.4, decision D5): the very
+     * decision of isVisible(), with the reason recorded where it refuses, never a second evaluation of the rules. The
+     * per-request caches are cleared first, since a cached refusal carries no reason.
+     *
+     * @param Node $node file or folder, resolved in the inspected user's tree
+     * @return array{reason: string, folder: ?Node} reason is one of EXPLAINED_*; folder is the tagged ancestor for
+     *         EXPLAINED_TAG_FOLDER, the only reason that names another node
+     */
+    public function explain(Node $node): array {
+        $this->clearCache();
+        $this->explanation = [];
+        try {
+            $visible = $this->isVisible($node);
+            $why = $this->explanation;
+        } finally {
+            $this->explanation = null;
+        }
+        if ($visible) {
+            return ['reason' => self::EXPLAINED_VISIBLE, 'folder' => null];
+        }
+        // A refusal that recorded nothing is never reported as a known reason.
+        return ['reason' => $why['reason'] ?? self::EXPLAINED_NOT_EVALUATED, 'folder' => $why['folder'] ?? null];
+    }
+
+    /** Records the first reason of a refusal while explain() runs. */
+    private function because(string $reason, ?Node $folder = null): void {
+        if ($this->explanation !== null && !isset($this->explanation['reason'])) {
+            $this->explanation = ['reason' => $reason] + ($folder === null ? [] : ['folder' => $folder]);
+        }
+    }
+
+    private function checkVisibility(Node $node): bool {
         if (!$this->isConfigurationValid()) {
             $this->warnInvalidConfiguration();
+            $this->because(self::EXPLAINED_INVALID_CONFIGURATION);
             return false;
         }
         $hiddenTags = $this->getHiddenTagIds();
@@ -98,35 +159,42 @@ class VisibilityGuard {
         }
 
         $nodeId = (int)$node->getId();
-        if ($nodeId > 0 && isset($this->cache[$nodeId])) {
-            return $this->cache[$nodeId];
+        $nodeKey = $nodeId . ':' . $node->getPath();
+        if ($nodeId > 0 && isset($this->cache[$nodeKey])) {
+            return $this->cache[$nodeKey];
         }
 
         // Collect ancestors up to root
         $chain = [];
         $current = $node;
-        while ($current instanceof Node) {
+        while (!$current instanceof IRootFolder) {
             $cid = (int)$current->getId();
             if ($cid <= 0 || isset($chain[$cid])) {
-                break;
+                $this->warnVisibilityFailure();
+                return false;
             }
 
-            // If an ancestor is already cached, leverage it
-            if (isset($this->cache[$cid])) {
-                if (!$this->cache[$cid]) {
+            // Mounted aliases can have different ancestors for the same file id.
+            $cacheKey = $cid . ':' . $current->getPath();
+            if (isset($this->cache[$cacheKey])) {
+                if (!$this->cache[$cacheKey]) {
                     if ($nodeId > 0) {
-                        $this->cache[$nodeId] = false;
+                        $this->cache[$nodeKey] = false;
                     }
                     return false;
                 }
                 break;
             }
 
+            if (isset($this->tagClean[$cacheKey])) {
+                break; // tag ancestry only; the node's backup check must still run
+            }
+
             $chain[$cid] = $current;
             try {
-                $parent = $current->getParent();
-                if (!$parent instanceof Node || (int)$parent->getId() === $cid) {
-                    break;
+                $parent = $this->parentOf($current);
+                if (!$parent instanceof Node || $parent === $current || (int)$parent->getId() === $cid) {
+                    throw new \RuntimeException();
                 }
                 $current = $parent;
             } catch (\Throwable) {
@@ -149,41 +217,49 @@ class VisibilityGuard {
             $reversedChain = array_reverse($chain, true);
             $foundHidden = false;
             foreach ($reversedChain as $cid => $chainNode) {
+                $cacheKey = $cid . ':' . $chainNode->getPath();
                 if ($foundHidden) {
-                    $this->cache[$cid] = false;
+                    $this->cache[$cacheKey] = false;
                     continue;
                 }
                 $nodeTags = array_map(strval(...), $tagsByObject[(string)$cid] ?? []);
                 foreach ($nodeTags as $tagId) {
                     if (in_array((string)$tagId, $hiddenTags, true)) {
                         $foundHidden = true;
-                        $this->cache[$cid] = false;
+                        $this->cache[$cacheKey] = false;
+                        if ($cid === $nodeId) {
+                            $this->because(self::EXPLAINED_TAG_DIRECT);
+                        } else {
+                            $this->because(self::EXPLAINED_TAG_FOLDER, $chainNode);
+                        }
                         break;
                     }
-                }
-                if (!$foundHidden) {
-                    $this->cache[$cid] = true;
                 }
             }
 
             if ($foundHidden) {
                 if ($nodeId > 0) {
-                    $this->cache[$nodeId] = false;
+                    $this->cache[$nodeKey] = false;
                 }
                 return false;
+            }
+            // Publish only after the entire mapper result was checked successfully.
+            foreach ($chain as $cid => $chainNode) {
+                $this->tagClean[$cid . ':' . $chainNode->getPath()] = true;
             }
         }
 
         // Check /MCP backups mirror rule
         if ($this->isHiddenBackup($node, $chain)) {
+            $this->because(self::EXPLAINED_BACKUP);
             if ($nodeId > 0) {
-                $this->cache[$nodeId] = false;
+                $this->cache[$nodeKey] = false;
             }
             return false;
         }
 
         if ($nodeId > 0) {
-            $this->cache[$nodeId] = true;
+            $this->cache[$nodeKey] = true;
         }
         return true;
     }
@@ -235,10 +311,10 @@ class VisibilityGuard {
                 }
                 // Nodes without an id cannot be memoized or resolved by id;
                 // continue to their parent so an enclosing share is still checked.
-                $parent = $current->getParent();
+                $parent = $this->parentOf($current);
                 if (!$parent instanceof Node || $parent === $current
                     || ($id > 0 && (int)$parent->getId() === $id)) {
-                    break;
+                    throw new \RuntimeException();
                 }
                 $current = $parent;
             }
@@ -297,13 +373,14 @@ class VisibilityGuard {
                     if ($cid === $folderId) {
                         break; // do not call Root::getParent()
                     }
-                    $current = $current->getParent();
+                    $current = $this->parentOf($current);
                 }
             }
             $tagsByObject = $this->tagMapper->getTagIdsForObjects(array_values($ids), 'files');
             foreach ($ids as $cid) {
                 foreach ($tagsByObject[$cid] ?? [] as $tagId) {
                     if (in_array((string)$tagId, $hiddenTags, true)) {
+                        $this->because(self::EXPLAINED_TAG_SHARE_ORIGIN);
                         return $this->ownerCache[$id] = false;
                     }
                 }
@@ -315,8 +392,47 @@ class VisibilityGuard {
         }
     }
 
+    /**
+     * The parent of a node, with the file id the tag lookup must see.
+     *
+     * Above the root of a mount, core answers a lazy folder carrying the parent id the mounted storage records, not
+     * the id of the folder the user sees there: -1 for an external storage root, an id of another storage for a
+     * groupfolder, the source folder's id for a share. That folder is resolved again by its path, so its own tags are
+     * the ones checked and the walk meets the real user folder. Inside a mount the parent id is the storage's own and
+     * is kept. A parent that cannot be resolved again, or resolves to another path or to no id, is a failure.
+     * Every walk up a chain and every comparison of a parent's id uses this, never Node::getParent() alone.
+     *
+     * @param Node $node node whose parent is needed
+     * @return Node the parent; the root folder above the top of the tree
+     * @throws \Throwable when the parent cannot be resolved
+     */
+    public function parentOf(Node $node): Node {
+        $parent = $node->getParent();
+        if ($parent instanceof IRootFolder || $this->rootFolder === null || !$this->isMountRoot($node)) {
+            return $parent;
+        }
+        $path = dirname((string)$node->getPath());
+        $resolved = $this->rootFolder->get($path);
+        if (!$resolved instanceof Node || $resolved instanceof IRootFolder
+            || $resolved->getPath() !== $path || (int)$resolved->getId() <= 0) {
+            throw new \RuntimeException();
+        }
+        return $resolved;
+    }
+
+    /** Whether the node is the root of the mount it lives in, where core's parent id belongs to another storage. */
+    private function isMountRoot(Node $node): bool {
+        $mountPoint = $node->getMountPoint();
+        if (!is_object($mountPoint)) {
+            return false; // nothing marks a boundary, so the parent core gives is kept, as before
+        }
+        $mount = rtrim((string)$mountPoint->getMountPoint(), '/');
+        return $mount !== '' && $mount === rtrim((string)$node->getPath(), '/');
+    }
+
     /** Logs a privacy refusal without node names, paths or exception details. */
     private function warnVisibilityFailure(): void {
+        $this->because(self::EXPLAINED_NOT_EVALUATED);
         $this->logger?->warning('MCP visibility check failed; access refused', ['app' => 'mcp']);
     }
 
@@ -342,6 +458,28 @@ class VisibilityGuard {
     }
 
     /**
+     * Whether a node may be crossed by metadata on the way to another one: an existing ancestor of a write
+     * destination, the root a search starts from. Here that is visibility itself; {@see \OCA\Mcp\Service\Scope\FilesAccessGuard}
+     * leaves the resource scope out of it, since the ancestors of a selected folder are traversed, never shown.
+     *
+     * @param Node $node file or folder
+     * @return bool false when the node may not be crossed
+     */
+    public function isTraversable(Node $node): bool {
+        return $this->isVisible($node);
+    }
+
+    /**
+     * @param Node $node file or folder about to be crossed
+     * @throws ToolFailure with CommonMessages::notFound() when it may not be
+     */
+    public function assertTraversable(Node $node): void {
+        if (!$this->isTraversable($node)) {
+            throw new ToolFailure(CommonMessages::notFound());
+        }
+    }
+
+    /**
      * Filters a collection of nodes, keeping only visible ones while preserving order.
      *
      * @param iterable<Node> $nodes
@@ -362,6 +500,15 @@ class VisibilityGuard {
      * Returns false if an existing target or any existing ancestor is hidden.
      */
     public function isPathAllowedForWrite(Folder $root, string $path): bool {
+        try {
+            return $this->checkPathAllowedForWrite($root, $path);
+        } catch (\Throwable) {
+            $this->warnVisibilityFailure();
+            return false;
+        }
+    }
+
+    private function checkPathAllowedForWrite(Folder $root, string $path): bool {
         if (!$this->isConfigurationValid()) {
             $this->warnInvalidConfiguration();
             return false;
@@ -371,6 +518,9 @@ class VisibilityGuard {
             return true;
         }
 
+        if (!$this->isVisible($root)) {
+            return false;
+        }
         $relative = trim($path, '/');
         if ($relative !== '' && $root->nodeExists($relative)) {
             try {
@@ -425,10 +575,11 @@ class VisibilityGuard {
         $tagsToAssign = [];
         $current = $source;
         $seen = [];
-        while ($current instanceof Node) {
+        while (!$current instanceof IRootFolder) {
             $cid = (int)$current->getId();
             if ($cid <= 0 || isset($seen[$cid])) {
-                break;
+                $this->warnVisibilityFailure();
+                throw new ToolFailure(\OCA\Mcp\Tools\Files\FilesMessages::backupFailed());
             }
             $seen[$cid] = true;
             try {
@@ -438,9 +589,9 @@ class VisibilityGuard {
                         $tagsToAssign[(string)$tagId] = true;
                     }
                 }
-                $parent = $current->getParent();
-                if (!$parent instanceof Node || (int)$parent->getId() === $cid) {
-                    break;
+                $parent = $this->parentOf($current);
+                if (!$parent instanceof Node || $parent === $current || (int)$parent->getId() === $cid) {
+                    throw new \RuntimeException();
                 }
                 $current = $parent;
             } catch (\Throwable $e) {
@@ -471,7 +622,13 @@ class VisibilityGuard {
         if ($this->hiddenTagIds !== null) {
             return $this->hiddenTagIds;
         }
-        $raw = $this->config->getAppValue('mcp', self::CONFIG_KEY, '[]');
+        try {
+            $raw = $this->config->getAppValue('mcp', self::CONFIG_KEY, '[]');
+        } catch (\Throwable) {
+            // Retry on the next check; an unavailable config never means no exclusions.
+            $this->configInvalid = true;
+            return [];
+        }
         // Objects stay objects: decoded as arrays, {} and {"0":"42"} would pass for lists.
         $decoded = json_decode($raw);
         $ids = [];
@@ -501,12 +658,12 @@ class VisibilityGuard {
      * Saves the configured hidden system tag IDs.
      * Validates that each ID is a positive integer and corresponds to an existing system tag if tagManager is set.
      *
-     * Removing every tag needs no lookup. Otherwise, when the tag manager cannot answer, nothing is saved
-     * and the previous configuration still applies.
+     * Removing every tag needs no system-tag lookup. An unreadable current configuration refuses any save;
+     * unreadable system tags refuse nonempty selections. In both cases the previous value is kept.
      *
      * @param list<string|int> $tagIds
      * @throws \InvalidArgumentException when an ID is not a positive integer
-     * @throws HiddenTagsUnavailableException when the system tags cannot be checked
+     * @throws HiddenTagsUnavailableException when the current configuration or system tags cannot be checked
      */
     public function setHiddenTagIds(array $tagIds): void {
         $sanitized = [];
@@ -545,10 +702,20 @@ class VisibilityGuard {
             }
         }
 
+        // Never replace exclusions after a failed read in this operation. Malformed
+        // but readable values remain repairable through the admin panel.
+        if ($this->hiddenTagIds === null && !$this->configInvalid) {
+            $this->getHiddenTagIds();
+        }
+        if ($this->hiddenTagIds === null && $this->configInvalid) {
+            throw new HiddenTagsUnavailableException('Hidden tags configuration could not be read');
+        }
+
         $this->config->setAppValue('mcp', self::CONFIG_KEY, json_encode($sanitized));
         $this->hiddenTagIds = $sanitized;
         $this->configInvalid = false;
         $this->cache = [];
+        $this->tagClean = [];
         $this->ownerCache = [];
         $this->shareRootCache = [];
     }
@@ -558,6 +725,7 @@ class VisibilityGuard {
         $this->hiddenTagIds = null;
         $this->configInvalid = false;
         $this->cache = [];
+        $this->tagClean = [];
         $this->ownerCache = [];
         $this->shareRootCache = [];
     }
@@ -585,7 +753,7 @@ class VisibilityGuard {
             }
             array_unshift($segmentsBelowBackup, $current->getName());
             try {
-                $parent = $current->getParent();
+                $parent = $this->parentOf($current);
                 if (!$parent instanceof Node || (int)$parent->getId() === (int)$current->getId()) {
                     break;
                 }
@@ -601,7 +769,7 @@ class VisibilityGuard {
         }
 
         try {
-            $userFolder = $backupAncestor->getParent();
+            $userFolder = $this->parentOf($backupAncestor);
         } catch (\Throwable) {
             $this->warnVisibilityFailure();
             return true;
@@ -626,7 +794,19 @@ class VisibilityGuard {
 
         try {
             $originalNode = $userFolder->get($originalRelPath);
-            return !$this->isVisible($originalNode);
+            // The original's own reason is not the backup's: it is recorded apart while the original is checked, and
+            // only an original that could not be evaluated is carried over (A.4: the gate not evaluated is named).
+            [$explaining, $this->explanation] = [$this->explanation, $this->explanation === null ? null : []];
+            try {
+                $hidden = !$this->isVisible($originalNode);
+                $original = $this->explanation;
+            } finally {
+                $this->explanation = $explaining;
+            }
+            if ($hidden && $original !== null && ($original['reason'] ?? self::EXPLAINED_NOT_EVALUATED) === self::EXPLAINED_NOT_EVALUATED) {
+                $this->because(self::EXPLAINED_NOT_EVALUATED);
+            }
+            return $hidden;
         } catch (\Throwable) {
             $this->warnVisibilityFailure();
             return true;

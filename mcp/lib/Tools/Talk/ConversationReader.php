@@ -9,6 +9,7 @@ namespace OCA\Mcp\Tools\Talk;
 
 use DateTimeInterface;
 use InvalidArgumentException;
+use OCA\Mcp\Tools\Common\OutputReferenceFilter;
 use OCP\Comments\IComment;
 use Throwable;
 
@@ -36,6 +37,7 @@ class ConversationReader {
         private TalkServices $talkServices,
         private ConversationResolver $resolver,
         private ActorNames $actorNames,
+        private OutputReferenceFilter $references,
     ) {}
 
     /**
@@ -98,13 +100,19 @@ class ConversationReader {
         if ($limit < 1 || $limit > self::MAX_MESSAGES) {
             throw new InvalidArgumentException(Messages::invalidLimit());
         }
+        // Messages can carry attachments: an unreadable Files scope is the same 503 before the conversation is
+        // looked up, whatever it holds.
+        $this->references->assertAvailable($userId);
 
         $conversation = $this->resolver->resolveForReading($userId, $token);
         $chatManager = $this->talkServices->chatManager($userId);
 
         $messages = [];
         foreach ($chatManager->getHistory($conversation->room, -$limit, $limit, false) as $comment) {
-            $messages[] = $this->normalizeMessage($comment);
+            $message = $this->normalizeMessage($comment);
+            // The card stays, with its type; only the id of a file the user may not reach is withheld.
+            $message['attachmentId'] = $this->references->attachmentId($userId, $conversation->token(), $message['attachmentId']);
+            $messages[] = $message;
         }
 
         return $messages;

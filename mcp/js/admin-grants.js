@@ -6,7 +6,17 @@
  * Admin permission matrix (users × permissions) for the MCP app.
  *
  * Loads one page of users from GET /apps/mcp/api/grants and saves each checkbox immediately through
- * PUT /apps/mcp/api/grants/{uid}, POST /apps/mcp/api/grants/bulk and PUT /apps/mcp/api/service.
+ * PUT /apps/mcp/api/grants/{uid}, POST /apps/mcp/api/grants/commands and PUT /apps/mcp/api/service.
+ * Every save carries the policy revision the page was built from (a decimal string, never parsed as a
+ * number); when the server answers 409 or 428 someone else saved first, so the page reloads instead
+ * of repeating the write. The matrix revision is only ever the one of the matrix on screen: from the
+ * GET that was rendered, or from a matrix save that committed from it. The server-log block keeps its
+ * own, from its own GET. A revision found in an error body is never adopted.
+ * A write this page committed is announced to the other blocks of the page (event "mcp-revision-moved", with the
+ * revision it was sent with and the one it made). The OAuth clients, server-log and resource scope blocks, when still
+ * at the first, adopt the second and keep their unsaved changes: under compare-and-swap nothing but that write lies
+ * between the two. The matrix never adopts one; it is reloaded after the writes of the other blocks. A move this page
+ * did not make (another window or administrator) is never announced, so the next save of a block still answers 409.
  * Plain browser JavaScript, no build step; strings go through t('mcp', …) for translation.
  */
 (function () {
@@ -17,21 +27,27 @@
 		return
 	}
 
-	/** Columns the matrix always shows besides the permissions: user, "Can connect" and "Connected". */
-	const FIXED_COLUMNS = 3
-	const state = { search: '', group: '', filter: 'eligible', page: 1, app: '', data: null, groupsLoaded: false }
+	/** Columns the matrix always shows besides the permissions: selection, user, "Can connect" and the row's actions. */
+	const FIXED_COLUMNS = 4
+	/**
+	 * view is "levels" (one access level per module, js/admin-levels.js) or "operations" (a box per operation); app filters
+	 * the operations view only. Both live in the address as #access?view=operations&app=<module>.
+	 */
+	const state = { search: '', group: '', filter: 'eligible', page: 1, app: '', view: 'levels', exceptionsOnly: false, data: null, groupsLoaded: false }
 	const table = document.getElementById('mcp-matrix')
 	const searchInput = document.getElementById('mcp-search')
 	const groupSelect = document.getElementById('mcp-group')
 	const filterSelect = document.getElementById('mcp-filter')
 	const appSelect = document.getElementById('mcp-app')
-	const compactBox = document.getElementById('mcp-compact')
+	const appFilter = document.getElementById('mcp-app-filter')
+	const viewButtons = { levels: document.getElementById('mcp-view-levels'), operations: document.getElementById('mcp-view-operations') }
+	const legends = { levels: document.getElementById('mcp-legend-levels'), operations: document.getElementById('mcp-legend-operations') }
 	const countInfo = document.getElementById('mcp-count')
-	const prevButtons = [document.getElementById('mcp-prev'), document.getElementById('mcp-prev-bottom')]
-	const nextButtons = [document.getElementById('mcp-next'), document.getElementById('mcp-next-bottom')]
-	const pageInfos = [document.getElementById('mcp-page-info'), document.getElementById('mcp-page-info-bottom')]
-	/** localStorage key of the compact-rows preference; a convenience of this browser only. */
-	const COMPACT_KEY = 'mcp-admin-compact'
+	// The pager sits under the table only; the count of users stays above it.
+	const prevButtons = [document.getElementById('mcp-prev-bottom')].filter(Boolean)
+	const nextButtons = [document.getElementById('mcp-next-bottom')].filter(Boolean)
+	const pageInfos = [document.getElementById('mcp-page-info-bottom')].filter(Boolean)
+	const onlyButtons = { all: document.getElementById('mcp-only-all'), exceptions: document.getElementById('mcp-only-exceptions') }
 	const serviceBox = document.getElementById('mcp-service')
 	const serviceStatus = document.getElementById('mcp-service-status')
 
@@ -58,6 +74,7 @@
 			create: t('mcp', 'create'),
 			move: t('mcp', 'move'),
 			delete: t('mcp', 'delete'),
+			restore: t('mcp', 'restore'),
 			transfer: t('mcp', 'transfer'),
 			reply: t('mcp', 'reply'),
 			attach: t('mcp', 'attach'),
@@ -116,9 +133,46 @@
 			body: body === undefined ? undefined : JSON.stringify(body),
 		})
 		if (!response.ok) {
-			throw new Error(String(response.status))
+			const error = new Error(String(response.status))
+			error.data = await response.json().catch(() => null)
+			throw error
 		}
 		return response.json()
+	}
+
+	/**
+	 * True while the matrix reloads after a conflict or an uncertain save: every matrix write waits
+	 * for the reloaded table instead of going out with a page that is known to be outdated.
+	 */
+	let matrixLocked = false
+
+	/** Reloads the matrix with every matrix write blocked until the new page is on screen. */
+	async function reloadLocked() {
+		matrixLocked = true
+		try {
+			await load()
+		} finally {
+			matrixLocked = false
+		}
+	}
+
+	/**
+	 * Tells the admin what a failed save means when the policy moved or the storage failed, and reloads
+	 * the matrix in those cases so nothing is written twice.
+	 *
+	 * @param {Error} e error thrown by api()
+	 * @return {Promise<boolean>} whether the error was handled here (the matrix is then reloaded)
+	 */
+	async function policyError(e) {
+		if (e.message === '409' || e.message === '428') {
+			notifyError(t('mcp', 'The permissions were changed in another window or by another administrator. The table was reloaded with the saved values; nothing was overwritten.'))
+		} else if (e.message === '503' && e.data && e.data.uncertain) {
+			notifyError(t('mcp', 'The server could not confirm whether the change was saved. The table was reloaded with the saved values.'))
+		} else {
+			return false
+		}
+		await reloadLocked()
+		return true
 	}
 
 	/** @param {string} message error shown to the admin */
@@ -130,6 +184,68 @@
 		} else {
 			window.alert(message)
 		}
+	}
+
+	/** Page event of a write this page committed: detail {from, to}. js/admin-scope.js listens to it too. */
+	const REVISION_MOVED = 'mcp-revision-moved'
+
+	/**
+	 * Tells the other blocks of this page that a write of this page moved the policy revision from `from` to `to`.
+	 * Only the answer of a save qualifies: the server committed it from `from`, so `to` holds that write and nothing else.
+	 *
+	 * @param {string} from revision the write was sent with
+	 * @param {string} to revision the server answered with
+	 */
+	function announce(from, to) {
+		if (typeof from === 'string' && typeof to === 'string' && from !== to) {
+			window.dispatchEvent(new CustomEvent(REVISION_MOVED, { detail: { from, to } }))
+		}
+	}
+
+	/**
+	 * Whether `to` is exactly one commit after `from`. The OAuth clients and server-log saves answer with the revision of
+	 * a read made after their commit, which may already hold another administrator's write. A commit advances the
+	 * revision by one, and only when the request differs from what is stored at `from`; so a save whose request differs
+	 * from the settings this block confirmed at `from` made one step itself, and one step in all is that save alone. A
+	 * request that changes nothing commits nothing: its answer is never announced, whatever it shows. Compared as exact
+	 * integers, never as floating-point numbers.
+	 *
+	 * @param {string} from revision the save was sent with
+	 * @param {string} to revision of the answer
+	 * @return {boolean}
+	 */
+	function oneStep(from, to) {
+		try {
+			return BigInt(to) === BigInt(from) + 1n
+		} catch {
+			return false
+		}
+	}
+
+	/**
+	 * PHP's trim() without a character list: removes only " \t\n\r\0\x0B" from both ends. String.prototype.trim()
+	 * keeps NUL and removes Unicode spaces PHP keeps, so it cannot stand in for the server's normalization.
+	 *
+	 * @param {string} text
+	 * @return {string}
+	 */
+	function phpTrim(text) {
+		return text.replace(/^[ \t\n\r\x00\x0B]+|[ \t\n\r\x00\x0B]+$/g, '')
+	}
+
+	/**
+	 * Keeps a block's own revision in step with the writes of this page: when the block is exactly at the revision a
+	 * write committed from, it takes the one that write made, and its unsaved changes stay valid.
+	 *
+	 * @param {Function} get () => the block's revision
+	 * @param {Function} set (revision) => void
+	 */
+	function followRevision(get, set) {
+		window.addEventListener(REVISION_MOVED, (event) => {
+			if (get() === event.detail.from) {
+				set(event.detail.to)
+			}
+		})
 	}
 
 	/**
@@ -157,27 +273,43 @@
 		return node
 	}
 
-	/** Reads the current page from the server and re-renders the table; a failure is shown in the table with a retry. */
+	/** Number of the latest load(); an older one that answers later is dropped. */
+	let loadSeq = 0
+
+	/**
+	 * Reads the current page from the server and re-renders the table; a failure is shown in the table with a retry.
+	 * The page and its revision always come from the same response, and only the newest request is rendered.
+	 */
 	async function load() {
+		const seq = ++loadSeq
 		table.setAttribute('aria-busy', 'true')
 		table.classList.add('mcp-loading')
 		const query = new URLSearchParams({ search: state.search, group: state.group, filter: state.filter, page: String(state.page) })
 		try {
-			state.data = await api('GET', '/api/grants?' + query.toString())
+			const data = await api('GET', '/api/grants?' + query.toString())
+			if (seq !== loadSeq) {
+				return
+			}
+			state.data = data
 			render()
 		} catch (e) {
+			if (seq !== loadSeq) {
+				return
+			}
 			renderError()
 			notifyError(t('mcp', 'Could not load the users.'))
 		} finally {
-			table.setAttribute('aria-busy', 'false')
-			table.classList.remove('mcp-loading')
+			if (seq === loadSeq) {
+				table.setAttribute('aria-busy', 'false')
+				table.classList.remove('mcp-loading')
+			}
 		}
 	}
 
 	/** Replaces the body with an error row and a retry button, keeping the last header. */
 	function renderError() {
 		const retry = el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: load })
-		const cell = el('td', { colSpan: table.tHead.rows[1] ? table.tHead.rows[1].cells.length + FIXED_COLUMNS : 1, className: 'mcp-empty mcp-load-error' },
+		const cell = el('td', { colSpan: state.data ? FIXED_COLUMNS + visiblePermissionColumns() : 1, className: 'mcp-empty mcp-load-error' },
 			[t('mcp', 'Could not load the users.'), ' ', retry])
 		table.tBodies[0].replaceChildren(el('tr', {}, [cell]))
 		applyAppFilter()
@@ -214,8 +346,9 @@
 
 	/** Filter only presentation; user queries and permission payloads stay unchanged. */
 	function applyAppFilter() {
+		const app = shownApp()
 		for (const cell of table.querySelectorAll('[data-module]')) {
-			cell.hidden = state.app !== '' && cell.dataset.module !== state.app
+			cell.hidden = app !== '' && cell.dataset.module !== app
 			if (cell.hidden) {
 				for (const menu of cell.querySelectorAll('details[open]')) {
 					menu.open = false
@@ -238,11 +371,50 @@
 		if (tab !== 'access') {
 			return
 		}
-		state.app = new URLSearchParams(query).get('app') || ''
-		if (state.data) {
-			renderApps()
-			applyAppFilter()
+		const params = new URLSearchParams(query)
+		const view = params.get('view') === 'operations' ? 'operations' : 'levels'
+		state.app = params.get('app') || ''
+		if (!state.data) {
+			state.view = view
+			return
 		}
+		if (view !== state.view) {
+			state.view = view
+			render()
+			return
+		}
+		renderApps()
+		applyAppFilter()
+	}
+
+	/** @return {boolean} whether the matrix shows one level per module */
+	function isLevelsView() {
+		return state.view === 'levels' && Boolean(window.McpAdminLevels)
+	}
+
+	/** @return {string} the app whose columns are shown alone, '' for all; the levels view always shows every module */
+	function shownApp() {
+		return isLevelsView() ? '' : state.app
+	}
+
+	/**
+	 * Switches between the levels and the operations view, keeping the page, the filters and the data on screen.
+	 *
+	 * @param {string} view "levels" or "operations"
+	 * @param {string} [app] module to show alone in the operations view
+	 */
+	function setView(view, app) {
+		state.view = view
+		// The levels view shows every module, so the app filter of the operations view leaves the address with it.
+		if (view === 'levels') {
+			state.app = ''
+		} else if (app !== undefined) {
+			state.app = app
+		}
+		if (state.data) {
+			render()
+		}
+		writeAppToHash(false)
 	}
 
 	/**
@@ -261,6 +433,11 @@
 		} else {
 			params.set('app', state.app)
 		}
+		if (state.view === 'operations') {
+			params.set('view', 'operations')
+		} else {
+			params.delete('view')
+		}
 		const next = '#access' + (params.toString() ? '?' + params.toString() : '')
 		if (next === window.location.hash) {
 			return
@@ -277,40 +454,15 @@
 		applyAppFilter()
 		writeAppToHash(false)
 	})
+	for (const [view, button] of Object.entries(viewButtons)) {
+		button?.addEventListener('click', () => {
+			if (state.view !== view) {
+				setView(view)
+			}
+		})
+	}
 	window.addEventListener('hashchange', readAppFromHash)
 	readAppFromHash()
-
-	/**
-	 * Header menu ("All") that allows or denies permissions for every user on the page.
-	 *
-	 * @param {string|null} module module id, null for eligibility
-	 * @param {Array<{operations: string[], label: string}>} entries one line per permission (or group of them)
-	 * @param {string} title accessible name of the menu
-	 * @return {HTMLElement} a native <details> menu
-	 */
-	function bulkMenu(module, entries, title) {
-		const list = el('div', { className: 'mcp-bulk-list' })
-		for (const entry of entries) {
-			const make = (granted, text) => el('button', {
-				type: 'button',
-				className: 'mcp-bulk',
-				textContent: text,
-				onclick: (event) => {
-					event.target.closest('details').open = false
-					bulk(module, entry.operations, granted, entry.label)
-				},
-			})
-			list.append(el('div', { className: 'mcp-bulk-line' }, [
-				el('span', { className: 'mcp-bulk-name', textContent: entry.label }),
-				make(true, t('mcp', 'Allow')),
-				make(false, t('mcp', 'Deny')),
-			]))
-		}
-		const summary = el('summary', { className: 'mcp-bulk-summary', textContent: t('mcp', 'All') })
-		summary.title = title
-		summary.setAttribute('aria-label', title)
-		return el('details', { className: 'mcp-bulk-menu' }, [summary, list])
-	}
 
 	/** Makes the second header row stick right below the first one, whose height depends on the density. */
 	function stickSecondHeaderRow() {
@@ -353,28 +505,45 @@
 	/** Renders header and rows from state.data. */
 	function render() {
 		const data = state.data
+		// After a conflict the saved switch may differ from what this page last showed.
+		if (!serviceBox.disabled) {
+			serviceBox.checked = data.serviceEnabled
+		}
 		renderGroups()
 		renderApps()
 		const modules = moduleLabels()
 		const operations = operationLabels()
+		const levelsView = isLevelsView()
+		for (const [view, button] of Object.entries(viewButtons)) {
+			button?.setAttribute('aria-pressed', String(view === (levelsView ? 'levels' : 'operations')))
+		}
+		for (const [view, legend] of Object.entries(legends)) {
+			if (legend) legend.hidden = view !== (levelsView ? 'levels' : 'operations')
+		}
+		if (appFilter) {
+			appFilter.hidden = levelsView
+		}
+		table.classList.toggle('mcp-levels', levelsView)
 
 		const top = el('tr')
 		const sub = el('tr')
-		top.append(el('th', { rowSpan: 2, className: 'mcp-user-col', scope: 'col', textContent: t('mcp', 'User') }))
+		const rowSpan = levelsView ? 1 : 2
+		const selectHeader = el('th', { rowSpan, className: 'mcp-select-col', scope: 'col' }, [el('span', { className: 'mcp-sr-only', textContent: t('mcp', 'Select') })])
+		// The "select every user on this page" box of js/admin-overrides.js heads the selection column.
+		window.McpAdminOverrides?.decorateHeader?.(selectHeader)
+		top.append(selectHeader)
+		top.append(el('th', { rowSpan, className: 'mcp-user-col', scope: 'col', textContent: t('mcp', 'User') }))
 		const canConnect = t('mcp', 'Can connect')
-		top.append(el('th', { rowSpan: 2, scope: 'col', title: t('mcp', 'The administrator allows this user to connect an MCP client') }, [
-			canConnect, ' ', bulkMenu(null, [{ operations: ['eligible'], label: canConnect }], t('mcp', 'Change “{permission}” for every user on this page', { permission: canConnect })),
-		]))
+		top.append(el('th', { rowSpan, scope: 'col', title: t('mcp', 'The administrator allows this user to connect an MCP client'), textContent: canConnect }))
 		Object.entries(data.catalog).forEach(([module, ops], index) => {
 			const band = 'mcp-band-' + (index % 2)
 			const name = modules[module] || module
-			const entries = ops.map((operation) => ({ operations: [operation], label: name + ': ' + (operations[operation] || operation) }))
-			entries.push({ operations: ops, label: t('mcp', '{module}: every permission', { module: name }) })
-			const header = el('th', { colSpan: ops.length, scope: 'colgroup', className: 'mcp-module ' + band }, [
-				name, ' ', bulkMenu(module, entries, t('mcp', 'Change {module} permissions for every user on this page', { module: name })),
-			])
+			const header = el('th', { colSpan: levelsView ? 1 : ops.length, scope: levelsView ? 'col' : 'colgroup', className: 'mcp-module ' + band, textContent: name })
 			header.dataset.module = module
 			top.append(header)
+			if (levelsView) {
+				return
+			}
 			ops.forEach((operation, i) => {
 				const cell = el('th', {
 					scope: 'col',
@@ -386,8 +555,8 @@
 				sub.append(cell)
 			})
 		})
-		top.append(el('th', { rowSpan: 2, scope: 'col', textContent: t('mcp', 'Connected') }))
-		table.tHead.replaceChildren(top, sub)
+		top.append(el('th', { rowSpan, scope: 'col', className: 'mcp-actions-col' }, [el('span', { className: 'mcp-sr-only', textContent: t('mcp', 'Actions') })]))
+		table.tHead.replaceChildren(...(levelsView ? [top] : [top, sub]))
 		if (bulkBusy) {
 			setBulkBusy(true)
 		}
@@ -396,11 +565,12 @@
 
 		const rows = data.users.map(renderRow)
 		if (rows.length === 0) {
-			const columns = FIXED_COLUMNS + Object.values(data.catalog).reduce((sum, ops) => sum + ops.length, 0)
+			const columns = FIXED_COLUMNS + (levelsView ? Object.keys(data.catalog).length : Object.values(data.catalog).reduce((sum, ops) => sum + ops.length, 0))
 			rows.push(el('tr', {}, [el('td', { colSpan: columns, className: 'mcp-empty', textContent: t('mcp', 'No users found.') })]))
 		}
 		table.tBodies[0].replaceChildren(...rows)
 		applyAppFilter()
+		applyExceptionsFilter()
 
 		const pageText = data.total === null
 			? t('mcp', 'Page {page}', { page: data.page })
@@ -421,6 +591,7 @@
 			: (data.total === null
 				? t('mcp', 'Users {from}–{to}', { from, to })
 				: t('mcp', 'Users {from}–{to} of {total}', { from, to, total: data.total }))
+		window.dispatchEvent(new Event('mcp-matrix-rendered'))
 	}
 
 	/**
@@ -428,19 +599,22 @@
 	 * @return {HTMLTableRowElement}
 	 */
 	function renderRow(user) {
+		const row = buildRow(user)
+		window.McpAdminOverrides?.decorateRow(row, user)
+		return row
+	}
+
+	/**
+	 * @param {object} user row from the API
+	 * @return {HTMLTableRowElement}
+	 */
+	function buildRow(user) {
 		const row = el('tr', { className: user.enabled ? '' : 'mcp-disabled-user' })
 		row.dataset.uid = user.uid
-		const name = el('th', { scope: 'row', className: 'mcp-user-col' }, [
-			el('span', { className: 'mcp-name', textContent: user.displayName }),
-			el('span', { className: 'mcp-uid', textContent: user.uid }),
-		])
-		if (!user.enabled) {
-			name.append(el('span', { className: 'mcp-badge', textContent: t('mcp', 'disabled') }))
-		} else if (user.eligible && user.connected) {
-			name.append(el('span', { className: 'mcp-badge mcp-badge-connected', textContent: t('mcp', 'connected') }))
-		}
-		row.append(name)
-		row.append(permissionCell(user, null, user.eligible, t('mcp', 'Can connect'), { eligible: null }))
+		// The selection box of js/admin-overrides.js goes here, in its own column instead of next to the name.
+		row.append(el('td', { className: 'mcp-select-col' }))
+		row.append(el('th', { scope: 'row', className: 'mcp-user-col' }, [el('span', { className: 'mcp-name', textContent: user.displayName }), userLine(user)]))
+		row.append(isLevelsView() ? eligibleCell(user) : permissionCell(user, null, user.eligible, t('mcp', 'Can connect'), { eligible: null }))
 		const rowReason = rowUnavailableReason(user)
 		if (rowReason !== null) {
 			// One notice instead of a mark in every column; the saved permissions come back with "Can connect".
@@ -449,23 +623,130 @@
 				? t('mcp', 'The saved permissions are kept and shown again when “Can connect” is on.')
 				: t('mcp', 'The saved permissions are kept and shown again when the account is enabled and “Can connect” is on.')
 			row.append(notice)
-			row.append(el('td', { className: 'mcp-connected', textContent: user.connected ? t('mcp', 'yes') : t('mcp', 'no') }))
+			row.append(actionsCell(user))
+			return row
+		}
+		const modules = moduleLabels()
+		const operations = operationLabels()
+		if (isLevelsView()) {
+			Object.entries(state.data.catalog).forEach(([module, ops], index) => row.append(levelCell(user, module, ops, index)))
+			row.append(actionsCell(user))
 			return row
 		}
 		Object.entries(state.data.catalog).forEach(([module, ops], index) => {
 			ops.forEach((operation, i) => {
-				const cell = permissionCell(user, module, user.grants[module][operation], module + ':' + operation, { module, operation, granted: null })
+				// The same name as the column header and the reset button, never the raw id ("files:read").
+				const label = (modules[module] || module) + ': ' + (operations[operation] || operation)
+				const cell = permissionCell(user, module, user.grants[module][operation], label, { module, operation, granted: null })
 				cell.dataset.module = module
 				cell.hidden = state.app !== '' && state.app !== module
 				cell.classList.add('mcp-band-' + (index % 2))
 				if (i === 0) {
 					cell.classList.add('mcp-module')
+					// "Restricted to N" or "Scope unknown" of a resource scope, drawn and opened by js/admin-scope.js.
+					const mark = user.scope?.[module] && window.McpScopeUi ? window.McpScopeUi.indicator(user.uid, module, user.scope[module]) : null
+					if (mark) cell.append(mark)
 				}
 				row.append(cell)
 			})
 		})
-		row.append(el('td', { className: 'mcp-connected', textContent: user.connected ? t('mcp', 'yes') : t('mcp', 'no') }))
+		row.append(actionsCell(user))
 		return row
+	}
+
+	/**
+	 * The second line under a name: "Account disabled", "Connected" (with its mark, in the success colour as text) or, for
+	 * everyone else, the user ID. Being connected is a fact worth seeing; not being connected is the normal case and says
+	 * nothing more than the ID.
+	 *
+	 * @param {object} user row from the API
+	 * @return {HTMLElement}
+	 */
+	function userLine(user) {
+		if (!user.enabled) {
+			return el('span', { className: 'mcp-uid mcp-user-disabled', textContent: t('mcp', 'Account disabled') })
+		}
+		if (user.eligible && user.connected) {
+			const mark = el('span', { className: 'mcp-connected-mark', textContent: '●' })
+			mark.setAttribute('aria-hidden', 'true')
+			const line = el('span', { className: 'mcp-uid mcp-user-connected' }, [mark, ' ', t('mcp', 'Connected')])
+			line.title = user.uid
+			return line
+		}
+		return el('span', { className: 'mcp-uid', textContent: user.uid })
+	}
+
+	/** @return {HTMLTableCellElement} the cell with the row's actions menu (js/admin-row-actions.js) */
+	function actionsCell(user) {
+		const cell = el('td', { className: 'mcp-actions-col' })
+		const button = window.McpRowActions?.button(user)
+		if (button) cell.append(button)
+		return cell
+	}
+
+	/** Sources of a value the person has individually. */
+	const OWN_SOURCES = ['individual_allow', 'individual_deny', 'invalid']
+
+	/**
+	 * Whether a user has a real exception on the page (js/admin-exceptions.js): an individual value that differs from what
+	 * they would inherit. null while that is not known.
+	 *
+	 * @param {object} user row from the API
+	 * @return {boolean|null}
+	 */
+	function hasException(user) {
+		const exceptions = window.McpAdminExceptions
+		if (!exceptions) return null
+		const cells = []
+		if (OWN_SOURCES.includes(user.origins?.eligible?.source)) cells.push([null, 'eligible'])
+		for (const [module, operations] of Object.entries(user.origins?.grants || {})) {
+			for (const [operation, origin] of Object.entries(operations)) {
+				if (OWN_SOURCES.includes(origin?.source)) cells.push([module, operation])
+			}
+		}
+		const kinds = cells.map(([module, operation]) => exceptions.kindOf(user.uid, module, operation).kind)
+		if (kinds.includes('exception')) return true
+		return kinds.includes('pending') ? null : false
+	}
+
+	/**
+	 * The "All | With exceptions (N)" filter: it counts the users of this page who have a real exception and, when chosen,
+	 * shows only them. It works on the page on screen, so it says so; nothing is asked of the server.
+	 */
+	function applyExceptionsFilter() {
+		if (!onlyButtons.exceptions || !state.data) return
+		const known = state.data.users.map((user) => [user.uid, hasException(user)])
+		const pending = known.some(([, value]) => value === null)
+		const count = known.filter(([, value]) => value === true).length
+		onlyButtons.exceptions.textContent = pending
+			? t('mcp', 'With exceptions')
+			: t('mcp', 'With exceptions ({count})', { count }, undefined, { escape: false })
+		onlyButtons.exceptions.title = t('mcp', 'People on this page with an individual value that differs from what they inherit')
+		for (const [only, button] of Object.entries(onlyButtons)) {
+			button?.setAttribute('aria-pressed', String((only === 'exceptions') === state.exceptionsOnly))
+		}
+		const show = new Set(known.filter(([, value]) => !state.exceptionsOnly || value !== false).map(([uid]) => uid))
+		let shown = 0
+		for (const row of table.tBodies[0].rows) {
+			if (row.dataset.uid === undefined) continue
+			row.hidden = !show.has(row.dataset.uid)
+			if (!row.hidden) shown++
+		}
+		table.tBodies[0].querySelector('tr.mcp-only-empty')?.remove()
+		if (state.exceptionsOnly && shown === 0 && state.data.users.length > 0) {
+			table.tBodies[0].append(el('tr', { className: 'mcp-only-empty' }, [el('td', {
+				colSpan: FIXED_COLUMNS + visiblePermissionColumns(),
+				className: 'mcp-empty',
+				textContent: t('mcp', 'No one on this page has an exception.'),
+			})]))
+		}
+	}
+
+	for (const [only, button] of Object.entries(onlyButtons)) {
+		button?.addEventListener('click', () => {
+			state.exceptionsOnly = only === 'exceptions'
+			applyExceptionsFilter()
+		})
 	}
 
 	/**
@@ -479,7 +760,7 @@
 		if (!user.enabled) {
 			return t('mcp', 'Account disabled: no MCP access.')
 		}
-		if (!user.eligible) {
+		if (user.eligible === false) {
 			return t('mcp', 'No MCP access: turn on “Can connect”.')
 		}
 		return null
@@ -487,6 +768,9 @@
 
 	/** @return {number} permission columns shown with the current app filter */
 	function visiblePermissionColumns() {
+		if (isLevelsView()) {
+			return Object.keys(state.data?.catalog || {}).length
+		}
 		return Object.entries(state.data?.catalog || {})
 			.filter(([module]) => state.app === '' || module === state.app)
 			.reduce((sum, [, operations]) => sum + operations.length, 0)
@@ -507,7 +791,7 @@
 		if (module === null) {
 			return null
 		}
-		if (!user.eligible) {
+		if (user.eligible === false) {
 			return t('mcp', 'This user may not connect: “Can connect” is off.')
 		}
 		if (!user.appsEnabled[module]) {
@@ -556,27 +840,51 @@
 	 */
 	function permissionCell(user, module, checked, label, body) {
 		const cell = el('td', { className: 'mcp-cell' })
-		const reason = unavailableReason(user, module)
+		const reason = checked === null ? t('mcp', 'Access is unknown. A group policy or directory is unavailable; retry after checking the group.') : unavailableReason(user, module)
 		if (reason !== null) {
-			const saved = checked ? t('mcp', 'Saved value: allowed.') : t('mcp', 'Saved value: denied.')
+			const saved = checked === null ? t('mcp', 'Unknown') : checked ? t('mcp', 'Saved value: allowed.') : t('mcp', 'Saved value: denied.')
 			paintState(cell, 'unavailable', reason + ' ' + saved)
-			const mark = el('span', { className: 'mcp-state-mark', textContent: '⊘' })
+			const mark = el('span', { className: 'mcp-state-mark', textContent: checked === null ? '—' : '⊘' })
 			mark.setAttribute('aria-hidden', 'true')
 			cell.append(mark, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + label + ': ' + cell.title }))
+			if (checked === null) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
+			// A saved individual override stays visible and removable here, even though the cell cannot be edited.
+			window.McpAdminOverrides?.decorateCell(cell, null, user, module, module === null ? 'eligible' : body.operation)
 			return cell
 		}
 		const box = el('input', { type: 'checkbox', checked })
 		box.setAttribute('aria-label', user.displayName + ' — ' + label)
 		paintState(cell, checked ? 'allowed' : 'denied')
+		const origin = module === null ? user.origins?.eligible : user.origins?.grants?.[module]?.[body.operation]
+		if (origin?.source === 'group') {
+			const source = t('mcp', 'Granted by groups: {groups}', { groups: origin.groupIds.join(', ') })
+			cell.title += ' — ' + source
+			box.setAttribute('aria-label', user.displayName + ' — ' + label + ' — ' + source)
+		}
 		box.addEventListener('change', async () => {
 			const value = box.checked
+			if (matrixLocked) {
+				// The table on screen is known to be outdated; the reloaded one replaces this checkbox.
+				box.checked = !value
+				return
+			}
+			// Taking "Can connect" away signs the person out of every MCP client: never without asking.
+			if (module === null && !value && !window.confirm(t('mcp', 'Turn off “Can connect” for {user}?', { user: user.displayName }, undefined, { escape: false }) + '\n'
+				+ t('mcp', 'This signs the person out of every MCP client, and undoing it does not sign them back in.'))) {
+				box.checked = true
+				return
+			}
 			const payload = Object.fromEntries(Object.entries(body).map(([key, v]) => [key, v === null ? value : v]))
 			const hadFocus = document.activeElement === box
 			// The focus comes back to this checkbox only when the admin did not move it during the save.
 			const focusStayed = () => hadFocus && (document.activeElement === null || document.activeElement === document.body || document.activeElement === box)
 			box.disabled = true
 			try {
-				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), payload)
+				const sent = state.data.revision
+				const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: sent })
+				// Committed from the revision on screen, so the page plus this row is exactly the new revision.
+				state.data.revision = updated.revision
+				announce(sent, updated.revision)
 				const index = state.data.users.findIndex((u) => u.uid === user.uid)
 				state.data.users[index] = updated
 				const restore = focusStayed()
@@ -595,10 +903,227 @@
 					box.focus()
 				}
 				flash(cell, false)
-				notifyError(t('mcp', 'Could not save the permission for {user}.', { user: user.displayName }))
+				if (!(await policyError(e))) {
+					notifyError(t('mcp', 'Could not save the permission for {user}.', { user: user.displayName }))
+				}
 			}
 		})
 		cell.append(box)
+		// The override state and the per-cell reset come from js/admin-overrides.js, when it is loaded.
+		window.McpAdminOverrides?.decorateCell(cell, box, user, module, module === null ? 'eligible' : body.operation)
+		return cell
+	}
+
+	/** @return {Object<string, string>} names of the access levels of js/admin-levels.js */
+	function levelLabels() {
+		return {
+			none: t('mcp', 'None'),
+			read: t('mcp', 'Read'),
+			edit: t('mcp', 'Edit'),
+			full: t('mcp', 'Full'),
+			custom: t('mcp', 'Custom'),
+		}
+	}
+
+	/**
+	 * Where a module's values come from, as a sentence for the tooltip and screen readers.
+	 *
+	 * @param {{source: string, groupIds: string[]}} origin what McpAdminLevels.originOf() returned
+	 * @return {string}
+	 */
+	function originText(origin) {
+		switch (origin.source) {
+		case 'individual': return t('mcp', 'Set for this person')
+		case 'invalid': return t('mcp', 'Invalid stored value (denied)')
+		case 'group': return t('mcp', 'Granted by groups: {groups}', { groups: origin.groupIds.join(', ') })
+		case 'unknown': return t('mcp', 'Group awaiting confirmation: {groups}', { groups: origin.groupIds.join(', ') })
+		default: return t('mcp', 'Default')
+		}
+	}
+
+	/**
+	 * One module of one user in the levels view: the level as a word (None, Read, Edit, Full, Custom) and where it comes
+	 * from as an icon, so no state depends on colour. An individual value carries a person icon and a group a group icon;
+	 * the default has none. A module the user cannot use keeps the "no entry" mark without a control, and an unknown value
+	 * the dash, as in the operations view. Choosing the cell opens that module's operations for editing.
+	 *
+	 * @param {object} user row from the API
+	 * @param {string} module module id
+	 * @param {string[]} operations the module's operations in the catalog
+	 * @param {number} index position of the module, for the alternating band
+	 * @return {HTMLTableCellElement}
+	 */
+	function levelCell(user, module, operations, index) {
+		const levels = window.McpAdminLevels
+		const cell = el('td', { className: 'mcp-cell mcp-level-cell mcp-module mcp-band-' + (index % 2) })
+		cell.dataset.module = module
+		cell.dataset.levelKey = module
+		const name = moduleLabels()[module] || module
+		const level = levels.levelOf(module, operations, user.grants[module])
+		const reason = unavailableReason(user, module)
+		if (reason !== null || level === 'unknown') {
+			const unknown = reason === null
+			paintState(cell, 'unavailable', unknown ? t('mcp', 'Access is unknown. A group policy or directory is unavailable; retry after checking the group.') : reason)
+			const mark = el('span', { className: 'mcp-state-mark', textContent: unknown ? '—' : '⊘' })
+			mark.setAttribute('aria-hidden', 'true')
+			const word = el('span', { className: 'mcp-level-word', textContent: unknown ? t('mcp', 'Unknown') : t('mcp', 'Unavailable') })
+			word.setAttribute('aria-hidden', 'true')
+			cell.append(mark, ' ', word, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + name + ': ' + cell.title }))
+			if (unknown) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
+		} else {
+			const { origin, mark: kind } = originMark(user, module, operations)
+			const labels = operationLabels()
+			const allowed = operations.filter((operation) => user.grants[module][operation] === true)
+			const levelName = levelLabels()[level] || level
+			const summary = allowed.length === 0
+				? t('mcp', 'Allows nothing')
+				: t('mcp', 'Allows: {operations}', { operations: allowed.map((operation) => labels[operation] || operation).join(', ') }, undefined, { escape: false })
+			paintState(cell, allowed.length === 0 ? 'denied' : 'allowed')
+			const source = markText(origin, kind)
+			const individual = kind === 'exception'
+			const icon = markIcon(origin, kind)
+			const parts = []
+			if (icon !== null) {
+				const glyph = el('span', { className: 'mcp-origin-icon ' + icon })
+				glyph.setAttribute('aria-hidden', 'true')
+				parts.push(glyph)
+			}
+			parts.push(el('span', { className: 'mcp-level-word', textContent: levelName }))
+			const button = levelButton(user, module, 'mcp-level mcp-level-' + level + (individual ? ' mcp-level-individual' : ''), parts,
+				levelName + '. ' + summary + ' — ' + source,
+				t('mcp', '{user}, {module}: {level}. {source}.', { user: user.displayName, module: name, level: levelName, source }, undefined, { escape: false }))
+			cell.title = button.title
+			cell.dataset.level = level
+			cell.dataset.origin = origin.source
+			cell.dataset.mark = kind
+			cell.append(button)
+		}
+		// "Restricted to N" or "Scope unknown" of a resource scope, drawn and opened by js/admin-scope.js.
+		const mark = user.scope?.[module] && window.McpScopeUi ? window.McpScopeUi.indicator(user.uid, module, user.scope[module]) : null
+		if (mark) cell.append(mark)
+		return cell
+	}
+
+	/** Sources of an individual value, as the API sends them. */
+	const INDIVIDUAL_SOURCES = ['individual_allow', 'individual_deny', 'invalid']
+
+	/**
+	 * Where a cell's values come from and how to mark it. Only a real exception, an individual value that differs from what
+	 * the person would inherit (js/admin-exceptions.js), gets the person icon; individual values that only repeat the
+	 * inheritance are drawn like what they repeat, and while that is not known yet they get no mark. Without the
+	 * classification every individual value is an exception, never fewer.
+	 *
+	 * @param {object} user row from the API
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string[]} operations the module's operations, or ["eligible"]
+	 * @return {{origin: {source: string, groupIds: string[]}, mark: string}} mark is exception, redundant, pending, or the
+	 *     source (group, unknown, default) of a cell with no individual value
+	 */
+	function originMark(user, module, operations) {
+		const levels = window.McpAdminLevels
+		const origins = module === null ? { eligible: user.origins?.eligible } : user.origins?.grants?.[module]
+		const origin = levels.originOf(operations, origins)
+		if (origin.source !== 'individual' && origin.source !== 'invalid') {
+			return { origin, mark: origin.source }
+		}
+		const exceptions = window.McpAdminExceptions
+		const individual = operations.filter((operation) => INDIVIDUAL_SOURCES.includes(origins?.[operation]?.source))
+		const kinds = exceptions ? individual.map((operation) => exceptions.kindOf(user.uid, module, operation)) : []
+		if (!exceptions || origin.source === 'invalid' || kinds.some((kind) => kind.kind === 'exception')) {
+			return { origin, mark: 'exception' }
+		}
+		if (kinds.some((kind) => kind.kind === 'pending')) {
+			return { origin, mark: 'pending' }
+		}
+		const repeated = Object.fromEntries(operations.map((operation) => {
+			const index = individual.indexOf(operation)
+			return [operation, index < 0 ? origins?.[operation] : kinds[index].after || { source: 'default', groupIds: [] }]
+		}))
+		return { origin: levels.originOf(operations, repeated), mark: 'redundant' }
+	}
+
+	/** @return {string|null} the icon class of a mark: a person for an exception, a group for a group, none otherwise */
+	function markIcon(origin, mark) {
+		if (mark === 'exception') return 'icon-user'
+		if (mark === 'pending') return null
+		return origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null
+	}
+
+	/**
+	 * @return {string} where a cell's values come from, in words: a screen reader hears "Exception" where the eye sees the
+	 *     person icon, and the inspector says the same
+	 */
+	function markText(origin, mark) {
+		if (mark === 'pending') return t('mcp', 'Set for this person')
+		if (mark === 'exception' && origin.source === 'individual') return t('mcp', 'Exception: differs from what the person inherits')
+		if (mark === 'redundant') return originText(origin) + ' — ' + t('mcp', 'also set for this person, with the same value')
+		return originText(origin)
+	}
+
+	/**
+	 * The control of a level cell: it opens the popover of js/admin-level-popover.js, where the level is chosen.
+	 *
+	 * @param {object} user row from the API
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string} className classes of the button
+	 * @param {Array<Node>} parts icon and word
+	 * @param {string} title tooltip
+	 * @param {string} label accessible name, which says the state in words
+	 * @return {HTMLButtonElement}
+	 */
+	function levelButton(user, module, className, parts, title, label) {
+		const button = el('button', { type: 'button', className, title }, parts)
+		button.onclick = () => window.McpLevelPopover?.open(button, user.uid, module)
+		button.setAttribute('aria-label', label)
+		button.setAttribute('aria-haspopup', 'dialog')
+		button.setAttribute('aria-expanded', 'false')
+		return button
+	}
+
+	/**
+	 * "Can connect" in the levels view: Yes or No in words, its origin as an icon like the module cells, and the popover to
+	 * change it. A disabled account has no control, as in the operations view.
+	 *
+	 * @param {object} user row from the API
+	 * @return {HTMLTableCellElement}
+	 */
+	function eligibleCell(user) {
+		const cell = el('td', { className: 'mcp-cell mcp-level-cell' })
+		cell.dataset.levelKey = 'eligible'
+		const canConnect = t('mcp', 'Can connect')
+		const reason = user.eligible === null ? t('mcp', 'Access is unknown. A group policy or directory is unavailable; retry after checking the group.') : unavailableReason(user, null)
+		if (reason !== null) {
+			const unknown = user.eligible === null
+			paintState(cell, 'unavailable', reason)
+			const mark = el('span', { className: 'mcp-state-mark', textContent: unknown ? '—' : '⊘' })
+			mark.setAttribute('aria-hidden', 'true')
+			const word = el('span', { className: 'mcp-level-word', textContent: unknown ? t('mcp', 'Unknown') : t('mcp', 'Unavailable') })
+			word.setAttribute('aria-hidden', 'true')
+			cell.append(mark, ' ', word, el('span', { className: 'mcp-sr-only', textContent: user.displayName + ' — ' + canConnect + ': ' + cell.title }))
+			if (unknown) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
+			return cell
+		}
+		const { origin, mark: kind } = originMark(user, null, ['eligible'])
+		const individual = kind === 'exception'
+		const icon = markIcon(origin, kind)
+		const parts = []
+		if (icon !== null) {
+			const glyph = el('span', { className: 'mcp-origin-icon ' + icon })
+			glyph.setAttribute('aria-hidden', 'true')
+			parts.push(glyph)
+		}
+		const word = user.eligible ? t('mcp', 'Yes') : t('mcp', 'No')
+		parts.push(el('span', { className: 'mcp-level-word', textContent: word }))
+		paintState(cell, user.eligible ? 'allowed' : 'denied')
+		const source = markText(origin, kind)
+		const button = levelButton(user, null, 'mcp-level mcp-level-' + (user.eligible ? 'read' : 'none') + (individual ? ' mcp-level-individual' : ''), parts,
+			canConnect + ': ' + word + ' — ' + source,
+			t('mcp', '{user}, {module}: {level}. {source}.', { user: user.displayName, module: canConnect, level: word, source }, undefined, { escape: false }))
+		cell.title = button.title
+		cell.dataset.level = user.eligible ? 'read' : 'none'
+		cell.dataset.origin = origin.source
+		cell.dataset.mark = kind
+		cell.append(button)
 		return cell
 	}
 
@@ -691,28 +1216,34 @@
 	})
 
 	/**
-	 * What a bulk change would do on this page: per operation, the users whose saved value differs
-	 * and that value; users with an unavailable cell are left out, users already set are counted.
+	 * What a bulk change would do: per operation, the users whose saved value differs from the target and that value; users
+	 * with an unavailable or unknown cell are left out, users already set are counted.
 	 *
 	 * @param {string|null} module module id, null for eligibility
 	 * @param {string[]} operationList operation ids, or ["eligible"]
-	 * @param {boolean} granted new value
-	 * @return {{changes: Array<{operation: string, previous: Map<string, boolean>}>, users: number, unavailable: number, unchanged: number}}
+	 * @param {boolean|Object<string, boolean>} granted the new value of every operation, or one per operation
+	 * @param {string[]|null} [uids] the users to change, the whole page when null
+	 * @return {{changes: Array<{operation: string, granted: boolean, previous: Map<string, boolean>}>, users: number, unavailable: number, unchanged: number}}
 	 */
-	function bulkPlan(module, operationList, granted) {
-		const changes = operationList.map((operation) => ({ operation, previous: new Map() }))
+	function bulkPlan(module, operationList, granted, uids = null) {
+		const target = (operation) => typeof granted === 'boolean' ? granted : granted[operation] === true
+		const changes = operationList.map((operation) => ({ operation, granted: target(operation), previous: new Map() }))
 		let users = 0
 		let unavailable = 0
 		let unchanged = 0
 		for (const user of state.data.users) {
-			if (unavailableReason(user, module) !== null) {
+			if (uids !== null && !uids.includes(user.uid)) {
+				continue
+			}
+			if (unavailableReason(user, module) !== null || operationList.some((operation) =>
+				(module === null ? user.eligible : user.grants[module][operation]) === null)) {
 				unavailable++
 				continue
 			}
 			let changed = false
 			for (const change of changes) {
 				const current = module === null ? user.eligible : user.grants[module][change.operation]
-				if (current !== granted) {
+				if (current !== change.granted) {
 					change.previous.set(user.uid, current)
 					changed = true
 				}
@@ -723,129 +1254,124 @@
 	}
 
 	/**
-	 * Saves a bulk change through the bulk endpoint, one request per operation and saved value.
+	 * Saves a bulk change as one command: the server writes every cell or none, and returns the
+	 * receipt that undoes exactly these cells.
 	 *
 	 * @param {string|null} module module id, null for eligibility
-	 * @param {Array<{operation: string, uids: string[], granted: boolean}>} requests requests to send in order
-	 * @return {Promise<number>} how many requests were saved before a failure (all of them on success)
+	 * @param {Array<{operation: string, uids: string[], granted: boolean}>} requests cells to save
+	 * @return {Promise<object>} the saved command: {revision, changed, receiptId}
 	 */
-	async function sendBulk(module, requests) {
-		let saved = 0
-		try {
-			for (const request of requests) {
-				await api('POST', '/api/grants/bulk', { uids: request.uids, module, operation: request.operation, granted: request.granted })
-				saved++
-			}
-		} catch (e) {
-			// The caller reports how far it got.
-		}
+	async function sendCommand(module, requests) {
+		const commands = requests.flatMap((request) => request.uids.map((uid) => ({
+			uid,
+			module,
+			operation: request.operation,
+			state: request.granted ? 'allow' : 'deny',
+		})))
+		const sent = state.data.revision
+		const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands })
+		announce(sent, saved.revision)
 		return saved
 	}
 
 	/**
-	 * Requests that put back the previous values, grouped by operation and previous value.
+	 * The selection bar's "Set" (js/admin-overrides.js): gives the selected users one level of a module, or turns "Can
+	 * connect" on or off. It confirms exactly what changes, how many are left out and why, and how many already have it,
+	 * sends nothing when nobody changes, saves one command and offers the undo. Every cell is an explicit allow or deny,
+	 * never an inheritance, as the level popover does for a removal (F1).
 	 *
-	 * @param {Array<{operation: string, previous: Map<string, boolean>}>} changes changes that were saved
-	 * @return {Array<{operation: string, uids: string[], granted: boolean}>}
+	 * @param {string|null} module module id, null for "Can connect"
+	 * @param {string} level a level of js/admin-levels.js; for "Can connect", "read" is on and "none" is off
+	 * @param {string[]} uids the selected users of the page
 	 */
-	function undoRequests(changes) {
-		const requests = []
-		for (const change of changes) {
-			for (const value of [true, false]) {
-				const uids = [...change.previous].filter(([, previous]) => previous === value).map(([uid]) => uid)
-				if (uids.length > 0) {
-					requests.push({ operation: change.operation, uids, granted: value })
-				}
-			}
-		}
-		return requests
-	}
-
-	/**
-	 * Header "All" action: confirms exactly what changes on this page, saves it and offers an undo.
-	 *
-	 * @param {string|null} module module id, null for eligibility
-	 * @param {string[]} operationList operation ids, or ["eligible"]; several are saved one after the other
-	 * @param {boolean} granted new value
-	 * @param {string} label permission name
-	 */
-	async function bulk(module, operationList, granted, label) {
-		if (bulkBusy) {
+	async function bulk(module, level, uids) {
+		// The plan is computed from the table on screen, so never from one that is being replaced.
+		if (bulkBusy || matrixLocked) {
 			return
 		}
-		const plan = bulkPlan(module, operationList, granted)
-		const vars = { permission: label }
+		const operationList = module === null ? ['eligible'] : state.data.catalog[module]
+		const allowed = module === null ? (level === 'read' ? ['eligible'] : []) : window.McpAdminLevels.operationsFor(module, operationList, level)
+		const plan = bulkPlan(module, operationList, Object.fromEntries(operationList.map((operation) => [operation, allowed.includes(operation)])), uids)
+		const levelName = module === null ? (level === 'read' ? t('mcp', 'Yes') : t('mcp', 'No')) : levelLabels()[level] || level
+		const vars = { permission: module === null ? t('mcp', 'Can connect') : moduleLabels()[module] || module, level: levelName }
 		const lines = []
 		if (plan.unavailable > 0) {
-			lines.push(n('mcp', '%n user with this permission unavailable is left out.', '%n users with this permission unavailable are left out.', plan.unavailable, vars, { escape: false }))
+			lines.push(n('mcp', '%n selected person is left out: this permission is unavailable or unknown for them.', '%n selected people are left out: this permission is unavailable or unknown for them.', plan.unavailable, vars, { escape: false }))
 		}
 		if (plan.unchanged > 0) {
-			lines.push(granted
-				? n('mcp', '%n user already has it allowed.', '%n users already have it allowed.', plan.unchanged, vars, { escape: false })
-				: n('mcp', '%n user already has it denied.', '%n users already have it denied.', plan.unchanged, vars, { escape: false }))
+			lines.push(n('mcp', '%n selected person already has it.', '%n selected people already have it.', plan.unchanged, vars, { escape: false }))
 		}
 		if (plan.users === 0) {
-			showNotice([t('mcp', 'Nothing to change on this page for “{permission}”.', vars, undefined, { escape: false }), ...lines].join(' '), null)
+			showNotice([t('mcp', 'Nothing to change for the selected people: “{permission}” is already {level}.', vars, undefined, { escape: false }), ...lines].join(' '), null)
 			return
 		}
-		const question = granted
-			? n('mcp', 'Allow “{permission}” for %n user on this page?', 'Allow “{permission}” for %n users on this page?', plan.users, vars, { escape: false })
-			: n('mcp', 'Deny “{permission}” for %n user on this page?', 'Deny “{permission}” for %n users on this page?', plan.users, vars, { escape: false })
-		if (module === null && !granted) {
+		const question = n('mcp', 'Set “{permission}” to {level} for %n selected person?', 'Set “{permission}” to {level} for %n selected people?', plan.users, vars, { escape: false })
+		if (module === null && level !== 'read') {
 			lines.push(t('mcp', 'They are signed out of their MCP clients, and undoing this does not sign them back in.'))
 		}
 		if (!window.confirm([question, ...lines].join('\n'))) {
 			return
 		}
-		const requests = plan.changes.map((change) => ({ operation: change.operation, uids: [...change.previous.keys()], granted }))
+		const requests = plan.changes.map((change) => ({ operation: change.operation, uids: [...change.previous.keys()], granted: change.granted }))
 		let undo = null
+		let reloaded = false
 		setBulkBusy(true)
 		try {
-			const saved = await sendBulk(module, requests)
-			const done = plan.changes.slice(0, saved)
-			undo = done.length === 0 ? null : () => undoBulk(module, done)
-			if (saved < requests.length) {
-				notifyError(t('mcp', 'Could not update the users on this page.'))
-				if (undo) {
-					showNotice(t('mcp', 'Part of the change was saved.'), undo)
+			try {
+				const saved = await sendCommand(module, requests)
+				undo = saved.receiptId === null ? null : () => undoBulk(saved.receiptId, saved.revision)
+				showNotice(n('mcp', '“{permission}” set to {level} for %n person.', '“{permission}” set to {level} for %n people.', plan.users, vars, { escape: false }), undo)
+			} catch (e) {
+				// Nothing was saved: the command is all or nothing.
+				reloaded = await policyError(e)
+				if (!reloaded) {
+					notifyError(t('mcp', 'Could not update the selected people.'))
 				}
-			} else {
-				showNotice(granted
-					? n('mcp', 'Allowed “{permission}” for %n user.', 'Allowed “{permission}” for %n users.', plan.users, vars, { escape: false })
-					: n('mcp', 'Denied “{permission}” for %n user.', 'Denied “{permission}” for %n users.', plan.users, vars, { escape: false }), undo)
 			}
-			await load()
+			if (!reloaded) {
+				await reloadLocked()
+			}
 		} finally {
 			setBulkBusy(false)
 		}
 		if (undo !== null && pendingUndo === undo) {
-			// The menu that started the change is gone after the reload; the focus goes to its undo,
-			// scrolling the notice under the table into view when it is below the fold.
+			// The focus goes to the undo, scrolling the notice under the table into view when it is below the fold.
 			undoButton.focus()
 		}
 	}
 
 	/**
-	 * Puts back the values a bulk change replaced; a failure part way is reported and the matrix reloaded.
-	 * It restores what the bulk saw, so a change someone else made in between is overwritten (last write
-	 * wins): grants have no versioning yet, which is left for 1.1.0.
+	 * Undoes a bulk change through its receipt: the server puts back each cell's exact saved value,
+	 * absence included, and refuses when anything changed since that change.
 	 *
-	 * @param {string|null} module module id, null for eligibility
-	 * @param {Array<{operation: string, previous: Map<string, boolean>}>} changes changes that were saved
+	 * @param {string} receiptId receipt of the saved command
+	 * @param {string} savedRevision revision that command committed
 	 */
-	async function undoBulk(module, changes) {
-		const requests = undoRequests(changes)
+	async function undoBulk(receiptId, savedRevision) {
 		setBulkBusy(true)
 		try {
-			const saved = await sendBulk(module, requests)
-			if (saved < requests.length) {
-				const failure = t('mcp', 'Could not undo the whole change. The table was reloaded with the saved values.')
+			try {
+				const undone = await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })
+				announce(savedRevision, undone.revision)
+				showNotice(t('mcp', 'Change undone.'), null)
+			} catch (e) {
+				if (e.message === '503' && !(e.data && e.data.uncertain)) {
+					// Nothing was written (what the users inherit could not be read): the table stays as it is, and the same
+					// undo is offered again instead of a reload that would hide that it is still possible.
+					const retry = t('mcp', 'The change could not be undone because what these users inherit could not be read. Nothing was changed. Try again.')
+					notifyError(retry)
+					showNotice(retry, () => undoBulk(receiptId, savedRevision))
+					return
+				}
+				const failure = e.message === '409'
+					? t('mcp', 'The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.')
+					: e.message === '410'
+						? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
+						: t('mcp', 'Could not undo the change. The table was reloaded with the saved values.')
 				notifyError(failure)
 				showNotice(failure, null)
-			} else {
-				showNotice(t('mcp', 'Change undone.'), null)
 			}
-			await load()
+			await reloadLocked()
 		} finally {
 			setBulkBusy(false)
 		}
@@ -853,9 +1379,18 @@
 
 	serviceBox.addEventListener('change', async () => {
 		const value = serviceBox.checked
+		if (matrixLocked || state.data === null) {
+			serviceBox.checked = !value
+			return
+		}
 		serviceBox.disabled = true
 		try {
-			const result = await api('PUT', '/api/service', { enabled: value })
+			const sent = state.data.revision
+			const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: sent })
+			// Committed from the revision on screen: the switch is the only thing that changed.
+			state.data.revision = result.revision
+			announce(sent, result.revision)
+			state.data.serviceEnabled = result.enabled
 			serviceBox.checked = result.enabled
 			serviceStatus.textContent = t('mcp', 'Saved')
 			flash(serviceStatus, true)
@@ -863,11 +1398,60 @@
 			serviceBox.checked = !value
 			serviceStatus.textContent = t('mcp', 'Not saved')
 			flash(serviceStatus, false)
-			notifyError(t('mcp', 'Could not change the MCP service.'))
+			// Enabled again first, so the reloaded page can paint the saved switch.
+			serviceBox.disabled = false
+			if (!(await policyError(e))) {
+				notifyError(t('mcp', 'Could not change the MCP service.'))
+			}
 		} finally {
 			serviceBox.disabled = false
 		}
 	})
+
+	window.addEventListener('mcp-group-policy-saved', reloadLocked)
+	window.addEventListener('mcp-scope-saved', reloadLocked)
+
+	/**
+	 * Keeps the control that takes the focus clear of the sticky columns of its row (the selection box and the name at the
+	 * start, the "…" menu at the end, js/admin.css), and inside the block. The browser scrolls a focused control into the
+	 * matrix block, but not out from under those columns, and it leaves one that shows in part where it is, so a cell
+	 * reached by Tab could be hidden (WCAG 2.4.11). Measured on screen, so it holds at any width and in either direction.
+	 *
+	 * @param {FocusEvent} event focusin on the scrolling block of the matrix
+	 */
+	function revealFocus(event) {
+		const wrap = event.currentTarget
+		const target = event.target
+		const cell = target?.closest?.('td, th')
+		const row = cell?.parentElement
+		if (!cell || !row) return
+		const rect = target.getBoundingClientRect()
+		// The sticky cells before this one in the row sit at its start side, the ones after it at its end side; which
+		// physical side that is depends on the direction of the page.
+		const rtl = getComputedStyle(row).direction === 'rtl'
+		// The visible part of the block itself: the browser leaves a control that shows in part where it is.
+		const block = wrap.getBoundingClientRect()
+		let left = block.left + (wrap.clientLeft || 0)
+		let right = left + wrap.clientWidth
+		let before = true
+		for (const other of row.children) {
+			if (other === cell) {
+				before = false
+				continue
+			}
+			if (getComputedStyle(other).position !== 'sticky') continue
+			const box = other.getBoundingClientRect()
+			if (before !== rtl) left = Math.max(left, box.right)
+			else right = Math.min(right, box.left)
+		}
+		if (rect.left < left) {
+			wrap.scrollLeft -= left - rect.left + 4
+		} else if (rect.right > right) {
+			// A control wider than the room left keeps its start in view.
+			wrap.scrollLeft += Math.min(rect.right - right + 4, rect.left - left)
+		}
+	}
+	table.parentElement?.addEventListener('focusin', revealFocus)
 
 	let searchTimer = null
 	searchInput.addEventListener('input', () => {
@@ -902,21 +1486,7 @@
 			load()
 		})
 	}
-	try {
-		compactBox.checked = window.localStorage.getItem(COMPACT_KEY) === '1'
-	} catch (e) {
-		compactBox.checked = false
-	}
-	table.classList.toggle('mcp-compact', compactBox.checked)
-	compactBox.addEventListener('change', () => {
-		table.classList.toggle('mcp-compact', compactBox.checked)
-		stickSecondHeaderRow()
-		try {
-			window.localStorage.setItem(COMPACT_KEY, compactBox.checked ? '1' : '0')
-		} catch (e) {
-			// The preference is a convenience; without storage it lasts until the page is reloaded.
-		}
-	})
+
 	for (const button of root.querySelectorAll('.mcp-copy')) {
 		button.addEventListener('click', () => {
 			const text = document.getElementById(button.dataset.copy).textContent
@@ -1045,8 +1615,16 @@
 	}
 
 	/**
-	 * OAuth clients section: allowed client_id hosts and the native client switch, through
-	 * GET and PUT /apps/mcp/api/oauth-clients.
+	 * OAuth clients section: allowed client_id hosts, the native client switch and the self-hosted clients, each with
+	 * its name, Enabled setting and redirect URIs, through GET and PUT /apps/mcp/api/oauth-clients. The saves of this
+	 * block go one at a time, and each queues an intent (this client, this change), not a body: the list it sends is
+	 * built when its turn comes, from the clients the server confirmed last, and carries the revision of that same
+	 * answer. So two quick changes never resend a list from before the first one (turning B off cannot turn A back on).
+	 * A page that is out of date (another window or administrator saved first) gets 409 and is rebuilt from the
+	 * server; the intents queued behind the refused one are dropped with it, never sent on the reloaded page. A card
+	 * with typed changes the server does not have (a new client, or a changed name or redirect URIs) stays on screen
+	 * through that rebuild, marked as not saved, for the admin to check and save again. A save of another block of this
+	 * page moves the revision too; that move is adopted (see announce()), so it never refuses a save here.
 	 */
 	async function initOauthClients() {
 		const hostsInput = document.getElementById('mcp-oauth-hosts')
@@ -1057,14 +1635,32 @@
 		const details = document.getElementById('mcp-native-client-details')
 		const clientId = document.getElementById('mcp-native-client-id')
 		const redirects = document.getElementById('mcp-native-redirects')
+		const customList = document.getElementById('mcp-custom-clients')
+		const customAdd = document.getElementById('mcp-custom-add')
+		/** Self-hosted clients as the server last returned them; each card edits one of them (or a new one). */
+		let customClients = []
+		let cardCount = 0
+		// The block's own revision, from its own GET or save; never the matrix's, never an error body's.
+		let oauthRevision = null
+		let queue = Promise.resolve()
+		// Advances when the page is reloaded after a refused save: intents queued before that are dropped.
+		let epoch = 0
+		/** Per card: the client it was built from, and what is typed in it now. */
+		const drafts = new WeakMap()
+		/** The server's last answer: what is stored at this block's revision. */
+		let confirmed = null
+		followRevision(() => oauthRevision, (revision) => { oauthRevision = revision })
 
 		/** @param {object} data settings returned by the API */
 		function show(data) {
+			oauthRevision = data.revision
+			confirmed = data
 			hostsInput.value = data.hosts.join(', ')
 			nativeBox.checked = data.nativeClientEnabled
 			details.hidden = !data.nativeClientEnabled
 			clientId.textContent = data.nativeClientId
 			redirects.replaceChildren(...data.nativeRedirectUris.map((uri) => el('li', {}, [el('code', { textContent: uri })])))
+			customClients = data.customClients
 		}
 
 		/**
@@ -1077,21 +1673,316 @@
 			flash(status, ok)
 		}
 
+		/**
+		 * Runs one task of the block after the previous one has finished.
+		 *
+		 * @param {Function} task async work
+		 * @return {Promise<*>} what the task returned
+		 */
+		function enqueue(task) {
+			const run = queue.then(task)
+			queue = run.catch(() => {})
+			return run
+		}
+
+		/**
+		 * Sends one change when its turn comes: the body is built then by `build`, from the clients the server confirmed
+		 * last, with the revision of that same answer, which is then replaced by the revision and clients the server
+		 * answers with. The policy revision moved, so the matrix is reloaded to keep its own saves valid. An intent
+		 * queued before a reload is dropped (error "stale"); a refused save drops the intents queued behind it.
+		 *
+		 * @param {Function} build (clients) => the changed settings
+		 * @return {Promise<object>} the settings the server saved
+		 */
+		function put(build) {
+			const queuedAt = epoch
+			return enqueue(async () => {
+				if (queuedAt !== epoch) {
+					throw new Error('stale')
+				}
+				try {
+					const sent = oauthRevision
+					const change = build(customClients)
+					const committed = changes(change, confirmed)
+					const data = await api('PUT', '/api/oauth-clients', { ...change, expectedRevision: sent })
+					oauthRevision = data.revision
+					customClients = data.customClients
+					confirmed = data
+					if (committed && oneStep(sent, data.revision)) {
+						announce(sent, data.revision)
+					}
+					load()
+					return data
+				} catch (e) {
+					if (e.message === '409' || e.message === '428' || (e.message === '503' && e.data && e.data.uncertain)) {
+						epoch++
+					}
+					throw e
+				}
+			})
+		}
+
+		/**
+		 * Whether a request differs from the settings stored at the block's revision, compared the way the server compares
+		 * them (OAuthClientsService): the server then commits it and the revision advances. Hosts are trimmed, lowercased
+		 * (ASCII only) and without duplicates, and the default list is stored as no list (GrantsController::hosts,
+		 * writeHosts); clients keep their order, with names and redirect URIs trimmed and URIs without duplicates
+		 * (CustomClient::validate, validateUris). Every trim is PHP's own (phpTrim()). A value still holding a control
+		 * character after it, which the server refuses, counts as unsure. False when unsure, so nothing is announced then.
+		 *
+		 * @param {object} change the settings sent (hosts, nativeClientEnabled or customClients)
+		 * @param {object} stored the server's last answer
+		 * @return {boolean}
+		 */
+		function changes(change, stored) {
+			const control = (text) => /[\x00-\x1f\x7f]/.test(text)
+			const uris = (list) => [...new Set(list.map(phpTrim))]
+			if (change.nativeClientEnabled !== undefined && change.nativeClientEnabled !== stored.nativeClientEnabled) {
+				return true
+			}
+			if (change.hosts !== undefined) {
+				// strtolower() of PHP 8 changes A-Z only.
+				const hosts = [...new Set(change.hosts.map((host) => phpTrim(host).replace(/[A-Z]/g, (letter) => letter.toLowerCase())))]
+				if (hosts.some(control)) {
+					return false
+				}
+				// Stored as no list when the request is the default set; only known while the default is what is stored.
+				const isDefault = stored.hostsDefault && hosts.length === stored.hosts.length && hosts.every((host) => stored.hosts.includes(host))
+				if (stored.hostsDefault ? !isDefault : hosts.join(',') !== stored.hosts.join(',')) {
+					return true
+				}
+			}
+			if (change.customClients !== undefined) {
+				if (change.customClients.some((client) => control(phpTrim(client.name)) || uris(client.redirectUris).some(control))) {
+					return false
+				}
+				const key = (clients) => JSON.stringify(clients.map((client) => [client.id ?? null, phpTrim(client.name), client.enabled, uris(client.redirectUris)]))
+				if (key(change.customClients) !== key(stored.customClients)) {
+					return true
+				}
+			}
+			return false
+		}
+
+		/**
+		 * When a save failed because the page was out of date (409, or 428 without a revision) or the server could not
+		 * confirm it (503 uncertain), shows what is stored now, in the queue's order, and tells the admin nothing was
+		 * overwritten. The cards with unsaved typed changes are kept (see keepUnsaved()). An intent dropped behind such a
+		 * save is handled by that reload.
+		 *
+		 * @param {Error} e error thrown by put()
+		 * @return {Promise<boolean>} whether the error was handled here (the settings are then reloaded)
+		 */
+		async function recover(e) {
+			if (e.message === 'stale') {
+				return true
+			}
+			if (e.message === '409' || e.message === '428') {
+				notifyError(t('mcp', 'The OAuth client settings were changed in another window or by another administrator. The current settings were loaded; nothing was overwritten.'))
+			} else if (e.message === '503' && e.data && e.data.uncertain) {
+				notifyError(t('mcp', 'The server could not confirm whether the change was saved. The current settings were loaded.'))
+			} else {
+				return false
+			}
+			try {
+				const unsaved = [...customList.children].filter((card) => drafts.get(card)?.edited())
+				show(await enqueue(() => api('GET', '/api/oauth-clients')))
+				customList.replaceChildren(...keepUnsaved(unsaved))
+			} catch (reload) {
+				notifyError(t('mcp', 'Could not load the OAuth client settings.'))
+			}
+			return true
+		}
+
+		/**
+		 * The cards of the clients the server has now, with the cards whose typed changes it does not have put back: a
+		 * saved client keeps its edited card in its place, a new card comes after the saved ones, and the edits of a
+		 * client deleted elsewhere come back as a new card. Each card put back says it was not saved.
+		 *
+		 * @param {HTMLElement[]} unsaved cards with typed changes, read before the reload
+		 * @return {HTMLElement[]} the cards to show
+		 */
+		function keepUnsaved(unsaved) {
+			const kept = new Map(unsaved.filter((card) => drafts.get(card).client.id !== null).map((card) => [drafts.get(card).client.id, card]))
+			const cards = customClients.map((client) => kept.get(client.id) || customCard(client))
+			const extra = unsaved.filter((card) => !cards.includes(card)).map((card) => {
+				if (drafts.get(card).client.id === null) {
+					return card
+				}
+				const fresh = customCard({ ...drafts.get(card).read(), id: null })
+				report(fresh.querySelector('.mcp-status'), false, t('mcp', 'Not saved: this client was deleted in the meantime. Your changes are kept here as a new client; saving adds it again.'))
+				return fresh
+			})
+			for (const card of unsaved.filter((card) => cards.includes(card) || extra.includes(card))) {
+				report(card.querySelector('.mcp-status'), false, t('mcp', 'Not saved: the settings changed after this page was loaded. Your changes are kept here; check them and save again.'))
+			}
+			return [...cards, ...extra]
+		}
+
+		/**
+		 * Saves one change to the list of self-hosted clients.
+		 *
+		 * @param {Function} change (clients) => every client to keep, a new one without id; applied to the clients the
+		 *     server confirmed last, when the save's turn comes
+		 * @return {Promise<object|undefined>} the client the server added, if any
+		 */
+		async function saveCustom(change) {
+			let before = new Set()
+			await put((clients) => {
+				before = new Set(clients.map((client) => client.id))
+				return { customClients: change(clients).map(({ id, name, enabled, redirectUris }) => ({ id, name, enabled, redirectUris })) }
+			})
+			return customClients.find((client) => !before.has(client.id))
+		}
+
+		/**
+		 * One self-hosted client: name, Enabled, client_id with Copy (once saved), redirect URIs, Save and Delete.
+		 * Saving or deleting replaces only this card, so unsaved edits in the other cards stay.
+		 *
+		 * @param {object} client a stored client, or {id: null, ...} for a new one
+		 * @return {HTMLElement} the card
+		 */
+		function customCard(client) {
+			const n = ++cardCount
+			const saved = client.id !== null
+			const name = el('input', { type: 'text', id: 'mcp-custom-name-' + n, value: client.name, maxLength: 64, autocomplete: 'off', spellcheck: false })
+			const enabled = el('input', { type: 'checkbox', className: 'checkbox', id: 'mcp-custom-enabled-' + n, checked: client.enabled })
+			const uris = el('textarea', {
+				id: 'mcp-custom-uris-' + n, className: 'mcp-custom-redirects', rows: 3, spellcheck: false, autocomplete: 'off',
+				placeholder: 'https://harness.example.com/oauth/callback', value: client.redirectUris.join('\n'),
+			})
+			const status = el('span', { className: 'mcp-status' })
+			status.setAttribute('aria-live', 'polite')
+			const save = el('button', { type: 'button', textContent: t('mcp', 'Save') })
+			const remove = el('button', { type: 'button', textContent: t('mcp', 'Delete') })
+			const rows = [
+				el('p', {}, [el('label', { htmlFor: name.id, textContent: t('mcp', 'Name') }), ' ', name]),
+				el('p', {}, [enabled, el('label', { htmlFor: enabled.id, textContent: t('mcp', 'Enabled') })]),
+			]
+			if (saved) {
+				const code = el('code', { textContent: client.clientId })
+				const copy = el('button', { type: 'button', className: 'mcp-copy', textContent: t('mcp', 'Copy') })
+				copy.addEventListener('click', () => {
+					navigator.clipboard.writeText(client.clientId).then(
+						() => { copy.textContent = t('mcp', 'Copied') },
+						() => notifyError(t('mcp', 'Could not copy the client_id.')),
+					)
+				})
+				rows.push(el('p', {}, ['client_id: ', code, ' ', copy]))
+			}
+			rows.push(
+				el('p', {}, [el('label', { htmlFor: uris.id, textContent: t('mcp', 'Accepted redirect URIs') })]),
+				uris,
+				el('p', { className: 'settings-hint mcp-hint', textContent: t('mcp', 'One URI per line, exactly as the client sends it, port included: https (http only for 127.0.0.1, localhost or [::1]), no wildcard or fragment, up to 2000 bytes.') }),
+				el('p', {}, [save, ' ', remove, ' ', status]),
+			)
+			const card = el('div', { className: 'mcp-custom-client' }, rows)
+
+			/** @return {object} the client as edited in the card */
+			function read() {
+				return {
+					id: client.id,
+					name: name.value.trim(),
+					enabled: enabled.checked,
+					redirectUris: uris.value.split('\n').map((uri) => uri.trim()).filter((uri) => uri !== ''),
+				}
+			}
+
+			/** @return {boolean} whether the card holds what the server does not have: any new card, or a changed name or URI list */
+			function edited() {
+				const entry = read()
+				return !saved || entry.name !== client.name || entry.redirectUris.join('\n') !== client.redirectUris.join('\n')
+			}
+			drafts.set(card, { client, read, edited })
+
+			save.addEventListener('click', async () => {
+				const entry = read()
+				save.disabled = true
+				try {
+					const added = await saveCustom((clients) => saved
+						? clients.map((other) => other.id === client.id ? entry : other)
+						: [...clients, entry])
+					const next = customCard(saved ? customClients.find((other) => other.id === client.id) : added)
+					card.replaceWith(next)
+					next.querySelector('.mcp-status').textContent = t('mcp', 'Saved')
+					flash(next.querySelector('.mcp-status'), true)
+				} catch (e) {
+					if (!(await recover(e))) {
+						report(status, false, t('mcp', 'Not saved: each client needs a name of up to 64 characters that no other client has, and 1 to 20 redirect URIs (absolute https URIs, without user name, wildcard or fragment).'))
+					}
+				} finally {
+					save.disabled = false
+				}
+			})
+
+			// A saved client's Enabled setting applies at once, like the native client's; a new one's is saved with it.
+			enabled.addEventListener('change', async () => {
+				if (!saved) {
+					return
+				}
+				const value = enabled.checked
+				enabled.disabled = true
+				try {
+					await saveCustom((clients) => clients.map((other) => other.id === client.id ? { ...other, enabled: value } : other))
+					report(status, true)
+				} catch (e) {
+					enabled.checked = !value
+					if (!(await recover(e))) {
+						report(status, false)
+						notifyError(t('mcp', 'Could not change the self-hosted client.'))
+					}
+				} finally {
+					enabled.disabled = false
+				}
+			})
+
+			remove.addEventListener('click', async () => {
+				if (!saved) {
+					card.remove()
+					return
+				}
+				if (!window.confirm(t('mcp', 'Delete the client “{name}”? Its connections are signed out at once.', { name: client.name }))) {
+					return
+				}
+				remove.disabled = true
+				try {
+					await saveCustom((clients) => clients.filter((other) => other.id !== client.id))
+					card.remove()
+				} catch (e) {
+					if (!(await recover(e))) {
+						report(status, false)
+						notifyError(t('mcp', 'Could not delete the self-hosted client.'))
+					}
+				} finally {
+					remove.disabled = false
+				}
+			})
+			return card
+		}
+
 		try {
 			show(await api('GET', '/api/oauth-clients'))
 		} catch (e) {
 			notifyError(t('mcp', 'Could not load the OAuth client settings.'))
 			return
 		}
+		customList.replaceChildren(...customClients.map(customCard))
+		customAdd.addEventListener('click', () => {
+			const card = customCard({ id: null, name: '', enabled: true, redirectUris: [] })
+			customList.append(card)
+			card.querySelector('input[type="text"]').focus()
+		})
 
 		hostsSave.addEventListener('click', async () => {
 			const hosts = hostsInput.value.split(',').map((host) => host.trim().toLowerCase()).filter((host) => host !== '')
 			hostsSave.disabled = true
 			try {
-				show(await api('PUT', '/api/oauth-clients', { hosts }))
+				show(await put(() => ({ hosts })))
 				report(hostsStatus, true)
 			} catch (e) {
-				report(hostsStatus, false, t('mcp', 'Invalid host list: use lowercase host names only, without https://, port, path or *, and keep at least one.'))
+				if (!(await recover(e))) {
+					report(hostsStatus, false, t('mcp', 'Invalid host list: use lowercase host names only, without https://, port, path or *, and keep at least one.'))
+				}
 			} finally {
 				hostsSave.disabled = false
 			}
@@ -1101,12 +1992,14 @@
 			const value = nativeBox.checked
 			nativeBox.disabled = true
 			try {
-				show(await api('PUT', '/api/oauth-clients', { nativeClientEnabled: value }))
+				show(await put(() => ({ nativeClientEnabled: value })))
 				report(nativeStatus, true)
 			} catch (e) {
 				nativeBox.checked = !value
-				report(nativeStatus, false)
-				notifyError(t('mcp', 'Could not change the native client.'))
+				if (!(await recover(e))) {
+					report(nativeStatus, false)
+					notifyError(t('mcp', 'Could not change the native client.'))
+				}
 			} finally {
 				nativeBox.disabled = false
 			}
@@ -1225,11 +2118,15 @@
 			return
 		}
 		let version = 0
+		// The block's own revision, from its own GET or save; never the matrix's, never an error body's.
+		let logsRevision = null
 		let picker = null
+		followRevision(() => logsRevision, (revision) => { logsRevision = revision })
 
 		/** @param {object} data state returned by the API */
 		function show(data) {
 			version = data.version
+			logsRevision = data.revision
 			const options = data.allGroups.map((group) => ({ id: group.id, label: group.displayName }))
 			for (const id of data.missing) {
 				options.push({ id: id, label: t('mcp', '{group} (group removed)', { group: id }, undefined, { escape: false }) })
@@ -1245,7 +2142,14 @@
 					emptyOptionsText: t('mcp', 'No groups found; only administrators can read the log.'),
 					noMatchText: t('mcp', 'No match.'),
 					save: async (nextIds, previousIds) => {
-						return api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version })
+						const sent = logsRevision
+						// The server stores the groups as a set and commits only a set other than `previous` (LogsAccess).
+						const committed = new Set(nextIds).size !== new Set(previousIds).size || nextIds.some((id) => !previousIds.includes(id))
+						const data = await api('PUT', '/api/logs-access', { groups: nextIds, previous: previousIds, version: version, expectedRevision: sent })
+						if (committed && oneStep(sent, data.revision)) {
+							announce(sent, data.revision)
+						}
+						return data
 					},
 					onSaved: async (data) => {
 						show(data)
@@ -1253,7 +2157,7 @@
 						load()
 					},
 					onError: async (e) => {
-						if (e.message === '409') {
+						if (e.message === '409' || e.message === '428') {
 							notifyError(t('mcp', 'The groups were changed in another window or by another administrator; the current list was loaded.'))
 							load()
 						} else {
@@ -1308,6 +2212,41 @@
 		}
 
 		await reload()
+	}
+
+	/**
+	 * What js/admin-overrides.js needs from the matrix: the page on screen, the shared request, lock and undo notice,
+	 * and a re-render, so it can paint rows that were drawn before it loaded. It never touches the matrix state itself.
+	 */
+	window.McpAdminMatrix = {
+		data: () => state.data,
+		api,
+		announce,
+		reload: reloadLocked,
+		policyError,
+		notifyError,
+		isBusy: () => bulkBusy || matrixLocked,
+		setBusy: setBulkBusy,
+		labels: () => ({ modules: moduleLabels(), operations: operationLabels() }),
+		/**
+		 * @param {string} message text of the notice
+		 * @param {{receiptId: string|null, revision: string}} saved the saved command
+		 * @return {Function|null} the undo that was offered, to give back to focusUndo()
+		 */
+		offerUndo(message, saved) {
+			const undo = saved.receiptId === null ? null : () => undoBulk(saved.receiptId, saved.revision)
+			showNotice(message, undo)
+			return undo
+		},
+		/** @param {Function|null} undo what offerUndo() returned: the focus moves to it while it is still the offered undo */
+		focusUndo(undo) {
+			if (undo !== null && pendingUndo === undo) {
+				undoButton.focus()
+			}
+		},
+		refresh: () => state.data !== null && render(),
+		bulk,
+		levelLabels,
 	}
 
 	load()

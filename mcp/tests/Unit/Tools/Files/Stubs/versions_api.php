@@ -20,6 +20,10 @@ namespace OCA\Files_Versions\Versions;
 final class FakeVersion {
     /** @var list<string> */
     public array $contents = [];
+    /** @var list<resource> every stream read() handed out, so a test can see whether it was closed */
+    public array $handles = [];
+    /** When set, read() hands out a stream whose reads fail, as a version file that cannot be read to the end. */
+    public bool $failingRead = false;
 
     /**
      * @param int|string $revision identifier the tools expose as a string
@@ -71,13 +75,43 @@ final class FakeVersion {
 
     /** @return resource|false a readable stream, as IVersionManager::read() returns */
     public function read() {
+        if ($this->failingRead) {
+            if (!in_array('mcpfail', stream_get_wrappers(), true)) {
+                stream_wrapper_register('mcpfail', FailingReadStream::class);
+            }
+            return $this->handles[] = fopen('mcpfail://version', 'r');
+        }
         if ($this->contents === []) {
             return false;
         }
         $handle = fopen('php://memory', 'w+');
         fwrite($handle, $this->contents[0]);
         rewind($handle);
+        $this->handles[] = $handle;
         return $handle;
+    }
+}
+
+/** A stream wrapper whose reads fail: stream_copy_to_stream() on it answers false. */
+final class FailingReadStream {
+    /** @var resource|null set by PHP */
+    public $context;
+
+    public function stream_open(string $path, string $mode, int $options, ?string &$opened): bool {
+        return true;
+    }
+
+    public function stream_read(int $count): string|false {
+        return false;
+    }
+
+    public function stream_eof(): bool {
+        return false;
+    }
+
+    /** @return array<string, mixed> */
+    public function stream_stat(): array {
+        return [];
     }
 }
 

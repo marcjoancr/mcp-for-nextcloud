@@ -33,7 +33,7 @@ final class OAuthControllerFlowTest extends TestCase {
     /** @var array<string,mixed> */
     private array $stored = [];
     private bool $serviceOn = true;
-    private bool $eligible = true;
+    private ?bool $eligible = true;
     private MockObject&GrantPolicy $policy;
     private MockObject&TokenService $tokens;
     /** @var array<string,mixed> */
@@ -59,7 +59,7 @@ final class OAuthControllerFlowTest extends TestCase {
         $resolver->method('resolve')->willReturn(new ClientMetadata('https://claude.ai/c', 'Claude', ['https://claude.ai/cb']));
         $this->policy = $this->createMock(GrantPolicy::class);
         $this->policy->method('globalEnabled')->willReturnCallback(fn () => $this->serviceOn);
-        $this->policy->method('eligible')->willReturnCallback(fn () => $this->eligible);
+        $this->policy->method('eligible')->willReturnCallback(fn () => $this->eligible ?? throw new \OCA\Mcp\Service\Policy\PolicyUnavailable());
         $this->tokens = $this->createMock(TokenService::class);
         $urls = $this->createMock(ResourceUrl::class);
         $urls->method('base')->willReturn(self::ISSUER . '/apps/mcp/');
@@ -87,8 +87,9 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAllowingIssuesTheCodeAndRecordsThePersonalConnection(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
-        $this->tokens->expects($this->once())->method('createCode')->willReturn('CODE');
-        $this->policy->expects($this->once())->method('setConnected')->with('alice', true);
+        // The connection and the code are one command of the token service; the controller never sets them apart.
+        $this->tokens->expects($this->once())->method('consent')->with($this->anything(), 'alice')->willReturn('CODE');
+        $this->policy->expects($this->never())->method('setConnected');
 
         $response = $controller->consent($pending, 'allow');
 
@@ -97,11 +98,53 @@ final class OAuthControllerFlowTest extends TestCase {
         $this->assertSame('CODE', $query['code']);
     }
 
+    /** A storage failure of the policy writer is temporarily_unavailable for the client, never a 500 or a code. */
+    public function testAPolicyStorageFailureIssuesNoCodeAndTellsTheClientToRetry(): void {
+        $controller = $this->controller();
+        $pending = $this->authorize($controller);
+        $this->tokens->method('consent')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
+
+        $response = $controller->consent($pending, 'allow');
+
+        $this->assertInstanceOf(RedirectResponse::class, $response);
+        parse_str((string)parse_url($response->getRedirectURL(), PHP_URL_QUERY), $query);
+        $this->assertSame('temporarily_unavailable', $query['error']);
+        $this->assertArrayNotHasKey('code', $query);
+    }
+
+    /** Eligibility or the service changed between the check and the mutex: the consent page, never a code. */
+    public function testAConsentRefusedUnderTheMutexShowsTheBlockedPage(): void {
+        $controller = $this->controller();
+        $pending = $this->authorize($controller);
+        $this->tokens->expects($this->once())->method('consent')->willReturn(null);
+
+        $response = $controller->consent($pending, 'allow');
+
+        $this->assertInstanceOf(TemplateResponse::class, $response);
+        $this->assertTrue($response->getParams()['blocked']);
+    }
+
+    /** The token endpoint answers a storage failure with temporarily_unavailable and Retry-After, never throttled. */
+    public function testATokenRequestDuringAStorageFailureIsRetriable(): void {
+        $controller = $this->controller();
+        $this->params = ['grant_type' => 'refresh_token'];
+        $this->tokens->method('refresh')->willThrowException(new \OCA\Mcp\Service\Policy\PolicyUnavailable());
+        $this->tokens->expects($this->once())->method('housekeeping');
+
+        $response = $controller->token();
+
+        $this->assertSame(503, $response->getStatus());
+        $this->assertSame('temporarily_unavailable', $response->getData()['error']);
+        $this->assertSame('1', $this->headers($response)['Retry-After']);
+        $this->assertSame('no-store', $this->headers($response)['Cache-Control']);
+        $this->assertSame([], $response->getThrottleMetadata());
+    }
+
     public function testAnythingButAllowIssuesNoCodeAndConnectsNothing(): void {
         foreach (['deny', '', 'ALLOW', 'allow ', 'yes'] as $decision) {
             $controller = $this->controller();
             $pending = $this->authorize($controller);
-            $this->tokens->expects($this->never())->method('createCode');
+            $this->tokens->expects($this->never())->method('consent');
             $this->policy->expects($this->never())->method('setConnected');
 
             $response = $controller->consent($pending, $decision);
@@ -116,7 +159,7 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAnUnknownPendingRequestIssuesNothing(): void {
         $controller = $this->controller();
         $this->authorize($controller);
-        $this->tokens->expects($this->never())->method('createCode');
+        $this->tokens->expects($this->never())->method('consent');
 
         $response = $controller->consent('not-the-pending-id', 'allow');
 
@@ -127,7 +170,7 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAPendingRequestIsSingleUse(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
-        $this->tokens->expects($this->once())->method('createCode')->willReturn('CODE');
+        $this->tokens->expects($this->once())->method('consent')->willReturn('CODE');
 
         $this->assertInstanceOf(RedirectResponse::class, $controller->consent($pending, 'allow'));
         $second = $controller->consent($pending, 'allow');
@@ -139,7 +182,7 @@ final class OAuthControllerFlowTest extends TestCase {
     public function testAWrongPendingIdBurnsTheRealOne(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
-        $this->tokens->expects($this->never())->method('createCode');
+        $this->tokens->expects($this->never())->method('consent');
 
         $controller->consent('guess', 'allow');
         $response = $controller->consent($pending, 'allow');
@@ -154,7 +197,7 @@ final class OAuthControllerFlowTest extends TestCase {
             $controller = $this->controller();
             $pending = $this->authorize($controller);
             $this->$flag = false;
-            $this->tokens->expects($this->never())->method('createCode');
+            $this->tokens->expects($this->never())->method('consent');
             $this->policy->expects($this->never())->method('setConnected');
 
             $response = $controller->consent($pending, 'allow');
@@ -162,6 +205,29 @@ final class OAuthControllerFlowTest extends TestCase {
             $this->assertInstanceOf(TemplateResponse::class, $response, $what);
             $this->assertTrue($response->getParams()['blocked'], $what);
         }
+    }
+
+    /**
+     * An eligibility that is unknown (only a group of indeterminate policy grants it) is neither the blocked page nor
+     * a consent: the page says it cannot be checked now, keeps nothing, and the click answers temporarily_unavailable.
+     */
+    public function testAnUnknownEligibilityIsNeitherBlockedNorAConsent(): void {
+        $controller = $this->controller();
+        $pending = $this->authorize($controller);
+        $this->eligible = null;
+        $this->tokens->expects($this->never())->method('consent');
+        $response = $controller->consent($pending, 'allow');
+        $this->assertInstanceOf(RedirectResponse::class, $response);
+        parse_str((string)parse_url($response->getRedirectURL(), PHP_URL_QUERY), $query);
+        $this->assertSame('temporarily_unavailable', $query['error']);
+
+        $this->params = ['client_id' => 'https://claude.ai/c', 'redirect_uri' => 'https://claude.ai/cb', 'response_type' => 'code',
+            'code_challenge_method' => 'S256', 'code_challenge' => self::CHALLENGE, 'scope' => 'mcp'];
+        $page = $controller->authorize();
+        $this->assertTrue($page->getParams()['unavailable']);
+        $this->assertFalse($page->getParams()['blocked']);
+        $this->assertNull($page->getParams()['pending']);
+        $this->assertSame([], $this->stored, 'nothing was kept in the session');
     }
 
     public function testTheConsentPageIsBlockedWhenTheServiceIsOffOrTheUserIsNotEligible(): void {

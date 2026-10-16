@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools\Talk;
 
+use OCA\Mcp\Tools\Common\OutputReferenceFilter;
 use OCP\Files\File;
 use OCP\Share\IManager as IShareManager;
 use OCP\Share\IShare;
@@ -23,7 +24,8 @@ class AttachmentAccess {
 
     public function __construct(
         private IShareManager $shareManager,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private \OCA\Mcp\Service\VisibilityGuard $visibilityGuard,
+        private OutputReferenceFilter $references,
     ) {}
 
     /**
@@ -41,7 +43,7 @@ class AttachmentAccess {
 
     /**
      * Checks that the id really is a room share of this conversation, and not a link share, a file of another
-     * conversation or something the user cannot see. All of them are the same answer, so the module never reveals
+     * conversation or something the user cannot see, neither in the owner's tree nor in the caller's. All of them are the same answer, so the module never reveals
      * that an id exists elsewhere.
      *
      * @param Conversation $conversation Conversation the card would be published in
@@ -50,8 +52,11 @@ class AttachmentAccess {
      *                          manager only resolves "<provider>:<id>", so the provider prefix is added here
      * @return IShare The validated share, so a draft can name the file the card will carry
      * @throws ConversationAccessException When the id is not a share of this conversation
+     * @throws \OCA\Mcp\Service\Policy\PolicyUnavailable When the user's Files scope cannot be read, before any lookup
      */
     public function requireRoomShareOf(Conversation $conversation, string $userId, int $attachmentId): IShare {
+        // Before the lookup: an unreadable Files scope is the same 503 for a share that exists and one that does not.
+        $this->references->assertAvailable($userId);
         try {
             $share = $this->shareManager->getShareById(self::fullShareId($attachmentId), $userId);
         } catch (Throwable $e) {
@@ -63,17 +68,20 @@ class AttachmentAccess {
             throw new ConversationAccessException(Messages::attachmentNotFound());
         }
 
-        if ($this->visibilityGuard !== null) {
-            try {
-                $node = $share->getNode();
-            } catch (Throwable $e) {
-                // A share whose node cannot be resolved cannot be checked against the hidden tags, so it is
-                // refused with the very same answer as an unknown attachment, in the draft and in the confirm.
-                throw new ConversationAccessException(Messages::attachmentNotFound(), $e);
-            }
-            if (!$node instanceof \OCP\Files\Node || !$this->visibilityGuard->isVisible($node)) {
-                throw new ConversationAccessException(Messages::attachmentNotFound());
-            }
+        try {
+            $node = $share->getNode();
+        } catch (Throwable $e) {
+            // A share whose node cannot be resolved cannot be checked against the hidden tags, so it is
+            // refused with the very same answer as an unknown attachment, in the draft and in the confirm.
+            throw new ConversationAccessException(Messages::attachmentNotFound(), $e);
+        }
+        if (!$node instanceof \OCP\Files\Node || !$this->visibilityGuard->isVisible($node)) {
+            throw new ConversationAccessException(Messages::attachmentNotFound());
+        }
+        // The owner's node is not enough: the file is checked again where the caller sees it, by the rule
+        // talk_read_messages applies, so a draft never names an attachment the reading hides.
+        if (!$this->references->allowsRoomShare($userId, $share)) {
+            throw new ConversationAccessException(Messages::attachmentNotFound());
         }
 
         return $share;
@@ -97,7 +105,7 @@ class AttachmentAccess {
 
         try {
             $node = $share->getNode();
-            if ($this->visibilityGuard !== null && $node instanceof \OCP\Files\Node && !$this->visibilityGuard->isVisible($node)) {
+            if ($node instanceof \OCP\Files\Node && !$this->visibilityGuard->isVisible($node)) {
                 return $description;
             }
         } catch (Throwable) {

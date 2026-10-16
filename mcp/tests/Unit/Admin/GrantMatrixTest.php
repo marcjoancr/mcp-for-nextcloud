@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Unit\Admin;
 
+use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use InvalidArgumentException;
 use OCA\Mcp\Service\GrantMatrix;
 use OCA\Mcp\Service\GrantPolicy;
@@ -67,7 +68,7 @@ final class GrantMatrixTest extends TestCase {
         $json = json_encode($page);
         $this->assertStringNotContainsString('@', $json);
         $this->assertStringNotContainsString('corp.example', $json);
-        $this->assertSame(['uid', 'displayName', 'enabled', 'appsEnabled', 'eligible', 'connected', 'grants'], array_keys($page['users'][0]));
+        $this->assertSame(['uid', 'displayName', 'enabled', 'appsEnabled', 'eligible', 'connected', 'grants', 'origins', 'scope'], array_keys($page['users'][0]));
     }
 
     public function testGroupFilterUsesGroupMembersAndGroupSize(): void {
@@ -224,6 +225,33 @@ final class GrantMatrixTest extends TestCase {
         $connected = $this->fx->matrix()->page('', '', 1, 'connected');
         $this->assertSame(['ana'], array_column($connected['users'], 'uid'));
         $this->assertSame(1, $connected['total']);
+    }
+
+    /**
+     * T10: a user eligible only through a group is in the eligible filter and its total before any page, an individual
+     * Deny removes them, a member of two granting groups counts once; the row shows the group as the origin.
+     */
+    public function testGroupEligibilityIsInTheFiltersAndTotalsBeforeAnyPage(): void {
+        $this->fx->groups['team'] = ['ana', 'bruno', 'u004'];
+        $this->fx->groups['staff'] = ['ana', 'u005'];
+        $this->fx->config->groupBackends = [$this->fx->backend()];
+        InMemoryConfig::groupPolicy($this->fx->policyConfig, 'team', ['_system' => ['eligible']]);
+        InMemoryConfig::groupPolicy($this->fx->policyConfig, 'staff', ['_system' => ['eligible']]);
+        $this->fx->policy->setEligible('bruno', false);
+        $this->fx->policy->setEligible('u003', true);
+        $this->fx->policy->setConnected('u004', true);
+        $this->fx->policy->setConnected('bruno', true);
+        $eligible = $this->fx->matrix()->page('', '', 1, 'eligible');
+        $this->assertSame(['ana', 'u003', 'u004', 'u005'], array_column($eligible['users'], 'uid'));
+        $this->assertSame(4, $eligible['total']);
+        $this->assertSame(['ana', 'u003'], array_column($this->fx->matrix()->page('', 'sales', 1, 'eligible')['users'], 'uid'));
+        $connected = $this->fx->matrix()->page('', '', 1, 'connected');
+        $this->assertSame(['u004'], array_column($connected['users'], 'uid'), 'bruno switched it on, but his Deny wins');
+        $this->assertSame(1, $connected['total']);
+        $rows = array_column($eligible['users'], null, 'uid');
+        $this->assertTrue($rows['ana']['eligible']);
+        $this->assertSame(['source' => 'group', 'groupIds' => ['staff', 'team']], $rows['ana']['origins']['eligible']);
+        $this->assertSame(['source' => 'individual_allow', 'groupIds' => []], $rows['u003']['origins']['eligible']);
     }
 
     public function testFilterPagesOfFifty(): void {

@@ -30,6 +30,9 @@ final class FakeTree {
     /** @var list<string> */
     public array $ops = [];
     public array $opened = [];
+    /** @var list<string> directory enumerations, including calls made by lock and undo helpers */
+    public array $listings = [];
+    public ?\Closure $beforeListing = null;
     /** Paths whose copy() must fail, or produce a truncated copy. */
     public array $failCopy = [];
     /** Paths whose move() must fail, as a lock or a permission that changed since the plan. */
@@ -80,6 +83,8 @@ final class FakeTree {
     public ?\Closure $afterCreate = null;
     /** @var (\Closure(string): void)|null runs after each successful putContent() with the path written */
     public ?\Closure $afterWrite = null;
+    /** @var (\Closure(string, mixed): void)|null runs at the start of each putContent() with the path and the data it received */
+    public ?\Closure $beforeWrite = null;
     /** @var (\Closure(string): void)|null hook after deleting an empty directory */
     public ?\Closure $afterDelete = null;
     /** @var list<\OCP\Files\Search\ISearchQuery> queries received by Folder::search */
@@ -236,6 +241,9 @@ final class FakeTree {
         });
         $file->method('putContent')->willReturnCallback(function ($data) use ($path): void {
             $this->ops[] = "write $path";
+            if ($this->beforeWrite !== null) {
+                ($this->beforeWrite)($path, $data);
+            }
             $isBackup = str_starts_with($path, $this->root . '/MCP backups/');
             if (($isBackup && $this->failBackupWrite) || (!$isBackup && $this->failWrite)) {
                 throw new NotPermittedException();
@@ -274,7 +282,11 @@ final class FakeTree {
             return $this->node($path . '/' . ltrim($rel, '/'));
         });
         $folder->method('nodeExists')->willReturnCallback(fn (string $rel) => isset($this->nodes[$path . '/' . ltrim($rel, '/')]));
-        $folder->method('getDirectoryListing')->willReturnCallback(fn () => array_map(fn ($p) => $this->node($p), $this->children($path)));
+        $folder->method('getDirectoryListing')->willReturnCallback(function () use ($path): array {
+            $this->listings[] = $path;
+            ($this->beforeListing)?->__invoke($path);
+            return array_map(fn ($p) => $this->node($p), $this->children($path));
+        });
         $folder->method('getRelativePath')->willReturnCallback(fn (string $abs) => $abs === $path ? '/' : (str_starts_with($abs, $path . '/') ? substr($abs, strlen($path)) : null));
         $folder->method('newFolder')->willReturnCallback(function (string $name) use ($path): Folder {
             $this->ops[] = "mkdir $path/$name";

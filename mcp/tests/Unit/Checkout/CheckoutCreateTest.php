@@ -132,7 +132,7 @@ final class CheckoutCreateTest extends TestCase {
         $request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
         $checkout = new CheckoutService($this->createMock(IURLGenerator::class), $config, $time, $this->hasher, $this->store, $apps, $users);
-        $guard = $this->guard ?? new VisibilityGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
+        $guard = $this->guard ?? new \OCA\Mcp\Service\Scope\FilesAccessGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
         $this->controller = new StagedCreateController('mcp', $request, $root, $this->session, $temp, $time, $this->policy,
             $this->store, $this->hasher, $checkout, new FileBackup($apps, $users, $time, $config),
             new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), null, $users, $this->guard,
@@ -310,7 +310,7 @@ final class CheckoutCreateTest extends TestCase {
         $mapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturnCallback(fn (array $ids): array => [$folder => ['999']]
             + array_fill_keys($ids, []));
-        $this->guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $this->guard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
         $this->rebuild();
         $this->stage('PK docx bytes');
         $this->issue();

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Settings;
 
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\Util;
 use OCA\Mcp\Service\GrantPolicy;
 use OCP\AppFramework\Http\TemplateResponse;
@@ -25,11 +26,17 @@ class PersonalSettings implements ISettings {
     /** @return TemplateResponse the rendered settings section */
     public function getForm(): TemplateResponse {
         $uid = $this->userSession->getUser()?->getUID() ?? '';
+        try {
+            $eligible = $uid !== '' && $this->policy->eligible($uid);
+        } catch (PolicyUnavailable) {
+            // Shown as "cannot be checked right now", never as a refusal or a permission; connecting stays disabled.
+            $eligible = null;
+        }
         return new TemplateResponse('mcp', 'personal', [
             'endpoint' => $this->urlGenerator->linkToRouteAbsolute('mcp.mcp.post'),
             'action' => $this->urlGenerator->linkToRoute('mcp.settings.personal'),
             'token' => Util::callRegister(),
-            'eligible' => $uid !== '' && $this->policy->eligible($uid),
+            'eligible' => $eligible,
             'connected' => $uid !== '' && $this->policy->connected($uid),
             'global' => $this->policy->globalEnabled(),
         ], '');

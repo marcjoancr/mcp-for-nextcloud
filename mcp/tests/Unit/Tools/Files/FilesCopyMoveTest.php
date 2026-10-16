@@ -268,36 +268,36 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
         $this->assertFalse(array_key_exists('/alice/files/NaoExiste', $this->tree->nodes));
     }
 
-    public function testAMoveToExistingHiddenTargetIsRefusedWithForbiddenRatherThanDestinationExists(): void {
+    public function testAMoveToExistingHiddenTargetIsRefusedAsNotFound(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
         $this->setUp();
 
         $id = $this->tree->addFile('/alice/files/Arquivado/secret.md', 'secret');
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string)$id => ['999']]);
 
-        $this->assertSame(CommonMessages::forbidden(),
+        $this->assertSame(CommonMessages::notFound(),
             $this->failure('files_move', ['from' => self::SOURCE_PATH, 'to' => '/Arquivado/secret.md']));
     }
 
-    public function testACopyToExistingHiddenTargetIsRefusedWithForbiddenRatherThanDestinationExists(): void {
+    public function testACopyToExistingHiddenTargetIsRefusedAsNotFound(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
         $this->setUp();
 
         $id = $this->tree->addFile('/alice/files/Arquivado/secret.md', 'secret');
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string)$id => ['999']]);
 
-        $this->assertSame(CommonMessages::forbidden(),
+        $this->assertSame(CommonMessages::notFound(),
             $this->failure('files_copy', ['from' => self::SOURCE_PATH, 'to' => '/Arquivado/secret.md']));
     }
 
     public function testHiddenSourceFileIsRefusedAsNotFound(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
         $this->setUp();
 
         $sourceId = $this->tree->nodes[self::SOURCE]['id'];
@@ -317,7 +317,7 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
     public function testCopyOfAFolderWithAHiddenFileInsideIsRefusedBeforeAnythingIsCopied(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
         $this->setUp();
         $this->tree->addFile('/alice/files/Pasta/visivel.md', 'visível', 'text/markdown');
         $secret = $this->tree->addFile('/alice/files/Pasta/Sub/segredo.md', 'SEGREDO', 'text/markdown');
@@ -330,14 +330,16 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
             $this->plan('files_copy', $arguments);
             $this->fail('o plano aceitou copiar uma pasta com arquivo oculto');
         } catch (\OCA\Mcp\Tools\ToolFailure $e) {
-            $this->assertSame(CommonMessages::forbidden(), $e->getMessage());
+            $this->assertSame(FilesMessages::folderExposureRefused(), $e->getMessage());
         }
-        $this->assertSame(CommonMessages::forbidden(), $this->failure('files_copy', $arguments + ['confirm' => true]));
+        $this->assertSame(FilesMessages::folderExposureRefused(), $this->failure('files_copy', $arguments + ['confirm' => true]));
         $this->assertSame([], $this->tree->ops, 'nada copiado');
         $this->assertArrayNotHasKey('/alice/files/Copia/Pasta', $this->tree->nodes);
 
-        $out = $this->json('files_copy', ['from' => '/Documentos/2026', 'to' => '/Copia/2026', 'confirm' => true]);
-        $this->assertSame(2, $out['nodes'], 'uma pasta sem oculto continua sendo copiada');
+        $this->assertSame(FilesMessages::folderExposureRefused(),
+            $this->failure('files_copy', ['from' => '/Documentos/2026', 'to' => '/Copia/2026', 'confirm' => true]));
+        $out = $this->json('files_copy', ['from' => '/Documentos/2026/plano.md', 'to' => '/Copia/plano.md', 'confirm' => true]);
+        $this->assertSame(1, $out['nodes'], 'An individual visible file can still be copied');
     }
     public function testMoveMutationCannotReturnReceiptForNewlyHiddenItem(): void {
         $hidden = [];
@@ -346,7 +348,7 @@ final class FilesCopyMoveTest extends FilesToolsTestCase {
             return array_combine($ids, array_map(static fn ($id): array => in_array((int)$id, $hidden, true) ? ['999'] : [], $ids));
         });
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = '["999"]';
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $mapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $mapper, $this->visibilityRoot());
         $this->setUp();
         $this->tree->afterMove = function (string $from, string $to) use (&$hidden): void {
             $hidden[] = (int)$this->tree->node($to)->getId();

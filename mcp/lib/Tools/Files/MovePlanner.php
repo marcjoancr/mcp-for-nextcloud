@@ -46,7 +46,7 @@ final class MovePlanner {
         private Reorganization $reorganization,
         private NodeAccessInfo $access,
         private SharedWriteGuard $guard,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private ?\OCA\Mcp\Service\Scope\FilesAccessGuard $visibilityGuard = null,
     ) {}
 
     /**
@@ -58,6 +58,7 @@ final class MovePlanner {
      * @throws \InvalidArgumentException for a malformed folder path
      */
     public function plan(Folder $root, string $userId, array $moves, array $mkdirs): MovePlan {
+        $this->reorganization->assertFolderMoves($root, $moves);
         $planned = [];
         $personal = [];
         $conflicts = [];

@@ -66,7 +66,7 @@ final class ConnectionsControllerTest extends TestCase {
     public function testDestroyRevokesOneConnectionOfAnyUser(): void {
         $keep = $this->fx->grant('alice', 'https://claude.ai/c', 10);
         $gone = $this->fx->grant('bob', 'https://claude.ai/c', 20);
-        $this->fx->store->spent['refresh-secret-bob20'] = $this->fx->store->tokens[$gone];
+        $this->fx->store->spent['refresh-secret-bob20'] = ['grant_id' => $gone] + $this->fx->store->tokens[$gone];
         $response = $this->controller()->destroy($gone);
         $this->assertSame([200, ['revoked' => true, 'counts' => ['connections' => 1]]], [$response->getStatus(), $response->getData()]);
         $this->assertSame([$keep], array_keys($this->fx->store->tokens));

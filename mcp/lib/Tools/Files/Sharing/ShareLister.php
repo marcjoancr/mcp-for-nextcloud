@@ -13,6 +13,7 @@ use OCP\Files\Folder;
 
 /**
  * The result of files_list_shares: the shares of one own node, or one page of every share the user created.
+ * With exclusions configured, folder links retain metadata with url:null and no token.
  * The rules live in {@see ShareAccess}, the shape of each item in {@see ShareFormatter}. Stateless.
  */
 final class ShareLister {
@@ -35,7 +36,7 @@ final class ShareLister {
         $node = $this->access->ownNode($userFolder, $uid, $path);
         $path = PathGuard::normalize($path);
         $shares = array_map(
-            fn ($share): array => $this->formatter->item($share, $path, $this->access->isRemovable($share, $uid)),
+            fn ($share): array => $this->formatter->item($share, $path, $this->access->isRemovable($share, $uid), $this->access->hideFolderUrl($node)),
             $this->access->sharesOf($uid, $node),
         );
         return ['path' => $path, 'shares' => $shares];
@@ -56,6 +57,7 @@ final class ShareLister {
             $entry['share'],
             (string)($userFolder->getRelativePath($entry['node']->getPath()) ?? '/'),
             $this->access->isRemovable($entry['share'], $uid),
+            $this->access->hideFolderUrl($entry['node']),
         ), $page['items']);
         $next = $offset + count($shares);
         return [

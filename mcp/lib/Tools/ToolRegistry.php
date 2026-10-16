@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools;
 
+use OCA\Mcp\Service\Policy\GrantUnknown;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use InvalidArgumentException;
 use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Service\Compat\AppEnablement;
@@ -74,7 +76,9 @@ class ToolRegistry {
      * the registry did to a schema before answering tools/list is what the guide describes.
      *
      * @param string $userId authenticated user
-     * @return list<array<string, mixed>> one entry per tool the user may call now, guide excluded
+     * @return list<array<string, mixed>> one entry per tool the user may call now, guide excluded; a tool whose grant
+     *     is unknown (GrantUnknown) is left out
+     * @throws PolicyUnavailable when the policy or a role cannot be read
      */
     public function definitions(string $userId): array {
         $tools = [];
@@ -83,7 +87,14 @@ class ToolRegistry {
                 continue;
             }
             foreach ($module->definitions() as $definition) {
-                if ($this->allowed($definition, $userId)) {
+                try {
+                    $allowed = $this->allowed($definition, $userId);
+                } catch (GrantUnknown) {
+                    // Fail-closed for this tool only: a group in needs_confirm never empties the whole list. Calling
+                    // it still answers 503; a failed read of the policy still fails the whole listing.
+                    continue;
+                }
+                if ($allowed) {
                     $tools[] = $this->present($definition);
                 }
             }
@@ -102,6 +113,7 @@ class ToolRegistry {
      * @param string $userId authenticated user
      * @return array{content: list<array{type:string, text:string}>, isError?: bool} MCP tool result
      * @throws InvalidArgumentException for unknown, hidden or invalid calls (JSON-RPC -32602)
+     * @throws PolicyUnavailable when the grant or the role cannot be resolved now (the endpoint answers 503)
      */
     public function call(string $name, array $arguments, string $userId): array {
         if ($name === ToolGuide::TOOL) {
@@ -164,6 +176,11 @@ class ToolRegistry {
                     // A locked file is an expected refusal, never a server error, even from a module that did not map it.
                     $audit(RestrictedModule::READ_ERROR);
                     return ToolResult::error(NodeAccess::lockFailure($e)->getMessage());
+                } catch (PolicyUnavailable $e) {
+                    // A grant re-checked inside the tool (a share type, a linked module) that cannot be resolved now:
+                    // the whole request answers 503, never a tool error that reads as a refusal.
+                    $audit(RestrictedModule::READ_ERROR);
+                    throw $e;
                 } catch (\Throwable $e) {
                     $this->logger->error('MCP tool failed', ['app' => 'mcp', 'tool' => $name, 'exception_class' => $e::class, 'exception_message' => self::loggable($e)]);
                     $audit(RestrictedModule::READ_ERROR);
@@ -253,18 +270,17 @@ class ToolRegistry {
      * The grant decides first: the tool's operation, or any of the alternatives it lists in `grantAnyOf` when the kind
      * of write depends on the arguments (files_share shares with a person under `share` and creates a public link
      * under `link`). A tool listing alternatives must check the one each call needs itself, before planning and again
-     * before writing; the registry only lets the call in.
+     * before writing; the registry only lets the call in. With no alternative granted and one unknown, the answer is
+     * unknown (PolicyUnavailable, 503), never a denial.
      *
      * @param array{module:string, operation:string, grantAnyOf?:list<string>, app?:string} $definition
      */
     private function allowed(array $definition, string $userId): bool {
-        $granted = false;
-        foreach ($definition['grantAnyOf'] ?? [$definition['operation']] as $operation) {
-            try {
-                $granted = $granted || $this->policy->granted($userId, $definition['module'], $operation);
-            } catch (InvalidArgumentException) {
-                return false;
-            }
+        try {
+            // Three-valued "any of": a known Allow wins over an unknown alternative, whatever their order.
+            $granted = $this->policy->grantedAny($userId, $definition['module'], $definition['grantAnyOf'] ?? [$definition['operation']]);
+        } catch (InvalidArgumentException) {
+            return false;
         }
         if (!$granted) {
             return false;

@@ -13,6 +13,7 @@ use OCA\Mcp\Tools\RendersPlans;
 use OCA\Mcp\Tools\ToolFailure;
 use OCA\Mcp\Tools\ToolModule;
 use Psr\Log\LoggerInterface;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use Throwable;
 
 /**
@@ -294,6 +295,10 @@ class TalkModule implements ToolModule, PreviewsWrites, RendersPlans {
             };
         } catch (InvalidArgumentException $e) {
             throw $e;
+        } catch (PolicyUnavailable $e) {
+            // A policy that cannot be read now (the Files scope of an attachment) is the endpoint's 503, never a
+            // Talk failure whose message could differ between an existing and a missing file.
+            throw $e;
         } catch (Throwable $e) {
             // The plan says what the confirmed call would say: a missing conversation or file is reported as
             // such, not as the registry's generic failure.
@@ -370,6 +375,8 @@ class TalkModule implements ToolModule, PreviewsWrites, RendersPlans {
         } catch (InvalidArgumentException $e) {
             // The registry turns this into -32602, and it is a client mistake, not an error worth logging.
             throw $e;
+        } catch (PolicyUnavailable $e) {
+            throw $e; // the endpoint's 503, as in preview()
         } catch (Throwable $e) {
             $this->logger->error('Talk tool failed', [
                 'app' => 'mcp',

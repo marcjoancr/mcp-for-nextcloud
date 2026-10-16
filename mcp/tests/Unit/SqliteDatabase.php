@@ -15,7 +15,9 @@ use Doctrine\DBAL\Schema\Schema;
 use OCP\DB\IResult;
 use OCP\DB\ISchemaWrapper;
 use OCP\DB\QueryBuilder\IExpressionBuilder;
+use OCP\DB\QueryBuilder\IParameter;
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\DB\QueryBuilder\IQueryFunction;
 use OCP\IDBConnection;
 use OCP\Migration\IMigrationStep;
 use OCP\Migration\IOutput;
@@ -31,6 +33,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class SqliteDatabase {
     public readonly Connection $dbal;
+    /** SELECT statements executed through the public app mapper surface (excludes schema setup). */
+    public int $queryCount = 0;
     /** One-shot interleaving hook, invoked just before a database write. */
     public $beforeStatement = null;
 
@@ -58,6 +62,10 @@ final class SqliteDatabase {
     public function connection(): IDBConnection {
         $db = $this->mock(IDBConnection::class);
         $db->method('getQueryBuilder')->willReturnCallback(fn (): IQueryBuilder => $this->builder());
+        $db->method('beginTransaction')->willReturnCallback(fn () => $this->dbal->beginTransaction());
+        $db->method('commit')->willReturnCallback(fn () => $this->dbal->commit());
+        $db->method('rollBack')->willReturnCallback(fn () => $this->dbal->rollBack());
+        $db->method('inTransaction')->willReturnCallback(fn (): bool => $this->dbal->isTransactionActive());
         $db->method('lastInsertId')->willReturnCallback(fn (): int => (int)$this->dbal->lastInsertId());
         return $db;
     }
@@ -76,16 +84,36 @@ final class SqliteDatabase {
         $qb = $this->mock(IQueryBuilder::class);
         $chain = static function (string $method) use ($qb, $inner): void {
             $qb->method($method)->willReturnCallback(function (...$args) use ($qb, $inner, $method): IQueryBuilder {
-                $args = array_map(static fn ($arg) => $arg instanceof \OCP\DB\QueryBuilder\IQueryFunction ? (string)$arg : $arg, $args);
+                $args = array_map(self::sqlArgument(...), $args);
                 $inner->{$method}(...$args);
                 return $qb;
             });
         };
-        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'orderBy'] as $method) {
+        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'orderBy', 'addOrderBy', 'leftJoin', 'groupBy'] as $method) {
             $chain($method);
         }
-        $qb->method('createNamedParameter')->willReturnCallback(
-            fn ($value, $type = IQueryBuilder::PARAM_STR): string => $inner->createNamedParameter($value, $type));
+        $qb->method('selectDistinct')->willReturnCallback(function ($columns) use ($qb, $inner): IQueryBuilder {
+            $inner->select(...(array)$columns)->distinct();
+            return $qb;
+        });
+        $qb->method('selectAlias')->willReturnCallback(function ($select, string $alias) use ($qb, $inner): IQueryBuilder {
+            $inner->addSelect(self::sqlArgument($select) . ' AS ' . $alias);
+            return $qb;
+        });
+        $qb->method('func')->willReturnCallback(function () {
+            $functions = $this->mock(\OCP\DB\QueryBuilder\IFunctionBuilder::class);
+            $functions->method('count')->willReturnCallback(function ($count = '', $alias = '') {
+                $function = $this->mock(\OCP\DB\QueryBuilder\IQueryFunction::class);
+                $function->method('__toString')->willReturn('COUNT(' . ($count === '' ? '*' : (string)self::sqlArgument($count)) . ')' . ($alias === '' ? '' : ' AS ' . $alias));
+                return $function;
+            });
+            return $functions;
+        });
+        $qb->method('createNamedParameter')->willReturnCallback(function ($value, $type = IQueryBuilder::PARAM_STR, $placeHolder = null) use ($inner): IParameter {
+            $parameter = $this->mock(IParameter::class);
+            $parameter->method('__toString')->willReturn($inner->createNamedParameter($value, $type, $placeHolder));
+            return $parameter;
+        });
         $qb->method('createFunction')->willReturnCallback(function (string $expression) {
             $function = $this->mock(\OCP\DB\QueryBuilder\IQueryFunction::class);
             $function->method('__toString')->willReturn($expression);
@@ -109,18 +137,41 @@ final class SqliteDatabase {
                 };
             }
         });
-        $qb->method('executeQuery')->willReturnCallback(fn (): IResult => $this->result($inner));
+        $qb->method('executeQuery')->willReturnCallback(function () use ($inner): IResult {
+            ++$this->queryCount;
+            return $this->result($inner);
+        });
         return $qb;
     }
 
     private function expressions(QueryBuilder $inner): IExpressionBuilder {
         $expr = $this->mock(IExpressionBuilder::class);
         foreach (['eq', 'neq', 'lt', 'lte', 'gt', 'gte'] as $method) {
-            $expr->method($method)->willReturnCallback(fn (string $x, $y): string => $inner->expr()->{$method}($x, (string)$y));
+            $expr->method($method)->willReturnCallback(fn ($x, $y): string => $inner->expr()->{$method}(
+                (string)self::sqlArgument($x), (string)self::sqlArgument($y)));
         }
+        $expr->method('andX')->willReturnCallback(fn (...$parts) => new class ((string)$inner->expr()->and(
+            ...array_map(static fn ($part): string => (string)self::sqlArgument($part), $parts))) implements \OCP\DB\QueryBuilder\ICompositeExpression {
+            public function __construct(private string $sql) {}
+            public function addMultiple(array $parts = []): \OCP\DB\QueryBuilder\ICompositeExpression { throw new \LogicException('Not modeled'); }
+            public function add($part): \OCP\DB\QueryBuilder\ICompositeExpression { throw new \LogicException('Not modeled'); }
+            public function count(): int { return 1; }
+            public function getType(): string { return 'AND'; }
+            public function __toString(): string { return $this->sql; }
+        });
         $expr->method('isNull')->willReturnCallback(fn (string $x): string => $inner->expr()->isNull($x));
         $expr->method('isNotNull')->willReturnCallback(fn (string $x): string => $inner->expr()->isNotNull($x));
+        $expr->method('in')->willReturnCallback(fn ($x, $values): string => $inner->expr()->in(
+            (string)self::sqlArgument($x), self::sqlArgument($values)));
         return $expr;
+    }
+
+    /** Only the Doctrine boundary unwraps OCP SQL objects, including parameter lists in IN expressions. */
+    private static function sqlArgument(mixed $value): mixed {
+        if ($value instanceof IParameter || $value instanceof IQueryFunction || $value instanceof \OCP\DB\QueryBuilder\ICompositeExpression) {
+            return (string)$value;
+        }
+        return is_array($value) ? array_map(self::sqlArgument(...), $value) : $value;
     }
 
     private function result(QueryBuilder $inner): IResult {

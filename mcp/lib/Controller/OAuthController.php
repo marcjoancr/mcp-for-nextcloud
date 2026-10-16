@@ -9,12 +9,14 @@ namespace OCA\Mcp\Controller;
 
 use OCA\Mcp\OAuth\AuthorizationRequest;
 use OCA\Mcp\OAuth\AuthorizationValidator;
+use OCA\Mcp\OAuth\CustomClient;
 use OCA\Mcp\OAuth\NativeClient;
 use OCA\Mcp\OAuth\OAuthException;
 use OCA\Mcp\OAuth\RedirectUriMatcher;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\OAuth\TokenService;
 use OCA\Mcp\Service\GrantPolicy;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -67,7 +69,13 @@ class OAuthController extends Controller {
         }
         $user = $this->userSession->getUser();
         $uid = $user->getUID();
-        if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
+        try {
+            // Eligibility includes the groups that may grant it; an unknown answer is not a refusal (contracts §3.3.5).
+            $allowed = $this->policy->globalEnabled() && $this->policy->eligible($uid);
+        } catch (PolicyUnavailable) {
+            return $this->page(['unavailable' => true]);
+        }
+        if (!$allowed) {
             return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
         }
         $pendingId = bin2hex(random_bytes(16));
@@ -77,6 +85,7 @@ class OAuthController extends Controller {
             'client' => $authRequest->client->name,
             'clientHost' => $authRequest->client->host(),
             'nativeClient' => $authRequest->client->clientId === NativeClient::CLIENT_ID,
+            'customClient' => CustomClient::owns($authRequest->client->clientId),
             'redirectHost' => (string)parse_url($authRequest->redirectUri, PHP_URL_HOST),
             'loopback' => RedirectUriMatcher::isLoopback($authRequest->redirectUri),
             'account' => $user->getDisplayName(),
@@ -103,18 +112,40 @@ class OAuthController extends Controller {
             return $this->page(['error' => 'The authorization request expired. Start the connection again.']);
         }
         $authRequest = AuthorizationRequest::fromArray($stored[$pending]);
+        try {
+            // Before any answer, deny included: a pending page older than a withdrawal never returns to its redirect URI.
+            $this->validator->revalidate($authRequest);
+        } catch (OAuthException) {
+            return $this->page(['error' => 'The authorization request expired. Start the connection again.']);
+        }
         $uid = $this->userSession->getUser()->getUID();
         if ($decision !== 'allow') {
             return new RedirectResponse($authRequest->redirectWith(['error' => 'access_denied'], $this->urls->issuer()));
         }
-        if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
+        try {
+            if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
+                return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
+            }
+            // Connection and code in one command: a failure leaves the user neither connected nor with a code.
+            $code = $this->tokens->consent($authRequest, $uid);
+        } catch (OAuthException) {
+            // The client was withdrawn after the check above (decided under the mutex): nothing was written.
+            return $this->page(['error' => 'The authorization request expired. Start the connection again.']);
+        } catch (PolicyUnavailable) {
+            // Nothing was issued: the client may try again (RFC 6749 §4.1.2.1), the state is never assumed.
+            return new RedirectResponse($authRequest->redirectWith(['error' => 'temporarily_unavailable'], $this->urls->issuer()));
+        }
+        if ($code === null) {
+            // The service or the eligibility changed since the check above.
             return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
         }
-        $this->policy->setConnected($uid, true);
-        return new RedirectResponse($authRequest->redirectWith(['code' => $this->tokens->createCode($authRequest, $uid)], $this->urls->issuer()));
+        return new RedirectResponse($authRequest->redirectWith(['code' => $code], $this->urls->issuer()));
     }
 
-    /** @return JSONResponse token response (no-store) or an RFC 6749 error; failed grants are throttled */
+    /**
+     * @return JSONResponse token response (no-store), an RFC 6749 error (failed grants are throttled), or 503
+     *     temporarily_unavailable with Retry-After when the credential state cannot be read or keeps changing
+     */
     #[PublicPage]
     #[NoCSRFRequired]
     #[BruteForceProtection(action: 'mcp_oauth_token')]
@@ -132,7 +163,13 @@ class OAuthController extends Controller {
             if ($e->error === 'invalid_grant') {
                 $response->throttle(['action' => 'mcp_oauth_token']);
             }
+        } catch (PolicyUnavailable) {
+            // Storage failed or kept changing: nothing was consumed or issued, so the client may simply retry.
+            $response = new JSONResponse(['error' => 'temporarily_unavailable',
+                'error_description' => 'The authorization server is temporarily unavailable'], 503);
+            $response->addHeader('Retry-After', '1');
         }
+        $this->tokens->housekeeping();
         $response->addHeader('Cache-Control', 'no-store');
         $response->addHeader('Pragma', 'no-cache');
         return $response;
@@ -141,7 +178,7 @@ class OAuthController extends Controller {
     /** @param array<string,mixed> $params */
     private function page(array $params): TemplateResponse {
         return new TemplateResponse($this->appName, 'consent', $params + [
-            'error' => null, 'blocked' => false, 'pending' => null,
+            'error' => null, 'blocked' => false, 'unavailable' => false, 'pending' => null,
         ], TemplateResponse::RENDER_AS_GUEST);
     }
 

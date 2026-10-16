@@ -58,13 +58,27 @@ final class ApplicationRegistrationTest extends TestCase {
     public function testUserRevocationListenersAreRegisteredWithOcpEvents(): void {
         $events = [];
         $context = $this->createMock(IRegistrationContext::class);
-        $context->method('registerEventListener')->willReturnCallback(function ($event, $listener) use (&$events): void {
-            $events[$event] = $listener;
+        $context->method('registerEventListener')->willReturnCallback(function ($event, $listener, $priority = 0) use (&$events): void {
+            $events[$event][] = [$listener, $priority];
+        });
+        $middlewares = [];
+        $context->method('registerMiddleware')->willReturnCallback(function ($class, $global = false) use (&$middlewares): void {
+            $middlewares[] = [$class, $global];
         });
         (new \ReflectionClass(Application::class))->newInstanceWithoutConstructor()->register($context);
-        foreach ([\OCP\User\Events\UserChangedEvent::class, \OCP\User\Events\UserDeletedEvent::class] as $event) {
-            $this->assertSame(\OCA\Mcp\OAuth\UserRevocationListener::class, $events[$event]);
+        $this->assertSame([[\OCA\Mcp\OAuth\UserRevocationListener::class, 0]], $events[\OCP\User\Events\UserChangedEvent::class]);
+        // Account deletion and group removal go through recheck causes, at the default priority (never reordered).
+        foreach ([\OCP\User\Events\BeforeUserDeletedEvent::class, \OCP\User\Events\UserDeletedEvent::class,
+            \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class] as $event) {
+            $this->assertSame([[\OCA\Mcp\Listener\UserCauseListener::class, 0]], $events[$event], $event);
         }
+        // The GID lifecycle observes deletion and creation of groups, at the default priority.
+        foreach ([\OCP\Group\Events\BeforeGroupDeletedEvent::class, \OCP\Group\Events\GroupDeletedEvent::class,
+            \OCP\Group\Events\BeforeGroupCreatedEvent::class, \OCP\Group\Events\GroupCreatedEvent::class] as $event) {
+            $this->assertSame([[\OCA\Mcp\Listener\GroupLifecycleListener::class, 0]], $events[$event], $event);
+        }
+        // The opportunistic flush of deferred facts runs at the entry of the app's own routes only.
+        $this->assertSame([[\OCA\Mcp\Middleware\DeferredFlushMiddleware::class, false]], $middlewares);
     }
 
     public function testTheDeckGatewayFactoryBuildsTheGatewayWithItsClockAndTimezone(): void {
@@ -259,5 +273,11 @@ final class ApplicationRegistrationTest extends TestCase {
         $guide = (new \ReflectionProperty(\OCA\Mcp\Service\ResourceRegistry::class, 'guide'))
             ->getValue($container->get(\OCA\Mcp\Service\ResourceRegistry::class));
         $this->assertSame($tools->guide(), $guide);
+
+        // B5: nc://files and the structured references answer to the Files scope; a missing wiring would read as
+        // "unrestricted" for the resources, which no unit test of the registry itself can see.
+        $this->assertInstanceOf(\OCA\Mcp\Service\Scope\FilesAccessGuard::class, (new \ReflectionProperty(\OCA\Mcp\Service\ResourceRegistry::class, 'filesGuard'))
+            ->getValue($container->get(\OCA\Mcp\Service\ResourceRegistry::class)));
+        $this->assertInstanceOf(\OCA\Mcp\Service\Scope\FilesReferenceScope::class, $container->get(\OCA\Mcp\Tools\Common\FileReferenceScope::class));
     }
 }

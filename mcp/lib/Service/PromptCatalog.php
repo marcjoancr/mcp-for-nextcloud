@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Service;
 
+use OCA\Mcp\Service\Policy\GrantUnknown;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCA\Mcp\L10n\Translator;
 
 /**
@@ -35,8 +37,16 @@ final class PromptCatalog {
      *   the prompts the caller may use now
      */
     public function list(GrantPolicy $policy, string $userId): array {
+        // A prompt whose grant is unknown (GrantUnknown) is left out, alone; asking for it directly is a 503 (get()).
+        $granted = static function (string $operation) use ($policy, $userId): bool {
+            try {
+                return $policy->granted($userId, self::MODULE, $operation);
+            } catch (GrantUnknown) {
+                return false;
+            }
+        };
         $prompts = [];
-        if ($policy->granted($userId, self::MODULE, self::OPERATION)) {
+        if ($granted(self::OPERATION)) {
             $prompts[] = [
                 'name' => self::EDIT_LOCALLY,
                 'title' => Translator::t('Edit a Nextcloud file locally'),
@@ -44,7 +54,7 @@ final class PromptCatalog {
                 'arguments' => [],
             ];
         }
-        if ($policy->granted($userId, self::MODULE, self::OPERATION_CREATE)) {
+        if ($granted(self::OPERATION_CREATE)) {
             $prompts[] = [
                 'name' => self::CREATE_FILE,
                 'title' => Translator::t('Create a new Nextcloud file'),
@@ -61,12 +71,19 @@ final class PromptCatalog {
      * @param string $userId authenticated user
      * @return array{description:string, messages:list<array{role:string, content:array{type:string, text:string}}>}|null
      *   the rendered prompt, or null when the name is unknown or not granted
+     * @throws PolicyUnavailable when the policy cannot be read or a grant it needs is unknown (503)
      */
     public function get(string $name, GrantPolicy $policy, string $userId): ?array {
-        if (!in_array($name, array_column($this->list($policy, $userId), 'name'), true)) {
+        // Only the grants this prompt needs, read without omission: an unknown one surfaces as a 503.
+        $operation = match ($name) {
+            self::EDIT_LOCALLY => self::OPERATION,
+            self::CREATE_FILE => self::OPERATION_CREATE,
+            default => null,
+        };
+        if ($operation === null || !$policy->granted($userId, self::MODULE, $operation)) {
             return null;
         }
-        $create = $policy->granted($userId, self::MODULE, self::OPERATION_CREATE);
+        $create = $name === self::EDIT_LOCALLY && $policy->granted($userId, self::MODULE, self::OPERATION_CREATE);
         return $name === self::EDIT_LOCALLY
             ? self::prompt(Translator::t('Local editing workflow for a Nextcloud file.'), self::editText($create))
             : self::prompt(Translator::t('Workflow for creating a new Nextcloud file.'), self::createText());

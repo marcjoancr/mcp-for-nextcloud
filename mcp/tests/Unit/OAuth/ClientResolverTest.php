@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 
 final class ClientResolverTest extends TestCase {
     private InMemoryConfig $config;
+    private ClientsTable $clients;
 
     private function resolver(bool $fetcherMayBeCalled = false): ClientResolver {
         $this->config = new InMemoryConfig();
@@ -26,12 +27,13 @@ final class ClientResolverTest extends TestCase {
         } else {
             $fetcher->expects($this->never())->method('fetch');
         }
-        return new ClientResolver($fetcher, $this->config->mock($this));
+        $this->clients = new ClientsTable($this);
+        return new ClientResolver($fetcher, $this->clients->mapper);
     }
 
     public function testEnabledNativeClientResolvesWithoutTheFetcher(): void {
         $resolver = $this->resolver();
-        $this->config->app['mcp'][NativeClient::CONFIG_KEY] = '1';
+        $this->clients->native(true);
         $client = $resolver->resolve(NativeClient::CLIENT_ID);
         $this->assertSame(NativeClient::CLIENT_ID, $client->clientId);
         $this->assertSame(NativeClient::NAME, $client->host());
@@ -48,7 +50,7 @@ final class ClientResolverTest extends TestCase {
         $resolver = $this->resolver();
         foreach ([null, '0'] as $value) {
             if ($value !== null) {
-                $this->config->app['mcp'][NativeClient::CONFIG_KEY] = $value;
+                $this->clients->native($value === '1');
             }
             try {
                 $resolver->resolve(NativeClient::CLIENT_ID);

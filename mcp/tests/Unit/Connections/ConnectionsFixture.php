@@ -26,9 +26,14 @@ final class ConnectionsFixture {
     public int $now = 1_000_000;
     /** @var array<string, string> display names by uid */
     public array $names = ['alice' => 'Alice Lima', 'bob' => 'Bob'];
+    public InMemoryConfig $config;
+    /** The administrator's OAuth clients, whose names the lists show. */
+    public \OCA\Mcp\Tests\Unit\OAuth\ClientsTable $clients;
 
     public function __construct(private TestCase $test) {
         $this->store = new InMemoryOAuthStore();
+        $this->config = new InMemoryConfig();
+        $this->clients = new \OCA\Mcp\Tests\Unit\OAuth\ClientsTable($test);
     }
 
     /** Adds a live grant (or an expired one with $expired) and returns its id. */
@@ -56,12 +61,16 @@ final class ConnectionsFixture {
             $user->method('getDisplayName')->willReturn($this->names[$uid]);
             return $user;
         });
-        $config = (new InMemoryConfig())->mock($this->test);
+        $config = $this->config->mock($this->test);
         $system = $this->mock(IConfig::class);
         $system->method('getSystemValueString')->willReturn('instance-secret');
-        $tokens = new TokenService($this->store, new TokenHasher($system), $time,
-            new TokenOwnerGate($users, \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($config, $this->store), $this->store), $config);
-        return new ConnectionList($this->store, $tokens, $users, $time);
+$writer = InMemoryConfig::writer($config, $this->store);
+        $gate = new TokenOwnerGate($users, InMemoryConfig::policy($config, $this->store), $writer,
+            $this->mock(\OCP\Config\IUserConfig::class), $this->mock(\OCP\IAppConfig::class), new \Psr\Log\NullLogger(),
+            $this->mock(\OCA\Mcp\Service\Policy\CauseProcessor::class));
+        $tokens = new TokenService($this->store, new TokenHasher($system), $time, $gate, $writer,
+            InMemoryConfig::authUsers($config), InMemoryConfig::processor($config), $this->clients->mapper);
+        return new ConnectionList($this->store, $tokens, $users, $time, $this->clients->mapper);
     }
 
     private function mock(string $class): object {

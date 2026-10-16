@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tools\Files;
 
 use OCA\Mcp\Tools\Common\NodeAccess;
+use OCA\Mcp\Tools\Common\CommonMessages;
 use OCA\Mcp\Tools\Common\NodeAccessInfo;
 use OCA\Mcp\Tools\Common\PathGuard;
 use OCA\Mcp\Tools\ToolFailure;
@@ -76,7 +77,7 @@ final class ImageTools {
         private LoggerInterface $logger,
         private ContainerInterface $container,
         private IDBConnection $db,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private ?\OCA\Mcp\Service\Scope\FilesAccessGuard $visibilityGuard = null,
     ) {}
 
     /**
@@ -176,7 +177,7 @@ final class ImageTools {
         $tag = isset($args['tag']) && trim((string)$args['tag']) !== '' ? trim((string)$args['tag']) : null;
 
         // A hidden folder answers like a missing one: an empty list would tell that it is there.
-        $scope = NodeAccess::get($root, $folder, $this->visibilityGuard);
+        $scope = NodeAccess::getBase($root, $folder, $this->visibilityGuard);
         if (!$scope instanceof Folder) {
             throw new ToolFailure(FilesMessages::notAFolder());
         }
@@ -358,7 +359,7 @@ final class ImageTools {
      */
     private function selectFromFolder(Folder $root, string $userId, string $folder, int $limit): array {
         $normalized = PathGuard::normalize($folder, 'folder');
-        $scope = NodeAccess::get($root, $normalized, $this->visibilityGuard);
+        $scope = NodeAccess::getBase($root, $normalized, $this->visibilityGuard);
         if (!$scope instanceof Folder) {
             throw new ToolFailure(FilesMessages::notAFolder());
         }
@@ -398,7 +399,7 @@ final class ImageTools {
                 }
                 $out[] = [$path, $node, null];
             } catch (NotFoundException) {
-                $out[] = [$path, null, 'not found'];
+                $out[] = [$path, null, CommonMessages::notFound()];
             } catch (ToolFailure $e) {
                 $out[] = [$path, null, $e->getMessage()];
             }

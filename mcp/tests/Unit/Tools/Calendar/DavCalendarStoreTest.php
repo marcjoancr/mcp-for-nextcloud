@@ -30,7 +30,9 @@ final class DavCalendarStoreTest extends TestCase {
         $expr->method('eq')->willReturnCallback(static fn ($a, $b): string => "$a=$b");
         $expr->method('isNull')->willReturnCallback(static fn ($a): string => "$a IS NULL");
         $result = $this->createMock(\OCP\DB\IResult::class);
-        $result->method('fetchAssociative')->willReturn($fetched);
+        $result->method('fetch')->willReturn($fetched);
+        // Nextcloud 32 has no IResult::fetchAssociative() (OCP 33): calling it is an Error there.
+        $result->expects($this->never())->method('fetchAssociative');
         $result->expects($this->once())->method('closeCursor');
         $qb = $this->createMock(IQueryBuilder::class);
         $qb->method('expr')->willReturn($expr);
@@ -47,7 +49,7 @@ final class DavCalendarStoreTest extends TestCase {
         return ['store' => new DavCalendarStore($container), 'qb' => $qb, 'backend' => $backend];
     }
 
-    public function testObjectByUidQueriesOnlyLiveObjectsOfThatCalendarAndBypassesTheBackendCache(): void {
+    public function testObjectByUidQueriesOnlyLiveObjectsOfThatCalendarAndComponentAndBypassesTheBackendCache(): void {
         $wheres = [];
         $built = $this->storeWithRowQuery(['id' => '11', 'uri' => 'ev.ics', 'etag' => 'e', 'calendardata' => 'ICS', 'deleted_at' => null]);
         $built['backend']->expects($this->never())->method('getCalendarObject');
@@ -61,9 +63,10 @@ final class DavCalendarStoreTest extends TestCase {
         });
         self::assertSame(
             ['id' => 11, 'uri' => 'ev.ics', 'etag' => '"e"', 'data' => 'ICS', 'deleted' => false],
-            $built['store']->objectByUid(7, 'uid-1'),
+            $built['store']->objectByUid(7, 'uid-1', 'VEVENT'),
         );
-        self::assertSame(['calendarid=:7', 'uid=:uid-1', 'calendartype=:0', 'deleted_at IS NULL'], $wheres);
+        // componenttype keeps a task of a calendar that holds both components out of the event tools, and the reverse.
+        self::assertSame(['calendarid=:7', 'uid=:uid-1', 'calendartype=:0', 'deleted_at IS NULL', 'componenttype=:VEVENT'], $wheres);
     }
 
     public function testObjectReadsTheCurrentRowFromTheDatabaseNotTheBackendCache(): void {
@@ -88,7 +91,7 @@ final class DavCalendarStoreTest extends TestCase {
     }
 
     public function testObjectAndObjectByUidReturnNullWhenNoRowMatches(): void {
-        self::assertNull($this->storeWithRowQuery(false)['store']->objectByUid(7, 'missing'));
+        self::assertNull($this->storeWithRowQuery(false)['store']->objectByUid(7, 'missing', 'VTODO'));
         self::assertNull($this->storeWithRowQuery(false)['store']->object(7, 'missing.ics'));
     }
 

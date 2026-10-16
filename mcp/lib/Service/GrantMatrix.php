@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Service;
 
 use InvalidArgumentException;
+use OCA\Mcp\Db\ResourceScopeMapper;
 use OCA\Mcp\Service\Compat\AppEnablement;
 use OCP\App\IAppManager;
 use OCP\IGroupManager;
@@ -44,6 +45,7 @@ class GrantMatrix {
         private IGroupManager $groupManager,
         private IAppManager $appManager,
         private LogsAccess $logs,
+        private ResourceScopeMapper $scopes,
     ) {}
 
     /**
@@ -88,20 +90,54 @@ class GrantMatrix {
      */
     public function rows(array $users): array {
         $state = $this->policy->forUsers(array_map(static fn (IUser $user) => $user->getUID(), $users));
-        return array_map(function (IUser $user) use ($state): array {
+        $scopes = $this->scopes($users);
+        return array_map(function (IUser $user) use ($state, $scopes): array {
             $appsEnabled = [];
             foreach (self::MODULE_APPS as $module => $app) {
                 $appsEnabled[$module] = $module === self::LOGS
                     ? $this->logs->permits($user->getUID())
                     : $app === 'files' || $app === '' || AppEnablement::forUser($this->appManager, $app, $user);
             }
-            return [
+            $row = [
                 'uid' => $user->getUID(),
                 'displayName' => $user->getDisplayName(),
                 'enabled' => $user->isEnabled(),
                 'appsEnabled' => $appsEnabled,
             ] + $state[$user->getUID()];
+            $row['scope'] = $scopes[$user->getUID()];
+            return $row;
         }, $users);
+    }
+
+    /**
+     * The resource scope of each user and module of ResourceScopeMapper::MODULES, for the matrix cell: the mode and,
+     * when restricted, how many resources it keeps. No id and no name (contracts B.6). A scope that cannot be read is
+     * "unavailable" in every cell of the page, so the grants stay editable and the cell says "Scope unknown": it is
+     * never shown as unrestricted by default, nor left blank.
+     *
+     * @param list<IUser> $users users of the page
+     * @return array<string, array<string, array{mode:string, count:?int}>> by uid and module; mode is unrestricted,
+     *     restricted or unavailable
+     */
+    private function scopes(array $users): array {
+        $uids = array_map(static fn (IUser $user) => $user->getUID(), $users);
+        try {
+            $counts = $this->scopes->counts($uids);
+        } catch (\Throwable) {
+            $counts = null;
+        }
+        $scopes = [];
+        foreach ($uids as $uid) {
+            foreach (ResourceScopeMapper::MODULES as $module) {
+                $count = $counts === null ? null : ($counts[$uid][$module] ?? null);
+                $scopes[$uid][$module] = match (true) {
+                    $counts === null => ['mode' => 'unavailable', 'count' => null],
+                    $count === null => ['mode' => 'unrestricted', 'count' => null],
+                    default => ['mode' => 'restricted', 'count' => $count],
+                };
+            }
+        }
+        return $scopes;
     }
 
     /** @return array<string, bool> whether each module's app is enabled for anyone on the server, and the log is a file */

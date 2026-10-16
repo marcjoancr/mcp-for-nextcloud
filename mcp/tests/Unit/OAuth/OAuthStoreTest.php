@@ -24,20 +24,49 @@ final class OAuthStoreTest extends TestCase {
     private function grant(int $id = 1, string $uid = 'alice', string $client = 'client'): array {
         return ['id' => $id, 'user_id' => $uid, 'client_id' => $client,
             'refresh_hash' => 'old-' . $id, 'refresh_expires' => 100 + TokenService::REFRESH_TTL,
-            'access_hash' => 'access-' . $id, 'access_expires' => 3700];
+            'access_hash' => 'access-' . $id, 'access_expires' => 3700, 'auth_global_epoch' => 0, 'auth_gen' => 1];
     }
 
-    public function testProductionRotationRecordsConsumedHashAndReplayDeletesOnlyItsClientAndOwner(): void {
-        $this->db->tables['mcp_oauth_tokens'] = [$this->grant(), $this->grant(2), $this->grant(3, 'bob'), $this->grant(4, 'alice', 'other')];
-        $this->assertTrue($this->store->rotate(1, 'old-1', 'new-access', 3701, 'new-refresh', 101 + TokenService::REFRESH_TTL));
-        $this->assertFalse($this->db->inTransaction());
-        $this->assertSame('old-1', $this->db->tables['mcp_oauth_spent'][0]['refresh_hash']);
-        $this->assertFalse($this->store->rotate(1, 'old-1', 'loser-access', 3701, 'loser-refresh', 101 + TokenService::REFRESH_TTL));
-        $this->store->revokeReusedRefresh('old-1', 'wrong', 102);
-        $this->assertCount(4, $this->db->tables['mcp_oauth_tokens']);
-        $this->store->revokeReusedRefresh('old-1', 'client', 102);
+    /** Runs $work in a transaction of the fake connection, as the policy writer does around every OAuth write. */
+    private function inTransaction(\Closure $work): mixed {
+        $connection = $this->db->connection();
+        $connection->beginTransaction();
+        try {
+            $result = $work();
+            $connection->commit();
+            return $result;
+        } catch (\Throwable $e) {
+            $connection->rollBack();
+            throw $e;
+        }
+    }
+
+    private function rotate(int $id, string $old, string $access, int $accessExpires, string $refresh, int $refreshExpires): bool {
+        return $this->inTransaction(fn (): bool => $this->store->rotate($id, $old, $access, $accessExpires, $refresh, $refreshExpires));
+    }
+
+    public function testProductionRotationRecordsTheConsumedHashWithItsGenerationAndAReplayDeletesOnlyItsClientAndOwner(): void {
+        $this->db->tables['mcp_oauth_tokens'] = [['auth_gen' => 3] + $this->grant(), $this->grant(2), $this->grant(3, 'bob'), $this->grant(4, 'alice', 'other')];
+        $this->assertTrue($this->rotate(1, 'old-1', 'new-access', 3701, 'new-refresh', 101 + TokenService::REFRESH_TTL));
+        $spent = $this->store->findSpent('old-1');
+        $this->assertSame(['old-1', 'alice', 'client', 1], [$spent['refresh_hash'], $spent['user_id'], $spent['client_id'], $spent['grant_id']]);
+        $this->assertSame(['0', '3'], [(string)$spent['auth_global_epoch'], (string)$spent['auth_gen']], 'the lineage keeps its epoch and generation');
+        $this->assertSame(3, $this->store->findByRefresh('new-refresh')['auth_gen'], 'rotation never changes the generation');
+        $this->assertFalse($this->rotate(1, 'old-1', 'loser-access', 3701, 'loser-refresh', 101 + TokenService::REFRESH_TTL));
+        $this->store->deleteForOwnerAndClient('alice', 'client');
         $this->assertSame([3, 4], array_values(array_column($this->db->tables['mcp_oauth_tokens'], 'id')));
         $this->assertSame([], $this->db->tables['mcp_oauth_spent']);
+    }
+
+    /** Rotation is single use only under the writer's transaction: outside one it refuses to run at all. */
+    public function testARotationOutsideATransactionIsRefusedAndChangesNothing(): void {
+        $this->db->tables['mcp_oauth_tokens'] = [$this->grant()];
+        try {
+            $this->store->rotate(1, 'old-1', 'new-access', 3701, 'new-refresh', 101 + TokenService::REFRESH_TTL);
+            $this->fail('Rotation outside a transaction accepted');
+        } catch (\LogicException) {
+        }
+        $this->assertSame([$this->grant()], $this->db->tables['mcp_oauth_tokens']);
     }
 
     public function testHistoryWriteFailureRollsBackTheTokenReplacement(): void {
@@ -45,7 +74,7 @@ final class OAuthStoreTest extends TestCase {
         $this->db->tables['mcp_oauth_tokens'] = [$original];
         $this->db->failInsert['mcp_oauth_spent'] = 'history write failed';
         try {
-            $this->store->rotate(1, 'old-1', 'new-access', 3701, 'new-refresh', 101 + TokenService::REFRESH_TTL);
+            $this->rotate(1, 'old-1', 'new-access', 3701, 'new-refresh', 101 + TokenService::REFRESH_TTL);
             $this->fail('history failure must prevent committing rotation');
         } catch (\RuntimeException $e) {
             $this->assertSame('history write failed', $e->getMessage());
@@ -56,24 +85,28 @@ final class OAuthStoreTest extends TestCase {
 
     public function testNormalFlowPurgesExpiredHistoryAndDisconnectDeletesTheRemainingHistory(): void {
         $this->db->tables['mcp_oauth_spent'] = [
-            ['refresh_hash' => 'expired', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 99],
-            ['refresh_hash' => 'active', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 101],
+            ['refresh_hash' => 'expired', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 99, 'auth_gen' => 1],
+            ['refresh_hash' => 'active', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 101, 'auth_gen' => 1],
         ];
         $this->store->insertToken($this->grant(), 100);
         $this->assertSame(['active'], array_values(array_column($this->db->tables['mcp_oauth_spent'], 'refresh_hash')));
-        $this->store->deleteForUser('alice');
+        // The cleanup of a disconnect: everything of alice up to the cut generation.
+        $this->store->deleteUpToGeneration('alice', '1');
         $this->assertSame([], $this->db->tables['mcp_oauth_spent']);
         $this->assertSame([], $this->db->tables['mcp_oauth_tokens']);
     }
 
     public function testGrantDeletionAndServiceShutdownCleanHistoryAndPendingCodes(): void {
-        $this->db->tables['mcp_oauth_tokens'] = [$this->grant(), $this->grant(2, 'bob')];
-        $this->db->tables['mcp_oauth_spent'] = [['grant_id' => 1], ['grant_id' => 2]];
-        $this->db->tables['mcp_oauth_codes'] = [['user_id' => 'alice']];
+        $this->db->tables['mcp_oauth_tokens'] = [$this->grant(), $this->grant(2, 'bob'), ['auth_global_epoch' => 1] + $this->grant(3, 'carol')];
+        $this->db->tables['mcp_oauth_spent'] = [['grant_id' => 1, 'auth_global_epoch' => 0], ['grant_id' => 2, 'auth_global_epoch' => 0]];
+        $this->db->tables['mcp_oauth_codes'] = [['user_id' => 'alice', 'auth_global_epoch' => 0], ['user_id' => 'dave', 'auth_global_epoch' => 1]];
         $this->store->deleteToken(1);
         $this->assertSame([2], array_values(array_column($this->db->tables['mcp_oauth_spent'], 'grant_id')));
-        $this->store->deleteAll();
-        foreach ($this->db->tables as $rows) { $this->assertSame([], $rows); }
+        // Service switched off: epoch 0 -> 1. Its cleanup removes everything below 1 and nothing issued at 1.
+        $this->store->deleteBelowEpoch('1');
+        $this->assertSame([3], array_values(array_column($this->db->tables['mcp_oauth_tokens'], 'id')));
+        $this->assertSame(['dave'], array_values(array_column($this->db->tables['mcp_oauth_codes'], 'user_id')));
+        $this->assertSame([], $this->db->tables['mcp_oauth_spent']);
     }
 
     /** @return array<string, mixed> a stored grant with every column, hashes included */
@@ -196,20 +229,34 @@ final class OAuthStoreTest extends TestCase {
         $this->assertSame(['s2'], array_values(array_column($this->db->tables['mcp_oauth_spent'], 'refresh_hash')));
     }
 
-    /** A user losing eligibility must not take anybody else's connection with them. */
-    public function testDeleteForUserKeepsEveryOtherUsersRows(): void {
-        $this->db->tables['mcp_oauth_tokens'] = [$this->grant(1, 'alice'), $this->grant(2, 'bob')];
-        $this->db->tables['mcp_oauth_codes'] = [['id' => 1] + $this->code('ca', 'alice'), ['id' => 2] + $this->code('cb', 'bob')];
+    /** A cut never takes anybody else's connection, nor a credential of the same user issued after it. */
+    public function testDeleteUpToGenerationKeepsOtherUsersAndLaterGenerations(): void {
+        $this->db->tables['mcp_oauth_tokens'] = [$this->grant(1, 'alice'), $this->grant(2, 'bob'), ['auth_gen' => 3] + $this->grant(3, 'alice')];
+        $this->db->tables['mcp_oauth_codes'] = [['id' => 1, 'auth_gen' => 2] + $this->code('ca', 'alice'), ['id' => 2, 'auth_gen' => 1] + $this->code('cb', 'bob'),
+            ['id' => 3, 'auth_gen' => 3] + $this->code('cc', 'alice')];
         $this->db->tables['mcp_oauth_spent'] = [
-            ['refresh_hash' => 'sa', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 5000],
-            ['refresh_hash' => 'sb', 'user_id' => 'bob', 'client_id' => 'client', 'grant_id' => 2, 'expires_at' => 5000],
+            ['refresh_hash' => 'sa', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 5000, 'auth_gen' => 1],
+            ['refresh_hash' => 'sb', 'user_id' => 'bob', 'client_id' => 'client', 'grant_id' => 2, 'expires_at' => 5000, 'auth_gen' => 1],
         ];
 
-        $this->store->deleteForUser('alice');
+        $this->store->deleteUpToGeneration('alice', '2');
+        $this->store->deleteUpToGeneration('alice', '2');
 
-        $this->assertSame([2], array_values(array_column($this->db->tables['mcp_oauth_tokens'], 'id')));
-        $this->assertSame(['cb'], array_values(array_column($this->db->tables['mcp_oauth_codes'], 'code_hash')));
+        $this->assertSame([2, 3], array_values(array_column($this->db->tables['mcp_oauth_tokens'], 'id')));
+        $this->assertSame(['cb', 'cc'], array_values(array_column($this->db->tables['mcp_oauth_codes'], 'code_hash')));
         $this->assertSame(['sb'], array_values(array_column($this->db->tables['mcp_oauth_spent'], 'refresh_hash')));
+    }
+
+    public function testPurgeExpiredRemovesOnlyExpiredRows(): void {
+        $this->db->tables['mcp_oauth_codes'] = [['id' => 1, 'expires_at' => 99] + $this->code('old', 'alice'), ['id' => 2, 'expires_at' => 100] + $this->code('now', 'alice')];
+        $this->db->tables['mcp_oauth_tokens'] = [['refresh_expires' => 99] + $this->grant(1), ['refresh_expires' => 100] + $this->grant(2)];
+        $this->db->tables['mcp_oauth_spent'] = [['refresh_hash' => 'a', 'expires_at' => 99], ['refresh_hash' => 'b', 'expires_at' => 100]];
+
+        $this->store->purgeExpired(100);
+
+        $this->assertSame(['now'], array_values(array_column($this->db->tables['mcp_oauth_codes'], 'code_hash')));
+        $this->assertSame([2], array_values(array_column($this->db->tables['mcp_oauth_tokens'], 'id')));
+        $this->assertSame(['b'], array_values(array_column($this->db->tables['mcp_oauth_spent'], 'refresh_hash')));
     }
 
     /** Two refreshes racing for the same grant: the loser's UPDATE finds the refresh hash already changed. */
@@ -221,9 +268,8 @@ final class OAuthStoreTest extends TestCase {
             }
         };
 
-        $this->assertFalse($this->store->rotate(1, 'old-1', 'loser-access', 3701, 'loser-refresh', 5000));
+        $this->assertFalse($this->rotate(1, 'old-1', 'loser-access', 3701, 'loser-refresh', 5000));
 
-        $this->assertFalse($this->db->inTransaction(), 'the transaction was closed');
         $this->assertSame('access-1', $this->db->tables['mcp_oauth_tokens'][0]['access_hash'], 'the loser installed nothing');
         $this->assertSame([], $this->db->tables['mcp_oauth_spent']);
     }
@@ -231,33 +277,25 @@ final class OAuthStoreTest extends TestCase {
     public function testARotationOfAnotherGrantsRefreshTokenChangesNothing(): void {
         $this->db->tables['mcp_oauth_tokens'] = [$this->grant(1), $this->grant(2)];
 
-        $this->assertFalse($this->store->rotate(2, 'old-1', 'a', 1, 'r', 2), 'the id and the refresh hash must belong to the same grant');
+        $this->assertFalse($this->rotate(2, 'old-1', 'a', 1, 'r', 2), 'the id and the refresh hash must belong to the same grant');
 
         $this->assertSame(['access-1', 'access-2'], array_column($this->db->tables['mcp_oauth_tokens'], 'access_hash'));
         $this->assertSame([], $this->db->tables['mcp_oauth_spent']);
     }
 
-    /** A replay of a spent token only counts while its history is alive. */
-    public function testAReplayAfterTheHistoryExpiredRevokesNothing(): void {
-        $this->db->tables['mcp_oauth_tokens'] = [$this->grant(1)];
-        $this->db->tables['mcp_oauth_spent'] = [
-            ['refresh_hash' => 'spent', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 99],
-        ];
-
-        $this->store->revokeReusedRefresh('spent', 'client', 100);
-
-        $this->assertCount(1, $this->db->tables['mcp_oauth_tokens']);
-    }
-
-    public function testAReplayOfALiveSpentTokenRevokesOnlyThatUsersGrantsOfThatClient(): void {
+    /** The replay checks (expiry, client, generation) are the token service's; the store only finds and deletes. */
+    public function testASpentTokenIsFoundByItsHashAndTheReplayDeletionTakesOnlyThatUsersGrantsOfThatClient(): void {
         $this->db->tables['mcp_oauth_tokens'] = [$this->grant(1, 'alice'), $this->grant(2, 'bob'), $this->grant(3, 'alice', 'other')];
         $this->db->tables['mcp_oauth_spent'] = [
             ['refresh_hash' => 'spent', 'user_id' => 'alice', 'client_id' => 'client', 'grant_id' => 1, 'expires_at' => 100],
         ];
 
-        $this->store->revokeReusedRefresh('spent', 'client', 100);
+        $this->assertSame('alice', $this->store->findSpent('spent')['user_id']);
+        $this->assertNull($this->store->findSpent('other'));
+        $this->store->deleteForOwnerAndClient('alice', 'client');
 
         $this->assertSame([2, 3], array_values(array_column($this->db->tables['mcp_oauth_tokens'], 'id')));
+        $this->assertSame([], $this->db->tables['mcp_oauth_spent']);
     }
 
     public function testAGrantExpiringExactlyNowIsStillListedAndCounted(): void {

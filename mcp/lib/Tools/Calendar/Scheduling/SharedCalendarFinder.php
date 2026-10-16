@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tools\Calendar\Scheduling;
 
 use OCA\Mcp\Tools\Calendar\Calendar;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -24,13 +24,13 @@ final class SharedCalendarFinder {
     private const GROUP_PREFIX = 'principals/groups/';
 
     /**
-     * @param CalendarAccess $access calendar visibility resolver
+     * @param ScopedCalendarAccess $access the calendars the tools may reach: native visibility and ACL, narrowed by the resource scope
      * @param CalendarStore $store calendar storage port, for the shares
      * @param IUserManager $userManager user lookup
      * @param IGroupManager $groupManager group membership lookup
      */
     public function __construct(
-        private CalendarAccess $access,
+        private ScopedCalendarAccess $access,
         private CalendarStore $store,
         private IUserManager $userManager,
         private IGroupManager $groupManager,

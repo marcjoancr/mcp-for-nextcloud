@@ -11,7 +11,7 @@ use InvalidArgumentException;
 use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Service\UserTimezone;
 use OCA\Mcp\Tools\Calendar\Calendar;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarDav;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\SharedGuard;
@@ -19,6 +19,7 @@ use OCA\Mcp\Tools\Calendar\ToolSchema;
 use OCA\Mcp\Tools\Calendar\TrashedObject;
 use OCA\Mcp\Tools\Calendar\TrashPolicy;
 use OCA\Mcp\Tools\Common\CommonMessages;
+use OCA\Mcp\Tools\Common\OutputReferenceFilter;
 use OCA\Mcp\Tools\Dav\CollectionSchema as Schema;
 use OCA\Mcp\Tools\PreviewsWrites;
 use OCA\Mcp\Tools\RendersPlans;
@@ -36,7 +37,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
     /**
      * Receives VTODO queries, calendar access, native CalDAV writes and retention policy.
      *
-     * @param CalendarAccess $access collection visibility and write-access resolver
+     * @param ScopedCalendarAccess $access the calendars the tools may reach: native visibility and ACL, narrowed by the resource scope
      * @param CalendarStore $store read-only storage port
      * @param TaskStore $tasks live VTODO query port
      * @param CalendarDav $dav native DAV write port
@@ -44,11 +45,12 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @param SharedGuard $guard shared-owner confirmation policy
      * @param TrashPolicy $trash calendar retention policy
      * @param ITimeFactory $time clock for timestamps
+     * @param OutputReferenceFilter $references output rule for ATTACH references to Files nodes
      * @param UserTimezone|null $zones timezone of the account, so a plan shows the dates the user reads
      * @return void
      */
     public function __construct(
-        private CalendarAccess $access,
+        private ScopedCalendarAccess $access,
         private CalendarStore $store,
         private TaskStore $tasks,
         private CalendarDav $dav,
@@ -56,6 +58,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
         private SharedGuard $guard,
         private TrashPolicy $trash,
         private ITimeFactory $time,
+        private OutputReferenceFilter $references,
         private ?UserTimezone $zones = null,
     ) {}
 
@@ -202,6 +205,9 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @throws InvalidArgumentException when the tool or supplied fields are invalid
      */
     public function preview(string $name, array $arguments, string $userId): array {
+        // Task output can carry ATTACH references to Files nodes: an unreadable Files scope is the same 503 before
+        // any task is looked up, whether it exists or not.
+        $this->references->assertAvailable($userId);
         return $this->prepare($name, $arguments, $userId)['plan'];
     }
 
@@ -231,6 +237,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @throws RuntimeException when the native write or its read-back verification fails
      */
     public function call(string $name, array $arguments, string $userId): array {
+        $this->references->assertAvailable($userId);
         if ($name === 'tasks_list_calendars') {
             return ToolResult::json(
                 array_map(static fn ($calendar) => (array) $calendar, $this->access->visible($userId, 'VTODO'))
@@ -242,7 +249,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
                 $row = $this->row($calendar->id, $arguments['uid']);
                 $parsed = $this->readable($row, $calendar->ownedByOther($userId));
                 return ToolResult::json(
-                    $this->data->item($parsed) + ['etag' => $row['etag'], 'calendar' => $calendar->path]
+                    $this->output($userId, $parsed) + ['etag' => $row['etag'], 'calendar' => $calendar->path]
                 );
             }
             $items = [];
@@ -325,7 +332,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
         }
         $written = $this->store->object($calendar->id, $uri) ?? throw new RuntimeException('Task read back failed');
         return ToolResult::json(
-            $this->data->item($this->data->parse($written['data'])) + ['etag' => $written['etag'], 'calendar' => $calendar->path]
+            $this->output($userId, $this->data->parse($written['data'])) + ['etag' => $written['etag'], 'calendar' => $calendar->path]
         );
     }
 
@@ -373,7 +380,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
         } else {
             $row = $this->row($calendar->id, $arguments['uid']);
             $old = $this->readable($row, $calendar->ownedByOther($userId));
-            $before = $this->data->item($old);
+            $before = $this->output($userId, $old);
             $this->data->assertSimple($old);
             if (isset($arguments['etag']) && trim($arguments['etag'], '"') !== trim($row['etag'], '"')) {
                 throw new ToolFailure(CommonMessages::conflict());
@@ -391,7 +398,8 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
             'before' => $before,
             // A new task has no uid the person could use yet: the confirmed call generates a random one and returns it.
             // The iCalendar blob carries that provisional uid too, so a creation plan leaves the blob out.
-            'after' => $after === null ? null : array_diff_key($this->data->item($after), $name === 'tasks_create_task' ? ['uid' => 1, 'icalendar' => 1] : []),
+            // $after stays the object written to DAV; only its shown copy loses a refused ATTACH, as $before does.
+            'after' => $after === null ? null : array_diff_key($this->output($userId, $after), $name === 'tasks_create_task' ? ['uid' => 1, 'icalendar' => 1] : []),
             'shared' => $shared,
             'recoverable' => $deleting,
             'consequence' => $deleting ? Translator::t('The task will be moved to the calendar trash.') : null,
@@ -403,6 +411,19 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
     }
 
     /**
+     * The task fields as a tool shows them: the serialized calendar is the output copy, without the ATTACH whose
+     * file the user may not reach, never the object a write sends to DAV.
+     *
+     * @param string $userId authenticated user UID
+     * @param VCalendar $calendar task calendar as read from or prepared for DAV, left unchanged
+     * @return array<string, mixed>
+     * @throws ToolFailure when task dates or identity cannot be read safely
+     */
+    private function output(string $userId, VCalendar $calendar): array {
+        return $this->data->item($this->references->outputCalendar($userId, $calendar));
+    }
+
+    /**
      * Reads a task object by UID within the already-authorized calendar.
      *
      * @param int $id authorized calendar ID
@@ -411,7 +432,7 @@ final class TasksModule implements ToolModule, PreviewsWrites, ToolGuideNotes, R
      * @throws ToolFailure when no task object has that UID
      */
     private function row(int $id, string $uid): array {
-        return $this->store->objectByUid($id, $uid) ?? throw new ToolFailure(CommonMessages::notFound());
+        return $this->store->objectByUid($id, $uid, 'VTODO') ?? throw new ToolFailure(CommonMessages::notFound());
     }
 
     /**

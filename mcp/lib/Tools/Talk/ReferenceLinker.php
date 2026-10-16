@@ -10,7 +10,7 @@ namespace OCA\Mcp\Tools\Talk;
 use InvalidArgumentException;
 use OCA\Mcp\Service\Compat\AppEnablement;
 use OCA\Mcp\Service\GrantPolicy;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
+use OCA\Mcp\Tools\Calendar\ScopedCalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarException;
 use OCA\Mcp\Tools\Calendar\CalendarStore;
 use OCA\Mcp\Tools\Calendar\Classification;
@@ -49,7 +49,7 @@ class ReferenceLinker {
 
     public function __construct(
         private DeckGatewayInterface $deck,
-        private CalendarAccess $calendars,
+        private ScopedCalendarAccess $calendars,
         private CalendarStore $calendarStore,
         private EventRepository $events,
         private Classification $classification,
@@ -147,7 +147,7 @@ class ReferenceLinker {
             // The calendar tools' own rules: the path must be one of the caller's visible calendars, and the
             // iCalendar CLASS of an event in someone else's calendar decides what the caller may see of it.
             $calendar = $this->calendars->resolve($userId, $path);
-            $row = $this->calendarStore->objectByUid($calendar->id, $uid);
+            $row = $this->calendarStore->objectByUid($calendar->id, $uid, 'VEVENT');
             $vcalendar = ($row === null || $row['deleted']) ? null : $this->events->parse($row['data']);
         } catch (CalendarException $e) {
             throw new ConversationAccessException(Messages::referenceNotFound(), $e);

@@ -9,7 +9,6 @@ namespace OCA\Mcp\Tests\Unit\Tools\Calendar;
 
 use DateTimeImmutable;
 use OCA\Mcp\Tools\Calendar\AttendeeResolver;
-use OCA\Mcp\Tools\Calendar\CalendarAccess;
 use OCA\Mcp\Tools\Calendar\CalendarModule;
 use OCA\Mcp\Tools\Calendar\Classification;
 use OCA\Mcp\Tools\Calendar\DateInput;
@@ -61,6 +60,8 @@ abstract class CalendarTestCase extends TestCase {
     protected const NOW = '2026-03-10T12:00:00Z';
 
     protected FakeCalendarStore $store;
+    /** The resource scope the tools read; unrestricted unless a test restricts a module. */
+    protected ScopeStub $scope;
     protected FakeCalendarDav $dav;
     protected CalendarModule $module;
     protected \OCA\Mcp\Tools\ToolRegistry $registry;
@@ -108,7 +109,8 @@ abstract class CalendarTestCase extends TestCase {
         $config->method('getSystemValueString')->willReturn('33.0.2.2');
         $logger = $this->createMock(LoggerInterface::class);
 
-        $access = new CalendarAccess($this->store);
+        $this->scope = new ScopeStub();
+        $access = ScopeStub::access($this->store, $this->scope);
         $classification = new Classification();
         $repository = new EventRepository($this->store, $classification);
         $dates = new DateInput();
@@ -178,6 +180,8 @@ abstract class CalendarTestCase extends TestCase {
         );
         $policy = $this->createMock(\OCA\Mcp\Service\GrantPolicy::class);
         $policy->method('granted')->willReturn(true);
+        // The registry admits a tool through grantedAny (its operation, or its grantAnyOf alternatives).
+        $policy->method('grantedAny')->willReturn(true);
         $apps = $this->createMock(\OCP\App\IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
         $this->registry = new \OCA\Mcp\Tools\ToolRegistry(

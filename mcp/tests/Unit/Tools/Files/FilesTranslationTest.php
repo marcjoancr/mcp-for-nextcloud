@@ -113,7 +113,7 @@ final class FilesTranslationTest extends TestCase {
         self::assertSame('A file or folder already exists at this destination.', FilesMessages::destinationExists());
         self::assertSame('This file is on an external storage.', CommonMessages::externalStorage());
 
-        Translator::use(new JsonL10n('de'));
+        Translator::use(new JsonL10n('fr'));
         self::assertSame('Resource not found in Nextcloud.', CommonMessages::notFound());
         self::assertSame('A file or folder already exists at this destination.', FilesMessages::destinationExists());
         self::assertSame('This file is on an external storage.', CommonMessages::externalStorage());

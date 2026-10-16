@@ -24,6 +24,7 @@ class AuthorizationRequest {
             'client_id' => $this->client->clientId,
             'client_name' => $this->client->name,
             'redirect_uris' => $this->client->redirectUris,
+            'client_generation' => $this->client->generation,
             'redirect_uri' => $this->redirectUri,
             'state' => $this->state,
             'code_challenge' => $this->codeChallenge,
@@ -38,7 +39,8 @@ class AuthorizationRequest {
      */
     public static function fromArray(array $data): self {
         return new self(
-            new ClientMetadata((string)$data['client_id'], (string)$data['client_name'], (array)$data['redirect_uris']),
+            new ClientMetadata((string)$data['client_id'], (string)$data['client_name'], (array)$data['redirect_uris'],
+                is_string($data['client_generation'] ?? null) ? $data['client_generation'] : ''),
             (string)$data['redirect_uri'],
             (string)$data['state'],
             (string)$data['code_challenge'],

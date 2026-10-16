@@ -105,6 +105,21 @@ final class CardFormatterTest extends TestCase {
 		self::assertSame(2, $formatted['attachmentCount']);
 	}
 
+	/** V10 for Deck: a card names no attachment, only how many it has; no id, name or URL of a file reaches a tool. */
+	public function testCardReportsOnlyTheAttachmentCount(): void {
+		$formatted = $this->formatter->card($this->card(['attachmentCount' => 3]), 4);
+
+		self::assertSame(3, $formatted['attachmentCount']);
+		self::assertSame(['attachmentCount'], array_values(array_filter(
+			array_keys($formatted),
+			static fn (string $key): bool => stripos($key, 'attach') !== false || stripos($key, 'file') !== false,
+		)));
+		self::assertSame([
+			'id', 'stackId', 'boardId', 'title', 'description', 'type', 'owner', 'order', 'archived', 'done',
+			'duedate', 'lastModified', 'attachmentCount', 'assignedUsers', 'overdue', 'url',
+		], array_keys($formatted));
+	}
+
 	public function testCardFallsBackToTheBoardDeckEnriched(): void {
 		$card = $this->card(['relatedBoard' => new Board(['id' => 9])]);
 

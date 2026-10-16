@@ -140,10 +140,13 @@ final class FakeCalendarStore implements CalendarStore {
     }
 
     /** @return array{id:int, uri:string, etag:string, data:string, deleted:bool}|null */
-    public function objectByUid(int $calendarId, string $uid): ?array {
+    public function objectByUid(int $calendarId, string $uid, string $component): ?array {
         $this->fail();
         foreach ($this->objects[$calendarId] ?? [] as $object) {
-            if (!$object['deleted'] && preg_match('/^UID:' . preg_quote($uid, '/') . '\r?$/m', $object['data']) === 1) {
+            // Like calendarobjects.componenttype: stored with the object ('component'), else its first component that
+            // is not a VTIMEZONE.
+            $type = $object['component'] ?? (preg_match('/^BEGIN:(VEVENT|VTODO|VJOURNAL)\r?$/m', $object['data'], $match) === 1 ? $match[1] : null);
+            if (!$object['deleted'] && $type === $component && preg_match('/^UID:' . preg_quote($uid, '/') . '\r?$/m', $object['data']) === 1) {
                 return $object;
             }
         }

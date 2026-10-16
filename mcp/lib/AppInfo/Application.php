@@ -70,7 +70,18 @@ class Application extends App implements IBootstrap {
     /** @param IRegistrationContext $context registration context of the app */
     public function register(IRegistrationContext $context): void {
         $context->registerEventListener(\OCP\User\Events\UserChangedEvent::class, \OCA\Mcp\OAuth\UserRevocationListener::class);
-        $context->registerEventListener(\OCP\User\Events\UserDeletedEvent::class, \OCA\Mcp\OAuth\UserRevocationListener::class);
+        // Recheck causes of account deletion and group removal (contracts §3.3.2); the deletion's cut comes from its
+        // account cause, so a late UserDeletedEvent never cuts a consent made after the cause was consumed.
+        foreach ([\OCP\User\Events\BeforeUserDeletedEvent::class, \OCP\User\Events\UserDeletedEvent::class,
+            \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class] as $event) {
+            $context->registerEventListener($event, \OCA\Mcp\Listener\UserCauseListener::class);
+        }
+        // The GID lifecycle (contracts §3.3.5): pending_delete, purge by gen and by the revision read at creation.
+        foreach ([\OCP\Group\Events\BeforeGroupDeletedEvent::class, \OCP\Group\Events\GroupDeletedEvent::class,
+            \OCP\Group\Events\BeforeGroupCreatedEvent::class, \OCP\Group\Events\GroupCreatedEvent::class] as $event) {
+            $context->registerEventListener($event, \OCA\Mcp\Listener\GroupLifecycleListener::class);
+        }
+        $context->registerMiddleware(\OCA\Mcp\Middleware\DeferredFlushMiddleware::class);
         // Production dependencies (smalot/pdfparser) are bundled in the package's vendor/.
         $autoload = __DIR__ . '/../../vendor/autoload.php';
         if (is_file($autoload)) {
@@ -80,6 +91,10 @@ class Application extends App implements IBootstrap {
         $context->registerService(CalendarDav::class, static fn (ContainerInterface $c): CalendarDav => $c->get(EmbeddedDavDispatcher::class));
         $context->registerService(\OCA\Mcp\Tools\Contacts\ContactStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Contacts\DavContactStore($c));
         $context->registerService(\OCA\Mcp\Tools\Tasks\TaskStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Tasks\DavTaskStore($c));
+        // The tools read the resource scope from the policy snapshot of their operation.
+        $context->registerService(\OCA\Mcp\Service\Scope\ScopeReader::class, static fn (ContainerInterface $c): \OCA\Mcp\Service\Scope\ScopeReader => $c->get(\OCA\Mcp\Service\GrantPolicy::class));
+        // The Files scope step of the structured-reference filter: the user's Files resource scope of the operation.
+        $context->registerService(\OCA\Mcp\Tools\Common\FileReferenceScope::class, static fn (ContainerInterface $c): \OCA\Mcp\Tools\Common\FileReferenceScope => $c->get(\OCA\Mcp\Service\Scope\FilesReferenceScope::class));
         $context->registerService(\OCA\Mcp\Tools\Contacts\ContactDav::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Tools\Contacts\EmbeddedCardDavDispatcher(
             static fn (): \Sabre\DAV\Server => \OCA\Mcp\Tools\Contacts\EmbeddedCardDavServer::create(),
             new Session($c->get(IUserSession::class)), $c->get(\OCP\IAppConfig::class), $c->get(LoggerInterface::class),
@@ -120,6 +135,8 @@ class Application extends App implements IBootstrap {
             new TextExtractor($c->get(ITempManager::class)),
             new NotesRepository($c->get(IRootFolder::class), $c->get(IConfig::class)),
             $c->get(ToolRegistry::class)->guide(),
+            // nc://files answers to the Files gate, the resource scope included; nc://notes keeps the plain guard (D4).
+            $c->get(\OCA\Mcp\Service\Scope\FilesAccessGuard::class),
         ));
         $context->registerService(McpProtocol::class, static fn (ContainerInterface $c): McpProtocol => new McpProtocol(
             $c->get(ToolRegistry::class),

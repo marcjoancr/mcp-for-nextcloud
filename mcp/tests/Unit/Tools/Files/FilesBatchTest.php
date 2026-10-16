@@ -35,9 +35,9 @@ final class FilesBatchTest extends FilesToolsTestCase {
             return array_combine($ids, array_map(static fn ($id): array => in_array((int)$id, $hidden, true) ? ['999'] : [], $ids));
         });
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = '["999"]';
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $mapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $mapper, $this->visibilityRoot());
         $this->setUp();
-        $this->tree->addFolder('/alice/files/Incoming');
+        $this->tree->addFile('/alice/files/Incoming', 'visible source');
         $this->tree->addFile('/alice/files/Arquivado/item-secret.txt', 'x');
         // Simulate a privacy hook setting a tag after the first move. The plan
         // has already verified/cached the child, whose id survives the move.
@@ -157,7 +157,7 @@ final class FilesBatchTest extends FilesToolsTestCase {
     public function testMkdirsDoesNotBypassDestinationVisibility(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
         $this->setUp();
         $hiddenId = $this->tree->addFolder('/alice/files/Hidden');
         $tagMapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use ($hiddenId): array {
@@ -185,13 +185,13 @@ final class FilesBatchTest extends FilesToolsTestCase {
     public function testMkdirsNeverCreatesAFolderInsideAHiddenOne(): void {
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][\OCA\Mcp\Service\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
-        $this->visibilityGuard = new \OCA\Mcp\Service\VisibilityGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
+        $this->visibilityGuard = new \OCA\Mcp\Service\Scope\FilesAccessGuard($this->config->mock($this), $tagMapper, $this->visibilityRoot());
         $this->setUp();
         $hiddenId = $this->tree->addFolder('/alice/files/Hidden');
         $tagMapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use ($hiddenId): array {
             return array_combine($ids, array_map(static fn ($id) => (string)$id === (string)$hiddenId ? ['999'] : [], $ids));
         });
-        foreach (['/Hidden/New' => CommonMessages::notFound(), '/Hidden' => CommonMessages::forbidden()] as $dir => $reason) {
+        foreach (['/Hidden/New' => CommonMessages::notFound(), '/Hidden' => CommonMessages::notFound()] as $dir => $reason) {
             $args = ['moves' => [['from' => '/Documentos/ata.md', 'to' => '/Arquivado/ata.md']], 'mkdirs' => [$dir]];
             $plan = $this->plan('files_move_batch', $args);
             $this->assertFalse($plan['ok'], "plano de $dir");

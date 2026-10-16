@@ -45,6 +45,108 @@ final class VisibilityGuardTest extends TestCase {
         });
     }
 
+    /** V13: an unavailable config is never treated as an empty exclusion list or cached. */
+    public function testV13ConfigurationReadFailureIsRefusedAndRetried(): void {
+        $config = $this->createMock(\OCP\IConfig::class);
+        $calls = 0;
+        $config->method('getAppValue')->willReturnCallback(function () use (&$calls): string {
+            if (++$calls === 1) {
+                throw new \RuntimeException('/private/config');
+            }
+            return '["42"]';
+        });
+        $this->tree->addFile('/alice/files/plain', 'x');
+        $guard = new VisibilityGuard($config, $this->tagMapper);
+        $this->assertFalse($guard->isVisible($this->tree->node('/alice/files/plain')));
+        $this->assertTrue($guard->isVisible($this->tree->node('/alice/files/plain')));
+        $this->assertSame(2, $calls);
+    }
+
+    /** V13: incomplete or cyclic ancestry must not become a visible cache entry. */
+    public function testV13UnresolvedAncestryIsRefusedOnEveryAttempt(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        foreach ([0, 20] as $id) {
+            $node = $this->createMock(Folder::class);
+            $node->method('getId')->willReturn($id);
+            $node->method('getParent')->willReturn($node);
+            $node->method('getStorage')->willReturn($this->storage(false));
+            $guard = $this->guard();
+            $this->assertFalse($guard->isVisible($node));
+            $this->assertFalse($guard->isVisible($node));
+            try {
+                $guard->copyHiddenTags($node, $this->createMock(Node::class));
+                $this->fail('Backup tagging must refuse unresolved ancestry');
+            } catch (ToolFailure $e) {
+                $this->assertSame(\OCA\Mcp\Tools\Files\FilesMessages::backupFailed(), $e->getMessage());
+            }
+        }
+    }
+
+    /** V7/V13: a directly excluded root protects even a wholly missing destination. */
+    public function testV13WritePreflightChecksRootBeforeMissingAncestors(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $this->tagAssignments[(string)$this->tree->rootFolder()->getId()] = ['42'];
+        $this->assertFalse($this->guard()->isPathAllowedForWrite($this->tree->rootFolder(), '/new/deep/item'));
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    /** V13: a visible mounted alias must not authorize another alias below an excluded parent. */
+    public function testV13VisibilityCacheIsQualifiedByMountedPath(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $root = $this->createMock(\OCP\Files\IRootFolder::class);
+        $plain = $this->ancestryNode(10, $root, null, false, '/plain');
+        $hidden = $this->ancestryNode(20, $root, null, false, '/hidden');
+        $first = $this->ancestryNode(30, $plain, null, false, '/plain/item');
+        $alias = $this->ancestryNode(30, $hidden, null, false, '/hidden/item');
+        $this->tagAssignments['20'] = ['42'];
+        $guard = $this->guard();
+        $this->assertTrue($guard->isVisible($first));
+        $this->assertFalse($guard->isVisible($alias));
+        $this->assertTrue($guard->isVisible($first));
+    }
+
+    /** V13: metadata failure after tag lookup must not leave a positive cache entry. */
+    public function testV13LateMetadataFailureNeverCachesVisible(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $root = $this->createMock(\OCP\Files\IRootFolder::class);
+        $node = $this->ancestryNode(30, $root, null, false, '/item');
+        $node->method('getName')->willThrowException(new \RuntimeException('/private/item'));
+        $guard = $this->guard();
+        $this->assertFalse($guard->isVisible($node));
+        $this->assertFalse($guard->isVisible($node));
+    }
+
+    /** V3/V14 contract: the active guard invalidates both positive and negative tag decisions. */
+    public function testV14TagEventsInvalidateTheSameGuard(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $id = $this->tree->addFile('/alice/files/item', 'x');
+        $listeners = [];
+        $events = $this->createMock(\OCP\EventDispatcher\IEventDispatcher::class);
+        $events->method('addListener')->willReturnCallback(function (string $name, callable $listener) use (&$listeners): void {
+            $listeners[$name] = $listener;
+        });
+        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
+        $node = $this->tree->node('/alice/files/item');
+        $this->assertTrue($guard->isVisible($node));
+        $this->tagAssignments[(string)$id] = ['42'];
+        $listeners[\OCP\SystemTag\MapperEvent::EVENT_ASSIGN]();
+        $this->assertFalse($guard->isVisible($node));
+        unset($this->tagAssignments[(string)$id]);
+        $listeners[\OCP\SystemTag\MapperEvent::EVENT_UNASSIGN]();
+        $this->assertTrue($guard->isVisible($node));
+    }
+
+    /** V13: failed destination existence checks are refusals, including repeated calls. */
+    public function testV13WritePreflightResolutionFailureIsRefused(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $root = $this->createMock(\OCP\Files\IRootFolder::class);
+        $folder = $this->ancestryNode(10, $root, null);
+        $folder->method('nodeExists')->willThrowException(new \RuntimeException('/private/destination'));
+        $guard = $this->guard();
+        $this->assertFalse($guard->isPathAllowedForWrite($folder, '/new/deep/file'));
+        $this->assertFalse($guard->isPathAllowedForWrite($folder, '/new/deep/file'));
+    }
+
     public function testMovingIntoHiddenFolderStaleUntilClear(): void {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $hidden = $this->tree->addFolder('/alice/files/secret');
@@ -720,6 +822,24 @@ final class VisibilityGuardTest extends TestCase {
         $this->assertFalse($guard->isVisible($file));
     }
 
+    public function testCleanTagAncestryShortensSiblingWalksWithoutCachingFinalVisibility(): void {
+        $count = 20;
+        [$guard, $files, $counts] = $this->costFixture(false, $count);
+        foreach ($files as $file) {
+            $this->assertTrue($guard->isVisible($file));
+        }
+        foreach ([20, 90] as $id) {
+            // One classification, one tag walk, and one mandatory backup walk per sibling.
+            $this->assertSame($count + 2, $counts->parentCalls[$id]);
+            $this->assertLessThan(2 * $count + 1, $counts->parentCalls[$id]);
+        }
+        $this->tagAssignments['20'] = ['42'];
+        $guard->clearCache();
+        foreach ($files as $file) {
+            $this->assertFalse($guard->isVisible($file));
+        }
+    }
+
     /** @return array{VisibilityGuard, list<Node>, object} */
     private function costFixture(bool $shared, int $count): array {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
@@ -730,11 +850,14 @@ final class VisibilityGuardTest extends TestCase {
         $root->expects($this->never())->method('getParent');
         $ownerFolder = $this->ancestryNode(1, $root, $owner);
         $canonicalRoot = $this->ancestryNode(20, $ownerFolder, $owner);
-        $counts = (object)['lookups' => 0, 'storageCalls' => []];
+        $counts = (object)['lookups' => 0, 'storageCalls' => [], 'parentCalls' => []];
         $make = function (int $id, Node $parent, bool $isShared) use ($owner, $counts): Node {
             $node = $this->createMock(Folder::class);
             $node->method('getId')->willReturn($id);
-            $node->method('getParent')->willReturn($parent);
+            $node->method('getParent')->willReturnCallback(function () use ($parent, $id, $counts): Node {
+                $counts->parentCalls[$id] = ($counts->parentCalls[$id] ?? 0) + 1;
+                return $parent;
+            });
             $node->method('getOwner')->willReturn($owner);
             $storage = $this->storage($isShared);
             $node->method('getStorage')->willReturnCallback(function () use ($storage, $id, $counts) {
@@ -795,7 +918,9 @@ final class VisibilityGuardTest extends TestCase {
         $secret = $this->ancestryNode(10, $ownerFolder, $owner);
         $canonicalSub = $this->ancestryNode(20, $secret, $owner);
         $canonicalFile = $this->ancestryNode(30, $canonicalSub, $owner);
-        $recipient = $this->ancestryNode(90, $root, $owner);
+        $recipient = $this->ancestryNode(90, $root, $owner, false, '/bob/files');
+        // Above the share mount root the guard asks the root for the recipient folder by its path.
+        $root->method('get')->willReturnCallback(static fn (string $path) => $path === '/bob/files' ? $recipient : throw new \OCP\Files\NotFoundException());
         $aliasSub = $this->ancestryNode(20, $recipient, $owner, !$fileShare, '/bob/files/share');
         $alias = $this->ancestryNode(30, $aliasSub, $owner, $sharedLeaf, '/bob/files/share/file');
         $visibleOwnerAlias = $this->ancestryNode(30, $ownerFolder, $owner);
@@ -834,5 +959,110 @@ final class VisibilityGuardTest extends TestCase {
             static fn (string $class): bool => $shared && $class === \OCP\Files\Storage\ISharedStorage::class
         );
         return $storage;
+    }
+
+    // --- explain(): the administrator's reason is the decision of isVisible() (issue #4, A5) ---------------------
+
+    /** @return array{reason:string, folder:?string} explain() with the folder as its path, for comparison */
+    private static function explained(VisibilityGuard $guard, Node $node): array {
+        $why = $guard->explain($node);
+        return ['reason' => $why['reason'], 'folder' => $why['folder']?->getPath()];
+    }
+
+    public function testA5ExplainNamesADirectTagAndTheFolderAnExclusionIsInheritedFrom(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $guard = $this->guard();
+        $secret = $this->tree->addFolder('/alice/files/Secret');
+        $this->tree->addFolder('/alice/files/Secret/Deep');
+        $this->tree->addFile('/alice/files/Secret/Deep/plan.md', 'x');
+        $this->tree->addFile('/alice/files/open.md', 'x');
+        $this->tagAssignments[(string)$secret] = ['7'];
+
+        $cases = [
+            '/alice/files/Secret' => ['reason' => VisibilityGuard::EXPLAINED_TAG_DIRECT, 'folder' => null],
+            '/alice/files/Secret/Deep/plan.md' => ['reason' => VisibilityGuard::EXPLAINED_TAG_FOLDER, 'folder' => '/alice/files/Secret'],
+            '/alice/files/open.md' => ['reason' => VisibilityGuard::EXPLAINED_VISIBLE, 'folder' => null],
+        ];
+        foreach ($cases as $path => $expected) {
+            $node = $this->tree->node($path);
+            $this->assertSame($expected, self::explained($guard, $node), $path);
+            // The decision the tools get, after an explanation and without one, is the same.
+            $this->assertSame($expected['reason'] === VisibilityGuard::EXPLAINED_VISIBLE, $guard->isVisible($node), $path);
+            $this->assertSame($expected['reason'] === VisibilityGuard::EXPLAINED_VISIBLE, $this->guard()->isVisible($node), $path);
+        }
+    }
+
+    public function testA5AnExplanationIsNotHiddenByAReasonCachedEarlier(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $guard = $this->guard();
+        $secret = $this->tree->addFolder('/alice/files/Secret');
+        $this->tree->addFile('/alice/files/Secret/a.md', 'x');
+        $this->tagAssignments[(string)$secret] = ['7'];
+        $this->assertFalse($guard->isVisible($this->tree->node('/alice/files/Secret/a.md')));
+
+        $this->assertSame(VisibilityGuard::EXPLAINED_TAG_FOLDER, $guard->explain($this->tree->node('/alice/files/Secret/a.md'))['reason']);
+    }
+
+    public function testA5ExplainNamesTheShareOrigin(): void {
+        [$guard, $alias] = $this->sharedFixture(false, 1, false, true, true);
+        $this->tagAssignments['10'] = ['42'];
+        $this->assertSame(['reason' => VisibilityGuard::EXPLAINED_TAG_SHARE_ORIGIN, 'folder' => null], self::explained($guard, $alias));
+        $this->assertFalse($guard->isVisible($alias));
+    }
+
+    public function testA5AnUnresolvedOwnerTreeIsNotEvaluatedNeverVisible(): void {
+        [$guard, $alias] = $this->sharedFixture(true);
+        $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($alias)['reason']);
+    }
+
+    public function testA5ABackupOfAnExcludedOriginalIsNamedAsSuch(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $guard = $this->guard();
+        $original = $this->tree->addFile('/alice/files/docs/secret.txt', 'secret');
+        $this->tagAssignments[(string)$original] = ['7'];
+        $backup = '/alice/files/' . FileBackup::FOLDER . '/docs/secret.txt.20261001-120000.bak';
+        $this->tree->addFile($backup, 'secret');
+
+        // The original's own reason (a direct tag) is not the backup's.
+        $this->assertSame(['reason' => VisibilityGuard::EXPLAINED_BACKUP, 'folder' => null], self::explained($guard, $this->tree->node($backup)));
+        $this->assertSame(VisibilityGuard::EXPLAINED_TAG_DIRECT, $guard->explain($this->tree->node('/alice/files/docs/secret.txt'))['reason']);
+    }
+
+    /** M1 of the 13/A5 review: a backup whose original could not be checked is not evaluated, not "a backup of an excluded file". */
+    public function testA5ABackupWhoseOriginalCannotBeEvaluatedIsNotEvaluated(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
+        $original = (string)$this->tree->addFile('/alice/files/docs/plain.txt', 'plain');
+        $backup = '/alice/files/' . FileBackup::FOLDER . '/docs/plain.txt.20261001-120000.bak';
+        $this->tree->addFile($backup, 'plain');
+        $mapper = $this->createMock(ISystemTagObjectMapper::class);
+        $mapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use ($original): array {
+            if (in_array($original, array_map('strval', $ids), true)) {
+                throw new \RuntimeException('tag read of the original failed');
+            }
+            return array_fill_keys(array_map('strval', $ids), []);
+        });
+        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+
+        $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($this->tree->node($backup))['reason']);
+        $this->assertFalse($guard->isVisible($this->tree->node($backup)), 'still refused');
+    }
+
+    public function testA5AnInvalidConfigurationAndAFailedTagReadAreNamed(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '{"0":"42"}';
+        $this->tree->addFile('/alice/files/plain.txt', 'plain');
+        $plain = $this->tree->node('/alice/files/plain.txt');
+        $this->assertSame(VisibilityGuard::EXPLAINED_INVALID_CONFIGURATION, $this->guard()->explain($plain)['reason']);
+
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
+        $mapper = $this->createMock(ISystemTagObjectMapper::class);
+        $mapper->method('getTagIdsForObjects')->willThrowException(new \RuntimeException('down'));
+        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($plain)['reason']);
+        $this->assertFalse($guard->isVisible($plain));
+    }
+
+    public function testA5WithoutAnyTagEverythingIsVisible(): void {
+        $this->tree->addFile('/alice/files/plain.txt', 'plain');
+        $this->assertSame(VisibilityGuard::EXPLAINED_VISIBLE, $this->guard()->explain($this->tree->node('/alice/files/plain.txt'))['reason']);
     }
 }

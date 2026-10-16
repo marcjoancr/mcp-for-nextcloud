@@ -7,13 +7,21 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\OAuth;
 
+use OCA\Mcp\Db\AuthUsersMapper;
+use OCA\Mcp\Db\PolicyStateMapper;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IConfig;
+use OCA\Mcp\Db\OAuthClientsMapper;
 use OCP\IUser;
+use Throwable;
 
 /**
  * Resolves an `Authorization: Bearer` access token issued by this app into its user: the hash must exist, the token
- * must not be expired, a native-client token needs the native client enabled, its audience must be this MCP server and the owner must pass the TokenOwnerGate.
+ * must not be expired, a token of the native client or of a self-hosted client needs that client enabled (and stored,
+ * for a self-hosted one), read from the app's table on every request, its audience must be this MCP server,
+ * its (epoch, generation) must still be valid (CredentialGeneration) and the owner must pass the TokenOwnerGate.
+ * Validation takes no lock and writes nothing, except the consumption of the owner's pending recheck causes and the
+ * cut of an owner observed unusable.
  */
 class AccessTokenAuthenticator {
     public function __construct(
@@ -21,7 +29,9 @@ class AccessTokenAuthenticator {
         private TokenHasher $hasher,
         private ITimeFactory $time,
         private TokenOwnerGate $gate,
-        private IConfig $config,
+        private AuthUsersMapper $authUsers,
+        private PolicyStateMapper $state,
+        private OAuthClientsMapper $clients,
     ) {}
 
     /** @return bool true when the header carries a token issued by this app */
@@ -33,20 +43,38 @@ class AccessTokenAuthenticator {
      * @param string $authorization raw Authorization header
      * @param string $resource resource URL of the current request
      * @return IUser|null the token owner, or null when the token is unknown, expired, for another audience or revoked
+     * @throws PolicyUnavailable when the credential state cannot be read: the request fails, nothing is revoked
      */
     public function authenticate(string $authorization, string $resource): ?IUser {
         if (!self::isOwnBearer($authorization)) {
             return null;
         }
-        $row = $this->store->findByAccess($this->hasher->hash(trim((string)preg_replace('/^Bearer[ \t]+/i', '', $authorization))));
-        if ($row === null || !in_array('mcp', explode(' ', (string)$row['scope']), true)
-            || (int)$row['access_expires'] < $this->time->getTime()
-            || !ResourceUrl::sameResource((string)$row['resource'], $resource)) {
-            return null;
+        try {
+            $row = $this->store->findByAccess($this->hasher->hash(trim((string)preg_replace('/^Bearer[ \t]+/i', '', $authorization))));
+            if ($row === null || !in_array('mcp', explode(' ', (string)$row['scope']), true)
+                || (int)$row['access_expires'] < $this->time->getTime()
+                || !ResourceUrl::sameResource((string)$row['resource'], $resource)) {
+                return null;
+            }
+            $clientId = (string)$row['client_id'];
+            // The client's row is read from the app's table on every request, never from the AppConfig caches. The
+            // check sits before the owner gate, which keeps the issue_seq read below for its cut.
+            if (($clientId === NativeClient::CLIENT_ID || CustomClient::owns($clientId)) && ClientResolver::builtInDisabled($this->clients, $clientId)) {
+                return null;
+            }
+            $uid = (string)$row['user_id'];
+            // Pending causes first (contracts §3.3.4): a cut they demand is part of the generations read below.
+            $this->gate->preflight($uid);
+            // s0 of contracts §3.1 (iii): read before the owner check, and the only cut that check may apply.
+            $generations = $this->authUsers->generations($uid);
+            if (!CredentialGeneration::live($row, $generations, $this->state->state()['auth_epoch'])) {
+                return null;
+            }
+        } catch (PolicyUnavailable $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new PolicyUnavailable('Cannot read the credential state', previous: $e);
         }
-        if ($row['client_id'] === NativeClient::CLIENT_ID && !ClientResolver::nativeEnabled($this->config)) {
-            return null;
-        }
-        return $this->gate->owner((string)$row['user_id']);
+        return $this->gate->owner($uid, $generations['issue_seq']);
     }
 }

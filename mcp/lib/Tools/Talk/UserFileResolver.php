@@ -22,7 +22,8 @@ use Throwable;
 class UserFileResolver {
     public function __construct(
         private IRootFolder $rootFolder,
-        private ?\OCA\Mcp\Service\VisibilityGuard $visibilityGuard = null,
+        private \OCA\Mcp\Service\VisibilityGuard $visibilityGuard,
+        private \OCA\Mcp\Tools\Common\OutputReferenceFilter $references,
     ) {}
 
     /**
@@ -33,9 +34,12 @@ class UserFileResolver {
      * @return File The file, guaranteed to be a file the user may read and share
      * @throws InvalidArgumentException When the path is empty, malformed or tries to escape the user folder
      * @throws FileAccessException When the file is missing, is a folder or cannot be shared
+     * @throws \OCA\Mcp\Service\Policy\PolicyUnavailable When the user's Files scope cannot be read, before any lookup
      */
     public function resolveShareableFile(string $userId, string $path): File {
         $cleanPath = $this->assertUsablePath($path);
+        // Before the lookup: an unreadable Files scope is the same 503 for a file that exists and one that does not.
+        $this->references->assertAvailable($userId);
 
         try {
             $node = $this->rootFolder->getUserFolder($userId)->get($cleanPath);
@@ -47,7 +51,10 @@ class UserFileResolver {
         if (!$node instanceof File
             || !$node->isReadable()
             || ($node->getPermissions() & Constants::PERMISSION_SHARE) !== Constants::PERMISSION_SHARE
-            || ($this->visibilityGuard !== null && !$this->visibilityGuard->isVisible($node))) {
+            || !$this->visibilityGuard->isVisible($node)
+            // Every alias of the file in the user's tree, by the rule talk_read_messages applies to the attachment
+            // this share becomes: a clean path must not publish a file the reading would then hide.
+            || !$this->references->allowsUserNode($userId, $node)) {
             throw new FileAccessException(Messages::fileNotFound());
         }
 

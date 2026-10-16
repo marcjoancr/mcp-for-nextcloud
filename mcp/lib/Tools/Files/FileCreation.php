@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tools\Files;
 
-use OCA\Mcp\Service\VisibilityGuard;
+use OCA\Mcp\Service\Scope\FilesAccessGuard;
 use OCA\Mcp\Tools\ArgumentValidationException;
 use OCA\Mcp\Tools\Common\CommonMessages;
 use OCA\Mcp\Tools\Common\LockAwareWrite;
@@ -50,7 +50,7 @@ final class FileCreation {
         private SharedWriteGuard $guard,
         private CheckoutService $checkout,
         private IFilenameValidator $filenames,
-        private VisibilityGuard $visibilityGuard,
+        private FilesAccessGuard $visibilityGuard,
         private LoggerInterface $logger,
         private LockAwareWrite $locks,
     ) {}
@@ -206,9 +206,11 @@ final class FileCreation {
         }
         $folder = $this->folder($root, $folderPath);
         if ($folder->nodeExists($name)) {
-            // As files_mkdir: a hidden node at the name is a denied write, not a name the agent may learn is taken.
-            if (!$this->visibilityGuard->isVisible($folder->get($name))) {
-                throw new ToolFailure(CommonMessages::forbidden());
+            // As files_mkdir: an excluded or unresolved collision uses the generic resource refusal.
+            try {
+                $this->visibilityGuard->assertVisible($folder->get($name));
+            } catch (\Throwable) {
+                throw new ToolFailure(CommonMessages::notFound());
             }
             throw new FileExists(FilesMessages::fileExists());
         }

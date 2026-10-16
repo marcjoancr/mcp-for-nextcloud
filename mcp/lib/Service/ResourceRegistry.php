@@ -7,9 +7,11 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Service;
 
+use OCA\Mcp\Service\Policy\GrantUnknown;
 use InvalidArgumentException;
 use OCA\Mcp\Tools\Common\CommonMessages;
 use OCA\Mcp\Tools\Common\NodeAccess;
+use OCA\Mcp\Service\Scope\FilesAccessGuard;
 use OCA\Mcp\Tools\Common\PathGuard;
 use OCA\Mcp\Tools\Files\FilesMessages;
 use OCA\Mcp\Tools\Files\FilesModule;
@@ -55,6 +57,7 @@ class ResourceRegistry {
         private TextExtractor $textExtractor,
         private NotesRepository $notesRepo,
         private ToolGuide $guide,
+        private FilesAccessGuard $filesGuard,
     ) {
     }
 
@@ -96,7 +99,15 @@ class ResourceRegistry {
             throw new InvalidArgumentException('Invalid cursor');
         }
         $templates = [];
-        if ($this->hasFilesRead($userId)) {
+        // A template whose grant is unknown (GrantUnknown) is left out, alone; reading through it still answers 503.
+        $listed = static function (\Closure $has): bool {
+            try {
+                return $has();
+            } catch (GrantUnknown) {
+                return false;
+            }
+        };
+        if ($listed(fn (): bool => $this->hasFilesRead($userId))) {
             $templates[] = [
                 'uriTemplate' => 'nc://files/{path}',
                 'name' => 'files',
@@ -105,7 +116,7 @@ class ResourceRegistry {
                 'mimeType' => 'application/octet-stream',
             ];
         }
-        if ($this->hasNotesRead($userId)) {
+        if ($listed(fn (): bool => $this->hasNotesRead($userId))) {
             $templates[] = [
                 'uriTemplate' => 'nc://notes/{id}',
                 'name' => 'notes',
@@ -204,11 +215,14 @@ class ResourceRegistry {
             throw new ToolFailure(CommonMessages::notFound());
         }
 
+        // nc://files answers to the Files gate, the resource scope included (contract B.5); nc://notes does not (D4).
+        // A scope that cannot be read answers 503 before the node is looked up.
+        $this->filesGuard->assertScopeReadable();
         return NodeAccess::run(function () use ($uri, $path, $userId): array {
             $root = $this->rootFolder->getUserFolder($userId);
             // The guard runs before requireFile, so a protected item answers like a missing one instead of
             // revealing that it exists and is a folder.
-            $node = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
+            $node = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->filesGuard));
 
             $mime = (string)$node->getMimetype();
             $name = $node->getName();

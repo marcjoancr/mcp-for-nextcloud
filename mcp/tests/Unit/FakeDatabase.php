@@ -61,6 +61,7 @@ final class FakeDatabase {
         $db->method('commit')->willReturnCallback(function (): void {
             $this->snapshot = null;
         });
+        $db->method('inTransaction')->willReturnCallback(fn (): bool => $this->snapshot !== null);
         $db->method('rollBack')->willReturnCallback(function (): void {
             $this->tables = $this->snapshot ?? $this->tables;
             $this->snapshot = null;

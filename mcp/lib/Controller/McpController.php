@@ -14,6 +14,8 @@ use OCA\Mcp\OAuth\AccessTokenAuthenticator;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\Service\GrantPolicy;
 use OCA\Mcp\Service\McpProtocol;
+use OCA\Mcp\Service\Policy\CauseProcessor;
+use OCA\Mcp\Service\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -43,6 +45,7 @@ class McpController extends Controller {
         private ResourceUrl $resourceUrl,
         private AccessTokenAuthenticator $tokens,
         private UserL10n $l10n,
+        private CauseProcessor $causes,
     ) {
         parent::__construct($appName, $request);
     }
@@ -50,55 +53,55 @@ class McpController extends Controller {
     /**
      * Receives one JSON-RPC message.
      *
-     * @return McpResponse 200/202 with the JSON-RPC result, or 400/401/403/406/413 without a body
+     * @return McpResponse 200/202 with the JSON-RPC result, or 400/401/403/406/413 without a body; 503 with
+     *     Retry-After when the policy cannot be read or depends on a group of indeterminate policy
      */
     #[PublicPage]
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function post(): McpResponse {
         try {
-            if ($failure = $this->preflight()) {
-                return $failure;
-            }
-            $contentType = strtolower(trim(explode(';', $this->request->getHeader('Content-Type'))[0]));
-            $accept = strtolower($this->request->getHeader('Accept'));
-            if ($contentType !== 'application/json' || !str_contains($accept, 'application/json') || !str_contains($accept, 'text/event-stream')) {
-                return new McpResponse('', 406);
-            }
-            $raw = $this->readBody();
-            if (!is_string($raw) || strlen($raw) > 1048576) {
-                return new McpResponse('', 413);
-            }
-            $result = $this->protocol->handle($raw, $this->request->getHeader('MCP-Protocol-Version'), $this->userSession->getUser()->getUID(), [
-                'method' => $this->request->getHeader('Mcp-Method'),
-                'name' => $this->request->getHeader('Mcp-Name'),
-            ]);
-            return new McpResponse($result['body'] === null ? '' : json_encode($result['body'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $result['status']);
+            return $this->serve(function (IUser $user): McpResponse {
+                $contentType = strtolower(trim(explode(';', $this->request->getHeader('Content-Type'))[0]));
+                $accept = strtolower($this->request->getHeader('Accept'));
+                if ($contentType !== 'application/json' || !str_contains($accept, 'application/json') || !str_contains($accept, 'text/event-stream')) {
+                    return new McpResponse('', 406);
+                }
+                $raw = $this->readBody();
+                if (!is_string($raw) || strlen($raw) > 1048576) {
+                    return new McpResponse('', 413);
+                }
+                $result = $this->protocol->handle($raw, $this->request->getHeader('MCP-Protocol-Version'), $user->getUID(), [
+                    'method' => $this->request->getHeader('Mcp-Method'),
+                    'name' => $this->request->getHeader('Mcp-Name'),
+                ]);
+                return new McpResponse($result['body'] === null ? '' : json_encode($result['body'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $result['status']);
+            });
         } finally {
             $this->releaseSession();
             Translator::reset();
         }
     }
 
-    /** @return McpResponse 405: no SSE stream is offered (401/403 first when access is denied) */
+    /** @return McpResponse 405: no SSE stream is offered (401/403/503 first when access is denied or unknown) */
     #[PublicPage]
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function get(): McpResponse {
         try {
-            return $this->preflight() ?? new McpResponse('', 405);
+            return $this->serve(static fn (): McpResponse => new McpResponse('', 405));
         } finally {
             $this->releaseSession();
         }
     }
 
-    /** @return McpResponse 405: there are no sessions to terminate (401/403 first when access is denied) */
+    /** @return McpResponse 405: there are no sessions to terminate (401/403/503 first when access is denied or unknown) */
     #[PublicPage]
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function delete(): McpResponse {
         try {
-            return $this->preflight() ?? new McpResponse('', 405);
+            return $this->serve(static fn (): McpResponse => new McpResponse('', 405));
         } finally {
             $this->releaseSession();
         }
@@ -113,8 +116,44 @@ class McpController extends Controller {
         return file_get_contents('php://input', false, null, 0, 1048577);
     }
 
-    /** @return McpResponse|null a rejection for foreign Origin, missing identity or denied policy; null to proceed, with the translator set to the user's language */
-    private function preflight(): ?McpResponse {
+    /**
+     * One request as one policy operation (contracts §4.2): after authentication, the connection check and everything
+     * $handle reads (tools/list, tools/call, resources, prompts) share one snapshot of this request, and none of an
+     * earlier one. A policy that cannot be read, or an access that depends only on a group of indeterminate policy, is
+     * answered 503 with Retry-After: never a default, and nothing is revoked.
+     *
+     * @param \Closure(IUser): McpResponse $handle the work of the request, for the allowed user
+     */
+    private function serve(\Closure $handle): McpResponse {
+        $identity = $this->authenticate();
+        if ($identity instanceof McpResponse) {
+            return $identity;
+        }
+        [$user, $sessionUser, $bearer] = $identity;
+        return $this->policy->within($user->getUID(), function () use ($user, $sessionUser, $bearer, $handle): McpResponse {
+            try {
+                if (!$this->policy->canConnect($user->getUID())) {
+                    return new McpResponse('', 403);
+                }
+                if ($bearer) {
+                    $this->bindSession($user, $sessionUser);
+                }
+                // Both the Basic and the OAuth path end here with the authenticated user, whose account language wins.
+                Translator::use($this->l10n->forUser($user));
+                return $handle($user);
+            } catch (PolicyUnavailable) {
+                return self::unavailable();
+            }
+        });
+    }
+
+    /**
+     * Origin check, identity (Basic/session or a Bearer token of this app) and the user's pending recheck causes.
+     *
+     * @return McpResponse|array{0:IUser, 1:?IUser, 2:bool} a rejection for foreign Origin, missing identity or an
+     *     unreadable credential state; otherwise the user, the session user before the token, and whether it was Bearer
+     */
+    private function authenticate(): McpResponse|array {
         Translator::reset();
         $origin = $this->request->getHeader('Origin');
         if ($origin !== '') {
@@ -134,7 +173,12 @@ class McpController extends Controller {
         $authorization = $this->request->getHeader('Authorization');
         $bearer = AccessTokenAuthenticator::isOwnBearer($authorization);
         if ($bearer) {
-            $user = $this->tokens->authenticate($authorization, $this->resourceUrl->base());
+            try {
+                $user = $this->tokens->authenticate($authorization, $this->resourceUrl->base());
+            } catch (PolicyUnavailable) {
+                // The credential state could not be read: not an answer, so the token is neither accepted nor revoked.
+                return self::unavailable();
+            }
             if ($user === null || ($sessionUser !== null && $sessionUser->getUID() !== $user->getUID())) {
                 return $this->unauthorized('Bearer error="invalid_token", ' . $this->bearerParameters());
             }
@@ -145,15 +189,23 @@ class McpController extends Controller {
                 ? 'Basic realm="MCP for Cloud"'
                 : 'Bearer ' . $this->bearerParameters());
         }
-        if (!$this->policy->canConnect($user->getUID())) {
-            return new McpResponse('', 403);
+        if (!$bearer) {
+            // Basic and session identities use no epoch, but the user's pending recheck causes are processed before
+            // the live policy is checked (contracts §3.1); a Bearer token had them processed by its validation.
+            try {
+                $this->causes->preflight($user->getUID());
+            } catch (PolicyUnavailable) {
+                return self::unavailable();
+            }
         }
-        if ($bearer) {
-            $this->bindSession($user, $sessionUser);
-        }
-        // Both the Basic and the OAuth path end here with the authenticated user, whose account language wins.
-        Translator::use($this->l10n->forUser($user));
-        return null;
+        return [$user, $sessionUser, $bearer];
+    }
+
+    /** @return McpResponse 503 without body: retry shortly, nothing was decided */
+    private static function unavailable(): McpResponse {
+        $response = new McpResponse('', 503);
+        $response->addHeader('Retry-After', '1');
+        return $response;
     }
 
     /**
