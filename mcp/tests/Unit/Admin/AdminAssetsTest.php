@@ -191,8 +191,9 @@ final class AdminAssetsTest extends TestCase {
 
     public function testAdminPageHasTenSectionBlocks(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
-        // A block may be a drawer (S9), whose heading sits in the drawer head next to its close button.
-        preg_match_all('/<div class="section mcp-block(?: mcp-drawer)?" id="([^"]+)"[^>]*>\s*(?:<div class="mcp-drawer-head">\s*)?<h2(?: id="[a-z-]+" tabindex="-1")?><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
+        // A block may be a drawer (S9), whose heading sits in the drawer head next to its close button, or the matrix,
+        // whose bands above the table are compact (S12).
+        preg_match_all('/<div class="section mcp-block(?: mcp-drawer| mcp-matrix-block)?" id="([^"]+)"[^>]*>\s*(?:<div class="mcp-drawer-head">\s*)?<h2(?: id="[a-z-]+" tabindex="-1")?><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
         $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-scope', 'mcp-inspector', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
         $this->assertSame(['Status', 'Group grants', 'Permissions', 'Resource scope', 'Access inspector', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         $this->assertStringContainsString('data-scope="admin"', $template);
@@ -374,10 +375,18 @@ final class AdminAssetsTest extends TestCase {
         $this->assertSame('{module}: uneingeschränkt', json_decode((string)file_get_contents($app . '/l10n/de.json'), true)['translations']['{module}: all']);
     }
 
-    /** Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. */
+    /**
+     * Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. The selection box sticks
+     * at the start, the name right after its fixed width, and the "…" menu at the end, so a row scrolled sideways can
+     * still be selected, named and acted on (S12).
+     */
     public function testMatrixStickyLayersAndToggleClearanceAreScoped(): void {
         $css = (string)file_get_contents(dirname(__DIR__, 3) . '/css/admin.css');
-        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*position: sticky;[^}]*inset-inline-start: 0;[^}]*z-index: 1;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-select-col \{[^}]*position: sticky;[^}]*inset-inline-start: 0;[^}]*z-index: 1;[^}]*width: 44px;[^}]*min-width: 44px;[^}]*max-width: 44px;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-user-col \{[^}]*position: sticky;[^}]*inset-inline-start: 44px;[^}]*z-index: 1;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix \.mcp-actions-col \{[^}]*position: sticky;[^}]*inset-inline-end: 0;[^}]*z-index: 1;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix thead \.mcp-select-col,\s*#mcp-admin \.mcp-matrix thead \.mcp-actions-col \{[^}]*z-index: 3;/s', $css);
+        $this->assertMatchesRegularExpression('/\.mcp-matrix-wrap \{[^}]*overflow: auto;[^}]*max-width: 100%;/s', $css, 'the matrix scrolls inside its block, never the page');
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead th \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 2;/s', $css);
         $this->assertMatchesRegularExpression('/\.mcp-matrix thead \.mcp-user-col \{[^}]*z-index: 3;/s', $css);
         $this->assertStringContainsString('#app-content-vue #mcp-admin .mcp-tab-bar', $css);

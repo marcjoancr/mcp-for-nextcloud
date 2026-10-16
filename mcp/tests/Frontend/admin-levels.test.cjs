@@ -174,10 +174,10 @@ test('a level cell names the level in words and its origin by an icon, never by 
 	const icon = button.find('mcp-origin-icon')
 	assert.ok(icon.classes.has('icon-user'))
 	assert.equal(icon.attributes['aria-hidden'], 'true', 'the icon is decoration; the words carry the state')
-	assert.equal(button.attributes['aria-label'], 'Ana Souza, Files: Edit. Set for this person.')
+	assert.equal(button.attributes['aria-label'], 'Ana Souza, Files: Edit. Exception: differs from what the person inherits.')
 	assert.equal(button.attributes['aria-haspopup'], 'dialog')
 	assert.equal(button.attributes['aria-expanded'], 'false')
-	assert.equal(individual.title, 'Edit. Allows: read, edit, create, move, restore — Set for this person')
+	assert.equal(individual.title, 'Edit. Allows: read, edit, create, move, restore — Exception: differs from what the person inherits')
 	assert.equal(individual.dataset.level, 'edit')
 	assert.ok(individual.classes.has('mcp-state-allowed'))
 

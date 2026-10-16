@@ -388,7 +388,10 @@
 		}
 		const exceptions = window.McpAdminExceptions
 		const mark = !kind ? null : kind === 'invalid' || !exceptions ? 'exception' : exceptions.kindOf(user.uid, module, operation).kind
-		const stateName = !kind ? t('mcp', 'Inherited') : mark === 'redundant' ? names[kind] + ' — ' + t('mcp', 'the same as inherited') : names[kind]
+		const stateName = !kind ? t('mcp', 'Inherited')
+			: mark === 'redundant' ? names[kind] + ' — ' + t('mcp', 'the same as inherited')
+				: mark === 'exception' && kind !== 'invalid' ? names[kind] + ' — ' + t('mcp', 'Exception: differs from what the person inherits')
+					: names[kind]
 		cell.classList.add(kind ? 'mcp-override' : 'mcp-inherited')
 		if (kind) {
 			cell.classList.add('mcp-override-' + kind)

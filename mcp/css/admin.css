@@ -325,10 +325,11 @@
 	border-inline-start: 1px solid var(--color-border);
 }
 
-/* Body names sit above scrolling cells (1); headers above names (2); corner above both (3). */
+/* Body names sit above scrolling cells (1); headers above names (2); corner above both (3). The name sticks right after
+   the selection column, which sticks at the start (S12). */
 #mcp-admin .mcp-matrix .mcp-user-col {
 	position: sticky;
-	inset-inline-start: 0;
+	inset-inline-start: 44px;
 	z-index: 1;
 	text-align: start;
 	border-inline-end: 1px solid var(--color-border);
@@ -1440,4 +1441,88 @@ body[data-themes*="dark"] #mcp-admin {
 
 #mcp-admin .mcp-inspector-why[hidden] {
 	display: none;
+}
+
+/*
+ * Width (S12). The page never scrolls sideways: the matrix scrolls inside its own block, with the selection box and the
+ * name fixed at the start and the "…" menu fixed at the end, so a row can always be selected, named and acted on.
+ */
+#mcp-admin,
+#mcp-admin .mcp-tab-panel,
+#mcp-admin .mcp-block {
+	min-width: 0;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+#mcp-admin .mcp-matrix .mcp-select-col {
+	position: sticky;
+	inset-inline-start: 0;
+	z-index: 1;
+	box-sizing: border-box;
+	width: 44px;
+	min-width: 44px;
+	max-width: 44px;
+}
+
+#mcp-admin .mcp-matrix .mcp-actions-col {
+	position: sticky;
+	inset-inline-end: 0;
+	z-index: 1;
+	border-inline-start: 1px solid var(--color-border);
+}
+
+#mcp-admin .mcp-matrix thead .mcp-select-col,
+#mcp-admin .mcp-matrix thead .mcp-actions-col {
+	z-index: 3;
+}
+
+/* The bands above the table stay short: one line each where the width allows. */
+#mcp-admin .mcp-matrix-block .mcp-toolbar {
+	gap: 6px 8px;
+	margin: 8px 0 6px;
+}
+
+#mcp-admin .mcp-matrix-block .mcp-note {
+	max-width: none;
+	margin: 6px 0;
+	padding: 4px 10px;
+}
+
+#mcp-admin .mcp-matrix-block .mcp-note p {
+	flex-basis: 240px;
+}
+
+#mcp-admin .mcp-selection-bar {
+	gap: 6px 12px;
+}
+
+@media (max-width: 768px) {
+	/* The toolbar stacks, but the two-button switches stay side by side. */
+	#mcp-admin .mcp-toolbar .mcp-view {
+		display: flex;
+	}
+
+	#mcp-admin .mcp-toolbar .mcp-view button {
+		flex: 1 1 0;
+	}
+
+	/* A long name wraps instead of pushing the cells out of the block. */
+	#mcp-admin .mcp-matrix .mcp-user-col {
+		max-width: 38vw;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	#mcp-admin .mcp-matrix-wrap {
+		max-height: 65vh;
+	}
+
+	#mcp-admin .mcp-inspector-module {
+		grid-template-columns: 1fr auto;
+	}
+
+	#mcp-admin .mcp-inspector-module .mcp-hint {
+		grid-column: 1 / -1;
+	}
 }

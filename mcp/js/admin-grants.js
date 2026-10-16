@@ -1049,9 +1049,13 @@
 		return origin.source === 'group' || origin.source === 'unknown' ? 'icon-group' : null
 	}
 
-	/** @return {string} where a cell's values come from, in words */
+	/**
+	 * @return {string} where a cell's values come from, in words: a screen reader hears "Exception" where the eye sees the
+	 *     person icon, and the inspector says the same
+	 */
 	function markText(origin, mark) {
 		if (mark === 'pending') return t('mcp', 'Set for this person')
+		if (mark === 'exception' && origin.source === 'individual') return t('mcp', 'Exception: differs from what the person inherits')
 		if (mark === 'redundant') return originText(origin) + ' — ' + t('mcp', 'also set for this person, with the same value')
 		return originText(origin)
 	}

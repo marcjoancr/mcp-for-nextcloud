@@ -545,7 +545,7 @@ test('B2/S5: an unavailable cell with an override shows its state, and one witho
 	}
 	const overridden = cell(alice(), 'notes', 'edit')
 	assert.ok(overridden.classes.has('mcp-override-deny'))
-	assert.match(overridden.title, /Individual override: denied$/)
+	assert.match(overridden.title, /Individual override: denied — Exception: differs from what the person inherits$/)
 	assert.match(overridden.querySelector('span.mcp-sr-only').textContent, /Individual override: denied/)
 	assert.equal(overridden.querySelector('button'), null)
 	const inherited = cell(alice(), 'notes', 'read')

@@ -121,7 +121,7 @@
             </div>
         </div>
     </div>
-    <div class="section mcp-block" id="mcp-block-matrix">
+    <div class="section mcp-block mcp-matrix-block" id="mcp-block-matrix">
         <h2><?php p($l->t('Permissions')); ?></h2>
         <?php foreach ($_['unsupportedApps'] as $app) { ?>
             <p class="mcp-unsupported-app"><?php p($l->t('%1$s %2$s is installed, but MCP for Cloud supports it from version %3$s on. Its tools stay hidden until the app is updated; the saved permissions are kept.', [$app['name'], $app['installed'], $app['required']])); ?></p>
