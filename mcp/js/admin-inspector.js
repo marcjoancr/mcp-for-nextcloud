@@ -309,11 +309,15 @@
 	const closeButton = document.getElementById('mcp-inspector-close')
 	const entryButton = document.getElementById('mcp-inspector-entry')
 	let returnFocus = null
+	let returnRow = null
 
 	/** Opens the drawer; the focus goes back to `trigger` when it closes. Only one drawer is open at a time. */
 	function openDrawer(trigger) {
 		window.McpScopeUi?.close?.()
 		returnFocus = trigger || document.activeElement || null
+		// The row of a "…" button that opened the drawer: the table may be drawn again meanwhile, and its new button is
+		// the one that gets the focus back.
+		returnRow = returnFocus?.closest?.('tr')?.dataset?.uid ?? null
 		root.classList?.add('mcp-drawer-open')
 		root.setAttribute('role', 'dialog')
 	}
@@ -325,7 +329,22 @@
 		root.removeAttribute?.('role')
 		const target = returnFocus
 		returnFocus = null
-		target?.focus?.()
+		focusBack(target)
+		window.dispatchEvent?.(new Event('mcp-drawer-closed'))
+	}
+
+	/**
+	 * Gives the focus back to the control that opened the drawer, or, when the table was drawn again and that control is
+	 * gone, to the same row's "…" button, then to the drawer's own button on the Access tab: never to the page.
+	 */
+	function focusBack(target) {
+		if (target && target.isConnected !== false) {
+			target.focus?.()
+			return
+		}
+		const rows = [...(document.getElementById('mcp-matrix')?.tBodies?.[0]?.rows || [])]
+		const row = returnRow === null ? null : rows.find((candidate) => candidate.dataset.uid === returnRow)
+		;(row?.querySelector('button.mcp-row-actions-button') || entryButton)?.focus?.()
 	}
 
 	entryButton?.addEventListener('click', () => {

@@ -167,14 +167,16 @@
 	}
 
 	/**
-	 * Draws the table again with the classification. It waits while the level popover or a row's actions menu is open, so
+	 * Draws the table again with the classification. It waits while the level popover, a row's actions menu or a drawer
+	 * (the resource scope, the inspector) is open, so
 	 * the answer never closes what the administrator is using, and otherwise gives the focus back to the same control of
 	 * the same cell of the same row: a level button, a box, the "…" button or the selection box.
 	 */
 	function refresh() {
 		const popover = document.getElementById('mcp-level-popover')
 		const menu = document.getElementById('mcp-row-menu')
-		if ((popover && !popover.hidden) || (menu && !menu.hidden)) {
+		const drawer = ['mcp-scope', 'mcp-inspector'].some((id) => document.getElementById(id)?.classList?.contains('mcp-drawer-open'))
+		if ((popover && !popover.hidden) || (menu && !menu.hidden) || drawer) {
 			refreshWaiting = true
 			return
 		}
@@ -250,10 +252,12 @@
 	// A save of one cell moves the revision and updates its row without drawing the table again: the classification is
 	// read again once that write has finished updating the page.
 	window.addEventListener('mcp-revision-moved', () => setTimeout(classify, 0))
-	for (const closed of ['mcp-level-popover-closed', 'mcp-row-menu-closed']) {
-		window.addEventListener(closed, () => {
+	// After the closing, not during it: a menu item runs its action after the menu closes, and that action (a drawer opened
+	// from the "…" button) must still find the button on the page.
+	for (const closed of ['mcp-level-popover-closed', 'mcp-row-menu-closed', 'mcp-drawer-closed']) {
+		window.addEventListener(closed, () => setTimeout(() => {
 			if (refreshWaiting) refresh()
-		})
+		}, 0))
 	}
 
 	window.McpAdminExceptions = { kindOf, redundantCells, kindOfAnswer, chunks, status: () => result.status }

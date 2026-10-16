@@ -228,3 +228,22 @@ test('S10: the inspector opens as a drawer from a row and from its button, close
 	ui.ids['mcp-inspector-close'].listeners.click()
 	assert.equal(focused, ui.ids['mcp-inspector-entry'])
 })
+
+test('F4: the inspector gives the focus to the new "…" of the row when the old one is gone, or to its own button', async () => {
+	const ui = await app()
+	const fresh = new Element('button')
+	ui.ids['mcp-matrix'] = { tBodies: [{ rows: [{ dataset: { uid: 'alice' }, querySelector: (selector) => selector === 'button.mcp-row-actions-button' ? fresh : null }] }] }
+	const old = new Element('button')
+	old.closest = () => ({ dataset: { uid: 'alice' } })
+	ui.window.McpInspectorUi.open('alice', old)
+	await tick()
+	old.isConnected = false
+	ui.ids['mcp-inspector-close'].listeners.click()
+	assert.equal(focused, fresh)
+	const lone = new Element('button')
+	ui.window.McpInspectorUi.open('alice', lone)
+	await tick()
+	lone.isConnected = false
+	ui.ids['mcp-inspector-close'].listeners.click()
+	assert.equal(focused, ui.ids['mcp-inspector-entry'])
+})

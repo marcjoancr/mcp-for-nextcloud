@@ -16,6 +16,8 @@ const path = require('node:path')
 const root = path.join(__dirname, '../..')
 const plain = (value) => JSON.parse(JSON.stringify(value))
 const tick = async () => { for (let i = 0; i < 12; i++) await new Promise(setImmediate) }
+/** Lets a setTimeout(…, 0) of the script run, then the promises after it. */
+const later = async () => { await new Promise((resolve) => setTimeout(resolve, 5)); await tick() }
 const REVISION = '9007199254740993'
 
 const o = (source, groupIds = []) => ({ source, groupIds })
@@ -29,10 +31,11 @@ function user(uid, values, origins = {}) {
 	}
 }
 
-function setup({ users, preview, popoverOpen = false, menuOpen = false, table = null } = {}) {
+function setup({ users, preview, popoverOpen = false, menuOpen = false, drawerOpen = false, table = null } = {}) {
 	const listeners = {}
 	const element = (hidden = false) => ({ hidden, textContent: '', listeners: {}, addEventListener(name, action) { (this.listeners[name] ||= []).push(action) } })
-	const elements = { 'mcp-redundant-notice': element(true), 'mcp-redundant-notice-text': element(), 'mcp-redundant-review': element(), 'mcp-level-popover': element(!popoverOpen), 'mcp-row-menu': element(!menuOpen), 'mcp-matrix': table }
+	const drawer = { classes: new Set(drawerOpen ? ['mcp-drawer-open'] : []), get classList() { return { contains: (name) => this.classes.has(name) } } }
+	const elements = { 'mcp-scope': drawer, 'mcp-redundant-notice': element(true), 'mcp-redundant-notice-text': element(), 'mcp-redundant-review': element(), 'mcp-level-popover': element(!popoverOpen), 'mcp-row-menu': element(!menuOpen), 'mcp-matrix': table }
 	const document = { activeElement: null, getElementById: (id) => elements[id] ?? null }
 	const calls = []
 	const reviews = []
@@ -63,8 +66,10 @@ function setup({ users, preview, popoverOpen = false, menuOpen = false, table = 
 		reviews,
 		refreshes: () => refreshes,
 		rendered: async () => { fire('mcp-matrix-rendered'); await tick() },
-		popoverClosed: async () => { elements['mcp-level-popover'].hidden = true; fire('mcp-level-popover-closed'); await tick() },
-		menuClosed: async () => { elements['mcp-row-menu'].hidden = true; fire('mcp-row-menu-closed'); await tick() },
+		popoverClosed: async () => { elements['mcp-level-popover'].hidden = true; fire('mcp-level-popover-closed'); await later() },
+		menuClosed: async () => { elements['mcp-row-menu'].hidden = true; fire('mcp-row-menu-closed'); await later() },
+		drawerClosed: async () => { elements['mcp-scope'].classes.delete('mcp-drawer-open'); fire('mcp-drawer-closed'); await later() },
+		fire,
 		revisionMoved: async () => { fire('mcp-revision-moved'); await new Promise((resolve) => setTimeout(resolve, 5)); await tick() },
 		onRefresh: (action) => { onRefresh = action },
 		document,
@@ -259,4 +264,22 @@ test('F3: otherwise the focus goes back to the same control of the same cell of 
 	assert.equal(kit.refreshes(), 1)
 	assert.notEqual(after, before, 'the table was drawn again')
 	assert.equal(kit.document.activeElement, after, 'the new "…" button of the same row has the focus')
+})
+
+test('F4: the redraw after a closing comes after the closing, not during it', async () => {
+	const kit = setup({ users: [user('ana', {}, { read: o('individual_allow') })], preview: previewOf(() => true), menuOpen: true })
+	await kit.rendered()
+	kit.elements['mcp-row-menu'].hidden = true
+	kit.fire('mcp-row-menu-closed')
+	assert.equal(kit.refreshes(), 0, 'nothing is drawn while the menu item still runs its action')
+	await later()
+	assert.equal(kit.refreshes(), 1)
+})
+
+test('F4: the redraw also waits while a drawer is open, and comes when it closes', async () => {
+	const kit = setup({ users: [user('ana', {}, { read: o('individual_allow') })], preview: previewOf(() => true), drawerOpen: true })
+	await kit.rendered()
+	assert.equal(kit.refreshes(), 0)
+	await kit.drawerClosed()
+	assert.equal(kit.refreshes(), 1)
 })

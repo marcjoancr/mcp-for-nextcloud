@@ -462,3 +462,24 @@ test('S9: the entry button of the Access tab opens the drawer on the user field'
 	ui.ids['mcp-scope-close'].listeners.click()
 	assert.equal(ui.active(), ui.ids['mcp-scope-entry'])
 })
+
+test('F4: when the table was drawn again and the "…" that opened the drawer is gone, the focus goes to the new "…" of that row', async () => {
+	const ui = await app(undefined, { drawer: true })
+	const fresh = new Element('button')
+	ui.ids['mcp-matrix'] = { tBodies: [{ rows: [{ dataset: { uid: 'alice' }, querySelector: (selector) => selector === 'button.mcp-row-actions-button' ? fresh : null }] }] }
+	const old = new Element('button')
+	old.closest = () => ({ dataset: { uid: 'alice' } })
+	ui.ui.open('alice', undefined, old)
+	await tick()
+	old.isConnected = false
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(ui.active(), fresh)
+	// Without a row to come back to, the button of the Access tab takes it, never the page.
+	const lone = new Element('button')
+	ui.ui.open('alice', undefined, lone)
+	await tick()
+	lone.isConnected = false
+	ui.ids['mcp-scope-close'].listeners.click()
+	assert.equal(ui.active(), ui.ids['mcp-scope-entry'])
+	assert.ok(ui.events.includes('mcp-drawer-closed'), 'the matrix may draw itself again now')
+})
