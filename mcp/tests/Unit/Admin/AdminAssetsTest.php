@@ -345,6 +345,15 @@ final class AdminAssetsTest extends TestCase {
         $this->assertStringNotContainsString("className: 'mcp-connected'", $grants);
         $this->assertStringContainsString("row.append(el('td', { className: 'mcp-select-col' }))", $grants);
         $this->assertStringContainsString('row.append(actionsCell(user))', $grants);
+        // S6: the "All" menus of the column headers gave way to the selection bar, whose bulk change keeps the explicit
+        // confirmation of 331bdede (who changes, who is left out and why, who already has it) and the receipt undo.
+        $this->assertStringNotContainsString('function bulkMenu(', $grants);
+        $this->assertStringNotContainsString('mcp-bulk-menu', $grants . (string)file_get_contents($app . '/css/admin.css'));
+        $this->assertStringContainsString("async function bulk(module, level, uids) {", $grants);
+        $this->assertStringContainsString("'%n selected person is left out: this permission is unavailable or unknown for them.'", $grants);
+        $this->assertStringContainsString("'%n selected person already has it.'", $grants);
+        $this->assertStringContainsString("matrix.bulk(moduleChoice.value || null, levelChoice.value, uids)", $overrides);
+        $this->assertStringContainsString('window.McpAdminOverrides?.decorateHeader?.(selectHeader)', $grants);
     }
 
     /** Names, header rows and their corner have separate stacking layers; desktop legacy has no gap. */

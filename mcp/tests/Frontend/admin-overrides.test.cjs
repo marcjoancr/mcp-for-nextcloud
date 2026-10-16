@@ -102,7 +102,7 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 	const timers = new Map()
 	let timerId = 0
 	const listeners = {}
-	const log = { calls: [], notices: [], reloads: 0, busy: [], policyErrors: [], undoFocus: 0, announced: [] }
+	const log = { calls: [], notices: [], reloads: 0, busy: [], policyErrors: [], undoFocus: 0, announced: [], bulks: [] }
 	const data = { revision: REVISION, users, catalog: { notes: ['read', 'edit'], files: ['read'] } }
 	const window = {
 		addEventListener: (name, action) => { (listeners[name] ||= []).push(action) },
@@ -131,6 +131,8 @@ function app(users, answer = () => [200, { revision: '9007199254740994', changed
 		offerUndo: (message, saved) => { const undo = () => {}; log.notices.push({ message, saved, undo }); return undo },
 		focusUndo: (undo) => { if (undo !== null) log.undoFocus++ },
 		refresh: () => render(),
+		bulk: (module, level, uids) => { log.bulks.push([module, level, [...uids]]) },
+		levelLabels: () => ({ none: 'None', read: 'Read', edit: 'Edit', full: 'Full' }),
 	}
 	/** What render() does in admin-grants.js: redraw every row, then announce it. */
 	const rows = new Map()
@@ -801,4 +803,46 @@ test('S4: the review of redundant values resets exactly the cells it names, user
 	], 'alice keeps her other individual values')
 	const filtered = ui.window.McpAdminOverrides.plan([alice()], (person, cell) => cell.module === 'notes')
 	assert.deepEqual(plain(filtered.targets[0].cells.map((cell) => cell.module + ':' + cell.operation)), ['notes:edit'], 'a function filter keeps cells per user')
+})
+
+test('S6: the selection bar appears with a selection, sets a level or "Can connect" for exactly the selected people, and clears', async () => {
+	const ui = app([alice(), bob(), carol()])
+	const levels = {}
+	vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../js/admin-levels.js'), 'utf8'), levels)
+	ui.window.McpAdminLevels = levels.McpAdminLevels
+	const bar = ui.toolbar.querySelector('div.mcp-selection-bar')
+	assert.equal(bar.hidden, true, 'no bar without a selection')
+	ui.rowBox('alice').checked = true
+	await ui.rowBox('alice').fire('change')
+	ui.rowBox('carol').checked = true
+	await ui.rowBox('carol').fire('change')
+	assert.equal(bar.hidden, false)
+	assert.equal(bar.getAttribute('aria-label'), 'Selected people')
+	assert.equal(bar.querySelector('strong.mcp-selection-count').textContent, '2 selected')
+	const [module, level] = [bar.querySelector('select.mcp-selection-module'), bar.querySelector('select.mcp-selection-level')]
+	assert.deepEqual(module.children.map((option) => [option.value, option.textContent]), [['', 'Can connect'], ['notes', 'Notes'], ['files', 'Files']])
+	assert.deepEqual(level.children.map((option) => [option.value, option.textContent]), [['read', 'Yes'], ['none', 'No']], '"Can connect" is Yes or No')
+	module.value = 'notes'
+	await module.fire('change')
+	assert.deepEqual(level.children.map((option) => option.value), ['none', 'read', 'full'], 'the levels of the module (Notes here has read and edit)')
+	level.value = 'full'
+	await bar.querySelector('button.mcp-selection-apply').click()
+	assert.deepEqual(ui.log.bulks, [['notes', 'full', ['alice', 'carol']]])
+	module.value = ''
+	await module.fire('change')
+	level.value = 'none'
+	await bar.querySelector('button.mcp-selection-apply').click()
+	assert.deepEqual(ui.log.bulks[1], [null, 'none', ['alice', 'carol']])
+	await bar.querySelector('button.mcp-selection-clear').click()
+	assert.equal(bar.hidden, true)
+	assert.match(ui.resetSelected.textContent, /\(0\)/, 'nobody is selected any more')
+	assert.equal(ui.document.activeElement, ui.selectAll, 'the focus goes to the select-all box')
+})
+
+test('S6: the select-all box heads the selection column and keeps its accessible name', () => {
+	const ui = app([alice(), bob()])
+	const header = new Element('th', ui.document)
+	ui.window.McpAdminOverrides.decorateHeader(header)
+	assert.equal(header.querySelector('input'), ui.selectAll)
+	assert.equal(ui.selectAll.getAttribute('aria-label'), 'Select every user on this page')
 })

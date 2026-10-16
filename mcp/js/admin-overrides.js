@@ -179,13 +179,34 @@
 		}, SAY_DELAY)
 	}
 
-	// --- Toolbar: selection, reset of the selected users, live regions and the preview -------------------------
+	// --- Toolbar: the selection bar, the reset of the selected users, live regions and the preview -------------
 
 	const toolbar = el('div', { className: 'mcp-reset-toolbar' })
 	toolbar.setAttribute('role', 'group')
 	toolbar.setAttribute('aria-label', t('mcp', 'Individual overrides'))
 	const selectAll = el('input', { type: 'checkbox', id: 'mcp-select-all' })
+	selectAll.setAttribute('aria-label', t('mcp', 'Select every user on this page'))
 	const resetSelected = el('button', { type: 'button', className: 'mcp-reset-selected', onclick: () => start(selectedUsers(), null, resetSelected) })
+	/*
+	 * The selection bar, shown while someone is selected: set a level of a module (or "Can connect") for the selected
+	 * people through the matrix's bulk change, which confirms what changes, who is left out and why and who already has
+	 * it, then offers the undo; give their individual values back to inheritance through the reset preview; or clear the
+	 * selection. It replaces the "All" menus of the column headers.
+	 */
+	const selectionCount = el('strong', { className: 'mcp-selection-count' })
+	const moduleChoice = el('select', { className: 'mcp-selection-module' })
+	moduleChoice.setAttribute('aria-label', t('mcp', 'Permission to set'))
+	const levelChoice = el('select', { className: 'mcp-selection-level' })
+	levelChoice.setAttribute('aria-label', t('mcp', 'Level to set'))
+	const applyChoice = el('button', { type: 'button', className: 'mcp-selection-apply mcp-bulk', textContent: t('mcp', 'Apply'), onclick: () => applySelection() })
+	const clearSelection = el('button', { type: 'button', className: 'mcp-selection-clear', textContent: t('mcp', 'Clear selection'), onclick: () => clearAll() })
+	const bar = el('div', { className: 'mcp-selection-bar', hidden: true }, [
+		selectionCount, el('span', { className: 'mcp-selection-set' }, [t('mcp', 'Set'), ' ', moduleChoice, ' ', levelChoice, ' ', applyChoice]),
+		resetSelected, clearSelection,
+	])
+	bar.setAttribute('role', 'group')
+	bar.setAttribute('aria-label', t('mcp', 'Selected people'))
+	moduleChoice.addEventListener('change', () => fillLevels())
 	const statusLine = el('p', { className: 'mcp-reset-status', id: 'mcp-reset-status' })
 	statusLine.setAttribute('role', 'status')
 	statusLine.setAttribute('aria-live', 'polite')
@@ -198,9 +219,8 @@
 			close(true)
 		}
 	})
-	toolbar.append(
-		el('span', { className: 'mcp-reset-select' }, [selectAll, ' ', el('label', { htmlFor: 'mcp-select-all', textContent: t('mcp', 'Select every user on this page') })]),
-		' ', resetSelected, statusLine, alertLine, panel)
+	// The select-all box heads the selection column once the matrix draws its header (decorateHeader()).
+	toolbar.append(el('span', { className: 'mcp-reset-select' }, [selectAll]), bar, statusLine, alertLine, panel)
 	// Focusable only by script: where the focus goes when nothing more specific is left to take it.
 	toolbar.tabIndex = -1
 	anchor.before(toolbar)
@@ -217,8 +237,66 @@
 		selectAll.checked = users.length > 0 && chosen.length === users.length
 		selectAll.indeterminate = chosen.length > 0 && chosen.length < users.length
 		selectAll.disabled = users.length === 0
-		resetSelected.textContent = t('mcp', 'Back to group inheritance for selected users ({count})', { count: chosen.length }, undefined, { escape: false })
+		resetSelected.textContent = t('mcp', 'Give back to inheritance… ({count})', { count: chosen.length }, undefined, { escape: false })
+		resetSelected.title = t('mcp', 'Remove the individual values of the selected people, after a preview of what changes')
 		resetSelected.disabled = chosen.length === 0 || saving
+		bar.hidden = chosen.length === 0
+		selectionCount.textContent = n('mcp', '%n selected', '%n selected', chosen.length)
+		if (chosen.length > 0 && moduleChoice.children.length === 0) {
+			fillModules()
+		}
+	}
+
+	/** The choices of the selection bar: "Can connect" first, then every module of the catalog. */
+	function fillModules() {
+		const catalog = matrix.data()?.catalog || {}
+		const labels = matrix.labels().modules
+		moduleChoice.replaceChildren(el('option', { value: '', textContent: t('mcp', 'Can connect') }),
+			...Object.keys(catalog).map((module) => el('option', { value: module, textContent: labels[module] || module })))
+		moduleChoice.value = ''
+		fillLevels()
+	}
+
+	/** The levels of the chosen module, or Yes and No for "Can connect". */
+	function fillLevels() {
+		const module = moduleChoice.value || null
+		const names = matrix.levelLabels?.() || {}
+		const choices = module === null
+			? [['read', t('mcp', 'Yes')], ['none', t('mcp', 'No')]]
+			: window.McpAdminLevels.levels(module, matrix.data().catalog[module]).map((level) => [level, names[level] || level])
+		levelChoice.replaceChildren(...choices.map(([value, text]) => el('option', { value, textContent: text })))
+	}
+
+	/** Sets the chosen level for the selected people, through the matrix's bulk change. */
+	function applySelection() {
+		if (saving || matrix.isBusy()) {
+			say(t('mcp', 'Wait until the change in progress is saved.'), true)
+			return
+		}
+		const uids = selectedUsers().map((user) => user.uid)
+		if (uids.length > 0 && levelChoice.value) {
+			matrix.bulk(moduleChoice.value || null, levelChoice.value, uids)
+		}
+	}
+
+	/** Clears the selection of the page. */
+	function clearAll() {
+		selected.clear()
+		for (const box of table.querySelectorAll('input.mcp-row-select')) {
+			box.checked = false
+		}
+		updateToolbar()
+		selectAll.focus()
+	}
+
+	/**
+	 * Puts the select-all box in the header of the selection column, which js/admin-grants.js draws again on every render.
+	 *
+	 * @param {HTMLTableCellElement} header the header cell of the selection column
+	 */
+	function decorateHeader(header) {
+		header.append(selectAll)
+		updateToolbar()
 	}
 
 	selectAll.addEventListener('change', () => {
@@ -666,7 +744,7 @@
 		start(pageUsers().filter((user) => uids.has(user.uid)), (user, cell) => keys.has(afterKey(user.uid, cell.module, cell.operation)), trigger)
 	}
 
-	window.McpAdminOverrides = { decorateRow, decorateCell, plan, reviewCells, resetUser, hasOverrides }
+	window.McpAdminOverrides = { decorateRow, decorateHeader, decorateCell, plan, reviewCells, resetUser, hasOverrides }
 	// The matrix may have been drawn before this file ran: draw it again so its rows carry the controls.
 	matrix.refresh()
 })()

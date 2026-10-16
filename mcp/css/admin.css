@@ -291,12 +291,6 @@
 	font-weight: bold;
 }
 
-/* Header menus must paint above the second header row and the sticky corner. A browser without :has()
-   is a progressive-enhancement case: the open menu then paints under the second header row. */
-#mcp-admin .mcp-matrix thead th:has(.mcp-bulk-menu[open]) {
-	z-index: 4;
-}
-
 #mcp-admin .mcp-matrix thead th[title] {
 	cursor: help;
 }
@@ -520,62 +514,6 @@
 #mcp-admin .mcp-row-select:focus-visible {
 	outline: 2px solid var(--color-primary-element);
 	outline-offset: 2px;
-}
-
-/* Header "All" menus: a native <details>, so it works without a build step and with the keyboard. */
-#mcp-admin .mcp-bulk-menu {
-	display: inline-block;
-	position: relative;
-	font-weight: normal;
-}
-
-#mcp-admin .mcp-bulk-summary {
-	display: inline-block;
-	padding: 0 8px;
-	border: 1px solid var(--color-border-dark);
-	border-radius: var(--border-radius-pill, var(--border-radius));
-	font-size: 0.85em;
-	cursor: pointer;
-	list-style: none;
-}
-
-#mcp-admin .mcp-bulk-summary::-webkit-details-marker {
-	display: none;
-}
-
-#mcp-admin .mcp-bulk-summary::after {
-	content: ' ▾';
-}
-
-#mcp-admin .mcp-bulk-summary:focus-visible {
-	outline: 2px solid var(--color-primary-element);
-	outline-offset: 2px;
-}
-
-#mcp-admin .mcp-bulk-list {
-	position: absolute;
-	inset-inline-start: 0;
-	top: 100%;
-	z-index: 10;
-	min-width: 260px;
-	margin-top: 4px;
-	padding: 6px;
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-element, var(--border-radius-large));
-	background-color: var(--color-main-background);
-	box-shadow: 0 2px 8px var(--color-box-shadow);
-	text-align: start;
-}
-
-#mcp-admin .mcp-bulk-line {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 2px 0;
-}
-
-#mcp-admin .mcp-bulk-name {
-	flex: 1;
 }
 
 #mcp-admin .mcp-bulk {
@@ -1235,4 +1173,52 @@ body[data-themes*="dark"] #mcp-admin {
 #mcp-admin .mcp-row-menu-item:focus-visible {
 	outline: 2px solid var(--color-primary-element);
 	outline-offset: -2px;
+}
+
+/* The selection bar (js/admin-overrides.js): shown while people are selected, in place of the "All" menus. */
+#mcp-admin .mcp-selection-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	flex-basis: 100%;
+	padding: 4px 12px;
+	border-radius: var(--border-radius-element, var(--border-radius-large));
+	background-color: var(--color-background-dark);
+	color: var(--color-main-text);
+}
+
+#mcp-admin .mcp-selection-bar[hidden] {
+	display: none;
+}
+
+#mcp-admin .mcp-selection-set {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
+#mcp-admin .mcp-selection-clear {
+	margin-inline-start: auto;
+}
+
+#mcp-admin .mcp-matrix .mcp-select-col input {
+	margin: 0;
+}
+
+/* The bar's actions are ordinary buttons: the class mcp-bulk only puts them under the bulk lock. */
+#mcp-admin .mcp-selection-bar .mcp-selection-apply {
+	min-height: var(--default-clickable-area);
+	padding: 0 14px;
+	border: 0;
+	background-color: var(--color-main-background);
+	font-size: inherit;
+	font-weight: bold;
+}
+
+#mcp-admin .mcp-selection-bar .mcp-reset-selected,
+#mcp-admin .mcp-selection-bar .mcp-selection-clear {
+	background-color: transparent;
+	color: var(--color-main-text);
 }
