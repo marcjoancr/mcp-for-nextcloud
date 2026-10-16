@@ -253,12 +253,13 @@ inspected on each route.
 
 ## Resource scope panel (issue #4, B7)
 
-`Policy/ScopePanelTest.php` sends the requests of the admin panel over HTTP from an administrator session opened like a
-browser (`/csrftoken`, its cookies and the requesttoken), so the routes run with the framework's admin and CSRF checks:
-show, candidates, save, a stale save refused with 409 and nothing written, the matrix cell and the personal page reading
-the saved scope, and undo through the receipt. Files is browsable but refused on save (422 ScopeInactive) while its
-barrier is closed. A non-administrator session gets 403 on every route. The test also measures one page of the folder
-picker over a folder of 1000 subfolders (F3 of the B2 review) and records it in `observations.txt`.
+`Policy/ScopePanelTest.php` runs what the admin panel asks and saves through the scope, matrix and undo controllers
+built from the container's services, signed in as the administrator: show, candidates, save, a stale save refused with
+409 and nothing written, the matrix cell and the personal page (signed in as alice) reading the saved scope, and undo
+through the receipt. Files is browsable but refused on save (422 ScopeInactive) while its barrier is closed. Over HTTP,
+a non-administrator session gets the framework's 403 on every scope route. The panel's own requests (URLs, requesttoken
+header, bodies) are covered by the node tests. The test also measures the folder picker over a folder of 1000
+subfolders (F3 of the B2 review) and records it in `observations.txt`.
 
 ## Exclusion proof (issue #4, A4)
 
