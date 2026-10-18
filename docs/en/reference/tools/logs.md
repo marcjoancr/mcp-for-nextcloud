@@ -11,6 +11,10 @@
 
 See the live `mcp_guide` for the authoritative schema and available operations.
 
+| Module | Tools | Dependency |
+| --- | --- | --- |
+| Logs | `logs_list`, `logs_analyze` | read-only access to `nextcloud.log` through the core's `ILogFactory`/`IFileBased::getEntries`; requires a file-based `log_type` (the default); see [Server log](../../guides/server-logs.md#server-log-102) |
+
 [Operational guides](../../guides/README.md).
 
-English · Português (Brasil): translation pending; English is the current source.
+English · [Português (Brasil)](../../../pt-BR/reference/tools/logs.md)

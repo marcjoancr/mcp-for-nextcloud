@@ -19,4 +19,4 @@
 
 [Operational guides](README.md).
 
-English · Português (Brasil): translation pending; English is the current source.
+English · [Português (Brasil)](../../pt-BR/guides/server-logs.md)

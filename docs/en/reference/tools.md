@@ -14,7 +14,9 @@ Each tool only appears in `tools/list` and can only be called when the user has 
 - **with `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`) — each tool of the module: description, whether it reads or writes, parameters with type, whether required, description, `enum` and limits, and the confirmations it requires;
 - **with `tool`** — a single tool, with the module it belongs to.
 
-The text comes from the real definitions (`ModuleDefinition`, `inputSchema`, `annotations` and `ToolPresentation`), so changing a tool's schema changes the guide: there is no second copy of the documentation to keep up to date. What the schema does not carry — how to find things, with which paths and IDs, and where writes stop — goes in `ToolGuideNotes::guideNotes()`, a short note per module, written next to the module. The response carries the same content in markdown and in `structuredContent`, and the tool is read-only: it reads definitions, it never runs a tool.
+The guide is written in English; the model relays it in the user’s language.
+
+The text comes from the real definitions (`ToolModule::definitions()`, `inputSchema`, `annotations` and `ToolPresentation`), so changing a tool's schema changes the guide: there is no second copy of the documentation to keep up to date. What the schema does not carry — how to find things, with which paths and IDs, and where writes stop — goes in `ToolGuideNotes::guideNotes()`, a short note per module, written next to the module. The response carries the same content in markdown and in `structuredContent`, and the tool is read-only: it reads definitions, it never runs a tool.
 
 A module or tool the user cannot see is refused with a message that lists what they can use. There is no approval stored on the server: the rule of confirming before writing lives in the `instructions` of `initialize` and applies to every tool that changes something.
 
@@ -42,4 +44,4 @@ Plus:
 
 [Operational guides](../guides/README.md).
 
-English · Português (Brasil): translation pending; English is the current source.
+English · [Português (Brasil)](../../pt-BR/reference/tools.md)
