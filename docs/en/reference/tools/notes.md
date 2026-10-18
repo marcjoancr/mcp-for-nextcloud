@@ -25,4 +25,4 @@ Notes tools require the Notes app enabled for the user. Reading starts allowed; 
 
 [Operational guides](../../guides/README.md).
 
-English · [Português (Brasil)](../../../pt-BR/reference/tools/notes.md)
+English · [Español](../../../es/reference/tools/notes.md) · [Català](../../../ca/reference/tools/notes.md) · [Português (Brasil)](../../../pt-BR/reference/tools/notes.md) · [Português (Portugal)](../../../pt-PT/reference/tools/notes.md)

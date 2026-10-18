@@ -18,4 +18,4 @@ The server announces the `resources: {}` capability in both the legacy `initiali
 
 [Operational guides](../guides/README.md).
 
-English · [Português (Brasil)](../../pt-BR/reference/resources.md)
+English · [Español](../../es/reference/resources.md) · [Català](../../ca/reference/resources.md) · [Português (Brasil)](../../pt-BR/reference/resources.md) · [Português (Portugal)](../../pt-PT/reference/resources.md)

@@ -1,0 +1,51 @@
+<!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+
+# Migration plans and execution reports
+
+Historical records describe their own revisions. For current commands, start with [development setup](../setup.md).
+
+- [Calendar, DAV, Contacts and Tasks migration execution report](2026-10-16-calendar-dav-capability-migration-report.md)
+- [Calendar, DAV, Contacts and Tasks capability migration plan](2026-10-16-calendar-dav-capability-migration.md)
+- [Deck capability migration execution report](2026-10-16-deck-capability-migration-report.md)
+- [Deck capability migration implementation plan](2026-10-16-deck-capability-migration.md)
+- [Files capability migration execution report](2026-10-16-files-capability-migration-report.md)
+- [Complete Files migration by capability](2026-10-16-files-capability-migration.md)
+- [Files read/edit pilot report](2026-10-16-files-pilot-report.md)
+- [Files read/edit pilot implementation plan](2026-10-16-files-pilot.md)
+- [Notes capability migration execution report](2026-10-16-notes-capability-migration-report.md)
+- [Notes capability migration plan](2026-10-16-notes-capability-migration.md)
+- [People capability migration execution report](2026-10-16-people-capability-migration-report.md)
+- [People capability migration plan](2026-10-16-people-capability-migration.md)
+- [Talk capability migration execution report](2026-10-16-talk-capability-migration-report.md)
+- [Talk capability migration implementation plan](2026-10-16-talk-capability-migration.md)
+- [Administration JavaScript separation execution report](2026-10-17-admin-javascript-responsibilities-report.md)
+- [Administration JavaScript responsibility separation plan](2026-10-17-admin-javascript-responsibilities.md)
+- [Devbox catalog parity and available validation report](2026-10-17-devbox-catalog-validation-report.md)
+- [Developer commands and static analysis execution report](2026-10-17-developer-commands-static-analysis-report.md)
+- [Developer commands and static analysis implementation plan](2026-10-17-developer-commands-static-analysis.md)
+- [README and documentation localization plan](2026-10-17-documentation-i18n.md)
+- [Logs capability migration execution report](2026-10-17-logs-capability-migration-report.md)
+- [Logs capability migration plan](2026-10-17-logs-capability-migration.md)
+- [Shared MCP infrastructure migration execution report](2026-10-17-shared-mcp-infrastructure-migration-report.md)
+- [Shared MCP infrastructure migration plan](2026-10-17-shared-mcp-infrastructure-migration.md)
+- [Documentation and i18n execution report](2026-10-17-documentation-i18n-report.md)
+
+- [Operational documentation translation report](2026-10-17-operational-translations-report.md)
+
+- [Consolidated local technical closure](2026-10-17-local-technical-closure-report.md)
+- [Upstream 1.1.0 capability integration plan](2026-10-17-upstream-1.1.0-capability-integration.md)
+- [Upstream 1.1.0 source inventory](2026-10-17-upstream-1.1.0-inventory.md)
+- [Upstream 1.1.0 integration execution report](2026-10-17-upstream-1.1.0-integration-report.md)
+
+- [Upstream 1.1.0 staging acceptance plan](2026-10-18-upstream-1.1.0-staging-acceptance.md)
+- [Upstream 1.1.0 human review checklist](2026-10-18-upstream-1.1.0-human-review-checklist.md)
+- [Upstream 1.1.0 staging acceptance report](2026-10-18-upstream-1.1.0-staging-acceptance-report.md)
+- [Upstream 1.1.0 devbox provisioning proposal](2026-10-18-upstream-1.1.0-devbox-provisioning-proposal.md)
+- [Upstream 1.1.0 staging recipe and pinned inputs](2026-10-18-upstream-1.1.0-staging-provisioning-recipe.md)
+- [Upstream 1.1.0 S0 decisions and assignment proposal](2026-10-18-upstream-1.1.0-s0-decision-proposal.md)
+- [Upstream contribution validation and evidence checklist](2026-10-18-upstream-pr-validation-checklist.md)
+- [Short-campaign recovery proposal](2026-10-18-short-campaign-recovery.md)
+- [V0 upstream comparison and outgoing inventory](2026-10-18-upstream-v0-comparison.md)
+- [Complete upstream contribution scope after V0](2026-10-18-upstream-pr-scope-proposal.md)
+- [Upstream 1.1.0 feature preservation review](2026-10-18-upstream-1.1.0-feature-parity-review.md)

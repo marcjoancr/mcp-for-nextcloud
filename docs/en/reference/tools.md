@@ -44,4 +44,4 @@ Plus:
 
 [Operational guides](../guides/README.md).
 
-English · [Português (Brasil)](../../pt-BR/reference/tools.md)
+English · [Español](../../es/reference/tools.md) · [Català](../../ca/reference/tools.md) · [Português (Brasil)](../../pt-BR/reference/tools.md) · [Português (Portugal)](../../pt-PT/reference/tools.md)

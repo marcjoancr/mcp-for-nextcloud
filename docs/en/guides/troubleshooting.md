@@ -66,4 +66,4 @@ Any `FAIL` returns a non-zero code. If the cleanup fails, `cleanup-resource` ind
 
 [Operational guides](README.md).
 
-English · [Português (Brasil)](../../pt-BR/guides/troubleshooting.md)
+English · [Español](../../es/guides/troubleshooting.md) · [Català](../../ca/guides/troubleshooting.md) · [Português (Brasil)](../../pt-BR/guides/troubleshooting.md) · [Português (Portugal)](../../pt-PT/guides/troubleshooting.md)

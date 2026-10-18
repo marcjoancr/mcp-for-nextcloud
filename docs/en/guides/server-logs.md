@@ -19,4 +19,4 @@
 
 [Operational guides](README.md).
 
-English · [Português (Brasil)](../../pt-BR/guides/server-logs.md)
+English · [Español](../../es/guides/server-logs.md) · [Català](../../ca/guides/server-logs.md) · [Português (Brasil)](../../pt-BR/guides/server-logs.md) · [Português (Portugal)](../../pt-PT/guides/server-logs.md)
