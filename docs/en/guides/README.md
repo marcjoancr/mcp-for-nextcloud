@@ -15,4 +15,4 @@
 - [Configuration](../reference/configuration.md)
 - [OAuth](../reference/oauth.md)
 
-English · Português (Brasil): translation pending; English is the current source.
+English · [Português (Brasil)](../../pt-BR/guides/README.md)

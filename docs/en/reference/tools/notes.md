@@ -25,4 +25,4 @@ Notes tools require the Notes app enabled for the user. Reading starts allowed; 
 
 [Operational guides](../../guides/README.md).
 
-English · Português (Brasil): translation pending; English is the current source.
+English · [Português (Brasil)](../../../pt-BR/reference/tools/notes.md)

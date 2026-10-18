@@ -31,4 +31,4 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 
 [Operational guides](../../guides/README.md).
 
-English · Português (Brasil): translation pending; English is the current source.
+English · [Português (Brasil)](../../../pt-BR/reference/tools/deck.md)
