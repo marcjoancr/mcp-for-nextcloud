@@ -13,4 +13,4 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 
 [Operational guides](../../guides/README.md).
 
-English · [Português (Brasil)](../../../pt-BR/reference/tools/talk.md)
+English · [Español](../../../es/reference/tools/talk.md) · [Català](../../../ca/reference/tools/talk.md) · [Português (Brasil)](../../../pt-BR/reference/tools/talk.md) · [Português (Portugal)](../../../pt-PT/reference/tools/talk.md)

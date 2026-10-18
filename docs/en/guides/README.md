@@ -15,4 +15,4 @@
 - [Configuration](../reference/configuration.md)
 - [OAuth](../reference/oauth.md)
 
-English · [Português (Brasil)](../../pt-BR/guides/README.md)
+English · [Español](../../es/guides/README.md) · [Català](../../ca/guides/README.md) · [Português (Brasil)](../../pt-BR/guides/README.md) · [Português (Portugal)](../../pt-PT/guides/README.md)

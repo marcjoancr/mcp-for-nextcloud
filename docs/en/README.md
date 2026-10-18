@@ -22,4 +22,4 @@
 
 [Operational guides](guides/README.md).
 
-English · [Português (Brasil)](../pt-BR/README.md)
+English · [Español](../es/README.md) · [Català](../ca/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)

@@ -14,4 +14,4 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 
 [Operational guides](../../guides/README.md).
 
-English · [Português (Brasil)](../../../pt-BR/reference/tools/people.md)
+English · [Español](../../../es/reference/tools/people.md) · [Català](../../../ca/reference/tools/people.md) · [Português (Brasil)](../../../pt-BR/reference/tools/people.md) · [Português (Portugal)](../../../pt-PT/reference/tools/people.md)

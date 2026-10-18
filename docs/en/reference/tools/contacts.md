@@ -14,4 +14,4 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 
 [Operational guides](../../guides/README.md).
 
-English · [Português (Brasil)](../../../pt-BR/reference/tools/contacts.md)
+English · [Español](../../../es/reference/tools/contacts.md) · [Català](../../../ca/reference/tools/contacts.md) · [Português (Brasil)](../../../pt-BR/reference/tools/contacts.md) · [Português (Portugal)](../../../pt-PT/reference/tools/contacts.md)

@@ -48,4 +48,4 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 
 [Operational guides](../../guides/README.md).
 
-English · [Português (Brasil)](../../../pt-BR/reference/tools/files.md)
+English · [Español](../../../es/reference/tools/files.md) · [Català](../../../ca/reference/tools/files.md) · [Português (Brasil)](../../../pt-BR/reference/tools/files.md) · [Português (Portugal)](../../../pt-PT/reference/tools/files.md)
