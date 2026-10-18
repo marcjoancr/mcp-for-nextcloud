@@ -3,7 +3,10 @@
 
 # Upstream contribution validation and evidence checklist
 
-**Status: V0 reviewed; complete-PR scope confirmed; V1–V3 for the future contribution remain open.** This is the short-campaign evidence checklist
+**Status: V0 reviewed; V1 local qualification and V3 local draft prepared; V2 and
+human acceptance remain pending.** The [branch preparation report](2026-10-18-complete-upstream-pr-preparation.md)
+records the new candidate, exact checks, inherited evidence and remaining limits.
+This is the short-campaign evidence checklist
 requested after the [owner decisions](2026-10-18-upstream-1.1.0-staging-acceptance-report.md#confirmed-decisions--short-validation-campaign)
 at `1d197f3`. No deployment, image pull, push, PR opening or reviewer contact is
 authorized. The user owns devbox and accepts operation/recovery with agent assistance;
@@ -21,8 +24,9 @@ human-review gaps explicitly.
 
 ## Evidence states and scope
 
-V0 checkboxes are supported by the linked source-comparison report; V1–V3 remain
-open. Existing qualification reports are evidence sources to verify,
+V0 checkboxes are supported by the linked source-comparison report; V1 and V3
+local preparation checkboxes are supported by the branch preparation report. V2
+remains open. Existing qualification reports are evidence sources to verify,
 not new executions. Record `NOT RUN`, `BLOCKED`, `PASS` or `FAIL`, plus whether a
 result was newly executed or carried forward from an exact qualified candidate.
 Do not turn missing reviewers/clients into `NOT APPLICABLE` or make a historical
@@ -54,7 +58,8 @@ replace individual test/scenario identifiers or create evidence by themselves.
 
 Completed as analysis on 2026-10-18: [references and inventory](2026-10-18-upstream-v0-comparison.md),
 [scope recommendation](2026-10-18-upstream-pr-scope-proposal.md). The analyzed full-fork
-head is frozen; no new contribution head exists. The user selected one complete
+head is frozen; the later contribution head is recorded in the branch preparation
+report. The user selected one complete
 architecture/DevEx PR, retaining all 1.1.0 functionality, on 2026-10-18. The
 [feature-parity review](2026-10-18-upstream-1.1.0-feature-parity-review.md) records
 local checks and open findings; these do not qualify a future assembled head.
@@ -64,7 +69,8 @@ Checked analysis items do not approve publication.
 - [x] Record exact source references: original 1.1.0 target
   `0911f9123a661968e707fc4c391adcf9d37c3e84`, qualified local code
   `7d8873cafaaadedc479c2204c9ef75bb76062dcf`, full-fork analysis head, observed
-  upstream base and their merge base. A future contribution head does not yet exist.
+  upstream base and their merge base. The later contribution head is recorded
+  separately; V0 remains historical.
   Record both the upstream-tip-to-head tree comparison
   and the merge-base-to-head contribution diff, accounting for any divergence that
   affects the platform's displayed PR. Upstream `main` is the recommended target;
@@ -85,18 +91,24 @@ Checked analysis items do not approve publication.
   record dependencies and the major/minor compatibility decision explicitly.
 
 Acceptance: exact comparison and scope are recorded; known upstream changes are
-accounted for. Complete-PR scope is the user's decision; branch assembly and
-publication remain later actions requiring their own authorization.
+accounted for. Complete-PR scope is the user's decision; branch assembly was
+subsequently authorized and completed;
+publication remains unauthorized.
 
 ## V1 — Assemble local qualification
 
-- [ ] Preserve the frozen archive before builds. Record package/source/asset identity
+Completed for local branch preparation under the metadata-only candidate rules;
+PHP 8.2/8.3/8.5 and native results are explicitly historical, not rerun. The fresh
+host gate, license checks and package comparison are recorded in the preparation
+report. The two inherited whitespace failures remain disclosed minor debt.
+
+- [x] Preserve the frozen archive before builds. Record package/source/asset identity
   and compare changed paths with the qualified candidate. Never overwrite the S0
   preserved copy when producing a PR-specific artifact.
-- [ ] Apply the acceptance plan's candidate-change rules. Development-only docs need
+- [x] Apply the acceptance plan's candidate-change rules. Development-only docs need
   docs/provenance/tooling checks. Runtime/shared-policy changes need broader gates;
   do not rerun every historical suite merely because a report date changed.
-- [ ] For a new code-bearing PR candidate retaining the fork's tooling, run the
+- [x] For a new code-bearing PR candidate retaining the fork's tooling, run the
   registered full gate from the selected worktree:
   `devbox run check --cwd PATH --json` with the resolved absolute
   worktree path. The portable equivalent is `composer --working-dir=mcp check`.
@@ -104,14 +116,14 @@ publication remain later actions requiring their own authorization.
   The complete contribution includes this tooling. Verify its catalog binding and
   scripts before execution; do not run the newer catalog against an unmodified
   upstream tree and mistake a missing command for a completed gate.
-- [ ] Qualify PHP 8.2–8.5 and REUSE as required by the candidate delta, using the
+- [x] Qualify PHP 8.2–8.5 and REUSE as required by the candidate delta, using the
   existing [testing contract](../testing.md) and qualified procedures. Host PHP and
   a passing `check` alone do not establish all PHP versions or REUSE compliance.
-- [ ] For behavior/shared-boundary changes, map regression cases to actual defects,
+- [x] For behavior/shared-boundary changes, map regression cases to actual defects,
   affected capabilities and retained upstream expectations. Both PHPStan scopes,
   complete PHP/browser gates and package inspection must pass as applicable; no
   baselines, suppressed errors, excluded paths or skipped mandatory tests.
-- [ ] Identify the new package separately even if only Composer root metadata changes.
+- [x] Identify the new package separately even if only Composer root metadata changes.
   Check package contents, generated assets and offline documents using
   [packaging](../packaging.md). Carry behavioral evidence forward only under the
   acceptance plan's exact-byte comparison/review rules.
@@ -151,24 +163,28 @@ scope and safety prerequisites; it cannot be used to claim full staging acceptan
 
 ## V3 — Prepare the upstream review package locally
 
-- [ ] Draft an English title/body for the selected contribution, leading with the
+Completed as a local draft, with verdict `READY FOR USER REVIEW OF PR DRAFT`.
+Final upstream publication curation, release version, merge/provenance strategy and
+all human/real-host gates remain pending. No PR is open.
+
+- [x] Draft an English title/body for the selected contribution, leading with the
   concrete problem and resulting behavior, then scope, capability owners and why
   the change belongs upstream. Follow the verified upstream template if one exists.
-- [ ] Include the exact base/head, migration identities and compatibility contract,
+- [x] Include the exact base/head, migration identities and compatibility contract,
   intentional behavior differences and known limitations. Separate user-facing fixes
   from structural moves and tooling so reviewers can assess each independently.
-- [ ] Attach an evidence table using the IDs above: passed commands/cases, carried
+- [x] Attach an evidence table using the IDs above: passed commands/cases, carried
   historical results, failures/retests and unexecuted host/client/human gates. Do not
   present local execution as GitHub CI or a draft translation as human approved.
-- [ ] Explain recovery/rollback constraints using the canonical guide; no file-only
+- [x] Explain recovery/rollback constraints using the canonical guide; no file-only
   downgrade, hidden transition code, credential material or private devbox details.
-- [ ] Verify licenses/fixture attribution, no accidental generated files or secrets,
+- [x] Verify licenses/fixture attribution, no accidental generated files or secrets,
   and that the proposed PR contains the intended contribution. Private campaign
   approvals and operational artifacts are not automatically upstream deliverables.
-- [ ] List unresolved defects and reviews with scope/impact and disposition needed.
+- [x] List unresolved defects and reviews with scope/impact and disposition needed.
   Security, credential revival, data loss or broken mandatory behavior must remain
   visible blockers; a draft discussion is not acceptance or release readiness.
-- [ ] Provide a local handoff verdict: `READY FOR USER REVIEW OF PR DRAFT` or
+- [x] Provide a local handoff verdict: `READY FOR USER REVIEW OF PR DRAFT` or
   `BLOCKED FOR THE PROPOSED CLAIMS`, with explicit remaining work. This verdict does
   not assert S7 success. User authorization is still required to push/open a PR.
 

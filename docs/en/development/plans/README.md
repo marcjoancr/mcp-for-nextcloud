@@ -49,3 +49,5 @@ Historical records describe their own revisions. For current commands, start wit
 - [V0 upstream comparison and outgoing inventory](2026-10-18-upstream-v0-comparison.md)
 - [Complete upstream contribution scope after V0](2026-10-18-upstream-pr-scope-proposal.md)
 - [Upstream 1.1.0 feature preservation review](2026-10-18-upstream-1.1.0-feature-parity-review.md)
+- [Complete upstream PR branch preparation and qualification](2026-10-18-complete-upstream-pr-preparation.md)
+- [Complete upstream PR local description draft](2026-10-18-complete-upstream-pr-description.md)

@@ -19,6 +19,12 @@ not an approved publication head. The initial review changed documentation only;
 the later authorized manifest correction is recorded under C1. Human
 reviewers/verdicts remain pending; no deployment, push or PR opening is authorized.
 
+Current execution: C2 is complete locally on `refactor/complete-upstream-pr`;
+C3 available local checks and a C4 description draft are recorded in the
+[branch preparation report](2026-10-18-complete-upstream-pr-preparation.md).
+Historical text below describes the original proposal; remaining human, staging,
+publication and release decisions are still open.
+
 ## 1. Purpose and complete scope
 
 Proposed English PR title: **Reorganize MCP by capabilities and unify development workflows while preserving 1.1.0 behavior**.
@@ -144,9 +150,10 @@ human approval are not inferred from the PR draft or automated tests.
 
 ## 5. Next action
 
-The manifest correction is complete locally. Next, assemble and qualify the complete
-contribution in an explicitly authorized task, retaining the outstanding human,
-rendered-language and candidate-artifact gates.
+The manifest correction and complete branch assembly are complete locally. Next,
+review the [prepared branch and PR draft](2026-10-18-complete-upstream-pr-preparation.md),
+including its new inventory, artifact identity, provenance/merge constraint, minor
+formatting debt and outstanding human, rendered-language and candidate-artifact gates.
 Do not return to the superseded small-PR sequence. The user continues to own devbox
 operation and recovery; the recovery proposal, outstanding S0 gates, reviewer
 assignments and every human verdict remain pending. No reviewer was contacted.

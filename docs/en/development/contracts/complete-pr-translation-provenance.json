@@ -1,0 +1,881 @@
+{
+  "upstream_base": "0911f9123a661968e707fc4c391adcf9d37c3e84",
+  "source_head": "bda34406018d8fffd2b30c52628c61b4dd4ad9bf",
+  "source_branch": "docs/talk-capability-plan",
+  "branch": "refactor/complete-upstream-pr",
+  "checkpoint_head": "0105e8e8a2706d139deb119f87d7d01c0788586c",
+  "revision_mapping": {
+    "0c95ccfd3a13339521c1470883edfdcf8138bd98": "c0f730d97a84cf61317486c67722af52cf30325e",
+    "890ca28bb0d327fb063dea472fc579570eb137c4": "c1836790061cd223b3d5c7bd51639ceb1c91c38f",
+    "9533d1eee440ed5db37f4925e2db321d231319a8": "b399933ce2b824c7f278b9615b72d97555cd8e84",
+    "b00b9b72d7294a25980b3fc8de0a9f17a4109083": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+  },
+  "translations": [
+    {
+      "translation": "README.ca.md",
+      "canonical": "README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "current_source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "README.es.md",
+      "canonical": "README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "current_source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "README.pt-BR.md",
+      "canonical": "README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "current_source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "README.pt-PT.md",
+      "canonical": "README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "current_source_blob": "6a48a5a7654ec96f70d862c631a95fe4525e1e23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/ca/README.md",
+      "canonical": "docs/en/README.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "13668d80f0348996b104e57d2a3bc432b4891872",
+      "current_source_blob": "5c208c8019f52f711359ed47eeefdcbba29875af",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/guides/README.md",
+      "canonical": "docs/en/guides/README.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "1f23bc0a53780b34158a696c98d9f51f8fb54d54",
+      "current_source_blob": "52f45c16933de7c51e9bc86a4df6560062addde9",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/guides/clients.md",
+      "canonical": "docs/en/guides/clients.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "current_source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/ca/guides/file-protection.md",
+      "canonical": "docs/en/guides/file-protection.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "current_source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/ca/guides/permissions.md",
+      "canonical": "docs/en/guides/permissions.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "current_source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/ca/guides/server-logs.md",
+      "canonical": "docs/en/guides/server-logs.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "53ecc138bc012f248371b6c786f51085fd0a6b12",
+      "current_source_blob": "f4d1bf9a212b33005739726ee09d4144852155dc",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/guides/troubleshooting.md",
+      "canonical": "docs/en/guides/troubleshooting.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "4a80d454677101e474dc3bb8d5e03a35668e48d1",
+      "current_source_blob": "e451241d6d4394b285d7b62a8dfb581c62006eae",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/installation.md",
+      "canonical": "docs/en/installation.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "current_source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/ca/reference/configuration.md",
+      "canonical": "docs/en/reference/configuration.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "current_source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/ca/reference/oauth.md",
+      "canonical": "docs/en/reference/oauth.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "current_source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/ca/reference/resources.md",
+      "canonical": "docs/en/reference/resources.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "04e67c2662c7c072803327f1a3d5de3d32bea2bd",
+      "current_source_blob": "8c3501172d1cbec82c0da52b24e139ef5b226f81",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools.md",
+      "canonical": "docs/en/reference/tools.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "043a285db8017e115146d6e75aedcf4fdfcfa5c4",
+      "current_source_blob": "96190549b03ecf68fa2e9ac60930ef4a049b72b7",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/calendar.md",
+      "canonical": "docs/en/reference/tools/calendar.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "fa5596ae7f0567ee7afa26917bc813cefea1b295",
+      "current_source_blob": "66a63a156c7ec76586179e8ac49f047e61b7b318",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/contacts-tasks.md",
+      "canonical": "docs/en/reference/tools/contacts-tasks.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "current_source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/ca/reference/tools/contacts.md",
+      "canonical": "docs/en/reference/tools/contacts.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "b853a7e83a7bd21006866bc8c8890d48d715f541",
+      "current_source_blob": "717efc7f05d61a805be07359a29d25c0ec80876d",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/deck.md",
+      "canonical": "docs/en/reference/tools/deck.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "5f871ad37a63c9d502524e5365abde59937def54",
+      "current_source_blob": "35970aab29fccc0047988634ec9008ace5f38954",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/files.md",
+      "canonical": "docs/en/reference/tools/files.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "f122f05949eb19150f5cdfa607aff22cd7fe9017",
+      "current_source_blob": "896c239103e8e923412c6ab1eb78558344a49aec",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/logs.md",
+      "canonical": "docs/en/reference/tools/logs.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "3d4b845b65bf1aac37b627991c24fece8acfe63f",
+      "current_source_blob": "7d2382204fa09023c1999b0f80d0d97544af0bbb",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/notes.md",
+      "canonical": "docs/en/reference/tools/notes.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "61a53ea8c36cc12106152b4e00c707ee2fe2d7b7",
+      "current_source_blob": "47160a48fedcb37ce01714408e251d9e2275c8dd",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/people.md",
+      "canonical": "docs/en/reference/tools/people.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "9ffddf4e5a99e4e95f5c55a4b32e57a7ea10d2aa",
+      "current_source_blob": "6564e08812676369be6ef75c8397a3a09cc91391",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/talk.md",
+      "canonical": "docs/en/reference/tools/talk.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "39b9af21f36c40a9e9100f0423da42cf5fed460d",
+      "current_source_blob": "8584ed507e69ca105f8e6088366844fd0a411923",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/ca/reference/tools/tasks.md",
+      "canonical": "docs/en/reference/tools/tasks.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "5ee53bae49a32eeeb8d36a41941244b4bb583d9c",
+      "current_source_blob": "1cc1623d50a0e29e5f9590c40d6b05958348330d",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/README.md",
+      "canonical": "docs/en/README.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "13668d80f0348996b104e57d2a3bc432b4891872",
+      "current_source_blob": "5c208c8019f52f711359ed47eeefdcbba29875af",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/guides/README.md",
+      "canonical": "docs/en/guides/README.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "1f23bc0a53780b34158a696c98d9f51f8fb54d54",
+      "current_source_blob": "52f45c16933de7c51e9bc86a4df6560062addde9",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/guides/clients.md",
+      "canonical": "docs/en/guides/clients.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "current_source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/es/guides/file-protection.md",
+      "canonical": "docs/en/guides/file-protection.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "current_source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/es/guides/permissions.md",
+      "canonical": "docs/en/guides/permissions.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "current_source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/es/guides/server-logs.md",
+      "canonical": "docs/en/guides/server-logs.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "53ecc138bc012f248371b6c786f51085fd0a6b12",
+      "current_source_blob": "f4d1bf9a212b33005739726ee09d4144852155dc",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/guides/troubleshooting.md",
+      "canonical": "docs/en/guides/troubleshooting.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "4a80d454677101e474dc3bb8d5e03a35668e48d1",
+      "current_source_blob": "e451241d6d4394b285d7b62a8dfb581c62006eae",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/installation.md",
+      "canonical": "docs/en/installation.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "current_source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/es/reference/configuration.md",
+      "canonical": "docs/en/reference/configuration.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "current_source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/es/reference/oauth.md",
+      "canonical": "docs/en/reference/oauth.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "current_source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/es/reference/resources.md",
+      "canonical": "docs/en/reference/resources.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "04e67c2662c7c072803327f1a3d5de3d32bea2bd",
+      "current_source_blob": "8c3501172d1cbec82c0da52b24e139ef5b226f81",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools.md",
+      "canonical": "docs/en/reference/tools.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "043a285db8017e115146d6e75aedcf4fdfcfa5c4",
+      "current_source_blob": "96190549b03ecf68fa2e9ac60930ef4a049b72b7",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/calendar.md",
+      "canonical": "docs/en/reference/tools/calendar.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "fa5596ae7f0567ee7afa26917bc813cefea1b295",
+      "current_source_blob": "66a63a156c7ec76586179e8ac49f047e61b7b318",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/contacts-tasks.md",
+      "canonical": "docs/en/reference/tools/contacts-tasks.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "current_source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/es/reference/tools/contacts.md",
+      "canonical": "docs/en/reference/tools/contacts.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "b853a7e83a7bd21006866bc8c8890d48d715f541",
+      "current_source_blob": "717efc7f05d61a805be07359a29d25c0ec80876d",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/deck.md",
+      "canonical": "docs/en/reference/tools/deck.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "5f871ad37a63c9d502524e5365abde59937def54",
+      "current_source_blob": "35970aab29fccc0047988634ec9008ace5f38954",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/files.md",
+      "canonical": "docs/en/reference/tools/files.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "f122f05949eb19150f5cdfa607aff22cd7fe9017",
+      "current_source_blob": "896c239103e8e923412c6ab1eb78558344a49aec",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/logs.md",
+      "canonical": "docs/en/reference/tools/logs.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "3d4b845b65bf1aac37b627991c24fece8acfe63f",
+      "current_source_blob": "7d2382204fa09023c1999b0f80d0d97544af0bbb",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/notes.md",
+      "canonical": "docs/en/reference/tools/notes.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "61a53ea8c36cc12106152b4e00c707ee2fe2d7b7",
+      "current_source_blob": "47160a48fedcb37ce01714408e251d9e2275c8dd",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/people.md",
+      "canonical": "docs/en/reference/tools/people.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "9ffddf4e5a99e4e95f5c55a4b32e57a7ea10d2aa",
+      "current_source_blob": "6564e08812676369be6ef75c8397a3a09cc91391",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/talk.md",
+      "canonical": "docs/en/reference/tools/talk.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "39b9af21f36c40a9e9100f0423da42cf5fed460d",
+      "current_source_blob": "8584ed507e69ca105f8e6088366844fd0a411923",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/es/reference/tools/tasks.md",
+      "canonical": "docs/en/reference/tools/tasks.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "5ee53bae49a32eeeb8d36a41941244b4bb583d9c",
+      "current_source_blob": "1cc1623d50a0e29e5f9590c40d6b05958348330d",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-BR/README.md",
+      "canonical": "docs/en/README.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "b3b7e12282f0ab27f5a43063213dab657e88688a",
+      "current_source_blob": "5c208c8019f52f711359ed47eeefdcbba29875af",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/guides/README.md",
+      "canonical": "docs/en/guides/README.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "66a81a911ecec93115c46b4a923bae41f29fffc3",
+      "current_source_blob": "52f45c16933de7c51e9bc86a4df6560062addde9",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/guides/clients.md",
+      "canonical": "docs/en/guides/clients.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "current_source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-BR/guides/file-protection.md",
+      "canonical": "docs/en/guides/file-protection.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "current_source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/pt-BR/guides/permissions.md",
+      "canonical": "docs/en/guides/permissions.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "current_source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-BR/guides/server-logs.md",
+      "canonical": "docs/en/guides/server-logs.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "da2fb9bc3f1a6e5eb3d0fe1aad8f0b24105eedc4",
+      "current_source_blob": "f4d1bf9a212b33005739726ee09d4144852155dc",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/guides/troubleshooting.md",
+      "canonical": "docs/en/guides/troubleshooting.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "2013a81394de55ac4a522663b26d9118d18e2209",
+      "current_source_blob": "e451241d6d4394b285d7b62a8dfb581c62006eae",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/installation.md",
+      "canonical": "docs/en/installation.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "current_source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-BR/reference/configuration.md",
+      "canonical": "docs/en/reference/configuration.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "current_source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-BR/reference/oauth.md",
+      "canonical": "docs/en/reference/oauth.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "current_source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-BR/reference/resources.md",
+      "canonical": "docs/en/reference/resources.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "8a717d851572d6a4ecf0ffa9b5377f5859ebc8b4",
+      "current_source_blob": "8c3501172d1cbec82c0da52b24e139ef5b226f81",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools.md",
+      "canonical": "docs/en/reference/tools.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "c844d667ba20c4a6812cc498421e60032fd66cf4",
+      "current_source_blob": "96190549b03ecf68fa2e9ac60930ef4a049b72b7",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/calendar.md",
+      "canonical": "docs/en/reference/tools/calendar.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "6badf0114c586c5ec21e643a89b4400aaca00354",
+      "current_source_blob": "66a63a156c7ec76586179e8ac49f047e61b7b318",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/contacts-tasks.md",
+      "canonical": "docs/en/reference/tools/contacts-tasks.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "current_source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/contacts.md",
+      "canonical": "docs/en/reference/tools/contacts.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "ccf77d345140d6d60eb1ea079b96f084c2953901",
+      "current_source_blob": "717efc7f05d61a805be07359a29d25c0ec80876d",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/deck.md",
+      "canonical": "docs/en/reference/tools/deck.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "fd37b77809b4aa0804c8a5a7db5dea757972db5b",
+      "current_source_blob": "35970aab29fccc0047988634ec9008ace5f38954",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/files.md",
+      "canonical": "docs/en/reference/tools/files.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "078f439d282c7abbc3ec0f73bfb934b8a9efc488",
+      "current_source_blob": "896c239103e8e923412c6ab1eb78558344a49aec",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/logs.md",
+      "canonical": "docs/en/reference/tools/logs.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "8ba0dc0e30a2197cd830021a2f0b6b7ce45c0750",
+      "current_source_blob": "7d2382204fa09023c1999b0f80d0d97544af0bbb",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/notes.md",
+      "canonical": "docs/en/reference/tools/notes.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "3bd7b7a400b732dc3b2322dcf744258abf9bd92d",
+      "current_source_blob": "47160a48fedcb37ce01714408e251d9e2275c8dd",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/people.md",
+      "canonical": "docs/en/reference/tools/people.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "28d9b335d7dc27a41932bc55d785bf819fde4d76",
+      "current_source_blob": "6564e08812676369be6ef75c8397a3a09cc91391",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/talk.md",
+      "canonical": "docs/en/reference/tools/talk.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "c4fb79bcb5f9dbdb9f1329141158b77ad0ce2ea7",
+      "current_source_blob": "8584ed507e69ca105f8e6088366844fd0a411923",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-BR/reference/tools/tasks.md",
+      "canonical": "docs/en/reference/tools/tasks.md",
+      "original_revision": "0c95ccfd3a13339521c1470883edfdcf8138bd98",
+      "source_blob": "48f3bb57a219985d854fc4da3b9eec225cffc181",
+      "current_source_blob": "1cc1623d50a0e29e5f9590c40d6b05958348330d",
+      "source_changed": true,
+      "replacement_revision": "c0f730d97a84cf61317486c67722af52cf30325e"
+    },
+    {
+      "translation": "docs/pt-PT/README.md",
+      "canonical": "docs/en/README.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "13668d80f0348996b104e57d2a3bc432b4891872",
+      "current_source_blob": "5c208c8019f52f711359ed47eeefdcbba29875af",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/guides/README.md",
+      "canonical": "docs/en/guides/README.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "1f23bc0a53780b34158a696c98d9f51f8fb54d54",
+      "current_source_blob": "52f45c16933de7c51e9bc86a4df6560062addde9",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/guides/clients.md",
+      "canonical": "docs/en/guides/clients.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "current_source_blob": "1eb5956a5c3b5433fe6ba359283cb56e0fbfed23",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-PT/guides/file-protection.md",
+      "canonical": "docs/en/guides/file-protection.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "current_source_blob": "a448dcc48eb3dc36e3e2b7465159899ff81594f6",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/pt-PT/guides/permissions.md",
+      "canonical": "docs/en/guides/permissions.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "current_source_blob": "d4d64dc159f17308054893241f36c8fcb7f74037",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-PT/guides/server-logs.md",
+      "canonical": "docs/en/guides/server-logs.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "53ecc138bc012f248371b6c786f51085fd0a6b12",
+      "current_source_blob": "f4d1bf9a212b33005739726ee09d4144852155dc",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/guides/troubleshooting.md",
+      "canonical": "docs/en/guides/troubleshooting.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "4a80d454677101e474dc3bb8d5e03a35668e48d1",
+      "current_source_blob": "e451241d6d4394b285d7b62a8dfb581c62006eae",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/installation.md",
+      "canonical": "docs/en/installation.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "current_source_blob": "e2f490348a4d49a604d98dbbd446d02e53e4c9d0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-PT/reference/configuration.md",
+      "canonical": "docs/en/reference/configuration.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "current_source_blob": "08386d5404d33cbbd9761e87f74ef4ef67c6c86a",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-PT/reference/oauth.md",
+      "canonical": "docs/en/reference/oauth.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "current_source_blob": "7a8e771896d6b7f997d082083b9752d2dc8bb796",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "docs/pt-PT/reference/resources.md",
+      "canonical": "docs/en/reference/resources.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "04e67c2662c7c072803327f1a3d5de3d32bea2bd",
+      "current_source_blob": "8c3501172d1cbec82c0da52b24e139ef5b226f81",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools.md",
+      "canonical": "docs/en/reference/tools.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "043a285db8017e115146d6e75aedcf4fdfcfa5c4",
+      "current_source_blob": "96190549b03ecf68fa2e9ac60930ef4a049b72b7",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/calendar.md",
+      "canonical": "docs/en/reference/tools/calendar.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "fa5596ae7f0567ee7afa26917bc813cefea1b295",
+      "current_source_blob": "66a63a156c7ec76586179e8ac49f047e61b7b318",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/contacts-tasks.md",
+      "canonical": "docs/en/reference/tools/contacts-tasks.md",
+      "original_revision": "b00b9b72d7294a25980b3fc8de0a9f17a4109083",
+      "source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "current_source_blob": "8d69ed5c8f0f2bebc5d5040afb2f9adbf16022fe",
+      "source_changed": false,
+      "replacement_revision": "0105e8e8a2706d139deb119f87d7d01c0788586c"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/contacts.md",
+      "canonical": "docs/en/reference/tools/contacts.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "b853a7e83a7bd21006866bc8c8890d48d715f541",
+      "current_source_blob": "717efc7f05d61a805be07359a29d25c0ec80876d",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/deck.md",
+      "canonical": "docs/en/reference/tools/deck.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "5f871ad37a63c9d502524e5365abde59937def54",
+      "current_source_blob": "35970aab29fccc0047988634ec9008ace5f38954",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/files.md",
+      "canonical": "docs/en/reference/tools/files.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "f122f05949eb19150f5cdfa607aff22cd7fe9017",
+      "current_source_blob": "896c239103e8e923412c6ab1eb78558344a49aec",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/logs.md",
+      "canonical": "docs/en/reference/tools/logs.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "3d4b845b65bf1aac37b627991c24fece8acfe63f",
+      "current_source_blob": "7d2382204fa09023c1999b0f80d0d97544af0bbb",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/notes.md",
+      "canonical": "docs/en/reference/tools/notes.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "61a53ea8c36cc12106152b4e00c707ee2fe2d7b7",
+      "current_source_blob": "47160a48fedcb37ce01714408e251d9e2275c8dd",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/people.md",
+      "canonical": "docs/en/reference/tools/people.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "9ffddf4e5a99e4e95f5c55a4b32e57a7ea10d2aa",
+      "current_source_blob": "6564e08812676369be6ef75c8397a3a09cc91391",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/talk.md",
+      "canonical": "docs/en/reference/tools/talk.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "39b9af21f36c40a9e9100f0423da42cf5fed460d",
+      "current_source_blob": "8584ed507e69ca105f8e6088366844fd0a411923",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "docs/pt-PT/reference/tools/tasks.md",
+      "canonical": "docs/en/reference/tools/tasks.md",
+      "original_revision": "890ca28bb0d327fb063dea472fc579570eb137c4",
+      "source_blob": "5ee53bae49a32eeeb8d36a41941244b4bb583d9c",
+      "current_source_blob": "1cc1623d50a0e29e5f9590c40d6b05958348330d",
+      "source_changed": true,
+      "replacement_revision": "c1836790061cd223b3d5c7bd51639ceb1c91c38f"
+    },
+    {
+      "translation": "mcp/README.ca.md",
+      "canonical": "mcp/README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "current_source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "mcp/README.es.md",
+      "canonical": "mcp/README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "current_source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "mcp/README.pt-BR.md",
+      "canonical": "mcp/README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "current_source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    },
+    {
+      "translation": "mcp/README.pt-PT.md",
+      "canonical": "mcp/README.md",
+      "original_revision": "9533d1eee440ed5db37f4925e2db321d231319a8",
+      "source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "current_source_blob": "c4f7d8d26873ea9418fea14839d052f2baf20ab0",
+      "source_changed": false,
+      "replacement_revision": "b399933ce2b824c7f278b9615b72d97555cd8e84"
+    }
+  ],
+  "candidate": "ae551a2ab4ea75cd45a3dbac3a93416aca38498d",
+  "method": "Exact original/replacement source blob comparison and ancestor validation; visible translated text unchanged. Pending human reviews retained; not an approval."
+}
