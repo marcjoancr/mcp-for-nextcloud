@@ -75,7 +75,7 @@ PHP);
         $source = json_decode(file_get_contents(self::APP . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         $manifest = ['name' => 'mcp/command-probe', 'description' => 'Verification command probe',
             'license' => 'AGPL-3.0-or-later', 'scripts' => $source['scripts']];
-        foreach (['docs:check', 'docs:translations', 'test:docs', 'lint', 'analyse:lib', 'analyse:core', 'assets:build', 'test', 'test:js', 'package'] as $leaf) {
+        foreach (['docs:check', 'docs:translations', 'test:docs', 'test:clients:unit', 'lint', 'analyse:lib', 'analyse:core', 'assets:build', 'test', 'test:js', 'package'] as $leaf) {
             $manifest['scripts'][$leaf] = '@php record.php ' . $leaf;
         }
         file_put_contents($this->dir . '/composer.json', json_encode($manifest, JSON_THROW_ON_ERROR));
@@ -84,7 +84,7 @@ PHP);
 file_put_contents(__DIR__ . '/calls', json_encode(array_slice($argv, 1)) . "\n", FILE_APPEND);
 exit(trim(file_get_contents(__DIR__ . '/fail')) === $argv[1] ? 23 : 0);
 PHP);
-        foreach (['docs:check', 'docs:translations', 'test:docs', 'lint', 'none'] as $fail) {
+        foreach (['docs:check', 'docs:translations', 'test:docs', 'test:clients:unit', 'lint', 'none'] as $fail) {
             file_put_contents($this->dir . '/calls', '');
             file_put_contents($this->dir . '/fail', $fail);
             $process = proc_open(['composer', 'check', '--', '--filter', 'NoSuchTest'],
@@ -94,7 +94,7 @@ PHP);
             $code = proc_close($process);
             $calls = array_map(static fn ($line) => json_decode($line, true),
                 file($this->dir . '/calls', FILE_IGNORE_NEW_LINES));
-            $expected = [['docs:check'], ['docs:translations'], ['test:docs'], ['lint'], ['analyse:lib'], ['analyse:core'], ['test'], ['test:js'], ['package']];
+            $expected = [['docs:check'], ['docs:translations'], ['test:docs'], ['test:clients:unit'], ['lint'], ['analyse:lib'], ['analyse:core'], ['test'], ['test:js'], ['package']];
             if ($fail !== 'none') {
                 self::assertNotSame(0, $code);
                 $stop = array_search([$fail], $expected, true);

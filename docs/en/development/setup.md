@@ -50,7 +50,9 @@ stays in ignored `mcp/build/`, `.phpunit.cache/` and `.cache/phpstan/`. Do not c
 credentials, user content, caches or harness state. Analysis declarations are committed
 source inputs, not caches; their [provenance](../../../mcp/phpstan/README.md) is reviewed.
 
-Development commands do not install or modify a Nextcloud instance. Real-host tests
+Ordinary development commands do not install or modify a Nextcloud instance. The
+explicit private [client acceptance command](testing.md#private-real-client-acceptance)
+resumes and temporarily configures only its selected synthetic fixture. Other real-host tests
 use a separate disposable instance, and existing write diagnostics have effects as
 documented in the [troubleshooting guide](../guides/troubleshooting.md). A green local suite does not replace those checks.
 

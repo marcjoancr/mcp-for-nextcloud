@@ -68,6 +68,7 @@
             "@docs:check @no_additional_args",
             "@docs:translations @no_additional_args",
             "@test:docs @no_additional_args",
+            "@test:clients:unit @no_additional_args",
             "@lint @no_additional_args",
             "@analyse @no_additional_args",
             "@test @no_additional_args",
@@ -98,6 +99,14 @@
         "test:integration": [
             "Composer\\Config::disableProcessTimeout",
             "sh tests/Integration/ci/run-local.sh"
+        ],
+        "test:clients": [
+            "Composer\\Config::disableProcessTimeout",
+            "node tests/ClientAcceptance/run.mjs"
+        ],
+        "test:clients:unit": [
+            "Composer\\Config::disableProcessTimeout",
+            "node --test tests/ClientAcceptance/*.test.mjs @no_additional_args"
         ]
     },
     "scripts-descriptions": {
@@ -115,6 +124,8 @@
         "docs:check": "Validate all repository documentation, links and provenance; fixed scope.",
         "docs:translations": "Report translation freshness; missing/stale are advisory, invalid provenance fails.",
         "test:docs": "Run all documentation tooling tests; fail on empty discovery.",
-        "test:integration": "Run one pinned disposable native cell: -- [--plan] NC DB MODE; starts containers only without --plan."
+        "test:integration": "Run one pinned disposable native cell: -- [--plan] NC DB MODE; starts containers only without --plan.",
+        "test:clients": "Run private TLS/Inspector acceptance against an explicitly selected retained fixture; requires three absolute paths. No public exposure.",
+        "test:clients:unit": "Check the client acceptance runner safety boundaries without containers."
     }
 }

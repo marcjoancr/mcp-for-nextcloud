@@ -11,6 +11,7 @@ for the precise analyzer scope and host model.
 composer --working-dir=mcp docs:check
 composer --working-dir=mcp docs:translations
 composer --working-dir=mcp test:docs
+composer --working-dir=mcp test:clients:unit
 composer --working-dir=mcp assets:build
 composer --working-dir=mcp test:js
 composer --working-dir=mcp test
@@ -38,7 +39,7 @@ are not traversed. Syntax compatibility follows the interpreter used; CI uses 8.
 
 `analyse:lib` and `analyse:core` are mandatory components of `analyse`. `check`
 validates manifest/lock, checks documentation/provenance, reports translation state,
-runs documentation tests, lints, analyzes, runs all PHP tests, runs the complete
+runs documentation and client-runner safety tests, lints, analyzes, runs all PHP tests, runs the complete
 JavaScript suite and builds/checks the package in that order. **Fixed gates ignore additional script arguments**, including
 filters, path selections and analyzer level overrides. For example, passing a
 filter to `check` still runs the full suite. Use `test` for deliberate focused work.
@@ -79,6 +80,14 @@ manifest. Full Git history is required for source/translation provenance.
 A failed app installation, empty selection or test failure is a failed cell.
 Harness qualification with an explicitly substituted version and filtered diagnostic
 runs do not certify the final package; report them separately.
+
+## Private real-client acceptance
+
+`test:clients:unit` checks runner safety without containers and is included in
+`check`. `test:clients` is an explicit private TLS/Inspector campaign against the
+retained frozen fixture; it is never included in `check` and cannot target an
+arbitrary instance. See its [prerequisites, invocation and evidence limits](../../../mcp/tests/ClientAcceptance/README.md).
+ChatGPT, public HTTPS and human verdicts remain separate acceptance work.
 
 ## Coverage and CI
 
