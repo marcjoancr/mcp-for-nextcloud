@@ -87,6 +87,10 @@ runs do not certify the final package; report them separately.
 `check`. `test:clients` is an explicit private TLS/Inspector campaign against the
 retained frozen fixture; it is never included in `check` and cannot target an
 arbitrary instance. See its [prerequisites, invocation and evidence limits](../../../mcp/tests/ClientAcceptance/README.md).
+The separate `test:clients:storage -- /absolute/inspector-install` command checks
+pinned Inspector encrypted persistence in fresh processes without containers or
+network. It is opt-in and currently returns nonzero for the preregistered-client
+issuer boundary; see the [storage qualification](plans/2026-10-19-inspector-encrypted-storage-report.md).
 ChatGPT, public HTTPS and human verdicts remain separate acceptance work.
 
 ## Coverage and CI

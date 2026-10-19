@@ -97,3 +97,35 @@ all UI/configuration cleanup succeeded.
 
 See the [reviewed proposal](../../../docs/en/development/plans/2026-10-19-https-ingress-client-validation-proposal.md)
 for the public-ingress and ChatGPT phases, which this runner does not execute.
+
+## Encrypted storage across issuers
+
+Run the separate storage qualification without Nextcloud, Docker, TLS listeners or
+network requests:
+
+```sh
+composer --working-dir=mcp test:clients:storage -- /absolute/inspector-install
+```
+
+It requires the same pinned Inspector lock and exact installed CLI bundle hash.
+`storage-run.mjs` creates a private copy of the entire bundle with only an appended
+export declaration; all original bytes and implementation bodies remain intact.
+`storage-worker.mjs` imports it in a fresh process for each case and uses the real
+`FileSecretStore`, `NodeOAuthStorage` and provider, with real filesystem locking,
+AES-256-GCM/scrypt and synthetic credentials. No memory persistence double is used.
+The dependency installation is read-only; the copied bundle is never committed.
+
+The suite checks one resource with distinct issuers, restart/readback, separate
+access/refresh tokens and registered client secrets, rotation/deletion, unavailable
+keys and altered ciphertext. It also tests preregistered client credentials; the
+pinned provider currently returns that resource-wide static secret under another
+issuer. That required isolation case **fails**, so the command returns **1**.
+It is an explicit opt-in external-client qualification, separate from ordinary
+`check`; its failure must remain visible rather than be marked expected/pass.
+See the [storage report](../../../docs/en/development/plans/2026-10-19-inspector-encrypted-storage-report.md).
+
+Evidence lives in `~/.local/state/mcp-client-tests/storage-*/`. Key files, generated
+synthetic credentials, raw errors and copies of stores are private, not upload
+bundles. The JSON verdict contains sanitized observations and source hashes. The
+result proves storage/provider behavior only, not two real OAuth server journeys,
+network exfiltration, public HTTPS, ChatGPT or human security acceptance.
