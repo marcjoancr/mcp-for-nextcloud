@@ -145,6 +145,11 @@ historical results are explicitly carried forward, not described as freshly run.
 
 ## V2 — Authorized runtime evidence, after prerequisites
 
+The [Inspector session](2026-10-19-inspector-client-acceptance.md) adds bounded
+local C3/C4 client evidence. Its authorized HTTPS attempt was blocked by devbox's
+GitHub sign-in gateway and revoked; no real-client HTTPS row is complete. The
+Inspector SDK issuer-stamp warning and all human verdicts remain pending.
+
 The separately authorized [closed UI exercise](2026-10-19-closed-devbox-ui-acceptance.md)
 provides technical MCP settings/consent evidence for the frozen artifact. External
 clients, HTTPS exposure, the full topology, operational recovery and human verdicts

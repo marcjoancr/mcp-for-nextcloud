@@ -90,6 +90,11 @@ The [interrupted-load investigation](2026-10-19-interrupted-page-load-investigat
 reproduced host/browser departure exceptions on pages with and without MCP. No
 production MCP correction was justified; that known limitation is not claimed fixed.
 
+The [Inspector session](2026-10-19-inspector-client-acceptance.md) exercised local
+registered OAuth and app-password flows, fixture writes and credential revocation.
+The authorized HTTPS route was blocked by devbox's GitHub gateway and revoked;
+external-client acceptance and an Inspector SDK issuer-stamp warning remain open.
+
 Pending: human security/technical, language and accessibility reviews; external
 clients and real HTTPS/proxy acceptance; broader UI and standing-target recovery
 gates; final version and merge strategy. No push or persistent staging deployment has occurred.

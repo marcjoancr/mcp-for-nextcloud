@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "status": "partial local Inspector evidence; public HTTPS MCP blocked by devbox GitHub sign-in",
+  "candidate": "b96884631bf9bda245ce9895facfa8380ab08998",
+  "documentation_head_at_start": "b4785872172c4b9f8365e03084f5fca91ce070f0",
+  "runtime_reference": "closed-ui-acceptance-b968846.json",
+  "run_id": "mcp-ui-20261019091134-3c0746",
+  "evidence_subdirectory": "inspector-session",
+  "inspector": {
+    "version": "2.11.0",
+    "npm_integrity": "sha512-gqMw2x0NCotTdjLNv3PSm/IJSeXL7O8u0SpyZXtXGhSukJ2DMoAy8RR7xKngHTCETJcG5gyPdxhOn8zf/ofSRA==",
+    "lock_sha256": "d6e59c49bd1a5640d33d7d8c77a387e382553762e216173373c0f2af86c704ae",
+    "node": "24.21.0",
+    "negotiated_protocol": "2025-06-18",
+    "npm_audit_vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    }
+  },
+  "https": {
+    "exposure_id": "a53a88eb3552bdba9a162574e270c43a",
+    "url": "https://p01.preview.dev.marcjoan.com",
+    "created_at_utc": "2026-10-19T10:28:40.817097+00:00",
+    "revocation_response_saved_at_utc": "2026-10-19T10:29:35.691906+00:00",
+    "observed_window_seconds": 54.87,
+    "independent_close_timer_minutes": 110,
+    "probes": [
+      {
+        "path": "/apps/mcp/",
+        "status": 401,
+        "content_type": "text/html; charset=utf-8",
+        "location": null,
+        "www_authenticate": null,
+        "github_login_marker": true,
+        "body_sha256": "244d68411ef6d9002086339e630c1d1ab90f617805d345b72528d857c981495a"
+      },
+      {
+        "path": "/.well-known/oauth-authorization-server",
+        "status": 401,
+        "content_type": "text/html; charset=utf-8",
+        "location": null,
+        "www_authenticate": null,
+        "github_login_marker": true,
+        "body_sha256": "d7d648307d30c43841ac4c5596da7f9022b962cc636df7c4bb4f124971dde65e"
+      }
+    ],
+    "inspector_exit_code": 3,
+    "result": "blocked: HTML GitHub login replaces the MCP/OAuth challenge; no gateway bypass or credentials sent",
+    "egress_added": false,
+    "egress_reason": "Registered loopback OAuth did not require Internet egress; hosted CIMD remains pending behind the ingress blocker."
+  },
+  "local_checks": {
+    "basic_protocol_and_tools": "passed: MCP 2025-06-18; 19 tools",
+    "basic_read_plan_confirm_readback": "passed; plan left original unchanged; confirmed write matched readback",
+    "native_backup": "passed: WebDAV backup matches original, supplementary protocol check",
+    "oauth_registered_client": "passed through actual Inspector interactive CLI and browser consent with PKCE S256 and exact callback",
+    "oauth_read_plan_confirm_readback": "passed",
+    "operation_not_available": "files_mkdir absent from tools/list; Inspector refused locally with exit 5/tool_not_found; this is not a raw server-side authorization probe",
+    "oauth_revocation": "Inspector refresh received invalid_grant; exit 3/auth_required with interactive recovery disabled",
+    "personal_disconnect": "Inspector Basic initialize refused; native DAV still 200",
+    "native_password_revocation": "Only the fixture token deleted; native DAV changed from 200 to 401. Inspector exit 3 followed the earlier personal disconnect and does not independently isolate password revocation."
+  },
+  "cli_results": [
+    {
+      "name": "basic-confirm",
+      "exit_code": 0,
+      "stdout_sha256": "441746bdf911ab4d9450a07cfcc4940dfcebaf85caf1c2319ec308184be44c06",
+      "stderr_sha256": "63760d1de60c1f6272bfaf94a3a588f9f607bdc85e2c99d5d21677d89a330a79"
+    },
+    {
+      "name": "basic-denied",
+      "exit_code": 5,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "8d4d3bd132817abf94648f699b08522adbd1b1c62b93b492b2e10f21bc2741e7"
+    },
+    {
+      "name": "basic-disconnected",
+      "exit_code": 3,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "0d62bd11f8445d41d593ff3ad8b93b64d501737789780f0a4431865ba73578ff"
+    },
+    {
+      "name": "basic-edit",
+      "exit_code": 0,
+      "stdout_sha256": "460569d7dca3e982d1660f3bbb25a608801add8985ddbb1621b49aeafa8249bb",
+      "stderr_sha256": "63760d1de60c1f6272bfaf94a3a588f9f607bdc85e2c99d5d21677d89a330a79"
+    },
+    {
+      "name": "basic-initialize-2",
+      "exit_code": 0,
+      "stdout_sha256": "0e44d2c2fbb392ef1a5baa563a852d94fc95d9a60dc059c50896ab68b0dc7cbc",
+      "stderr_sha256": "63760d1de60c1f6272bfaf94a3a588f9f607bdc85e2c99d5d21677d89a330a79"
+    },
+    {
+      "name": "basic-initialize",
+      "exit_code": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "caa702e0bf984515875d24b939bc186dd8e93a2856c763ed4187746b2b14bc83"
+    },
+    {
+      "name": "basic-read-after",
+      "exit_code": 0,
+      "stdout_sha256": "57456f0748054c99ca3ee26c2f61b1fe3e96a997e52d479fc1477f176f4fdc7a",
+      "stderr_sha256": "63760d1de60c1f6272bfaf94a3a588f9f607bdc85e2c99d5d21677d89a330a79"
+    },
+    {
+      "name": "basic-read-confirmed",
+      "exit_code": 0,
+      "stdout_sha256": "2b407274bf15112da86cb016727b994187fea96b10c4f52f49130cadf4de5225",
+      "stderr_sha256": "63760d1de60c1f6272bfaf94a3a588f9f607bdc85e2c99d5d21677d89a330a79"
+    },
+    {
+      "name": "basic-read",
+      "exit_code": 0,
+      "stdout_sha256": "57456f0748054c99ca3ee26c2f61b1fe3e96a997e52d479fc1477f176f4fdc7a",
+      "stderr_sha256": "63760d1de60c1f6272bfaf94a3a588f9f607bdc85e2c99d5d21677d89a330a79"
+    },
+    {
+      "name": "basic-revoked",
+      "exit_code": 3,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "9de8ce1f127262287cb78221dd7c253e0a90f483eba1468929de3ee81c23f40b"
+    },
+    {
+      "name": "basic-tools-2",
+      "exit_code": 0,
+      "stdout_sha256": "2ad1bd17ce9c6c16e4a54d4f335de5ca366dc98ec082c6dee0174cea999fe532",
+      "stderr_sha256": "63760d1de60c1f6272bfaf94a3a588f9f607bdc85e2c99d5d21677d89a330a79"
+    },
+    {
+      "name": "basic-tools",
+      "exit_code": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "caa702e0bf984515875d24b939bc186dd8e93a2856c763ed4187746b2b14bc83"
+    },
+    {
+      "name": "oauth-edit-confirm",
+      "exit_code": 0,
+      "stdout_sha256": "02274aa4f78acead61c70c0805376db7ed3a3f212098da3fc069607aa7e86ffe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "oauth-edit-plan",
+      "exit_code": 0,
+      "stdout_sha256": "4962176add608b9cefead9554d6e430c09367fc96b02dd943dcedfe55fda2266",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "oauth-read-confirmed",
+      "exit_code": 0,
+      "stdout_sha256": "bfed8fd217df91b51ed3b8230cbc1f26d9631f59db5b2a0155b40a72d8d76572",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "oauth-read",
+      "exit_code": 0,
+      "stdout_sha256": "2b407274bf15112da86cb016727b994187fea96b10c4f52f49130cadf4de5225",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "oauth-revoked",
+      "exit_code": 3,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "d8fa3b12d2e5f58afd0d929edf3d847285f78f279db7cf345b137e55973dcd99"
+    }
+  ],
+  "oauth_success": {
+    "clientVersion": "2.11.0",
+    "mode": "registered OAuth, loopback HTTP",
+    "status": "passed",
+    "pkceS256": true,
+    "redirectMatches": true,
+    "exitCode": 0,
+    "tools": [
+      "mcp_status",
+      "mcp_guide",
+      "files_list",
+      "files_search",
+      "files_tree",
+      "files_read",
+      "files_edit",
+      "files_replace",
+      "files_checkout",
+      "files_versions_list",
+      "files_version_read",
+      "files_image_view",
+      "files_images_view",
+      "files_image_search",
+      "files_list_shares",
+      "tasks_list_calendars",
+      "tasks_list_tasks",
+      "tasks_read_task",
+      "users_search"
+    ],
+    "stdoutSha256": "4d13c25fd286bdbde795d5eb67be11792e961f0e80d49a8da6bf06a49386077e",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "evidence_sha256": {
+    "https-probes.json": "003b6a4f126354ae78147057b48b1a1976a22e8aa53cf5d9b7107e5df6099795",
+    "https-inspector-result.json": "093852cad585f683caeb24b1874ed518404706f5b1e4d4047b33f086c2eccda1",
+    "oauth-result.json": "31e09070c92c8e99e72b41c199c08e6fb346b2f9ae97b543dc555fe59874b07e",
+    "oauth-pty-result.json": "7abc8cbd6b118481291a4eeb84674c1c5b6c9bd646545b6d5e458631f5a48c4e",
+    "native-backup-check.json": "4c103dbd0ae29817dd485e6ae54d4107312dcbe34b5db282756d41d294f16756",
+    "native-revocation.json": "6728a2670e47137f1cd02dee993b4da3bb446e720909375e87f5feac24469658",
+    "control-revoke.json": "577fd63e635f3aded9a54974f646cd4d8cce9e7512f2eac762a7a771f0b8899d",
+    "control-disconnect.json": "251ad9cebe38d4c6b64dcdde12491364977e7599778dddf2e3260ef0275e74ec",
+    "control-cleanup.json": "8b7a2f5351ac4a9cbd8c92ebdddca4f9e1859d3d4fc5939936605ef866fcf699",
+    "npm-audit.json": "50631dc5a1132a538735bd73e12cbd9a1936a1bdf534f0f2d19266ee02ce926e",
+    "closure.json": "c24b83acfbb579ff37cf835a481dfae5295919b0eb4cd4c635ff2a42a91d458b",
+    "setup.mjs": "e1cd4d5bb90298deaf0ebdc36daf60fe4f34ef8f57ff0a69bcf797b191de71a3",
+    "oauth.mjs": "615864bc9e793a9818cdcac4a0de6bd0bf71e2e8350609d4b1b15a129b78d53b",
+    "oauth-pty.mjs": "b2e40475cd0a7cd5af76e79481f84e9aa029451b217b28e89645c5664ab6ed3a",
+    "control.mjs": "043a1722d25c866bbbbd51c682e0375d1a359d1a25f9a673fd0b13b950cd443d",
+    "mcp-inspector-runner.py": "158640f19afaa26c3e4818c2a68323993caab0f3dc42accd83e4d3d0f1332c94",
+    "mcp-inspector-oauth-runner.py": "8b5127f2fd9624dff4912deeeac8156cdf439506cf0b07ae7186744c48ca6ea6",
+    "mcp-inspector-https-probe.py": "8da2935993dba7c0e079ef796052e4fa8f5d1f9053bd1ff4f7a66dc93eabcc5f",
+    "mcp-inspector-close.py": "e4714e1dc75fcbfaa01e93dbed994b9a754be55295d1a3f8b72edb462e14d6f9",
+    "exposure.json": "9750ae557d3404be725015ea14ddac2b930b44f191e3d485ce632b880b031b08",
+    "revoke-result.json": "62e0961c9f43f5f81be6ad3f6ad619c8ac733b9c1afae0eb5a5f0b59abf89301"
+  },
+  "limitations": [
+    "Public HTTPS/proxy discovery and all hosted clients remain blocked/unexecuted; no C3/C4 completion claimed.",
+    "Inspector/SDK emitted a SEP-2352 missing issuer-stamp warning during revoked-credential recovery; issuer-isolation behavior is not qualified.",
+    "No wrong-callback port or client-disable/re-enable matrix was run in this session.",
+    "No external CIMD fetch, ChatGPT account/feature availability or ChatGPT OAuth flow was tested.",
+    "No streaming/reconnect/timeout or broader optional-app acceptance is claimed."
+  ],
+  "setup_diagnostics": [
+    "Native app-password output is a label plus token; initial single-line parser failed; reused the same token without printing it.",
+    "MCP_CATALOG_PATH conflicts with --config; two exit-1 CLI attempts retained before isolating session config without that variable.",
+    "Non-interactive OAuth attempt refused without a TTY; repeated with the real CLI in a pseudo-terminal, without substituting protocol messages.",
+    "OS keychain unavailable: initial Basic runs warned about the private mode-0600 file fallback. Subsequent OAuth used an encrypted file store with a separate private key."
+  ],
+  "closure": {
+    "checked_at_utc": "2026-10-19T10:38:22.749549+00:00",
+    "mcp_service_disabled": true,
+    "synthetic_oauth_client_deleted": true,
+    "user_disconnected": true,
+    "oauth_connection_revoked": true,
+    "native_app_password_revoked": true,
+    "installed_files_unchanged": 863,
+    "containers_stopped": true,
+    "loopback_ports_closed": [
+      18080,
+      18999,
+      6276
+    ],
+    "exposure_revoked": true,
+    "project_preview_inventory_empty": true,
+    "egress_added": false,
+    "network_still_internal": true,
+    "timer_cancelled_after_manual_closure": true,
+    "state_retained": true
+  },
+  "human_reviews": "pending",
+  "chatgpt": "user reports using ChatGPT; product surface/feature availability and real-client testing remain pending",
+  "push_or_pr_opened": false,
+  "oauth_capture": "The pseudo-terminal merged CLI stdout/stderr into oauth-pty.stdout. The wrapper received no separate stderr data; stderrSha256 hashes the empty string and no oauth-pty.stderr file was created. This does not prove the CLI emitted no diagnostics."
+}

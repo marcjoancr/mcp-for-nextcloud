@@ -55,3 +55,4 @@ Historical records describe their own revisions. For current commands, start wit
 - [Complete PR committed-candidate local qualification](2026-10-19-complete-pr-local-qualification.md)
 - [Closed devbox UI acceptance](2026-10-19-closed-devbox-ui-acceptance.md)
 - [Interrupted page-load investigation](2026-10-19-interrupted-page-load-investigation.md)
+- [MCP Inspector session and HTTPS ingress blocker](2026-10-19-inspector-client-acceptance.md)
