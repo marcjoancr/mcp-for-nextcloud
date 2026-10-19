@@ -5,7 +5,11 @@
 
 Status: local draft; no PR has been opened or published. Replace the evidence
 references with accessible artifacts when publication is authorized. This draft
-keeps human and staging limitations visible.
+keeps human and staging limitations visible. The user confirmed on 2026-10-19 that
+opening the PR must wait until all agreed locally executable validation is complete,
+including the outstanding real Nextcloud/client/recovery checks. This local draft
+is preparation only; publishing it cannot substitute for those checks. Human reviews
+remain pending and are not waived by local test completion.
 
 ## Proposed title
 
@@ -22,8 +26,10 @@ It targets development scalability and maintainability; it claims no measured ru
 throughput improvement.
 
 The base is upstream `main` at `0911f9123a661968e707fc4c391adcf9d37c3e84`.
-The [branch preparation report](2026-10-18-complete-upstream-pr-preparation.md)
-identifies the qualified code candidate, archive and exact validation scope.
+The [latest branch review](2026-10-18-complete-upstream-pr-review.md) identifies the
+reviewed revision, exact formatting correction, new package and validation limits.
+The [preparation report](2026-10-18-complete-upstream-pr-preparation.md) retains the
+original assembly/provenance decisions and frozen candidate evidence.
 
 ## Review map
 
@@ -66,13 +72,11 @@ does not certify them as reviewed.
 
 ## Validation and open gates
 
-Use the preparation report's command/result and artifact tables as the authority.
-It distinguishes fresh local checks from byte-equivalent historical native and
-multi-PHP evidence; neither is presented as a successful GitHub CI run.
-
-Known minor formatting debt: two inherited extra blank EOF lines remain in
-`MovePlan.php` and `oauth-changes.js`; the upstream-to-candidate whitespace check
-returns exit 2. They are recorded separately from the passing functional gates.
+Use the latest review's command/result and artifact records for the formatting
+correction and the preparation report for its original candidate. Fresh local
+checks are distinguished from historical native and multi-PHP evidence; neither
+is presented as a successful GitHub CI run. Both inherited extra blank EOF lines
+are corrected, and the complete upstream-to-working-tree whitespace check passes.
 
 Pending: human security/technical, language and accessibility reviews; real Nextcloud
 UI/theme/CSP and client acceptance; installed artifact/recovery gates; final version

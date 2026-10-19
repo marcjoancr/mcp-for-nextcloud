@@ -9,6 +9,11 @@ all upstream 1.1.0 features. This executes C2 and the locally available C3 gates
 the [agreed scope](2026-10-18-upstream-pr-scope-proposal.md); the sections below name
 what was run, carried forward and left pending.
 
+Follow-up: the [complete branch review](2026-10-18-complete-upstream-pr-review.md)
+corrects both inherited EOF formatting findings and records the resulting source
+and package identities. Results below remain historical for the frozen assembly
+candidate; they must not be read as the new artifact's identity.
+
 ## Inputs and resulting branch
 
 - Live upstream `main`: `0911f9123a661968e707fc4c391adcf9d37c3e84`, confirmed by

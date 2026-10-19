@@ -35,4 +35,3 @@ export function changes(change, stored) {
     }
     return false
 }
-

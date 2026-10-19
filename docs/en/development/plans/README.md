@@ -51,3 +51,4 @@ Historical records describe their own revisions. For current commands, start wit
 - [Upstream 1.1.0 feature preservation review](2026-10-18-upstream-1.1.0-feature-parity-review.md)
 - [Complete upstream PR branch preparation and qualification](2026-10-18-complete-upstream-pr-preparation.md)
 - [Complete upstream PR local description draft](2026-10-18-complete-upstream-pr-description.md)
+- [Complete upstream PR review and formatting correction](2026-10-18-complete-upstream-pr-review.md)

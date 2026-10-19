@@ -152,8 +152,13 @@ human approval are not inferred from the PR draft or automated tests.
 
 The manifest correction and complete branch assembly are complete locally. Next,
 review the [prepared branch and PR draft](2026-10-18-complete-upstream-pr-preparation.md),
-including its new inventory, artifact identity, provenance/merge constraint, minor
-formatting debt and outstanding human, rendered-language and candidate-artifact gates.
+including its new inventory, artifact identity, provenance/merge constraint and outstanding human, rendered-language and
+candidate-artifact gates. The [follow-up review](2026-10-18-complete-upstream-pr-review.md)
+resolves both inherited formatting findings and records the corrected package.
+The user confirmed on 2026-10-19 that the PR must wait for completion of all agreed
+locally executable validation, including the outstanding real Nextcloud/client and
+recovery scenarios. Preparing the local draft does not satisfy those gates or
+approve publication. Human reviews remain pending.
 Do not return to the superseded small-PR sequence. The user continues to own devbox
 operation and recovery; the recovery proposal, outstanding S0 gates, reviewer
 assignments and every human verdict remain pending. No reviewer was contacted.

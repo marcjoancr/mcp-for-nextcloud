@@ -100,7 +100,8 @@ publication remains unauthorized.
 Completed for local branch preparation under the metadata-only candidate rules;
 PHP 8.2/8.3/8.5 and native results are explicitly historical, not rerun. The fresh
 host gate, license checks and package comparison are recorded in the preparation
-report. The two inherited whitespace failures remain disclosed minor debt.
+report. The [follow-up review](2026-10-18-complete-upstream-pr-review.md) resolves
+the two inherited whitespace failures and records the resulting package identity.
 
 - [x] Preserve the frozen archive before builds. Record package/source/asset identity
   and compare changed paths with the qualified candidate. Never overwrite the S0
@@ -192,6 +193,14 @@ A locally reviewable draft can disclose unexecuted V2 scenarios and pending huma
 reviews; it is not a recommendation to merge or publish despite a known blocker.
 Do not require a completed S7 verdict merely to write an honest draft, and do not
 use draft readiness to bypass S0 prerequisites for actual staging execution.
+
+Publication condition confirmed by the user on 2026-10-19: complete all agreed
+locally executable validation, including outstanding real Nextcloud/client/recovery
+scenarios, before opening the PR. The local V3 draft may exist while V2 is pending;
+an external PR may not be used to bypass that technical validation. Keep human
+reviews pending until actually performed, and obtain the already-required execution
+authorization and prerequisites before running staging scenarios. No push or
+deployment is authorized by the local documentation/formatting commit.
 
 The campaign has no minimum duration. Stop execution after its authorized evidence
 is collected or a blocking issue prevents progress; retain state/evidence according

@@ -1,0 +1,153 @@
+{
+  "base": "0911f9123a661968e707fc4c391adcf9d37c3e84",
+  "reviewed_head": "c6f92e9accf5102d2188357a3598b53cf6bcc08f",
+  "preserved_source": "bda34406018d8fffd2b30c52628c61b4dd4ad9bf",
+  "source_patch": [
+    {
+      "path": "mcp/lib/Modules/Files/Reorganization/MovePlan.php",
+      "before_sha256": "2a391208052de33f66f57a96e865887b8fbe0c4a4d54e39aa28a9c2c8fc3ec5f",
+      "after_sha256": "978f886d4bf6049dbf46cc34c648ea084726cb7432e31022cbd91768d9251381",
+      "change": "Remove exactly one trailing LF; retain final newline"
+    },
+    {
+      "path": "mcp/src/admin/clients/oauth-changes.js",
+      "before_sha256": "a3894dcf2d501bf06924387f9efc776eb856c7f5aa5f2dc5ee1c415aecc44d69",
+      "after_sha256": "8f6bb517b3474d49e75a4e57e72e279dd8a89e3c6ad447ecbf4219f81820d19b",
+      "change": "Remove exactly one trailing LF; retain final newline"
+    }
+  ],
+  "manifest_identical": true,
+  "migration_seed_files_identical": 11,
+  "route_records_identical": 48,
+  "production_dependencies_identical": true,
+  "locale_deltas": {
+    "de": {
+      "added": [
+        "MCP access cannot be checked right now. Try again shortly.",
+        "Permission unknown"
+      ],
+      "removed": [
+        "Cannot prepare editing for this file.",
+        "MCP access cannot be checked right now. Try the link again shortly.",
+        "Send body as application/octet-stream with file bytes.",
+        "The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.",
+        "files_move_batch with dry_run: false requires confirm: true."
+      ],
+      "shared_values_identical": true
+    },
+    "es": {
+      "added": [
+        "MCP access cannot be checked right now. Try again shortly.",
+        "Permission unknown"
+      ],
+      "removed": [
+        "Cannot prepare editing for this file.",
+        "MCP access cannot be checked right now. Try the link again shortly.",
+        "Send body as application/octet-stream with file bytes.",
+        "The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.",
+        "files_move_batch with dry_run: false requires confirm: true."
+      ],
+      "shared_values_identical": true
+    },
+    "pt_BR": {
+      "added": [
+        "MCP access cannot be checked right now. Try again shortly.",
+        "Permission unknown"
+      ],
+      "removed": [
+        "Cannot prepare editing for this file.",
+        "MCP access cannot be checked right now. Try the link again shortly.",
+        "Send body as application/octet-stream with file bytes.",
+        "The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.",
+        "files_move_batch with dry_run: false requires confirm: true."
+      ],
+      "shared_values_identical": true
+    }
+  },
+  "release_items": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "A9",
+    "C1",
+    "C2",
+    "C3",
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "L1",
+    "L2",
+    "L3",
+    "L4",
+    "L5",
+    "L6",
+    "L7",
+    "L8",
+    "R1",
+    "R2",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6"
+  ],
+  "php_source_counts": {
+    "baseline": 5280,
+    "upstream": 7433
+  },
+  "php_matched_expanded_identities_present": 12663,
+  "supersessions_with_targets_and_reasons": 50,
+  "current_php_expanded_cases": 7660,
+  "frontend_source_allocations_present": 209,
+  "frozen_outgoing_inventory_rows_verified": 1918,
+  "limits": "Identity and source mapping checks are structural; execution and source review supply covered behavioral evidence. Human and installed-host acceptance remain pending.",
+  "package": {
+    "previous_sha256": "c81cb09eb6d0b3a95d5625ca9861c98c472957f3db60d3976533d9227d7a3a7e",
+    "review_sha256": "e37fbeb8903c693f0097173b213c1922515e3e29224c6c84d15e46392744e23c",
+    "preserved_s0_sha256": "5eaf563d5d26f52d60f1bc81fb6a220043811838ab36d98403d02e05613fa01e",
+    "regular_files": 863,
+    "same_member_paths_types_modes_links": true,
+    "changed_members": [
+      {
+        "path": "mcp/lib/Modules/Files/Reorganization/MovePlan.php",
+        "before_sha256": "2a391208052de33f66f57a96e865887b8fbe0c4a4d54e39aa28a9c2c8fc3ec5f",
+        "after_sha256": "978f886d4bf6049dbf46cc34c648ea084726cb7432e31022cbd91768d9251381"
+      },
+      {
+        "path": "mcp/vendor/composer/installed.php",
+        "before_sha256": "183971952eb3ad99ebc52d9b639060cee4c574daebfbee0b7581eb8b6ed4742e",
+        "after_sha256": "4b9fcbb6cea25143c61b834ebdc6bc88100b2c60be7dd12cdfcc378f435bd09e"
+      }
+    ],
+    "composer_root_reference": "c6f92e9accf5102d2188357a3598b53cf6bcc08f",
+    "source_state": "Reviewed head plus the two exact source_patch records; root reference alone does not identify the corrected working-tree contents",
+    "admin_bundle_sha256": "0ad2a4bf78896b3d3d7da5affdc871c03f5219dcecdb8b58277b6c997614a4eb",
+    "personal_bundle_sha256": "e20bd1aae36265abe96e6ccb4a5079532ecd9e8c1c53c4168d81bb29076eb5ec",
+    "all_other_member_bytes_identical": true
+  },
+  "validation": {
+    "full_gate_exit_code": 0,
+    "php_runtime": "8.4.26",
+    "node_runtime": "24.21.0",
+    "composer_version": "2.8.8",
+    "php_tests": 7660,
+    "php_assertions": 65227,
+    "browser_cases": 609,
+    "php_syntax_files": 1144,
+    "phpstan_scopes_passed": 2,
+    "documentation_tests": 29,
+    "final_markdown_files": 188,
+    "package_documentation_sources": 110,
+    "translation_review_required": 96,
+    "human_reviews": "pending",
+    "full_gate_log_sha256": "0aab7360c010d4d7f23af3ac94744b5bc2ea36aecf55215038a47688c05bb240",
+    "source_enumeration_sha256": "2412eeb14e757313d43713a5d19787264edf6a0b505f7e75f02012ef8de021c6"
+  }
+}
