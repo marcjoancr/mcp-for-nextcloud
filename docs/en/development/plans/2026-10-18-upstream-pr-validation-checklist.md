@@ -145,6 +145,10 @@ historical results are explicitly carried forward, not described as freshly run.
 
 ## V2 — Authorized runtime evidence, after prerequisites
 
+The [HTTPS and automated-client proposal](2026-10-19-https-ingress-client-validation-proposal.md)
+assesses evidence sufficiency and proposes a small automated delta plus a real
+ChatGPT journey. It does not close or silently waive any existing acceptance row.
+
 The [Inspector session](2026-10-19-inspector-client-acceptance.md) adds bounded
 local C3/C4 client evidence. Its authorized HTTPS attempt was blocked by devbox's
 GitHub sign-in gateway and revoked; no real-client HTTPS row is complete. The
