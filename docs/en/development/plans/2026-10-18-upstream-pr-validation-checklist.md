@@ -145,6 +145,11 @@ historical results are explicitly carried forward, not described as freshly run.
 
 ## V2 — Authorized runtime evidence, after prerequisites
 
+The separately authorized [closed UI exercise](2026-10-19-closed-devbox-ui-acceptance.md)
+provides technical MCP settings/consent evidence for the frozen artifact. External
+clients, HTTPS exposure, the full topology, operational recovery and human verdicts
+remain pending; the exercise does not mark the standing-target rows below complete.
+
 S0 is still partial. The documentation review does not authorize standing staging
 or real-client execution. The disposable native qualification above supplies bounded
 local evidence and does not close these standing-target acceptance rows. Use

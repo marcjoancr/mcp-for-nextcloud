@@ -82,7 +82,14 @@ and precise remaining limits. These are local results, not GitHub CI. Both inher
 extra blank EOF lines are corrected; the complete upstream-to-head whitespace check
 passes. This does not close the real-client/UI or human acceptance gates.
 
-Pending: human security/technical, language and accessibility reviews; real Nextcloud
-UI/theme/CSP and client acceptance; standing-target artifact/recovery gates; final version
-and merge strategy. No push or persistent staging deployment has occurred.
+The [closed devbox UI exercise](2026-10-19-closed-devbox-ui-acceptance.md) subsequently
+passed 48 browser checks, nine scope/inspection/protection checks and eight
+locale/theme rendering checks against the unchanged installed artifact. Its failed
+preparation/diagnostic attempts and limits remain recorded. Exceptions observed
+during interrupted page loads remain unresolved; synchronized journeys do not
+establish a fix for that behavior.
+
+Pending: human security/technical, language and accessibility reviews; external
+clients and real HTTPS/proxy acceptance; broader UI and standing-target recovery
+gates; final version and merge strategy. No push or persistent staging deployment has occurred.
 This is a reviewable complete contribution, not a claim of release or S7 acceptance.

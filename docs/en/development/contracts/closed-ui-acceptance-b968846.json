@@ -1,0 +1,488 @@
+{
+  "schema_version": 1,
+  "scope": "Closed loopback real-Nextcloud UI exercise; not external-client, HTTPS, human or full staging acceptance",
+  "candidate": "b96884631bf9bda245ce9895facfa8380ab08998",
+  "documentation_head_at_start": "6270340c429e5eece4451c227a6da114de8650d3",
+  "run_id": "mcp-ui-20261019091134-3c0746",
+  "archive_sha256": "de71b3cbf223764033e97fc59c3122e4c11944730dabe8b79a7f44fe9eb5d751",
+  "installed_files": 863,
+  "installed_manifest_sha256": "3a8271aee831d904cc2e01530b82ae76dc3699c4bd27e7fc151acf81b1ad20cc",
+  "runtime": {
+    "snapshot_phase": "During the UI exercise, before closure; see closure for the stopped retained state.",
+    "nextcloud": {
+      "installed": true,
+      "version": "35.0.1.1",
+      "versionstring": "35.0.1",
+      "edition": "",
+      "maintenance": false,
+      "needsDbUpgrade": false,
+      "productname": "Nextcloud",
+      "extendedSupport": false
+    },
+    "enabled_apps": {
+      "activity": "8.0.0",
+      "app_api": "35.0.0",
+      "appstore": "2.0.0-dev.0",
+      "bruteforcesettings": "8.0.0",
+      "circles": "35.0.0",
+      "cloud_federation_api": "2.0.0-dev.0",
+      "comments": "2.0.0-dev.0",
+      "contactsinteraction": "2.0.0-dev.0",
+      "dashboard": "8.0.0-dev.0",
+      "dav": "2.0.0-dev.1",
+      "federatedfilesharing": "2.0.0-dev.1",
+      "federation": "2.0.0-dev.0",
+      "files": "3.0.0-dev.0",
+      "files_downloadlimit": "5.3.0",
+      "files_lock": "35.0.0",
+      "files_pdfviewer": "8.0.0",
+      "files_reminders": "2.0.0-dev.0",
+      "files_sharing": "2.0.0-dev.1",
+      "files_trashbin": "2.0.0-dev.0",
+      "files_versions": "2.0.0-dev.0",
+      "logreader": "8.0.0",
+      "lookup_server_connector": "2.0.0-dev.0",
+      "mcp": "1.1.0",
+      "nextcloud_announcements": "7.0.0",
+      "notifications": "8.0.0",
+      "oauth2": "2.0.0-dev.0",
+      "office": "1.1.0",
+      "password_policy": "7.0.0",
+      "photos": "8.0.0",
+      "privacy": "7.0.0",
+      "profile": "2.0.0-dev.0",
+      "provisioning_api": "2.0.0-dev.0",
+      "recommendations": "8.0.0",
+      "related_resources": "6.0.0",
+      "serverinfo": "7.0.0",
+      "settings": "2.0.0-dev.0",
+      "sharebymail": "2.0.0-dev.0",
+      "sharing": "1.0.4",
+      "support": "7.0.0",
+      "survey_client": "7.0.0",
+      "systemtags": "2.0.0-dev.0",
+      "text": "9.0.0",
+      "theming": "3.0.0-dev.0",
+      "twofactor_backupcodes": "2.0.0-dev.0",
+      "twofactor_totp": "17.1.0",
+      "updatenotification": "2.0.0-dev.0",
+      "user_status": "2.0.0-dev.0",
+      "viewer": "8.0.0",
+      "weather_status": "2.0.0-dev.0",
+      "webhook_listeners": "2.0.0-dev.0",
+      "workflowengine": "3.0.0-dev.0"
+    },
+    "containers": [
+      {
+        "name": "mcp-ui-20261019091134-3c0746-nc",
+        "image_id": "sha256:8f2f0e93aca5e9457019933936dea1f313052e72c696b4aecb31580a208b859f",
+        "running": true,
+        "ports": {
+          "80/tcp": null
+        },
+        "cpus": 2.0,
+        "memory_bytes": 2684354560,
+        "mounts": [
+          {
+            "type": "volume",
+            "destination": "/var/www/html",
+            "writable": true
+          },
+          {
+            "type": "bind",
+            "destination": "/etc/apache2/sites-available/000-default.conf",
+            "writable": false
+          }
+        ]
+      },
+      {
+        "name": "mcp-ui-20261019091134-3c0746-db",
+        "image_id": "sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2",
+        "running": true,
+        "ports": {
+          "3306/tcp": null
+        },
+        "cpus": 1.0,
+        "memory_bytes": 1073741824,
+        "mounts": [
+          {
+            "type": "bind",
+            "destination": "/run/secrets/db",
+            "writable": false
+          },
+          {
+            "type": "bind",
+            "destination": "/run/secrets/root",
+            "writable": false
+          },
+          {
+            "type": "volume",
+            "destination": "/var/lib/mysql",
+            "writable": true
+          }
+        ]
+      }
+    ],
+    "network_internal": true,
+    "loopback_listener": "127.0.0.1:18080",
+    "oauth_fixture_listener": "127.0.0.1:18999",
+    "playwright": "1.64.1",
+    "node": "24.21.0",
+    "browsers_from_locked_registry": [
+      {
+        "name": "chromium",
+        "revision": "1248",
+        "browserVersion": "156.0.8078.4"
+      },
+      {
+        "name": "firefox",
+        "revision": "1555",
+        "browserVersion": "157.0"
+      },
+      {
+        "name": "webkit",
+        "revision": "2370",
+        "browserVersion": "27.2"
+      }
+    ]
+  },
+  "main": {
+    "cases": 48,
+    "per_browser": {
+      "chromium": 16,
+      "firefox": 16,
+      "webkit": 16
+    },
+    "case_names": [
+      "real admin page, production assets and enforced CSP",
+      "five tabs, hash reload and keyboard navigation",
+      "service and upload-limit changes persist",
+      "grant eligibility and Files read through the real matrix",
+      "ineligible user cannot connect and admin API refuses access",
+      "eligible user connects through personal settings",
+      "missing and invalid CSRF cannot change service state",
+      "privacy preference persists and disclosure is keyboard operable",
+      "register a synthetic OAuth client through administration",
+      "real consent denial preserves the callback state",
+      "real consent acceptance creates a visible connection",
+      "personal revoke removes the connection and rejects refresh",
+      "personal disconnect persists after reload",
+      "delete fixture client and disable service through UI",
+      "mobile viewport retains usable navigation and controls",
+      "no JavaScript exceptions or browser CSP violations"
+    ],
+    "results_sha256": "82eb8e82c3d6e40c1701e1721a359a3cda443cb41c917d09abbde0c49b5b615c",
+    "script_sha256": "730c31852da37a079f8aab765a97d5d00a5c28914b1672fb2d82e22ddb1a044d",
+    "diagnostics": [
+      {
+        "engine": "chromium",
+        "errors": [],
+        "csp": [],
+        "http": [],
+        "navigationReadiness": [
+          {
+            "stage": "disconnect before reload",
+            "state": "complete"
+          }
+        ],
+        "failedRequests": []
+      },
+      {
+        "engine": "firefox",
+        "errors": [],
+        "csp": [],
+        "http": [],
+        "navigationReadiness": [
+          {
+            "stage": "disconnect before reload",
+            "state": "interactive"
+          }
+        ],
+        "failedRequests": [
+          {
+            "path": "/ocs/v2.php/apps/notifications/api/v2/notifications",
+            "error": "NS_BINDING_ABORTED"
+          },
+          {
+            "path": "/ocs/v2.php/apps/notifications/api/v2/notifications",
+            "error": "NS_BINDING_ABORTED"
+          },
+          {
+            "path": "/apps/mcp/api/grants",
+            "error": "NS_BINDING_ABORTED"
+          }
+        ]
+      },
+      {
+        "engine": "webkit",
+        "errors": [],
+        "csp": [],
+        "http": [],
+        "navigationReadiness": [
+          {
+            "stage": "disconnect before reload",
+            "state": "interactive"
+          }
+        ],
+        "failedRequests": [
+          {
+            "path": "/ocs/v2.php/apps/notifications/api/v2/notifications",
+            "error": "Load request cancelled"
+          },
+          {
+            "path": "/ocs/v2.php/apps/notifications/api/v2/notifications",
+            "error": "Load request cancelled"
+          },
+          {
+            "path": "/ocs/v2.php/apps/notifications/api/v2/notifications",
+            "error": "Load request cancelled"
+          },
+          {
+            "path": "/ocs/v2.php/apps/notifications/api/v2/notifications",
+            "error": "Load request cancelled"
+          },
+          {
+            "path": "/apps/mcp/api/grants",
+            "error": "Load request cancelled"
+          }
+        ]
+      }
+    ]
+  },
+  "supplement": {
+    "cases": 17,
+    "per_browser": {
+      "chromium": 11,
+      "firefox": 3,
+      "webkit": 3
+    },
+    "case_names": [
+      "resource scope restricts an empty selection and restores unrestricted",
+      "access inspector renders actual server permission results",
+      "data-protection picker loads real empty-tag state",
+      "en renders admin and personal settings in light appearance",
+      "en renders admin and personal settings in dark appearance",
+      "de renders admin and personal settings in light appearance",
+      "de renders admin and personal settings in dark appearance",
+      "es renders admin and personal settings in light appearance",
+      "es renders admin and personal settings in dark appearance",
+      "pt_BR renders admin and personal settings in light appearance",
+      "pt_BR renders admin and personal settings in dark appearance"
+    ],
+    "results_sha256": "1e505b51b20ea9033db850b93bc114631f1237798278b4d6f03172a958d9ed77",
+    "script_sha256": "cf5ce907d932c5e9751cc3aa5a383f2b5ab98ccfc1536765413ca27ebd64516b",
+    "appearances": {
+      "light": "#ffffff",
+      "dark": "#171717"
+    },
+    "languages": [
+      "en",
+      "de",
+      "es",
+      "pt_BR"
+    ]
+  },
+  "earlier_attempts": [
+    {
+      "name": "attempt-1",
+      "results_sha256": "2b7665f231e69252b50052260458484ec74faf632b93dfd780415195e2b05499",
+      "passed": 2,
+      "failed": [
+        {
+          "engine": "chromium",
+          "case": "service and upload-limit changes persist"
+        }
+      ],
+      "explanation": "The test clicked the native checkbox, which Nextcloud intentionally positions offscreen. Retested through its visible label."
+    },
+    {
+      "name": "attempt-2",
+      "results_sha256": "f895f87306a4135b8adb87d6ef09efeeffad4ad3517b076814881f4562f436cd",
+      "passed": 3,
+      "failed": [
+        {
+          "engine": "chromium",
+          "case": "grant eligibility and Files read through the real matrix"
+        }
+      ],
+      "explanation": "The matrix defaults to eligible users. The new test account was absent until the Everyone filter was selected."
+    },
+    {
+      "name": "attempt-3",
+      "results_sha256": "6dbb8eaa6457c96c6b4dfeef1eb555df00771abf6cb05a1cac8cf628d63381fc",
+      "passed": 9,
+      "failed": [
+        {
+          "engine": "chromium",
+          "case": "real consent denial preserves the callback state"
+        }
+      ],
+      "explanation": "Playwright did not intercept the redirected callback; the app returned the expected 303 but the fixture had no listener. Replaced interception with a real loopback receiver."
+    },
+    {
+      "name": "attempt-4",
+      "results_sha256": "3f1f81fe9161b841e17d569a6146b3b56530d2cf509c6fe72bb65ce42f48879e",
+      "passed": 11,
+      "failed": [
+        {
+          "engine": "chromium",
+          "case": "personal revoke removes the connection and rejects refresh"
+        }
+      ],
+      "explanation": "The revoke button accessible name includes the client name; the exact generic-name selector did not match."
+    },
+    {
+      "name": "attempt-5",
+      "results_sha256": "6856a1df99a896c0a3ade8a332bdb49affab763aaf58a69a777043b7c7817b69",
+      "passed": 13,
+      "failed": [
+        {
+          "engine": "chromium",
+          "case": "delete fixture client and disable service through UI"
+        }
+      ],
+      "explanation": "Same-document hash navigation retained a stale administrative snapshot. The server refused deletion with 409 and the UI explained the conflict. A real reload was required before asserting fresh state."
+    },
+    {
+      "name": "attempt-6",
+      "results_sha256": "ec58b1a5c53ae6696f0381ec0b7850c1330263c70b5837b8de7cd0b782db3b8e",
+      "passed": 31,
+      "failed": [
+        {
+          "engine": "firefox",
+          "case": "no JavaScript exceptions or browser CSP violations"
+        }
+      ],
+      "explanation": "Firefox emitted Nextcloud/MCP initialization exceptions during a reload before the personal document finished loading."
+    },
+    {
+      "name": "attempt-7",
+      "results_sha256": "2ced8d97a5189b49ecf8731ae14570c506d594c82cabd973284488943ac0cd81",
+      "passed": 15,
+      "failed": [
+        {
+          "engine": "firefox",
+          "case": "no JavaScript exceptions or browser CSP violations"
+        }
+      ],
+      "explanation": "The Firefox initialization exceptions reproduced with source stacks captured. Waiting for load before reload removed them without changing application code."
+    },
+    {
+      "name": "attempt-8",
+      "results_sha256": "3da13426fc2add5add6a975224417644b3bdfa685a6425db6b2fccf8bd2d26eb",
+      "passed": 16,
+      "failed": [],
+      "explanation": "Focused Firefox retest passed after synchronizing the post-disconnect document load."
+    },
+    {
+      "name": "acceptance-final",
+      "results_sha256": "1f583e04acc1d0350addd493fe8e22ac825c13e3cdf8381c9e6af09a7147bf3f",
+      "passed": 47,
+      "failed": [
+        {
+          "engine": "webkit",
+          "case": "no JavaScript exceptions or browser CSP violations"
+        }
+      ],
+      "explanation": "WebKit emitted a Nextcloud notification access-control exception while leaving the initial dashboard with a cancelled request. The fixture now waits for initial network idle before navigation."
+    },
+    {
+      "name": "acceptance-complete",
+      "results_sha256": "d6ad4fb6ad31228933df94676c8c4ba9a1e43031aa116f0adec22f5cdd8dff88",
+      "passed": 43,
+      "failed": [
+        {
+          "engine": "webkit",
+          "case": "personal revoke removes the connection and rejects refresh"
+        }
+      ],
+      "explanation": "Repeated intentional invalid-grant requests triggered Nextcloud brute-force protection: WebKit received 429 instead of the required 400. The 429 was not accepted as proof of revocation."
+    },
+    {
+      "name": "supplement-1",
+      "results_sha256": "a78f173652d4f0f1c1489b46e7991d87c6e0ebb3e70cdbd843b353202d5d79f6",
+      "passed": 0,
+      "failed": [
+        {
+          "engine": "chromium",
+          "case": "resource scope restricts an empty selection and restores unrestricted"
+        }
+      ],
+      "explanation": "The independent scope readback omitted the session CSRF header and was correctly refused with 412. The browser scope save itself succeeded."
+    },
+    {
+      "name": "supplement-2",
+      "results_sha256": "f83007268e454ca07879922e4ea34f2bc11abca8a8020fab1e99c7cc8e1fe740",
+      "passed": 1,
+      "failed": [
+        {
+          "engine": "chromium",
+          "case": "access inspector renders actual server permission results"
+        }
+      ],
+      "explanation": "The inspector detailed table is intentionally collapsed; the test needed to open its disclosure before asserting visibility."
+    }
+  ],
+  "provisioning_first_attempt": {
+    "log_sha256": "4842e08418a35cd8f9a1467719150700f8c4e4fdbd11d83e1092c6f6c1cf90a1",
+    "result": "Failed before installation: occ file existed while the image was still copying lib/versioncheck.php. Resumed the same owned resources after HTTP readiness; hidden password prompts completed successfully."
+  },
+  "fixture_throttle_reset": {
+    "at_utc": "2026-10-19T09:32:40.370520+00:00",
+    "target": "isolated instance fixture bridge IP",
+    "ip": "10.209.160.1",
+    "command": "occ security:bruteforce:reset <fixture-ip>",
+    "exit_code": 0,
+    "reason": "Repeated intentional invalid-grant assertions reached Nextcloud brute-force protection; HTTP 429 retained as failed oracle, not accepted as revocation proof. No configuration or protection was disabled."
+  },
+  "server_logs": {
+    "groups": [
+      {
+        "app": "cron",
+        "exception": "OC\\AppFramework\\Utility\\QueryNotFoundException",
+        "exception_file": "/var/www/html/lib/private/AppFramework/Utility/SimpleContainer.php",
+        "exception_line": 140,
+        "level": 2,
+        "message_sha256": "af36df948bfbf5ef8cd92cae4e94404614809ebdfb5b53b47c2e37c2ca7e6637",
+        "count": 1
+      }
+    ],
+    "private_log_sha256": "a415c1cc0a8bf7c203caf0a87ae28b5cd82fcf58ab804af05ae764374dbd3da0",
+    "interpretation": "One initial cron warning references the disabled FirstRunWizard background job. The final cron run succeeded and the warning count stayed one; no level 3/4 entries were recorded."
+  },
+  "closure": {
+    "checked_at_utc": "2026-10-19T09:37:14.628634+00:00",
+    "containers": [
+      {
+        "name": "mcp-ui-20261019091134-3c0746-nc",
+        "status": "exited",
+        "running": false,
+        "restart_policy": "no"
+      },
+      {
+        "name": "mcp-ui-20261019091134-3c0746-db",
+        "status": "exited",
+        "running": false,
+        "restart_policy": "no"
+      }
+    ],
+    "loopback_ports_closed": [
+      18080,
+      18999
+    ],
+    "relay_stopped": true,
+    "mcp_service_disabled": true,
+    "installed_files_unchanged": 863,
+    "retained_volumes": [
+      "mcp-ui-20261019091134-3c0746-nc-data",
+      "mcp-ui-20261019091134-3c0746-db-data"
+    ],
+    "retained_network": "mcp-ui-20261019091134-3c0746-net",
+    "state_deleted": false,
+    "public_exposure_created": false
+  },
+  "human_reviews": "pending",
+  "external_clients": "not executed; pending",
+  "https_proxy_acceptance": "not executed; pending",
+  "independent_backup_recovery": "not executed; pending"
+}

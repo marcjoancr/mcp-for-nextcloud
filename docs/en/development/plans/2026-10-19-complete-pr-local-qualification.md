@@ -10,6 +10,10 @@ This follows the user's requirement to complete agreed locally executable valida
 before opening the complete contribution. Disposable native test containers are
 separate from the unapproved standing S1 target and its S0 prerequisites.
 
+Follow-up: the [closed devbox UI exercise](2026-10-19-closed-devbox-ui-acceptance.md)
+subsequently tested actual Nextcloud pages on the same frozen artifact. Its bounded
+results do not close external-client, HTTPS/proxy, recovery or human acceptance.
+
 ## Frozen candidate and artifact
 
 - Branch: `refactor/complete-upstream-pr`.

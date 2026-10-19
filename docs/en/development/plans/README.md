@@ -53,3 +53,4 @@ Historical records describe their own revisions. For current commands, start wit
 - [Complete upstream PR local description draft](2026-10-18-complete-upstream-pr-description.md)
 - [Complete upstream PR review and formatting correction](2026-10-18-complete-upstream-pr-review.md)
 - [Complete PR committed-candidate local qualification](2026-10-19-complete-pr-local-qualification.md)
+- [Closed devbox UI acceptance](2026-10-19-closed-devbox-ui-acceptance.md)
