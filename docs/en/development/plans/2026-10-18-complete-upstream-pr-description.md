@@ -4,12 +4,12 @@
 # Complete upstream PR — local description draft
 
 Status: local draft; no PR has been opened or published. Replace the evidence
-references with accessible artifacts when publication is authorized. This draft
-keeps human and staging limitations visible. The user confirmed on 2026-10-19 that
-opening the PR must wait until all agreed locally executable validation is complete,
-including the outstanding real Nextcloud/client/recovery checks. This local draft
-is preparation only; publishing it cannot substitute for those checks. Human reviews
-remain pending and are not waived by local test completion.
+references with accessible artifacts when publication is authorized. The
+[final opening checklist](2026-10-19-final-pr-opening-checklist.md) defines the
+accepted opening scope: final local qualification and real public HTTPS/Inspector/
+ChatGPT checks before opening; human reviews remain pending during PR review.
+Broader staging/recovery and other clients remain uncertified. This local draft
+is preparation only; publishing it cannot substitute for those technical checks.
 
 ## Proposed title
 
@@ -94,6 +94,15 @@ The [Inspector session](2026-10-19-inspector-client-acceptance.md) exercised loc
 registered OAuth and app-password flows, fixture writes and credential revocation.
 The authorized HTTPS route was blocked by devbox's GitHub gateway and revoked;
 external-client acceptance and an Inspector SDK issuer-stamp warning remain open.
+
+The later [private TLS qualification](2026-10-19-private-tls-inspector-report.md)
+passed all 12 required cases. The [encrypted storage qualification](2026-10-19-inspector-encrypted-storage-report.md)
+passed 14 of 15 cases and exited 1: preregistered static client secrets are returned
+across requested issuers after disk reload. This is an external client limitation,
+not an established server defect or demonstrated network disclosure. Our exercised
+public-client `none` flow uses no client secret. Its external disposition remains
+pending; no universal credential-isolation claim is made. Public HTTPS Inspector
+and ChatGPT are still unexecuted and required before opening under the final checklist.
 
 Pending: human security/technical, language and accessibility reviews; external
 clients and real HTTPS/proxy acceptance; broader UI and standing-target recovery

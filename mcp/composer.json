@@ -107,6 +107,10 @@
         "test:clients:unit": [
             "Composer\\Config::disableProcessTimeout",
             "node --test tests/ClientAcceptance/*.test.mjs @no_additional_args"
+        ],
+        "test:clients:storage": [
+            "Composer\\Config::disableProcessTimeout",
+            "node tests/ClientAcceptance/storage-run.mjs"
         ]
     },
     "scripts-descriptions": {
@@ -126,6 +130,7 @@
         "test:docs": "Run all documentation tooling tests; fail on empty discovery.",
         "test:integration": "Run one pinned disposable native cell: -- [--plan] NC DB MODE; starts containers only without --plan.",
         "test:clients": "Run private TLS/Inspector acceptance against an explicitly selected retained fixture; requires three absolute paths. No public exposure.",
-        "test:clients:unit": "Check the client acceptance runner safety boundaries without containers."
+        "test:clients:unit": "Check the client acceptance runner safety boundaries without containers.",
+        "test:clients:storage": "Check pinned Inspector encrypted storage across issuers in isolated processes; requires its absolute installation path. No containers or network."
     }
 }

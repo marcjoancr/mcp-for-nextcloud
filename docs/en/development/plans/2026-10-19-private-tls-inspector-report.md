@@ -101,8 +101,11 @@ This isolates the observed registration-warning path to client provider behavior
 it does **not** justify adding an invented `iss` response to the frozen server.
 The warning is retained, not filtered or downgraded. The real OAuth tests use
 fresh encrypted stores, but the cross-issuer component diagnostic uses in-memory
-persistence. A complete encrypted-store, multi-issuer end-to-end qualification is
-**still pending**. No claim is made that every credential-store security property
+persistence. At the time of this run, encrypted-store qualification across issuers was
+**pending**. The subsequent [storage integration report](2026-10-19-inspector-encrypted-storage-report.md)
+now verifies real encrypted persistence in fresh processes: issuer-bound paths
+pass, while preregistered confidential-client isolation fails. This follow-up does
+not claim a network journey with two real authorization servers. No claim is made that every credential-store security property
 passes. Future client-version qualification or an upstream Inspector disposition
 is needed before treating that concern as closed. P1's broader issuer criterion
 therefore remains qualified; the 12-case verdict is not a blanket security verdict.
@@ -177,8 +180,10 @@ is justified by it.
 
 Pending work remains explicit:
 
-- P1: retain the Inspector registration finding and qualify the broader encrypted
-  multi-issuer store behavior before claiming that security criterion closed.
+- P1: encrypted issuer-bound persistence has since passed the linked storage
+  qualification. The static registration warning and failed cross-issuer
+  confidential-client boundary remain open external-client findings; do not
+  treat the broader security criterion as closed.
 - P2/P3: supported per-exposure application-auth ingress remains unavailable;
   shared GitHub forward-auth still prevents machine access. Any fix belongs in
   the infrastructure project's separately authorized scope. Real public DNS,

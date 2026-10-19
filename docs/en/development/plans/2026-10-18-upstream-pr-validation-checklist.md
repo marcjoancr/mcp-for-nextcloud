@@ -22,6 +22,14 @@ when their own actions are authorized. V0 read-only analysis was authorized and
 completed; staging execution remains unauthorized. A draft must preserve V2 and
 human-review gaps explicitly.
 
+## Current opening scope
+
+The owner subsequently accepted the [final PR-opening checklist](2026-10-19-final-pr-opening-checklist.md).
+It governs opening: final candidate qualification and public HTTPS/Inspector/ChatGPT
+remain required; human reviews may occur during PR review. The broader V2/S0–S7
+rows below retain their historical scope and pending status. This explicit scope
+update does not certify untested clients, standing recovery or production readiness.
+
 ## Evidence states and scope
 
 V0 checkboxes are supported by the linked source-comparison report; V1 and V3
@@ -215,7 +223,8 @@ reviews; it is not a recommendation to merge or publish despite a known blocker.
 Do not require a completed S7 verdict merely to write an honest draft, and do not
 use draft readiness to bypass S0 prerequisites for actual staging execution.
 
-Publication condition confirmed by the user on 2026-10-19: complete all agreed
+Earlier publication condition, subsequently scoped by the final opening checklist
+linked above: complete all agreed
 locally executable validation, including outstanding real Nextcloud/client/recovery
 scenarios, before opening the PR. The local V3 draft may exist while V2 is pending;
 an external PR may not be used to bypass that technical validation. Keep human

@@ -58,3 +58,5 @@ Historical records describe their own revisions. For current commands, start wit
 - [MCP Inspector session and HTTPS ingress blocker](2026-10-19-inspector-client-acceptance.md)
 - [HTTPS ingress and automated client acceptance proposal](2026-10-19-https-ingress-client-validation-proposal.md)
 - [Private TLS and automated Inspector execution](2026-10-19-private-tls-inspector-report.md)
+- [Inspector encrypted storage across issuers](2026-10-19-inspector-encrypted-storage-report.md)
+- [Final complete-PR opening checklist](2026-10-19-final-pr-opening-checklist.md)

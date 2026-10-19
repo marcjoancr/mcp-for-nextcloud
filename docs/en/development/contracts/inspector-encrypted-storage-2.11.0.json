@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-10-19T12:11:59.028Z",
+  "runId": "storage-pzBfwA",
+  "required": [
+    "preflight",
+    "seed-a",
+    "read-a",
+    "seed-b",
+    "read-both",
+    "rotate-a",
+    "read-rotated",
+    "clear-a",
+    "read-cleared",
+    "wrong-key",
+    "missing-key",
+    "tampered-store",
+    "read-after-controls",
+    "static-client-boundary",
+    "static-client-reload"
+  ],
+  "results": [
+    {
+      "id": "preflight",
+      "status": "passed"
+    },
+    {
+      "id": "seed-a",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "read-a",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true,
+        "freshProcessReload": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "seed-b",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "read-both",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true,
+        "freshProcessReload": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "rotate-a",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "read-rotated",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true,
+        "otherIssuerPreserved": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "clear-a",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "read-cleared",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true,
+        "otherIssuerPreserved": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "wrong-key",
+      "status": "passed",
+      "detail": {
+        "credentialsUnavailable": true,
+        "providerReadAndWriteRefused": true,
+        "writeAndDeleteRefused": true,
+        "encryptedBytesUnchanged": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "missing-key",
+      "status": "passed",
+      "detail": {
+        "credentialsUnavailable": true,
+        "providerReadAndWriteRefused": true,
+        "writeAndDeleteRefused": true,
+        "encryptedBytesUnchanged": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "tampered-store",
+      "status": "passed",
+      "detail": {
+        "credentialsUnavailable": true,
+        "providerReadAndWriteRefused": true,
+        "writeAndDeleteRefused": true,
+        "encryptedBytesUnchanged": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "read-after-controls",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true,
+        "otherIssuerPreserved": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "static-client-boundary",
+      "status": "passed",
+      "detail": {
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true
+      },
+      "exitCode": 0,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "static-client-reload",
+      "status": "failed",
+      "errorType": "AssertionError",
+      "detail": {
+        "sameStaticSecretReturnedForOtherIssuer": true,
+        "staticRegistrationHasIssuer": false,
+        "freshProcessReload": true,
+        "aes256Gcm": true,
+        "scrypt": true,
+        "plaintextSecretsAbsent": true,
+        "privateFileModes": true
+      },
+      "exitCode": 1,
+      "timedOut": false,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "scope": "Installed Inspector encrypted storage/provider integration with synthetic credentials; no OAuth servers or network journeys.",
+  "https": "pending",
+  "chatgpt": "pending",
+  "humanReviews": "pending",
+  "infrastructureChanged": false,
+  "runnerSources": {
+    "storage-run.mjs": "a22b9ad8057c60616373de488a767ff02bd55a29edbf0a53be38e556fb784d9c",
+    "storage-worker.mjs": "c903245ca6f0ad0c8253af3ca7e2d9a561e22f28f6137d33f7f48f7ba246d51d",
+    "support.mjs": "356a3da6663864695ea705486593aa6f69229c858d1b74ad3b4d34cff9781ac2",
+    "policy.mjs": "92f1af96856c0790c0b0c005e387c4cc84077d35e4a402a914a2f039750a17c7"
+  },
+  "inspector": {
+    "version": "2.11.0",
+    "lockSha256": "d6e59c49bd1a5640d33d7d8c77a387e382553762e216173373c0f2af86c704ae",
+    "installedBundleSha256": "bd48a8df27412e4c01e876493a4e629d84d823ed44f0e738751a7efa3a8d18ca",
+    "exportSuffixSha256": "0b77e795fbf3af7bc9bea89c45a8bab5a9a8f7e2c7f9c0934f98abcaff460deb",
+    "instrumentedCopySha256": "d9d345faa2f54c740123d68046be5b5066ffcb03eeca8c3ba090d3b411390c14"
+  },
+  "installedBundleUnchanged": true,
+  "finishedAt": "2026-10-19T12:12:08.163Z",
+  "status": "failed",
+  "rawResultSha256": "ed73ab3789c182efc427e0fb4d1c39180e0a51b7d9398f76a8be43e7da7279c7",
+  "disposition": {
+    "issuerBoundEncryptedPersistence": "passed",
+    "preregisteredConfidentialClientIssuerIsolation": "failed",
+    "externalClientFinding": "Static registration is resource-scoped and returned without an issuer stamp for another requested issuer. No network credential transmission was tested.",
+    "installedApplication": "unchanged; not started for this storage-only check"
+  },
+  "repositoryValidation": {
+    "composerManifest": "passed",
+    "documentationMarkdownFiles": 196,
+    "packageDocumentationSources": 110,
+    "documentationTests": 29,
+    "runnerUnitTests": 10,
+    "developerCommandsTests": 5,
+    "developerCommandsAssertions": 40,
+    "package": "passed",
+    "translationsReviewRequired": 96,
+    "reuseFiles": 1550,
+    "logsSha256": {
+      "docs-checks.log": "c352de22b0b6ec6432685d314786ad4b245f552f3ccc15a9f3c37be8e02bb86e",
+      "package-check.log": "d412e7d935016ca6ca9e0c1e0dd941b8e62abfe7cf07795f403048f1e40dab4c",
+      "reuse-check.log": "5a7221c16d281c37430cfd4cffcc7e458e96c0e8f8ac8ef95379abb60772f627"
+    }
+  }
+}
