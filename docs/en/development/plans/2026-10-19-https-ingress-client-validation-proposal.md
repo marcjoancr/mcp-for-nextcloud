@@ -3,8 +3,11 @@
 
 # HTTPS ingress and automated client acceptance proposal
 
-Status: **proposal only**. No infrastructure, runtime, account connection or
-application change is authorized by this document. No push or PR opening.
+Status: **reviewed proposal, with P0/P1 execution recorded separately**. The owner
+subsequently authorized private automated P0/P1 only; see the
+[execution report and remaining limits](2026-10-19-private-tls-inspector-report.md).
+P2–P4 remain proposed. This document itself grants no infrastructure or account
+connection authorization. No push or PR opening.
 ChatGPT has not been tested. Human reviewers remain unassigned/pending. The owner already accepted devbox,
 short-campaign resources and operation/recovery responsibility; those decisions
 need no repetition. The previous HTTPS window is closed, not a reusable live lease.
@@ -298,8 +301,9 @@ positive control. Human review statuses remain separate and pending.
 | Secure MCP Tunnel | Official private-transport alternative. Requires Platform tunnel permissions, a runtime key and workspace association. OAuth authorization-server reachability is not automatically supplied; this app hosts OAuth in Nextcloud, so the login/token route still needs proof. Does not qualify devbox public HTTPS. See [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels). |
 | Remove shared SSO globally or copy its cookie into Inspector | Reject: affects unrelated previews or substitutes operator browser access for client compatibility. |
 
-Recommended next action: implement P0/P1 as an automated test delta, after approval
-of this proposal. They need no user-operated assertions or public ingress. Prepare
+Original recommendation: implement P0/P1 as an automated test delta after approval.
+That execution is now recorded in the linked report; unchecked criteria above
+remain the original acceptance contract, not an implicit phase-completion claim. Prepare
 P2 in the owning infrastructure project only when explicitly authorized there;
 this session must not change its project binding or installed shared runtime.
 Before P4, only account/workspace availability and secure owner authentication may
@@ -307,7 +311,8 @@ need user input. No reviewer assignment is required to execute P0/P1.
 
 ## Validation of this proposal
 
-This is a documentation-only design, not newly executed acceptance evidence.
+The following records validation of the original documentation-only proposal,
+before the separately linked P0/P1 execution.
 Documentation review corrected phase dependencies, separate call/OAuth deadlines,
 issuer-test scope and unconditional cleanup. No acceptance phase was executed.
 Validation repeated on 2026-10-19 passed: `docs:check` (193 Markdown files / 110 package
