@@ -846,3 +846,32 @@ test('S6: the select-all box heads the selection column and keeps its accessible
 	assert.equal(header.querySelector('input'), ui.selectAll)
 	assert.equal(ui.selectAll.getAttribute('aria-label'), 'Select every user on this page')
 })
+
+test('issue #11 matrix: an unreadable reset response uses real api uncertainty recovery, with no success or undo', async () => {
+	const ui = app([alice()], () => [200, new SyntaxError('HTML proxy response')])
+	const matrixSource = fs.readFileSync(path.join(__dirname, '../../js/admin-grants.js'), 'utf8')
+	const start = matrixSource.indexOf('\tasync function api(')
+	const end = matrixSource.indexOf('\n\t}\n', start) + 4
+	const matrix = ui.window.McpAdminMatrix
+	const request = matrix.api
+	const context = {
+		OC: { generateUrl: (value) => value, requestToken: 'test' },
+		fetch: async (url, options) => {
+			const data = await request(options.method, url.replace('/apps/mcp', ''), JSON.parse(options.body))
+			return { ok: true, status: 200, json: async () => { if (data instanceof Error) throw data; return data } }
+		},
+	}
+	vm.runInNewContext(matrixSource.slice(start, end) + '\nthis.api = api', context)
+	matrix.api = context.api
+	await ui.rowButton('alice').click()
+	await ui.panelButton('confirm').click()
+	await tick()
+	assert.deepEqual(plain(ui.log.policyErrors), ['503'])
+	assert.equal(ui.log.reloads, 1, 'a single recovery reload, without replay')
+	assert.equal(ui.commands().length, 1)
+	assert.equal(ui.panel.hidden, true)
+	assert.deepEqual(ui.log.notices, [], 'no reset-success announcement or undo')
+	assert.deepEqual(ui.log.announced, [])
+	assert.deepEqual(ui.log.busy, [true, false])
+	assert.equal(ui.selectAll.disabled, false)
+})

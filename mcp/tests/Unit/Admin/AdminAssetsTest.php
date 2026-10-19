@@ -528,7 +528,7 @@ final class AdminAssetsTest extends TestCase {
         $this->assertStringContainsString('await reloadLocked()', $policyError);
         $this->assertStringNotContainsString("\t\tload()", $policyError);
         $this->assertSame(3, substr_count($script, 'await policyError(e)'), 'cell, All menu and service wait for the reload');
-        $undo = substr($script, (int)strpos($script, 'async function undoBulk('), 1400);
+        $undo = substr($script, (int)strpos($script, 'async function undoBulk('), 2000);
         $this->assertStringContainsString('await reloadLocked()', $undo, 'an undo, refused or not, reloads with writes blocked');
         $cell = substr($script, (int)strpos($script, "box.addEventListener('change'"), 600);
         $this->assertMatchesRegularExpression('/if \(matrixLocked\) \{\s+\/\/[^\n]*\n\s+box\.checked = !value\s+return/', $cell);

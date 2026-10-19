@@ -137,7 +137,14 @@
 			error.data = await response.json().catch(() => null)
 			throw error
 		}
-		return response.json()
+		return response.json().catch((cause) => {
+			// A proxy/session may return 2xx HTML after a write committed. Reuse the matrix's uncertain-save recovery.
+			const matrixWrite = (method === 'PUT' && (path.startsWith('/api/grants/') || path === '/api/service'))
+				|| (method === 'POST' && (path === '/api/grants/commands' || path === '/api/grants/undo'))
+			if (matrixWrite) throw Object.assign(new Error('503'), { data: { uncertain: true }, cause })
+			// Reads (including command previews) and other settings keep their ordinary load/request error path.
+			throw cause
+		})
 	}
 
 	/**
@@ -1322,7 +1329,7 @@
 				undo = saved.receiptId === null ? null : () => undoBulk(saved.receiptId, saved.revision)
 				showNotice(n('mcp', '“{permission}” set to {level} for %n person.', '“{permission}” set to {level} for %n people.', plan.users, vars, { escape: false }), undo)
 			} catch (e) {
-				// Nothing was saved: the command is all or nothing.
+				// The command is all or nothing, but an unreadable response cannot confirm its outcome.
 				reloaded = await policyError(e)
 				if (!reloaded) {
 					notifyError(t('mcp', 'Could not update the selected people.'))
@@ -1363,11 +1370,13 @@
 					showNotice(retry, () => undoBulk(receiptId, savedRevision))
 					return
 				}
-				const failure = e.message === '409'
-					? t('mcp', 'The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.')
-					: e.message === '410'
-						? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
-						: t('mcp', 'Could not undo the change. The table was reloaded with the saved values.')
+				const failure = e.message === '503' && e.data && e.data.uncertain
+					? t('mcp', 'The server could not confirm whether the change was saved. The table was reloaded with the saved values.')
+					: e.message === '409'
+						? t('mcp', 'The permissions changed after this change, so it can no longer be undone. The table was reloaded with the saved values.')
+						: e.message === '410'
+							? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
+							: t('mcp', 'Could not undo the change. The table was reloaded with the saved values.')
 				notifyError(failure)
 				showNotice(failure, null)
 			}
