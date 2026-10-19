@@ -134,14 +134,16 @@ private credentials and evidence were retained for a later authorized session;
 no state or other project's resources were deleted. Retained same-host data is
 not an independent recovery backup or an accepted S6 rehearsal.
 
+The [interrupted-load investigation](2026-10-19-interrupted-page-load-investigation.md)
+is now complete: no required MCP correction was identified within its tested scope.
+The reproduced host/browser departure exceptions remain a documented limitation,
+not a fix.
+
 Still pending:
 
 - Actual clients C1a–C1e/C2–C4, their available accounts/builds and interactive testers.
 - Separately authorized HTTPS exposure, canonical external origin, real proxy/TLS,
   callback/streaming behavior and external-access closure checks.
-- Investigation of the initialization/notification exceptions observed during
-  interrupted loads; successful synchronized journeys do not establish that those
-  observations are fixed.
 - Optional-app UI combinations, broader S4/S5 topology, LDAP/federation/external
   storage and the previously proposed independent operational recovery.
 - All human security/technical, operational, accessibility and language verdicts.
@@ -160,7 +162,8 @@ the two final browser scripts. The recorded light/dark backgrounds were checked
 against `#ffffff` and `#171717`; these values were captured by the browser script,
 not asserted there. This review reran neither the browser journeys nor the instance.
 Historical runtime flags and pre-wait readiness samples are now explicitly labelled;
-interrupted-load behavior remains a pending investigation.
+interrupted-load behavior was pending at that review; the linked follow-up now
+records the investigation and its bounded correction decision.
 
 Documentation checks:
 

@@ -1,0 +1,383 @@
+{
+  "schema_version": 1,
+  "scope": "Closed-instance diagnosis of interrupted page loading; no external clients, HTTPS or human acceptance",
+  "candidate": "b96884631bf9bda245ce9895facfa8380ab08998",
+  "documentation_head_at_start": "c04946dcd882db4dc8743b6a8f0b2bd59e8eb360",
+  "run_id": "mcp-ui-20261019091134-3c0746",
+  "evidence_subdirectory": "interrupted-load-investigation",
+  "runtime_reference": "closed-ui-acceptance-b968846.json",
+  "experiments": {
+    "natural": {
+      "results_sha256": "c27f33dc2106e8eedc6faad1e5aeffcc4c946f561324a555bf43d5d0930618a0",
+      "script_sha256": "035f3b2c9f1e216256961a331dd30b330b1b487120d44dfc1bcfd180e64500c9",
+      "groups": [
+        {
+          "engine": "firefox",
+          "target": "/settings/user/mcp",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user/mcp",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 1,
+          "exceptions": 6,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 0,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "not reached": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 0,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "not reached": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/apps/dashboard/",
+          "mode": "early-leave",
+          "recorded": 4,
+          "completed": 0,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "not reached": 4
+          },
+          "exceptions_before_destination_init": true
+        }
+      ]
+    },
+    "natural-corrected": {
+      "results_sha256": "fa6e541e2996f27f0164980279b2068ac6c76a717876918ddddc7932f3afa91a",
+      "script_sha256": "ca00d80d3db66bfad044a9426523153fae77178cd14348ce53bedf7fa29d82ac",
+      "groups": [
+        {
+          "engine": "firefox",
+          "target": "/settings/user/mcp",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user/mcp",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/apps/dashboard/",
+          "mode": "early-leave",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 2,
+          "exceptions": 4,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "webkit",
+          "target": "/settings/user/mcp",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "webkit",
+          "target": "/settings/user/mcp",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 3,
+          "exceptions": 3,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "webkit",
+          "target": "/settings/user",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "webkit",
+          "target": "/settings/user",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 2,
+          "exceptions": 2,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "webkit",
+          "target": "/apps/dashboard/",
+          "mode": "early-leave",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "chromium",
+          "target": "/settings/user/mcp",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "chromium",
+          "target": "/settings/user/mcp",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "chromium",
+          "target": "/settings/user",
+          "mode": "loaded-control",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "chromium",
+          "target": "/settings/user",
+          "mode": "early-reload",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 4
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "chromium",
+          "target": "/apps/dashboard/",
+          "mode": "early-leave",
+          "recorded": 4,
+          "completed": 4,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "interactive": 4
+          },
+          "exceptions_before_destination_init": true
+        }
+      ]
+    },
+    "delayed-core": {
+      "results_sha256": "fe3a37e5d111ace1a02e82c3078cb3cea7f7f9b8347cf547cbff3587dab84d12",
+      "script_sha256": "0d06483e869895d1ede5bcd5f2716ea2b4cf636306a8a1810e722bf3692472c9",
+      "groups": [
+        {
+          "engine": "firefox",
+          "target": "/settings/user/mcp",
+          "mode": "loaded-control",
+          "recorded": 3,
+          "completed": 3,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 3
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user/mcp",
+          "mode": "early-reload",
+          "recorded": 3,
+          "completed": 3,
+          "trials_with_exceptions": 3,
+          "exceptions": 18,
+          "before_ready_states": {
+            "interactive": 3
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user",
+          "mode": "loaded-control",
+          "recorded": 3,
+          "completed": 3,
+          "trials_with_exceptions": 0,
+          "exceptions": 0,
+          "before_ready_states": {
+            "complete": 3
+          },
+          "exceptions_before_destination_init": true
+        },
+        {
+          "engine": "firefox",
+          "target": "/settings/user",
+          "mode": "early-reload",
+          "recorded": 3,
+          "completed": 3,
+          "trials_with_exceptions": 3,
+          "exceptions": 9,
+          "before_ready_states": {
+            "interactive": 3
+          },
+          "exceptions_before_destination_init": true
+        }
+      ]
+    }
+  },
+  "interpretation": {
+    "natural": "Incomplete exploratory attempt retained: 8 completed MCP trials, 12 selector timeouts on host controls; interrupted before completing the browser matrix. Not an acceptance pass.",
+    "natural-corrected": "60 completed diagnostic trials; 7 trials emitted 9 exceptions. Completed is not error-free.",
+    "delayed-core": "12 completed Firefox diagnostic trials, delaying real core-common.js requests by 500 ms; 6 interrupted trials emitted 27 exceptions, 6 loaded controls emitted none. No response bodies were mocked.",
+    "chromium_limit": "All 8 natural early-reload snapshots were already complete; those do not establish coverage of interruption before host initialization.",
+    "mcp_decision": "No production correction justified by this evidence. Host initialization failures occur in the departing document and reproduce without MCP; destination pages initialize normally. Errors remain reproducible, not fixed or suppressed.",
+    "host_followup": "Reproducible Nextcloud/browser teardown diagnostics suitable for maintainer follow-up; browser-internal causation and behavior on other versions are not established."
+  },
+  "host_source_hashes": {
+    "/var/www/html/lib/private/Template/functions.php": "65b0ff3e45ba1a4d4a66b7f4d9311dad42a5685a12902b07b37b02d299a54bda",
+    "/var/www/html/core/templates/layout.user.php": "dd3bdd99329171fdc8274309b1537452088386d825cbbfbbb23be293f9d466c8"
+  },
+  "closure": {
+    "checked_at_utc": "2026-10-19T10:07:22.611769+00:00",
+    "containers": [
+      {
+        "name": "mcp-ui-20261019091134-3c0746-nc",
+        "status": "exited",
+        "restart_policy": "no"
+      },
+      {
+        "name": "mcp-ui-20261019091134-3c0746-db",
+        "status": "exited",
+        "restart_policy": "no"
+      }
+    ],
+    "loopback_ports_closed": [
+      18080,
+      18999
+    ],
+    "relay_stopped": true,
+    "mcp_service_disabled": true,
+    "installed_files_unchanged": 863,
+    "public_exposure_created": false,
+    "retained": true,
+    "previous_evidence_overwritten": false
+  },
+  "closure_sha256": "9363920b1cb33274fc427010ac0b7616753490546080ce231c2bef22f4323963",
+  "human_reviews": "pending",
+  "external_clients": "pending; not executed",
+  "https": "pending; not exposed",
+  "production_code_changed": false
+}

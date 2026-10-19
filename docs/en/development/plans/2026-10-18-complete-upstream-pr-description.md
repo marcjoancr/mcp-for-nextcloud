@@ -85,9 +85,10 @@ passes. This does not close the real-client/UI or human acceptance gates.
 The [closed devbox UI exercise](2026-10-19-closed-devbox-ui-acceptance.md) subsequently
 passed 48 browser checks, nine scope/inspection/protection checks and eight
 locale/theme rendering checks against the unchanged installed artifact. Its failed
-preparation/diagnostic attempts and limits remain recorded. Exceptions observed
-during interrupted page loads remain unresolved; synchronized journeys do not
-establish a fix for that behavior.
+preparation/diagnostic attempts and limits remain recorded.
+The [interrupted-load investigation](2026-10-19-interrupted-page-load-investigation.md)
+reproduced host/browser departure exceptions on pages with and without MCP. No
+production MCP correction was justified; that known limitation is not claimed fixed.
 
 Pending: human security/technical, language and accessibility reviews; external
 clients and real HTTPS/proxy acceptance; broader UI and standing-target recovery
