@@ -2,6 +2,16 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 1.1.1
+
+Fix release for the admin screens: group grants, resource scope and the permission matrix. No database change; updating from 1.1.0 needs no step.
+
+### Fixed
+
+- admin: *Group grants* and *Resource scope* no longer report a save as done when the server's reply cannot be read ([#11](https://github.com/sintax-tech/mcp-for-nextcloud/issues/11)). When a save came back with a 2xx status but a body that is not JSON (for example an HTML page from a proxy, or a session that expired), the screen showed "Saved" or "Change undone" although nothing was confirmed. It now says the result **could not be confirmed** and reads the saved state again, so what is on screen is what the server holds.
+- admin: the **permission matrix** of *Access and permissions* has the same fix ([#11](https://github.com/sintax-tech/mcp-for-nextcloud/issues/11)). A change of a cell, a bulk action, **Undo** or the service's **Can connect** switch whose reply was a 2xx with a body that is not JSON was handled as a plain failure and could leave the screen different from what the server holds. The matrix now says the result **could not be confirmed**, without any "Saved" or "Change undone", and reloads the saved values once. The write may already have happened: nothing is repeated automatically, and if the reload also fails the screen shows the load error with **Retry**.
+- About #11: the reported loss of the *Can connect* setting after a reload was **not reproduced** on Nextcloud 34 and 35 (MariaDB and PostgreSQL, API and browser). `allowed_groups` is not a setting of this app (`occ config:app:set mcp allowed_groups` has no effect); group permissions are set in *Access and permissions → Group grants*. This release fixes the false "Saved" messages and the stale matrix, and does not claim to resolve every case of the report. If it still happens, the first thing to check is the reply to the save request (browser Network tab) and the Nextcloud log.
+
 ## 1.1.0
 
 Priority of this release: stability and security. When the app cannot be sure about an access, it refuses it (or asks for a new sign-in) instead of guessing. The upgrade from 1.0.8 is automatic: the new tables are created by the app, nothing has to be run by hand, and the credentials, permissions and connections of 1.0.8 keep working.
