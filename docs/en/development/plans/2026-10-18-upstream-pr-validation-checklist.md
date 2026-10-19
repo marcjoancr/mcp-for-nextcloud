@@ -97,8 +97,13 @@ publication remains unauthorized.
 
 ## V1 — Assemble local qualification
 
-Completed for local branch preparation under the metadata-only candidate rules;
-PHP 8.2/8.3/8.5 and native results are explicitly historical, not rerun. The fresh
+The [committed-candidate qualification](2026-10-19-complete-pr-local-qualification.md)
+subsequently reran the independent clone gate, strict PHP 8.2–8.5 and all 14 native
+cells at `b968846`. Those results are fresh for that candidate; V2 real clients/UI,
+standing staging and human acceptance remain open.
+
+The original branch preparation used the metadata-only candidate rules;
+its PHP 8.2/8.3/8.5 and native results were historical at that point. The fresh
 host gate, license checks and package comparison are recorded in the preparation
 report. The [follow-up review](2026-10-18-complete-upstream-pr-review.md) resolves
 the two inherited whitespace failures and records the resulting package identity.
@@ -140,7 +145,9 @@ historical results are explicitly carried forward, not described as freshly run.
 
 ## V2 — Authorized runtime evidence, after prerequisites
 
-S0 is still partial. None of these rows may start under the current request. Use
+S0 is still partial. The documentation review does not authorize standing staging
+or real-client execution. The disposable native qualification above supplies bounded
+local evidence and does not close these standing-target acceptance rows. Use
 S1–S6 in order, with the user as operational/recovery owner and named reviewers
 where required. A separately proposed narrower technical exercise needs its own
 scope and safety prerequisites; it cannot be used to claim full staging acceptance.

@@ -26,8 +26,10 @@ It targets development scalability and maintainability; it claims no measured ru
 throughput improvement.
 
 The base is upstream `main` at `0911f9123a661968e707fc4c391adcf9d37c3e84`.
-The [latest branch review](2026-10-18-complete-upstream-pr-review.md) identifies the
-reviewed revision, exact formatting correction, new package and validation limits.
+The [committed-candidate qualification](2026-10-19-complete-pr-local-qualification.md)
+identifies `b968846`, its frozen package, fresh PHP/native results and remaining
+real-client/UI gates. The [branch review](2026-10-18-complete-upstream-pr-review.md)
+records the preceding parity and formatting correction.
 The [preparation report](2026-10-18-complete-upstream-pr-preparation.md) retains the
 original assembly/provenance decisions and frozen candidate evidence.
 
@@ -72,13 +74,15 @@ does not certify them as reviewed.
 
 ## Validation and open gates
 
-Use the latest review's command/result and artifact records for the formatting
-correction and the preparation report for its original candidate. Fresh local
-checks are distinguished from historical native and multi-PHP evidence; neither
-is presented as a successful GitHub CI run. Both inherited extra blank EOF lines
-are corrected, and the complete upstream-to-working-tree whitespace check passes.
+The committed candidate passed an independent full-history clone gate, strict
+PHP 8.2–8.5, all 14 native matrix cells (including the bounded SQLite recovery
+rehearsal), package inspection and license checks. The qualification report records
+counts, immutable inputs, inapplicable skips, the corrected preparation failure
+and precise remaining limits. These are local results, not GitHub CI. Both inherited
+extra blank EOF lines are corrected; the complete upstream-to-head whitespace check
+passes. This does not close the real-client/UI or human acceptance gates.
 
 Pending: human security/technical, language and accessibility reviews; real Nextcloud
-UI/theme/CSP and client acceptance; installed artifact/recovery gates; final version
-and merge strategy. The local branch and package have not been pushed or deployed.
+UI/theme/CSP and client acceptance; standing-target artifact/recovery gates; final version
+and merge strategy. No push or persistent staging deployment has occurred.
 This is a reviewable complete contribution, not a claim of release or S7 acceptance.

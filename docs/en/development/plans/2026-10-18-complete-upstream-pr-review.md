@@ -7,6 +7,10 @@ Status: local automated/source review; human and staging acceptance remain pendi
 No push, PR opening, deployment or human reviewer contact occurred. The complete update
 remains one PR; the reviewed scope has not been divided into feature deliveries.
 
+Follow-up: [committed-candidate qualification](2026-10-19-complete-pr-local-qualification.md)
+records the fresh clean-clone, PHP 8.2–8.5 and full native matrix for `b968846`.
+The working-tree/archive results below remain historical for their stated inputs.
+
 ## Reviewed inputs and exact correction
 
 The branch is `refactor/complete-upstream-pr`, based on upstream
