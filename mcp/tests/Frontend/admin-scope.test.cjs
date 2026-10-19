@@ -94,7 +94,7 @@ async function app(handler = () => undefined, options = {}) {
 			const custom = await handler(url, options.method, body)
 			if (custom) {
 				const [status, data] = custom
-				return { ok: status < 400, status, json: async () => data }
+				return { ok: status < 400, status, json: async () => { if (data instanceof Error) throw data; return data } }
 			}
 			const module = (url.match(/\/api\/scope\/[^/]+\/(files|calendar|tasks)/) || [])[1]
 			const data = url.includes('/candidates') ? candidates : options.method === 'GET' && module ? show[module] : {}
@@ -558,4 +558,32 @@ test('S12: the open drawer sits right under the Nextcloud header, and keeps no p
 	assert.equal(style.top, '0px')
 	ui.ids['mcp-scope-close'].listeners.click()
 	assert.equal(style.top, '')
+})
+
+test('issue #11: an unreadable scope save is unconfirmed and reloads the stored scope', async () => {
+	const ui = await app((url, method) => method === 'PUT' ? [200, new SyntaxError('HTML proxy response')] : undefined)
+	await ui.open()
+	await ui.click(ui.module('calendar').button('Search'))
+	await ui.click(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Add Team'))
+	await ui.click(ui.module('calendar').button('Save'))
+	assert.deepEqual(ui.events, [])
+	assert.match(ui.ids['mcp-scope-alert'].textContent, /The save could not be confirmed: it may have been applied/)
+	assert.doesNotMatch(ui.module('calendar').textContent, /Nothing changed\.|Saved\.|SyntaxError/)
+	assert.equal(ui.module('calendar').find((node) => node.attributes['aria-label'] === 'Remove Team'), undefined, 'the stored scope is read again')
+	assert.equal(ui.module('calendar').button('Save').disabled, true, 'the stored scope is clean after the refresh')
+})
+test('issue #11: an unreadable undo response never claims the scope change was undone', async () => {
+	const ui = await app((url, method) => method === 'PUT' ? [200, { revision: '8', changed: true, receiptId: '41' }]
+		: url.includes('/api/grants/undo') ? [200, new SyntaxError('HTML proxy response')] : undefined)
+	await ui.open()
+	const restricted = ui.module('tasks').find((node) => node.id === 'mcp-scope-mode-tasks-restricted')
+	restricted.checked = true
+	restricted.listeners.change()
+	await tick()
+	await ui.click(ui.module('tasks').button('Save'))
+	const events = [...ui.events]
+	await ui.click(ui.module('tasks').button('Undo'))
+	assert.deepEqual(ui.events, events)
+	assert.match(ui.ids['mcp-scope-alert'].textContent, /The save could not be confirmed: it may have been applied/)
+	assert.doesNotMatch(ui.module('tasks').textContent, /Change undone\.|SyntaxError/)
 })

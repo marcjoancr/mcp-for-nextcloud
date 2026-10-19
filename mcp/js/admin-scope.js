@@ -75,7 +75,11 @@
 			headers: { 'Content-Type': 'application/json', Accept: 'application/json', requesttoken: OC.requestToken },
 			body: body === undefined ? undefined : JSON.stringify(body),
 		})
-		const data = await response.json().catch(() => ({}))
+		// A 2xx HTML response cannot confirm a save or undo; retain HTTP status handling for errors.
+		const data = await response.json().catch((error) => {
+			if (response.ok) throw Object.assign(new Error('unconfirmed'), { cause: error })
+			return {}
+		})
 		if (!response.ok) throw Object.assign(new Error(String(response.status)), { status: response.status, data })
 		return data
 	}
@@ -519,7 +523,12 @@
 
 	async function saveFailed(state, error) {
 		const data = error.data || {}
-		if (error.status === 409) {
+		if (error.message === 'unconfirmed') {
+			note(state, t('mcp', 'The save could not be confirmed: it may have been applied. The saved scope is shown again; check it before changing it.'), true)
+			const line = state.line
+			await reloadAll(state)
+			state.line = line
+		} else if (error.status === 409) {
 			// Never written again from here: the admin sees what is saved now and decides.
 			note(state, t('mcp', 'The policy changed after this scope was loaded, so nothing was saved. The saved scope is shown again.'), true)
 			const line = state.line
@@ -575,11 +584,13 @@
 			note(state, t('mcp', 'Change undone.'))
 			window.dispatchEvent(new Event('mcp-scope-saved'))
 		} catch (error) {
-			note(state, error.status === 409
-				? t('mcp', 'The policy changed after this change, so it can no longer be undone.')
-				: error.status === 410
-					? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
-					: failure(error), true)
+			note(state, error.message === 'unconfirmed'
+				? t('mcp', 'The save could not be confirmed: it may have been applied. The saved scope is shown again; check it before changing it.')
+				: error.status === 409
+					? t('mcp', 'The policy changed after this change, so it can no longer be undone.')
+					: error.status === 410
+						? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
+						: failure(error), true)
 		}
 		state.saving = false
 		const line = state.line

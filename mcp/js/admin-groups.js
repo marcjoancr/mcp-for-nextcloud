@@ -67,7 +67,11 @@
 			headers: { 'Content-Type': 'application/json', Accept: 'application/json', requesttoken: OC.requestToken },
 			body: body === undefined ? undefined : JSON.stringify(body),
 		})
-		const data = await response.json().catch(() => ({}))
+		// A proxy or expired session can return HTML with status 200. Only a readable JSON response confirms a save.
+		const data = await response.json().catch((error) => {
+			if (response.ok) throw Object.assign(new Error('unconfirmed'), { cause: error })
+			return {}
+		})
 		if (!response.ok) throw Object.assign(new Error(String(response.status)), { data })
 		return data
 	}
@@ -493,7 +497,10 @@
 			}
 		} catch (e) {
 			preview = null
-			if (e.message === '409' || e.message === '428') {
+			if (action === 'save' && e.message === 'unconfirmed') {
+				refresh = true
+				say(t('mcp', 'The change could not be confirmed. Your draft is kept. Retry after checking the group.'), true)
+			} else if (e.message === '409' || e.message === '428') {
 				// A fresh read pairs the revision with the stored policy. Never adopt an error revision or replay.
 				refresh = true
 				say(t('mcp', 'The policy or group members changed. Your draft is kept. Review a new preview before saving again.'), true)
