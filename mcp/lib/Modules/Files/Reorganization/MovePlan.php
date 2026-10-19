@@ -26,4 +26,3 @@ final class MovePlan {
         return (bool)$this->plan['ok'];
     }
 }
-
