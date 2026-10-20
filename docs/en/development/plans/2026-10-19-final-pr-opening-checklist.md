@@ -3,11 +3,15 @@
 
 # Final checklist for opening the complete upstream PR
 
-Status: **NOT READY TO OPEN**. HTTPS and the real ChatGPT journey remain blocked
+Status: **NOT READY TO OPEN**. The [2026-10-20 qualification](2026-10-20-final-candidate-qualification.md)
+adds upstream 1.1.1 integration as an unresolved prerequisite. The owner now
+authorizes publishing this branch to the fork only; fork `main`, PR opening and
+infrastructure changes remain outside that authorization. HTTPS and the real ChatGPT journey remain blocked
 or unexecuted. This checklist records the opening scope accepted by the owner on
 2026-10-19: one complete architecture, functionality, frontend, DevEx and
 documentation contribution, preserving upstream 1.1.0 functionality. It does not
-authorize infrastructure changes, publication or deployment.
+authorize infrastructure changes, PR opening or deployment. Fork-only branch
+publication is separately authorized above.
 
 This is the current opening gate. It narrows the broader runtime checklist in
 [V0–V3](2026-10-18-upstream-pr-validation-checklist.md) to the agreed contribution
@@ -125,7 +129,7 @@ claims. An unresolved third-party claim is not silently waived or counted as a p
   do not advertise general deployment/recovery readiness.
 - [ ] Produce a final `READY TO REQUEST PR OPENING` verdict only after sections 1–3
   and the preparation rows above are satisfied. Obtain explicit authorization for
-  push/opening; the current instruction forbids both. No PR exists yet.
+  PR opening; branch publication alone was subsequently authorized. No PR exists yet.
 
 ## Execution ownership and immediate next step
 

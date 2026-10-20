@@ -11,6 +11,12 @@ ChatGPT checks before opening; human reviews remain pending during PR review.
 Broader staging/recovery and other clients remain uncertified. This local draft
 is preparation only; publishing it cannot substitute for those technical checks.
 
+Follow-up on 2026-10-20: [candidate qualification](2026-10-20-final-candidate-qualification.md)
+observed upstream 1.1.1 at `65e4e08`. This branch still uses the 1.1.0 merge base
+below and has not integrated the new uncertain-save recovery fixes. It is not
+ready for an upstream PR. The owner authorized branch publication to the fork,
+with fork `main` unchanged; opening the PR remains unauthorized.
+
 ## Proposed title
 
 Reorganize MCP by capabilities and unify development workflows while preserving 1.1.0 behavior
