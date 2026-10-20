@@ -16,7 +16,7 @@
  * and source of every cell before and after, and shows both; an answer that is unknown is shown as unknown, never as a
  * value. Only a known "Can connect" lost after the reset says the connections are revoked, and a known one kept through a
  * group says nobody is signed out. When the preview cannot be read the page falls back to "may be signed out", never
- * "will be". A 503 of the command means nothing was written: the preview, the selection and the table stay as they are
+ * "will be". A 503 without an uncertainty flag means nothing was written: the preview, the selection and the table stay as they are
  * and the administrator can try again. A reset is never reported before the server confirmed it.
  */
 import { createScope } from '../../platform/lifecycle.js'
@@ -473,7 +473,7 @@ export function mountOverrides({ root: pageRoot, request, t, n, events, policyCh
 		try {
 			try {
 				const sent = current.revision ?? matrix.data().revision
-				const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands })
+				const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands }, { uncertainWrite: true })
 				matrix.announce(sent, saved.revision)
 				for (const target of current.plan.targets) {
 					selected.delete(target.user.uid)

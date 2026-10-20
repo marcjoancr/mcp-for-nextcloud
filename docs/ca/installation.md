@@ -23,9 +23,9 @@ La instal·lació habitual es fa des de Nextcloud App Store: *Aplicacions* → c
 Substitueix `<server>`, `<nextcloud>` (directori d'instal·lació), `<apps>` (directori d'aplicacions amb permisos d'escriptura, per exemple `custom_apps` o `apps`, segons `apps_paths` a `config/config.php`) i `<www>` (usuari del servidor web, per exemple `www-data`).
 
 ```sh
-scp build/mcp-1.1.0.tar.gz <server>:/tmp/
+scp build/mcp-1.1.1.tar.gz <server>:/tmp/
 ssh <server>
-sudo tar -xzf /tmp/mcp-1.1.0.tar.gz -C <nextcloud>/<apps>/
+sudo tar -xzf /tmp/mcp-1.1.1.tar.gz -C <nextcloud>/<apps>/
 sudo chown -R <www>:<www> <nextcloud>/<apps>/mcp
 sudo -u <www> php <nextcloud>/occ app:enable mcp
 sudo -u <www> php <nextcloud>/occ app:list | grep -A1 mcp
@@ -35,7 +35,7 @@ A Docker, executa les ordres `occ` dins del contenidor com a usuari del servidor
 
 Per actualitzar una compilació instal·lada per SSH: `occ app:disable mcp`, elimina `<apps>/mcp`, extreu el paquet nou, executa `occ app:enable mcp` i `occ upgrade` si Nextcloud ho demana. Cal substituir la carpeta sencera perquè no quedin fitxers antics a `vendor/`. Per desinstal·lar-la: `occ app:remove mcp`.
 
-Les migracions de 1.1.0 conserven els ID originals i importen la configuració antiga de clients natius/personalitzats a files autoritatives. Les preferències i credencials vàlides de 1.0.8 sobreviuen a l'actualització. Els camins de validació inclouen upstream 1.0.8 original, el 1.0.8 local migrat i la substitució d'una instal·lació upstream 1.1.0 ja migrada. La substitució de la mateixa versió no força una actualització ni repeteix migracions per restablir la política.
+Les migracions de 1.1.0 conserven els ID originals i importen la configuració antiga de clients natius/personalitzats a files autoritatives. Les preferències i credencials vàlides de 1.0.8 sobreviuen a l'actualització. Els camins de validació inclouen upstream 1.0.8 original, el 1.0.8 local migrat, l'actualització des d'upstream 1.1.0 i la substitució d'una instal·lació upstream 1.1.1 ja migrada. La substitució de la mateixa versió no força una actualització ni repeteix migracions per restablir la política.
 
 ## Actualització i recuperació
 

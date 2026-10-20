@@ -28,6 +28,10 @@ Deixe Claude e outros clientes MCP trabalharem com arquivos, notas, calendários
 
 ---
 
+## Correção 1.1.1
+
+- **1.1.1: correção nas telas de grupos, de recursos e da matriz de permissões ([#11](https://github.com/sintax-tech/mcp-for-nextcloud/issues/11)).** Quando a resposta do servidor a um salvamento não pode ser lida (por exemplo, um proxy ou uma sessão expirada devolvendo uma página em vez de dados), *Permissões por grupo*, *Restrição por recurso* e a matriz de permissões passam a avisar que o resultado não pôde ser confirmado e a mostrar o que está salvo, em vez de "Salvo" ou de uma tela desatualizada. Sem mudança no banco de dados.
+
 ## Por quê
 
 Um endpoint dentro do Nextcloud, com as permissões de cada usuário. Node, Docker e serviços adicionais não são necessários em produção.

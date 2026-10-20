@@ -23,9 +23,9 @@ La instalación habitual se realiza desde Nextcloud App Store: *Aplicaciones* �
 Sustituye `<server>`, `<nextcloud>` (directorio raíz de la instalación), `<apps>` (directorio de aplicaciones con permisos de escritura, por ejemplo `custom_apps` o `apps`, según `apps_paths` en `config/config.php`) y `<www>` (usuario del servidor web, por ejemplo `www-data`).
 
 ```sh
-scp build/mcp-1.1.0.tar.gz <server>:/tmp/
+scp build/mcp-1.1.1.tar.gz <server>:/tmp/
 ssh <server>
-sudo tar -xzf /tmp/mcp-1.1.0.tar.gz -C <nextcloud>/<apps>/
+sudo tar -xzf /tmp/mcp-1.1.1.tar.gz -C <nextcloud>/<apps>/
 sudo chown -R <www>:<www> <nextcloud>/<apps>/mcp
 sudo -u <www> php <nextcloud>/occ app:enable mcp
 sudo -u <www> php <nextcloud>/occ app:list | grep -A1 mcp
@@ -35,7 +35,7 @@ En Docker, ejecuta los comandos `occ` dentro del contenedor como el usuario del 
 
 Para actualizar una compilación instalada por SSH: `occ app:disable mcp`, elimina `<apps>/mcp`, extrae el paquete nuevo, ejecuta `occ app:enable mcp` y `occ upgrade` si Nextcloud lo solicita. Hay que sustituir la carpeta completa para que no queden archivos antiguos en `vendor/`. Para quitar la aplicación, ejecuta `occ app:remove mcp`.
 
-Las migraciones de 1.1.0 conservan los ID originales e importan los ajustes antiguos de clientes nativos/personalizados a filas autoritativas. Las preferencias y credenciales válidas de 1.0.8 sobreviven a la actualización. Los caminos de validación incluyen upstream 1.0.8 original, el 1.0.8 local migrado y la sustitución de una instalación upstream 1.1.0 ya migrada. La sustitución de la misma versión no fuerza una actualización ni repite migraciones para restablecer la política.
+Las migraciones de 1.1.0 conservan los ID originales e importan los ajustes antiguos de clientes nativos/personalizados a filas autoritativas. Las preferencias y credenciales válidas de 1.0.8 sobreviven a la actualización. Los caminos de validación incluyen upstream 1.0.8 original, el 1.0.8 local migrado, la actualización desde upstream 1.1.0 y la sustitución de una instalación upstream 1.1.1 ya migrada. La sustitución de la misma versión no fuerza una actualización ni repite migraciones para restablecer la política.
 
 ## Actualización y recuperación
 

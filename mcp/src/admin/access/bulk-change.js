@@ -17,7 +17,7 @@ export function createBulkChanges({ root, request, t, n, getData, unavailableRea
     async function sendCommand(module, requests) {
         const commands = requests.flatMap(change => change.uids.map(uid => ({ uid, module, operation: change.operation, state: change.granted ? 'allow' : 'deny' })))
         const sent = policy.revision
-        const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands })
+        const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands }, { uncertainWrite: true })
         if (!policy.saved(sent, saved.revision)) throw new Error('Policy snapshot changed')
         return saved
     }
@@ -70,7 +70,7 @@ export function createBulkChanges({ root, request, t, n, getData, unavailableRea
     async function undoBulk(receiptId, savedRevision) {
         setBulkBusy(true)
         try {
-            const result = await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })
+            const result = await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision }, { uncertainWrite: true })
             if (!policy.saved(savedRevision, result.revision)) throw new Error('Policy snapshot changed')
             showNotice(t('mcp', 'Change undone.'), null)
             await reload()
@@ -82,12 +82,13 @@ export function createBulkChanges({ root, request, t, n, getData, unavailableRea
                 showNotice(message, () => undoBulk(receiptId, savedRevision))
                 return
             }
-            const message = error.message === '410'
+            const message = error.message === '503' && error.data?.uncertain
+                ? t('mcp', 'The server could not confirm whether the change was saved. The table was reloaded with the saved values.')
+                : error.message === '410'
                 ? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')
                 : t('mcp', 'Could not undo the change. The table was reloaded with the saved values.')
             showNotice(message, null)
-            notifyError(message)
-            if (!await policyError(error)) await reload()
+            if (!await policyError(error)) { notifyError(message); await reload() }
         } finally { if (!scope.disposed) setBulkBusy(false) }
     }
 	return { apply: scope.guard(bulk), focusUndo: notice.focusUndo,

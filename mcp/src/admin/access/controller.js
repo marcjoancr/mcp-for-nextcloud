@@ -60,7 +60,7 @@ export function mountMatrix({ root, request, t, n, notifyError, policyChannel, e
         saving = true
         const sent = policy.revision
         try {
-            const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: sent })
+            const updated = await api('PUT', '/api/grants/' + encodeURIComponent(user.uid), { ...payload, expectedRevision: sent }, { uncertainWrite: true })
             if (!policy.saved(sent, updated.revision)) {
                 await reload()
                 throw new Error('Policy snapshot changed')

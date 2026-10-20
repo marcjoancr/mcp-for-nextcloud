@@ -137,7 +137,8 @@ export const test = base.extend({
                 const result = handler ? await handler({ body, query: url.searchParams, state, calls })
                     : conflict ? { status: body?.expectedRevision === undefined ? 428 : 409, body: { error: 'Conflict', revision: state.revision } }
                     : { body: defaultResponse(method, path, url.searchParams, body) }
-                await route.fulfill({ status: result.status ?? 200, json: result.body ?? {} })
+                await route.fulfill({ status: result.status ?? 200, ...(result.raw === undefined
+                    ? { json: result.body ?? {} } : { contentType: 'text/html', body: result.raw }) })
             } catch (error) {
                 errors.push(error.message)
                 await route.abort()

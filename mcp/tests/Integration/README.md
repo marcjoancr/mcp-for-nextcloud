@@ -7,7 +7,7 @@
 These tests load the installed Nextcloud core, not unit doubles. Run an explicit
 cell with `composer --working-dir=mcp test:integration -- 35 sqlite fresh`.
 Prefix the three cell arguments with `--plan` to inspect pins without starting
-containers. `ci/matrix.php --matrix` lists all 14 supported cells. Ordinary
+containers. `ci/matrix.php --matrix` lists all 15 supported cells. Ordinary
 `composer check` excludes only this native suite and never starts Docker.
 
 Docker and Linux `ip`/`flock`, PHP, Composer, the locked Node/npm versions, curl and OpenSSL
@@ -34,9 +34,11 @@ file composes real owners only; the unit bootstrap and its doubles are never loa
 `Compat/UpgradeSnapshotTest.php` deliberately name the two pinned 1.0.8 layouts.
 The probe runs in a separate process and checks each loaded class's source. These
 are exact baseline-fixture exceptions to retired-name scans, not candidate loaders.
-`ci/replacement.php` similarly seeds the pinned upstream 1.1.0 layout, then verifies
-unchanged database state after same-version file replacement and Apache restart.
-It does not force migrations, bump a release version or deploy to a real instance.
+`ci/replacement.php` similarly seeds the pinned upstream layout, then verifies unchanged database state and bearer access
+after Apache restart. `upgrade-upstream` installs 1.1.0 and runs `occ upgrade` to
+the candidate 1.1.1; `replace-upstream` installs upstream 1.1.1 and performs
+same-version replacement without forcing migrations. Both retain the actual
+declared versions and use only disposable instances.
 
 CLI probes require explicit completion: Nextcloud can log an exception and exit
 with status zero, so `Support/ProbeCompletion.php` makes an incomplete probe fail.

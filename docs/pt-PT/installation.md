@@ -23,9 +23,9 @@ A instalação normal é feita através da Nextcloud App Store: *Aplicações* �
 Substitua `<server>`, `<nextcloud>` (raiz da instalação), `<apps>` (diretório de aplicações com permissões de escrita, por exemplo `custom_apps` ou `apps`, conforme `apps_paths` em `config/config.php`) e `<www>` (utilizador do servidor Web, por exemplo `www-data`).
 
 ```sh
-scp build/mcp-1.1.0.tar.gz <server>:/tmp/
+scp build/mcp-1.1.1.tar.gz <server>:/tmp/
 ssh <server>
-sudo tar -xzf /tmp/mcp-1.1.0.tar.gz -C <nextcloud>/<apps>/
+sudo tar -xzf /tmp/mcp-1.1.1.tar.gz -C <nextcloud>/<apps>/
 sudo chown -R <www>:<www> <nextcloud>/<apps>/mcp
 sudo -u <www> php <nextcloud>/occ app:enable mcp
 sudo -u <www> php <nextcloud>/occ app:list | grep -A1 mcp
@@ -35,7 +35,7 @@ No Docker, execute os comandos `occ` dentro do contentor como utilizador do serv
 
 Para atualizar uma compilação instalada por SSH: execute `occ app:disable mcp`, remova `<apps>/mcp`, extraia o novo pacote, execute `occ app:enable mcp` e, se o Nextcloud o pedir, `occ upgrade`. A pasta tem de ser substituída por inteiro para não deixar ficheiros antigos em `vendor/`. Para remover a aplicação, execute `occ app:remove mcp`.
 
-As migrações de 1.1.0 preservam os IDs originais e importam as configurações antigas de clientes nativos/personalizados para linhas autoritativas. Preferências e credenciais válidas de 1.0.8 sobrevivem à atualização. Os caminhos de validação incluem upstream 1.0.8 original, o 1.0.8 local migrado e a substituição de uma instalação upstream 1.1.0 já migrada. A substituição da mesma versão não força uma atualização nem repete migrações para repor a política.
+As migrações de 1.1.0 preservam os IDs originais e importam as configurações antigas de clientes nativos/personalizados para linhas autoritativas. Preferências e credenciais válidas de 1.0.8 sobrevivem à atualização. Os caminhos de validação incluem upstream 1.0.8 original, o 1.0.8 local migrado, a atualização de upstream 1.1.0 e a substituição de uma instalação upstream 1.1.1 já migrada. A substituição da mesma versão não força uma atualização nem repete migrações para repor a política.
 
 ## Atualização e recuperação
 

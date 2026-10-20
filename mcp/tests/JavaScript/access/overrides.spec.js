@@ -137,3 +137,15 @@ test('the delayed reset announcement cannot move confirmation during a pointer c
     await expect.poll(() => writes(app).length).toBe(1)
     await expect(page.locator('#mcp-bulk-undo')).toBeVisible()
 })
+
+test('unreadable inheritance reset reloads and closes preview without a retry or success offer', async ({ page, app }) => {
+    app.on('POST', '/api/grants/commands', () => ({ raw: '<html>Proxy</html>' }))
+    await review(page, app)
+    const before = app.calls.filter(c => c.method === 'GET' && c.path === '/api/grants').length
+    await panel(page).getByRole('button', { name: 'Remove overrides' }).click()
+    await expect(panel(page)).toBeHidden()
+    await expect.poll(() => page.evaluate(() => window.__toasts)).toContain('The server could not confirm whether the change was saved. The table was reloaded with the saved values.')
+    expect(app.calls.filter(c => c.method === 'GET' && c.path === '/api/grants')).toHaveLength(before + 1)
+    expect(writes(app)).toHaveLength(1)
+    await expect(page.locator('#mcp-bulk-undo')).toBeHidden()
+})

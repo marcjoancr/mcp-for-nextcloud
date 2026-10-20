@@ -34,7 +34,7 @@ export function mountService({ root, request, t, notifyError, policyChannel }) {
         const sent = policy.revision
         serviceBox.disabled = true
         try {
-            const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: sent })
+            const result = await api('PUT', '/api/service', { enabled: value, expectedRevision: sent }, { uncertainWrite: true })
             if (!policy.saved(sent, result.revision)) { await reload(); return }
             serviceBox.checked = result.enabled
             serviceStatus.textContent = t('mcp', 'Saved')
@@ -45,9 +45,12 @@ export function mountService({ root, request, t, notifyError, policyChannel }) {
                 policy.invalidate()
                 await reload()
             } else serviceBox.checked = !value
-            serviceStatus.textContent = t('mcp', 'Not saved')
+            const message = error.message === '503' && error.data?.uncertain
+                ? t('mcp', 'The server could not confirm whether the change was saved. The table was reloaded with the saved values.')
+                : t('mcp', 'Could not change the MCP service.')
+            serviceStatus.textContent = error.data?.uncertain ? message : t('mcp', 'Not saved')
             flash(serviceStatus, false)
-            notifyError(t('mcp', 'Could not change the MCP service.'))
+            notifyError(message)
         } finally { if (!scope.disposed) serviceBox.disabled = policy.revision === null }
     })
     return { ready: reload(), destroy: scope.destroy }

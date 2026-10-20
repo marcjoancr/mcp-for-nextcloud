@@ -358,7 +358,7 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 		note(state, t('mcp', 'Saving…'))
 		rerender(state)
 		try {
-			const result = await api('PUT', scopePath(state.module, '', state.uid), body)
+			const result = await api('PUT', scopePath(state.module, '', state.uid), body, { uncertainWrite: true })
 			state.saving = false
 			announce(body.expectedRevision, result.revision)
             if (!isCurrent(state)) {
@@ -438,7 +438,7 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 		rerender(state)
 		let current
 		try {
-			current = (await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision })).revision
+			current = (await api('POST', '/api/grants/undo', { receiptId, expectedRevision: savedRevision }, { uncertainWrite: true })).revision
 			announce(savedRevision, current)
             if (!isCurrent(state)) {
                 events.dispatchEvent(new Event('mcp-scope-saved'))
@@ -448,7 +448,9 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 			events.dispatchEvent(new Event('mcp-scope-saved'))
 		} catch (error) {
             if (!isCurrent(state)) return
-			note(state, error.message === '409'
+			note(state, error.message === '503' && error.data?.uncertain
+                ? t('mcp', 'The save could not be confirmed: it may have been applied. The saved scope is shown again; check it before changing it.')
+                : error.message === '409'
 				? t('mcp', 'The policy changed after this change, so it can no longer be undone.')
 				: error.message === '410'
 					? t('mcp', 'This change can no longer be undone: the time to undo it has passed.')

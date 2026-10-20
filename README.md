@@ -25,6 +25,10 @@ Let Claude and other MCP clients work with your files, notes, calendars, contact
 
 One endpoint inside Nextcloud, with each user’s permissions. No Node, Docker or extra service is required at runtime.
 
+## What's new in 1.1.1
+
+Permission screens treat unreadable save replies as unconfirmed and reload stored permissions without repeating the write. No database migration is added. See [release details](CHANGELOG.md#111).
+
 ## What's new in 1.1.0
 
 Group grants, per-user resource restrictions, access inspection, registered OAuth clients and stronger revocation. See the [changelog](CHANGELOG.md) and [permissions guide](docs/en/guides/permissions.md).

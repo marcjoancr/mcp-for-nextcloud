@@ -51,7 +51,7 @@ test('empty PHP grants become an object draft and save requires its preview rece
     expect(saves(app)[0].body).toEqual({ gid: 'staff', grants: { notes: ['read'] }, expectedRevision: '0', previewId: 'group-preview' })
 })
 
-for (const status of [409, 428, 503, 422, 500]) {
+for (const status of [409, 428, 503, 422, 405, 412, 500]) {
     test(`group ${status} preserves the draft and requires an explicit new preview`, async ({ page, app }) => {
         groupFixture(app)
         app.on('PUT', '/api/group-grants', () => ({ status, body: { revision: '9999' } }))
@@ -154,3 +154,34 @@ test('the delayed group announcement cannot move confirmation during a pointer c
     await page.mouse.up()
     await expect.poll(() => saves(app).length).toBe(1)
 })
+
+for (const action of ['save', 'preview', 'read']) {
+    test(`unreadable group ${action} never claims success or replays`, async ({ page, app }) => {
+        groupFixture(app)
+        await open(page, app)
+        const before = app.calls.filter(c => c.path === '/api/group-directory/detail').length
+        if (action === 'save') {
+            await edit(page)
+            app.on('PUT', '/api/group-grants', ({ state }) => { state.revision = '9'; return { raw: '<html>Proxy</html>' } })
+            await detail(page).getByRole('button', { name: 'Save group policy', exact: true }).click()
+            await expect(page.locator('#mcp-group-alert')).toContainText('could not be confirmed')
+            await expect.poll(() => app.calls.filter(c => c.path === '/api/group-directory/detail').length).toBe(before + 1)
+            expect(saves(app)).toHaveLength(1)
+            await expect(detail(page).locator('button[name=mcp-group-level-notes][value=read]')).toHaveAttribute('aria-pressed', 'true')
+        } else if (action === 'preview') {
+            app.on('POST', '/api/group-grants/preview', () => ({ raw: '<html>Proxy</html>' }))
+            await detail(page).locator('button[name=mcp-group-level-notes][value=read]').click()
+            await detail(page).getByRole('button', { name: 'Review and save', exact: true }).click()
+            await expect(page.locator('#mcp-group-alert')).not.toHaveText('')
+            expect(saves(app)).toHaveLength(0)
+            expect(app.calls.filter(c => c.path === '/api/group-directory/detail')).toHaveLength(before)
+        } else {
+            app.on('GET', '/api/group-directory/detail', () => ({ raw: '<html>Proxy</html>' }))
+            await page.locator('#mcp-group-list button').first().click()
+            await expect(page.locator('#mcp-group-alert')).not.toHaveText('')
+            expect(saves(app)).toHaveLength(0)
+        }
+        await expect(page.locator('#mcp-group-status')).not.toHaveText('Saved')
+        await expect(detail(page).getByRole('button', { name: 'Save group policy', exact: true })).toHaveCount(0)
+    })
+}

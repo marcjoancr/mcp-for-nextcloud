@@ -272,7 +272,7 @@ export function mountLevelPopover({ root: pageRoot, request, t, n, events, polic
 		try {
 			try {
 				const sent = matrix.data().revision
-				const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands })
+				const saved = await api('POST', '/api/grants/commands', { expectedRevision: sent, commands }, { uncertainWrite: true })
 				matrix.announce(sent, saved.revision)
 				close(false)
 				matrix.offerUndo(message, saved)

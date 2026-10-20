@@ -10,11 +10,11 @@ namespace OCA\Mcp\Tests\Unit\Contract;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/** The store metadata must not silently lose the reviewed upstream 1.1.0 feature descriptions. */
+/** The store metadata must not silently lose the reviewed upstream 1.1.1 feature descriptions. */
 final class ManifestDescriptionParityTest extends TestCase {
     /** @return iterable<string, array{string, string, array<string, string>}> */
     public static function storeLocales(): iterable {
-        $fixture = json_decode(file_get_contents(__DIR__ . '/../../fixtures/manifest-1.1.0-descriptions.json'), true, 512, JSON_THROW_ON_ERROR);
+        $fixture = json_decode(file_get_contents(__DIR__ . '/../../fixtures/manifest-1.1.1-descriptions.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ($fixture['locales'] as $locale => $expected) {
             yield $locale => [$locale, $expected['summary'], $expected['paragraphs']];
         }
