@@ -318,7 +318,7 @@ export function mountGroups({ root: pageRoot, request, t, n, events, policyChann
 		root.setAttribute('aria-busy', 'true')
 		let refresh = false
 		try {
-			const data = await api(action === 'save' ? 'PUT' : 'POST', '/api/group-grants' + (action === 'save' ? '' : '/preview'), body)
+			const data = await api(action === 'save' ? 'PUT' : 'POST', '/api/group-grants' + (action === 'save' ? '' : '/preview'), body, { uncertainWrite: action === 'save' })
 			if (action === 'preview') {
 				preview = data
 				say(t('mcp', 'Review the impact, then save the group policy.'))

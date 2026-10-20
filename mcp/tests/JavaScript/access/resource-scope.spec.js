@@ -198,3 +198,28 @@ test('the delayed scope announcement cannot move a radio during a pointer click'
     await expect(page.locator('#mcp-scope-save-files')).toBeEnabled()
     expect(writes(app)).toEqual([])
 })
+
+for (const action of ['save', 'undo']) {
+    test(`unreadable scope ${action} reports uncertainty and reloads stored scope without replay`, async ({ page, app }) => {
+        const saved = scopes(app)
+        await open(page, app)
+        await page.locator('#mcp-scope-mode-files-restricted').check()
+        if (action === 'undo') {
+            await page.locator('#mcp-scope-save-files').click()
+            await expect(page.locator('#mcp-scope-undo-files')).toBeVisible()
+        }
+        const before = app.calls.filter(c => c.method === 'GET' && c.path === '/api/scope/alice/files').length
+        const writeCount = app.calls.filter(c => c.method !== 'GET').length
+        app.on(action === 'save' ? 'PUT' : 'POST', action === 'save' ? '/api/scope/alice/files' : '/api/grants/undo', ({ state }) => {
+            saved.files.mode = 'unrestricted'; saved.files.items = []; state.revision = '9'
+            return { raw: '<html>Proxy</html>' }
+        })
+        await page.locator(action === 'save' ? '#mcp-scope-save-files' : '#mcp-scope-undo-files').click()
+        await expect(page.locator('#mcp-scope-line-files')).toContainText('could not be confirmed')
+        await expect(page.locator('#mcp-scope-mode-files-unrestricted')).toBeChecked()
+        await expect(page.locator('#mcp-scope-mode-files-unrestricted')).toBeEnabled()
+        expect(app.calls.filter(c => c.method === 'GET' && c.path === '/api/scope/alice/files')).toHaveLength(before + 1)
+        expect(app.calls.filter(c => c.method !== 'GET')).toHaveLength(writeCount + 1)
+        await expect(page.locator('#mcp-scope-undo-files')).toHaveCount(0)
+    })
+}

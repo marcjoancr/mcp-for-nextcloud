@@ -31,3 +31,11 @@ protocol and result captures are unchanged. The guide contract first failed on t
 revised expectation; both complete contract comparisons pass after the correction. See the
 [local closure report](../../../../../docs/en/development/plans/2026-10-17-local-technical-closure-report.md)
 for authorization, verification and the upstream baseline.
+
+The 2026-10-20 upstream 1.1.1 integration advances only the 29
+`io.modelcontextprotocol/serverInfo.version` values in `protocol.json` from
+`1.1.0` to `1.1.1`, matching the new manifest and protocol metadata. Every other
+fixture byte remains unchanged. The full frozen-contract test rejected the old
+values before this explicit release-version update; the focused protocol and
+shared-contract suite then passed 24 tests / 143 assertions. The captures were
+not regenerated or normalized.

@@ -57,7 +57,7 @@ if ($argv[1] === 'seed') {
     echo "Seeded upstream policy, restricted scope, client and generation-qualified credential.\n";
 } else {
     $before = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-    if ($before['snapshot'] !== snapshot($db, $uid)) throw new RuntimeException('Same-version replacement changed persistent state');
+    if ($before['snapshot'] !== snapshot($db, $uid)) throw new RuntimeException('Upstream transition changed persistent state');
     $policy = Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
     $policy->within($uid, static function () use ($policy, $uid): void {
         if ($policy->scopeItems($uid, 'files') !== [] || $policy->granted($uid, 'notes', 'edit')) throw new RuntimeException('Replacement lost policy restrictions');
@@ -78,7 +78,7 @@ if ($argv[1] === 'seed') {
     Server::get(OAuthClientsService::class)->update(Server::get(PolicyStateMapper::class)->state()['revision'], null, null, []);
     if (!Server::get(IUserManager::class)->get($uid)?->delete()) throw new RuntimeException('Replacement fixture cleanup failed');
     unlink($path);
-    echo "Same-version replacement preserved migrations, policy, clients, generations, scopes and bearer access; assets present.\n";
+    echo "Upstream transition preserved migrations, policy, clients, generations, scopes and bearer access; assets present.\n";
 }
 
 $probeCompletion->complete();

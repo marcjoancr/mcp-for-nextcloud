@@ -219,7 +219,7 @@ cmd_install_app() {
         docker exec -u www-data "$NC" tar -xzf /tmp/mcp-baseline.tar.gz -C /var/www/html/custom_apps
         occ app:enable mcp
         assert_installed_version "$baseline_version"
-        if [ "$MCP_IT_MODE" != replace-upstream ]; then
+        if [ "$MCP_IT_MODE" != replace-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
             docker exec -u www-data -e MCP_IT_MODE="$MCP_IT_MODE" "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-policy.php seed /tmp/mcp-it-snapshot.json
         else
@@ -253,7 +253,7 @@ cmd_install_app() {
         docker restart "$NC" >/dev/null
         wait_for 'Nextcloud after replacement' 180 nextcloud_ready
         occ maintenance:mode --off
-        if [ "$MCP_IT_MODE" = replace-upstream ]; then
+        if [ "$MCP_IT_MODE" = replace-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php verify
         fi
     else

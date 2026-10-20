@@ -5,7 +5,7 @@
  */
 /** JSON transport only: sections retain their own error, retry and rollback policy. */
 export function createRequest({ generateUrl, requestToken, fetch }) {
-    return async (method, path, body, { json = true } = {}) => {
+    return async (method, path, body, { json = true, uncertainWrite = false } = {}) => {
         const headers = { Accept: 'application/json', requesttoken: requestToken() }
         if (json) headers['Content-Type'] = 'application/json'
         const response = await fetch(generateUrl('/apps/mcp' + path), {
@@ -17,6 +17,10 @@ export function createRequest({ generateUrl, requestToken, fetch }) {
             try { error.data = await response.json() } catch { error.data = null }
             throw error
         }
-        return response.json()
+        try { return await response.json() } catch (cause) {
+            // The caller knows whether this response confirms a write. Never replay it here.
+            if (uncertainWrite) throw Object.assign(new Error('503'), { data: { uncertain: true }, cause })
+            throw cause
+        }
     }
 }
