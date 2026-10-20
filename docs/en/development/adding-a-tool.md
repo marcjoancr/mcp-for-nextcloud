@@ -165,11 +165,9 @@ No-deletion checks recursively cover Files, the HTTP adapter and shared backup
 primitives. Only `BatchUndo::undoBatch` can remove its own empty created folder.
 
 Run the complete gate from the repository root with `composer --working-dir=mcp check`
-(or `composer check` from `mcp/`). Configured external devbox check tasks must
-delegate to this command; the selected server's mapping is verified in the
-[catalog report](plans/2026-10-17-devbox-catalog-validation-report.md).
-Composer commands and static analysis are documented in
-[Testing](testing.md) and [Static analysis](static-analysis.md). A repository-wide formatter remains separately scoped work.
+(or `composer check` from `mcp/`). External task catalogs should delegate to this
+command. See [testing](testing.md) and [static analysis](static-analysis.md) for
+the command scopes and host model.
 
 ## Deck tools and capabilities
 
@@ -273,9 +271,6 @@ composer test -- tests/Unit/Modules/Talk tests/Unit/Modules/Calendar/References
 composer test -- tests/Architecture/TalkBoundaryTest.php tests/Unit/Contract/TalkMigrationCompatibilityTest.php tests/Unit/ApplicationRegistrationTest.php
 ```
 
-See the [Talk execution report](plans/2026-10-16-talk-capability-migration-report.md)
-for final ownership, validation and outstanding integration gates.
-
 ## Language and documentation
 
 Write code, identifiers, comments, PHPDoc and technical documentation in English.
@@ -286,13 +281,13 @@ English documentation lives under `docs/en/`. Translations mirror relative paths
 and English filenames under their language directory. Link only existing pages;
 use explicit English fallback links. Record the English source path and actual
 revision with `translation-source` and `translation-source-revision` comments as
-specified in the [translation policy](architecture-specification.md#translation-maintenance).
+specified in the [translation policy](translations.md).
 No placeholder translations or documentation website are required.
 
-Existing Portuguese READMEs remain available. Packaged READMEs stay self-contained:
-the production archive excludes root `docs/`. See the
-[execution report](plans/2026-10-16-files-capability-migration-report.md) for evidence,
-remaining integration gates and the proposed next migration boundary.
+The production archive includes the explicitly selected operational guides and
+README translations, with links transformed for offline use. Development guides
+are excluded. See [packaging](packaging.md) for the distribution contract; translated
+pages remain drafts until human review.
 
 ## Calendar, Contacts, Tasks and DAV
 
@@ -330,9 +325,9 @@ do not retain request identity or locale in a shared module.
 Run the changed feature suite and `tests/Unit/Platform/Dav` independently, then the
 DAV compatibility/catalog, application-registration and architecture tests. The
 [frozen contracts](../../../mcp/tests/Support/Dav/Compatibility/README.md) cover
-all 20 definitions and 12 write plans. Finish with the complete Composer `check` command;
-[the execution report](plans/2026-10-16-calendar-dav-capability-migration-report.md)
-distinguishes local proof from disposable native-server validation.
+all 20 definitions and 12 write plans. Finish with the complete Composer `check`
+command. Run the separate [native integration matrix](../../../mcp/tests/Integration/README.md)
+when changing host contracts; unit doubles do not establish real DAV behavior.
 
 ## Notes tools and capabilities
 
@@ -366,9 +361,7 @@ Tests mirror ownership under `tests/Unit/Modules/Notes`. `NotesTestFactory` in
 `tests/Support/Notes` executes actual Application registration closures with
 explicit host doubles. Immutable compatibility fixtures preserve definitions,
 plans, results and English/Portuguese rendering from the pre-extraction commit.
-Do not regenerate them to accommodate a refactor. See the
-[Notes execution report](plans/2026-10-16-notes-capability-migration-report.md) for
-verification, original-test reconciliation and external integration limits.
+Do not regenerate them to accommodate a refactor.
 
 ## People: a single read capability
 
@@ -393,8 +386,7 @@ UTF-8 substitution. Preserve typed deduplication and exact-before-partial orderi
 Tests live in `tests/Unit/Modules/People`; frozen contracts live under
 `tests/Support/People/Compatibility`. Global publication, write-gate and visibility
 builders all traverse Application modules, so constructor changes must update all
-three. The [People report](plans/2026-10-16-people-capability-migration-report.md)
-records test reconciliation, production-only packaging and remaining live-host gates.
+three.
 
 
 ## Logs: restricted reads with mandatory audit
@@ -430,8 +422,7 @@ dependencies; Application is the sole outside production importer of Logs intern
 Tests mirror capabilities under `tests/Unit/Modules/Logs`; synthetic log support and
 immutable pre-extraction fixtures live under `tests/Support/Logs`. Real Application
 closure tests cover access, privacy changes and audit failure. The boundary scanner
-rejects retired routes and containers. See the [Logs execution report](plans/2026-10-17-logs-capability-migration-report.md)
-for reconciliation, package evidence and external host checks.
+rejects retired routes and containers.
 
 ## Shared MCP ownership
 
@@ -458,5 +449,5 @@ messages containing server state. Both protocol eras are supported product behav
 Shared tests mirror final owners under `tests/Unit/Mcp`, `tests/Unit/Access` and
 `tests/Unit/Platform`. Run the architecture scanners, feature compatibility captures,
 shared contract tests, full suite and production package checks after changing these
-boundaries. The [shared MCP execution report](plans/2026-10-17-shared-mcp-infrastructure-migration-report.md)
-records the migration gates and the remaining real-host validation.
+boundaries. Native-host and real-client acceptance are separate from these local
+checks; record the artifact and limits of each validation run.

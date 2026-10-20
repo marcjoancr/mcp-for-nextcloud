@@ -28,9 +28,8 @@ applicable grant contexts). It now describes the already-supported movement betw
 lists and boards. Only those seven string values across `publication.json` and the older
 `tests/fixtures/deck-definitions.json` capture were edited by hand; schemas, plans,
 protocol and result captures are unchanged. The guide contract first failed on the
-revised expectation; both complete contract comparisons pass after the correction. See the
-[local closure report](../../../../../docs/en/development/plans/2026-10-17-local-technical-closure-report.md)
-for authorization, verification and the upstream baseline.
+revised expectation; both complete contract comparisons pass after the correction.
+The fixture changes and their source revisions remain traceable in Git history.
 
 The 2026-10-20 upstream 1.1.1 integration advances only the 29
 `io.modelcontextprotocol/serverInfo.version` values in `protocol.json` from

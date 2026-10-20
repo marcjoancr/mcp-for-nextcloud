@@ -62,6 +62,8 @@ During pre-version harness qualification only, the explicit environment variable
 validation must omit it and repeat every cell. Filtered diagnostic PHPUnit runs
 (`MCP_IT_PHPUNIT_ARGS`) also do not count as full-cell evidence.
 
-See the [integration plan](../../../docs/en/development/plans/2026-10-17-upstream-1.1.0-capability-integration.md)
-and [execution report](../../../docs/en/development/plans/2026-10-17-upstream-1.1.0-integration-report.md)
-for acceptance criteria, current results and service-closed recovery requirements.
+See [testing](../../../docs/en/development/testing.md) for the validation layers
+and [upgrade and recovery](../../../docs/en/installation.md#upgrade-and-recovery)
+for coordinated restoration and credential invalidation. Record the exact source,
+package hash, selected cell, exit status and inapplicable skips with each run;
+filtered runs and evidence from an older artifact do not qualify a new candidate.

@@ -95,8 +95,9 @@ configuration, cancel its exact watchdog timer/service, then retire the stale lo
 retains the exclusive lock; the watchdog also checks the execution identity. A watchdog stop is not evidence that
 all UI/configuration cleanup succeeded.
 
-See the [reviewed proposal](../../../docs/en/development/plans/2026-10-19-https-ingress-client-validation-proposal.md)
-for the public-ingress and ChatGPT phases, which this runner does not execute.
+This runner does not qualify public HTTPS ingress or a hosted ChatGPT connection.
+Those checks need an authorized public endpoint and a real client account; private
+TLS success alone does not establish their compatibility.
 
 ## Encrypted storage across issuers
 
@@ -122,7 +123,6 @@ pinned provider currently returns that resource-wide static secret under another
 issuer. That required isolation case **fails**, so the command returns **1**.
 It is an explicit opt-in external-client qualification, separate from ordinary
 `check`; its failure must remain visible rather than be marked expected/pass.
-See the [storage report](../../../docs/en/development/plans/2026-10-19-inspector-encrypted-storage-report.md).
 
 Evidence lives in `~/.local/state/mcp-client-tests/storage-*/`. Key files, generated
 synthetic credentials, raw errors and copies of stores are private, not upload

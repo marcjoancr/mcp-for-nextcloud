@@ -13,4 +13,4 @@ Each translation identifies its English source and revision. A language link doe
 not imply completed human review; read the notice on the target page.
 For operation, start with the [English operational guides](en/guides/README.md).
 For contributions, start with [development setup](en/development/setup.md).
-[Migration history](en/development/plans/README.md) records completed and planned work.
+The [development guide](en/development/README.md) maps the architecture and contributor workflow.

@@ -18,7 +18,7 @@
 - [Documentation (English)](development/documentation.md)
 - [Translations (English)](development/translations.md)
 
-[Migration history (English)](development/plans/README.md)
+[Development guide (English)](development/README.md)
 
 [Operational guides](guides/README.md).
 
