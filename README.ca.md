@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 824c7fac1e3d5bfeef4113cbf5d2116693cf8410 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](README.md).
@@ -28,6 +28,10 @@ Permet que Claude i altres clients MCP treballin amb fitxers, notes, calendaris,
 ## Per què
 
 Un únic punt d'accés dins de Nextcloud, amb els permisos de cada usuari. No cal Node, Docker ni cap servei addicional en temps d'execució.
+
+## Novetats de la versió 1.1.1
+
+Les pantalles de permisos tracten les respostes de desament il·legibles com a resultats sense confirmar i tornen a carregar els permisos emmagatzemats sense repetir l’escriptura. No s’afegeix cap migració de base de dades. Consulta els [detalls de la versió](CHANGELOG.md#111).
 
 ## Novetats de la versió 1.1.0
 
