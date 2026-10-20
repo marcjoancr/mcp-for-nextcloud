@@ -3,64 +3,73 @@
 
 # Administration JavaScript
 
-The administration and personal settings pages each register one classic script
-through `OCP\Util::addScript`. Authored code uses native JavaScript modules; esbuild
-produces two self-contained IIFEs without runtime imports, chunks or dependencies.
-Nextcloud does not need Node.js to serve the packaged application.
+Administration and personal settings each register one classic script through
+`OCP\Util::addScript`. Authored code uses native JavaScript modules; esbuild produces
+two self-contained IIFEs without runtime imports or chunks. Nextcloud does not
+need Node.js to serve the packaged application.
 
 ```text
 mcp/src/
-  entries/                 admin.js, personal.js: root guard and host wiring
-  platform/                nextcloud.js, http.js, lifecycle.js
+  entries/                 admin.js, personal.js: root guards and host wiring
+  platform/                Nextcloud host, HTTP, lifecycle and policy state
   settings/                connections.js: explicit admin/personal scope
   admin/
     bootstrap.js           page composition and explicit sibling callbacks
     tabs.js                navigation, history and keyboard focus
     picker.js              searchable selection, confirmation and rollback
     status-feedback.js     transient save feedback
-    overview/              service.js, checkout-limit.js, endpoint-copy.js
-    clients/               oauth-clients.js
-    protection/            excluded-tags.js
-    logs/                  access-groups.js, privacy.js
-    access/
-      controller.js        server snapshot, load and single-permission save
-      view.js              table, permission states, focus and header observer
-      presentation.js      translated labels and availability explanations
-      filters.js           query controls, hash, pagination and density
-      bulk-plan.js         pure before-images and grouped inverse requests
-      bulk-change.js       serialized bulk writes and acknowledged-prefix undo
-      undo-notice.js       one undo slot, busy state and expiration
+    overview/              service state, checkout limit and endpoint copy
+    clients/               OAuth clients, custom-client cards and change handling
+    protection/            excluded tags
+    logs/                  access groups and privacy
+    groups/                group editor and directory
+    scope/                 resource-scope controller and view
+    inspection/            access-inspection controller and view
+    access/                matrix, filters, levels, overrides, exceptions,
+                           row actions, bulk planning and receipt-based undo
 mcp/js/
   admin.js                 generated, ignored
   personal.js              generated, ignored
 ```
 
-Importing feature modules does not mount a page or read the Nextcloud host. Each
-mount receives its root and dependencies, returns `destroy()`, and exposes `ready`
-when it has an initial asynchronous load. The lifecycle owner removes listeners,
+## Composition and lifecycle
+
+Importing feature modules does not mount a page or read the Nextcloud host. Mounts
+receive their root and dependencies, return `destroy()`, and expose `ready` when
+they have an initial asynchronous load. The lifecycle owner removes listeners,
 timers and late-response UI effects; it does not cancel writes accepted by the
-server. Keep DOM ownership inside the feature, and put cross-section composition
-in `bootstrap.js` rather than adding a shared mutable state object.
+server. Keep DOM and draft ownership inside each feature.
 
-For example, the log-access picker receives `reloadMatrix: matrix.reload`; it calls
-that hook after success or a version conflict. Connections receive an `onCounts`
-callback that updates the overview only when the response contains an integer
-connection count. Personal connections have no administration module dependency.
-The picker is imported directly; there is no global picker facade.
+`bootstrap.js` creates the page-local policy channel, mounts the owners and wires
+explicit callbacks. For example, the log-access picker receives
+`reloadMatrix: matrix.reload`; connections receive an `onCounts` callback that
+updates the overview only when the response contains an integer connection count.
+Personal connections have no administration module dependency. The picker is
+imported directly; there is no global picker facade.
 
-```js
-const host = createNextcloud()
-const matrix = mountMatrix({ root, ...host, request: createRequest(host) })
-await matrix.ready
-matrix.destroy()
-```
+## Revisions, uncertain saves and undo
 
-Preserve transport differences: settings requests send JSON headers; connection
-requests keep their existing header contract. Bulk operations remain serial and
-stop on the first failed response. Undo covers only acknowledged writes and restores
-the saved before-images. It remains last-write-wins: it can overwrite another
-administrator's intervening grant, and cannot restore revoked login sessions.
-Log-group version conflicts retain their separate compare-and-swap behavior.
+`platform/policy-state.js` associates each section's revision with its rendered
+snapshot. Read tickets reject late responses; invalidating a snapshot disables
+writes until it is refreshed. The page-local channel announces only confirmed
+adjacent revision changes. It must not rebase drafts onto revisions from error
+responses or unrelated administrators' changes.
+
+Preserve transport contracts: settings requests send JSON headers; connection
+requests retain their own header behavior. Policy mutations explicitly opt into
+`uncertainWrite` handling in `platform/http.js`. A successful HTTP status with an
+unreadable JSON body is then an uncertain outcome, not confirmation that a write
+succeeded or failed. The owning controller reloads saved state without replaying
+the mutation or showing “Saved”/“Change undone”. A failed readback leaves the load
+error and retry path visible. Do not apply that behavior indiscriminately to other
+HTTP consumers.
+
+Bulk permission changes submit an atomic command with `expectedRevision`. Undo
+uses the returned server receipt and saved revision, subject to expiry and policy
+validation. It does not reconstruct inverse writes in the browser or overwrite
+another administrator's intervening change. Undo cannot restore revoked login
+sessions. Group grants, resource scope and inheritance previews retain their own
+snapshot and conflict rules; generic UI state must not bypass them.
 
 ## Build and verification
 
@@ -79,14 +88,14 @@ missing inputs, import cycles, unreachable authored modules, non-app dependencie
 and any administration graph in the personal entry. It records the input graph in
 ignored `mcp/build/assets-metafile.json`. Never edit or commit generated bundles.
 
-The package contains the two generated entries and existing styles/translations,
+The package contains both generated entries and existing styles/translations,
 plus their license notices. Sources, development dependencies, scripts, tests,
 configuration and source maps stay outside the production archive. A source checkout
 is the development artifact; the checked tarball is the deployment artifact.
 
-Browser cases under `tests/JavaScript/` render the real PHP templates and intercept
-synthetic API requests. Bare-template module mounting is a permanent isolation aid,
-not an alternative production loader. The temporary old/new matrix comparison was
-removed with the original four scripts. See [testing](testing.md) and the
-[execution report](plans/2026-10-17-admin-javascript-responsibilities-report.md) for
-coverage, negative gates and outstanding real-host validation.
+Browser cases under `tests/JavaScript/` render real PHP templates and intercept
+synthetic API requests. Bare-template mounting is a test isolation aid, not an
+alternative production loader. These tests exercise conflict recovery, uncertain
+saves, lifecycle and interaction across Chromium, Firefox and WebKit; they do not
+certify real-host CSP, authentication, theme/layout, caches or human accessibility.
+See [testing](testing.md) for the separate validation layers.

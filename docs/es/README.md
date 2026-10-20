@@ -23,7 +23,7 @@
 - [Documentación (en inglés)](../en/development/documentation.md)
 - [Traducciones (en inglés)](../en/development/translations.md)
 
-[Historial de migraciones (en inglés)](../en/development/plans/README.md)
+[Guía de desarrollo (en inglés)](../en/development/README.md)
 
 [Guías operativas](guides/README.md).
 

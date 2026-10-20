@@ -89,13 +89,3 @@ path = ["mcp/l10n/de.js", "mcp/l10n/de.json"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
-
-# Expanded upstream/local test identities and final-owner reconciliation.
-[[annotations]]
-path = ["docs/en/development/contracts/upstream-1.1.0-test-reconciliation.json"]
-precedence = "aggregate"
-SPDX-FileCopyrightText = [
-  "2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>",
-  "2026 MCP for Nextcloud contributors"
-]
-SPDX-License-Identifier = "AGPL-3.0-or-later"

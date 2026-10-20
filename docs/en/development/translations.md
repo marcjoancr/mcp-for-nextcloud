@@ -6,16 +6,13 @@
 English is the canonical source. Operational documentation supports Spanish (`es`),
 Catalan (`ca`), Brazilian Portuguese (`pt-BR`) and European Portuguese (`pt-PT`).
 UI catalogs remain independent: English source text plus `de`, `es` and `pt_BR`.
-German UI support does not create a German documentation tree. The two local German
-messages added during 1.1.0 integration still require language review, alongside
-review of the imported catalog in the final administration interface.
+German UI support does not create a German documentation tree. The German catalog
+and its rendering in the administration interface still require human review.
 
 Draft translations may be versioned and included in the operational package when
 explicitly marked `translation-review: pending`, with a visible human-review notice
 and an English source link. This supports preparation and review without pretending
 that human approval has occurred. Only a human reviewer may certify `reviewed`.
-This policy supersedes the migration's original reviewed-only rule for new locales
-following the user's request to prepare translations and identify review needs.
 Use English filenames in each locale and language names instead of flags. Missing
 pages link explicitly to English; contributor documentation may stay English-only.
 Do not add empty translated pages or silently link a different-language landing page.
@@ -44,7 +41,7 @@ Invalid metadata, missing history and broken links fail validation. Full Git his
 is required; the validator never fetches it silently. English authors add a review
 notice when they know a translation is stale, without needing to translate the
 change. Human reviewers may advance the revision and remove the notice after review.
-Record the reviewer and reviewed pages in the contribution or execution report.
+Record the reviewer and reviewed pages in the pull request review.
 
 Prioritize overview, installation, clients, permissions and troubleshooting.
 All translated pages remain explicitly pending until human review. Pending pages
@@ -53,7 +50,7 @@ comments. A changed previously reviewed page remains an advisory review request.
 Use prose notices beginning “Traducción pendiente”, “Traducció pendent” or “Revisão
 pendente” / “Revisão humana pendente”, followed by the equivalent English source link.
 
-Development guides and historical plans/reports remain English-only, as agreed.
+Contributor documentation is maintained in English.
 The operational coverage set consists of root/app READMEs and every page under
 `docs/en/` except `development/`. Keep each Portuguese variant independent: adapting
 Brazilian spelling alone does not establish European Portuguese review.

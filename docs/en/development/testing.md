@@ -90,7 +90,7 @@ arbitrary instance. See its [prerequisites, invocation and evidence limits](../.
 The separate `test:clients:storage -- /absolute/inspector-install` command checks
 pinned Inspector encrypted persistence in fresh processes without containers or
 network. It is opt-in and currently returns nonzero for the preregistered-client
-issuer boundary; see the [storage qualification](plans/2026-10-19-inspector-encrypted-storage-report.md).
+issuer boundary; see [encrypted storage across issuers](../../../mcp/tests/ClientAcceptance/README.md#encrypted-storage-across-issuers).
 ChatGPT, public HTTPS and human verdicts remain separate acceptance work.
 
 ## Coverage and CI
@@ -108,12 +108,9 @@ Local completion must report these limits and real Nextcloud 32–35 checks sepa
 Native API snapshots are useful contracts, not proof of real ACL, locks, shares,
 optional applications, audit effects or persistence behavior.
 
-External devbox catalogs should delegate `test` and `check` to these Composer
-commands. The selected development server's mapping is now verified; see the
-[catalog and compatibility report](plans/2026-10-17-devbox-catalog-validation-report.md)
-for PHP/REUSE results, resolved compatibility issues and remaining host checks.
-The selected checkout must contain these scripts; older branches require explicit integration first.
-No repository tooling depends on devbox, and profiles remain outside the repository.
+External development environments should delegate their `test` and `check` tasks
+to these Composer commands. Environment profiles stay outside the repository;
+no repository tooling depends on a particular development server.
 
 ## Administration browser tests
 
@@ -133,8 +130,9 @@ entries; a failed package attempt leaves no result at the expected archive path.
 
 Browser tests render actual PHP templates with synthetic host interfaces and API
 responses. They do not establish real Nextcloud CSP, authentication, theme/layout or
-cache compatibility. See the [execution report](plans/2026-10-17-admin-javascript-responsibilities-report.md)
-for those release gates and the mapping from former source assertions.
+cache compatibility. Check those on a real host before certifying a release;
+keyboard and assistive-technology review also remain separate. See
+[administration JavaScript](admin-javascript.md) for source ownership.
 
 ## Documentation verification
 

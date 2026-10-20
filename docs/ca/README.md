@@ -23,7 +23,7 @@
 - [Documentació (anglès)](../en/development/documentation.md)
 - [Traduccions (anglès)](../en/development/translations.md)
 
-[Historial de migracions (anglès)](../en/development/plans/README.md)
+[Guia de desenvolupament (en anglès)](../en/development/README.md)
 
 [Guies operatives](guides/README.md).
 

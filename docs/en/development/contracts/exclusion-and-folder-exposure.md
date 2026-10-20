@@ -4,18 +4,17 @@
 
 # Exclusions, references and folder exposure
 
-This final-owner map supersedes upstream's `tests/Unit/Contract/EXCLUSION-MATRIX.md`
-and `FOLDER-EXPOSURE.md` at `0911f9123a661968e707fc4c391adcf9d37c3e84`.
-Their private CI reports and earlier implementation-phase promises are historical
-upstream evidence, not results for this integration. Current native runs and
-remaining host limits belong in the [integration report](../plans/2026-10-17-upstream-1.1.0-integration-report.md).
+This contract map retains the behavior documented by upstream's
+`tests/Unit/Contract/EXCLUSION-MATRIX.md` and `FOLDER-EXPOSURE.md` at
+`0911f9123a661968e707fc4c391adcf9d37c3e84`, with the current capability owners.
+Keep the tests and this map aligned when changing visibility or file operations.
 
 ## Exclusion and reference contracts
 
-The following class names identify executable tests under `mcp/tests/`; the
-[case reconciliation](../plans/2026-10-17-upstream-1.1.0-test-reconciliation.md)
-records expanded cases and final paths. Doubles establish local contracts; only
-native Integration tests establish the stated host behavior.
+The following class names identify executable tests under `mcp/tests/`. Doubles
+establish local contracts; native Integration tests exercise host behavior for
+an explicitly recorded candidate and environment. See [testing](../testing.md)
+for the separate commands and evidence limits.
 
 | Contract | Final executable owners | Boundary |
 | --- | --- | --- |
@@ -34,7 +33,8 @@ native Integration tests establish the stated host behavior.
 | V13: failures and aliases | `VisibilityGuardTest`, `TagsControllerTest` | Unreadable config, invalid ancestry, mapper/metadata failures and mounted-path-qualified cache; no valid empty selection after a failed read. |
 | V14: freshness | Repeated-operation contracts, native `Exclusion/SessionsTest` and `AppConfigCacheWindowTest` | Reused Basic/Bearer credentials observe changes; independent native appconfig caches retain their measured TTL window. |
 
-Files scope is enforced by the final `FileReferenceScope` implementation and all
+Files scope is enforced by `Access/ResourceScope/FilesReferenceScope` through
+the `Platform/FileAccess/References/FileReferenceScope` contract and all
 Files/Calendar/Tasks consumers. There is no empty production scope adapter or deferred
 activation stage. The filter has no HTTP client. Local/foreign Nextcloud-shaped
 URLs, aliases, public folder links, Calendar file-ID/filename parameters and nested
@@ -52,8 +52,8 @@ before subtree enumeration. The refusal directs users to the native Files UI.
 
 | Operation | Final gate owner | Work protected |
 | --- | --- | --- |
-| Copy plan/confirm | `Modules/Files/Copying` and `Access/FolderExposureGate` | Measuring, destination inspection and copy. |
-| Move plan/confirm | `Modules/Files/Moving` and `Access/FolderExposureGate` | Shared notices, descendant lock inspection and write. |
+| Copy plan/confirm | `Modules/Files/Copying` and `Modules/Files/Access/FolderExposureGate` | Measuring, destination inspection and copy. |
+| Move plan/confirm | `Modules/Files/Moving` and `Modules/Files/Access/FolderExposureGate` | Shared notices, descendant lock inspection and write. |
 | Batch plan/confirm | `Modules/Files/Batches` | Whole-batch folder check before per-item locks, directory planning/creation or mutation. |
 | Undo plan/confirm | `Modules/Files/Undo` | Batch identity/lifetime checks first, then gate before conflicts, empty-folder scans or recreation; recheck per item before writing. |
 | Share/link creation/update | `Modules/Files/Sharing/ShareWriter` | Node visibility precedes policy getters and every share-manager query/write. |
@@ -70,5 +70,4 @@ Native `Exclusion/WritesTest` exercises the real share manager and Files operati
 Creation can succeed at a genuinely missing destination and fail at an excluded
 one: a generic refusal does not eliminate that residual existence distinction.
 Production federation, advanced groupfolder ACLs, real-client UX and operator
-backup procedures remain separate gates. No historical upstream green result
-closes one of those gates for this tree.
+backup procedures remain separate gates. Passing unit contracts does not close those separate acceptance gates.

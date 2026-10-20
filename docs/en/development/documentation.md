@@ -17,8 +17,10 @@ useful navigation, not empty redirect files. Share images under `docs/assets/`.
 
 `docs/documentation.json` owns locales and the explicit operational package
 allowlist. Generated package copies are build output, never another editable manual.
-Historical plans and reports stay under `plans/`; they record past evidence and
-must not be treated as the current command reference.
+Keep durable usage, architecture and contribution guidance in the repository.
+Campaign plans, host-specific provisioning notes, raw evidence and PR drafts belong
+in external working records or the pull request, not in the maintained manual.
+Keep executable test fixtures with their tests and retain their provenance.
 
 Run `composer docs:check`, `composer docs:translations` and `composer test:docs`
 from `mcp/` (or `composer --working-dir=mcp ...` at the root). They have fixed scopes,
