@@ -61,3 +61,4 @@ Historical records describe their own revisions. For current commands, start wit
 - [Inspector encrypted storage across issuers](2026-10-19-inspector-encrypted-storage-report.md)
 - [Final complete-PR opening checklist](2026-10-19-final-pr-opening-checklist.md)
 - [Final candidate qualification and fork publication](2026-10-20-final-candidate-qualification.md)
+- [Upstream 1.1.1 integration and local qualification](2026-10-20-upstream-1.1.1-integration-report.md)

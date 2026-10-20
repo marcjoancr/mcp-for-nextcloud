@@ -3,13 +3,14 @@
 
 # Final checklist for opening the complete upstream PR
 
-Status: **NOT READY TO OPEN**. The [2026-10-20 qualification](2026-10-20-final-candidate-qualification.md)
-adds upstream 1.1.1 integration as an unresolved prerequisite. The owner now
+Status: **NOT READY TO OPEN**. The [1.1.1 integration](2026-10-20-upstream-1.1.1-integration-report.md)
+records the later candidate and renewed local qualification. The owner now
 authorizes publishing this branch to the fork only; fork `main`, PR opening and
 infrastructure changes remain outside that authorization. HTTPS and the real ChatGPT journey remain blocked
 or unexecuted. This checklist records the opening scope accepted by the owner on
 2026-10-19: one complete architecture, functionality, frontend, DevEx and
-documentation contribution, preserving upstream 1.1.0 functionality. It does not
+documentation contribution, preserving upstream 1.1.0 functionality and now
+including the 1.1.1 recovery fixes. It does not
 authorize infrastructure changes, PR opening or deployment. Fork-only branch
 publication is separately authorized above.
 
@@ -25,7 +26,7 @@ acceptance work. Opening a PR does not establish merge, release or production re
 
 - [ ] Refresh upstream `main` through read-only discovery and record its exact
   revision, the final committed PR head and merge base. The last observed base was
-  `0911f9123a661968e707fc4c391adcf9d37c3e84`; this document makes no fresh upstream
+  `65e4e08b68c3f8d1ba78398a082ec567b0b0f4e4`; this document makes no fresh upstream
   query claim. If upstream moves, inventory its delta and resolve compatibility
   before declaring the contribution ready.
 - [ ] Review both upstream-tip-to-head and merge-base-to-head diffs. Update the
@@ -44,7 +45,7 @@ acceptance work. Opening a PR does not establish merge, release or production re
   authorization and tool contracts, production dependencies and build requirements.
   Recommend a minor or major release based on public contract changes, with the
   maintainer's release decision explicitly pending where appropriate. The current
-  1.1.0 qualification metadata is not a release/version approval.
+  1.1.1 qualification metadata is not a release/version approval.
 
 Acceptance: one complete, reviewable diff and an exact candidate identity, with
 no missing 1.1.0 capability or unexplained breaking change.
@@ -55,9 +56,10 @@ Existing evidence is substantial but belongs to its recorded inputs:
 
 | Evidence | Qualified scope and limit |
 | --- | --- |
+| [1.1.1 integration](2026-10-20-upstream-1.1.1-integration-report.md) | New source `31b9e8e`, upstream merge base `65e4e08`, ordinary gate and renewed native qualification; see the report for exact completed results and limits. |
 | [Committed candidate](2026-10-19-complete-pr-local-qualification.md) | `b96884631bf9bda245ce9895facfa8380ab08998`: full clone gate, strict PHP 8.2–8.5, 14 native cells and bounded SQLite recovery. Standing-target recovery is not established. |
-| [Closed UI](2026-10-19-closed-devbox-ui-acceptance.md) | Actual Nextcloud settings/consent and locale/theme technical checks. Human accessibility and language approval remain pending. |
-| [Private TLS / Inspector](2026-10-19-private-tls-inspector-report.md) | 12/12 required cases on the unchanged application; real CLI OAuth/Basic journeys and negative controls. Private trust does not prove public ingress. |
+| [Closed UI](2026-10-19-closed-devbox-ui-acceptance.md) | Earlier 1.1.0 artifact: actual Nextcloud settings/consent and locale/theme technical checks. Human accessibility and language approval remain pending. |
+| [Private TLS / Inspector](2026-10-19-private-tls-inspector-report.md) | 12/12 required cases on the earlier 1.1.0 artifact; real CLI OAuth/Basic journeys and negative controls. Private trust does not prove public ingress. |
 | [Encrypted storage](2026-10-19-inspector-encrypted-storage-report.md) | 14/15 required cases passed; static-secret issuer isolation failed, command exit 1. Component storage qualification, not two real authorization-server exchanges. |
 
 - [ ] Commit reviewed pending changes and verify a clean worktree. Record the final
@@ -68,13 +70,15 @@ Existing evidence is substantial but belongs to its recorded inputs:
   `composer --working-dir=mcp check`). Record all exits, counts, failures and skips.
 - [ ] Validate licenses, fixture attribution, documentation links/provenance,
   generated assets and the package. Record archive SHA-256 and compare installed
-  application bytes with the frozen qualified artifact, whose SHA-256 is
-  `de71b3cbf223764033e97fc59c3122e4c11944730dabe8b79a7f44fe9eb5d751`.
-  A changed package is a new artifact even when behavior is unchanged.
+  application bytes with the frozen 1.1.1 artifact, whose SHA-256 is
+  `6993762ce29df7b58f71cdfeae14108604dd8c3cf8e477aca49b051e9c7b3624`.
+  Its evidence is recorded in the integration report above. The installed 1.1.0
+  client fixture has a different identity and must not silently inherit the new
+  qualification. A changed package is a new artifact even when behavior is unchanged.
 - [ ] Apply candidate-change rules explicitly. For unchanged application bytes,
   carry PHP/native/browser results with exact identities and a delta review.
   Runtime, shared-policy or dependency changes require relevant renewed tests;
-  documentation/test-only edits do not alone justify repeating all 14 native cells.
+  documentation/test-only edits do not alone justify repeating all 15 native cells.
 - [ ] Confirm the final contribution contains no credentials, private fixture
   contents, raw traces, instrumented third-party bundles or accidental build files.
   Curate sanitized evidence and preserve the provenance needed to reproduce claims.

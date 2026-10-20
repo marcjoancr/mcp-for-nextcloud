@@ -11,15 +11,15 @@ ChatGPT checks before opening; human reviews remain pending during PR review.
 Broader staging/recovery and other clients remain uncertified. This local draft
 is preparation only; publishing it cannot substitute for those technical checks.
 
-Follow-up on 2026-10-20: [candidate qualification](2026-10-20-final-candidate-qualification.md)
-observed upstream 1.1.1 at `65e4e08`. This branch still uses the 1.1.0 merge base
-below and has not integrated the new uncertain-save recovery fixes. It is not
-ready for an upstream PR. The owner authorized branch publication to the fork,
-with fork `main` unchanged; opening the PR remains unauthorized.
+Follow-up on 2026-10-20: [1.1.1 integration](2026-10-20-upstream-1.1.1-integration-report.md)
+incorporates upstream `65e4e08` into the complete branch, with unreadable-save
+recovery in the existing modules and renewed local qualification. Public HTTPS,
+Inspector/ChatGPT and human review remain pending. The owner authorized updating
+this branch on the fork, with fork `main` unchanged; PR opening remains unauthorized.
 
 ## Proposed title
 
-Reorganize MCP by capabilities and unify development workflows while preserving 1.1.0 behavior
+Reorganize MCP by capabilities and unify development workflows while preserving upstream 1.1.1 functionality
 
 ## Problem and outcome
 
@@ -31,7 +31,9 @@ It delivers the complete migration in one PR, with permanent tests and documenta
 It targets development scalability and maintainability; it claims no measured runtime
 throughput improvement.
 
-The base is upstream `main` at `0911f9123a661968e707fc4c391adcf9d37c3e84`.
+The base is upstream `main` at `65e4e08b68c3f8d1ba78398a082ec567b0b0f4e4`.
+The 1.1.1 integration report above identifies the new candidate, artifact and
+validation. The following earlier reports retain their original 1.1.0 identities.
 The [committed-candidate qualification](2026-10-19-complete-pr-local-qualification.md)
 identifies `b968846`, its frozen package, fresh PHP/native results and remaining
 real-client/UI gates. The [branch review](2026-10-18-complete-upstream-pr-review.md)
@@ -66,7 +68,7 @@ semantics, credential generations and conservative cleanup are preserved.
 
 Internal PHP namespaces and source/frontend build requirements change; downstream
 consumers of internal classes must be reviewed before choosing the release version.
-The current unreleased qualification metadata remains 1.1.0. A future minor or major
+The current unreleased qualification metadata is 1.1.1. A future minor or major
 version and its upgrade guide require an explicit compatibility decision. Code-only
 downgrade to 1.0.8 remains unsupported; follow the canonical
 [upgrade and recovery guide](../../installation.md#upgrade-and-recovery) for coordinated state restoration
@@ -80,7 +82,7 @@ does not certify them as reviewed.
 
 ## Validation and open gates
 
-The committed candidate passed an independent full-history clone gate, strict
+The earlier 1.1.0 candidate passed an independent full-history clone gate, strict
 PHP 8.2–8.5, all 14 native matrix cells (including the bounded SQLite recovery
 rehearsal), package inspection and license checks. The qualification report records
 counts, immutable inputs, inapplicable skips, the corrected preparation failure
@@ -112,5 +114,6 @@ and ChatGPT are still unexecuted and required before opening under the final che
 
 Pending: human security/technical, language and accessibility reviews; external
 clients and real HTTPS/proxy acceptance; broader UI and standing-target recovery
-gates; final version and merge strategy. No push or persistent staging deployment has occurred.
+gates; final version and merge strategy. The complete branch has been published to the fork with explicit authorization.
+No upstream PR or persistent staging deployment has occurred.
 This is a reviewable complete contribution, not a claim of release or S7 acceptance.

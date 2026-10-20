@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: b399933ce2b824c7f278b9615b72d97555cd8e84 -->
+<!-- translation-source-revision: 31b9e8ecfa245b7606e4ed67b32d750cdc4eed67 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](README.md).
@@ -28,6 +28,10 @@ Permite que Claude y otros clientes MCP trabajen con archivos, notas, calendario
 ## Motivo
 
 Un endpoint dentro de Nextcloud que respeta los permisos de cada usuario. No se necesita Node, Docker ni ningún servicio adicional en tiempo de ejecución.
+
+## Novedades de 1.1.1
+
+Las pantallas de permisos tratan las respuestas de guardado ilegibles como resultados sin confirmar y vuelven a cargar los permisos almacenados sin repetir la escritura. No se añade ninguna migración de base de datos. Consulta los [detalles de la versión](CHANGELOG.md#111).
 
 ## Novedades de 1.1.0
 

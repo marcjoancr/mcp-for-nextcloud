@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: b399933ce2b824c7f278b9615b72d97555cd8e84 -->
+<!-- translation-source-revision: 31b9e8ecfa245b7606e4ed67b32d750cdc4eed67 -->
 <!-- translation-review: pending -->
 
 > **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](README.md).

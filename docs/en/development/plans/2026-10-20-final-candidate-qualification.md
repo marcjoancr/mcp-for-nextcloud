@@ -3,11 +3,15 @@
 
 # Final local candidate qualification and fork publication
 
-Status: **PR opening remains blocked**. Upstream advanced to 1.1.1 and its new
+Historical status at `c4ffe9d`: **PR opening remains blocked**. Upstream advanced to 1.1.1 and its new
 fixes have not been integrated. HTTPS, public Inspector, ChatGPT and human reviews
 remain pending. The owner authorized publishing the complete reviewed branch to
 the fork on 2026-10-20, leaving the fork's `main` intact and opening no PR. Branch
 publication is distinct from satisfying the [PR-opening checklist](2026-10-19-final-pr-opening-checklist.md).
+
+Follow-up: the [1.1.1 integration report](2026-10-20-upstream-1.1.1-integration-report.md)
+records the later implementation and its new candidate. This report retains the
+historical pre-integration result and package identities.
 
 ## Candidate and live remote comparison
 
