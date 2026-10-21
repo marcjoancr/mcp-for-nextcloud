@@ -124,7 +124,9 @@ boundary rather than trusting an earlier preview.
 
 Shared access has named owners for grants, groups, policy transactions and
 resolution, receipts, events, inspection, resource scope, visibility, application
-availability and log access. Unknown authorization never becomes an allow result.
+availability, Guests restrictions and log access. `Access/Guests` receives explicit
+lazy service factories from `Application`; optional Guests services are never
+resolved while Guests is disabled, and no container is injected into access policy. Unknown authorization never becomes an allow result.
 Resource scope narrows access; it does not grant an operation or replace native
 Nextcloud ACLs. File exposure and tag exclusion follow the
 [exclusion and folder exposure contract](contracts/exclusion-and-folder-exposure.md).

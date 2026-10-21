@@ -26,7 +26,7 @@ final class ProtocolMetadata {
     /** _meta key of the server identity in modern results. */
     public const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
     /** Server identity reported in initialize and modern results. */
-    public const SERVER_INFO = ['name' => 'mcp-for-cloud', 'version' => '1.1.1'];
+    public const SERVER_INFO = ['name' => 'mcp-for-cloud', 'version' => '1.1.2'];
     /** HeaderMismatch error code of the 2026-07-28 specification. */
     public const HEADER_MISMATCH = -32020;
     /** UnsupportedProtocolVersion error code of the 2026-07-28 specification. */

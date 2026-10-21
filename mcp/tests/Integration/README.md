@@ -7,7 +7,7 @@
 These tests load the installed Nextcloud core, not unit doubles. Run an explicit
 cell with `composer --working-dir=mcp test:integration -- 35 sqlite fresh`.
 Prefix the three cell arguments with `--plan` to inspect pins without starting
-containers. `ci/matrix.php --matrix` lists all 15 supported cells. Ordinary
+containers. `ci/matrix.php --matrix` lists all 16 supported cells. Ordinary
 `composer check` excludes only this native suite and never starts Docker.
 
 Docker and Linux `ip`/`flock`, PHP, Composer, the locked Node/npm versions, curl and OpenSSL
@@ -25,6 +25,11 @@ logs and disposable credentials stay outside this upload directory. Never upload
 its parent. Missing or empty tests fail. Database-only and baseline-only tests
 explicitly explain their inapplicability; missing applications are failures.
 
+Guests v4.10.1 is pinned and unpacked for every cell; its native security tests
+enable it only for their own scenarios and restore the prior configuration.
+They cover app-password and OAuth admission, module restrictions, hidden external
+storage, group-only sharing and sessionless checkout-owner restrictions.
+
 The native suites run in order: `compat`, integration, then `last` (global epoch).
 Two independent database sessions, real core events and Basic/Bearer requests are
 part of the evidence. The shared `tests/Support/Access/Policy/PolicyServices.php`
@@ -36,8 +41,9 @@ The probe runs in a separate process and checks each loaded class's source. Thes
 are exact baseline-fixture exceptions to retired-name scans, not candidate loaders.
 `ci/replacement.php` similarly seeds the pinned upstream layout, then verifies unchanged database state and bearer access
 after Apache restart. `upgrade-upstream` installs 1.1.0 and runs `occ upgrade` to
-the candidate 1.1.1; `replace-upstream` installs upstream 1.1.1 and performs
-same-version replacement without forcing migrations. Both retain the actual
+the candidate 1.1.2; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
+`replace-upstream` installs upstream 1.1.2 and performs
+same-version replacement without forcing migrations. All three retain the actual
 declared versions and use only disposable instances.
 
 CLI probes require explicit completion: Nextcloud can log an exception and exit

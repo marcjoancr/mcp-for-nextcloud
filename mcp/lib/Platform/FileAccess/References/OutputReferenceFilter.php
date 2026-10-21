@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Platform\FileAccess\References;
 
 use OCA\Mcp\Access\Visibility\VisibilityGuard;
+use OCA\Mcp\Access\Guests\GuestRestrictions;
 use OCA\Mcp\Platform\FileAccess\Paths\PathGuard;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
@@ -41,6 +42,7 @@ class OutputReferenceFilter {
         private IURLGenerator $urlGenerator,
         private VisibilityGuard $guard,
         private FileReferenceScope $scope,
+        private ?GuestRestrictions $guests = null,
     ) {}
 
     /**
@@ -52,6 +54,7 @@ class OutputReferenceFilter {
         // never hidden behind the exclusion that happens to be configured.
         $restricted = $this->scope->restricts($userId);
         return $restricted
+            || ($this->guests !== null && $this->guests->hidesExternalStorage($userId))
             || !$this->guard->isConfigurationValid()
             || $this->guard->getHiddenTagIds() !== [];
     }
@@ -123,6 +126,9 @@ class OutputReferenceFilter {
      * @return bool whether a reference to it may be created and shown
      */
     public function allowsUserNode(string $userId, Node $node): bool {
+        if ($this->guests !== null && !$this->guests->allowsNode($userId, $node)) {
+            return false;
+        }
         if (!$this->active($userId)) {
             return true;
         }
@@ -431,7 +437,8 @@ class OutputReferenceFilter {
             if (!$node instanceof Node || ($id !== null && (int)$node->getId() !== $id)) {
                 return false;
             }
-            if (!$this->scope->allows($userId, $node) || !$this->guard->isVisible($node)) {
+            if (!$this->scope->allows($userId, $node) || !$this->guard->isVisible($node)
+                || ($this->guests !== null && !$this->guests->allowsNode($userId, $node))) {
                 return false;
             }
             $readable = $readable || $node->isReadable();

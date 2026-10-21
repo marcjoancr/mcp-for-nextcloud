@@ -29,6 +29,11 @@ Permet que Claude i altres clients MCP treballin amb fitxers, notes, calendaris,
 
 Un únic punt d'accés dins de Nextcloud, amb els permisos de cada usuari. No cal Node, Docker ni cap servei addicional en temps d'execució.
 
+## Novetats de la versió 1.1.2
+
+Les restriccions de Guests s'apliquen ara a les peticions amb contrasenya d'aplicació o OAuth i als enllaços de checkout: aplicacions permeses, emmagatzematge extern ocult i compartició limitada als grups del convidat. Els comptes que no són convidats no canvien; no s'afegeix cap migració de base de dades. Consulta els [detalls de la versió](CHANGELOG.md#112).
+
+
 ## Novetats de la versió 1.1.1
 
 Les pantalles de permisos tracten les respostes de desament il·legibles com a resultats sense confirmar i tornen a carregar els permisos emmagatzemats sense repetir l’escriptura. No s’afegeix cap migració de base de dades. Consulta els [detalls de la versió](CHANGELOG.md#111).

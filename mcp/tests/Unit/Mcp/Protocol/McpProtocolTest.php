@@ -28,7 +28,7 @@ final class McpProtocolTest extends TestCase {
         $this->assertSame('2025-06-18', $out['body']['result']['protocolVersion']);
         $this->assertArrayHasKey('tools', $out['body']['result']['capabilities']);
         $this->assertSame('mcp-for-cloud', $out['body']['result']['serverInfo']['name']);
-        $this->assertSame('1.1.1', $out['body']['result']['serverInfo']['version']);
+        $this->assertSame('1.1.2', $out['body']['result']['serverInfo']['version']);
         $manifest = simplexml_load_file(dirname(__DIR__, 4) . '/appinfo/info.xml');
         $this->assertSame((string)$manifest->version, $out['body']['result']['serverInfo']['version']);
     }

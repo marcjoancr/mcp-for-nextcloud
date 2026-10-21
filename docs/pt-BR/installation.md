@@ -24,9 +24,9 @@ A instalação normal é pela App Store do Nextcloud: *Apps* → buscar **MCP fo
 Substitua `<server>`, `<nextcloud>` (raiz da instalação), `<apps>` (diretório de apps gravável, por exemplo `custom_apps` ou `apps`, conforme `apps_paths` em `config/config.php`) e `<www>` (usuário do servidor web, por exemplo `www-data`).
 
 ```sh
-scp build/mcp-1.1.1.tar.gz <server>:/tmp/
+scp build/mcp-1.1.2.tar.gz <server>:/tmp/
 ssh <server>
-sudo tar -xzf /tmp/mcp-1.1.1.tar.gz -C <nextcloud>/<apps>/
+sudo tar -xzf /tmp/mcp-1.1.2.tar.gz -C <nextcloud>/<apps>/
 sudo chown -R <www>:<www> <nextcloud>/<apps>/mcp
 sudo -u <www> php <nextcloud>/occ app:enable mcp
 sudo -u <www> php <nextcloud>/occ app:list | grep -A1 mcp
@@ -36,7 +36,7 @@ Em Docker, rode os comandos `occ` dentro do container como o usuário do servido
 
 Para atualizar um build instalado por SSH: `occ app:disable mcp`, remover `<apps>/mcp`, extrair o novo pacote, `occ app:enable mcp` e `occ upgrade` se o Nextcloud pedir. A pasta precisa ser trocada inteira, para não sobrarem arquivos antigos em `vendor/`. Para remover: `occ app:remove mcp`.
 
-As migrações de 1.1.0 preservam os IDs originais e importam as configurações antigas de clientes nativos/personalizados para linhas autoritativas. Preferências e credenciais válidas de 1.0.8 sobrevivem à atualização. Os caminhos de validação incluem upstream 1.0.8 original, o 1.0.8 local migrado, a atualização de upstream 1.1.0 e a substituição de uma instalação upstream 1.1.1 já migrada. A substituição da mesma versão não força uma atualização nem repete migrações para redefinir a política.
+As migrações de 1.1.0 preservam os IDs originais e importam as configurações antigas de clientes nativos/personalizados para linhas autoritativas. Preferências e credenciais válidas de 1.0.8 sobrevivem à atualização. Os caminhos de validação incluem upstream 1.0.8 original, o 1.0.8 local migrado, a atualização de upstream 1.1.0 e 1.1.1 e a substituição de uma instalação upstream 1.1.2 já migrada. A substituição da mesma versão não força uma atualização nem repete migrações para redefinir a política.
 
 ## Atualização e recuperação
 

@@ -14,6 +14,26 @@ Reading starts allowed except for server logs. Other operations start denied. Fi
 
 The Overview shows the endpoint, app version, connection counts and checkout upload limit. The checkout limit is edited in MiB and cannot exceed PHP's `post_max_size`. Advanced contains server-log roles/privacy and OCR. Data protection contains the exclusion tags; see [file protection](file-protection.md).
 
+## Guests app restrictions
+
+Starting with 1.1.2, MCP reapplies the Guests app restrictions after authenticating
+an app password or OAuth token. A guest whose allowed-app list excludes MCP is
+refused. MCP returns HTTP 403; Guests may reject an app-password login earlier
+in Nextcloud (its rejection is surfaced as HTTP 500 on Nextcloud 35). Tools, Notes resources and Talk references for disallowed
+apps are hidden or refused; file-version tools also require Guests to allow
+`files_versions`. Files and Tasks use the always-allowed `files` and `dav` apps.
+
+Hidden external storage remains inaccessible, including Nextcloud 35 mounts
+resolved directly by path. Structured file references in Talk and Tasks, including
+publication of Talk attachments, use the same hidden-storage check. When Guests hides other accounts, sharing remains
+limited to the guest's groups. An unreadable Guests state fails closed.
+
+Checkout and upload links apply the same relevant restrictions to their owner
+before resolving a file. A refused guest receives the answer of an unknown link
+(404), without spending it. Guests versions older than 4.8.0 cannot apply these
+sessionless restrictions, so guest-owned links are refused. Non-guest accounts
+and installations without Guests retain their existing behavior.
+
 ## Individual choices and group inheritance
 
 Access and permissions provides module levels and an **Operations** view for individual permissions. Search uses name, ID or email; email is not displayed. Group and eligibility/connection filters run on the server, with 50 users per page. Disabled accounts cannot be edited, and unavailable applications or log roles remain unavailable without erasing saved choices.

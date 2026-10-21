@@ -70,6 +70,7 @@ final class OutputReferenceFilters {
         ?FileReferenceScope $scope = null,
         array $trustedDomains = ['cloud.example.com'],
         string $webroot = '',
+        ?\OCA\Mcp\Access\Guests\GuestRestrictions $guests = null,
     ): OutputReferenceFilter {
         $config = self::mock($test, IConfig::class);
         $config->method('getSystemValue')->willReturnCallback(static fn (string $key, mixed $default = '') => match ($key) {
@@ -79,7 +80,7 @@ final class OutputReferenceFilters {
         $urls = self::mock($test, IURLGenerator::class);
         $urls->method('getWebroot')->willReturn($webroot);
         $urls->method('getAbsoluteURL')->willReturnCallback(static fn (string $url) => 'https://cloud.example.com' . $webroot . $url);
-        return new OutputReferenceFilter($root, $shares, $config, $urls, $guard, $scope ?? new UnrestrictedFileReferenceScope());
+        return new OutputReferenceFilter($root, $shares, $config, $urls, $guard, $scope ?? new UnrestrictedFileReferenceScope(), $guests);
     }
 
     private static function mock(TestCase $test, string $interface): object {

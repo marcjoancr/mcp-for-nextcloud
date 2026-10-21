@@ -67,6 +67,14 @@ class Application extends App implements IBootstrap {
 
     /** @param IRegistrationContext $context registration context of the app */
     public function register(IRegistrationContext $context): void {
+        $context->registerService(\OCA\Mcp\Access\Guests\GuestRestrictions::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Access\Guests\GuestRestrictions(
+            $c->get(IAppManager::class), $c->get(\OCP\IRequest::class),
+            static fn () => $c->get('OCA\\Guests\\GuestManager'),
+            static fn () => $c->get('OCA\\Guests\\AppWhitelist'),
+            static fn () => $c->get('OCA\\Guests\\RestrictionManager'),
+            static fn () => $c->get('OCA\\Guests\\Config'),
+            $c->get(LoggerInterface::class),
+        ));
         $context->registerService(\OCA\Mcp\Access\Policy\Transactions\PolicyTransaction::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Access\Policy\Transactions\PolicyTransaction(
             $c->get(\OCP\IDBConnection::class), $c->get(\OCA\Mcp\Db\PolicyStateMapper::class),
             $c->get(\OCA\Mcp\Db\PolicyEventsMapper::class), $c->get(\OCP\Config\IUserConfig::class),
@@ -384,7 +392,7 @@ class Application extends App implements IBootstrap {
             'files_create' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\CreateFile::class),
         ], static fn () => $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class)->assertScopeReadable()));
         $context->registerService(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability(
-            $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class),
+            $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class),
         ));
         $context->registerService(\OCA\Mcp\Mcp\Tools\Execution\ToolExecutor::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor(
             $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class), $c->get(LoggerInterface::class),
@@ -447,7 +455,7 @@ class Application extends App implements IBootstrap {
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\People\Tools\SearchUsers => new \OCA\Mcp\Modules\People\Tools\SearchUsers(
                 $c->get(\OCA\Mcp\Modules\People\Search\PeopleSearch::class),
             ));
-        $context->registerService(ResourceRegistry::class, static fn (ContainerInterface $c): ResourceRegistry => new ResourceRegistry($c->get(ToolRegistry::class), $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Modules\Files\Contracts\FileResourceReader::class), $c->get(\OCA\Mcp\Modules\Notes\Contracts\NoteResourceReader::class), $c->get(ToolRegistry::class)->guide()));
+        $context->registerService(ResourceRegistry::class, static fn (ContainerInterface $c): ResourceRegistry => new ResourceRegistry($c->get(ToolRegistry::class), $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Modules\Files\Contracts\FileResourceReader::class), $c->get(\OCA\Mcp\Modules\Notes\Contracts\NoteResourceReader::class), $c->get(ToolRegistry::class)->guide(), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class)));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\ToolRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ToolRequests($c->get(ToolRegistry::class)));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\PromptRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\PromptRequests($c->get(PromptCatalog::class), $c->get(GrantPolicy::class)));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\ResourceRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ResourceRequests($c->get(ResourceRegistry::class)));

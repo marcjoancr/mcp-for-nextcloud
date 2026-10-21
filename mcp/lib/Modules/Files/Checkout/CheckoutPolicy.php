@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Checkout;
 
+use OCA\Mcp\Access\Guests\GuestRestrictions;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Access\Policy\PolicyUnavailable;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
@@ -32,6 +33,7 @@ final class CheckoutPolicy {
         private CheckoutTokenStore $store,
         private IUserManager $userManager,
         private FilesAccessGuard $visibilityGuard,
+        private ?GuestRestrictions $guests = null,
     ) {}
 
     /** Keep all grant and resource checks of one authenticated link use in its owner's snapshot. */
@@ -83,6 +85,7 @@ final class CheckoutPolicy {
         }
         if ($kind === CheckoutToken::KIND_CREATE) {
             $uid = $row->userId;
+            $this->restrictGuestOwner($uid);
             if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->policy->granted($uid, self::MODULE, self::OPERATION_CREATE)) {
                 throw new CheckoutFailure(Http::STATUS_FORBIDDEN, CheckoutMessages::checkoutRevoked());
             }
@@ -96,6 +99,7 @@ final class CheckoutPolicy {
             throw new CheckoutFailure(Http::STATUS_NOT_FOUND, CheckoutMessages::tokenInvalid());
         }
         $uid = $row->userId;
+        $this->restrictGuestOwner($uid);
         if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->policy->granted($uid, self::MODULE, self::OPERATION)) {
             throw new CheckoutFailure(Http::STATUS_FORBIDDEN, CheckoutMessages::checkoutRevoked());
         }
@@ -126,6 +130,14 @@ final class CheckoutPolicy {
      */
     public function actsAsUser(string $uid): bool {
         return $this->userSession->getUser()?->getUID() === $uid;
+    }
+
+    /** Apply sessionless owner restrictions before resolving a file; denial must not consume the link. */
+    private function restrictGuestOwner(string $uid): void {
+        $owner = $this->userManager->get($uid);
+        if ($owner !== null && $this->guests !== null && !$this->guests->applyToOwner($owner)) {
+            throw new CheckoutFailure(Http::STATUS_NOT_FOUND, CheckoutMessages::tokenInvalid());
+        }
     }
 
     /**

@@ -86,6 +86,7 @@ final class CheckoutCreateTest extends TestCase {
     /** Temporary files the controller asked for, i.e. bodies it copied to disk. */
     private int $tempFiles = 0;
     private bool $aliceEnabled = true;
+    private bool $guestAllowed = true;
     private StagedCreateController $controller;
 
     protected function setUp(): void {
@@ -134,19 +135,33 @@ final class CheckoutCreateTest extends TestCase {
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
         $checkout = new CheckoutService($this->createMock(IURLGenerator::class), $config, $time, $this->hasher, $this->store, $apps, $users);
         $guard = $this->guard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
+        $guests = $this->createMock(\OCA\Mcp\Access\Guests\GuestRestrictions::class);
+        $guests->method('applyToOwner')->willReturnCallback(fn (): bool => $this->guestAllowed);
         $this->controller = new StagedCreateController('mcp',
             $request,
             $this->session,
             $this->store,
             $this->hasher,
             $checkout,
-            new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard),
-            new CheckoutWriter($root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard), new FileBackup($apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation($access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this)), $this->locks->service($this)),
+            new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests),
+            new CheckoutWriter($root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests), new FileBackup($apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation($access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this)), $this->locks->service($this)),
             ($this->bodyReader = new StagedBodyReader($temp)),
             $this->createMock(LoggerInterface::class),
             null,
             $users);
         $this->controller->route = ['token' => self::TOKEN];
+    }
+
+    public function testAGuestOwnerCannotUseACreateLinkAfterGuestsDeniesAccess(): void {
+        $this->issue();
+        $this->guestAllowed = false;
+        $response = $this->controller->upload();
+        self::assertSame(404, $response->getStatus());
+        self::assertSame(CheckoutMessages::tokenInvalid(), $response->render());
+        self::assertSame([], $this->tree->ops);
+        self::assertSame([], $this->tree->opened);
+        self::assertArrayNotHasKey(self::FILE, $this->tree->nodes);
+        self::assertNotContains('consume', $this->store->ops);
     }
 
     /** Stages the request body, with the length curl -T declares for it. */

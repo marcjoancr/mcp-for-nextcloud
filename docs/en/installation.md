@@ -18,9 +18,9 @@ The normal installation is through the Nextcloud App Store: *Apps* → search fo
 Replace `<server>`, `<nextcloud>` (installation root), `<apps>` (writable apps directory, for example `custom_apps` or `apps`, according to `apps_paths` in `config/config.php`) and `<www>` (web server user, for example `www-data`).
 
 ```sh
-scp build/mcp-1.1.1.tar.gz <server>:/tmp/
+scp build/mcp-1.1.2.tar.gz <server>:/tmp/
 ssh <server>
-sudo tar -xzf /tmp/mcp-1.1.1.tar.gz -C <nextcloud>/<apps>/
+sudo tar -xzf /tmp/mcp-1.1.2.tar.gz -C <nextcloud>/<apps>/
 sudo chown -R <www>:<www> <nextcloud>/<apps>/mcp
 sudo -u <www> php <nextcloud>/occ app:enable mcp
 sudo -u <www> php <nextcloud>/occ app:list | grep -A1 mcp
@@ -30,7 +30,7 @@ In Docker, run the `occ` commands inside the container as the web server user. I
 
 To update a build installed through SSH: `occ app:disable mcp`, remove `<apps>/mcp`, extract the new package, `occ app:enable mcp` and `occ upgrade` if Nextcloud asks for it. The folder must be replaced whole, so no old files are left in `vendor/`. To remove: `occ app:remove mcp`.
 
-The 1.1.0 migrations retain the original migration IDs and import legacy native/custom-client settings into authoritative rows. Valid 1.0.8 preferences and credentials survive upgrade. The supported qualification paths include original upstream 1.0.8, the migrated local 1.0.8, upgrade from upstream 1.1.0, and replacement of an already-migrated upstream 1.1.1 installation. Same-version replacement does not force an upgrade or rerun migrations to reset policy.
+The 1.1.0 migrations retain the original migration IDs and import legacy native/custom-client settings into authoritative rows. Valid 1.0.8 preferences and credentials survive upgrade. The supported qualification paths include original upstream 1.0.8, the migrated local 1.0.8, upgrades from upstream 1.1.0 and 1.1.1, and replacement of an already-migrated upstream 1.1.2 installation. Same-version replacement does not force an upgrade or rerun migrations to reset policy.
 
 ## Upgrade and recovery
 
