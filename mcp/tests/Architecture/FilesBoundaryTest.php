@@ -23,6 +23,7 @@ final class FilesBoundaryTest extends TestCase {
         'OCA\Mcp\Mcp\Confirmation\PlanChanged',
         'OCA\Mcp\Access\Visibility\VisibilityGuard',
         'OCA\Mcp\Access\AppAvailability\AppEnablement',
+        'OCA\Mcp\Access\Guests\GuestRestrictions',
         'OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite',
         'OCA\Mcp\Platform\FileAccess\Locks\LockWriteFailure',
         'OCA\Mcp\Platform\FileAccess\Nodes\NodeAccess',

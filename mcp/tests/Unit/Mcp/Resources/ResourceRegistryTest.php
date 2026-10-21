@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Unit\Mcp\Resources;
 
+use OCA\Mcp\Access\Guests\GuestRestrictions;
+
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
 use InvalidArgumentException;
@@ -244,6 +246,17 @@ final class ResourceRegistryTest extends TestCase {
         $this->expectException(ToolFailure::class);
         $this->expectExceptionMessage(FileAccessMessages::notFound());
         $this->registry->read('nc://notes/' . $this->noteId, 'alice');
+    }
+
+    /** A guest whose Guests list lacks Notes gets neither the notes template nor a note; files stay. */
+    public function testAGuestWithoutNotesOnTheGuestsListGetsNoNotesResource(): void {
+        $guests = $this->createMock(GuestRestrictions::class);
+        $guests->method('allowsApp')->willReturnCallback(static fn (string $uid, string $app): bool => $app !== 'notes');
+        $registry = new ResourceRegistry($this->toolRegistry, $this->policy, $this->appManager, $this->userManager, new \OCA\Mcp\Modules\Files\Reading\NextcloudFileResourceReader($this->rootFolder, $this->visibilityGuard, $this->extractor), new \OCA\Mcp\Modules\Notes\Resources\NextcloudNoteResourceReader($this->notesFolders, new \OCA\Mcp\Modules\Notes\Storage\NoteLookup(), new \OCA\Mcp\Modules\Notes\Content\NoteContent(), $this->visibilityGuard), new ToolGuide([]), $guests);
+        $this->assertSame(['nc://files/{path}'], array_column($registry->templates('alice')['resourceTemplates'], 'uriTemplate'));
+        $this->expectException(ToolFailure::class);
+        $this->expectExceptionMessage(FileAccessMessages::notFound());
+        $registry->read('nc://notes/' . $this->noteId, 'alice');
     }
 
     public function testReadNotesWithInvalidIdThrowsNotFound(): void {

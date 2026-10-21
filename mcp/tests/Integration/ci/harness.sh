@@ -219,7 +219,7 @@ cmd_install_app() {
         docker exec -u www-data "$NC" tar -xzf /tmp/mcp-baseline.tar.gz -C /var/www/html/custom_apps
         occ app:enable mcp
         assert_installed_version "$baseline_version"
-        if [ "$MCP_IT_MODE" != replace-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream ]; then
+        if [ "$MCP_IT_MODE" != replace-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream-111 ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
             docker exec -u www-data -e MCP_IT_MODE="$MCP_IT_MODE" "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-policy.php seed /tmp/mcp-it-snapshot.json
         else
@@ -253,7 +253,7 @@ cmd_install_app() {
         docker restart "$NC" >/dev/null
         wait_for 'Nextcloud after replacement' 180 nextcloud_ready
         occ maintenance:mode --off
-        if [ "$MCP_IT_MODE" = replace-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream ]; then
+        if [ "$MCP_IT_MODE" = replace-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream-111 ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php verify
         fi
     else
@@ -294,6 +294,14 @@ cmd_fixtures() {
 # from the read-only tools mount, so nothing else is copied.
 install_release_app() {
     app=$1
+    unpack_release_app "$@"
+    occ app:enable "$app"
+}
+
+# unpack_release_app <app> <repo> <tag> <sha256>: the download, check and unpacking of install_release_app, without
+# enabling the app.
+unpack_release_app() {
+    app=$1
     repo=$2
     tag=$3
     sha=$4
@@ -302,7 +310,6 @@ install_release_app() {
     echo "$sha  $archive" | sha256_check
     chmod 0644 "$archive"
     docker exec -u www-data "$NC" tar -xzf "/mcp-it-tools/$app.tar.gz" -C /var/www/html/custom_apps
-    occ app:enable "$app"
 }
 
 # Release pinned per Nextcloud major: groupfolders, Talk and Notes each have one build per supported major. The Calendar
@@ -338,6 +345,8 @@ pin_releases() {
             return 1
             ;;
     esac
+    # Guests v4.10.1 declares min-version 32 and max-version 36: one build for the whole matrix.
+    GUESTS_TAG=v4.10.1; GUESTS_SHA=731944e1c881afe9821146974aa48bca9d9bff4249ad774b6bbdc50a48068ba7
 }
 
 provision_groupfolders() {
@@ -382,7 +391,7 @@ cmd_provision() {
     log="$ARTIFACTS/provision.log"
     : > "$log"
     : > "$WORK/provision-failures"
-    for part in groupfolders files_external talk notes calendar; do
+    for part in groupfolders files_external talk notes calendar guests; do
         echo "=== provisioning $part" | tee -a "$log"
         case "$part" in
             groupfolders) step=provision_groupfolders ;;
@@ -390,6 +399,9 @@ cmd_provision() {
             talk) step="install_release_app spreed spreed $TALK_TAG $TALK_SHA" ;;
             notes) step="install_release_app notes notes $NOTES_TAG $NOTES_SHA" ;;
             calendar) step="install_release_app calendar calendar $CAL_TAG $CAL_SHA" ;;
+            # Unpacked only: Guests/GuestRestrictionsTest enables it for its own scenarios, since it adds a user and a
+            # group backend every other test would see.
+            guests) step="unpack_release_app guests guests $GUESTS_TAG $GUESTS_SHA" ;;
         esac
         # Not inside an if or ||: there errexit would be ignored in the subshell and a failing command would not
         # fail the part.

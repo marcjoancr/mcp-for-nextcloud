@@ -36,6 +36,7 @@ final class OutputReferenceFilterTest extends TestCase {
     /** @var array<string, IShare> public shares by token */
     private array $tokens = [];
     private VisibilityGuard $guard;
+    private ?\OCA\Mcp\Access\Guests\GuestRestrictions $guests = null;
     private int $okId;
     private int $hiddenId;
     private int $inheritedId;
@@ -66,7 +67,7 @@ final class OutputReferenceFilterTest extends TestCase {
         $shares = $this->createMock(IShareManager::class);
         $shares->method('getShareById')->willReturnCallback(fn (string $id) => $this->shares[$id] ?? throw new \OCP\Share\Exceptions\ShareNotFound());
         $shares->method('getShareByToken')->willReturnCallback(fn (string $token) => $this->tokens[$token] ?? throw new \OCP\Share\Exceptions\ShareNotFound());
-        return OutputReferenceFilters::over($this, $this->tree->filesystemRoot(), $this->guard, $shares, $scope, $trusted, $webroot);
+        return OutputReferenceFilters::over($this, $this->tree->filesystemRoot(), $this->guard, $shares, $scope, $trusted, $webroot, $this->guests);
     }
 
     private function roomShare(int $id, int $nodeId, string $token = 'room1'): void {
@@ -378,6 +379,28 @@ final class OutputReferenceFilterTest extends TestCase {
         $output = $this->filter()->outputCalendar('alice', $this->calendar(':' . $this->ids('https://cloud.example.com/f/OK'), ':' . $external));
 
         self::assertSame([$external], self::attaches($output));
+    }
+
+    public function testGuestsHideExternalReferencesWithoutTagsOrScopeAndPreserveSourceCalendar(): void {
+        $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '[]';
+        $this->tree->nodes['/alice/files/Docs/ok.pdf']['scope'] = 'external';
+        $this->tree->nodes['/alice/files/Docs/direct.pdf']['scope'] = 'external';
+        $this->guests = $this->getMockBuilder(\OCA\Mcp\Access\Guests\GuestRestrictions::class)
+            ->disableOriginalConstructor()->onlyMethods(['hidesExternalStorage'])->getMock();
+        $this->guests->method('hidesExternalStorage')->willReturnCallback(static fn (string $uid): bool => $uid === 'alice');
+        $this->roomShare(11, $this->okId);
+        $url = $this->ids('https://cloud.example.com/f/OK');
+        $calendar = $this->calendar(':' . $url);
+        $before = $calendar->serialize();
+        $filter = $this->filter();
+        self::assertTrue($filter->active('alice'));
+        self::assertFalse($filter->active('bob'));
+        self::assertNull($filter->attachmentId('alice', 'room1', 11));
+        self::assertSame([], self::attaches($filter->outputCalendar('alice', $calendar)));
+        self::assertSame($before, $calendar->serialize());
+        $this->tree->nodes['/alice/files/Docs/ok.pdf']['scope'] = 'personal';
+        self::assertSame(11, $filter->attachmentId('alice', 'room1', 11));
+        self::assertSame([$url], self::attaches($filter->outputCalendar('alice', $calendar)));
     }
 
     public function testNothingIsEverFetched(): void {

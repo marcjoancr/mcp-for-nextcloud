@@ -139,7 +139,7 @@ final class ApplicationRegistrationTest extends TestCase {
         $factory->method('get')->willReturn(new \OCA\Mcp\Tests\Unit\L10n\JsonL10n('en'));
         $controller = $this->getMockBuilder(\OCA\Mcp\Controller\McpController::class)->onlyMethods(['readBody'])->setConstructorArgs([
             'mcp', $request, $session, $this->createMock(\OCP\IURLGenerator::class), $policy, $protocol,
-            $container->get(\OCA\Mcp\OAuth\ResourceUrl::class), $container->get(\OCA\Mcp\OAuth\AccessTokenAuthenticator::class), new \OCA\Mcp\L10n\UserL10n($factory), InMemoryConfig::noCauses($this),
+            $container->get(\OCA\Mcp\OAuth\ResourceUrl::class), $container->get(\OCA\Mcp\OAuth\AccessTokenAuthenticator::class), new \OCA\Mcp\L10n\UserL10n($factory), InMemoryConfig::noCauses($this), $container->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class),
         ])->getMock();
         $raw = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
         $controller->method('readBody')->willReturnCallback(static function () use (&$raw): string { return $raw; });

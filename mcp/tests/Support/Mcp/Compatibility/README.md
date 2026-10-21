@@ -38,3 +38,8 @@ fixture byte remains unchanged. The full frozen-contract test rejected the old
 values before this explicit release-version update; the focused protocol and
 shared-contract suite then passed 24 tests / 143 assertions. The captures were
 not regenerated or normalized.
+
+The 2026-10-21 upstream 1.1.2 integration advances the same 29 server-version
+values from `1.1.1` to `1.1.2`. No other bytes in the four compatibility captures
+change. Guests restrictions are exercised by behavioral unit and native tests,
+not by regenerating the non-guest captures.

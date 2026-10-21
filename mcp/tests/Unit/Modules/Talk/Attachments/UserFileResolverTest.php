@@ -150,6 +150,39 @@ class UserFileResolverTest extends TestCase {
         $resolver->resolveShareableFile('alice', 'relatorio.pdf');
     }
 
+    public static function guestStorageCases(): array {
+        return [
+            'hidden external' => ['external', true, false],
+            'hidden external subtype' => ['external::local', true, false],
+            'internal control' => ['home', true, true],
+            'external allowed control' => ['external', false, true],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('guestStorageCases')]
+    public function testGuestsStorageRestrictionsApplyBeforePublishingATalkAttachment(string $mountType, bool $hidden, bool $allowed): void {
+        $file = $this->givenFile(Constants::PERMISSION_READ | Constants::PERMISSION_SHARE);
+        $file->method('getId')->willReturn(12345);
+        $this->userFolder->method('getById')->with(12345)->willReturn([$file]);
+        $mount = $this->createMock(\OCP\Files\Mount\IMountPoint::class);
+        $mount->method('getMountType')->willReturn($mountType);
+        $file->method('getMountPoint')->willReturn($mount);
+        $guests = $this->getMockBuilder(\OCA\Mcp\Access\Guests\GuestRestrictions::class)
+            ->disableOriginalConstructor()->onlyMethods(['hidesExternalStorage'])->getMock();
+        $guests->method('hidesExternalStorage')->with('alice')->willReturn($hidden);
+        $guard = \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::openGuard($this);
+        $filter = new \OCA\Mcp\Platform\FileAccess\References\OutputReferenceFilter($this->rootFolder,
+            $this->createMock(\OCP\Share\IManager::class), $this->createMock(\OCP\IConfig::class),
+            $this->createMock(\OCP\IURLGenerator::class), $guard,
+            new \OCA\Mcp\Tests\Support\Platform\FileAccess\References\UnrestrictedFileReferenceScope(), $guests);
+        $resolver = new UserFileResolver($this->rootFolder, $guard, $filter);
+        if (!$allowed) {
+            $this->expectException(FileAccessException::class);
+            $this->expectExceptionMessage(\OCA\Mcp\Modules\Talk\Attachments\AttachmentMessages::fileNotFound());
+        }
+        self::assertSame($file, $resolver->resolveShareableFile('alice', 'external.pdf'));
+    }
+
     private function givenFile(int $permissions, bool $readable = true): File&MockObject {
         $file = $this->createMock(File::class);
         $file->method('getPermissions')->willReturn($permissions);

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Mcp\Tools\Discovery;
 
+use OCA\Mcp\Access\Guests\GuestRestrictions;
 use InvalidArgumentException;
 use OCA\Mcp\Mcp\Tools\ToolModule;
 use OCA\Mcp\Mcp\Tools\RestrictedModule;
@@ -18,6 +19,7 @@ final class ToolAvailability {
         private \OCA\Mcp\Access\Grants\GrantPolicy $policy,
         private \OCP\App\IAppManager $appManager,
         private \OCP\IUserManager $userManager,
+        private ?GuestRestrictions $guests = null,
     ) {}
 
     /**
@@ -46,6 +48,10 @@ final class ToolAvailability {
             return false;
         }
         if (!$granted) {
+            return false;
+        }
+        if ($this->guests !== null && (!$this->guests->allowsApp($userId, \OCA\Mcp\Access\Grants\GrantMatrix::MODULE_APPS[$definition['module']] ?? '')
+            || !$this->guests->allowsApp($userId, $definition['app'] ?? ''))) {
             return false;
         }
         if (isset($definition['app'])) {

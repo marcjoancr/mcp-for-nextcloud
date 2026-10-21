@@ -37,6 +37,8 @@ final class ToolRegistryTest extends TestCase {
     /** @var list<string> the alternatives of s_share, in the order the definition lists them */
     public array $shareAnyOf = ['share', 'link'];
     private InMemoryConfig $data;
+    /** @var array<string, list<string>>|null apps Guests allows each guest; null: no Guests double at all */
+    private ?array $guestApps = null;
     private \OCP\IConfig $config;
 
     protected function setUp(): void {
@@ -85,7 +87,13 @@ final class ToolRegistryTest extends TestCase {
             $user->method('getUID')->willReturn($uid);
             return $user;
         });
-        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users);
+        $guests = null;
+        if ($this->guestApps !== null) {
+            $guests = $this->createMock(\OCA\Mcp\Access\Guests\GuestRestrictions::class);
+            $guests->method('allowsApp')->willReturnCallback(fn (string $uid, string $app): bool =>
+                $app === '' || !isset($this->guestApps[$uid]) || in_array($app, $this->guestApps[$uid], true));
+        }
+        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users, $guests);
         return new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->logger));
     }
 
@@ -114,7 +122,13 @@ final class ToolRegistryTest extends TestCase {
                     throw new \LogicException('Unconfirmed writes must not execute');
                 }
             };
-            $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users);
+            $guests = null;
+            if ($this->guestApps !== null) {
+                $guests = $this->createMock(\OCA\Mcp\Access\Guests\GuestRestrictions::class);
+                $guests->method('allowsApp')->willReturnCallback(fn (string $uid, string $app): bool =>
+                    $app === '' || !isset($this->guestApps[$uid]) || in_array($app, $this->guestApps[$uid], true));
+            }
+            $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users, $guests);
             $registry = new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->logger));
             foreach ($definitions as $definition) {
                 if (!\OCA\Mcp\Mcp\Confirmation\WriteGate::isWrite($definition)) { continue; }
@@ -460,6 +474,33 @@ final class ToolRegistryTest extends TestCase {
         $this->assertContains('n_read', array_column($this->registry()->list('bob'), 'name'));
         $this->assertUnknown('n_read');
         $this->assertSame([], $this->calls);
+    }
+
+    /**
+     * A guest of the Guests app reaches only the modules whose app Guests allows to them: the others leave tools/list
+     * and a call is refused before the module runs. Everyone else keeps every tool.
+     */
+    public function testAGuestOnlyReachesTheModulesOfTheAppsGuestsAllows(): void {
+        $this->enabledApps = ['notes', 'calendar', 'deck', 'spreed'];
+        foreach (['alice', 'bob'] as $uid) {
+            foreach (['files', 'notes', 'calendar', 'deck', 'talk'] as $module) {
+                $this->policy->setGrant($uid, $module, 'read', true);
+            }
+        }
+        $this->guestApps = ['alice' => ['files', 'calendar']];
+        $this->assertSame(['mcp_guide', 'a_read', 'c_read'], array_column($this->registry()->list('alice'), 'name'));
+        $this->assertSame(['mcp_guide', 'a_read', 'n_read', 'c_read', 'd_read', 't_read'], array_column($this->registry()->list('bob'), 'name'));
+        foreach (['n_read', 'd_read', 't_read'] as $name) {
+            $this->assertUnknown($name);
+        }
+        $this->assertSame([], $this->calls);
+        $this->registry()->call('c_read', [], 'alice');
+        $this->assertSame('c_read', $this->calls[0][0]);
+
+        // Only the app list of Guests: the files module of a guest whose list lacks it (impossible in Guests, which
+        // always allows files) leaves too.
+        $this->guestApps = ['alice' => []];
+        $this->assertSame(['mcp_guide'], array_column($this->registry()->list('alice'), 'name'));
     }
 
     /** A Talk older than the oldest release MCP supports counts as off: its tools leave the list and a call is refused. */

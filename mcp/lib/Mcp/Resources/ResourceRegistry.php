@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Mcp\Resources;
 
+use OCA\Mcp\Access\Guests\GuestRestrictions;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
@@ -49,6 +50,7 @@ class ResourceRegistry {
         private FileResourceReader $fileReader,
         private NoteResourceReader $noteReader,
         private ToolGuide $guide,
+        private ?GuestRestrictions $guests = null,
     ) {
     }
 
@@ -166,7 +168,8 @@ class ResourceRegistry {
             return false;
         }
         $user = $this->userManager->get($userId);
-        return $user !== null && $this->appManager->isEnabledForUser('notes', $user);
+        return $user !== null && $this->appManager->isEnabledForUser('notes', $user)
+            && ($this->guests === null || $this->guests->allowsApp($userId, 'notes'));
     }
 
     /**

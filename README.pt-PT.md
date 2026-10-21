@@ -29,6 +29,11 @@ Deixe Claude e outros clientes MCP trabalharem com ficheiros, notas, calendário
 
 Um endpoint dentro do Nextcloud, com as permissões de cada utilizador. Não é necessário Node, Docker nem qualquer serviço adicional durante a execução.
 
+## Novidades da versão 1.1.2
+
+As restrições do Guests passam a aplicar-se aos pedidos com palavra-passe de aplicação ou OAuth e às ligações de checkout: aplicações permitidas, armazenamento externo oculto e partilha limitada aos grupos do convidado. As contas que não são convidadas não mudam; não é acrescentada nenhuma migração da base de dados. Consulte os [detalhes da versão](CHANGELOG.md#112).
+
+
 ## Novidades da versão 1.1.1
 
 Os ecrãs de permissões tratam as respostas de gravação ilegíveis como resultados não confirmados e voltam a carregar as permissões guardadas sem repetir a escrita. Não é adicionada nenhuma migração da base de dados. Consulte os [detalhes da versão](CHANGELOG.md#111).

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Talk\References;
 
+use OCA\Mcp\Access\Guests\GuestRestrictions;
 use InvalidArgumentException;
 use OCA\Mcp\Modules\Calendar\Contracts\EventReferenceNotFound;
 use OCA\Mcp\Modules\Calendar\Contracts\EventReferenceReader;
@@ -51,6 +52,7 @@ class ReferenceLinker
         private IUserManager $userManager,
         private GrantPolicy $grants,
         private IURLGenerator $urlGenerator,
+        private ?GuestRestrictions $guests = null,
     ) {}
 
     /**
@@ -171,7 +173,8 @@ class ReferenceLinker
         if (
             $user === null ||
             !AppEnablement::forUser($this->appManager, $app, $user) ||
-            !$this->grants->granted($userId, $module, 'read')
+            !$this->grants->granted($userId, $module, 'read') ||
+            ($this->guests !== null && !$this->guests->allowsApp($userId, $app))
         ) {
             throw new ConversationAccessException($message);
         }
