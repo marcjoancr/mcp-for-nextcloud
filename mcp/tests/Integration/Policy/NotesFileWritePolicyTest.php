@@ -7,29 +7,56 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Policy;
 
 use OCA\Mcp\Access\FileWritePolicy\FileWritePolicy;
-use OCA\Mcp\Tests\Integration\Exclusion\ExclusionTestCase;
+use OCA\Mcp\Access\Grants\GrantPolicy;
+use OCA\Mcp\Tests\Integration\OAuth\OAuthAccountTestCase;
+use OCA\Mcp\Tests\Integration\Support\LoginFactory;
+use OCA\Mcp\Tests\Integration\Support\McpClient;
+use OCP\Files\Folder;
+use OCP\Files\IRootFolder;
 use OCP\IAppConfig;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
 /** Native Notes endpoints, including the fork's partial-edit confirmation. */
 #[Group('notes')]
-final class NotesFileWritePolicyTest extends ExclusionTestCase {
+final class NotesFileWritePolicyTest extends OAuthAccountTestCase {
+    private Folder $folder;
+    private string $run = '';
+    /** @var array{policy?:string|null} Original key presence and value, restored after failures too. */
+    private array $before = [];
+
     protected function setUp(): void {
         parent::setUp();
         $config = Server::get(IAppConfig::class);
-        $before = $config->hasKey('mcp', FileWritePolicy::KEY, null) ? $config->getValueString('mcp', FileWritePolicy::KEY, '', false) : null;
-        $this->later(static function () use ($config, $before): void {
-            $before === null ? $config->deleteKey('mcp', FileWritePolicy::KEY) : $config->setValueString('mcp', FileWritePolicy::KEY, $before, false);
-            $config->clearCache(false);
-        });
-        $this->later(fn () => $this->deleteQuietly(self::ALICE, 'Notes/' . $this->run));
+        $this->before['policy'] = $config->hasKey('mcp', FileWritePolicy::KEY, null) ? $config->getValueString('mcp', FileWritePolicy::KEY, '', false) : null;
         Server::get(FileWritePolicy::class)->save('off', [], false);
+        $policy = Server::get(GrantPolicy::class);
+        $policy->setConnected($this->uid, true);
+        foreach (['create', 'edit', 'move'] as $operation) $policy->setGrant($this->uid, 'notes', $operation, true);
+        $this->run = 'policy-' . bin2hex(random_bytes(4));
+        $root = Server::get(IRootFolder::class)->getUserFolder($this->uid);
+        $notes = $root->nodeExists('Notes') ? $root->get('Notes') : $root->newFolder('Notes');
+        self::assertInstanceOf(Folder::class, $notes);
+        $this->folder = $notes->newFolder($this->run);
     }
+    protected function tearDown(): void {
+        try {
+            if (array_key_exists('policy', $this->before)) {
+                $config = Server::get(IAppConfig::class);
+                $before = $this->before['policy'];
+                $before === null ? $config->deleteKey('mcp', FileWritePolicy::KEY) : $config->setValueString('mcp', FileWritePolicy::KEY, $before, false);
+                $config->clearCache(false);
+            }
+        } finally {
+            // The existing account fixture removes this test's user, files and credentials.
+            parent::tearDown();
+        }
+    }
+
     public function testResolvedNoteNamesAndPartialConfirmationFollowChangedPolicy(): void {
-        $folder = $this->ensureFolder(self::ALICE, 'Notes/' . $this->run);
+        $folder = $this->folder;
         $note = $folder->newFile('Original.md', 'original');
-        $mcp = $this->mcp(self::ALICE, 'bearer');
+        $mcp = new McpClient(LoginFactory::bearer($this->uid));
         $args = ['id' => (int)$note->getId(), 'append' => 'new', 'title' => 'Renamed'];
         $plan = $mcp->tool('notes_edit', $args);
         self::assertTrue($plan->ok(), $plan->describe());
