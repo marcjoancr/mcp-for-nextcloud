@@ -3,12 +3,13 @@
 
 # Independent fork continuation plan
 
-Status: proposed, 2026-10-23. This document authorizes no implementation,
-publication, branch promotion, release or deployment. The user requested a plan
-for continuing the existing capability architecture for their Nextcloud needs.
-Branch names, version policy and operational choices below are recommendations
-for approval, not already configured repository policy. Documentation review and
-commit creation do not approve those operational decisions or execute any phase.
+Status: F0 closed by user confirmation on 2026-10-23; F1 not started. The user
+approved the development baseline, branch policy and ongoing maintenance
+accountability recorded below. The separate request to remove the local original
+repository remote has been carried out. Runtime implementation, publication,
+branch promotion, releases and deployment have not been authorized by this
+documentation task. F3 decisions, including public identity, initial version and
+platform scope, remain pending, as do human reviewer assignments.
 
 ## Purpose and baseline
 
@@ -26,7 +27,9 @@ is the architectural proposal and historical qualification reference.
 On 2026-10-23, the maintainer
 [announced 1.2.0 and their intended capability reorganization for 1.3.0](https://github.com/sintax-tech/mcp-for-nextcloud/pull/14#issuecomment-6355529655).
 This is not evidence that our candidate contains 1.2.0 or that upstream accepted
-our implementation. Inventory that release before selecting changes.
+our implementation. The release references are now verified in the
+[F0 record](#f0-reference-verification-and-decision-record). Inventory its behavior
+in F2 before selecting changes.
 
 Existing architecture and test rules remain owned by
 [the architecture specification](architecture-specification.md),
@@ -58,11 +61,11 @@ Do not create compatibility wrappers merely to accommodate upstream file paths.
 | Reference | Proposed role | Rules |
 | --- | --- | --- |
 | `origin/refactor/complete-upstream-pr` | Existing PR #14 reference | Preserve its name and history; no fork-only development, force-push or automatic retargeting |
-| `fork/main` | Long-lived fork integration branch | Create from the exact candidate above after approval; initially local; protect before accepting remote contributions |
+| `fork/main` | Approved long-lived fork integration branch | Create from the exact candidate above when F1 is requested; initially local; protect before accepting remote contributions |
 | `feat/*`, `fix/*`, `docs/*`, `test/*` | Short-lived changes from `fork/main` | One reviewable objective, relevant checks and explicit compatibility impact |
 | `fix/upstream-<release>-<topic>` | Selected upstream ports | Record original commit, behavior and validation; no automatic upstream merges |
 | `release/fork-<major>.<minor>` | Optional supported maintenance line | Create only if more than one release line is actually supported |
-| `upstream/*` remote-tracking references | Original project's history | Read-only inputs updated by fetch; not fork development branches |
+| Original repository URLs and pinned commit IDs | Read-only source and advisory references | No configured `upstream` remote; no automatic merges or new PRs to the original repository |
 
 Keep the existing `main` unchanged during preparation. Switching the fork's default
 branch to `fork/main` is a later, explicit repository administration action. It
@@ -81,8 +84,13 @@ publishing that tag is outside this documentation task.
 
 Leave PR #14 open and unchanged as a reference unless its maintainer or the user
 chooses otherwise. Its eventual closure does not remove the fork baseline.
-Upstream contributions remain possible from separate branches based on the then
-current upstream revision. There is no requirement to submit every fork change.
+The user has chosen to stop submitting PRs to the original repository. Do not
+re-add `upstream`, retarget the GitHub CLI default, or open another original-project
+PR without a new explicit request. This does not prohibit reading releases,
+security advisories and source by their explicit URLs or importing selected
+changes under their licenses. F2 can retrieve a pinned commit from an explicit
+source URL when requested, without configuring a persistent remote. Such a
+retrieval does not authorize publication or contribution to the original.
 
 ## Versions, identity and support
 
@@ -208,9 +216,9 @@ F1. Record an owner and decision deadline for public identity, initial version,
 intended host/platform scope and support-review assignments; resolve the first
 three before F3 metadata and host qualification work. An explicit decision to
 exclude a client from the initial support scope is permitted, but is not evidence
-that its pending acceptance passed. The user is the proposed fork owner and release decision
-maker; their prior acceptance of temporary staging operation is not automatic
-acceptance of ongoing production support duties.
+that its pending acceptance passed. The user has now explicitly accepted ongoing
+fork maintenance and release/security decision ownership; this is recorded in the
+F0 decision table rather than inferred from prior temporary staging duties.
 
 Acceptance: immutable references are recorded, PR head remains unchanged, an
 accountable maintenance/security owner accepts the role, and unresolved naming or
@@ -316,8 +324,8 @@ security monitoring is recorded.
 | Item | Recommendation or current status | Consequence |
 | --- | --- | --- |
 | Fork identity and first version | Independent display identity; propose 2.0.0 | Owner approval before metadata changes |
-| Long-term owner and support scope | User as owner with engineering assistance; reviewers not assigned | Confirm operating/security responsibilities before release |
-| Upstream 1.2.0 | Announced by maintainer; not integrated or inventoried here | No claim of 1.2.0 parity |
+| Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; platform scope and reviewers remain pending | Resolve platform scope before F3 and accountable release review before deployment |
+| Upstream 1.2.0 | Release tag and commit verified in F0; behavior not inventoried or integrated | No claim of 1.2.0 parity |
 | Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |
@@ -331,6 +339,115 @@ artifact. HTTPS, Inspector and ChatGPT acceptance need not block local fork work
 they must block unsupported claims and any deployment that depends on those
 unverified paths. Do not describe the external Inspector result as an observed
 server disclosure without additional evidence.
+
+## F0 reference verification and decision record
+
+Checked and confirmed on 2026-10-23. Technical reference verification is complete
+and the user explicitly confirmed all three F0 decisions. F0 is closed; no F1
+branch, tag, runtime change or release has been created. The separate local remote
+configuration change is recorded below. F0 closure does not approve F3 decisions
+or complete any human review.
+
+### Verified immutable inputs
+
+| Input | Exact identity | Result |
+| --- | --- | --- |
+| Fork candidate / PR #14 head | `14a76df26817fb8a4540eb9c9d1d0043e3e87506` | Local reference, remote fork branch and PR head agree; PR remains open |
+| Reviewed plan commit | `8e44a40e0bfae9bc5d3aab8039c2f784250d4982` | Documentation-only child of the candidate; on `docs/fork-continuation-plan` |
+| Integrated upstream 1.1.2 | `27da5e107ca06d92b7af9b8a80ad9c77c12ba91e` | Ancestor of the candidate; annotated `v1.1.2` tag resolves here |
+| Upstream 1.1.2 tag object | `883dbe13f0098eecbc57a9f47144d7e72f1184c6` | Annotated, reported unsigned by GitHub |
+| Released upstream 1.2.0 | `02526119b845ccc1d8399be002da3e30b5527df6` | Annotated `v1.2.0` tag resolves here; manifest declares 1.2.0 |
+| Upstream 1.2.0 tag object | `909773d86d5f2c0761c4d0f44de8b2710c1ac86d` | Annotated, reported unsigned by GitHub |
+| Observed upstream `main` | `7c5ef6d6e183cfacc5626609857631f84f7c8b2a` | One commit after 1.2.0, changing only reporter credits in `CHANGELOG.md` |
+
+The [1.2.0 release](https://github.com/sintax-tech/mcp-for-nextcloud/releases/tag/v1.2.0)
+was published on 2026-10-23 at 01:40:28 UTC. Its `target_commitish` is the mutable
+name `main`; use the dereferenced tag commit above, not that name, for F2 inputs.
+The [post-release comparison](https://github.com/sintax-tech/mcp-for-nextcloud/compare/02526119b845ccc1d8399be002da3e30b5527df6...7c5ef6d6e183cfacc5626609857631f84f7c8b2a)
+accounts separately for the later credit correction. Preserve accurate attribution
+when incorporating the relevant changes; do not silently expand the release scope.
+Unsigned tag status is recorded honestly: GitHub reference resolution verifies
+which source was selected, not a cryptographic publisher signature or artifact
+integrity. No release archive was downloaded or qualified during F0.
+
+Both the fork candidate and released upstream 1.2.0 declare app ID `mcp`, PHP
+minimum 8.2 and Nextcloud 32-35. This metadata agreement does not prove runtime
+parity or identify the user's actual production platform. The current local
+`main` remains `a1a7911cc72dcf2487d17e06e23edfa89b0ecf92`; no local `fork/main`
+exists. GitHub's PR response still reports base SHA `27da5e1`, whereas the direct
+upstream branch reference reports `7c5ef6d`; this API discrepancy is not used to
+select a source baseline. The PR head is independently verified against the fork
+branch, and the release is independently verified through its annotated tag.
+
+### Confirmed decisions for F1
+
+| Decision | Confirmed choice | Decision owner / gate | Current state |
+| --- | --- | --- | --- |
+| Development baseline | Continue from `14a76df` with the existing capability architecture, preserve source history, and carry the reviewed plan plus this F0 record into the fork line | User / F0 | Confirmed 2026-10-23 |
+| Branch policy | Use `fork/main` for local development, retain `main` and `refactor/complete-upstream-pr` unchanged, and keep PR #14 as a reference | User / F0 | Confirmed 2026-10-23 |
+| Ongoing maintenance accountability | User owns release/security decisions, upstream monitoring and supported operation/recovery; the assistant performs requested engineering and validation | User / F0 | Explicitly confirmed 2026-10-23 |
+
+Accepting maintenance ownership does not assign the user as every specialist
+reviewer, assert expertise they have not claimed, or close a review requirement.
+Engineering assistance is session-based; no scheduled monitoring or response SLA
+has been configured. Reviewers remain unassigned.
+
+### Decisions that may remain open after F0
+
+These substantive choices remain pending at the user's explicit request. The
+user retains decision ownership and coordinates reviewer assignments; the
+assistant prepares technical options and evidence. The phase deadlines below
+remain in effect. F0 closure does not prematurely approve deployment.
+
+| Decision | Recommendation, still pending | Decision owner / deadline |
+| --- | --- | --- |
+| Public display identity | Clearly identify an independent fork while retaining Sintax attribution; choose the final name before changing runtime identity | User / before F3 |
+| Initial release version | Independent `2.0.0`, numeric app version and `fork-v2.0.0` release tag; subject to native upgrade checks | User / before F3 |
+| Intended host and support scope | Start with the user's Nextcloud; record its Nextcloud/PHP/database versions, relevant app versions and installed MCP version before selecting the qualification matrix; do not request secrets | User supplies scope, assistant verifies available evidence / before F3 |
+| Supported clients | ChatGPT is the stated intended client; qualify its real journey before claiming support or deploying a path that depends on it | User defines release scope / before F3; acceptance before dependent deployment |
+| Reviewer assignments | Technical/security, accessibility, document languages and German UI remain unassigned; the user coordinates assignment or a documented scope decision | User coordinates; reviewers pending / record disposition before F4 release readiness; accountable security and release review before deployment |
+| Update exclusion, integrity and source-offer mechanism | Engineering investigation and an isolated reproducible test, within the approved identity/platform scope | Assistant prepares evidence / F3; no mechanism is asserted to work yet |
+
+The assistant can resolve Git object selection, source comparisons, inventory
+structure, focused test selection and implementation details within approved scope.
+Those do not authorize changing the default branch, publishing artifacts or
+exposing HTTPS. The user's long-term responsibilities are limited to the explicit
+F0 confirmation, not additional duties inferred by the assistant.
+
+### F0 result and next gate
+
+F0 is closed: the technical references are verified and the three owner decisions
+are confirmed. F1 is eligible to start when requested, but has not begun in this
+task. A later F1 implementation must incorporate the reviewed documentation commit
+and this F0 closure commit; neither belongs on the PR head.
+
+HTTPS, Inspector (including the previously recorded 14/15 encrypted-storage
+finding), ChatGPT and human reviews retain the acceptance limits already listed
+above. No runtime, client or production qualification was repeated in F0. Do not
+turn these pending checks into a claim that all tests or reviews have passed.
+
+### Local remote policy applied at F0 closure
+
+At the user's explicit request, the local remote `upstream`, which pointed to
+`git@github.com:sintax-tech/mcp-for-nextcloud.git`, was removed. Its only local
+tracking reference was `refs/remotes/upstream/main` at the already integrated
+1.1.2 commit; that tracking reference was removed with the remote. The same commit
+remains reachable through the preserved fork/PR history. No branch or tag on
+GitHub was deleted or changed.
+
+The retained remote is `origin`, pointing to
+`git@github.com:marcjoancr/mcp-for-nextcloud.git`. GitHub CLI's default repository
+was explicitly changed to `marcjoancr/mcp-for-nextcloud`; previously it selected
+the original repository through `remote.upstream.gh-resolved`. Both the remaining
+remote list and `gh repo set-default --view` were checked after the change.
+
+These local settings are shared by the linked worktrees of this checkout. They
+are not part of the documentation commit and are not automatically applied to
+other clones. They do not detach the GitHub fork relationship or impose an access
+control: an explicit repository argument could still target the original. Our
+workflow policy is therefore also explicit: no new original-project PRs, no
+pushes or publication without the user's corresponding request. PR #14 remains
+open at `14a76df` as a historical reference, not a branch for ongoing fork work.
 
 ## Validation of this documentation change
 
@@ -346,5 +463,7 @@ git diff --check
 These checks cover documentation, provenance and tooling, not runtime release
 acceptance or production package qualification. This English development plan stays outside
 the operational package allowlist and does not require duplicate translations.
-Add it to the development index for discovery. No application behavior, version,
-legal text, update configuration or PR state changes are part of this task.
+The development index links this plan. No application behavior, version, legal
+text, deployment update configuration or PR state changes are part of this task.
+The only non-documentation change is the expressly requested local Git/GitHub CLI
+remote configuration recorded above.
