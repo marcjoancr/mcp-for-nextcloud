@@ -8,8 +8,8 @@ preserves that inventory phase, its findings against the evaluated fork revision
 and the reviewed acceptance criteria. Selected batches A-E and their local
 automated qualification are now complete, as recorded in the
 [integration record](upstream-1.2.0-integration.md). The subsequent review and user
-authorization select D06 too: its local implementation is complete, with native
-qualification in progress under the [follow-up plan](deck-file-link-integration.md).
+authorization select D06 too: implementation and local native qualification are
+complete under the [follow-up plan](deck-file-link-integration.md).
 The D06 disposition below is superseded explicitly; other inventory findings keep
 their historical baseline. F3 and human review remain pending.
 
@@ -78,7 +78,7 @@ with the fork's explicit `Access/`, `Platform/`, `Mcp/` and `Modules/` ownership
 | D03 / P2 | Port label discovery and incremental edits `e0a6b39`, `a007fe8` | Add capability-owned `Modules/Deck/Labels` operations and two tool adapters; preserve unrelated labels and reject foreign-board labels. |
 | D04 / P2 | Port visible card-file listing/unlink from `fb39797`, plus alias/Guests tests `704bdce`, `b9b131e` | Add `Modules/Deck/Files` operations. Use explicit Files visibility access rather than treating Deck access as Files access. Unlink removes an association only, never the original file. |
 | D05 / P2 | Port dependency read/change `7ce8ee2`, `f4609bf` | Add `Modules/Deck/Dependencies` operations and a native API capability check. Advertise and execute only on verified compatible NC34/35 Deck APIs; no synthetic fallback graph. |
-| D06 / P2, follow-up | Port native file linking and recipient expansion `7fef90b`, `da7ff40` under the renewed user authorization | The original deferment is superseded by the [coherence review and follow-up contract](deck-file-link-integration.md): existing native Files group shares already persist outside later MCP policy changes. Require strict native/Files grants, complete audience and core-policy admission, fresh explicit confirmation, cleanup of privileged Circles state and clear current/future-member and non-atomicity warnings. Local implementation is complete; native qualification is recorded separately. |
+| D06 / P2, follow-up | Port native file linking and recipient expansion `7fef90b`, `da7ff40` under the renewed user authorization | The original deferment is superseded by the [coherence review and follow-up contract](deck-file-link-integration.md): existing native Files group shares already persist outside later MCP policy changes. Require strict native/Files grants, complete audience and core-policy admission, fresh explicit confirmation, cleanup of privileged Circles state and clear current/future-member and non-atomicity warnings. Implementation and local native qualification are complete; evidence is recorded separately. |
 | W01 / P2, complete unit | Port optional filename policy `42a44f7`, `772f81f`, `18fe511`, `2f90d5f`, `a55d554`, `5a88b32`, `29b1761`, with corrections `3ceabe2`, `ecba970`, `e41cafd`, `5822966` | Add a proposed `Access/FileWritePolicy` owner for configuration/decisions and `Platform/FileAccess` boundary primitives, consumed by existing Files and Notes operations. Complete the sink coverage before exposing an enabled policy. |
 | OBS / P1 | Port narrow expected-refusal logging from `55c23d4` | Adapt Deck integration failures and `Modules/Files/Sharing/ShareWriter.php` / `ShareRemover.php`; only proven expected refusals or AlreadyShared cases move to debug. Uncertain/partial writes and unexpected failures keep warnings/errors. |
 | QA / supporting | Adapt native pins/provisioning `d526e2f`, `229a1c8`, API/parser and selected feature tests | Extend existing test owners and the fork's disposable matrix. Preserve our full-history, recovery, isolation and redaction behavior; tests are selected by adopted behavior, not copied by directory. |

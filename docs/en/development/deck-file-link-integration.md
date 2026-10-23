@@ -55,15 +55,26 @@ Interfaces: use the D06-only `NativeLinkSource` for unenriched native source aut
 - [x] Port focused upstream `CardFileLinkTest`, `BoardRecipientResolverTest`, `DeckRecipientDirectoryTest`, native `CardFileLinkTest`/`BoardRecipientTest` and fixtures, plus necessary Guest scenarios. Preserve behavioral assertions; resolve local fixture interfaces rather than weaken expectations.
 - [x] Run focused new tests, complete PHP suite, lint, both static-analysis scopes, API/architecture contracts and attribution. Update precise catalog counts (Deck21/18 without dependencies; modules82; max84 including2diagnostics,81 without dependencies) only after checking actual discovery.
 - [x] Independent task review; fix concrete findings with regressions and scoped re-review.
-- [ ] Run native focused cases on NC32,33,34,35 using pinned Deck versions, plus PostgreSQL/SQLite on35 where relevant. Run a final unfiltered NC35/MariaDB cell to catch fixture-order interactions. Old16-cell evidence remains valid only for the prior revision; identify new qualification separately. Record failures and cleanup, do not claim a fresh16-cell matrix unless run.
-- [ ] Commit the reviewed candidate after local gates to pin native evidence, then close this task only after its native gates pass; no publication.
+- [x] Run native focused cases on NC32,33,34,35 using pinned Deck versions, plus PostgreSQL/SQLite on35 where relevant. Run a final unfiltered NC35/MariaDB cell to catch fixture-order interactions. Old16-cell evidence remains valid only for the prior revision; identify new qualification separately. Record failures and cleanup, do not claim a fresh16-cell matrix unless run.
+- [x] Commit the reviewed candidate after local gates to pin native evidence, then close this task only after its native gates pass; no publication.
 
 ## Task 2 — Reconcile documentation and review evidence
 
 Ownership: canonical English README/guides/configuration/architecture/store metadata where tool inventory or linking claims change; inventory/source ledger/fork plan/integration report; translations retain true provenance and review-required labels. Historical A-E evidence stays immutable in meaning and is explicitly identified as preceding D06.
 
 - [x] Document review of the existing A-E implementation and independently audit all16 saved JUnit/results/source identities/archive hashes and725 runtime source files per archive against baseline.
-- [ ] Replace current D06-deferred claims with actual implemented semantics after Task1 passes; retain historical deferment and explain why the renewed authorization/comparison supersedes it. QQUEUE, German README, F3 metadata and pending human/client paths remain separate.
-- [ ] Record new test/review/packaging outcomes and limitations; no human approval or unrestricted full-version compatibility claim.
-- [ ] Run docs check, translation provenance, documentation tests, production package and REUSE; use full catalog check for the final applicable code state and targeted interpreter coverage if new syntax/dependencies warrant it.
-- [ ] Whole-change review, correct material findings, final local commit and clean-tree verification.
+- [x] Replace current D06-deferred claims with actual implemented semantics after Task1 passes; retain historical deferment and explain why the renewed authorization/comparison supersedes it. QQUEUE, German README, F3 metadata and pending human/client paths remain separate.
+- [x] Record new test/review/packaging outcomes and limitations; no human approval or unrestricted full-version compatibility claim.
+- [x] Run docs check, translation provenance, documentation tests, production package and REUSE; use full catalog check for the final applicable code state and targeted interpreter coverage if new syntax/dependencies warrant it.
+- [x] Whole-change review, correct material findings, final local commit and clean-tree verification.
+
+## Qualification status
+
+The implementation and native gates are complete; see the
+[integration evidence](upstream-1.2.0-integration.md#review-and-d06-follow-up).
+The complete catalog qualified the production code at `697e249`; subsequent
+commits change only native fixtures and add two fixture-runtime regressions,
+validated separately on PHP 8.2/8.3/8.5. The six focused native cells use `0e50d0b`;
+the final unfiltered cell uses `f97c07b`, with identical packaged runtime.
+The final documentation/package gate and whole-change review have passed; the
+evidence commit records their results. F3, human reviewers, HTTPS, Inspector and ChatGPT stay pending.
