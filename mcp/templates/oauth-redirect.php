@@ -10,7 +10,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="refresh" content="0;url=<?php p($_['target']); ?>">
-    <title>MCP for Cloud</title>
+    <title>Nextcloud MCP</title>
 </head>
 <body>
     <p><a href="<?php p($_['target']); ?>" rel="noreferrer"><?php p($l->t('Connect')); ?></a></p>

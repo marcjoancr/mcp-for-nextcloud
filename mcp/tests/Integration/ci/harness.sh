@@ -8,7 +8,7 @@
 #
 # Usage: harness.sh <packages|tools|start-db|start-nextcloud|install-app|fixtures|provision|report|test|recovery|collect>
 # Cell, from the workflow matrix:
-#   MCP_IT_NC          Nextcloud major (32..35)
+#   MCP_IT_NC          Nextcloud major (33..35)
 #   MCP_IT_NC_IMAGE    official Nextcloud Apache image, pinned as tag@digest
 #   MCP_IT_DB          mariadb | pgsql | sqlite
 #   MCP_IT_DB_IMAGE    database image, pinned as tag@digest (empty for sqlite)
@@ -224,7 +224,7 @@ cmd_install_app() {
         docker exec -u www-data "$NC" tar -xzf /tmp/mcp-baseline.tar.gz -C /var/www/html/custom_apps
         occ app:enable mcp
         assert_installed_version "$baseline_version"
-        if [ "$MCP_IT_MODE" != replace-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream-111 ]; then
+        if [ "$MCP_IT_MODE" != upgrade-upstream-112 ] && [ "$MCP_IT_MODE" != upgrade-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream-111 ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
             docker exec -u www-data -e MCP_IT_MODE="$MCP_IT_MODE" "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-policy.php seed /tmp/mcp-it-snapshot.json
         else
@@ -242,23 +242,20 @@ cmd_install_app() {
         mv "$WORK/info.xml.next" "$WORK/branch-pkg/mcp/appinfo/info.xml"
     fi
     if [ -n "$MCP_IT_BASELINE" ]; then
-        if [ "$MCP_IT_MODE" = replace-upstream ]; then
-            [ "$expected" = "$baseline_version" ] || { echo 'Replacement requires identical declared versions' >&2; exit 1; }
-        else
-            # shellcheck disable=SC2016
-            php -r 'exit(version_compare($argv[1], $argv[2], ">") ? 0 : 1);' "$expected" "$baseline_version" || {
-                echo 'Upgrade needs a newer candidate version; explicit MCP_IT_QUALIFICATION_VERSION=1.1.0 is diagnostic only' >&2; exit 1;
-            }
-        fi
+        # An independently versioned fork must run a real native upgrade.
+        # shellcheck disable=SC2016
+        php -r 'exit(version_compare($argv[1], $argv[2], ">") ? 0 : 1);' "$expected" "$baseline_version" || {
+            echo 'Upgrade needs a newer candidate version' >&2; exit 1;
+        }
         occ maintenance:mode --on
         docker cp "$WORK/branch-pkg/mcp" "$NC:/tmp/mcp-next"
         docker exec "$NC" sh -c 'mv /var/www/html/custom_apps/mcp /tmp/mcp-previous && mv /tmp/mcp-next /var/www/html/custom_apps/mcp && chown -R www-data:www-data /var/www/html/custom_apps/mcp'
-        if [ "$MCP_IT_MODE" != replace-upstream ]; then occ upgrade; fi
+        occ upgrade
         # A new Apache process removes old opcache/APCu without faking an upgrade.
         docker restart "$NC" >/dev/null
         wait_for 'Nextcloud after replacement' 180 nextcloud_ready
         occ maintenance:mode --off
-        if [ "$MCP_IT_MODE" = replace-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream-111 ]; then
+        if [ "$MCP_IT_MODE" = upgrade-upstream-112 ] || [ "$MCP_IT_MODE" = upgrade-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream-111 ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php verify
         fi
     else

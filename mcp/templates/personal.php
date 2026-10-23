@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 /**
- * Personal page of the "MCP for Cloud" settings section: a status card (service, administrator eligibility,
+ * Personal page of the "Nextcloud MCP" settings section: a status card (service, administrator eligibility,
  * own connection) with the Connect/Disconnect switch, the user's own OAuth connections (filled by
  * js/personal.js), read-only resource scope and app-password guidance. Every visible string uses the IL10N that
  * \OC\Template\Base injects as $l, so the page follows the user language.

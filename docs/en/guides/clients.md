@@ -21,7 +21,7 @@ Every client talks to the same URL, `https://cloud.example.com/apps/mcp/`, and a
 3. Authentication: **Sign in** (OAuth), client: **Claude's published identity** (CIMD). No headers needed.
 4. **Connect**: your Nextcloud opens, you log in and click **Allow**.
 
-`claude.ai` is in the allowed client hosts out of the box, so nothing has to be changed on the server. If an administrator narrowed that list, Claude is refused with `invalid_client` before the login page even opens: ask them to put `claude.ai` back in *Administration settings → MCP for Cloud → OAuth clients → Allowed client hosts*.
+`claude.ai` is in the allowed client hosts out of the box, so nothing has to be changed on the server. If an administrator narrowed that list, Claude is refused with `invalid_client` before the login page even opens: ask them to put `claude.ai` back in *Administration settings → Nextcloud MCP → OAuth clients → Allowed client hosts*.
 
 ### ChatGPT
 
@@ -29,13 +29,13 @@ Every client talks to the same URL, `https://cloud.example.com/apps/mcp/`, and a
 2. Authentication: **Sign in** (OAuth). ChatGPT identifies itself with the client identity document published at `chatgpt.com`; the app downloads that document to learn the redirect URIs it registered. No headers, no app password.
 3. **Connect**: your Nextcloud opens, you log in and click **Allow**.
 
-`chatgpt.com` is allowed by default, so an installation that was never configured already accepts ChatGPT. If an administrator narrowed the list to other hosts, ChatGPT is refused with `invalid_client` before the login page opens — ask them to add `chatgpt.com` back in *Administration settings → MCP for Cloud → OAuth clients → Allowed client hosts*.
+`chatgpt.com` is allowed by default, so an installation that was never configured already accepts ChatGPT. If an administrator narrowed the list to other hosts, ChatGPT is refused with `invalid_client` before the login page opens — ask them to add `chatgpt.com` back in *Administration settings → Nextcloud MCP → OAuth clients → Allowed client hosts*.
 
 ### Gemini CLI
 
 Two steps, one from the administrator and one from the user, with no terminal on the server.
 
-**Administrator** — *Administration settings → MCP for Cloud → OAuth clients*:
+**Administrator** — *Administration settings → Nextcloud MCP → OAuth clients*:
 
 1. Tick **Allow local programs (native client)**. It is off by default.
 2. The section then reveals the `client_id` to copy — `nextcloud-mcp-native` — and the redirect URIs it accepts.
@@ -62,7 +62,7 @@ Why a built-in client: Gemini CLI has no published client identity document, so 
 
 ### Administrators: OAuth clients
 
-*Administration settings → MCP for Cloud → OAuth clients* decides which clients may connect, without any terminal step:
+*Administration settings → Nextcloud MCP → OAuth clients* decides which clients may connect, without any terminal step:
 
 - **Allowed client hosts** — the hosts whose published client identity document the app is willing to download, separated by commas; `claude.ai` and `chatgpt.com` by default. Exact host names only: no `https://`, no port, no path, no `*`, and at least one host has to stay. The host is the one in the URL the client uses as its `client_id`. Saving replaces the whole list, and removing a host refuses that client immediately, even when its document is already cached.
 - **Allow local programs (native client)** — enables the `nextcloud-mcp-native` client described above and shows the `client_id` and the accepted redirect URIs to copy.
@@ -73,7 +73,7 @@ Client controls are administrator-only, CSRF-protected and revision-checked, and
 
 ### Other MCP clients (app password)
 
-Create an app password in *Personal settings → Security*, enable the connection in *Personal settings → MCP for Cloud*, then configure the client with the URL above and HTTP Basic auth (`username:app-password`). Quick check:
+Create an app password in *Personal settings → Security*, enable the connection in *Personal settings → Nextcloud MCP*, then configure the client with the URL above and HTTP Basic auth (`username:app-password`). Quick check:
 
 ```bash
 curl -u 'alice:APP-PASSWORD' \

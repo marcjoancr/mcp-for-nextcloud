@@ -7,7 +7,7 @@
 These tests load the installed Nextcloud core, not unit doubles. Run an explicit
 cell with `composer --working-dir=mcp test:integration -- 35 sqlite fresh`.
 Prefix the three cell arguments with `--plan` to inspect pins without starting
-containers. `ci/matrix.php --matrix` lists all 16 supported cells. Ordinary
+containers. `ci/matrix.php --matrix` lists all 14 candidate cells. Ordinary
 `composer check` excludes only this native suite and never starts Docker.
 
 Docker and Linux `ip`/`flock`, PHP, Composer, the locked Node/npm versions, curl and OpenSSL
@@ -41,10 +41,13 @@ The probe runs in a separate process and checks each loaded class's source. Thes
 are exact baseline-fixture exceptions to retired-name scans, not candidate loaders.
 `ci/replacement.php` similarly seeds the pinned upstream layout, then verifies unchanged database state and bearer access
 after Apache restart. `upgrade-upstream` installs 1.1.0 and runs `occ upgrade` to
-the candidate 1.1.2; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
-`replace-upstream` installs upstream 1.1.2 and performs
-same-version replacement without forcing migrations. All three retain the actual
-declared versions and use only disposable instances.
+the candidate 2.0.0; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
+`upgrade-upstream-112` installs the pinned upstream 1.1.2 and runs a real
+`occ upgrade` to the newer candidate. The fixture verifies policy, scopes, clients,
+credentials and migration state. The historical same-version replacement remains
+recorded at revision `5ff6672`; it is not a valid mode for a 2.0.0 candidate and has
+not been retained as a bypass. NC32 native cells likewise belong to that historical
+revision, whose manifest admitted NC32; current candidate cells start at NC33.
 
 Before installing either app package, the harness disables the App Store on the
 throwaway Nextcloud instance and verifies the boolean setting. `occ upgrade`
@@ -53,10 +56,10 @@ replace the pinned candidate with a newer published release. Archive hashes and
 exact installed-version assertions remain required. This disposable test setting
 does not qualify production update controls, which remain a separate F3 review.
 
-The selected upstream 1.2.0 source integration retains candidate version 1.1.2
-pending F3. These paths do not qualify an upgrade from an installed upstream
-1.2.0; the independent release version and actual host's installed version require
-separate qualification. Deck is pinned to 1.16.8/1.17.7/1.18.5/1.19.0 for
+The current matrix still uses the previously qualified image pins. It does not
+certify newer security patches or an upgrade from installed upstream 1.2.0. F3/F4
+must bind final source and artifact evidence to the approved release profiles and
+the intended host before deployment. Deck is pinned to 1.16.8/1.17.7/1.18.5/1.19.0 for
 NC32/33/34/35; Contacts is pinned to 8.3.21 for NC32 and 8.9.2 for NC33–35.
 Archive hashes and identity/version/server-bound checks precede provisioning.
 The three dependency tools are present only for verified NC34/35 Deck APIs;

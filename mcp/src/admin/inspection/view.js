@@ -91,7 +91,7 @@ export function createInspectionView({ t, el, getUser, getKinds }) {
 		return {
 			service: t('mcp', 'Turn the service on in the Overview tab.'),
 			eligibility: t('mcp', 'Turn on “Can connect” in the matrix or through a group.'),
-			connection: t('mcp', 'They turn it on in their personal settings, under MCP for Cloud.'),
+			connection: t('mcp', 'They turn it on in their personal settings, under Nextcloud MCP.'),
 		}[gate] || ''
 	}
 	/**
