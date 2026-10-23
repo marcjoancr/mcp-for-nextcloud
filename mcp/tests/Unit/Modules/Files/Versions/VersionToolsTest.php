@@ -75,7 +75,7 @@ final class VersionToolsTest extends TestCase {
         $config = (new InMemoryConfig())->mock($this);
         $this->backup = new FileBackup($this->apps, $this->users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this));
         $this->tools = new VersionReader($this->apps, $this->users, new TextExtractor($temp), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($container)->get(VersionReader::MANAGER), new OcrSupport($this->apps));
-        $this->restorer = new VersionRestorer(new VersionReader($this->apps, $this->users, new TextExtractor($temp), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($container)->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->backup, new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), null);
+        $this->restorer = new VersionRestorer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new VersionReader($this->apps, $this->users, new TextExtractor($temp), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($container)->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->backup, new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), null);
     }
 
     private function file(): \OCP\Files\File {
@@ -197,7 +197,7 @@ final class VersionToolsTest extends TestCase {
         $container = $this->createMock(ContainerInterface::class);
         $container->method('get')->willReturn($this->manager);
         $locks = $locked ? (new FakeLockManager())->service($this) : null;
-        $tools = new VersionRestorer(new VersionReader($this->apps, $this->users, $this->createMock(TextExtractor::class), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($container)->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->backup, new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), $guard, $locks);
+        $tools = new VersionRestorer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new VersionReader($this->apps, $this->users, $this->createMock(TextExtractor::class), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($container)->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->backup, new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), $guard, $locks);
         try {
             $tools->restore($this->tree->rootFolder(), $this->file(), '/Documentos/ata.md', '1759100000', 'alice');
             $this->fail('Restore published a hidden receipt');
@@ -217,7 +217,7 @@ final class VersionToolsTest extends TestCase {
     public function testRestoreWithoutVersioningNeverRollsBack(): void {
         $this->apps = $this->createMock(IAppManager::class);
         $this->apps->method('isEnabledForUser')->willReturn(false);
-        $tools = new VersionRestorer(new VersionReader($this->apps, $this->users, $this->createMock(TextExtractor::class), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($this->createMock(ContainerInterface::class))->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->backup, new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), null);
+        $tools = new VersionRestorer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new VersionReader($this->apps, $this->users, $this->createMock(TextExtractor::class), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($this->createMock(ContainerInterface::class))->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->backup, new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), null);
         try {
             $tools->restore($this->tree->rootFolder(), $this->file(), '/Documentos/ata.md', '1759100000', 'alice');
             $this->fail('a restore without versioning must not proceed');
@@ -246,7 +246,7 @@ final class VersionToolsTest extends TestCase {
         $container = $this->createMock(ContainerInterface::class);
         $container->method('get')->willReturnCallback(fn (string $id) => $id === self::MANAGER ? $this->manager : null);
         $service = $locks->service($this);
-        return new VersionRestorer(new VersionReader($this->apps, $this->users, $this->createMock(TextExtractor::class), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($container)->get(VersionReader::MANAGER), new OcrSupport($this->apps)), new FileBackup($this->apps, $this->users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), $service), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), $service);
+        return new VersionRestorer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new VersionReader($this->apps, $this->users, $this->createMock(TextExtractor::class), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), fn () => ($container)->get(VersionReader::MANAGER), new OcrSupport($this->apps)), new FileBackup($this->apps, $this->users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), $service), new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager()), new SharedWriteGuard(new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager())), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), $service);
     }
 
     /**

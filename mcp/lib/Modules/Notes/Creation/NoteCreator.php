@@ -15,6 +15,7 @@ class NoteCreator
 {
 
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private \OCA\Mcp\Modules\Notes\Content\NoteContent $content,
         private \OCA\Mcp\Modules\Notes\Storage\NotesFolders $folders,
         private \OCA\Mcp\Modules\Notes\Execution\NoteWriteAccess $writeAccess,
@@ -37,6 +38,10 @@ class NoteCreator
         $content = (string) ($arguments['content'] ?? '');
         $category = (string) ($arguments['category'] ?? '');
         $this->content->assertSize($content);
+        $existingRoot = $this->folders->folder($userId, false);
+        $existingFolder = $this->folders->existingCategory($existingRoot, $category);
+        $projected = $existingFolder === null ? $this->names->initialName((string)$arguments['title']) : $this->names->freeName($existingFolder, (string)$arguments['title']);
+        $this->fileTypes->assertWritableName($projected);
         $target = $this->folders->existingAncestor($userId, $category);
         $resource = trim($category, '/') === '' ? '/' : trim($category, '/');
         if (($payload = $this->writeAccess->confirmation($target, $userId, $resource, (bool) ($arguments['confirm_shared'] ?? false))) !== null) {
@@ -44,7 +49,8 @@ class NoteCreator
         }
         $root = $this->folders->folder($userId, true);
         $folder = $this->folders->category($root, $category);
-        return $this->metadata->info(NodeAccess::mutate(fn() => $folder->newFile($this->names->freeName($folder, (string) $arguments['title']), $content), $this->visibilityGuard), $root);
+        $name = $this->names->freeName($folder, (string)$arguments['title']);
+        return $this->metadata->info(NodeAccess::mutate(fn() => $this->fileTypes->writeName($name, fn() => $folder->newFile($name, $content)), $this->visibilityGuard), $root);
     }
 
     /**
@@ -65,6 +71,7 @@ class NoteCreator
             $this->folders->assertCategoryVisible($root, $category);
         }
         $folder = $this->folders->existingCategory($root, $category);
+        $this->fileTypes->assertWritableName($folder === null ? $this->names->initialName((string)$arguments['title']) : $this->names->freeName($folder, (string)$arguments['title']));
         if ($root === null || $folder === null) {
             // The category folder itself does not exist yet: the write creates it, and the plan says so
             // rather than creating anything now.

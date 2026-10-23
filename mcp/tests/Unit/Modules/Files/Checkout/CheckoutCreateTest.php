@@ -65,6 +65,15 @@ final class StagedCreateController extends CheckoutController {
  * new link (the body, a name that appeared, a folder that went away) leaves the link usable.
  */
 final class CheckoutCreateTest extends TestCase {
+    private ?\OCA\Mcp\Tests\Unit\InMemoryAppConfig $fileTypeConfig = null;
+    public function fileTypeGuard(): \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard {
+        return \OCA\Mcp\Tests\Support\Files\FileTypePolicies::fromStore($this, $this->fileTypeConfig ??= new \OCA\Mcp\Tests\Unit\InMemoryAppConfig());
+    }
+    private function allowExtensions(array $extensions): void {
+        $this->fileTypeGuard(); sort($extensions);
+        $this->fileTypeConfig->stored['mcp']['file_write_policy'] = json_encode(['version' => 1, 'mode' => 'allowlist', 'extensions' => $extensions, 'allowExtensionless' => false]);
+    }
+
     private StagedBodyReader $bodyReader;
     private const TOKEN = 'ncmcp_co_c_ABCdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
     private const PATH = '/Documentos/Relatório.docx';
@@ -88,6 +97,27 @@ final class CheckoutCreateTest extends TestCase {
     private bool $aliceEnabled = true;
     private bool $guestAllowed = true;
     private StagedCreateController $controller;
+
+    public function testChangedFilenamePolicyRefusesAnOldCreateLinkWithoutSpend(): void {
+        $this->issue(); $this->allowExtensions(['txt']);
+        self::assertSame(403, $this->controller->upload()->getStatus());
+        self::assertFalse($this->spent()); self::assertSame([], $this->tree->ops);
+        $this->allowExtensions(['docx']);
+        self::assertSame(201, $this->controller->upload()->getStatus());
+    }
+    public function testCreateRechecksAfterEmptyFileAppearsAndKeepsItWhenBlocked(): void {
+        $this->issue(); $this->allowExtensions(['docx']);
+        $this->tree->afterCreate = function (string $path): void { if ($path === self::FILE) $this->allowExtensions([]); };
+        self::assertSame(403, $this->controller->upload()->getStatus());
+        self::assertTrue($this->spent());
+        self::assertSame('', $this->tree->nodes[self::FILE]['content']);
+        self::assertSame(['create ' . self::FILE], $this->tree->ops);
+    }
+    public function testUnreadableCreatePolicyIs503AndLeavesLinkUsable(): void {
+        $this->issue(); $this->fileTypeConfig->stored['mcp']['file_write_policy'] = '';
+        self::assertSame(503, $this->controller->upload()->getStatus());
+        self::assertFalse($this->spent()); self::assertSame([], $this->tree->ops);
+    }
 
     protected function setUp(): void {
         $this->tree = new FakeTree($this);
@@ -144,7 +174,7 @@ final class CheckoutCreateTest extends TestCase {
             $this->hasher,
             $checkout,
             new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests),
-            new CheckoutWriter($root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests), new FileBackup($apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation($access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this)), $this->locks->service($this)),
+            new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests), new FileBackup($apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this)), $this->locks->service($this)),
             ($this->bodyReader = new StagedBodyReader($temp)),
             $this->createMock(LoggerInterface::class),
             null,

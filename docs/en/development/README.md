@@ -17,6 +17,7 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 | Understand analyzer scope and host doubles | [Static analysis](static-analysis.md) |
 | Build the installable artifact | [Packaging](packaging.md) |
 | Edit guides or translations | [Documentation](documentation.md), [translations](translations.md) |
+| Change filename write enforcement | [Filename write policy sink inventory](file-write-policy-sinks.md) |
 | Change file visibility rules | [Exclusion and folder exposure contract](contracts/exclusion-and-folder-exposure.md) |
 
 Use [operational guides](../guides/README.md) for installation and administration.

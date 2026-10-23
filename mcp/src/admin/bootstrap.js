@@ -8,6 +8,7 @@ import { mountService } from './overview/service.js'
 import { mountCheckoutLimit } from './overview/checkout-limit.js'
 import { mountEndpointCopy } from './overview/endpoint-copy.js'
 import { mountOauthClients } from './clients/oauth-clients.js'
+import { mountFileWritePolicy } from './protection/file-policy-controller.js'
 import { mountExcludedTags } from './protection/excluded-tags.js'
 import { mountLogAccess } from './logs/access-groups.js'
 import { mountLogPrivacy } from './logs/privacy.js'
@@ -41,12 +42,20 @@ export function mountAdmin({ root, ...dependencies }) {
     resourceScope = mountResourceScope(access)
     inspector = mountInspector(access)
     const groups = mountGroups(access)
+    const syncProtectionAlert = () => {
+        const marker = root.querySelector('#mcp-tab-protection-alert')
+        marker.hidden = !['mcp-tags-invalid-overview', 'mcp-file-policy-overview'].some(id => {
+            const alert = root.querySelector('#' + id)
+            return alert && !alert.hidden
+        })
+    }
     const owners = [tabs, matrix, overrides, exceptions, rowActions, levelPopover, resourceScope, inspector, groups,
         mountService(section('mcp-block-status')),
         mountCheckoutLimit(section('mcp-block-status')),
         mountEndpointCopy({ ...dependencies, root }),
         mountOauthClients(section('mcp-block-oauth')),
-        mountExcludedTags({ ...section('mcp-block-tags'), createPicker: picker,
+        mountFileWritePolicy({ ...section('mcp-file-write-policy'), syncProtectionAlert, overviewAlert: root.querySelector('#mcp-file-policy-overview') }),
+        mountExcludedTags({ ...section('mcp-block-tags'), createPicker: picker, syncProtectionAlert,
             overviewAlert: root.querySelector('#mcp-tags-invalid-overview'),
             tabAlert: root.querySelector('#mcp-tab-protection-alert') }),
         mountLogAccess({ ...section('mcp-block-logs'), createPicker: picker, reloadMatrix: matrix.reload }),

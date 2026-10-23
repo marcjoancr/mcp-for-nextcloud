@@ -68,6 +68,32 @@ final class ContactBackupLockTest extends OAuthAccountTestCase {
         self::assertCount(2, array_unique($paths));
     }
 
+    public function testFilenamePolicyPreservesMandatoryVcardBackupAndRefusesPublicVcardUpload(): void {
+        $config = Server::get(\OCP\IAppConfig::class);
+        $key = \OCA\Mcp\Access\FileWritePolicy\FileWritePolicy::KEY;
+        $before = $config->hasKey('mcp', $key, null) ? $config->getValueString('mcp', $key, '', false) : null;
+        try {
+            Server::get(\OCA\Mcp\Access\FileWritePolicy\FileWritePolicy::class)->save('allowlist', ['md'], false);
+            Server::get(GrantPolicy::class)->setGrant($this->uid, 'files', 'create', true);
+            $client = new McpClient(LoginFactory::basic($this->uid));
+            $root = Server::get(IRootFolder::class)->getUserFolder($this->uid);
+            $public = $client->write('files_upload', ['path' => '/public.vcf']);
+            self::assertTrue($public->isError(), $public->describe());
+            self::assertFalse($root->nodeExists('public.vcf'));
+            $card = $this->plant('PolicyBackup');
+            $reply = $client->write('contacts_delete_contact', ['addressbook' => $this->bookPath, 'uri' => $card['uri'], 'etag' => $card['etag']]);
+            self::assertTrue($reply->ok(), $reply->describe());
+            $payload = $reply->json();
+            self::assertTrue($payload['deleted']);
+            self::assertStringEndsWith('.vcf', $payload['backupPath']);
+            self::assertSame($card['data'], $root->get(ltrim($payload['backupPath'], '/'))->getContent());
+            self::assertFalse(Server::get(CardDavBackend::class)->getCard($this->bookId, $card['uri']));
+        } finally {
+            $before === null ? $config->deleteKey('mcp', $key) : $config->setValueString('mcp', $key, $before, false);
+            $config->clearCache(false);
+        }
+    }
+
     public function testBackupFailureKeepsTheNativeContact(): void {
         $root = Server::get(IRootFolder::class)->getUserFolder($this->uid);
         $base = $root->newFolder('MCP backups')->newFolder('Contacts');

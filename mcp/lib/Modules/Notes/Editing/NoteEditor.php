@@ -19,6 +19,7 @@ class NoteEditor
 {
 
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private \OCA\Mcp\Modules\Notes\Storage\NotesFolders $folders,
         private \OCA\Mcp\Modules\Notes\Storage\NoteLookup $lookup,
         private \OCA\Mcp\Modules\Notes\Execution\NoteWriteAccess $writeAccess,
@@ -45,6 +46,7 @@ class NoteEditor
         $root = $this->folders->folder($userId, false);
         $mode = NoteChange::mode($arguments);
         $note = $this->lookup->find($root, $arguments['id']);
+        $this->assertNames($note, $arguments);
         $partial = NoteChange::isPartial($mode);
         if ($partial) {
             $this->partialConfirmation->content($root, $note, $userId, $arguments, $mode);
@@ -70,12 +72,12 @@ class NoteEditor
             $this->writeAccess->mutate($this->partialConfirmation->writer($root, $note, $userId, $arguments, $mode), $note, $userId);
             $saved = true;
         } elseif (isset($arguments['content'])) {
-            $this->writeAccess->mutate(fn() => $note->putContent($arguments['content']), $note, $userId);
+            $this->writeAccess->mutate(fn() => $this->fileTypes->writeFile($note, fn() => $note->putContent($arguments['content'])), $note, $userId);
             $saved = true;
         }
         if ($rename !== null) {
             try {
-                $this->writeAccess->mutate(fn() => $note->move($rename), $note, $userId, !$saved);
+                $this->writeAccess->mutate(fn() => $this->fileTypes->writeName(basename($rename), fn() => $note->move($rename)), $note, $userId, !$saved);
             } catch (\Throwable $e) {
                 throw $saved ? PartialEditFailure::map($e) : $e;
             }
@@ -94,6 +96,7 @@ class NoteEditor
         $root = $this->folders->folder($userId, false);
         $mode = NoteChange::mode($arguments);
         $note = $this->lookup->find($root, $arguments['id']);
+        $this->assertNames($note, $arguments);
         if (NoteChange::isPartial($mode)) {
             return $this->partialPlan->build($root, $note, $userId, $arguments, $mode);
         }
@@ -120,6 +123,17 @@ class NoteEditor
             $contentChanged = $arguments['content'] !== (string) $note->getContent();
         }
         return ['action' => 'notes_edit', 'note' => ['id' => (int) $note->getId(), 'before' => $before, 'after' => $after], 'changed' => array_values(array_filter(['title', 'content'], static fn(string $field): bool => $field === 'title' ? $before['title'] !== $after['title'] : $contentChanged)), 'access' => $this->accessInfo->describe($note, $userId), 'shared' => $this->notice->shared($note, $userId), 'recoverable' => true, 'message' => \OCA\Mcp\Modules\Notes\Presentation\NotesPlanMessages::planEdit()] + $this->notice->lock($note, $userId);
+    }
+
+    /** One immutable policy for the complete projected content/rename sequence. */
+    private function assertNames(\OCP\Files\File $note, array $arguments): void {
+        $snapshot = $this->fileTypes->snapshot();
+        if (isset($arguments['content']) || isset($arguments['append']) || isset($arguments['old'])) {
+            $snapshot->assertWritableName($note->getName());
+        }
+        if (isset($arguments['title'])) {
+            $snapshot->assertWritableName($this->names->renamedName($note, $arguments['title']));
+        }
     }
 
     /**

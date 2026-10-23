@@ -19,6 +19,7 @@ class NoteMover
 {
 
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private \OCA\Mcp\Modules\Notes\Storage\NotesFolders $folders,
         private \OCA\Mcp\Modules\Notes\Storage\NoteLookup $lookup,
         private \OCA\Mcp\Modules\Notes\Execution\NoteWriteAccess $writeAccess,
@@ -40,6 +41,7 @@ class NoteMover
     {
         $root = $this->folders->folder($userId, false);
         $note = $this->lookup->find($root, $arguments['id']);
+        $this->fileTypes->assertWritableName($note->getName());
         $this->writeAccess->assertWritable($note, $arguments);
         $this->writeAccess->assertUnlocked($note, $userId);
         if (($payload = $this->writeAccess->confirmation($note, $userId, (string) $arguments['id'], (bool) ($arguments['confirm_shared'] ?? false))) !== null) {
@@ -51,7 +53,7 @@ class NoteMover
             if ($target->nodeExists($note->getName())) {
                 throw new ToolFailure(\OCA\Mcp\Modules\Notes\Storage\NamingMessages::titleExistsInTargetCategory());
             }
-            $this->writeAccess->mutate(fn() => $note->move($target->getPath() . '/' . $note->getName()), $note, $userId);
+            $this->writeAccess->mutate(fn() => $this->fileTypes->writeFile($note, fn() => $note->move($target->getPath() . '/' . $note->getName())), $note, $userId);
         }
         return $this->described($root, $userId, $arguments);
     }
@@ -66,6 +68,7 @@ class NoteMover
     {
         $root = $this->folders->folder($userId, false);
         $note = $this->lookup->find($root, $arguments['id']);
+        $this->fileTypes->assertWritableName($note->getName());
         NodeAccess::checkEtag($note, $arguments['etag'] ?? null);
         if (!$note->isUpdateable()) {
             throw new ToolFailure(FileAccessMessages::forbidden());

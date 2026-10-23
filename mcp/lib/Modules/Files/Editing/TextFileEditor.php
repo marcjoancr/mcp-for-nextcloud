@@ -25,6 +25,7 @@ final class TextFileEditor {
     public const MAX_EDIT_BYTES = 10 * 1024 * 1024;
 
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private IRootFolder $rootFolder,
         private TextExtractor $extractor,
         private ContentWriter $writer,
@@ -80,7 +81,9 @@ final class TextFileEditor {
     }
 
     private function file(Folder $root, string $path): File {
-        return NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
+        $file = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
+        $this->fileTypes->assertWritableName($file->getName());
+        return $file;
     }
 
     private function assertEditable(Folder $root, string $path): void {

@@ -33,6 +33,7 @@ use Psr\Log\LoggerInterface;
 
 final class CheckoutWriter {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private IRootFolder $rootFolder,
         private CheckoutPolicy $checkoutPolicy,
         private FileBackup $backup,
@@ -43,6 +44,16 @@ final class CheckoutWriter {
         private ?FileCreation $creation = null,
         private ?LockAwareWrite $locks = null,
     ) {}
+
+    private function assertPolicy(File $file): void {
+        try {
+            $this->fileTypes->assertWritableName($file->getName());
+        } catch (\OCA\Mcp\Access\FileWritePolicy\FileWritePolicyUnavailable $e) {
+            throw new CheckoutFailure(Http::STATUS_SERVICE_UNAVAILABLE, $e->getMessage());
+        } catch (\OCA\Mcp\Access\FileWritePolicy\FileTypeDenied $e) {
+            throw new CheckoutFailure(Http::STATUS_FORBIDDEN, $e->getMessage());
+        }
+    }
 
     /**
      * The write itself, after the token and the policy were already accepted.
@@ -58,6 +69,7 @@ final class CheckoutWriter {
         } catch (LockWriteFailure $e) {
             throw new CheckoutFailure(Http::STATUS_LOCKED, $e->getMessage());
         }
+        $this->assertPolicy($file);
         $this->checkoutPolicy->spend($row);
         $root = $this->rootFolder->getUserFolder($row->userId);
         $access = $this->accessInfo->describe($file, $row->userId);
@@ -74,7 +86,7 @@ final class CheckoutWriter {
             $asUser = $this->actsAsUser($row->userId);
             $copy = $this->backup->prepare($root, $file, $row->path, $row->userId, $row->etag, $asUser);
             $this->visibilityGuard->assertVisible($file);
-            $write = static fn () => $file->putContent((string)file_get_contents($body));
+            $write = fn () => $this->fileTypes->writeFile($file, fn () => $file->putContent((string)file_get_contents($body)));
             // Checked again right before the write: the backup took time, and files_lock does not refuse every lock.
             NodeAccess::mutate(fn () => $this->locks === null ? $write() : $this->locks->run($write, $file, $row->userId, $row->path, $asUser), $this->visibilityGuard);
             $node = NodeAccess::requireFile(NodeAccess::get($root, $row->path, $this->visibilityGuard));
@@ -86,6 +98,10 @@ final class CheckoutWriter {
             return $failure instanceof LockWriteFailure
                 ? $this->lockRefusal($failure, $copy)
                 : throw new CheckoutFailure(Http::STATUS_LOCKED, $failure->getMessage() . ' ' . LockMessages::newCheckoutNeeded());
+        } catch (\OCA\Mcp\Access\FileWritePolicy\FileWritePolicyUnavailable $e) {
+            throw new CheckoutFailure(Http::STATUS_SERVICE_UNAVAILABLE, $e->getMessage());
+        } catch (\OCA\Mcp\Access\FileWritePolicy\FileTypeDenied $e) {
+            throw new CheckoutFailure(Http::STATUS_FORBIDDEN, $e->getMessage());
         } catch (ToolFailure $e) {
             $conflict = $e->getMessage() === FileAccessMessages::conflict();
             $message = $conflict ? CheckoutMessages::uploadConflict() : $e->getMessage();
@@ -164,6 +180,12 @@ final class CheckoutWriter {
      *         404 for a missing or hidden one, 423 for a lock, 507 for a full quota and 500 for a write that failed
      */
     private function createRefusal(\Throwable $e): never {
+        if ($e instanceof \OCA\Mcp\Access\FileWritePolicy\FileWritePolicyUnavailable) {
+            throw new CheckoutFailure(Http::STATUS_SERVICE_UNAVAILABLE, $e->getMessage());
+        }
+        if ($e instanceof \OCA\Mcp\Access\FileWritePolicy\FileTypeDenied) {
+            throw new CheckoutFailure(Http::STATUS_FORBIDDEN, $e->getMessage());
+        }
         if ($e instanceof FileExists) {
             throw new CheckoutFailure(Http::STATUS_CONFLICT, $e->getMessage());
         }

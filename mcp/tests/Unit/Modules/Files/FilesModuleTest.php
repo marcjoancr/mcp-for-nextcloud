@@ -81,7 +81,7 @@ final class FilesModuleTest extends TestCase {
         $fileLocks = (new FakeLockManager())->service($this);
         $this->module = new FilesModule(FilesFactories::complete([
             'files_read' => fn () => new ReadFile(new FileReader($root, new TextExtractor($temp), $access, new OcrSupport($apps), $fileVisibility)),
-            'files_edit' => fn () => new EditFile(new TextFileEditor($root, new TextExtractor($temp), new ContentWriter(new FileBackup($apps, $users, $time, $appConfig, $fileVisibility, $fileLocks), $access, $fileVisibility, $fileLocks), new ContentPlan($access, new SharedWriteGuard($access), $fileLocks), new SharedWriteGuard($access), $fileVisibility, $fileLocks)),
+            'files_edit' => fn () => new EditFile(new TextFileEditor(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new TextExtractor($temp), new ContentWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new FileBackup($apps, $users, $time, $appConfig, $fileVisibility, $fileLocks), $access, $fileVisibility, $fileLocks), new ContentPlan($access, new SharedWriteGuard($access), $fileLocks), new SharedWriteGuard($access), $fileVisibility, $fileLocks)),
             'files_list' => fn () => new ListFiles($root, new DirectoryReader(new FileEntry($access), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this))),
             'files_search' => fn () => new SearchFiles($root, new FileSearch($db, $users, new FileEntry($access), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), null, null)),
         ]), (\OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this))->assertScopeReadable(...));

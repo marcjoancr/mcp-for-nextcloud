@@ -20,6 +20,7 @@ use OCP\Files\Node;
 
 final class CopyMove {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private NodeAccessInfo $access,
         private MoveReport $report,
         private \OCP\IUserManager $userManager,
@@ -54,24 +55,33 @@ final class CopyMove {
         NodeAccess::checkEtag($source, $etag);
         $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'));
         $this->moveInspection->assertFree($root, $to);
-        $measured = $this->treeMeasure->measure($source);
+        $manifest = (new FileTypePreflight($this->visibilityGuard))->inspect($source, $to, $this->fileTypes->snapshot(), true);
+        $measured = $manifest ?? $this->treeMeasure->measure($source);
         if (($payload = $this->moveInspection->confirmBoth($source, $from, $this->moveInspection->destination($root, $to), $to, $userId, $confirmedShared)) !== null) {
             return $payload;
         }
         $receipt = $root->getRelativePath($source->getPath()) ?? '';
         // Reading a locked file is allowed, so the source is not checked; files_lock may still refuse a copy between
         // storages, and that refusal is explained.
-        $copy = NodeAccess::mutate(fn () => $this->locks === null ? $source->copy(MovePaths::absolute($root, $to)) : $this->locks->capture(fn (): Node => $source->copy(MovePaths::absolute($root, $to)), $source, $userId), $this->visibilityGuard);
-        $this->visibilityGuard->assertVisible($copy);
-        return [
+        $result = (new ListedTreeCopy($this->fileTypes, $this->moveInspection, $this->visibilityGuard, $this->locks))->execute($root, $userId, $source, $to, $manifest);
+        $copy = $result['node'];
+        if (!$result['listed'] && $copy !== null) {
+            $this->visibilityGuard->clearCache();
+            $this->visibilityGuard->assertVisible($copy);
+        }
+        $out = [
             'from' => $receipt,
             'to' => $to,
             'idBefore' => (int)$source->getId(),
-            'idAfter' => (int)$copy->getId(),
+            'idAfter' => $copy === null ? null : (int)$copy->getId(),
             'nodes' => $measured['nodes'],
             'bytes' => $measured['bytes'],
-            'access' => $this->access->describe($copy, $userId),
+            'access' => $copy === null ? null : $this->access->describe($copy, $userId),
         ];
+        if ($result['listed']) {
+            $out += array_intersect_key($result, array_flip(['partial', 'created', 'conflicts', 'not_copied']));
+        }
+        return $out;
     }
 
     /**
@@ -92,7 +102,8 @@ final class CopyMove {
     public function move(Folder $root, string $userId, string $from, string $to, ?string $etag, bool $confirmedShared): array {
         $check = $this->moveInspection->inspect($root, $from, $to, $etag);
         FolderExposureGate::assertMove($root, $check->source, $check->to, $this->visibilityGuard);
-        $this->moveInspection->assertUnlocked($check->source, $userId);
+        (new FileTypePreflight($this->visibilityGuard))->inspect($check->source, $check->to, $this->fileTypes->snapshot());
+        $this->moveInspection->assertUnlocked($check->source, $userId, $check->to);
         if (($payload = $this->moveInspection->confirmBoth($check->source, $from, $check->destination, $check->to, $userId, $confirmedShared)) !== null) {
             return $payload;
         }
@@ -100,9 +111,9 @@ final class CopyMove {
         // read too late is a claim about nothing.
         $receipt = $root->getRelativePath($check->source->getPath()) ?? '';
         $idBefore = (int)$check->source->getId();
-        $versionsBefore = $this->versions($check->source, $userId);
-        $sharesBefore = $this->report->shares($check->source, $userId);
-        $moved = $this->moveExecution->locked(fn (): Node => $check->source->move(MovePaths::absolute($root, $check->to)), $check->source, $userId);
+        $versionsBefore = $this->versions($check->source, $userId, $check->to);
+        $sharesBefore = $this->report->shares($check->source, $userId, $check->to);
+        $moved = $this->moveExecution->locked(fn (): Node => $check->source->move(MovePaths::absolute($root, $check->to)), $check->source, $userId, $check->to);
         $this->visibilityGuard->assertVisible($moved);
         $idAfter = (int)$moved->getId();
         return [
@@ -137,7 +148,8 @@ final class CopyMove {
         NodeAccess::checkEtag($source, $etag);
         $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'));
         $this->moveInspection->assertFree($root, $to);
-        $measured = $this->treeMeasure->measure($source);
+        $manifest = (new FileTypePreflight($this->visibilityGuard))->inspect($source, $to, $this->fileTypes->snapshot(), true);
+        $measured = $manifest ?? $this->treeMeasure->measure($source);
         $destination = $this->moveInspection->destination($root, $to);
         return [
             'action' => 'files_copy',
@@ -169,6 +181,7 @@ final class CopyMove {
     public function planMove(Folder $root, string $userId, string $from, string $to, ?string $etag): array {
         $check = $this->moveInspection->inspect($root, $from, $to, $etag);
         FolderExposureGate::assertMove($root, $check->source, $check->to, $this->visibilityGuard);
+        (new FileTypePreflight($this->visibilityGuard))->inspect($check->source, $check->to, $this->fileTypes->snapshot());
         return [
             'action' => 'files_move',
             'from' => $root->getRelativePath($check->source->getPath()) ?? '',

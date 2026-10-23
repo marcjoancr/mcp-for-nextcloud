@@ -46,6 +46,8 @@ final class FakeTree {
     public array $throwOnMove = [];
     /** @var (\Closure(string, string): void)|null runs after each successful move with its source and target, to change the world between two moves */
     public ?\Closure $afterMove = null;
+    /** @var (\Closure(string, string): void)|null native post-copy hook before the result is returned */
+    public ?\Closure $afterCopy = null;
     /** @var array<string, \Throwable> paths whose copy throws this exception, as files_lock refusing a locked source */
     public array $throwOnCopy = [];
     public array $shortCopy = [];
@@ -196,6 +198,7 @@ final class FakeTree {
                 throw new NotPermittedException();
             }
             $this->duplicate($path, $target);
+            ($this->afterCopy)?->__invoke($path, $target);
             return $this->node($target);
         });
     }

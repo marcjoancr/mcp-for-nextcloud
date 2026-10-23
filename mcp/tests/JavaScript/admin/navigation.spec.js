@@ -33,7 +33,9 @@ test('without JavaScript every section and the privacy explanation remain readab
         const page = await context.newPage()
         await page.goto('http://127.0.0.1:18461/admin')
         await expect(page.locator('[role=tabpanel]:visible')).toHaveCount(5)
-        await expect(page.locator('.mcp-block:visible')).toHaveCount(11)
+        await expect(page.locator('.mcp-block:visible')).toHaveCount(12)
+        await expect(page.locator('#mcp-file-write-policy')).toBeVisible()
+        await expect(page.locator('#mcp-file-policy-save')).toBeDisabled()
         await expect(page.locator('.mcp-tab-bar')).toBeHidden()
         await expect(page.locator('#mcp-logs-privacy-detail')).toBeVisible()
     } finally { await context.close() }

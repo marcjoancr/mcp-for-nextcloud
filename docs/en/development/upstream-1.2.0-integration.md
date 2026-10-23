@@ -29,7 +29,7 @@ existing migration IDs remain unchanged pending F3.
 | A | Existing privacy, resource-safety and compatibility fixes | Complete | 7,752 PHP tests / 66,518 assertions; focused native 4 / 60; browser 6; architecture, analyses and attribution pass |
 | B | Notes partial edits and Deck deadlines | Complete | 7,810 PHP tests / 66,899 assertions; native 16 / 429; architecture, analyses and review pass |
 | C | Selected Deck labels, files and dependencies | Complete | 8,002 PHP tests / 68,714 assertions; four native diagnostics, 17 tests each; analyses and review pass |
-| D | Complete optional filename policy and administration | Pending | Not run |
+| D | Complete optional filename policy and administration | Complete | 8,151 PHP tests / 69,862 assertions; native 20 / 270 in MariaDB and SQLite; recovery, analyses and review pass |
 | E | Documentation, metadata and final qualification | Pending | Not run |
 
 Each batch requires focused regression checks, architecture/unit tests and static
@@ -215,6 +215,89 @@ NC34/35 nevertheless reported exit 143 after both child results had been fully
 recorded. Its cause is unconfirmed: the wrapper itself is not reported as passing.
 The per-cell evidence and cleanup were verified independently. Later qualification
 uses individual cell invocations to keep orchestration status separate.
+
+## Batch D evidence
+
+Implemented the complete W01 capability with required `Access/FileWritePolicy`
+and `Platform/FileAccess/Policy` collaborators, existing Files/Notes consumers,
+and the existing administration bundle. The
+[write-sink inventory](file-write-policy-sinks.md) maps every public mutation and
+controlled internal exemption. No nullable guard, public bypass argument,
+container fallback, legacy alias or third JavaScript entry was introduced.
+
+Only absent configuration means off. Invalid, unreadable, wrongly typed and lazy
+state blocks covered writes; wrong-type repair owns its transaction and verifies
+read-back. The administrative GET/PUT endpoint retains admin and CSRF checks,
+explicit field errors and sanitized unavailable responses. The UI distinguishes
+saved state, preserved unsaved input and uncertain outcomes, including late replies.
+The policy remains off by default; tests enabled it only inside their fixtures.
+
+The pinned native AppConfig source exposed a subtle distinction: an all-key
+presence check loads lazy values, and a subsequent non-lazy string read can still
+return that cached value. A regression first reproduced acceptance of a canonical
+lazy policy; explicit non-lazy membership now makes that state unavailable. The
+native recovery scenario verifies rejection and administrator repair. Cache
+invalidation/rereading does not make policy changes and filesystem mutations atomic.
+
+Active folder copies use a bounded validated manifest, recheck current policy and
+visibility, omit later additions and retain partial output. A visibility change
+withholds stale child paths/counts. A growth refusal no longer falsely claims that
+nothing was copied after directory creation. Native folder moves retain the
+explicit insertion race described in the inventory. Blocked undo keeps its data
+and receipt. Filename checks do not inspect MIME/content or prevent prompt injection.
+
+Independent review found a lost post-copy visibility assertion in the ordinary
+file/policy-off-folder path, despite the initial native tests passing. Three new
+regressions reproduced metadata disclosure when a mutation hook hides the new
+copy. The assertion is restored before receipt formatting, with a generic refusal
+and no deletion of copied data. Scoped review approved the correction. The active
+folder-manifest checks were preserved.
+
+| Gate | Result |
+| --- | --- |
+| Final complete PHP suite including the visibility correction | 8,151 tests / 69,862 assertions; PHP 8.4.27 |
+| Focused copy/policy/architecture after correction | 193 tests / 17,105 assertions |
+| Full architecture before the narrow correction | 44 tests / 16,686 assertions |
+| PHP lint and both fixed analyses after correction | 1,259 files; both scopes pass without new suppressions |
+| Relevant rebuilt admin browser tests | 87 cases across Chromium, Firefox and WebKit; the final batch repeats the complete browser suite |
+| Localization/admin after the final UI changes | 180 tests / 10,834 assertions |
+| API contracts | 2,384 tests / 4,887 assertions; also included in the complete PHP suite |
+| Independent review and scoped correction | No actionable findings remain; human review remains pending |
+| Final native diagnostics | 20 tests / 270 assertions in each NC35 MariaDB and SQLite cell; SQLite coordinated recovery passes |
+
+Initial regression failures, the nonstandard PHP upload-limit invocation, the
+missing route-contract entries and a derived-source attribution correction were
+resolved without disabling assertions or weakening existing contracts. The new
+architecture inventory detects unlisted mutation owners; it complements behavioral
+tests and does not infer safety merely from a guard name appearing in source.
+
+### Native policy diagnostics
+
+The exact filter is
+`FileWritePolicyRecoveryTest|FileWritePolicyAdminHttpTest|FileWriteCheckoutTest|FileTypeEditRestoreTest|FileWriteTreePolicyTest|NotesFileWritePolicyTest|ContactBackupLockTest`.
+It selects twenty cases: configuration/repair, real administrative HTTP,
+checkout, edit/restore, tree copy/move/undo, Notes and Contacts. The Contacts
+case refuses a public vCard upload under an md-only policy while verifying the
+mandatory internal vCard backup. The SQLite cell additionally rehearses coordinated
+app/database recovery and invalidates old credentials before reopening access.
+
+Both final native invocations completed with exit 0 and no errors, failures or
+skips. Exact run-label checks found no remaining containers or networks. These
+are focused diagnostics on the working tree based on `605dfd0` with batch D
+and its visibility correction; they are not full matrix cells.
+
+- 35:mariadb:fresh: `mcp-it-20261023114825-8654ea4108c2`; production archive SHA256
+  `298368e94512ece16ce397babbb9c29f6838c2b7d71bc14ba2e2b7f251c96f6f`.
+- 35:sqlite:fresh: `mcp-it-20261023114825-609c008c9a0a`; production archive SHA256
+  `e9762f174a5f367bae50fe2c71fc8d4a00e4eb8c1fa8dc25f7233cceb26c92d2`.
+
+
+The initial pre-correction runs were
+`mcp-it-20261023113735-6dbcfc4aa419` (MariaDB) and
+`mcp-it-20261023113736-6dfb76643acb` (SQLite), each with twenty tests and
+270 assertions passing. Those results did not establish the missing post-copy
+visibility invariant; the focused regressions and repeated native runs above
+cover the corrected candidate. The wider native qualification remains batch E.
 
 ## Remaining acceptance
 

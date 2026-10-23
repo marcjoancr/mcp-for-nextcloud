@@ -76,7 +76,7 @@ final class BatchMover {
             try {
                 $check = $this->moveInspection->inspect($root, $item['from'], $item['to']);
                 FolderExposureGate::assertMove($root, $check->source, $check->to, $this->visibilityGuard);
-                $movedNode = NodeAccess::run(fn () => $this->moveExecution->locked(fn (): Node => $check->source->move(MovePaths::absolute($root, $check->to)), $check->source, $userId));
+                $movedNode = NodeAccess::run(fn () => $this->moveExecution->locked(fn (): Node => $check->source->move(MovePaths::absolute($root, $check->to)), $check->source, $userId, $check->to));
                 $moved[] = ['from' => $item['from'], 'to' => $check->to, 'toId' => (int)$movedNode->getId()];
                 $this->visibilityGuard->assertVisible($movedNode);
             } catch (\Throwable $e) {

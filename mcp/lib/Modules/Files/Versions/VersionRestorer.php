@@ -29,6 +29,7 @@ final class VersionRestorer {
     private const COPY_MEMORY = 8388608;
 
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private VersionReader $versions,
         private FileBackup $backup,
         private NodeAccessInfo $access,
@@ -63,6 +64,7 @@ final class VersionRestorer {
      *         lock refuses the write ({@see LockWriteFailure}) or the rollback reports failure
      */
     public function restore(Folder $root, File $file, string $path, string $revision, string $viewerUid): array {
+        $this->fileTypes->assertWritableName($file->getName());
         $user = $this->versions->requireVersioning($viewerUid);
         $version = $this->versions->find($user, $file, $revision);
         // The backup refuses a locked file before copying it.
@@ -71,7 +73,7 @@ final class VersionRestorer {
         $manager = $this->versions->manager();
         if ($this->locks !== null && $this->locks->providerAvailable()) {
             $this->writeVersion($manager, $version, $file, $path, $viewerUid, $copy);
-        } elseif (NodeAccess::mutate(fn () => $manager->rollback($version), $this->visibilityGuard) === false) {
+        } elseif (NodeAccess::mutate(fn () => $this->fileTypes->writeFile($file, fn () => $manager->rollback($version)), $this->visibilityGuard) === false) {
             throw new ToolFailure(VersionMessages::versionRestoreFailed());
         }
         $node = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
@@ -115,10 +117,10 @@ final class VersionRestorer {
                     fclose($stream);
                 }
             }
-            NodeAccess::mutate(fn () => $this->locks->run(static function () use ($file, $content): void {
+            NodeAccess::mutate(fn () => $this->locks->run(function () use ($file, $content): void {
                 // Rewound inside, so a repeated write by the lock check starts from the first byte.
                 rewind($content);
-                $file->putContent($content);
+                $this->fileTypes->writeFile($file, fn () => $file->putContent($content));
             }, $file, $viewerUid, $path), $this->visibilityGuard);
         } catch (LockWriteFailure $e) {
             throw $e->withNote(EditingMessages::originalKept($copy));
@@ -190,7 +192,9 @@ final class VersionRestorer {
      * @throws ToolFailure when it is not a file
      */
     private function file(Folder $root, string $path): File {
-        return NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
+        $file = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
+        $this->fileTypes->assertWritableName($file->getName());
+        return $file;
     }
 
     /**
