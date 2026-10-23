@@ -17,6 +17,19 @@ final class DeckFixture {
     public const OUTSIDER = 'mcp-it-deck-outsider';
     public const EDITOR = 'mcp-it-deck-editor';
 
+    /** Bootstrap the already pinned test runtime inside a fresh fixture actor; never a production dependency. */
+    public static function loadProbeRuntime(string $runtime = '/mcp-it-tools/phpunit.phar'): void {
+        if (!class_exists(\PHPUnit\Framework\TestCase::class)) { require_once $runtime; }
+        if (!class_exists(\PHPUnit\Framework\TestCase::class)) { throw new RuntimeException('Fixture test runtime is unavailable'); }
+    }
+
+    /** Clear only loaded native Circles state; absent optional services are never autoloaded or resolved. */
+    public static function clearCirclesSession(): void {
+        if (class_exists(\OCA\Circles\CirclesManager::class, false)) {
+            \OCP\Server::get(\OCA\Circles\CirclesManager::class)->stopSession();
+        }
+    }
+
     public static function run(string $uid, string $action, array $input = []): array {
         $process = proc_open([PHP_BINARY, '-d', 'memory_limit=512M', __DIR__ . '/actor.php', $uid, $action],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);

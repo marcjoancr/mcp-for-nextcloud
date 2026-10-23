@@ -159,8 +159,8 @@ final class BoardRecipientFixture {
             $session = Server::get(ISession::class);
             $gateway = Server::get(NativeLinkSource::class)->context(...);
             $directory = new DeckRecipientDirectory(static fn()=> Server::get(\OCA\Deck\Db\AclMapper::class), static fn()=> Server::get(CirclesService::class),
-                Server::get(IUserManager::class), Server::get(IGroupManager::class), Server::get(IAppManager::class), static fn()=> Server::get(CirclesManager::class)->stopSession());
-            $resolver = new BoardRecipientResolver($gateway, $policy, $directory, new PlanState(Server::get(IConfig::class)), Server::get(LoggerInterface::class), static fn()=> Server::get(CirclesManager::class)->stopSession());
+                Server::get(IUserManager::class), Server::get(IGroupManager::class), Server::get(IAppManager::class), DeckFixture::clearCirclesSession(...));
+            $resolver = new BoardRecipientResolver($gateway, $policy, $directory, new PlanState(Server::get(IConfig::class)), Server::get(LoggerInterface::class), DeckFixture::clearCirclesSession(...));
             try {
                 // DK-4r only binds file identity/version; authorization of the real Files node belongs to DK-4b.
                 if ($input['probeSession'] ?? false) {
