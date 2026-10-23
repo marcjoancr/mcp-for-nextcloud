@@ -40,9 +40,9 @@ final class PromptCatalogTest extends TestCase {
      */
     private function build(GrantPolicy $policy): McpProtocol {
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $this->createMock(IAppManager::class), $this->createMock(IUserManager::class));
-        return new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests(new ToolRegistry([], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new PromptCatalog(), $policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(null), $this->createMock(LoggerInterface::class));
+        return new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new ToolRegistry([], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), null), $this->createMock(LoggerInterface::class));
     }
 
     /**
@@ -211,7 +211,7 @@ final class PromptCatalogTest extends TestCase {
         $result = $this->call('prompts/list', [], \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::MODERN_VERSION)->result;
         $this->assertSame('complete', $result->resultType);
         $this->assertSame([0, 'private'], [$result->ttlMs, $result->cacheScope]);
-        $this->assertSame(\OCA\Mcp\Mcp\Protocol\ProtocolMetadata::SERVER_INFO, (array)$result->_meta->{'io.modelcontextprotocol/serverInfo'});
+        $this->assertSame(\OCA\Mcp\Tests\Unit\InstalledApp::INFO, (array)$result->_meta->{'io.modelcontextprotocol/serverInfo'});
         $this->assertSame([PromptCatalog::EDIT_LOCALLY], array_column($result->prompts, 'name'));
     }
 

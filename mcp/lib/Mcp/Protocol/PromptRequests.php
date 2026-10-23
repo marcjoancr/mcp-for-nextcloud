@@ -12,7 +12,7 @@ use OCA\Mcp\Access\Grants\GrantPolicy;
 
 /** Adapts granted prompts without changing argument or envelope semantics. */
 final class PromptRequests {
-    public function __construct(private PromptCatalog $prompts, private GrantPolicy $policy) {}
+    public function __construct(private ServerIdentity $identity, private PromptCatalog $prompts, private GrantPolicy $policy) {}
 
     /** Returns the prompts currently granted to this user. */
     public function list(string $userId): array {
@@ -26,7 +26,7 @@ final class PromptRequests {
             return JsonRpcResponse::error($id, -32602, 'Invalid params');
         }
         return JsonRpcResponse::result($id, $modern
-            ? ['resultType' => 'complete'] + $prompt + ['_meta' => [ProtocolMetadata::META_SERVER_INFO => ProtocolMetadata::SERVER_INFO]]
+            ? ['resultType' => 'complete'] + $prompt + ['_meta' => [ProtocolMetadata::META_SERVER_INFO => $this->identity->info()]]
             : $prompt);
     }
 

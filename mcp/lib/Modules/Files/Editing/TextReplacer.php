@@ -17,6 +17,7 @@ use OCA\Mcp\Platform\FileAccess\Sharing\SharedWriteGuard;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use OCA\Mcp\Mcp\Tools\Results\ToolResult;
 use OCP\Files\File;
+use OCA\Mcp\Platform\Text\UniqueSnippet;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 
@@ -44,7 +45,7 @@ final class TextReplacer {
     }
 
     /**
-     * Replaces one snippet, counting and substituting over the RAW bytes.
+     * Replaces one snippet, locating and substituting over the raw bytes.
      *
      * The extracted text is only for the diff: it went through mb_scrub, which drops a BOM and turns every
      * byte of a Latin-1 file into "?", so writing it back would silently corrupt the whole file when the
@@ -61,27 +62,14 @@ final class TextReplacer {
         if (strlen($new) > self::MAX_EDIT_BYTES) {
             throw new ToolFailure(EditingMessages::editTooLarge(self::MAX_EDIT_BYTES));
         }
-        if (!mb_check_encoding($old, 'UTF-8')) {
-            throw new ToolFailure(EditingMessages::snippetNotUtf8());
-        }
+        UniqueSnippet::assertText($old);
         $file = $this->file($root, $path);
         $this->locks?->assertWritable($file, $userId, $path);
         if (($payload = $this->guard->guard($file, $userId, $path, $confirmed)) !== null) {
             return ToolResult::json($payload);
         }
-        $raw = (string)$file->getContent();
-        $occurrences = substr_count($raw, $old);
-        if ($occurrences === 0) {
-            throw new ToolFailure(EditingMessages::snippetMissing());
-        }
-        if ($occurrences > 1) {
-            throw new ToolFailure(EditingMessages::snippetAmbiguous($occurrences));
-        }
-        // str_replace with a count of 1 cannot touch anything but the single occurrence we just verified.
-        $updated = str_replace($old, $new, $raw, $count);
-        if ($count !== 1) {
-            throw new ToolFailure(EditingMessages::snippetAmbiguous($occurrences));
-        }
+        $raw = ReplaceSource::read($file);
+        $updated = UniqueSnippet::replace($raw, $old, $new);
         return ToolResult::json($this->writer->commit($root, $userId, $file, $path, $updated, $etag, $this->extractor->extract($file)));
     }
 
@@ -103,24 +91,15 @@ final class TextReplacer {
         if (strlen($new) > self::MAX_EDIT_BYTES) {
             throw new ToolFailure(EditingMessages::editTooLarge(self::MAX_EDIT_BYTES));
         }
-        if (!mb_check_encoding($old, 'UTF-8')) {
-            throw new ToolFailure(EditingMessages::snippetNotUtf8());
-        }
+        UniqueSnippet::assertText($old);
         $file = $this->file($root, $path);
         NodeAccess::checkEtag($file, $etag);
-        $raw = (string)$file->getContent();
-        $occurrences = substr_count($raw, $old);
-        if ($occurrences === 0) {
-            throw new ToolFailure(EditingMessages::snippetMissing());
-        }
-        if ($occurrences > 1) {
-            throw new ToolFailure(EditingMessages::snippetAmbiguous($occurrences));
-        }
-        $updated = str_replace($old, $new, $raw, $count);
+        $raw = ReplaceSource::read($file);
+        $updated = UniqueSnippet::replace($raw, $old, $new);
 
         return $this->contentPlan->describe($file, $userId, $path, [
             'action' => 'files_replace',
-            'snippet' => ['occurrences' => $occurrences, 'replaced' => $count],
+            'snippet' => ['occurrences' => 1, 'replaced' => 1],
             'size' => ['before' => (int)$file->getSize(), 'after' => strlen($updated)],
             'diff' => UnifiedDiff::between($this->extractor->extract($file), $updated),
             'message' => EditingMessages::planReplace(),

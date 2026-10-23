@@ -510,6 +510,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -2072,7 +2073,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -3957,6 +3958,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -5519,7 +5521,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -7404,6 +7406,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -8966,7 +8969,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -10851,6 +10854,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -12413,7 +12417,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -14319,7 +14323,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -14351,7 +14355,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -14383,7 +14387,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -14415,7 +14419,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -14932,6 +14936,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -16494,7 +16499,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -18379,6 +18384,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -19941,7 +19947,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -21826,6 +21832,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -23388,7 +23395,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -25273,6 +25280,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -26835,7 +26843,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -28741,7 +28749,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -28773,7 +28781,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -28805,7 +28813,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -28837,7 +28845,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -29367,6 +29375,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -30929,7 +30938,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -32363,7 +32372,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -32823,6 +32832,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -34385,7 +34395,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -35819,7 +35829,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -36279,6 +36289,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -37841,7 +37852,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -39275,7 +39286,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -39735,6 +39746,7 @@
                                 "old": {
                                     "type": "string",
                                     "minLength": 1,
+                                    "maxLength": 65536,
                                     "description": "Snippet to replace; must appear exactly once in the file"
                                 },
                                 "new": {
@@ -41297,7 +41309,7 @@
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 255,
-                                    "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                    "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                 },
                                 "limit": {
                                     "type": "integer",
@@ -42731,7 +42743,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -42764,7 +42776,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -42822,7 +42834,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -42854,7 +42866,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -42886,7 +42898,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -42918,7 +42930,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -42989,7 +43001,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43016,7 +43028,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43043,7 +43055,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43070,7 +43082,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43104,7 +43116,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43138,7 +43150,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43172,7 +43184,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43206,7 +43218,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43326,7 +43338,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43358,7 +43370,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43390,7 +43402,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }
@@ -43422,7 +43434,7 @@
                 "_meta": {
                     "io.modelcontextprotocol/serverInfo": {
                         "name": "mcp-for-cloud",
-                        "version": "1.1.2"
+                        "version": "9.8.7-installed-sentinel"
                     }
                 }
             }

@@ -91,7 +91,7 @@ final class CardFormatterTest extends TestCase {
         self::assertSame(4, $formatted['boardId']);
         self::assertSame('2026-03-01', $formatted['duedate']);
         self::assertSame((new \DateTime('2026-02-01 09:30:00'))->getTimestamp(), $formatted['done']);
-        self::assertSame(2, $formatted['attachmentCount']);
+        self::assertArrayNotHasKey('attachmentCount', $formatted);
     }
 
     public function testCardFallsBackToTheBoardDeckEnriched(): void {
@@ -186,17 +186,18 @@ final class CardFormatterTest extends TestCase {
         self::assertFalse($formatted['overdue']);
     }
 
-    public function testCardReportsOnlyTheAttachmentCount(): void {
+    public function testCardDoesNotExposeUnscopedAttachmentCountsOrDependencyIds(): void {
         $formatted = $this->formatter->card($this->card(['attachmentCount' => 3]), 4);
 
-        self::assertSame(3, $formatted['attachmentCount']);
-        self::assertSame(['attachmentCount'], array_values(array_filter(
+        self::assertArrayNotHasKey('attachmentCount', $formatted);
+        self::assertArrayNotHasKey('dependencies', $formatted);
+        self::assertSame([], array_values(array_filter(
             array_keys($formatted),
             static fn (string $key): bool => stripos($key, 'attach') !== false || stripos($key, 'file') !== false,
         )));
         self::assertSame([
             'id', 'stackId', 'boardId', 'title', 'description', 'type', 'owner', 'order', 'archived', 'done',
-            'duedate', 'lastModified', 'attachmentCount', 'assignedUsers', 'overdue', 'url',
+            'duedate', 'lastModified', 'assignedUsers', 'overdue', 'url',
         ], array_keys($formatted));
     }
 }

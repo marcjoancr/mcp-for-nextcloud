@@ -79,7 +79,7 @@ final class DeckFormatter {
     /**
      * @param Card $card Card as returned by the Deck services.
      * @param int|null $boardId Board the card belongs to, resolved once by the capability for listings.
-     * @return array{id: int, stackId: int, boardId: int|null, title: string, description: string, type: string, owner: string, order: int, archived: bool, done: int|null, duedate: string|null, lastModified: int, attachmentCount: int|null, assignedUsers: list<array{uid: string, displayName: string}>, overdue: bool, url: string|null}
+     * @return array{id: int, stackId: int, boardId: int|null, title: string, description: string, type: string, owner: string, order: int, archived: bool, done: int|null, duedate: string|null, lastModified: int, assignedUsers: list<array{uid: string, displayName: string}>, overdue: bool, url: string|null}
      */
     public function card(Card $card, ?int $boardId = null): array {
         $boardId ??= $card->getRelatedBoard()?->getId();
@@ -100,7 +100,6 @@ final class DeckFormatter {
             'done' => $this->dateToTimestamp($card->getDone()),
             'duedate' => CardDate::dueDay($card, $this->zone),
             'lastModified' => $card->getLastModified(),
-            'attachmentCount' => $card->getAttachmentCount(),
             'assignedUsers' => $assignedUsers,
             'overdue' => CardState::isOverdue($card, $this->time->getTime(), $this->zone),
             'url' => $boardId === null ? null : $this->urls->linkToRouteAbsolute(self::CARD_ROUTE, ['boardId' => $boardId, 'cardId' => $card->getId()]),

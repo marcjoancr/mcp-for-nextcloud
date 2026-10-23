@@ -54,11 +54,7 @@ class ResultBoundary {
                 $this->logger->warning('MCP Deck tool refused after the write: {tool}', $context);
                 return DeckResult::ok(['partial' => true, 'message' => $e->getMessage()]);
             }
-            if ($e instanceof DeckConflictException || $e instanceof DeckRefusalException) {
-                $this->logger->warning('MCP Deck tool refused or conflicted: {tool}', $context);
-            } else {
-                $this->logger->error('MCP Deck tool failed: {tool} ({exception})', $context);
-            }
+            DeckFailureLog::operation($this->logger, $tool, $e);
             return DeckResult::error(DeckErrors::messageFor($e));
         }
     }

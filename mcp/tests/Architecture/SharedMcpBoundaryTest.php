@@ -76,6 +76,7 @@ final class SharedMcpBoundaryTest extends TestCase {
         self::assertNotEmpty(self::dependencies('<?php use OCA\Mcp\Mcp\Protocol\ToolRequests;', 'Modules/Files/Tools/ReadFile.php'));
         self::assertNotEmpty(self::dependencies('<?php use OCA\Mcp\Modules\Files\Reading\FileReader;', 'Mcp/Protocol/ToolRequests.php'));
         self::assertNotEmpty(self::dependencies('<?php use OCA\Mcp\Mcp\Tools\Execution\ToolExecutor;', 'Platform/FileAccess/Locks/LockAwareWrite.php'));
+        self::assertNotEmpty(self::dependencies('<?php use OCA\Mcp\Modules\Files\Editing\EditingMessages;', 'Platform/Text/UniqueSnippet.php'));
         self::assertSame([], self::dependencies('<?php use OCA\Mcp\Modules\Files\Contracts\FileResourceReader;', 'Mcp/Resources/ResourceRegistry.php'));
         self::assertSame([], self::retired('<?php use OCA\Mcp\Mcp\Tools\ToolRegistry; use OCA\Mcp\Modules\Files\Tools\ReadFile;'));
         self::assertSame([], self::dependencies('<?php use OCA\Mcp\Mcp\Tools\Results\ToolFailure;', 'Access/Visibility/VisibilityGuard.php'));
@@ -103,7 +104,7 @@ final class SharedMcpBoundaryTest extends TestCase {
                 }
                 self::assertSame([], self::retired($source), $file->getPathname());
                 $path = substr($file->getPathname(), strlen($app.'/lib/'));
-                if ($subtree === 'lib' && preg_match('~^(?:Mcp/|Access/|Platform/(?:FileAccess|Time|Logging)/|OAuth/Connections/|Modules/)~', $path)) {
+                if ($subtree === 'lib' && preg_match('~^(?:Mcp/|Access/|Platform/(?:FileAccess|Time|Logging|Text)/|OAuth/Connections/|Modules/)~', $path)) {
                     self::assertSame([], self::dependencies($source, $path), $path);
                 }
             }

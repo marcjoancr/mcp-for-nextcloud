@@ -28,9 +28,8 @@ final class McpProtocolTest extends TestCase {
         $this->assertSame('2025-06-18', $out['body']['result']['protocolVersion']);
         $this->assertArrayHasKey('tools', $out['body']['result']['capabilities']);
         $this->assertSame('mcp-for-cloud', $out['body']['result']['serverInfo']['name']);
-        $this->assertSame('1.1.2', $out['body']['result']['serverInfo']['version']);
-        $manifest = simplexml_load_file(dirname(__DIR__, 4) . '/appinfo/info.xml');
-        $this->assertSame((string)$manifest->version, $out['body']['result']['serverInfo']['version']);
+        $this->assertSame('9.8.7-installed-sentinel', $out['body']['result']['serverInfo']['version']);
+        $this->assertNotSame((string)simplexml_load_file(dirname(__DIR__, 4) . '/appinfo/info.xml')->version, $out['body']['result']['serverInfo']['version']);
     }
 
     public function testInitializeWithoutClientInfoIsInvalidParams(): void {
@@ -270,9 +269,9 @@ final class McpProtocolTest extends TestCase {
         $mock = fn (string $class) => (new \ReflectionMethod($test, 'createMock'))->invoke($test, $class);
         $policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy((new InMemoryConfig())->mock($test), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $mock(\OCP\App\IAppManager::class), $mock(\OCP\IUserManager::class));
-        return new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests(new \OCA\Mcp\Mcp\Tools\ToolRegistry($modules, $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $mock(\Psr\Log\LoggerInterface::class)))),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new \OCA\Mcp\Mcp\Prompts\PromptCatalog(), $policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(null), $logger ?? $mock(\Psr\Log\LoggerInterface::class));
+        return new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($test), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($test), new \OCA\Mcp\Mcp\Tools\ToolRegistry($modules, $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $mock(\Psr\Log\LoggerInterface::class)))),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($test), new \OCA\Mcp\Mcp\Prompts\PromptCatalog(), $policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($test), null), $logger ?? $mock(\Psr\Log\LoggerInterface::class));
     }
 
     private function codes(array $out): array {

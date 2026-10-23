@@ -30,7 +30,7 @@ final class ReplaceText implements WriteTool {
             description: EditingMessages::replaceTool(),
             inputSchema: self::schema([
                     'path' => $path,
-                    'old' => ['type' => 'string', 'minLength' => 1, 'description' => EditingMessages::oldSnippet()],
+                    'old' => ['type' => 'string', 'minLength' => 1, 'maxLength' => \OCA\Mcp\Platform\Text\UniqueSnippet::MAX_BYTES, 'description' => EditingMessages::oldSnippet()],
                     'new' => ['type' => 'string', 'description' => EditingMessages::newSnippet()],
                     'etag' => $etag,
                     'confirm_shared' => $confirmShared,

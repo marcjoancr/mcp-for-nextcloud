@@ -30,6 +30,8 @@ final class FakeTree {
     /** @var list<string> */
     public array $ops = [];
     public array $opened = [];
+    /** @var list<string> paths read through getContent */
+    public array $contentReads = [];
     /** @var list<string> directories enumerated during an operation */
     public array $listings = [];
     public ?\Closure $beforeListing = null;
@@ -231,7 +233,10 @@ final class FakeTree {
         $file->method('getType')->willReturn(FileInfo::TYPE_FILE);
         $file->method('getMimetype')->willReturnCallback(fn () => $this->nodes[$path]['mime']);
         $file->method('getSize')->willReturnCallback(fn () => $this->nodes[$path]['size'] ?? strlen($this->nodes[$path]['content']));
-        $file->method('getContent')->willReturnCallback(fn () => $this->nodes[$path]['content']);
+        $file->method('getContent')->willReturnCallback(function () use ($path): string {
+            $this->contentReads[] = $path;
+            return $this->nodes[$path]['content'];
+        });
         $file->method('fopen')->willReturnCallback(function () use ($path) {
             $this->opened[] = $path;
             $handle = fopen('php://memory', 'w+');

@@ -61,12 +61,16 @@ final class TaskLister
                 $items[] = $item + ['etag' => $row['etag'], 'calendar' => $calendar->path];
             }
         }
-        return ToolResult::json(
-            [
+        $page = [
                 'tasks' => $items,
                 'hasMore' => $more,
                 'nextOffset' => $more ? $offset + count($items) : null,
-            ]
-        );
+            ];
+        if (isset($arguments['category']) && $matched === 0 && !$more) {
+            $page['note'] = (new \OCA\Mcp\Modules\Tasks\Presentation\CategoryFilterNote())->forMiss(
+                $arguments['category'], (bool)($arguments['include_completed'] ?? false),
+            );
+        }
+        return ToolResult::json($page);
     }
 }

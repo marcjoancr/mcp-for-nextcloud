@@ -13,7 +13,7 @@ final class PromptRequestsTest extends TestCase {
     public function testGrantChangesAndArgumentAcceptanceAreUnchanged(): void {
         $policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
         $policy->setGrant('alice', 'files', 'edit', true);
-        $requests = new PromptRequests(new PromptCatalog(), $policy);
+        $requests = new PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy);
         $list = $requests->list('alice');
         self::assertNotEmpty($list);
         foreach ([false, true] as $modern) {

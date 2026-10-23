@@ -29,7 +29,7 @@ class PreviewBoundary {
         } catch (\OCA\Mcp\Access\Policy\PolicyUnavailable $e) {
             throw $e;
         } catch (\Throwable $e) {
-            $this->logger->warning('MCP Deck plan failed: {tool} ({exception})', ['tool' => $name, 'exception' => $e::class]);
+            DeckFailureLog::plan($this->logger, $name, $e);
             throw new ToolFailure(DeckErrors::messageFor($e));
         }
     }

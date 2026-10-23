@@ -319,6 +319,8 @@ final class FilesShareTest extends FilesToolsTestCase {
     public function testAnAlreadySharedRefusalSaysTheRecipientHasAccess(): void {
         $existing = $this->shares->add(['node' => $this->id('/Documentos/ata.md'), 'with' => 'bruno', 'permissions' => 3,
             'nodeObject' => $this->tree->node('/alice/files/Documentos/ata.md')]);
+        $this->shareLogger->expects(self::once())->method('debug');
+        $this->shareLogger->expects(self::never())->method('warning');
         $this->shares->failWrite = new AlreadySharedException('Sharing ata.md failed, because this item is already shared with the account Bruno', $existing);
         try {
             $this->confirm(['path' => '/Documentos/ata.md', 'with' => 'user:bruno']);

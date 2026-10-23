@@ -103,12 +103,12 @@ final class StructureToolsTest extends TestCase {
         self::assertSame(['id' => 10, 'boardId' => 4, 'title' => 'Feito', 'deleted' => true], $payload);
     }
 
-    /** The refusal is a result with its own words and a warning in the log, never an alarm: nothing broke. */
-    public function testDeleteStackWithCardsIsRefusedWithTheCountAndLoggedAsAWarning(): void {
+    /** The refusal is a result with its own words and a debug entry in the log, never an alarm: nothing broke. */
+    public function testDeleteStackWithCardsIsRefusedWithTheCountAndLoggedAtDebug(): void {
         $capabilities = $this->capabilities();
         $capabilities->deletion->method('deleteEmptyStack')->willThrowException(DeckRefusalException::stackNotEmpty(3));
         $this->logger->expects(self::never())->method('error');
-        $this->logger->expects(self::once())->method('warning');
+        $this->logger->expects(self::once())->method('debug');
         $result = $this->deckTool(DeleteStack::class, $capabilities, $this->logger)->execute(['stackId' => 10, 'confirm' => true], new \OCA\Mcp\Mcp\Tools\ToolContext('alice'));
         self::assertTrue($result['isError']);
         self::assertSame('The list has 3 cards; move or delete them first.', $this->text($result));

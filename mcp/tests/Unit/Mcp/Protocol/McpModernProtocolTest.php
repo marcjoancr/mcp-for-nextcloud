@@ -38,7 +38,7 @@ final class McpModernProtocolTest extends TestCase {
         $this->assertEquals(new \stdClass(), $result->capabilities->tools);
         // The prompt set never changes at runtime, so no listChanged notification is advertised.
         $this->assertFalse($result->capabilities->prompts->listChanged);
-        $this->assertSame(['name' => 'mcp-for-cloud', 'version' => \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::SERVER_INFO['version']], (array)$result->_meta->{'io.modelcontextprotocol/serverInfo'});
+        $this->assertSame(['name' => 'mcp-for-cloud', 'version' => \OCA\Mcp\Tests\Unit\InstalledApp::INFO['version']], (array)$result->_meta->{'io.modelcontextprotocol/serverInfo'});
         $this->assertSame([0, 'private'], [$result->ttlMs, $result->cacheScope]);
         $this->assertStringContainsString('"capabilities":{"tools":{},"prompts":{"listChanged":false},"resources":{}}', json_encode($out['json']));
     }

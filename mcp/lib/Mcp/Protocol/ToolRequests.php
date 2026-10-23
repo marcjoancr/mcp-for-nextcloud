@@ -14,7 +14,7 @@ use InvalidArgumentException;
 
 /** Adapts tool discovery and execution to the supported protocol eras. */
 final class ToolRequests {
-    public function __construct(private ToolRegistry $tools) {}
+    public function __construct(private ServerIdentity $identity, private ToolRegistry $tools) {}
 
     /** @return list<array<string, mixed>> diagnostic tool followed by the tools the user may call now */
     public function list(string $userId): array {
@@ -59,7 +59,7 @@ final class ToolRequests {
             }
         }
         if ($modern) {
-            $result = ['resultType' => 'complete'] + $result + ['_meta' => [ProtocolMetadata::META_SERVER_INFO => ProtocolMetadata::SERVER_INFO]];
+            $result = ['resultType' => 'complete'] + $result + ['_meta' => [ProtocolMetadata::META_SERVER_INFO => $this->identity->info()]];
         }
         return JsonRpcResponse::result($id, $result);
     }

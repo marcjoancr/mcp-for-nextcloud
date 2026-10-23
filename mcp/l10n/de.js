@@ -1,6 +1,13 @@
 OC.L10N.register(
     "mcp",
     {
+    "The specified snippet must not be empty." : "Der angegebene Textausschnitt darf nicht leer sein.",
+    "The specified snippet appears more than once in the file; provide a longer, unique snippet." : "Der angegebene Textausschnitt kommt mehrmals in der Datei vor. Gib einen längeren, eindeutigen Ausschnitt an.",
+    "The specified snippet is longer than %d bytes; send a shorter, unique snippet." : "Der angegebene Textausschnitt ist länger als %d Bytes. Gib einen kürzeren, eindeutigen Ausschnitt an.",
+    "No visible task checked in this list has the category %s. Omit the category field to remove the category filter." : "Keine in dieser Liste geprüfte sichtbare Aufgabe hat die Kategorie %s. Lassen Sie das Kategoriefeld weg, um den Kategoriefilter zu entfernen.",
+    "Completed tasks were not checked. Set include_completed to true to include them." : "Erledigte Aufgaben wurden nicht geprüft. Setzen Sie include_completed auf true, um sie einzubeziehen.",
+    "It has no letter or digit, so it looks like a placeholder rather than a real label." : "Sie enthält weder Buchstaben noch Ziffern und wirkt daher eher wie ein Platzhalter als wie ein echtes Label.",
+
     "enabled" : "aktiviert",
     "disabled" : "deaktiviert",
     "cannot be checked right now" : "kann derzeit nicht geprüft werden",
@@ -1006,7 +1013,6 @@ OC.L10N.register(
     "The previous content stays available in the backup folder. Nextcloud may also keep versions of the file, according to its versioning policy." : "Der vorherige Inhalt bleibt im Sicherungsordner verfügbar. Nextcloud kann je nach den Regeln zur Versionierung weitere Dateiversionen aufbewahren.",
     "The specified snippet is not valid UTF-8; send it exactly as it appears in the file." : "Der angegebene Textausschnitt ist kein gültiges UTF-8. Sende ihn exakt wie in der Datei.",
     "The specified snippet does not appear in the file." : "Der angegebene Textausschnitt kommt in der Datei nicht vor.",
-    "The specified snippet appears %s times in the file; provide a unique snippet." : "Der angegebene Textausschnitt kommt %s-mal in der Datei vor. Gib einen eindeutigen Ausschnitt an.",
     "Nothing was changed. After your approval the snippet below is replaced and a copy of the current content is kept in the backup folder." : "Es wurde nichts geändert. Nach deiner Freigabe wird der folgende Textausschnitt ersetzt. Eine Kopie des bisherigen Inhalts wird im Sicherungsordner aufbewahrt.",
     "The original is kept in %s." : "Das Original bleibt unter %s erhalten.",
     "Overwrite the content of %s with the new text." : "Den Inhalt von %s durch den neuen Text überschreiben.",
