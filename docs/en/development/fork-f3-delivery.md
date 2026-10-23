@@ -907,3 +907,68 @@ and license/privacy disposition, target-profile/upgrade/update/recovery evidence
 public source delivery, **HTTPS, Inspector 14/15, ChatGPT and human reviewers**
 remain pending. F3 stays open. No server connection/change, push or deployment
 is part of this review.
+
+## Proposed isolated LinuxServer upgrade and recovery qualification
+
+On **2026-10-24**, the requested next test batch is specified in the
+[LinuxServer/Nginx isolated upgrade and recovery plan](fork-linuxserver-upgrade-recovery-plan.md).
+It covers immutable inputs, a synthetic PostgreSQL/primary-S3 fixture, an actual
+upstream **1.2.0 → 2.0.0** replacement, restoration of the healthy 2.0.0 checkpoint
+and full rollback to the matching pre-upgrade 1.2.0 state. Both recovery paths
+require historical credential invalidation before client admission, consistent
+app/config/database/local-data/object snapshots and run-owned cleanup.
+
+This is **planned, not executed**. The existing Apache/SQLite source-acceptance
+record is not LinuxServer/Nginx recovery evidence. The proposed initial candidate
+remains the audited `0000d8c807cfae300c2009ce53f9efb4a5df8081` kit; this documentation
+does not create a kit for its own revision. L0 must resolve the local S3 release
+and image digest, freeze the optional-app inputs and verify all selected pins.
+The local PostgreSQL reference is not a verified copy of the host database image
+or proof of its active connection.
+
+F3 remains open. The exact installed app, effective database/FPM settings,
+initialization hook, update writers, actual S3/backup configuration and production
+recovery procedure still need qualification. Final release/matrix and trusted
+source-publication gates remain separate. **HTTPS, Inspector 14/15, ChatGPT and
+human reviewers remain pending.** This plan neither expands the declared support
+matrix nor authorizes server changes, publication or deployment. No server access,
+fixture execution, push or deployment was performed for this planning task.
+
+Planning validation passed: **154 Markdown files / 110 package sources**,
+**29 documentation tests**, and valid translation provenance with **96 drafts
+still review-required**. The plan, this report and the development index are
+outside the runtime package allowlist. No runtime package, full application suite
+or native fixture was rebuilt or run for this documentation-only task.
+
+### Review of the isolated test plan
+
+The 2026-10-24 review checked the proposed assertions against the pinned baseline
+and candidate code. It separates static L0 input validation from live L1 storage
+checks, and defines closed/probe-only states so maintenance does not invalidate
+the HTTP test sequence. Each recovery case receives its own coherent checkpoint
+and an explicit expiry budget: OAuth authorization codes last **300 seconds**,
+so an expired code cannot count as proof of recovery invalidation.
+
+Two acceptance claims were narrowed to the actual implementation. Confirmation
+fingerprints are stateless and may still match unchanged state after recovery;
+changed-state/tampered confirmations and old credentials must fail, while the
+procedure requires fresh previews. Source-offer discovery checks metadata identity;
+full installed-file and downloaded-kit integrity belong to the separate trusted
+verifiers. Source downloads do not require MCP authorization, and disconnected
+users retain access from personal settings.
+
+The selected commits have identical migration trees. Failure injection therefore
+targets app replacement and native upgrade orchestration, without claiming an
+in-flight SQL-migration test. The plan also specifies safe backup extraction,
+private source-endpoint lifecycle and separate probe responsibilities. None of
+these changes implements the harness or alters runtime code.
+
+The review keeps **HTTPS, Inspector 14/15, ChatGPT and human reviewers pending**,
+along with the unresolved fixture pins and actual-host qualification. No server
+access/change, fixture execution, push, PR action or deployment is included.
+
+Fresh review validation passed: **154 Markdown files / 110 package sources**,
+**29 documentation tests**, and valid translation provenance with **96 drafts
+still review-required**. `git diff --check` passed. The three documentation files
+remain outside the runtime package allowlist; no package or application/native
+suite was rerun for this documentation-only review.
