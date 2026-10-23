@@ -23,6 +23,7 @@ class DeckPlanRenderer {
             $zone = PlanText::resolveZone($plan, $this->zone);
             return match ($tool) {
                 'deck_edit_card_labels' => $this->renderLabels($plan),
+                'deck_link_card_file' => \OCA\Mcp\Modules\Deck\Files\Linking\CardLinkPlan::render($plan),
                 'deck_unlink_card_file' => $this->renderUnlinkFile($plan),
                 'deck_add_card_dependency', 'deck_remove_card_dependency' => $this->renderDependency($plan),
                 'deck_create_card' => CardPlanRenderer::renderCreate($plan, $zone),

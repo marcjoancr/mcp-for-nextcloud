@@ -170,9 +170,26 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
 
     public function testFrozenSharedContracts(): void {
         foreach ($this->capture() as $name => $data) {
-            self::assertSame(file_get_contents(dirname(__DIR__, 2).'/Support/Mcp/Compatibility/'.$name.'.json'),
-                json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n");
+            $expected = file_get_contents(dirname(__DIR__, 2).'/Support/Mcp/Compatibility/'.$name.'.json');
+            $actual = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
+            if ($expected !== $actual) {
+                self::fail($name . ' differs at ' . self::firstDifference(json_decode($expected), json_decode($actual)));
+            }
+            self::assertSame($expected, $actual);
         }
+    }
+
+    /** Bounded failure diagnostics only; testFrozenSharedContracts still checks every exact byte. */
+    private static function firstDifference(mixed $expected, mixed $actual, string $path = ''): string {
+        if (get_debug_type($expected) === get_debug_type($actual) && (is_array($expected) || is_object($expected))) {
+            $left = (array)$expected; $right = (array)$actual;
+            foreach (array_unique([...array_keys($left), ...array_keys($right)]) as $key) {
+                $child = $path . '/' . str_replace(['~','/'], ['~0','~1'], (string)$key);
+                if (!array_key_exists($key, $left) || !array_key_exists($key, $right)) { return $child . ' (missing key)'; }
+                if (json_encode($left[$key]) !== json_encode($right[$key])) { return self::firstDifference($left[$key], $right[$key], $child); }
+            }
+        }
+        return ($path ?: '/') . ': expected ' . substr(json_encode($expected), 0, 160) . '; actual ' . substr(json_encode($actual), 0, 160);
     }
 
     public function testSharedPublicationRechecksIdentityGrantsAppsAndLocale(): void {

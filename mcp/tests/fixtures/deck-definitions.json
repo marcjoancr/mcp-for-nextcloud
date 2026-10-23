@@ -576,7 +576,12 @@
             },
             "module": "deck",
             "operation": "read",
-            "app": "deck"
+            "app": "deck",
+            "grantAllOf": {
+                "files": [
+                    "read"
+                ]
+            }
         },
         {
             "name": "deck_unlink_card_file",
@@ -637,7 +642,55 @@
             },
             "module": "deck",
             "operation": "edit",
-            "app": "deck"
+            "app": "deck",
+            "grantAllOf": {
+                "files": [
+                    "read"
+                ]
+            }
+        },
+        {
+            "name": "deck_link_card_file",
+            "description": "Links one existing visible file to a Deck card by a native Deck file share, with read-only access for current and future board members. Requires the three grants deck.edit, files.read and files.share, native EDIT/READ/SHARE, a complete recipient preview and confirm:true with its plan_state. The plan names the file, its owner, whether it is a reshare, the current recipient total, a limited name list and the shares you created. Refuses Guests, group-only sharing, a group or team on the board when group sharing is off, mandatory internal expiry, a recipient that is not a fully resolved local user, group or team, folders, archived cards or boards, and any failure to read those facts. Available on Nextcloud 32 through 35. No upload, copy or file deletion. Native sharing hooks and notifications may run; optional default internal expiry does not apply to this Deck share. Does not suggest changing a sharing policy or signing in another way. A policy enabled later, a membership change, and the gap between the last check and the native share are outside this check: there is no continuous protection and no automatic revocation.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "cardId": {
+                        "type": "integer",
+                        "description": "Card ID.",
+                        "minimum": 1
+                    },
+                    "fileId": {
+                        "type": "integer",
+                        "description": "Id of the existing visible File in your Files scope. Folders are refused.",
+                        "minimum": 1
+                    },
+                    "confirm_shared": {
+                        "type": "boolean",
+                        "description": "Set to true only after the user confirms linking a shared file or changing another user's board."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "cardId",
+                    "fileId"
+                ]
+            },
+            "module": "deck",
+            "operation": "edit",
+            "app": "deck",
+            "grantAllOf": {
+                "files": [
+                    "read",
+                    "share"
+                ]
+            }
         }
     ],
     "guide": [
@@ -650,6 +703,7 @@
         "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
         "A card description is capped at 100000 characters and a title at 255.",
         "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end.",
+        "deck_link_card_file requires deck.edit, files.read and files.share. Its approved plan grants native read-only file access to current and future board/group/team members. It refuses unsupported sharing policies or incomplete audiences; later membership/policy changes and the final native-write race are not continuously enforced or automatically revoked.",
         "Use deck_list_labels before incremental add/remove label edits; repeat plan_state after approval. Unlinking a visible native file association can remove another editor’s association and the access/mount it provides, including your last mount. The file itself remains; recovery may require the native Deck UI."
     ]
 }

@@ -210,6 +210,15 @@ class Card {
 
 /** Board mapper double. */
 class BoardMapper implements IPermissionMapper {
+    /** Raw native Deck1.17.0 target lookup; no BoardService relation enrichment. */
+    public function find(int $id, bool $withLabels=false, bool $withAcl=false, bool $allowDeleted=false): Board {
+        throw new \LogicException('Stub: expected a PHPUnit mock.');
+    }
+    /** Native Deck1.17.0 scoped cache reset. */
+    public function flushCache(?int $boardId=null, ?string $userId=null) {
+        throw new \LogicException('Stub: expected a PHPUnit mock.');
+    }
+
 	public function isOwner(string $userId, int $id): bool {
 		return false;
 	}

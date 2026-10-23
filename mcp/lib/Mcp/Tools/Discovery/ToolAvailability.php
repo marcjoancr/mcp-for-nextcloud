@@ -38,12 +38,18 @@ final class ToolAvailability {
      * under `link`). A tool listing alternatives must check the one each call needs itself, before planning and again
      * before writing; the registry only lets the call in.
      *
-     * @param array{module:string, operation:string, grantAnyOf?:list<string>, app?:string} $definition
+     * @param array{module:string, operation:string, grantAnyOf?:list<string>, grantAllOf?:array<string,list<string>>, app?:string} $definition
      */
     public function allowed(array $definition, string $userId): bool {
         try {
             // Three-valued "any of": a known Allow wins over an unknown alternative, whatever their order.
             $granted = $this->policy->grantedAny($userId, $definition['module'], $definition['grantAnyOf'] ?? [$definition['operation']]);
+            if (!$granted) { return false; }
+            foreach ($definition['grantAllOf'] ?? [] as $module => $operations) {
+                foreach ($operations as $operation) {
+                    if (!$this->policy->granted($userId, $module, $operation)) { return false; }
+                }
+            }
         } catch (InvalidArgumentException) {
             return false;
         }

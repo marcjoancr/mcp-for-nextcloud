@@ -36,8 +36,10 @@ This development branch selectively integrates upstream 1.2.0 behavior while
 retaining manifest version **1.1.2** pending the independent fork release decision.
 It is not an upgrade candidate for a host already running upstream 1.2.0. Release
 version, actual installed-version compatibility and host qualification must be
-resolved before publishing or installing that release. The selected features do
-not establish complete upstream 1.2.0 parity.
+resolved before publishing or installing that release. The source integration,
+including native Deck file linking, does not establish release qualification for
+all hosts or clients. Qualify the actual release revision, installation path and
+client scope before deployment.
 
 ## Upgrade and recovery
 

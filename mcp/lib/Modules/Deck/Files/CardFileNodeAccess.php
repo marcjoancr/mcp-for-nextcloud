@@ -37,10 +37,11 @@ final class CardFileNodeAccess {
 	 *
 	 * @param string $uid Authenticated caller.
 	 * @param int $fileId Stable original node identity.
+	 * @param bool $requireShare Also require native SHARE on every alias when linking.
 	 * @return array{node:File,metadata:array} Canonical native node and visible caller-relative metadata.
 	 * @throws \Throwable On denied identity, visibility, permission or uncertain resolution.
 	 */
-	public function resolve(string $uid, int $fileId): array {
+	public function resolve(string $uid, int $fileId, bool $requireShare = false): array {
 		$folder = $this->root->getUserFolder($uid);
 		try {
 			$nodes = $folder->getById($fileId);
@@ -52,7 +53,8 @@ final class CardFileNodeAccess {
 		}
 		foreach ($nodes as $node) {
 			if (!$node instanceof File || !$this->guard->isVisible($node) || !$node->isReadable()
-				|| (int)$node->getId() !== $fileId) {
+				|| (int)$node->getId() !== $fileId
+				|| ($requireShare && (!$node->isShareable() || ($node->getPermissions() & \OCP\Constants::PERMISSION_SHARE) === 0))) {
 				if ($this->onlyAuthorizedFolders($nodes, $fileId)) {
 					throw new DeckRefusalException(CapabilityMessages::fileFolderRefused());
 				}

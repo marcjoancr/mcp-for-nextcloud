@@ -20,6 +20,7 @@ final class SourceParser {
         'OCP\\' => 'lib/public/',
         'OC\\' => 'lib/private/',
         'OCA\\DAV\\' => 'apps/dav/lib/',
+        'OCA\\Circles\\' => 'apps/circles/lib/',
         'OCA\\Deck\\' => 'apps/deck/lib/',
         'OCA\\Talk\\' => 'apps/spreed/lib/',
         'OCA\\Files_Versions\\' => 'apps/files_versions/lib/',

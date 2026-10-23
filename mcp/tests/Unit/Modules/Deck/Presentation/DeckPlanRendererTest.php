@@ -368,6 +368,9 @@ final class DeckPlanRendererTest extends TestCase {
         $board=['name'=>'Board','shared'=>true,'owner'=>'owner','ownerDisplayName'=>'Owner'];
         return [
             'deck_edit_card_labels'=>['card'=>['title'=>'Card'],'board'=>$board,'before'=>[['id'=>1,'title'=>'Before']],'after'=>[['id'=>2,'title'=>'After']]],
+            'deck_link_card_file'=>['card'=>['title'=>'Card'],'file'=>['name'=>'visible.txt','path'=>'/visible.txt','owner'=>'owner','size'=>12],
+                'recipients'=>['total'=>1,'names'=>[['uid'=>'owner','name'=>'Owner']]],'reshare'=>false,
+                'existingShares'=>[['id'=>'ocinternal:12','type'=>0,'recipient'=>'reader','permissions'=>1]]],
             'deck_unlink_card_file'=>['card'=>['title'=>'Card'],'board'=>$board,'file'=>['name'=>'visible.txt'],'createdBy'=>'Creator'],
         ];
     }

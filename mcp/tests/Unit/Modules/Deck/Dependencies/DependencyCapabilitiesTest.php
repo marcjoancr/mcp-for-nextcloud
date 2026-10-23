@@ -81,6 +81,7 @@ final class DependencyCapabilitiesTest extends TestCase {
         }
         $module=new \OCA\Mcp\Modules\Deck\DeckModule($factories,new \OCA\Mcp\Modules\Deck\Access\DeckAvailability($apps),$cap);
         self::assertContains('deck_read_card_dependencies',array_column($module->definitions(),'name'));
+        self::assertCount(21, $module->definitions());
         self::assertStringContainsString('outgoing',implode(' ',$module->guideNotes()));
         $enabled=false;
         self::assertNotContains('deck_read_card_dependencies',array_column($module->definitions(),'name'));
@@ -89,6 +90,7 @@ final class DependencyCapabilitiesTest extends TestCase {
             try{$module->$method('deck_add_card_dependency',['cardId'=>7,'targetId'=>8],'alice');self::fail('unsupported call accepted');}
             catch(\InvalidArgumentException $e){self::assertStringContainsString('unavailable',$e->getMessage());}
         }
-        self::assertNotContains('deck_link_card_file',array_keys(\OCA\Mcp\Modules\Deck\DeckToolCatalog::definitions()));
+        self::assertContains('deck_link_card_file',array_column($module->definitions(),'name'));
+        self::assertCount(18, $module->definitions());
     }
 }

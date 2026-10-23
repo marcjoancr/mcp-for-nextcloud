@@ -126,6 +126,7 @@ final class ToolPresentation {
             'deck_list_labels' => Translator::t('List Deck labels'),
             'deck_edit_card_labels' => Translator::t('Change Deck card labels'),
             'deck_list_card_files' => Translator::t('List Deck card files'),
+            'deck_link_card_file' => Translator::t('Link Deck card file'),
             'deck_unlink_card_file' => Translator::t('Unlink Deck card file'),
             'deck_add_card_dependency' => Translator::t('Add Deck card dependency'),
             'deck_remove_card_dependency' => Translator::t('Remove Deck card dependency'),

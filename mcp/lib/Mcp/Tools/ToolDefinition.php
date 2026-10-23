@@ -9,7 +9,9 @@ namespace OCA\Mcp\Mcp\Tools;
 
 /** Internal metadata; the existing publisher adds client-facing annotations. */
 final readonly class ToolDefinition {
-    /** @param array<string, mixed> $inputSchema */
+    /** @param array<string, mixed> $inputSchema
+     * @param array<string,list<string>>|null $grantAllOf Additional required module operations; internal metadata only.
+     */
     public function __construct(
         public string $name,
         public string $module,
@@ -19,6 +21,7 @@ final readonly class ToolDefinition {
         public ?string $app = null,
         public ?array $grantAnyOf = null,
         public ?bool $destructiveHint = null,
+        public ?array $grantAllOf = null,
     ) {}
 
     /** @return array<string, mixed> the legacy ToolModule definition shape */
@@ -37,6 +40,7 @@ final readonly class ToolDefinition {
         if ($this->destructiveHint !== null) {
             $definition['destructiveHint'] = $this->destructiveHint;
         }
+        if ($this->grantAllOf !== null) { $definition['grantAllOf'] = $this->grantAllOf; }
         $definition['description'] = $this->description;
         $definition['inputSchema'] = $this->inputSchema;
         return $definition;

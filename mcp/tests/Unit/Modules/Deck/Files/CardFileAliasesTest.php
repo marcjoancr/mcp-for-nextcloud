@@ -29,6 +29,15 @@ final class CardFileAliasesTest extends TestCase {
         $this->expectException(DeckRefusalException::class);
         $this->access([$clean,$hidden],[$clean])->resolve('alice',99);
     }
+    public function testLinkRequiresSharePermissionOnEveryVisibleAliasBeforeNamingIt(): void {
+        $clean=$this->node(File::class); $alias=$this->node(File::class);
+        $clean->method('isShareable')->willReturn(true); $clean->method('getPermissions')->willReturn(17);
+        $alias->method('isShareable')->willReturn(false);
+        foreach ([$clean,$alias] as $node) { $node->expects(self::never())->method('getName'); }
+        $this->expectException(DeckRefusalException::class);
+        $this->access([$clean,$alias],[$clean,$alias])->resolve('alice',99,true);
+    }
+
     public function testFolderSpecificAnswerRequiresVisibilityAndExactIdentityForEveryAlias(): void {
         $visible=$this->node(Folder::class);$hidden=$this->node(Folder::class);$wrong=$this->node(Folder::class,100);
         foreach([[[$visible,$hidden],[$visible]],[[$visible,$wrong],[$visible,$wrong]]] as [$nodes,$allowed]){

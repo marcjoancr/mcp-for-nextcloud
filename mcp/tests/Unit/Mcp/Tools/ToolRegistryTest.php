@@ -35,6 +35,7 @@ final class ToolRegistryTest extends TestCase {
     private LoggerInterface $logger;
 
     /** @var list<string> the alternatives of s_share, in the order the definition lists them */
+    public array $editGrantAllOf = [];
     public array $shareAnyOf = ['share', 'link'];
     private InMemoryConfig $data;
     /** @var array<string, list<string>>|null apps Guests allows each guest; null: no Guests double at all */
@@ -59,7 +60,7 @@ final class ToolRegistryTest extends TestCase {
             public function definitions(): array {
                 return [
                     ['name' => 'a_read', 'description' => 'r', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'read'],
-                    ['name' => 'a_edit', 'description' => 'e', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'edit'],
+                    ['name' => 'a_edit', 'description' => 'e', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'edit'] + ($this->test->editGrantAllOf === [] ? [] : ['grantAllOf'=>$this->test->editGrantAllOf]),
                     ['name' => 'n_read', 'description' => 'n', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'notes', 'operation' => 'read', 'app' => 'notes'],
                     ['name' => 'c_read', 'description' => 'c', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'calendar', 'operation' => 'read', 'app' => 'calendar'],
                     ['name' => 'd_read', 'description' => 'd', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'deck', 'operation' => 'read', 'app' => 'deck'],
@@ -95,6 +96,27 @@ final class ToolRegistryTest extends TestCase {
         }
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users, $guests);
         return new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->logger));
+    }
+
+    public function testUnknownRequiredCrossGrantHidesOnlyThatEntryAndKeepsMetadataPrivate(): void {
+        $this->editGrantAllOf = ['deck'=>['edit']];
+        $this->policy->setGrant('alice', 'files', 'edit', true);
+        $this->data->groupBackends = [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn():array=>['paused'=>['alice']])];
+        InMemoryConfig::groupPolicy($this->config, 'paused', ['deck'=>['edit']], 'needs_confirm');
+        $registry = $this->registry();
+        $names = array_column($registry->list('alice'), 'name');
+        self::assertNotContains('a_edit', $names);
+        self::assertContains('a_read', $names);
+        try { $registry->call('a_edit', ['confirm'=>true], 'alice'); self::fail('Unknown required grant admitted'); }
+        catch (GrantUnknown) { self::assertSame([], $this->calls); }
+        $this->policy->setGrant('alice', 'deck', 'edit', true);
+        $listed = $registry->list('alice');
+        self::assertContains('a_edit', array_column($listed, 'name'));
+        foreach ($listed as $definition) { self::assertArrayNotHasKey('grantAllOf', $definition); }
+        $registry->call('a_edit', ['confirm'=>true], 'alice');
+        self::assertSame('a_edit', $this->calls[0][0]);
+        $this->policy->setGrant('alice', 'deck', 'edit', false);
+        self::assertNotContains('a_edit', array_column($registry->list('alice'), 'name'));
     }
 
     /** Every registered write gets the same readable envelope, regardless of module preview support. */

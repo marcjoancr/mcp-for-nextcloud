@@ -152,6 +152,18 @@ final class GuestDeckParityTest extends IntegrationTestCase {
                             $this->assertSame(404, $row['get']);
                         }
                     }
+                    $beforeLink = DeckFixture::run(DeckFixture::OWNER, 'guest-external-inspect', $f);
+                    foreach ([$f['externalFileId'], $f['editableFileId'], $f['homeFileId']] as $fileId) {
+                        $linkArgs = ['cardId'=>$f['cardId'], 'fileId'=>$fileId];
+                        foreach ([$linkArgs, $linkArgs + ['confirm'=>true, 'confirm_shared'=>true, 'plan_state'=>str_repeat('a', 64)]] as $attempt) {
+                            $deniedLink = $client->tool('deck_link_card_file', $attempt);
+                            $this->assertFalse($deniedLink->ok(), 'A Guest cannot link through any native alias');
+                            foreach ([$f['externalName'], $f['editableName']] as $name) {
+                                $this->assertStringNotContainsString($name, $deniedLink->raw);
+                            }
+                        }
+                    }
+                    $this->assertSame($beforeLink, DeckFixture::run(DeckFixture::OWNER, 'guest-external-inspect', $f), 'Guest link attempts preserve exact associations, independent shares and original bytes');
                     $this->assertFalse($client->write('files_checkout', ['path' => $paths['deck']])->ok(), 'Native Deck share is read-only');
                     $bytes = GuestDeckParityProbe::dav($native, 'GET', $paths['user'])['body'];
                     $deckBytes = GuestDeckParityProbe::dav($native, 'GET', $paths['deck'])['body'];

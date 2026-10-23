@@ -89,7 +89,9 @@ and Contacts 8.3.21 for NC32 and 8.9.2 for NC33–35. Archive SHA-256 values liv
 version and supported server bounds before provisioning. Existing immutable core,
 Talk, Guests and storage fixtures remain owned by that harness. API fixture
 updates select the requested class in a multi-declaration file and add only the
-surfaces consumed by selected ports; deferred D06 adds no recipient/Circles claim.
+surfaces consumed by selected ports. The D06 follow-up adds only its consumed
+recipient/Circles APIs with pinned provenance and native qualification; these
+contracts do not certify every untested app patch.
 
 The native matrix retains run-owned labels, unique credentials, private networks,
 redacted public artifacts, coordinated recovery and owned cleanup. There is no
