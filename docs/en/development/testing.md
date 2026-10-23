@@ -180,3 +180,10 @@ file checks, including altered, missing, extra and symlink entries. It runs in
 `composer check` and the CI quality workflow, rejects empty discovery and does not
 start Nextcloud or publish artifacts. See [source delivery](source-delivery.md)
 for kit preparation, read-only verification and its separate deployment gates.
+
+`test:source -- ABSOLUTE_KIT TRUSTED_MANIFEST_SHA256` is a separate, explicit
+Docker acceptance command. It starts a disposable NC35/SQLite instance without
+published ports, verifies non-admin personal-settings and MCP source discovery,
+and retrieves the kit without credentials. It is not part of the ordinary
+`check` command. Follow the [native source-acceptance procedure](source-delivery.md#disposable-native-source-acceptance),
+including the separate reconstruction check and cleanup/evidence limits.

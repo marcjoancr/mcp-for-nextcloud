@@ -128,6 +128,10 @@
         "test:release": [
             "Composer\\Config::disableProcessTimeout",
             "node scripts/release/cli.mjs test @no_additional_args"
+        ],
+        "test:source": [
+            "Composer\\Config::disableProcessTimeout",
+            "node scripts/release/accept.mjs"
         ]
     },
     "scripts-descriptions": {
@@ -152,6 +156,7 @@
         "package:source": "Build a local source/runtime kit from one reviewed full commit SHA; no publication.",
         "verify:source": "Verify a kit against a separately trusted manifest SHA-256: -- KIT DIGEST.",
         "verify:installed": "Read-only exact installed-file verification: -- KIT DIGEST APP_DIRECTORY.",
-        "test:release": "Run source delivery and integrity boundary tests; fixed scope, fails on empty discovery."
+        "test:release": "Run source delivery and integrity boundary tests; fixed scope, fails on empty discovery.",
+        "test:source": "Run source-offer acceptance in a disposable pinned NC35/SQLite fixture: -- ABSOLUTE_KIT TRUSTED_DIGEST. No published ports."
     }
 }

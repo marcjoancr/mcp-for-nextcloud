@@ -59,3 +59,8 @@ unchanged. Dependency discovery has separate supported/unsupported capability
 tests; the metadata-only capture has no verified native capability and therefore
 keeps those three tools unavailable. Existing factory/catalog equality still
 covers all twenty declared classes.
+
+The F3 local source-offer implementation appends only the explicit source-delivery
+unavailable notice to the twelve discovery instruction strings in `protocol.json`.
+Configured delivery has separate identity/link tests. Tool definitions, results,
+server identity and authentication/authorization expectations are not regenerated.

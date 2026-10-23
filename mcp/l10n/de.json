@@ -1,4 +1,11 @@
 { "translations": {
+    "Source code for this version" : "Quellcode dieser Version",
+    "Source delivery is unavailable. Contact your administrator." : "Die Bereitstellung des Quellcodes ist nicht verfügbar. Wenden Sie sich an Ihre Administration.",
+    "Download the complete source kit, including dependency sources and build instructions." : "Laden Sie das vollständige Quellcodepaket einschließlich der Quellen der Abhängigkeiten und der Build-Anleitung herunter.",
+    "Version: %s" : "Version: %s",
+    "Source revision: %s" : "Quellcode-Revision: %s",
+    "Expected manifest SHA-256: %s" : "Erwarteter SHA-256 des Manifests: %s",
+
     "The saved policy was verified. Your unsaved input is preserved; review it before saving." : "Die gespeicherte Richtlinie wurde überprüft. Ihre ungespeicherte Eingabe wurde beibehalten; prüfen Sie sie vor dem Speichern.",
 
     "The copy byte limit was reached. Existing output was retained. Review the destination before retrying." : "Die Größenbeschränkung der Kopie wurde erreicht. Bereits erstellte Daten wurden beibehalten. Prüfen Sie das Ziel vor einem erneuten Versuch.",

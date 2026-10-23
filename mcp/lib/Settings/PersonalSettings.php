@@ -20,12 +20,14 @@ class PersonalSettings implements ISettings {
         private GrantPolicy $policy,
         private IURLGenerator $urlGenerator,
         private IUserSession $userSession,
+        private \OCA\Mcp\Release\SourceOffer $sourceOffer,
     ) {}
 
     /** @return TemplateResponse the rendered settings section */
     public function getForm(): TemplateResponse {
         $uid = $this->userSession->getUser()?->getUID() ?? '';
         return new TemplateResponse('mcp', 'personal', [
+            'sourceOffer' => $this->sourceOffer->get(),
             'endpoint' => $this->urlGenerator->linkToRouteAbsolute('mcp.mcp.post'),
             'action' => $this->urlGenerator->linkToRoute('mcp.settings.personal'),
             'token' => Util::callRegister(),

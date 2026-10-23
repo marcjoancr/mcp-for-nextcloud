@@ -84,4 +84,22 @@ $canConnect = $_['connected'] || ($_['eligible'] === true && $_['global']);
         <h2><?= $l->t('App password') ?></h2>
         <p class="settings-hint mcp-hint"><?= $l->t('Create an individual app password in Nextcloud Settings → Security, then use it with your Nextcloud user ID in a client that supports HTTP Basic authentication and Streamable HTTP MCP 2025-06-18. This app never asks for your Nextcloud password.') ?></p>
     </div>
+    <div class="section mcp-block" id="mcp-source-offer">
+        <h2><?php p($l->t('Source code for this version')); ?></h2>
+        <?php $sourceOffer = $_['sourceOffer'] ?? null; ?>
+        <?php if ($sourceOffer === null): ?>
+            <p><?php p($l->t('Source delivery is unavailable. Contact your administrator.')); ?></p>
+        <?php else: ?>
+            <p><?php p($l->t('Download the complete source kit, including dependency sources and build instructions.')); ?></p>
+            <p><?php p($l->t('Version: %s', [$sourceOffer['version']])); ?></p>
+            <p><?php p($l->t('Source revision: %s', [$sourceOffer['sourceCommit']])); ?></p>
+            <ul>
+                <?php foreach ($sourceOffer['files'] as $name => $url): ?>
+                    <li><a href="<?php p($url); ?>" rel="noreferrer noopener"><?php p($name); ?></a></li>
+                <?php endforeach; ?>
+            </ul>
+            <p><?php p($l->t('Expected manifest SHA-256: %s', [$sourceOffer['manifestSha256']])); ?></p>
+        <?php endif; ?>
+        <p><?php p($l->t('Developed by Sintax')); ?> · <a href="https://sintax.tech" rel="noreferrer noopener">sintax.tech</a></p>
+    </div>
 </div>

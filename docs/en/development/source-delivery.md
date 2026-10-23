@@ -22,6 +22,8 @@ scripts from that commit, so only select a reviewed, trusted revision. Uncommitt
 changes do not enter the kit. It fetches that commit into a private local Git
 repository, bundles only its reachable history, installs locked npm dependencies
 with lifecycle scripts disabled, and runs the commit's canonical `composer package`.
+The frozen revision must include source-identity packaging support. Older kits
+remain historical evidence; they cannot enable the new runtime source offer.
 Packaging may download locked production Composer dependencies. Caches use their
 normal per-user locations. No registry update or lock rewrite is performed.
 
@@ -105,3 +107,65 @@ checks globally or attach an upstream signature to modified files.
 
 No public URL is fabricated and no partially functioning source endpoint is
 introduced by the local preparation tooling.
+
+## Runtime source offer
+
+A clean committed package includes generated `appinfo/source.json` with its
+source commit and version. The packaging command deliberately omits this identity
+for a dirty development checkout. A staged identity supplied by the source tree
+is rejected. Do not edit the generated file or a release package after validation.
+The kit builder checks that its package identity matches the selected commit.
+
+Configure the operator-controlled destination using the [source-delivery system
+setting](../reference/configuration.md#source-delivery).
+
+Use the actual frozen release record. The directory
+must serve all five kit files at their original names. The application performs
+no server-side URL fetch; it checks the configured identity against its packaged
+identity and installed version, then supplies the same links and expected digest
+to personal settings and MCP `initialize` / `server/discover` instructions.
+A syntactically valid configuration does not prove remote availability or bytes:
+retrieval acceptance must independently verify the expected digest and contents.
+
+URLs require HTTPS, with no credentials, query, fragment, encoded characters or
+traversal segments. Literal loopback HTTP (`127.0.0.1` or `[::1]`) is allowed only
+as a local fixture destination; its configuration stays outside the package.
+No test URL may become a release destination. Missing, malformed or mismatched
+configuration, or missing package identity, yields an explicit unavailable offer
+without links. This state fails source-offer acceptance, not the existing MCP
+authentication or connection-policy checks.
+
+Source downloads are static release artifacts and must require no maintainer
+credentials. Do not forward Nextcloud credentials to their host. Personal source
+access does not require enabling the user's MCP connection. MCP discovery still
+requires its existing authentication and connection admission, and neither
+adapter adds a Files, Notes or other capability grant. The shared metadata lives
+in `lib/Release`; protocol and template adapters only present it.
+
+## Disposable native source acceptance
+
+From `mcp/`, using Docker and the current pinned native reference image:
+
+```sh
+composer test:source -- /absolute/path/to/kit TRUSTED_MANIFEST_SHA256
+```
+
+This explicit command verifies the kit and inspects the runtime archive before
+starting an owned NC35/SQLite fixture. It reuses the native harness, publishes no
+ports, leaves production configuration alone and removes only its labeled
+container/network on exit. A cleanup inspection error, ownership mismatch or
+removal error fails acceptance; success is reported only after cleanup completes.
+The run directory is created with mode `0700`, independently of the caller's
+umask. Logs and downloaded source evidence remain under
+ignored `mcp/build/source-acceptance/`; raw failure logs are private and must not
+be published. An interrupted process may leave owned resources: inspect the exact
+run labels before any cleanup. Never clean unrelated containers or networks.
+
+The check uses real Nextcloud personal settings and both MCP discovery paths as a
+non-admin with Basic and Bearer credentials, varies Files grants, downloads every
+kit file without credentials, preserves anonymous/connection denial and checks
+unavailable/mismatched metadata. The host verifier checks retrieved bytes and an
+intentional tampering probe. Source reconstruction from that retrieved kit is a
+separate required acceptance step; a successful download alone does not close F3.
+This focused fixture does not run the full native platform matrix, qualify HTTPS,
+exercise ChatGPT or replace human review and target-host acceptance.

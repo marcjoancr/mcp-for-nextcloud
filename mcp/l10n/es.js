@@ -1,6 +1,13 @@
 OC.L10N.register(
     "mcp",
     {
+    "Source code for this version" : "Código fuente de esta versión",
+    "Source delivery is unavailable. Contact your administrator." : "La entrega de fuentes no está disponible. Contacta con tu administrador.",
+    "Download the complete source kit, including dependency sources and build instructions." : "Descarga el kit completo de fuentes, incluidas las fuentes de las dependencias y las instrucciones de compilación.",
+    "Version: %s" : "Versión: %s",
+    "Source revision: %s" : "Revisión de las fuentes: %s",
+    "Expected manifest SHA-256: %s" : "SHA-256 esperado del manifiesto: %s",
+
     "The saved policy was verified. Your unsaved input is preserved; review it before saving." : "Se verificó la política guardada. Se conserva tu entrada sin guardar; revísala antes de guardarla.",
 
     "The copy byte limit was reached. Existing output was retained. Review the destination before retrying." : "Se alcanzó el límite de bytes de la copia. Se conservó el contenido ya creado. Revisa el destino antes de volver a intentarlo.",
