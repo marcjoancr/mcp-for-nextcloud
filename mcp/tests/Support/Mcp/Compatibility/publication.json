@@ -2077,6 +2077,7 @@
                                 "notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.",
                                 "notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.",
                                 "Notes are capped at 1048576 bytes read or written, and a title at 200 characters.",
+                                "notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.",
                                 "Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.",
                                 "Some notes or categories may be hidden by administrator policy and will appear as if they do not exist."
                             ],
@@ -2227,7 +2228,9 @@
                                 "A board owned by somebody else is refused on a write until the user has been asked and the call repeats with confirm_shared: true. The refusal is a normal result that says what is missing, not an error.",
                                 "The caller owns a created card. Explicit assignments are checked before creation and shown in the plan. Assignment changes during creation can produce a created card with warnings; read it before retrying in Deck. deck_edit_card changes assignees with assign and unassign (lists of account IDs, at most 100 each); an account cannot be in both, accounts are checked before anything is written, and a failure midway leaves the result listing assigned, unassigned and failed.",
                                 "To set up a project from scratch use one deck_create_board call: it creates the board, its lists and their first cards after a single confirmation (at most 20 lists and 100 cards). The board is open only to its owner, so share it in Deck before assigning anybody else. deck_create_stack adds a list to an existing board. deck_delete_stack and deck_delete_board work only on something empty: they refuse, saying how many cards are left, while any card (active or archived) remains, and what they delete goes to the Deck trash. A card created by somebody else right after the second count they take before finishing may go to the trash with the list or board; it is recoverable there.",
-                                "duedate is a plain day (Y-m-d) and is read in the timezone of the account; a card description is capped at 100000 characters and a title at 255.",
+                                "duedate accepts YYYY-MM-DD (local midnight), YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z/±HH:MM. Nonexistent local times are refused; repeated local times use the first occurrence. Output duedate remains the local date and dueAt gives the instant with the account offset, without a timezone field. overdue is based on the local day, not the time; dueBefore accepts only YYYY-MM-DD.",
+                                "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
+                                "A card description is capped at 100000 characters and a title at 255.",
                                 "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end."
                             ],
                             "tools": [
@@ -3499,9 +3502,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -3512,6 +3530,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -4873,7 +4897,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -4935,7 +4959,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -5166,7 +5190,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -6960,9 +6984,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -6973,6 +7012,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -8415,7 +8460,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -8480,7 +8525,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -8723,7 +8768,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -9693,6 +9738,7 @@
                                 "notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.",
                                 "notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.",
                                 "Notes are capped at 1048576 bytes read or written, and a title at 200 characters.",
+                                "notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.",
                                 "Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.",
                                 "Some notes or categories may be hidden by administrator policy and will appear as if they do not exist."
                             ],
@@ -10019,7 +10065,9 @@
                                 "A board owned by somebody else is refused on a write until the user has been asked and the call repeats with confirm_shared: true. The refusal is a normal result that says what is missing, not an error.",
                                 "The caller owns a created card. Explicit assignments are checked before creation and shown in the plan. Assignment changes during creation can produce a created card with warnings; read it before retrying in Deck. deck_edit_card changes assignees with assign and unassign (lists of account IDs, at most 100 each); an account cannot be in both, accounts are checked before anything is written, and a failure midway leaves the result listing assigned, unassigned and failed.",
                                 "To set up a project from scratch use one deck_create_board call: it creates the board, its lists and their first cards after a single confirmation (at most 20 lists and 100 cards). The board is open only to its owner, so share it in Deck before assigning anybody else. deck_create_stack adds a list to an existing board. deck_delete_stack and deck_delete_board work only on something empty: they refuse, saying how many cards are left, while any card (active or archived) remains, and what they delete goes to the Deck trash. A card created by somebody else right after the second count they take before finishing may go to the trash with the list or board; it is recoverable there.",
-                                "duedate is a plain day (Y-m-d) and is read in the timezone of the account; a card description is capped at 100000 characters and a title at 255.",
+                                "duedate accepts YYYY-MM-DD (local midnight), YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z/±HH:MM. Nonexistent local times are refused; repeated local times use the first occurrence. Output duedate remains the local date and dueAt gives the instant with the account offset, without a timezone field. overdue is based on the local day, not the time; dueBefore accepts only YYYY-MM-DD.",
+                                "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
+                                "A card description is capped at 100000 characters and a title at 255.",
                                 "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end."
                             ],
                             "tools": [
@@ -11528,9 +11576,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -11541,6 +11604,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -12714,7 +12783,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -12767,7 +12836,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -12966,7 +13035,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -14634,9 +14703,24 @@
                                         "minimum": 1,
                                         "description": "Id of the note."
                                     },
+                                    "append": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Text added at the end, on a new line."
+                                    },
+                                    "old": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 65536,
+                                        "description": "Passage to replace; must appear exactly once."
+                                    },
+                                    "new": {
+                                        "type": "string",
+                                        "description": "Text that replaces old."
+                                    },
                                     "content": {
                                         "type": "string",
-                                        "description": "New complete content."
+                                        "description": "New complete content; mutually exclusive with append and old/new."
                                     },
                                     "title": {
                                         "type": "string",
@@ -14647,6 +14731,12 @@
                                     "etag": {
                                         "type": "string",
                                         "description": "ETag read before; when it differs, nothing is changed."
+                                    },
+                                    "plan_state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128,
+                                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                                     },
                                     "confirm_shared": {
                                         "type": "boolean",
@@ -16008,7 +16098,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                     },
                                     "assignees": {
                                         "type": "array",
@@ -16070,7 +16160,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                     },
                                     "assign": {
                                         "type": "array",
@@ -16301,7 +16391,7 @@
                                                                     "string",
                                                                     "null"
                                                                 ],
-                                                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                             },
                                                             "assignees": {
                                                                 "type": "array",
@@ -19049,6 +19139,7 @@
                                 "notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.",
                                 "notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.",
                                 "Notes are capped at 1048576 bytes read or written, and a title at 200 characters.",
+                                "notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.",
                                 "Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.",
                                 "Some notes or categories may be hidden by administrator policy and will appear as if they do not exist."
                             ],
@@ -19199,7 +19290,9 @@
                                 "A board owned by somebody else is refused on a write until the user has been asked and the call repeats with confirm_shared: true. The refusal is a normal result that says what is missing, not an error.",
                                 "The caller owns a created card. Explicit assignments are checked before creation and shown in the plan. Assignment changes during creation can produce a created card with warnings; read it before retrying in Deck. deck_edit_card changes assignees with assign and unassign (lists of account IDs, at most 100 each); an account cannot be in both, accounts are checked before anything is written, and a failure midway leaves the result listing assigned, unassigned and failed.",
                                 "To set up a project from scratch use one deck_create_board call: it creates the board, its lists and their first cards after a single confirmation (at most 20 lists and 100 cards). The board is open only to its owner, so share it in Deck before assigning anybody else. deck_create_stack adds a list to an existing board. deck_delete_stack and deck_delete_board work only on something empty: they refuse, saying how many cards are left, while any card (active or archived) remains, and what they delete goes to the Deck trash. A card created by somebody else right after the second count they take before finishing may go to the trash with the list or board; it is recoverable there.",
-                                "duedate is a plain day (Y-m-d) and is read in the timezone of the account; a card description is capped at 100000 characters and a title at 255.",
+                                "duedate accepts YYYY-MM-DD (local midnight), YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z/±HH:MM. Nonexistent local times are refused; repeated local times use the first occurrence. Output duedate remains the local date and dueAt gives the instant with the account offset, without a timezone field. overdue is based on the local day, not the time; dueBefore accepts only YYYY-MM-DD.",
+                                "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
+                                "A card description is capped at 100000 characters and a title at 255.",
                                 "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end."
                             ],
                             "tools": [
@@ -20471,9 +20564,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -20484,6 +20592,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -21845,7 +21959,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -21907,7 +22021,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -22138,7 +22252,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -23932,9 +24046,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -23945,6 +24074,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -25387,7 +25522,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -25452,7 +25587,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -25695,7 +25830,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -26665,6 +26800,7 @@
                                 "notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.",
                                 "notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.",
                                 "Notes are capped at 1048576 bytes read or written, and a title at 200 characters.",
+                                "notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.",
                                 "Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.",
                                 "Some notes or categories may be hidden by administrator policy and will appear as if they do not exist."
                             ],
@@ -26991,7 +27127,9 @@
                                 "A board owned by somebody else is refused on a write until the user has been asked and the call repeats with confirm_shared: true. The refusal is a normal result that says what is missing, not an error.",
                                 "The caller owns a created card. Explicit assignments are checked before creation and shown in the plan. Assignment changes during creation can produce a created card with warnings; read it before retrying in Deck. deck_edit_card changes assignees with assign and unassign (lists of account IDs, at most 100 each); an account cannot be in both, accounts are checked before anything is written, and a failure midway leaves the result listing assigned, unassigned and failed.",
                                 "To set up a project from scratch use one deck_create_board call: it creates the board, its lists and their first cards after a single confirmation (at most 20 lists and 100 cards). The board is open only to its owner, so share it in Deck before assigning anybody else. deck_create_stack adds a list to an existing board. deck_delete_stack and deck_delete_board work only on something empty: they refuse, saying how many cards are left, while any card (active or archived) remains, and what they delete goes to the Deck trash. A card created by somebody else right after the second count they take before finishing may go to the trash with the list or board; it is recoverable there.",
-                                "duedate is a plain day (Y-m-d) and is read in the timezone of the account; a card description is capped at 100000 characters and a title at 255.",
+                                "duedate accepts YYYY-MM-DD (local midnight), YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z/±HH:MM. Nonexistent local times are refused; repeated local times use the first occurrence. Output duedate remains the local date and dueAt gives the instant with the account offset, without a timezone field. overdue is based on the local day, not the time; dueBefore accepts only YYYY-MM-DD.",
+                                "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
+                                "A card description is capped at 100000 characters and a title at 255.",
                                 "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end."
                             ],
                             "tools": [
@@ -28500,9 +28638,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -28513,6 +28666,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -29686,7 +29845,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -29739,7 +29898,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -29938,7 +30097,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -31606,9 +31765,24 @@
                                         "minimum": 1,
                                         "description": "Id of the note."
                                     },
+                                    "append": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Text added at the end, on a new line."
+                                    },
+                                    "old": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 65536,
+                                        "description": "Passage to replace; must appear exactly once."
+                                    },
+                                    "new": {
+                                        "type": "string",
+                                        "description": "Text that replaces old."
+                                    },
                                     "content": {
                                         "type": "string",
-                                        "description": "New complete content."
+                                        "description": "New complete content; mutually exclusive with append and old/new."
                                     },
                                     "title": {
                                         "type": "string",
@@ -31619,6 +31793,12 @@
                                     "etag": {
                                         "type": "string",
                                         "description": "ETag read before; when it differs, nothing is changed."
+                                    },
+                                    "plan_state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128,
+                                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                                     },
                                     "confirm_shared": {
                                         "type": "boolean",
@@ -32980,7 +33160,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                     },
                                     "assignees": {
                                         "type": "array",
@@ -33042,7 +33222,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                     },
                                     "assign": {
                                         "type": "array",
@@ -33273,7 +33453,7 @@
                                                                     "string",
                                                                     "null"
                                                                 ],
-                                                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                             },
                                                             "assignees": {
                                                                 "type": "array",
@@ -36021,6 +36201,7 @@
                                 "notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.",
                                 "notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.",
                                 "Notes are capped at 1048576 bytes read or written, and a title at 200 characters.",
+                                "notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.",
                                 "Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.",
                                 "Some notes or categories may be hidden by administrator policy and will appear as if they do not exist."
                             ],
@@ -36171,7 +36352,9 @@
                                 "A board owned by somebody else is refused on a write until the user has been asked and the call repeats with confirm_shared: true. The refusal is a normal result that says what is missing, not an error.",
                                 "The caller owns a created card. Explicit assignments are checked before creation and shown in the plan. Assignment changes during creation can produce a created card with warnings; read it before retrying in Deck. deck_edit_card changes assignees with assign and unassign (lists of account IDs, at most 100 each); an account cannot be in both, accounts are checked before anything is written, and a failure midway leaves the result listing assigned, unassigned and failed.",
                                 "To set up a project from scratch use one deck_create_board call: it creates the board, its lists and their first cards after a single confirmation (at most 20 lists and 100 cards). The board is open only to its owner, so share it in Deck before assigning anybody else. deck_create_stack adds a list to an existing board. deck_delete_stack and deck_delete_board work only on something empty: they refuse, saying how many cards are left, while any card (active or archived) remains, and what they delete goes to the Deck trash. A card created by somebody else right after the second count they take before finishing may go to the trash with the list or board; it is recoverable there.",
-                                "duedate is a plain day (Y-m-d) and is read in the timezone of the account; a card description is capped at 100000 characters and a title at 255.",
+                                "duedate accepts YYYY-MM-DD (local midnight), YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z/±HH:MM. Nonexistent local times are refused; repeated local times use the first occurrence. Output duedate remains the local date and dueAt gives the instant with the account offset, without a timezone field. overdue is based on the local day, not the time; dueBefore accepts only YYYY-MM-DD.",
+                                "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
+                                "A card description is capped at 100000 characters and a title at 255.",
                                 "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end."
                             ],
                             "tools": [
@@ -37443,9 +37626,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -37456,6 +37654,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -38817,7 +39021,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -38879,7 +39083,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -39110,7 +39314,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -40904,9 +41108,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -40917,6 +41136,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -42359,7 +42584,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -42424,7 +42649,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -42667,7 +42892,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -43637,6 +43862,7 @@
                                 "notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.",
                                 "notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.",
                                 "Notes are capped at 1048576 bytes read or written, and a title at 200 characters.",
+                                "notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.",
                                 "Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.",
                                 "Some notes or categories may be hidden by administrator policy and will appear as if they do not exist."
                             ],
@@ -43963,7 +44189,9 @@
                                 "A board owned by somebody else is refused on a write until the user has been asked and the call repeats with confirm_shared: true. The refusal is a normal result that says what is missing, not an error.",
                                 "The caller owns a created card. Explicit assignments are checked before creation and shown in the plan. Assignment changes during creation can produce a created card with warnings; read it before retrying in Deck. deck_edit_card changes assignees with assign and unassign (lists of account IDs, at most 100 each); an account cannot be in both, accounts are checked before anything is written, and a failure midway leaves the result listing assigned, unassigned and failed.",
                                 "To set up a project from scratch use one deck_create_board call: it creates the board, its lists and their first cards after a single confirmation (at most 20 lists and 100 cards). The board is open only to its owner, so share it in Deck before assigning anybody else. deck_create_stack adds a list to an existing board. deck_delete_stack and deck_delete_board work only on something empty: they refuse, saying how many cards are left, while any card (active or archived) remains, and what they delete goes to the Deck trash. A card created by somebody else right after the second count they take before finishing may go to the trash with the list or board; it is recoverable there.",
-                                "duedate is a plain day (Y-m-d) and is read in the timezone of the account; a card description is capped at 100000 characters and a title at 255.",
+                                "duedate accepts YYYY-MM-DD (local midnight), YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z/±HH:MM. Nonexistent local times are refused; repeated local times use the first occurrence. Output duedate remains the local date and dueAt gives the instant with the account offset, without a timezone field. overdue is based on the local day, not the time; dueBefore accepts only YYYY-MM-DD.",
+                                "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
+                                "A card description is capped at 100000 characters and a title at 255.",
                                 "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end."
                             ],
                             "tools": [
@@ -45472,9 +45700,24 @@
                                 "minimum": 1,
                                 "description": "Id of the note."
                             },
+                            "append": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Text added at the end, on a new line."
+                            },
+                            "old": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 65536,
+                                "description": "Passage to replace; must appear exactly once."
+                            },
+                            "new": {
+                                "type": "string",
+                                "description": "Text that replaces old."
+                            },
                             "content": {
                                 "type": "string",
-                                "description": "New complete content."
+                                "description": "New complete content; mutually exclusive with append and old/new."
                             },
                             "title": {
                                 "type": "string",
@@ -45485,6 +45728,12 @@
                             "etag": {
                                 "type": "string",
                                 "description": "ETag read before; when it differs, nothing is changed."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                             },
                             "confirm_shared": {
                                 "type": "boolean",
@@ -46658,7 +46907,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assignees": {
                                 "type": "array",
@@ -46711,7 +46960,7 @@
                                     "string",
                                     "null"
                                 ],
-                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                             },
                             "assign": {
                                 "type": "array",
@@ -46910,7 +47159,7 @@
                                                             "string",
                                                             "null"
                                                         ],
-                                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                     },
                                                     "assignees": {
                                                         "type": "array",
@@ -48578,9 +48827,24 @@
                                         "minimum": 1,
                                         "description": "Id of the note."
                                     },
+                                    "append": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Text added at the end, on a new line."
+                                    },
+                                    "old": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 65536,
+                                        "description": "Passage to replace; must appear exactly once."
+                                    },
+                                    "new": {
+                                        "type": "string",
+                                        "description": "Text that replaces old."
+                                    },
                                     "content": {
                                         "type": "string",
-                                        "description": "New complete content."
+                                        "description": "New complete content; mutually exclusive with append and old/new."
                                     },
                                     "title": {
                                         "type": "string",
@@ -48591,6 +48855,12 @@
                                     "etag": {
                                         "type": "string",
                                         "description": "ETag read before; when it differs, nothing is changed."
+                                    },
+                                    "plan_state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128,
+                                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                                     },
                                     "confirm_shared": {
                                         "type": "boolean",
@@ -49952,7 +50222,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                     },
                                     "assignees": {
                                         "type": "array",
@@ -50014,7 +50284,7 @@
                                             "string",
                                             "null"
                                         ],
-                                        "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                        "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                     },
                                     "assign": {
                                         "type": "array",
@@ -50245,7 +50515,7 @@
                                                                     "string",
                                                                     "null"
                                                                 ],
-                                                                "description": "Due date in YYYY-MM-DD format, or null to remove it."
+                                                                "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
                                                             },
                                                             "assignees": {
                                                                 "type": "array",

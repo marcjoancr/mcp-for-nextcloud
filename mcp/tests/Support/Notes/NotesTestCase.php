@@ -94,7 +94,7 @@ abstract class NotesTestCase extends TestCase
     protected function capability(string $class): object
     {
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
-        $services = [\OCA\Mcp\Modules\Notes\Storage\NotesFolders::class => new \OCA\Mcp\Modules\Notes\Storage\NotesFolders($this->root, $this->config->mock($this)), \OCA\Mcp\Modules\Notes\Storage\NoteLookup::class => new \OCA\Mcp\Modules\Notes\Storage\NoteLookup(), NodeAccessInfo::class => $access, SharedWriteGuard::class => new SharedWriteGuard($access), IAppManager::class => $this->apps, IUserManager::class => $this->users, \OCA\Mcp\Access\Visibility\VisibilityGuard::class => null, \OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite::class => $this->locks->service($this)];
+        $services = [\OCP\IConfig::class => $this->config->mock($this), \OCA\Mcp\Modules\Notes\Storage\NotesFolders::class => new \OCA\Mcp\Modules\Notes\Storage\NotesFolders($this->root, $this->config->mock($this)), \OCA\Mcp\Modules\Notes\Storage\NoteLookup::class => new \OCA\Mcp\Modules\Notes\Storage\NoteLookup(), NodeAccessInfo::class => $access, SharedWriteGuard::class => new SharedWriteGuard($access), IAppManager::class => $this->apps, IUserManager::class => $this->users, \OCA\Mcp\Access\Visibility\VisibilityGuard::class => null, \OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite::class => $this->locks->service($this)];
         $build = function (string $name) use (&$build, &$services) {
             if (array_key_exists($name, $services)) {
                 return $services[$name];

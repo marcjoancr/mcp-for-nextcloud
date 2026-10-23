@@ -76,18 +76,7 @@ class PlanText {
     }
 
     public static function formatDate(string $raw, \DateTimeZone $zone): string {
-        try {
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
-                return $raw;
-            }
-            $dt = (new \DateTimeImmutable($raw))->setTimezone($zone);
-            if ($dt->format('H:i:s') === '00:00:00') {
-                return $dt->format('Y-m-d');
-            }
-            return $dt->format('Y-m-d H:i');
-        } catch (\Throwable) {
-            return ProtocolPlanText::inline($raw);
-        }
+        return CardDueDateView::formatPlan($raw, $zone);
     }
 
     public static function truncate(string $text): string {

@@ -1,6 +1,20 @@
 OC.L10N.register(
     "mcp",
     {
+    "expected a valid date or date-time" : "se esperaba una fecha o fecha y hora válidas",
+
+    "Use only one of content, append or old/new." : "Use solo uno de content, append u old/new.",
+    "append and old/new need the etag returned by notes_read or by the plan." : "append y old/new requieren el etag que devuelve notes_read o el plan.",
+    "The note changed since it was read; nothing was written. Current etag: %s" : "La nota cambió desde que se leyó; no se escribió nada. Etag actual: %s",
+    "The note changed since the plan; check it again." : "La nota cambió desde el plan; revísela de nuevo.",
+    "Nothing was changed. After your approval the text below is added at the end of the note." : "No se cambió nada. Tras su aprobación el texto de abajo se añade al final de la nota.",
+    "Nothing was changed. After your approval the passage below is replaced in the note." : "No se cambió nada. Tras su aprobación el fragmento de abajo se reemplaza en la nota.",
+    "The due date must be YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS], optionally followed by Z or an offset ±HH:MM. Use a real date and time." : "La fecha de vencimiento debe ser YYYY-MM-DD o YYYY-MM-DDTHH:MM[:SS], opcionalmente seguida de Z o un desplazamiento ±HH:MM. Use una fecha y hora válidas.",
+    "This local due time does not exist in the account timezone. Choose another time or include an explicit offset." : "Esta hora de vencimiento local no existe en la zona horaria de la cuenta. Elija otra hora o incluya un desplazamiento explícito.",
+    "- Append: %s" : "- Añadir: %s",
+    "- Replace: %s → %s" : "- Reemplazar: %s → %s",
+    "%s (%s, UTC%s)" : "%s (%s, UTC%s)",
+
     "The specified snippet must not be empty." : "El fragmento indicado no puede estar vacío.",
     "The specified snippet appears more than once in the file; provide a longer, unique snippet." : "El fragmento indicado aparece más de una vez en el archivo; indique un fragmento más largo y único.",
     "The specified snippet is longer than %d bytes; send a shorter, unique snippet." : "El fragmento indicado supera los %d bytes; envíe un fragmento más corto y único.",
@@ -455,7 +469,6 @@ OC.L10N.register(
     "The copy would exceed %s items; nothing was copied. Choose a smaller folder." : "La copia excedería %s elementos; no se copió nada. Elija una carpeta más pequeña.",
     "The Deck app is not available for this user." : "La aplicación Deck no está disponible para este usuario.",
     "The Deck item changed during the operation. Try again." : "El elemento de Deck cambió durante la operación. Inténtelo de nuevo.",
-    "The due date must be a valid date in YYYY-MM-DD format." : "La fecha prevista debe ser una fecha válida con el formato AAAA-MM-DD.",
     "The dueBefore date must be a valid date in YYYY-MM-DD format." : "La fecha de dueBefore debe ser una fecha válida con el formato AAAA-MM-DD.",
     "The event exceeds the limit of %d bytes accepted by the server." : "El evento supera el límite de %d bytes que el servidor acepta.",
     "The event has invalid data and cannot be changed." : "El evento contiene datos inválidos y no se puede modificar.",
@@ -877,7 +890,6 @@ OC.L10N.register(
     "at most %s cards in total" : "como máximo %s tarjetas en total",
     "expected a title of 1 to 255 characters" : "se esperaba un título de 1 a 255 caracteres",
     "expected a title of 1 to %s characters" : "se esperaba un título de 1 a %s caracteres",
-    "expected a valid date in YYYY-MM-DD format" : "se esperaba una fecha válida en formato AAAA-MM-DD",
     "a new board is open only to you; share the board first, then assign other accounts with deck_edit_card" : "un tablero nuevo está abierto solo para usted; comparta primero el tablero y luego asigne otras cuentas con deck_edit_card",
     "expected six hexadecimal digits, for example 0082c9" : "se esperaban seis dígitos hexadecimales, por ejemplo 0082c9",
     "The card '%s' was created, but an assignee could not be assigned. Read the card before retrying in Deck." : "La tarjeta '%s' se creó, pero no se pudo asignar a un responsable. Lea la tarjeta antes de volver a intentarlo en Deck.",

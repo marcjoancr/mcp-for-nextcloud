@@ -123,7 +123,7 @@ class ErrorMessages {
      * @return string The message in the language of the current user.
      */
     public static function errorInvalidDuedate(): string {
-        return Translator::t('The due date must be a valid date in YYYY-MM-DD format.');
+        return \OCA\Mcp\Modules\Deck\Cards\CardDueDateMessages::invalid();
     }
 
     /**

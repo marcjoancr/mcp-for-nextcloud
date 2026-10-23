@@ -13,7 +13,7 @@ use OCA\Mcp\Modules\Deck\Assignments\AssignedUsers;
 use OCA\Mcp\Modules\Deck\Cards\CardInput;
 
 class CreateCardPlan {
-    public function __construct(private PlanLocation $locations, private AssignmentAccess $assignments) {
+    public function __construct(private PlanLocation $locations, private AssignmentAccess $assignments, private ?\OCA\Mcp\Platform\Time\UserTimezone $zones = null) {
     }
 
     /**
@@ -29,7 +29,7 @@ class CreateCardPlan {
             'card' => [
                 'title' => CardInput::requireTitle((string) $arguments['title']),
                 'description' => CardInput::requireDescription((string) ($arguments['description'] ?? '')),
-                'dueDate' => CardInput::duedate($arguments['duedate'] ?? null),
+                'dueDate' => CardInput::duedate($arguments['duedate'] ?? null, $this->zones?->forUser($userId)),
                 'owner' => $userId,
             ] + ($assignees === null ? [] : ['assignees' => $assignees]),
             'destination' => $place,

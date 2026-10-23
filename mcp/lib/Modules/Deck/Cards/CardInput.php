@@ -19,7 +19,7 @@ use InvalidArgumentException;
 final class CardInput {
     /** A description longer than this is refused instead of silently truncated. */
     public const MAX_DESCRIPTION_LENGTH = 100000;
-    /** Format accepted for `duedate`, matching the Deck `duedate` column. */
+    /** Date-only syntax of the independent dueBefore filter. */
     private const DATE_FORMAT = 'Y-m-d';
     /**
      * Validates a card title.
@@ -53,12 +53,13 @@ final class CardInput {
     /**
      * Validates a due date.
      *
-     * @param mixed $value Raw value: a `YYYY-MM-DD` string or null to clear the date.
-     * @return string|null The date, or null when there is none.
-     * @throws InvalidArgumentException When the string is not a real calendar date.
+     * @param mixed $value Supported date or date-time, or null to clear the deadline.
+     * @param \DateTimeZone|null $zone Account timezone for offset-free values.
+     * @return string|null Validated input, or null when there is none.
+     * @throws InvalidArgumentException For invalid fields, unsupported syntax or nonexistent local times.
      */
-    public static function duedate(mixed $value): ?string {
-        return self::date($value, ErrorMessages::errorInvalidDuedate());
+    public static function duedate(mixed $value, ?\DateTimeZone $zone = null): ?string {
+        return CardDueDate::validate($value, $zone);
     }
 
     /**

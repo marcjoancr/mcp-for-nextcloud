@@ -33,7 +33,7 @@ final class DeckTranslationTest extends TestCase {
         'errorConflict' => 'O item do Deck mudou durante a operação. Tente de novo.',
         'errorGeneric' => 'Não foi possível concluir a operação no Deck.',
         'errorNoFieldToEdit' => 'Informe ao menos um campo para editar: title, description, duedate, assign ou unassign.',
-        'errorInvalidDuedate' => 'A data prevista deve ser uma data válida no formato AAAA-MM-DD.',
+        'errorInvalidDuedate' => 'O prazo deve estar em YYYY-MM-DD ou YYYY-MM-DDTHH:MM[:SS], opcionalmente seguido de Z ou de um deslocamento ±HH:MM. Use uma data e hora válidas.',
         'errorInvalidDueBefore' => 'A data de dueBefore deve ser uma data válida no formato AAAA-MM-DD.',
         'errorInvalidStatus' => 'Status inválido para o acompanhamento. Use overdue, open, done ou all.',
         'errorDescriptionTooLong' => 'A descrição do card excede o tamanho máximo de 100000 caracteres.',

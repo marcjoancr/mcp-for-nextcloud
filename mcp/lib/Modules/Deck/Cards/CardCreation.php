@@ -27,6 +27,7 @@ class CardCreation {
         private CardWriter $writer,
         private CardStateReader $state,
         private LoggerInterface $logger,
+        private ?\OCA\Mcp\Platform\Time\UserTimezone $zones = null,
     ) {
     }
 
@@ -49,7 +50,7 @@ class CardCreation {
         $stackId = (int) $arguments['stackId'];
         $title = CardInput::requireTitle((string) $arguments['title']);
         $description = CardInput::requireDescription((string) ($arguments['description'] ?? ''));
-        $duedate = CardInput::duedate($arguments['duedate'] ?? null);
+        $duedate = CardInput::duedate($arguments['duedate'] ?? null, $this->zones?->forUser($userId));
         $warnings = [];
         // Deck inserts the card before its activity, events and enrichment: a failure after that point is a card
         // that exists, found again by owner, title and creation time.

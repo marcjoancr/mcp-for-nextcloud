@@ -27,7 +27,7 @@ existing migration IDs remain unchanged pending F3.
 | --- | --- | --- | --- |
 | Baseline | Existing fork runtime | Passed | 7,691 PHP tests, 65,394 assertions on PHP 8.4.27 |
 | A | Existing privacy, resource-safety and compatibility fixes | Complete | 7,752 PHP tests / 66,518 assertions; focused native 4 / 60; browser 6; architecture, analyses and attribution pass |
-| B | Notes partial edits and Deck deadlines | Pending | Not run |
+| B | Notes partial edits and Deck deadlines | Complete | 7,810 PHP tests / 66,899 assertions; native 16 / 429; architecture, analyses and review pass |
 | C | Selected Deck labels, files and dependencies | Pending | Not run |
 | D | Complete optional filename policy and administration | Pending | Not run |
 | E | Documentation, metadata and final qualification | Pending | Not run |
@@ -87,6 +87,57 @@ or failing test attempts are not counted as green evidence.
 Real Deck attachment/tagged-alias coverage remains dependent on batch C's native
 fixtures. Controlled local OAuth browser checks do not certify public HTTPS or
 hosted clients.
+
+## Batch B evidence
+
+Implemented N01 and D02 through the existing Notes and Deck owners. Notes adds
+exclusive append/replace modes without changing the seven tool names or existing
+full-content/title-only contracts. Partial confirmations bind the current content,
+ETag and effect arguments with the existing opaque plan state. The operation
+rereads content inside its lock-aware write boundary. Nextcloud has no content
+compare-and-swap here: a competing write after that read remains a documented
+race, not an atomicity guarantee.
+
+Deck converts deadlines to UTC before native persistence and presents the account
+offset in `dueAt`, while retaining day-based `duedate`, overdue and `dueBefore`.
+Explicit nonexistent local times are refused; ambiguous times select the earliest
+instant unless an offset disambiguates them. Date-only midnight normalization is
+preserved. Unrelated edits retain existing instants; old affected deadlines require
+manual correction rather than a speculative bulk shift.
+
+Pinned Deck provisioning and dates-only native fixtures moved forward from QA to
+validate D02. Contacts and Deck share one strict app manifest verifier with no
+forwarding wrappers. The first native attempt failed before tests because both
+callers omitted its new app-ID argument. An executable contract test reproduced
+and fixed that wiring defect. The next attempt ran 16 cases with one failure: an
+adapted upstream test expected `notes_read.path`, absent from the existing fork
+contract. That test now verifies the published identity/content/ETag fields;
+production behavior and frozen Notes read captures were preserved.
+
+| Gate | Result |
+| --- | --- |
+| Final complete PHP suite including the QA corrections | 7,810 tests / 66,899 assertions; PHP 8.4.27 |
+| Focused Notes/Deck/contracts | 653 tests / 8,067 assertions |
+| Architecture | 42 tests / 15,789 assertions |
+| PHP lint and both static-analysis scopes | Passed |
+| Manifest caller regression after correction | 2 tests / 36 assertions; shell and PHP syntax passed |
+| Frozen Notes compatibility after native-test correction | 6 tests / 99 assertions; PHP syntax passed |
+| NC35/MariaDB/fresh diagnostic, PHP 8.5.11 | 16 tests / 429 assertions, passed |
+| Independent review and scoped follow-ups | No actionable findings remain; human review remains pending |
+
+The successful native run is `mcp-it-20261023101342-4a029eccdea6`, using filter
+`NotesPartialEditTest|CardDueDatePersistenceTest`. Its production archive SHA256 is
+`c84b5a39bb3e4ff5a63fe490861d79fe0f754b4ba54977d0fbc1834682229eb3`.
+It tested the working tree based on `2d2ae6d` with batch B changes. Sanitized
+evidence follows the artifact layout above. This is a focused diagnostic, not a
+complete matrix cell. Run-owned containers and the network were cleaned.
+
+The preceding failed diagnostics are
+`mcp-it-20261023100227-9d204dfb40b9` (provisioning, no tests) and
+`mcp-it-20261023101034-28078fc5d811` (16 tests / 424 assertions, one failure).
+Neither is counted as passing. Existing Notes plan/result captures remain intact;
+contract edits are limited to selected schemas, descriptions and guides. Batch C
+capabilities were not enabled by this batch.
 
 ## Remaining acceptance
 

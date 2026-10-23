@@ -21,7 +21,7 @@ final class NotesCatalogTest extends TestCase
         $factories = array_fill_keys($names, static fn() => throw new \LogicException('Tool factory was invoked'));
         $module = new NotesModule($factories);
         self::assertSame($names, array_column($module->definitions(), 'name'));
-        self::assertCount(7, $module->guideNotes());
+        self::assertCount(8, $module->guideNotes());
         self::assertNull($module->renderPlan('notes_edit', []));
         self::assertNull($module->renderPlan('unknown', []));
         $this->expectException(\InvalidArgumentException::class);

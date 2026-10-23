@@ -6,14 +6,14 @@
  */
 declare(strict_types=1);
 
-// Runs in the disposable container before enabling the verified Contacts archive; never force compatibility.
-[$script, $path, $major, $version] = $argv;
+// Runs in the disposable container before enabling the verified app archive; never force compatibility.
+[$script, $path, $appId, $major, $version] = $argv;
 $xml = simplexml_load_file($path);
 $min = $xml === false ? '' : (string)$xml->dependencies->nextcloud['min-version'];
 $max = $xml === false ? '' : (string)$xml->dependencies->nextcloud['max-version'];
-if ($xml === false || (string)$xml->id !== 'contacts' || (string)$xml->version !== $version
+if ($xml === false || (string)$xml->id !== $appId || (string)$xml->version !== $version
     || $min === '' || $max === '' || version_compare($major, $min, '<') || version_compare($major, $max, '>')) {
-    fwrite(STDERR, "Contacts manifest does not match pinned version $version / Nextcloud $major\n");
+    fwrite(STDERR, "$appId manifest does not match pinned version $version / Nextcloud $major\n");
     exit(1);
 }
-echo "Contacts manifest verified: $version / Nextcloud $major ($min–$max)\n";
+echo "$appId manifest verified: $version / Nextcloud $major ($min–$max)\n";

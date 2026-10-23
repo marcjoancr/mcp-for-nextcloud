@@ -1,6 +1,20 @@
 OC.L10N.register(
     "mcp",
     {
+    "expected a valid date or date-time" : "esperada uma data ou data e hora válidas",
+
+    "Use only one of content, append or old/new." : "Use apenas um entre content, append ou old/new.",
+    "append and old/new need the etag returned by notes_read or by the plan." : "append e old/new exigem o etag devolvido pelo notes_read ou pelo plano.",
+    "The note changed since it was read; nothing was written. Current etag: %s" : "A nota mudou desde a leitura; nada foi gravado. Etag atual: %s",
+    "The note changed since the plan; check it again." : "A nota mudou desde o plano; confira de novo.",
+    "Nothing was changed. After your approval the text below is added at the end of the note." : "Nada foi alterado. Após sua aprovação, o texto abaixo é acrescentado ao fim da nota.",
+    "Nothing was changed. After your approval the passage below is replaced in the note." : "Nada foi alterado. Após sua aprovação, o trecho abaixo é substituído na nota.",
+    "The due date must be YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS], optionally followed by Z or an offset ±HH:MM. Use a real date and time." : "O prazo deve estar em YYYY-MM-DD ou YYYY-MM-DDTHH:MM[:SS], opcionalmente seguido de Z ou de um deslocamento ±HH:MM. Use uma data e hora válidas.",
+    "This local due time does not exist in the account timezone. Choose another time or include an explicit offset." : "Este horário de prazo não existe no fuso da conta. Escolha outro horário ou inclua um deslocamento explícito.",
+    "- Append: %s" : "- Acrescentar: %s",
+    "- Replace: %s → %s" : "- Substituir: %s → %s",
+    "%s (%s, UTC%s)" : "%s (%s, UTC%s)",
+
     "The specified snippet must not be empty." : "O trecho informado não pode estar vazio.",
     "The specified snippet appears more than once in the file; provide a longer, unique snippet." : "O trecho informado aparece mais de uma vez no arquivo; informe um trecho maior e único.",
     "The specified snippet is longer than %d bytes; send a shorter, unique snippet." : "O trecho informado passa de %d bytes; envie um trecho menor e único.",
@@ -455,7 +469,6 @@ OC.L10N.register(
     "The copy would exceed %s items; nothing was copied. Choose a smaller folder." : "A cópia passaria de %s itens; nada foi copiado. Escolha uma pasta menor.",
     "The Deck app is not available for this user." : "O app Deck não está disponível para este usuário.",
     "The Deck item changed during the operation. Try again." : "O item do Deck mudou durante a operação. Tente de novo.",
-    "The due date must be a valid date in YYYY-MM-DD format." : "A data prevista deve ser uma data válida no formato AAAA-MM-DD.",
     "The dueBefore date must be a valid date in YYYY-MM-DD format." : "A data de dueBefore deve ser uma data válida no formato AAAA-MM-DD.",
     "The event exceeds the limit of %d bytes accepted by the server." : "O evento passou do limite de %d bytes que o servidor aceita.",
     "The event has invalid data and cannot be changed." : "O evento tem dados inválidos e não pode ser alterado.",
@@ -877,7 +890,6 @@ OC.L10N.register(
     "at most %s cards in total" : "no máximo %s cartões no total",
     "expected a title of 1 to 255 characters" : "esperado um título de 1 a 255 caracteres",
     "expected a title of 1 to %s characters" : "esperado um título de 1 a %s caracteres",
-    "expected a valid date in YYYY-MM-DD format" : "esperada uma data válida no formato AAAA-MM-DD",
     "a new board is open only to you; share the board first, then assign other accounts with deck_edit_card" : "um quadro novo fica aberto só para você; compartilhe o quadro primeiro e depois atribua outras contas com deck_edit_card",
     "expected six hexadecimal digits, for example 0082c9" : "esperados seis dígitos hexadecimais, por exemplo 0082c9",
     "The card '%s' was created, but an assignee could not be assigned. Read the card before retrying in Deck." : "O cartão '%s' foi criado, mas não foi possível atribuir um responsável. Leia o cartão antes de tentar de novo no Deck.",
