@@ -27,6 +27,16 @@ final class McpDeckCardFilesTest extends IntegrationTestCase {
 		return $out['result']['structuredContent'] ?? json_decode($out['result']['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
 	}
 
+    /** Missing Files READ hides both tools and independently blocks direct module access. */
+    private function assertFileReadGrantRefused(array $out): void {
+        self::assertTrue($out['refused']);
+        self::assertSame(\OCA\Mcp\Mcp\Tools\Validation\UnknownToolException::class, $out['refusalClass']);
+        self::assertNotContains('deck_list_card_files', $out['tools']);
+        self::assertNotContains('deck_unlink_card_file', $out['tools']);
+        self::assertTrue($out['directResult']['isError'], json_encode($out));
+        self::assertStringNotContainsString('visible.txt', json_encode($out['directResult']));
+    }
+
 	private function args(array $f): array {
 		return ['cardId' => $f['a'], 'attachmentId' => $f['visibleShare']];
 	}
@@ -74,7 +84,7 @@ final class McpDeckCardFilesTest extends IntegrationTestCase {
 		self::assertTrue($folder['result']['isError']);
 		self::assertSame('Folders cannot be linked or unlinked here. Choose a file.', $folder['result']['content'][0]['text']);
 		self::assertTrue($this->call(DeckFixture::READER, $this->args($f), true)['result']['isError']);
-		self::assertTrue($this->call(DeckFixture::EDITOR, ['cardId' => $f['a']], false, false)['result']['isError']);
+		$this->assertFileReadGrantRefused($this->call(DeckFixture::EDITOR, ['cardId' => $f['a']], false, false));
 		self::assertContains($f['visibleShare'], $this->preserved($f)['a']);
 	}
 
@@ -130,8 +140,12 @@ final class McpDeckCardFilesTest extends IntegrationTestCase {
 				DeckFixture::run(DeckFixture::OWNER, 'label-archive', $f + ['target' => 'card']);
 			}
 			$out = $this->call(DeckFixture::EDITOR, $args, true, $change !== 'files-grant');
-			self::assertTrue($out['result']['isError'], json_encode($out));
-			self::assertStringNotContainsString('visible.txt', json_encode($out['result']));
+            if ($change === 'files-grant') {
+                $this->assertFileReadGrantRefused($out);
+            } else {
+                self::assertTrue($out['result']['isError'], json_encode($out));
+                self::assertStringNotContainsString('visible.txt', json_encode($out['result']));
+            }
 			self::assertContains($f['visibleShare'], $this->preserved($f)['a']);
 			if ($change === 'scope') {
 				DeckFixture::run(DeckFixture::OWNER, 'files-scope', ['actor' => DeckFixture::EDITOR, 'items' => null]);
