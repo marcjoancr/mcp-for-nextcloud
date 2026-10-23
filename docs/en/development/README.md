@@ -9,6 +9,7 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 
 | Task | Reference |
 | --- | --- |
+| Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md) |
 | Understand ownership and dependencies | [Architecture](architecture-specification.md) |
 | Add or change an MCP capability | [Adding a tool](adding-a-tool.md) |
 | Change administration or personal settings | [Administration JavaScript](admin-javascript.md) |
