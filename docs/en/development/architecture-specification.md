@@ -64,10 +64,16 @@ For example, Files uses `Reading/` and `Editing/`; shared file mutation safeguar
 live in `Editing/ContentWriter.php`. Read and write handlers can be tested without
 constructing unrelated capabilities.
 
-The catalog contains 74 tools: Files 23, Deck 13, Talk 8, Calendar 7, Contacts 6,
-Tasks 7, Notes 7, People 1 and Logs 2. Catalog order, definitions, plans and result
-rendering have compatibility fixtures. Do not regenerate fixtures simply to make
-a structural refactor pass.
+The catalogs contain at most 81 module tools: Files 23, Deck 20, Talk 8,
+Calendar 7, Contacts 6, Tasks 7, Notes 7, People 1 and Logs 2. The three Deck
+dependency tools appear only on compatible NC34/35 native APIs; without that
+capability the module maximum is 78 (Deck 17). The two diagnostic tools,
+`mcp_status` and `mcp_guide`, are separate, giving at most 83 tools in total.
+Actual discovery is further narrowed by grants, app availability, Guests and
+resource/access checks. These maxima never promise that every tool is available
+to an account. Catalog order, definitions, plans and result rendering have
+compatibility fixtures. Do not regenerate fixtures simply to make a structural
+refactor pass.
 
 Use constructor injection for concrete dependencies. Extract an interface when
 there is a real boundary or a substitutable consumer, not as a naming convention.

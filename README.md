@@ -25,6 +25,17 @@ Let Claude and other MCP clients work with your files, notes, calendars, contact
 
 One endpoint inside Nextcloud, with each user’s permissions. No Node, Docker or extra service is required at runtime.
 
+## Selected upstream integration (development)
+
+This branch adds Notes append/replace, Deck labels and visible file unlinking,
+conditional NC34/35 Deck dependencies, precise Deck deadlines and an optional
+filename allowlist, alongside privacy and compatibility fixes. See the
+[tools](docs/en/reference/tools.md) and
+[configuration](docs/en/reference/configuration.md) guides for limits and defaults.
+Manifest version remains **1.1.2** pending the fork release decision; final
+qualification and human reviews remain pending. This is selected source
+integration, with native file linking deferred, not full upstream 1.2.0 parity.
+
 ## What's new in 1.1.2
 
 Guests restrictions now apply to app-password and OAuth requests and to checkout links: allowed applications, hidden external storage and group-only sharing. Accounts that are not guests are unaffected; no database migration is added. See [release details](CHANGELOG.md#112).
@@ -113,6 +124,10 @@ AGPL-3.0-or-later, with the additional section 7(b) attribution term in [NOTICE]
 The package includes Smalot PdfParser, Symfony Polyfill Mbstring and the Composer autoloader. See versions, licenses, copyright and development dependencies in [THIRD-PARTY-NOTICES.md](mcp/THIRD-PARTY-NOTICES.md).
 
 **Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation (#10) and @Zegorax for administrator-registered OAuth clients (#8, #7).
+
+The upstream documentation also credits Sintax/Jhonatan Jaworski's contribution
+to [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). This historical
+credit is retained without implying that XERJ reviewed this fork.
 
 ## About Sintax
 

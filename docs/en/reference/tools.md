@@ -4,6 +4,11 @@
 
 # Tools
 
+The module catalogs contain at most **81 module tools**, plus `mcp_status` and
+`mcp_guide` (83 total). Three Deck dependency tools are conditional on compatible
+NC34/35 native APIs, leaving at most 78 module tools (80 total) without them.
+App availability and each account's access further reduce these counts.
+
 Each tool only appears in `tools/list` and can only be called when the user has the grant for the operation and the required app is enabled for them. Grant and app are checked again on every call. Everything runs as the authenticated user, through their own Nextcloud folder, and the Nextcloud permissions and shares keep applying.
 
 ### Tool guide (`mcp_guide`)
@@ -27,7 +32,7 @@ Plus:
 - **Friendly tool titles** in the client ("Search files", "List calendars") and MCP annotations (`readOnlyHint`, `destructiveHint`) so clients can ask before risky actions.
 - **Safety confirmations** for resources that belong to someone else: shared folders, team folders, other people's Deck boards and calendars. The server refuses the first call and returns a ready-made message, and the assistant must ask the user before repeating it with `confirm_shared: true`. *(Deck and Calendar since 0.6.6; Files and Notes since 0.7.0)*
 - **Optional apps respected**: tools and admin matrix columns of an app that is disabled (for everyone or for a given user) are hidden.
-- **Localized UI**: admin matrix, personal page, consent screen and every message a tool shows follow the language of the user's Nextcloud account. All modules are covered (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, the shared messages, the checkout pages and the calendar selftest). English, Brazilian Portuguese and Spanish are included (Spanish is a first translation and still needs a native review); tool descriptions stay English, because the model is what reads them.
+- **Localized UI**: admin matrix, personal page, consent screen and every message a tool shows follow the language of the user's Nextcloud account. All modules are covered (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, the shared messages, the checkout pages and the calendar selftest). English source and German, Brazilian Portuguese and Spanish UI catalogs are included. Selected new UI messages still require human language review, including rendered German administration UI. Operational docs also retain Catalan and European Portuguese drafts with their own pending provenance; tool descriptions stay English, because the model is what reads them.
 - **Both MCP eras**: stateless MCP `2026-07-28` (`server/discover`) and the classic `initialize` flow (`2025-06-18` and earlier) on the same endpoint.
 
 - [Files](tools/files.md)
@@ -40,7 +45,9 @@ Plus:
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
 
-`mcp_status` provides diagnostics without reading user data.
+`mcp_status` provides diagnostics without reading user data. Server identity in
+protocol, tool, prompt and resource metadata reports the installed app version
+from Nextcloud rather than a copied upstream release number.
 
 [Operational guides](../guides/README.md).
 

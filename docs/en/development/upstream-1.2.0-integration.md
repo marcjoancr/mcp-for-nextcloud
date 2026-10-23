@@ -30,7 +30,7 @@ existing migration IDs remain unchanged pending F3.
 | B | Notes partial edits and Deck deadlines | Complete | 7,810 PHP tests / 66,899 assertions; native 16 / 429; architecture, analyses and review pass |
 | C | Selected Deck labels, files and dependencies | Complete | 8,002 PHP tests / 68,714 assertions; four native diagnostics, 17 tests each; analyses and review pass |
 | D | Complete optional filename policy and administration | Complete | 8,151 PHP tests / 69,862 assertions; native 20 / 270 in MariaDB and SQLite; recovery, analyses and review pass |
-| E | Documentation, metadata and final qualification | Pending | Not run |
+| E | Documentation, metadata and final qualification | In progress | Local reconciliation verified; whole-integration review and final interpreter/native qualification pending |
 
 Each batch requires focused regression checks, architecture/unit tests and static
 analysis before the next batch. Native tests use disposable run-owned resources;
@@ -298,6 +298,45 @@ The initial pre-correction runs were
 270 assertions passing. Those results did not establish the missing post-copy
 visibility invariant; the focused regressions and repeated native runs above
 cover the corrected candidate. The wider native qualification remains batch E.
+
+## Batch E local evidence
+
+Canonical guides, configuration, metadata and architecture references now describe
+only the selected implemented ports. The maximum catalog has 81 module tools plus
+two diagnostics; three Deck dependency tools are conditional, and app availability
+and account grants narrow discovery further. Existing 1.1.2 manifest paragraphs
+remain intact. No app ID, public name, release version, dependency or migration
+change was made.
+
+| Gate | Result |
+| --- | --- |
+| Complete catalog `devbox run check` | Exit 0; delegated `composer check` exit 0 |
+| Full PHP suite on PHP 8.4.27 | 8,151 tests / 69,862 assertions |
+| Complete browser suite | 687 tests across Chromium, Firefox and WebKit |
+| Syntax and both fixed static-analysis scopes | 1,259 PHP files; both analyses pass |
+| Documentation and client-runner safety tests | 29 and 10 cases, respectively; no skips/failures |
+| Final documentation and production package checks | 149 Markdown files; 110 package sources staged and verified |
+| Translation provenance | 96 drafts remain review-required; no invalid provenance |
+| REUSE 6.2.0 | All 1,615 files pass declared copyright/license checks |
+| Focused metadata/discovery/localization/API/provisioning contracts | 84 tests / 9,031 assertions |
+
+The three missing-module build diagnostics in browser output are intentional
+negative fixtures; all three cases pass. Their stderr was preserved. Final
+prose-only corrections were followed by fresh docs, provenance, documentation-test
+and package checks. No runtime source changed during that gate.
+
+English, Brazilian Portuguese and Spanish store additions retain upstream
+provenance and explicitly pending human review. Spanish, Catalan, Brazilian and
+European Portuguese operational translations keep their actual source revisions;
+no revision was advanced to hide stale content. German UI review remains pending,
+and the deferred German README was not added.
+
+The final local package before final qualification has SHA256
+`197933a884afeb3e0bc812c038bd5e1ae2ddf42fd97a86f0eb676d592b3ccc3d`.
+The wider interpreter/native qualification and whole-integration review are still
+pending at this checkpoint. The candidate retains version 1.1.2: its existing
+upgrade baselines do not qualify an upgrade from installed upstream 1.2.0.
+F3 must select the release version and qualify the actual installation path.
 
 ## Remaining acceptance
 

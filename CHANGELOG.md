@@ -4,6 +4,45 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+### Selected upstream 1.2.0 integration
+
+Selected source: `02526119b845ccc1d8399be002da3e30b5527df6`; the manifest remains
+1.1.2 pending the independent fork release decision. Final qualification and human
+reviews remain pending. Native file linking/recipient expansion, the Colima queue
+and the German README addition are deferred; no full 1.2.0 parity is claimed.
+
+- Notes gains mutually exclusive append/unique-passage replacement with ETag and
+  plan-state confirmation. Existing full-content and title-only edits remain.
+- Deck gains incremental label edits, visible native file listing/unlink, precise
+  deadlines and three dependency tools conditional on compatible NC34/35 APIs.
+  Unlink can revoke access for every card member, including the caller's last
+  mount, while preserving the file. Bounded readable-graph cycle checks cannot
+  exclude hidden cycles or the final check-to-write race. See [Deck](docs/en/reference/tools/deck.md).
+- An optional filename allowlist starts off and narrows Files/Notes writes,
+  including uploads, restoration, folder operations, batches and undo. Internal
+  recovery backups remain exempt. See [configuration](docs/en/reference/configuration.md#file-type-policy)
+  for content-inspection, concurrency and partial-copy limits.
+- Correct OAuth consent navigation without broadening callback admission; bound
+  contact-backup lock keys; report installed-app server identity; explain completed
+  visible task scans with no literal category match; narrow only proven expected
+  refusal logging. Deck date-only persistence now converts to UTC, and old affected
+  dates require explicit review rather than a bulk rewrite.
+- Remove native Deck `attachmentCount` from all card output because it can count
+  invisible files. File associations and dependency references disclose only
+  authorized visible/readable items, without hidden counts or handles.
+- Reject oversized/invalid reported replacement sources before reading, then
+  check returned bytes; enforce the 64 KiB UTF-8 old-passage bound and detect
+  overlapping ambiguity without exposing a match count.
+- Preserve canonical English and pending Spanish/Catalan/Brazilian/European
+  Portuguese provenance; selected German/Spanish/Brazilian Portuguese UI and
+  localized store additions remain subject to human review.
+
+Thanks to upstream contributors and reporters, including @Lamdarer (due times),
+@florentin68 (consent navigation), @Beluluz (file format restrictions) and @cidrblock
+(task categories). Sintax/Jhonatan Jaworski's upstream XERJ Corpus Hub contributor
+credit is retained in the READMEs. Existing attribution and historical credits
+remain unchanged.
+
 ### Changed
 
 - Organize Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People and Logs by capability, with explicit shared MCP, access, OAuth and platform owners. Public tool names, routes and native integration contracts are preserved; internal PHP namespaces change. See the [architecture guide](docs/en/development/architecture-specification.md).

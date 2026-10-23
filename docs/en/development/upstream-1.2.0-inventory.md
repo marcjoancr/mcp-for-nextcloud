@@ -3,14 +3,16 @@
 
 # Upstream 1.2.0 inventory and fork selection
 
-Status: analysis and selection completed on 2026-10-23; implementation and runtime
-acceptance are pending. This executes only the inventory portion of F2 in the
-[fork continuation plan](fork-continuation-plan.md). It does not close F2's porting
-or test criteria, authorize deployment, or claim full 1.2.0 parity.
+Status: the analysis and selection were completed on 2026-10-23. This document
+preserves that inventory phase, its findings against the evaluated fork revision,
+and the reviewed acceptance criteria. Selected runtime ports in batches A-D are
+now implemented; batch E reconciles documentation and metadata. Final qualification
+remains in progress in the [integration record](upstream-1.2.0-integration.md).
 
-Subsequent implementation is tracked in the
-[integration record](upstream-1.2.0-integration.md); this inventory preserves the
-reviewed selection and its acceptance criteria.
+The inventory's original findings and validation below are historical, not a
+statement that the current branch has no ports or runtime tests. This inventory
+does not close F2's test criteria, authorize deployment, or claim full 1.2.0 parity.
+See the [fork continuation plan](fork-continuation-plan.md) for F3 and review gates.
 
 ## Immutable scope and method
 
@@ -40,7 +42,7 @@ credits in CHANGELOG and remains separately identified, outside this release dif
 ## Selection rules
 
 - **Port/adapt:** selected behavior, adapted to our existing architecture with its
-  regression tests; no production change has been made yet.
+  regression tests. This disposition records the selection, not its current execution status.
 - **Already present:** retain the fork behavior and tests rather than copying an
   older implementation or repeating a completed refactor.
 - **Defer:** explicitly excluded from this integration until the stated gate is
@@ -322,10 +324,12 @@ F2 can close only after the selected ports and their tests actually pass. F3
 identity/version/platform decisions and all human reviewer assignments remain
 pending. Public HTTPS, Inspector's outstanding public journey and encrypted-store
 14/15 finding, and ChatGPT consent/tool/revocation acceptance remain explicit;
-this source analysis does not resolve them. No runtime tests for 1.2.0 were run,
-no original-project PR was updated, and no push or deployment is authorized.
+this source analysis did not resolve them. No runtime tests for the selected
+1.2.0 behavior were run during the inventory phase. Later runtime/native results
+belong to the [integration record](upstream-1.2.0-integration.md). No original-project
+PR was updated, and no push or deployment is authorized.
 
-## Review and validation of this inventory
+## Historical review and validation of the inventory phase
 
 The documentation review rechecked the pinned source contracts, the fork's card
 response whitelist, module discovery/dispatch and unchanged dependency/migration
@@ -333,7 +337,8 @@ inputs. It clarified existing versus newly introduced Deck reference output,
 exact date and native API compatibility semantics, unlink access-loss/read-back
 behavior, and byte-versus-character snippet limits. Every non-merge source commit
 now has an explicit disposition in the ledger; mixed files remain subject to the
-capability decisions rather than blanket import. No source behavior was ported.
+capability decisions rather than blanket import. No source behavior was ported
+as part of this inventory-only review; later implementation is recorded separately.
 F3 decisions and human reviewers remain pending; this agent review is not their
 approval.
 
@@ -354,4 +359,5 @@ a direct diagnostic exposed `EROFS` while creating fixtures under `mcp/build`.
 The same suite passed with authorized worktree writes. No test, environment guard
 or assertion was disabled to obtain that result. These are documentation/tooling
 checks only: no production package was rebuilt, no native integration or runtime
-suite was executed for the selected 1.2.0 behavior, and none is claimed to pass.
+suite was executed for the selected 1.2.0 behavior during this inventory phase.
+These historical results do not replace the later integration gates.

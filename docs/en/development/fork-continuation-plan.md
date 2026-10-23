@@ -251,7 +251,9 @@ Inventory and selection completed on 2026-10-23: see the
 [capability decisions and acceptance gates](upstream-1.2.0-inventory.md) and
 [exhaustive source ledger](upstream-1.2.0-source-ledger.md). Only this analysis
 was initially authorized. The user subsequently authorized the selected ports;
-follow the [execution record](upstream-1.2.0-integration.md). F2 is not complete.
+batches A-D are now implemented, with documentation reconciliation and final
+qualification in progress. Follow the [execution record](upstream-1.2.0-integration.md).
+F2 is not complete; deferred D06 precludes full upstream 1.2.0 parity.
 
 Create a capability inventory containing source commits, security implications,
 public contract changes, dependencies, migration effects and one disposition per
@@ -337,7 +339,7 @@ security monitoring is recorded.
 | --- | --- | --- |
 | Fork identity and first version | Independent display identity; propose 2.0.0 | Owner approval before metadata changes |
 | Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; platform scope and reviewers remain pending | Resolve platform scope before F3 and accountable release review before deployment |
-| Upstream 1.2.0 | Release references verified; F2 inventory and selection complete; selected integration authorized and in progress | No claim of 1.2.0 parity |
+| Upstream 1.2.0 | Release references verified; F2 inventory and selection complete; selected runtime ports implemented, final qualification in progress | No claim of 1.2.0 parity |
 | Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |
@@ -529,10 +531,13 @@ candidate evidence is historical, not a new result for these scopes.
 
 F3 decisions and human reviewers remain pending, as do the documented HTTPS,
 Inspector and ChatGPT acceptance limitations. The subsequent F2 inventory is
-linked above; no upstream 1.2.0 runtime changes have been integrated.
-Native/platform qualification and production deployment are outside this local branch-establishment phase.
+linked above. At F1 closure no upstream 1.2.0 runtime changes had been integrated.
+Later selected ports and qualification are recorded in the
+[execution record](upstream-1.2.0-integration.md); the F1 evidence above is historical.
+Native/platform qualification and production deployment were outside that local
+branch-establishment phase.
 
-## Validation of this documentation change
+## Historical validation scope of the original plan
 
 Run the following from the repository root with the locked Node/npm toolchain:
 
@@ -547,7 +552,8 @@ These checks cover documentation, provenance and tooling, not runtime release
 acceptance or production package qualification. This English development plan stays outside
 the operational package allowlist and does not require duplicate translations.
 The development index links this plan. No application behavior, version, legal
-text, deployment update configuration or PR state changes are part of this task.
+text, deployment update configuration or PR state changes were part of that
+original documentation task. Later selected integration is tracked separately.
 The non-documentation changes are the explicitly requested local Git/GitHub CLI
 remote configuration at F0 and local branch establishment at F1, recorded above.
 No remote repository setting was changed.
