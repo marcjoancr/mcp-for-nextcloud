@@ -18,6 +18,7 @@ use OCA\Mcp\Tests\Integration\Support\Http;
 use OCA\Mcp\Tests\Integration\Support\LoginFactory;
 use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCP\IConfig;
+use OCP\IUserManager;
 use OCP\Server;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
 
@@ -72,7 +73,18 @@ final class InspectorTest extends ExclusionTestCase {
         // bob receives a subfolder of the excluded folder: its origin in alice's tree is what excludes it.
         $this->shareToUser($deep, self::ALICE, self::BOB);
         // An administrator asks in a request of their own; this long process set bob's mounts up before the share.
-        Server::get(\OC\Files\SetupManager::class)->tearDown();
+        $setup = Server::get(\OC\Files\SetupManager::class);
+        $setup->tearDown();
+        // The global reset clears both trees, while the distributed setup cache survives this long process.
+        // Rebuild every provider explicitly instead of relying on a partial cached setup for the next path.
+        foreach ([self::ALICE, self::BOB] as $uid) {
+            $user = Server::get(IUserManager::class)->get($uid);
+            $this->assertNotNull($user, "$uid exists for the mount refresh");
+            $setup->setupForUser($user);
+            foreach ([self::EXTERNAL, self::ALIAS, self::NARROW] as $mount) {
+                $this->assertTrue($this->userFolder($uid)->nodeExists($mount), "$mount remains mounted for $uid after the inspector fixture reset");
+            }
+        }
         // Where the share is mounted in bob's tree is the server's choice (it differs between majors): ask the tree.
         $mounted = $this->userFolder(self::BOB)->getById($deep->getId());
         $this->assertNotSame([], $mounted, 'the share is mounted for bob');
