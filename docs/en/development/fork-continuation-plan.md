@@ -282,6 +282,10 @@ Remaining optional omissions are release notes, not concealed test exclusions.
 
 ### F3: Qualify identity, licensing and upgrade control
 
+Obtain the owner choices in the [F3 decision proposal](#f3-decision-proposal)
+before changing release metadata or declaring supported platforms. Confirmation
+settles the design scope; it does not satisfy the qualification gates below.
+
 Implement the approved version/identity and source-offer design. Audit visible
 attribution, corresponding-source completeness and dependency licenses. Rebuild
 from the prepared source distribution in a clean environment. Verify the offer
@@ -414,16 +418,18 @@ has been configured. Reviewers remain unassigned.
 
 ### Decisions that may remain open after F0
 
-These substantive choices remain pending at the user's explicit request. The
-user retains decision ownership and coordinates reviewer assignments; the
-assistant prepares technical options and evidence. The phase deadlines below
+The concrete [F3 proposal](#f3-decision-proposal) below supplies recommended
+values for identity, version and platforms; none has been accepted yet.
+These substantive choices remain pending. The user retains decision ownership
+and coordinates reviewer assignments; the assistant prepares technical options
+and evidence. The phase deadlines below
 remain in effect. F0 closure does not prematurely approve deployment.
 
 | Decision | Recommendation, still pending | Decision owner / deadline |
 | --- | --- | --- |
-| Public display identity | Clearly identify an independent fork while retaining Sintax attribution; choose the final name before changing runtime identity | User / before F3 |
+| Public display identity | `MCP for Nextcloud (marcjoancr fork)`, retaining the technical app identity and original attribution; see the F3 proposal | User / before F3 |
 | Initial release version | Independent `2.0.0`, numeric app version and `fork-v2.0.0` release tag; subject to native upgrade checks | User / before F3 |
-| Intended host and support scope | Start with the user's Nextcloud; record its Nextcloud/PHP/database versions, relevant app versions and installed MCP version before selecting the qualification matrix; do not request secrets | User supplies scope, assistant verifies available evidence / before F3 |
+| Intended host and support scope | Propose NC 33–35 while officially maintained, with the concrete profiles and evidence limits below; record the actual host before final qualification | User supplies scope, assistant verifies available evidence / before F3 |
 | Supported clients | ChatGPT is the stated intended client; qualify its real journey before claiming support or deploying a path that depends on it | User defines release scope / before F3; acceptance before dependent deployment |
 | Reviewer assignments | Technical/security, accessibility, document languages and German UI remain unassigned; the user coordinates assignment or a documented scope decision | User coordinates; reviewers pending / record disposition before F4 release readiness; accountable security and release review before deployment |
 | Update exclusion, integrity and source-offer mechanism | Engineering investigation and an isolated reproducible test, within the approved identity/platform scope | Assistant prepares evidence / F3; no mechanism is asserted to work yet |
@@ -433,6 +439,128 @@ structure, focused test selection and implementation details within approved sco
 Those do not authorize changing the default branch, publishing artifacts or
 exposing HTTPS. The user's long-term responsibilities are limited to the explicit
 F0 confirmation, not additional duties inferred by the assistant.
+
+### F3 decision proposal
+
+Prepared and reviewed on 2026-10-23 against local revision `c7a7585`. This is a
+recommendation for owner confirmation, not an accepted support policy or a release. Current
+runtime metadata still says `MCP for Cloud`, version `1.1.2`, app ID `mcp`, PHP
+minimum `8.2` and NC `32`–`35`. No metadata, infrastructure or publication changes
+are part of this proposal. F0 ownership and branch decisions remain accepted;
+PR #14 remains a historical reference.
+
+#### Identity and release numbering
+
+| Owner choice | Recommended value | Reason and consequence |
+| --- | --- | --- |
+| Public display name | **MCP for Nextcloud (marcjoancr fork)** | Makes the independent maintainer explicit without inventing a new organization or implying upstream endorsement. Keep the repository name; no repository rename is needed. |
+| Technical identity | Retain `mcp`, `OCA\Mcp`, `mcp/` and all existing migration identities | Preserves the identifiers needed for an in-place upgrade; data/schema compatibility still requires qualification. Original and fork cannot coexist under this ID. Keeping it is conditional on proving update exclusion and integrity handling before deployment. |
+| Project and support destination | Use `marcjoancr/mcp-for-nextcloud` for fork source, releases and issue links | Direct future users to the maintained fork while preserving original author/copyright notices, license terms and upstream provenance. Do not replace original authorship with sole fork authorship. |
+| First stable release | **2.0.0**, tag **`fork-v2.0.0`**, title **MCP for Nextcloud (marcjoancr fork) 2.0.0** | Starts the independent sequence already proposed in this plan. The release notes must explain the maintenance boundary, selected upstream 1.2.0 behavior and actual compatibility changes (including any raised platform minimums); the number alone does not establish a protocol break or protect against official updates. |
+| Maintenance lines | One stable line, developed on the already approved `fork/main` | Avoids promising multiple maintained branches. Apply the patch/minor/major rules above to subsequent releases. |
+
+Recommend confirming these values as one identity/version decision. A separate
+app ID is an alternative only if side-by-side installation becomes a requirement
+or safe update control cannot be achieved; it would need a distinct data migration
+plan. Continuing upstream-like `1.2.x` numbering is possible but would make the
+maintenance boundary less clear. Neither alternative is selected here.
+
+Keep candidate artifacts local until explicitly authorized to publish. Before
+2.0.0 can be accepted, adapt the version-sensitive tests described in F4 and
+rehearse actual upgrades, including the user's installed MCP version. Existing
+1.1.2 artifact evidence does not qualify the proposed 2.0.0 artifact, and upgrade
+from an installed upstream 1.2.0 remains unverified.
+
+#### Proposed platform scope
+
+Recommend the following initial qualification targets. These are bounded profiles,
+not a promise that every combination of independently tested components works.
+Use current security-maintained patches, pin exact images/digests when qualifying,
+and record the tested versions with each release. During implementation, reconcile
+manifest constraints, CI coverage and public support documentation with the approved
+scope. Manifest ranges cannot express all allowed NC/PHP/database combinations:
+document the qualified profiles explicitly, and do not equate installation being
+allowed with support. Retain historical tests with their original applicability
+rather than forcing a candidate onto a core version its manifest excludes.
+
+| Profile | Proposed scope | Acceptance limit |
+| --- | --- | --- |
+| Primary server | Linux x86-64, Nextcloud 35, PHP 8.5, MariaDB 10.11, Apache | Preferred reference profile based on existing native evidence; qualify current patches and the final fork artifact before declaring support. This is not an instruction to upgrade the user's server. |
+| Additional server profiles | NC 34 / PHP 8.5 / MariaDB 10.11 and NC 33 / PHP 8.4 / MariaDB 10.11 on the same reference platform | Retain compatibility while each Nextcloud line receives official maintenance. Recheck version-specific requirements before freezing the matrix. |
+| Additional database | PostgreSQL 16 on the primary NC 35 profile | Existing native coverage supports retaining this target. Do not extrapolate it to every NC/PHP combination. |
+| Local test database | SQLite | Keep isolated tests and recovery coverage; exclude production support from this initial proposal. |
+| Historical compatibility | NC 32 and PHP 8.2/8.3 tests | Preserve useful regression and migration evidence without advertising these as first-release production profiles. PHP unit success alone does not qualify a native server combination. |
+| Other configurations | Other database lines, CPU architectures, web servers and NC 36+ | No initial support claim. Add a profile only after checking core requirements and qualifying it; adapt the proposal if the user's real host needs one. |
+
+The official [Nextcloud maintenance schedule](https://github.com/nextcloud/server/wiki/Maintenance-and-Release-Schedule),
+checked on 2026-10-23, lists NC 33, 34 and 35 as maintained, with current patches
+33.0.10, 34.0.5 and 35.0.2. The recorded native runs used 33.0.9, 34.0.4 and
+35.0.1 respectively (plus 32.0.15); those runs cannot certify the newer patches.
+NC 32 reached community end of life in September 2026. The listed maintenance
+horizons for NC 33, 34 and 35 are February, June and September 2027 respectively;
+recheck them at release time. The proposal does not include extended enterprise
+support or an obligation to maintain upstream core security fixes ourselves.
+Do not extend support automatically when a new major appears or silently drop a
+promised profile: document the end-of-maintenance date, planned removal and upgrade
+path before a release changes the supported scope.
+
+The [NC 33 requirements](https://docs.nextcloud.com/server/33/admin_manual/installation/system_requirements.html)
+allow PHP 8.4, MariaDB 10.11 and PostgreSQL 16. Version-specific NC 34/35 manuals
+could not be retrieved during this review. The
+[latest requirements page](https://docs.nextcloud.com/server/latest/admin_manual/installation/system_requirements.html)
+currently identifies itself as NC 36, so it is not used to certify those profiles.
+Their official requirement cross-check remains an engineering gate alongside the
+existing native evidence. [PHP's lifecycle](https://www.php.net/supported-versions.php)
+places PHP 8.2 security end of life on 2026-12-31; recommend no new production
+commitment to that branch. The proposed 8.4/8.5 profiles still require maintained
+patches and the corresponding Nextcloud runtime requirements. PHP 8.3 still has
+security support through 2027-12-31: its omission from the initial native profiles
+limits our qualification workload and is not an assertion that PHP 8.3 is unsafe
+or incompatible. Reconsider it if the intended host needs it.
+
+If the intended host uses NC 32 or another excluded profile, do not force-install
+the proposed fork release or bypass version checks. First define and rehearse a
+supported core/app upgrade sequence on an isolated copy, or return the platform
+scope to the owner for revision. Retaining the old test evidence does not prove
+that sequence works. Removing a previously allowed platform is a compatibility
+change to explain in release notes, even if the MCP protocol stays compatible.
+
+Native test evidence, optional-app version gates and failure history stay in the
+[integration record](upstream-1.2.0-integration.md); this proposal does not duplicate
+its results or claim a full matrix was rerun. In particular, Deck-dependent tools
+remain gated by the supported Deck/API versions; selecting a server profile does
+not imply every optional capability is available there. Keep protocol automation
+as the baseline, with ChatGPT as the intended client pending real acceptance.
+Inspector and ChatGPT are not declared fully qualified clients by this proposal.
+
+#### What the owner needs to confirm
+
+1. Confirm or amend the proposed display name, retained technical identity, fork
+   project links and independent `2.0.0` / `fork-v2.0.0` numbering.
+2. Confirm or amend the bounded platform profiles above, their maintenance policy
+   and exclusions, or identify which additional profile the actual server needs.
+3. Supply the intended server's Nextcloud, PHP, database engine/version, OS/CPU,
+   web server/deployment type, installed MCP origin/version and relevant optional
+   app versions (especially Deck, Talk, Notes and Teams/Circles). No credentials,
+   tokens, user data or public exposure are needed. This is factual input, not a
+   request to upgrade the server. If unknown, keep the actual-host profile pending.
+
+The assistant can check current requirements, resolve exact package/image pins,
+prepare the matching test matrix and implement approved metadata and source-offer
+changes in a subsequent authorized implementation step. It can investigate and
+validate update exclusion, integrity, upgrades and coordinated recovery in an
+authorized isolated environment. A failed mechanism remains a blocker; it does
+not permit silently changing the app ID or relaxing integrity controls.
+
+These confirmations settle design choices only. F3 remains open until its source,
+license, update-control and recovery acceptance criteria pass; F4 must qualify the
+final candidate. Public HTTPS, Inspector's recorded encrypted-store limitation,
+the ChatGPT consent/tool/revocation journey and all human reviewers remain pending.
+Technical/security, accessibility, documentation-language and German UI reviewers
+are still unassigned. Reviewing or committing this document does not accept any
+proposed decision.
+No new reviewer, monitoring SLA, publication, push, deployment or change to PR #14
+is authorized by accepting this proposal.
 
 ### F0 result and next gate
 
