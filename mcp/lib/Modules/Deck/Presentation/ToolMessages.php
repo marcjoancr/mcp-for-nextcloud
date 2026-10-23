@@ -34,7 +34,7 @@ class ToolMessages {
     public const PARAM_DUE_BEFORE = 'Returns only cards due on or before this date, in YYYY-MM-DD format.';
     public const PARAM_TITLE = 'Card title.';
     public const PARAM_DESCRIPTION = 'Card description, in plain text.';
-    public const PARAM_DUEDATE = 'Due date in YYYY-MM-DD format, or null to remove it.';
+    public const PARAM_DUEDATE = \OCA\Mcp\Modules\Deck\Cards\CardDueDateMessages::INPUT_DESCRIPTION;
     public const PARAM_LIMIT = 'Maximum number of cards to return.';
     public const PARAM_OFFSET = 'Number of cards to skip, for pagination.';
     public const PARAM_ORDER = 'Position of the card in the list, from 0 to 99999.';

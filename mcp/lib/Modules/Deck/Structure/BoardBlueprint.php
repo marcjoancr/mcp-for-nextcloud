@@ -39,7 +39,7 @@ final class BoardBlueprint {
      * @return array{title: string, color: string, colorGiven: bool, stacks: list<array{title: string, cards: list<array{title: string, description: string, duedate: string|null, assignees: list<string>}>}>, cardCount: int}
      * @throws ArgumentValidationException Naming the field when anything of the structure is refused.
      */
-    public static function parse(array $arguments, string $userId): array {
+    public static function parse(array $arguments, string $userId, ?\DateTimeZone $zone = null): array {
         $title = self::title((string) ($arguments['title'] ?? ''), 'title');
         $colorGiven = array_key_exists('color', $arguments) && $arguments['color'] !== null;
         $color = $colorGiven ? self::color((string) $arguments['color']) : self::DEFAULT_COLOR;
@@ -57,7 +57,7 @@ final class BoardBlueprint {
             $path = 'stacks[' . $s . ']';
             $cards = [];
             foreach (is_array($rawStack['cards'] ?? null) ? $rawStack['cards'] : [] as $c => $rawCard) {
-                $cards[] = self::card($rawCard, $path . '.cards[' . $c . ']', $userId);
+                $cards[] = self::card($rawCard, $path . '.cards[' . $c . ']', $userId, $zone);
             }
             $cardCount += count($cards);
             $stacks[] = ['title' => self::title((string) ($rawStack['title'] ?? ''), $path . '.title'), 'cards' => $cards];
@@ -85,6 +85,7 @@ final class BoardBlueprint {
         mixed $raw,
         string $path,
         string $userId,
+        ?\DateTimeZone $zone,
     ): array {
         $raw = is_array($raw) ? $raw : [];
         $title = trim((string) ($raw['title'] ?? ''));
@@ -104,12 +105,12 @@ final class BoardBlueprint {
             );
         }
         try {
-            $duedate = CardInput::duedate($raw['duedate'] ?? null);
+            $duedate = CardInput::duedate($raw['duedate'] ?? null, $zone);
         } catch (\InvalidArgumentException) {
             throw new ArgumentValidationException(
                 'Invalid argument: ' . $path . '.duedate',
                 $path . '.duedate',
-                Translator::t('expected a valid date in YYYY-MM-DD format'),
+                Translator::t('expected a valid date or date-time'),
             );
         }
         $assignees = AssignedUsers::assignees($raw['assignees'] ?? [], $path . '.assignees');

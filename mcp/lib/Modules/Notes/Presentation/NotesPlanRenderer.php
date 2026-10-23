@@ -97,6 +97,11 @@ final class NotesPlanRenderer
         foreach ($changed as $field) {
             if ($field === 'title' && isset($before['title'], $after['title'])) {
                 $lines[] = Translator::t('- Title: %s → %s', [$this->name((string) $before['title']), $this->name((string) $after['title'])]);
+            } elseif ($field === 'content' && is_array($plan['change'] ?? null)) {
+                $change = $plan['change'];
+                $lines[] = array_key_exists('append', $change)
+                    ? Translator::t('- Append: %s', [$this->truncate((string) $change['append'])])
+                    : Translator::t('- Replace: %s → %s', [$this->truncate((string) ($change['old'] ?? '')), $this->truncate((string) ($change['new'] ?? ''))]);
             } elseif ($field === 'content' && (array_key_exists('content', $before) || array_key_exists('content', $after))) {
                 $beforeExcerpt = $this->truncate((string) ($before['content'] ?? ''));
                 $afterExcerpt = $this->truncate((string) ($after['content'] ?? ''));

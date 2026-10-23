@@ -49,7 +49,7 @@ final class DeckServiceWriterTest extends TestCase {
             99999,
             'alice',
             'Com o cliente',
-            \OCA\Mcp\Modules\Deck\Cards\CardDate::localMidnight('2026-03-01', new \DateTimeZone(date_default_timezone_get())),
+            '2026-03-01T00:00:00Z',
         )->willReturn($card);
         self::assertSame($card, $this->capabilities->writer->createCard('alice', 10, 'Fechar', 'Com o cliente', '2026-03-01'));
     }
@@ -59,7 +59,7 @@ final class DeckServiceWriterTest extends TestCase {
         $config->method('getUserValue')->willReturn('America/Sao_Paulo');
         $capabilities = $this->nativeDeck($this->container, $this->time, new UserTimezone($config), session: $this->deckSession());
         $this->recordSetUserId();
-        $this->services[CardService::class]->expects(self::once())->method('create')->with('Fechar', 10, 'note', 99999, 'alice', '', '2026-10-01T00:00:00-03:00')->willReturn($this->card());
+        $this->services[CardService::class]->expects(self::once())->method('create')->with('Fechar', 10, 'note', 99999, 'alice', '', '2026-10-01T03:00:00Z')->willReturn($this->card());
         $capabilities->writer->createCard('alice', 10, 'Fechar', '', '2026-10-01');
     }
 
@@ -69,7 +69,7 @@ final class DeckServiceWriterTest extends TestCase {
         $capabilities = $this->nativeDeck($this->container, $this->time, new UserTimezone($config), session: $this->deckSession());
         $card = $this->card(['id' => 7, 'duedate' => new \DateTime('2026-10-01 18:30:00', new \DateTimeZone('UTC'))]);
         $this->recordSetUserId();
-        $this->services[CardService::class]->expects(self::once())->method('update')->with(7, 'Card', 10, 'note', 'alice', '', 0, '2026-10-01T18:30:00+00:00')->willReturn($card);
+        $this->services[CardService::class]->expects(self::once())->method('update')->with(7, 'Card', 10, 'note', 'alice', '', 0, '2026-10-01T18:30:00Z')->willReturn($card);
         $capabilities->writer->updateCard('alice', $card, 'Card', '', '2026-10-01T18:30:00+00:00');
     }
 

@@ -18,6 +18,7 @@ final class NotesTestFactory
 
     public static function module(TestCase $test, array $services): NotesModule
     {
+        $services[\OCP\IConfig::class] ??= (new \ReflectionMethod($test, 'createMock'))->invoke($test, \OCP\IConfig::class);
         $factories = [];
         $registration = (new \ReflectionMethod($test, 'createMock'))->invoke($test, \OCP\AppFramework\Bootstrap\IRegistrationContext::class);
         $registration->method('registerService')->willReturnCallback(static function (string $id, callable $factory) use (&$factories): void {

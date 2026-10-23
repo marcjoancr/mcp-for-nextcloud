@@ -22,3 +22,9 @@ During shared MCP Phase 1 (execution baseline `2f80fc8`), only `/missing/type`
 and `/too_large/type` in results.json were updated to the final ToolFailure PHP
 namespace. Original capture: `d51e4f4`. No behavioral value was recaptured; the
 comparison remains exact. The execution report records hashes and the phase commit.
+
+Batch B of the selected upstream 1.2.0 port changes only Notes edit input
+properties/descriptions and Notes/Deck guide notes, plus the Deck deadline input
+description. These explicit fields were patched in place; existing plan, result
+and protocol fixtures were not regenerated. The new partial-write and timed
+deadline behaviors have focused regression and native persistence tests.

@@ -116,9 +116,24 @@
                         "minimum": 1,
                         "description": "Id of the note."
                     },
+                    "append": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Text added at the end, on a new line."
+                    },
+                    "old": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 65536,
+                        "description": "Passage to replace; must appear exactly once."
+                    },
+                    "new": {
+                        "type": "string",
+                        "description": "Text that replaces old."
+                    },
                     "content": {
                         "type": "string",
-                        "description": "New complete content."
+                        "description": "New complete content; mutually exclusive with append and old/new."
                     },
                     "title": {
                         "type": "string",
@@ -129,6 +144,12 @@
                     "etag": {
                         "type": "string",
                         "description": "ETag read before; when it differs, nothing is changed."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                     },
                     "confirm_shared": {
                         "type": "boolean",
@@ -356,9 +377,24 @@
                         "minimum": 1,
                         "description": "Id of the note."
                     },
+                    "append": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Text added at the end, on a new line."
+                    },
+                    "old": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 65536,
+                        "description": "Passage to replace; must appear exactly once."
+                    },
+                    "new": {
+                        "type": "string",
+                        "description": "Text that replaces old."
+                    },
                     "content": {
                         "type": "string",
-                        "description": "New complete content."
+                        "description": "New complete content; mutually exclusive with append and old/new."
                     },
                     "title": {
                         "type": "string",
@@ -369,6 +405,12 @@
                     "etag": {
                         "type": "string",
                         "description": "ETag read before; when it differs, nothing is changed."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
                     },
                     "confirm_shared": {
                         "type": "boolean",
@@ -487,7 +529,7 @@
         "content": [
             {
                 "type": "text",
-                "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Notes (`notes`)\n\n7 tools available to you in this module.\n\nBehaviour notes\n\n- A note is addressed by the `id` notes_list or notes_search returns, not by its title; the title is the file name and the category is the subfolder it sits in.\n- Use notes_search to find notes by keyword in title or Markdown content.\n- notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.\n- notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.\n- Notes are capped at 1048576 bytes read or written, and a title at 200 characters.\n- Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.\n- Some notes or categories may be hidden by administrator policy and will appear as if they do not exist.\n\n\n## List notes — `notes_list`\n\nReads only. Lists the notes (Notes app) of the user.\n\n## Search notes — `notes_search`\n\nReads only. Searches notes by title and content (Markdown).\n\nParameters\n- `query` (string, required, length from 1) — Search term to find in note title or content.\n- `limit` (integer, optional, default 20, 1..100) — Maximum number of notes to return (1-100, default 20).\n- `category` (string, optional, default ) — Optional category (subfolder) to limit search to; empty for all notes.\n\n## Read note — `notes_read`\n\nReads only. Reads the content of a note by id.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n\n## Create note — `notes_create`\n\nWrites: it changes something in this Nextcloud. Creates a note; never overwrites an existing one.\n\nParameters\n- `title` (string, required, length 1..200) — Title (file name).\n- `content` (string, optional, default ) — Content in Markdown.\n- `category` (string, optional, default ) — Category (subfolder); empty for the root.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit note — `notes_edit`\n\nWrites: it changes something in this Nextcloud. Changes the content and/or the title of a note.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n- `content` (string, optional) — New complete content.\n- `title` (string, optional, length 1..200) — New title.\n- `etag` (string, optional) — ETag read before; when it differs, nothing is changed.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Move note — `notes_move`\n\nWrites: it changes something in this Nextcloud. Moves a note to another category.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n- `category` (string, required) — Destination category; empty for the root.\n- `etag` (string, optional) — ETag read before; when it differs, nothing is changed.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete note — `notes_delete`\n\nWrites: it changes something in this Nextcloud. Deletes a note to the Nextcloud trash bin, where it can be restored.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n- `etag` (string, optional) — ETag read before; when it differs, nothing is changed.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
+                "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Notes (`notes`)\n\n7 tools available to you in this module.\n\nBehaviour notes\n\n- A note is addressed by the `id` notes_list or notes_search returns, not by its title; the title is the file name and the category is the subfolder it sits in.\n- Use notes_search to find notes by keyword in title or Markdown content.\n- notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.\n- notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.\n- Notes are capped at 1048576 bytes read or written, and a title at 200 characters.\n- notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.\n- Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.\n- Some notes or categories may be hidden by administrator policy and will appear as if they do not exist.\n\n\n## List notes — `notes_list`\n\nReads only. Lists the notes (Notes app) of the user.\n\n## Search notes — `notes_search`\n\nReads only. Searches notes by title and content (Markdown).\n\nParameters\n- `query` (string, required, length from 1) — Search term to find in note title or content.\n- `limit` (integer, optional, default 20, 1..100) — Maximum number of notes to return (1-100, default 20).\n- `category` (string, optional, default ) — Optional category (subfolder) to limit search to; empty for all notes.\n\n## Read note — `notes_read`\n\nReads only. Reads the content of a note by id.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n\n## Create note — `notes_create`\n\nWrites: it changes something in this Nextcloud. Creates a note; never overwrites an existing one.\n\nParameters\n- `title` (string, required, length 1..200) — Title (file name).\n- `content` (string, optional, default ) — Content in Markdown.\n- `category` (string, optional, default ) — Category (subfolder); empty for the root.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit note — `notes_edit`\n\nWrites: it changes something in this Nextcloud. Changes the content and/or the title of a note.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n- `append` (string, optional, length from 1) — Text added at the end, on a new line.\n- `old` (string, optional, length 1..65536) — Passage to replace; must appear exactly once.\n- `new` (string, optional) — Text that replaces old.\n- `content` (string, optional) — New complete content; mutually exclusive with append and old/new.\n- `title` (string, optional, length 1..200) — New title.\n- `etag` (string, optional) — ETag read before; when it differs, nothing is changed.\n- `plan_state` (string, optional, length 1..128) — Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Move note — `notes_move`\n\nWrites: it changes something in this Nextcloud. Moves a note to another category.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n- `category` (string, required) — Destination category; empty for the root.\n- `etag` (string, optional) — ETag read before; when it differs, nothing is changed.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete note — `notes_delete`\n\nWrites: it changes something in this Nextcloud. Deletes a note to the Nextcloud trash bin, where it can be restored.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `id` (integer, required, from 1) — Id of the note.\n- `etag` (string, optional) — ETag read before; when it differs, nothing is changed.\n- `confirm_shared` (boolean, optional) — Required only when the note is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
             }
         ],
         "structuredContent": {
@@ -500,6 +542,7 @@
                 "notes_create never overwrites: when the title is taken in that category it picks a free name, and the response says which name it used.",
                 "notes_delete only deletes where the Nextcloud trash bin takes the note back; anywhere else it refuses instead of removing it for good.",
                 "Notes are capped at 1048576 bytes read or written, and a title at 200 characters.",
+                "notes_edit accepts only one of content, append or old/new; append adds a line and old/new replaces one unique passage. Partial edits need the etag and plan_state from a fresh plan when confirmed.",
                 "Pass `etag` to make a change fail instead of overwriting somebody else's version of the same note.",
                 "Some notes or categories may be hidden by administrator policy and will appear as if they do not exist."
             ],
@@ -645,10 +688,35 @@
                             ]
                         },
                         {
+                            "name": "append",
+                            "type": "string",
+                            "required": false,
+                            "description": "Text added at the end, on a new line.",
+                            "constraints": [
+                                "length from 1"
+                            ]
+                        },
+                        {
+                            "name": "old",
+                            "type": "string",
+                            "required": false,
+                            "description": "Passage to replace; must appear exactly once.",
+                            "constraints": [
+                                "length 1..65536"
+                            ]
+                        },
+                        {
+                            "name": "new",
+                            "type": "string",
+                            "required": false,
+                            "description": "Text that replaces old.",
+                            "constraints": []
+                        },
+                        {
                             "name": "content",
                             "type": "string",
                             "required": false,
-                            "description": "New complete content.",
+                            "description": "New complete content; mutually exclusive with append and old/new.",
                             "constraints": []
                         },
                         {
@@ -666,6 +734,15 @@
                             "required": false,
                             "description": "ETag read before; when it differs, nothing is changed.",
                             "constraints": []
+                        },
+                        {
+                            "name": "plan_state",
+                            "type": "string",
+                            "required": false,
+                            "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan.",
+                            "constraints": [
+                                "length 1..128"
+                            ]
                         },
                         {
                             "name": "confirm_shared",

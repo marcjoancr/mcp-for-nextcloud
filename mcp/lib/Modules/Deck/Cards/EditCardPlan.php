@@ -47,7 +47,7 @@ class EditCardPlan {
             'title' => array_key_exists('title', $given) ? CardInput::requireTitle((string) $given['title']) : $before['title'],
             'description' => array_key_exists('description', $given) ? CardInput::requireDescription((string) $given['description']) : $before['description'],
             // Absent keeps the date as it is; an explicit null clears it, exactly as the write reads it.
-            'duedate' => array_key_exists('duedate', $given) ? CardDate::day(CardInput::duedate($given['duedate']), $zone) : $before['duedate'],
+            'duedate' => array_key_exists('duedate', $given) ? CardDate::day(CardInput::duedate($given['duedate'], $zone), $zone) : $before['duedate'],
         ];
         $assignees = $editsAssignees ? $this->assignmentPlan->build($userId, $card, $changes) : null;
         $board = $this->ownership->cardOwnership($userId, (int) $arguments['cardId']);

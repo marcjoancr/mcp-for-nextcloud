@@ -275,7 +275,7 @@ cmd_fixtures() {
         *"- password_policy:"*) occ app:disable password_policy ;;
     esac
     password=$(openssl rand -hex 24)
-    for uid in mcp-it-alice mcp-it-bob mcp-it-legacy; do
+    for uid in mcp-it-alice mcp-it-bob mcp-it-legacy mcp-it-deck-owner mcp-it-deck-editor; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
     if [ "$MCP_IT_MODE" = upgrade ] || [ "$MCP_IT_MODE" = upgrade-local ]; then
@@ -315,11 +315,21 @@ unpack_release_app() {
 # Verify Contacts identity, installed version and declared Nextcloud bounds before enabling it.
 provision_contacts() {
     unpack_release_app contacts contacts "$CONTACTS_TAG" "$CONTACTS_SHA"
-    docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/check-contacts-manifest.php \
-        /var/www/html/custom_apps/contacts/appinfo/info.xml "$MCP_IT_NC" "${CONTACTS_TAG#v}"
+    docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/check-app-manifest.php \
+        /var/www/html/custom_apps/contacts/appinfo/info.xml contacts "$MCP_IT_NC" "${CONTACTS_TAG#v}"
     occ app:enable contacts
     actual=$(occ config:app:get contacts installed_version)
     [ "$actual" = "${CONTACTS_TAG#v}" ] || { echo "Unexpected installed Contacts $actual" >&2; return 1; }
+}
+
+# Deck is provisioned for the native deadline persistence contract.
+provision_deck() {
+    unpack_release_app deck deck "$DECK_TAG" "$DECK_SHA"
+    docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/check-app-manifest.php \
+        /var/www/html/custom_apps/deck/appinfo/info.xml deck "$MCP_IT_NC" "${DECK_TAG#v}"
+    occ app:enable deck
+    actual=$(occ config:app:get deck installed_version)
+    [ "$actual" = "${DECK_TAG#v}" ] || { echo "Unexpected installed Deck $actual" >&2; return 1; }
 }
 
 # Release pinned per Nextcloud major: groupfolders, Talk and Notes each have one build per supported major. The Calendar
@@ -328,6 +338,7 @@ provision_contacts() {
 pin_releases() {
     case "$MCP_IT_NC" in
         32)
+            DECK_TAG=v1.16.8; DECK_SHA=231142da72ed6a6f74d74330431f3f9370e72714e30c67b8ba5c76f3a5545279
             GF_TAG=v20.1.19; GF_SHA=e59e6a11a50f60bf3bd23c243b7ec4b01af371c89e4ad65d4ec7e788058f50ff
             TALK_TAG=v22.0.19; TALK_SHA=c053dbce9c2a4a76c42e937d4d095502ba48a38c2e6fa02d46c36762573d6bff
             NOTES_TAG=v5.0.2; NOTES_SHA=1bf9e97a92bae5901a17c93666c4ac0f36ddfe68c69caa5d2368b18be6af7fdc
@@ -335,6 +346,7 @@ pin_releases() {
             CONTACTS_TAG=v8.3.21; CONTACTS_SHA=45d12ff526515ce5efc52d8e0d42bd3446a66b9a423ee4eb92ebd44a6b5974c3
             ;;
         33)
+            DECK_TAG=v1.17.7; DECK_SHA=889a9186ff74dc6d77b719ba81ba16f30a23e0cc1fd100954d7d7e153d2d495e
             GF_TAG=v21.0.15; GF_SHA=1ecdd644a2e913de8b333560717660f0ba75836309c4463af858e886cdc3a68c
             TALK_TAG=v23.0.12; TALK_SHA=a907070cb8c0eb69a0ef808f62ea6eea822365c97a1c0e6f4a86aa748eda6c79
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
@@ -342,6 +354,7 @@ pin_releases() {
             CONTACTS_TAG=v8.9.2; CONTACTS_SHA=92f7c79c411273045ed6346f6988c05af673c3170a3adaba91a15066b8dce7c5
             ;;
         34)
+            DECK_TAG=v1.18.5; DECK_SHA=dafec6635ff3af50fb6f73330064ef6153910be2fa434d2edbf8043263122253
             GF_TAG=v22.0.6; GF_SHA=bfff357b12bbd24257d8d127cf30e83a72256e7659f1cc3e32bd09fe647d2f9b
             TALK_TAG=v24.0.6; TALK_SHA=4a8d5cf52ed42223ea9937860f70c2e9dca1df8bfd5f75b871ae7569d2106110
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
@@ -349,6 +362,7 @@ pin_releases() {
             CONTACTS_TAG=v8.9.2; CONTACTS_SHA=92f7c79c411273045ed6346f6988c05af673c3170a3adaba91a15066b8dce7c5
             ;;
         35)
+            DECK_TAG=v1.19.0; DECK_SHA=4946ae3e0f7939d8cdd6c3a72f35ccc92703d2c5a694586d65ce02d724d3eaa8
             GF_TAG=v23.0.1; GF_SHA=3949e6a45947188090c170c6983aae11a1d66134ec317ffe7b7609062f3aecf3
             TALK_TAG=v25.0.6; TALK_SHA=2b3e3eae42d9bf8ba8da2ab244d16347a3cfacbb8bff346bd99cf32cd6f9c65e
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
@@ -406,7 +420,7 @@ cmd_provision() {
     log="$ARTIFACTS/provision.log"
     : > "$log"
     : > "$WORK/provision-failures"
-    for part in groupfolders files_external talk notes calendar contacts guests; do
+    for part in groupfolders files_external talk notes calendar contacts deck guests; do
         echo "=== provisioning $part" | tee -a "$log"
         case "$part" in
             groupfolders) step=provision_groupfolders ;;
@@ -415,6 +429,7 @@ cmd_provision() {
             notes) step="install_release_app notes notes $NOTES_TAG $NOTES_SHA" ;;
             calendar) step="install_release_app calendar calendar $CAL_TAG $CAL_SHA" ;;
             contacts) step=provision_contacts ;;
+            deck) step=provision_deck ;;
             # Unpacked only: Guests/GuestRestrictionsTest enables it for its own scenarios, since it adds a user and a
             # group backend every other test would see.
             guests) step="unpack_release_app guests guests $GUESTS_TAG $GUESTS_SHA" ;;
@@ -477,6 +492,7 @@ $php_version
 $status
 mcp installed_version: $installed (expected $expected)
 Contacts: $contacts
+Deck: $(occ config:app:get deck installed_version) (expected ${DECK_TAG#v}; archive sha256 $DECK_SHA)
 $fence
 REPORT
     cat "$report"

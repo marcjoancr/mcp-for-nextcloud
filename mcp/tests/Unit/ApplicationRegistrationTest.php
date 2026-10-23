@@ -522,7 +522,7 @@ final class ApplicationRegistrationTest extends TestCase {
         $container->method('get')->willReturnCallback($get);
         $module=$get(\OCA\Mcp\Modules\Notes\NotesModule::class);
         self::assertCount(7,$module->definitions());
-        self::assertCount(7,$module->guideNotes());
+        self::assertCount(8,$module->guideNotes());
         self::assertNull($module->renderPlan('notes_edit',[]));
         self::assertCount(1,$built,'Metadata must resolve only the module');
         foreach (\OCA\Mcp\Modules\Notes\NotesToolCatalog::classes() as $tool) { self::assertInstanceOf($tool,$get($tool)); }

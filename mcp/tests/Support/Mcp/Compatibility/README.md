@@ -43,3 +43,9 @@ The 2026-10-21 upstream 1.1.2 integration advances the same 29 server-version
 values from `1.1.1` to `1.1.2`. No other bytes in the four compatibility captures
 change. Guests restrictions are exercised by behavioral unit and native tests,
 not by regenerating the non-guest captures.
+
+Batch B of the selected upstream 1.2.0 port changes only Notes edit input
+properties/descriptions and Notes/Deck guide notes, plus the Deck deadline input
+description. These explicit fields were patched in place; existing plan, result
+and protocol fixtures were not regenerated. The new partial-write and timed
+deadline behaviors have focused regression and native persistence tests.

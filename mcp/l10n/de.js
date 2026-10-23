@@ -1,6 +1,20 @@
 OC.L10N.register(
     "mcp",
     {
+    "expected a valid date or date-time" : "gültiges Datum oder Datum mit Uhrzeit erwartet",
+
+    "Use only one of content, append or old/new." : "Verwende nur eines von content, append oder old/new.",
+    "append and old/new need the etag returned by notes_read or by the plan." : "append und old/new brauchen den ETag, den notes_read oder der Plan liefert.",
+    "The note changed since it was read; nothing was written. Current etag: %s" : "Die Notiz wurde seit dem Lesen geändert; es wurde nichts geschrieben. Aktueller ETag: %s",
+    "The note changed since the plan; check it again." : "Die Notiz hat sich seit der Planung geändert. Prüfe sie erneut.",
+    "Nothing was changed. After your approval the text below is added at the end of the note." : "Es wurde nichts geändert. Nach deiner Freigabe wird der folgende Text am Ende der Notiz angefügt.",
+    "Nothing was changed. After your approval the passage below is replaced in the note." : "Es wurde nichts geändert. Nach deiner Freigabe wird die folgende Textstelle in der Notiz ersetzt.",
+    "The due date must be YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS], optionally followed by Z or an offset ±HH:MM. Use a real date and time." : "Das Fälligkeitsdatum muss YYYY-MM-DD oder YYYY-MM-DDTHH:MM[:SS] sein, optional gefolgt von Z oder einem Versatz ±HH:MM. Verwende ein gültiges Datum und eine gültige Uhrzeit.",
+    "This local due time does not exist in the account timezone. Choose another time or include an explicit offset." : "Diese lokale Fälligkeitszeit existiert in der Kontozeitzone nicht. Wähle eine andere Zeit oder gib einen expliziten Versatz an.",
+    "- Append: %s" : "- Anfügen: %s",
+    "- Replace: %s → %s" : "- Ersetzen: %s → %s",
+    "%s (%s, UTC%s)" : "%s (%s, UTC%s)",
+
     "The specified snippet must not be empty." : "Der angegebene Textausschnitt darf nicht leer sein.",
     "The specified snippet appears more than once in the file; provide a longer, unique snippet." : "Der angegebene Textausschnitt kommt mehrmals in der Datei vor. Gib einen längeren, eindeutigen Ausschnitt an.",
     "The specified snippet is longer than %d bytes; send a shorter, unique snippet." : "Der angegebene Textausschnitt ist länger als %d Bytes. Gib einen kürzeren, eindeutigen Ausschnitt an.",
@@ -888,7 +902,6 @@ OC.L10N.register(
     "The Deck could not be bound to the authenticated account. Nothing was changed; try again." : "Deck konnte nicht mit dem angemeldeten Konto verbunden werden. Es wurde nichts geändert; versuche es erneut.",
     "Could not complete the operation in Deck." : "Der Vorgang in Deck konnte nicht abgeschlossen werden.",
     "Provide at least one field to edit: title, description, duedate, assign or unassign." : "Gib mindestens ein Feld zur Bearbeitung an: title, description, duedate, assign oder unassign.",
-    "The due date must be a valid date in YYYY-MM-DD format." : "Das Fälligkeitsdatum muss ein gültiges Datum im Format JJJJ-MM-TT sein.",
     "The dueBefore date must be a valid date in YYYY-MM-DD format." : "dueBefore muss ein gültiges Datum im Format JJJJ-MM-TT sein.",
     "Invalid status for the follow-up. Use overdue, open, done or all." : "Ungültiger Status für die Nachverfolgung. Verwende overdue, open, done oder all.",
     "The card description exceeds the maximum size of 100000 characters." : "Die Kartenbeschreibung überschreitet die Höchstlänge von 100000 Zeichen.",
@@ -958,7 +971,6 @@ OC.L10N.register(
     "expected a list of at most %s lists" : "Eine Liste mit höchstens %s Listen erwartet.",
     "at most %s cards in total" : "Insgesamt höchstens %s Karten.",
     "expected a title of 1 to 255 characters" : "Ein Titel mit 1 bis 255 Zeichen wird erwartet.",
-    "expected a valid date in YYYY-MM-DD format" : "Ein gültiges Datum im Format JJJJ-MM-TT wird erwartet.",
     "a new board is open only to you; share the board first, then assign other accounts with deck_edit_card" : "Ein neues Board ist zunächst nur für dich sichtbar. Gib es erst frei und weise dann andere Konten über deck_edit_card zu.",
     "expected a title of 1 to %s characters" : "Ein Titel mit 1 bis %s Zeichen wird erwartet.",
     "expected six hexadecimal digits, for example 0082c9" : "Sechs hexadezimale Ziffern erwartet, z. B. 0082c9.",

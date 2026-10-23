@@ -32,6 +32,7 @@ class CardEditing {
         private CardWriter $writer,
         private AssignmentEditor $assignmentEditor,
         private CardStateReader $state,
+        private ?\OCA\Mcp\Platform\Time\UserTimezone $zones = null,
     ) {
     }
 
@@ -67,7 +68,7 @@ class CardEditing {
         // Everything that can be refused is refused here, before the first write.
         $title = array_key_exists('title', $given) ? CardInput::requireTitle((string) $given['title']) : (string) $card->getTitle();
         $description = array_key_exists('description', $given) ? CardInput::requireDescription((string) $given['description']) : (string) $card->getDescription();
-        $duedate = array_key_exists('duedate', $given) ? CardInput::duedate($given['duedate']) : $this->currentDuedate($card->getDuedate());
+        $duedate = array_key_exists('duedate', $given) ? CardInput::duedate($given['duedate'], $this->zones?->forUser($userId)) : $this->currentDuedate($card->getDuedate());
         $resolved = AssignmentChanges::resolve($changes['assign'], $changes['unassign'], AssignedUsers::assignedUids($card));
         if ($resolved['add'] !== []) {
             $this->assignments->validateAssignees($userId, (int) $card->getStackId(), $resolved['add']);
@@ -105,8 +106,7 @@ class CardEditing {
      * @param Card $before Card as read before the update.
      * @param string $title Title sent.
      * @param string $description Description sent.
-     * @param string|null $duedate Due date sent; only whether there is one is compared, since Deck stores the instant
-     *     in the caller's timezone.
+     * @param string|null $duedate Due date sent; the persisted timestamp must match the requested instant to the second.
      * @return Card|null The saved card, or null when the update did not happen.
      */
     private function savedEdit(
@@ -117,7 +117,7 @@ class CardEditing {
         ?string $duedate,
     ): ?Card {
         $card = $this->state->cardState($userId, (int) $before->getId());
-        $saved = (string) $card->getTitle() === $title && self::withoutAstral((string) $card->getDescription()) === self::withoutAstral($description) && ($card->getDuedate() === null) === ($duedate === null) && (int) $card->getLastModified() !== (int) $before->getLastModified();
+        $saved = (string) $card->getTitle() === $title && self::withoutAstral((string) $card->getDescription()) === self::withoutAstral($description) && CardDueDate::same($card->getDuedate(), $duedate, $this->zones?->forUser($userId) ?? new \DateTimeZone(date_default_timezone_get())) && (int) $card->getLastModified() !== (int) $before->getLastModified();
         return $saved ? $card : null;
     }
 

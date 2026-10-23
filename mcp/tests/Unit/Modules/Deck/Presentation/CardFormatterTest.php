@@ -197,7 +197,7 @@ final class CardFormatterTest extends TestCase {
         )));
         self::assertSame([
             'id', 'stackId', 'boardId', 'title', 'description', 'type', 'owner', 'order', 'archived', 'done',
-            'duedate', 'lastModified', 'assignedUsers', 'overdue', 'url',
+            'duedate', 'dueAt', 'lastModified', 'assignedUsers', 'overdue', 'url',
         ], array_keys($formatted));
     }
 }

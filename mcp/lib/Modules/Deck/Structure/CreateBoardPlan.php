@@ -11,7 +11,7 @@ use OCP\IUserManager;
 use InvalidArgumentException;
 
 class CreateBoardPlan {
-    public function __construct(private ?IUserManager $userManager = null) {
+    public function __construct(private ?IUserManager $userManager = null, private ?\OCA\Mcp\Platform\Time\UserTimezone $zones = null) {
     }
 
     /**
@@ -24,7 +24,7 @@ class CreateBoardPlan {
      * @throws InvalidArgumentException Naming the field when the structure is refused.
      */
     public function build(array $arguments, string $userId): array {
-        $blueprint = BoardBlueprint::parse($arguments, $userId);
+        $blueprint = BoardBlueprint::parse($arguments, $userId, $this->zones?->forUser($userId));
         // Only the owner can be assigned on a new board, and BoardBlueprint has already refused anybody else.
         $self = ['uid' => $userId, 'displayName' => $this->userManager?->get($userId)?->getDisplayName() ?: $userId];
         return [

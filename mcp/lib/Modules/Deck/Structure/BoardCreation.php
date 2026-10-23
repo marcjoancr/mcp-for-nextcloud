@@ -15,6 +15,7 @@ class BoardCreation {
         private VerifiedWrite $writes,
         private BoardCreator $boardCreator,
         private BlueprintProvisioner $provisioner,
+        private ?\OCA\Mcp\Platform\Time\UserTimezone $zones = null,
     ) {
     }
 
@@ -28,7 +29,7 @@ class BoardCreation {
      * @throws \InvalidArgumentException When any part of the structure is refused, before anything is written.
      */
     public function execute(array $arguments, string $userId): array {
-        $blueprint = BoardBlueprint::parse($arguments, $userId);
+        $blueprint = BoardBlueprint::parse($arguments, $userId, $this->zones?->forUser($userId));
         // The one step whose failure is a plain error: until it succeeds nothing exists. Deck inserts the board
         // before its labels and activity, so the boards of the caller before and after tell whether it does.
         $before = array_map(static fn($board): int => (int) $board->getId(), $this->structureState->ownedBoards($userId));

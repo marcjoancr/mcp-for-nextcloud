@@ -14,9 +14,8 @@ class CardDate {
     /**
      * The instant a `YYYY-MM-DD` written by the tools stands for: midnight of that day for the user.
      *
-     * Deck parses the string with `new \DateTime()`, which reads the offset, so the card reads back as
-     * the same day in {@see self::dueDay()}. A bare day would be parsed as UTC midnight and show up as
-     * the previous day for anyone west of Greenwich.
+     * This is an account-local presentation value. Native persistence must use
+     * {@see CardDueDate::forDeck()}, since Deck discards offsets in its datetime binding.
      *
      * @param string $day Validated `YYYY-MM-DD`.
      * @param \DateTimeZone $zone Timezone of the user.
@@ -69,13 +68,13 @@ class CardDate {
     }
 
     /**
-     * The instant a due date sent as a day becomes, exactly as the capability writes it.
+     * Canonical account-local instant of a supported deadline, used for plan comparison.
      *
-     * @param string|null $day `YYYY-MM-DD`, or null to clear the date.
+     * @param string|null $day Supported date or date-time, or null to clear the deadline.
      * @param \DateTimeZone $zone Timezone of the caller.
-     * @return string|null ISO 8601 instant at local midnight, or null.
+     * @return string|null ISO 8601 instant in the caller's zone, or null.
      */
     public static function day(?string $day, \DateTimeZone $zone): ?string {
-        return $day === null ? null : CardDate::localMidnight($day, $zone);
+        return CardDueDate::parse($day, $zone)?->setTimezone($zone)->format(\DateTimeInterface::ATOM);
     }
 }

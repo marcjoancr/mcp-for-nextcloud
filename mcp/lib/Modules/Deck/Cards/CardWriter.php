@@ -185,20 +185,16 @@ class CardWriter {
     /**
      * Due date as Deck should store it.
      *
-     * A bare `YYYY-MM-DD` from the tools becomes midnight of that day for the caller, since Deck would
-     * otherwise read it as UTC midnight and the card would show up a day early west of Greenwich. A
-     * full timestamp (the current date kept by an edit that did not touch it) is passed through, so
-     * the time set in the Deck web interface survives.
+     * All inputs become UTC before Deck binds its timezone-less datetime column. Date-only input is
+     * interpreted at account-local midnight; offset-free times use that same account zone. Existing
+     * timestamps preserved by an unrelated edit keep the same instant, normalized to UTC.
      *
      * @param string $userId UID of the authenticated caller.
      * @param string|null $duedate Day, ISO 8601 timestamp, or null to clear the date.
      * @return string|null Value for `CardService`.
      */
     private function instant(string $userId, ?string $duedate): ?string {
-        if ($duedate === null || preg_match('/^\d{4}-\d{2}-\d{2}$/', $duedate) !== 1) {
-            return $duedate;
-        }
-        return CardDate::localMidnight($duedate, $this->zone($userId));
+        return CardDueDate::forDeck($duedate, $this->zone($userId));
     }
 
     /**

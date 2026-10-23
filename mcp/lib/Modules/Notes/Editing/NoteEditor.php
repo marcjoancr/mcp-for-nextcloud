@@ -29,22 +29,26 @@ class NoteEditor
         private NodeAccessInfo $accessInfo,
         private \OCA\Mcp\Modules\Notes\Execution\NotePlanNotice $notice,
         private \OCA\Mcp\Modules\Notes\Storage\NoteMetadata $metadata,
+        private PartialEditPlan $partialPlan,
+        private PartialEditConfirmation $partialConfirmation,
     )
     {
     }
 
     /**
-     * @param array{id:int, content?:string, title?:string, etag?:string, confirm_shared?:bool} $arguments
+     * @param array{id:int, content?:string, append?:string, old?:string, new?:string, title?:string, etag?:string, plan_state?:string, confirm_shared?:bool} $arguments
      * @return array<string, mixed> the note, or the shared-write confirmation without writing
      */
 
     public function execute(array $arguments, string $userId): array
     {
         $root = $this->folders->folder($userId, false);
-        if (!isset($arguments['content']) && !isset($arguments['title'])) {
-            throw new InvalidArgumentException('Missing argument: content');
-        }
+        $mode = NoteChange::mode($arguments);
         $note = $this->lookup->find($root, $arguments['id']);
+        $partial = NoteChange::isPartial($mode);
+        if ($partial) {
+            $this->partialConfirmation->content($root, $note, $userId, $arguments, $mode);
+        }
         $this->writeAccess->assertWritable($note, $arguments);
         $this->writeAccess->assertUnlocked($note, $userId);
         // Everything that can refuse is checked before the first write: the content has no backup, so
@@ -62,7 +66,10 @@ class NoteEditor
         // check observes, the storage refusing it, a transactional lock, a permission), the answer says that the
         // content did change.
         $saved = false;
-        if (isset($arguments['content'])) {
+        if ($partial) {
+            $this->writeAccess->mutate($this->partialConfirmation->writer($root, $note, $userId, $arguments, $mode), $note, $userId);
+            $saved = true;
+        } elseif (isset($arguments['content'])) {
             $this->writeAccess->mutate(fn() => $note->putContent($arguments['content']), $note, $userId);
             $saved = true;
         }
@@ -78,17 +85,18 @@ class NoteEditor
 
     /**
      * @param string $userId authenticated user
-     * @param array{id:int, content?:string, title?:string, etag?:string, confirm_shared?:bool} $arguments
+     * @param array{id:int, content?:string, append?:string, old?:string, new?:string, title?:string, etag?:string, plan_state?:string, confirm_shared?:bool} $arguments
      * @return array<string, mixed> the note before and after the change
      */
 
     public function preview(array $arguments, string $userId): array
     {
         $root = $this->folders->folder($userId, false);
-        if (!isset($arguments['content']) && !isset($arguments['title'])) {
-            throw new InvalidArgumentException('Missing argument: content');
-        }
+        $mode = NoteChange::mode($arguments);
         $note = $this->lookup->find($root, $arguments['id']);
+        if (NoteChange::isPartial($mode)) {
+            return $this->partialPlan->build($root, $note, $userId, $arguments, $mode);
+        }
         if (isset($arguments['content'])) {
             $this->content->assertSize($arguments['content']);
         }
