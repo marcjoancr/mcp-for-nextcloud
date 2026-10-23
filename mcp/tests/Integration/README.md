@@ -46,6 +46,13 @@ the candidate 1.1.2; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
 same-version replacement without forcing migrations. All three retain the actual
 declared versions and use only disposable instances.
 
+Before installing either app package, the harness disables the App Store on the
+throwaway Nextcloud instance and verifies the boolean setting. `occ upgrade`
+still runs the real local migrations; its subsequent App Store check cannot
+replace the pinned candidate with a newer published release. Archive hashes and
+exact installed-version assertions remain required. This disposable test setting
+does not qualify production update controls, which remain a separate F3 review.
+
 The selected upstream 1.2.0 source integration retains candidate version 1.1.2
 pending F3. These paths do not qualify an upgrade from an installed upstream
 1.2.0; the independent release version and actual host's installed version require
