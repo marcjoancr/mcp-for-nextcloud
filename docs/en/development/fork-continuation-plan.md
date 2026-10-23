@@ -3,8 +3,10 @@
 
 # Independent fork continuation plan
 
-Status: F0 and F1 completed locally on 2026-10-23. The user approved the
-development baseline, branch policy and ongoing maintenance accountability
+Status: F0 and F1 completed locally on 2026-10-23. F2 inventory and selection
+are documented; the selected ports and runtime acceptance remain pending.
+The user approved the development baseline, branch policy and ongoing
+maintenance accountability
 recorded below. The separate request to remove the local original
 repository remote has been carried out. Runtime implementation, publication,
 remote branch promotion, releases and deployment remain unauthorized. The user
@@ -29,8 +31,9 @@ On 2026-10-23, the maintainer
 [announced 1.2.0 and their intended capability reorganization for 1.3.0](https://github.com/sintax-tech/mcp-for-nextcloud/pull/14#issuecomment-6355529655).
 This is not evidence that our candidate contains 1.2.0 or that upstream accepted
 our implementation. The release references are now verified in the
-[F0 record](#f0-reference-verification-and-decision-record). Inventory its behavior
-in F2 before selecting changes.
+[F0 record](#f0-reference-verification-and-decision-record). The
+[F2 inventory](upstream-1.2.0-inventory.md) records the selected and deferred
+changes; none has been integrated yet.
 
 Existing architecture and test rules remain owned by
 [the architecture specification](architecture-specification.md),
@@ -242,6 +245,11 @@ separately.
 
 ### F2: Audit upstream 1.2.0 and port selected changes
 
+Inventory and selection completed on 2026-10-23: see the
+[capability decisions and acceptance gates](upstream-1.2.0-inventory.md) and
+[exhaustive source ledger](upstream-1.2.0-source-ledger.md). Only this analysis
+was authorized. Implementation remains pending; F2 is not complete.
+
 Create a capability inventory containing source commits, security implications,
 public contract changes, dependencies, migration effects and one disposition per
 item: already present, port, intentionally defer, or not applicable with rationale.
@@ -326,7 +334,7 @@ security monitoring is recorded.
 | --- | --- | --- |
 | Fork identity and first version | Independent display identity; propose 2.0.0 | Owner approval before metadata changes |
 | Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; platform scope and reviewers remain pending | Resolve platform scope before F3 and accountable release review before deployment |
-| Upstream 1.2.0 | Release tag and commit verified in F0; behavior not inventoried or integrated | No claim of 1.2.0 parity |
+| Upstream 1.2.0 | Release references verified; F2 inventory and selection complete; selected ports and tests pending | No claim of 1.2.0 parity |
 | Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |
@@ -517,9 +525,9 @@ Nextcloud matrix and real-client/host qualification were not rerun in F1; earlie
 candidate evidence is historical, not a new result for these scopes.
 
 F3 decisions and human reviewers remain pending, as do the documented HTTPS,
-Inspector and ChatGPT acceptance limitations. F2 may now be requested separately;
-no upstream 1.2.0 changes were integrated. Native/platform qualification and
-production deployment are outside this local branch-establishment phase.
+Inspector and ChatGPT acceptance limitations. The subsequent F2 inventory is
+linked above; no upstream 1.2.0 runtime changes have been integrated.
+Native/platform qualification and production deployment are outside this local branch-establishment phase.
 
 ## Validation of this documentation change
 
