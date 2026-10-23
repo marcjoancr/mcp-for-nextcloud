@@ -187,7 +187,7 @@ release command; its YAML parses, but no remote workflow was triggered.
 | Gate | Current state and next evidence |
 | --- | --- |
 | Immutable local source/runtime kit | Prepared and rebuilt for `39148aa`; regenerate at final frozen release revision |
-| Ordinary-user source access | Pending usable immutable publication destination and both personal-settings/MCP user journeys; no fake endpoint added |
+| Ordinary-user source access | Local implementation and non-admin personal-settings/MCP acceptance remain pending; they can be prepared without host facts or public publication. F5 must separately verify the authorized immutable public destination |
 | Publication suitability | Pending historical-content review, final notices/source review and trusted digest publication policy |
 | Update exclusion | Concrete filtered-catalog/manual-artifact candidate above; pending owner acceptance of service operation and host-specific qualification |
 | Native/custom-app integrity | Local content verifier passes; native UI/signature behavior, permissions and trusted digest custody still pending |
@@ -227,3 +227,84 @@ Committing the delivery tooling does not regenerate the kit for the new commit,
 publish a source offer or close any gate in the table above. Server facts, update
 and integrity qualification, recovery, the final matrix, HTTPS, Inspector, ChatGPT
 and all human reviewer assignments remain pending. No push or deployment occurs.
+
+## What can proceed without the intended server
+
+Review baseline: `1a9aa67`, with a clean working tree before this documentation
+update. The source kit above remains bound to `39148aa`; committing its tooling
+neither invalidates that historical evidence nor makes the kit describe `1a9aa67`.
+
+The F3 plan explicitly permits source-offer/download acceptance using a non-admin
+user and an isolated local service. Public destination verification belongs to
+F5 after publication is authorized. Therefore, publication and intended-server
+facts must not be treated as prerequisites for implementing and automatically
+testing the local source-offer journey. No such journey was implemented or run
+by this review.
+
+| Work | Can proceed without host facts? | What it can establish |
+| --- | --- | --- |
+| Source-offer implementation and automated contracts | Yes, in the repository and isolated test fixtures | Both personal-settings users and MCP users can discover the same version-bound offer; an admin-only link is insufficient |
+| Local source retrieval/rebuild acceptance | Yes, against a controlled local service and a frozen candidate | Non-admin retrieval, matching source revision/version, complete kit verification and successful reconstruction; no public-ingress claim |
+| Technical history/dependency/attribution audit | Yes | Inventory and automated findings can be prepared; a scanner cannot approve historical publication safety, legal terms or human-facing attribution |
+| Rebuild a kit including the committed tooling | Yes | Self-contained committed build tooling is available; schedule the next release freeze after source-offer changes to avoid treating another intermediate kit as final |
+| Generic update/integrity and restore tests | Partly | Representative pinned fixtures can test defined behavior; a filtered catalog needs its own design and qualification, and none of this inventories the real host's writers or backup topology |
+| Native final matrix and installed-upstream-1.2.0 upgrade | Independent of host facts for the declared reference profiles | Separate F4 work; current maintenance pins and the final artifact are prerequisites, and the actual host's installed version still needs its own acceptance |
+| Production update exclusion, native integrity policy and recovery | No | Require actual installation paths/mounts, update mechanisms, subscription, versions, permissions and coordinated backup facts |
+| Publication, real ChatGPT access and human sign-off | Not closed by local tests | Require their own authorization/access or reviewers; preserve the existing HTTPS/Inspector/ChatGPT limits |
+
+### Recommended next implementation batch
+
+Prioritize the **local source-offer journey** before the final release freeze or
+introducing an update-catalog service. Intermediate builds remain necessary for
+testing. This batch can close the local source-access criterion only after its
+acceptance checks pass; it does not close all of F3 or select the owner's server
+topology.
+
+1. Define one version-bound source-offer contract shared by personal settings and
+   MCP discovery/onboarding. Inspect the existing protocol and guide contracts
+   before selecting its representation; preserve authentication, grants and
+   technical app identity. Keep release metadata separate from user content,
+   credentials and backup data. Specify unavailable/invalid metadata behavior so
+   an unusable or fabricated destination is never presented as a valid offer.
+   Missing or inconsistent metadata must fail source-offer acceptance rather
+   than silently count as a completed offer.
+2. Implement that contract and its adapters, preserving original attribution.
+   Test it automatically with a non-admin identity and the supported protocol
+   paths. Cover ordinary users whose feature grants differ; source discovery
+   must not rely on administrator access or an unrelated capability grant.
+3. Use a controlled local source destination for retrieval acceptance. Verify that
+   the advertised source revision/version matches the frozen candidate, the
+   complete kit passes a separately trusted digest check, and altered, incomplete
+   or wrong-revision delivery fails. Keep the local-to-proposed-public mapping explicit; do not ship a test
+   loopback URL in a release package. A real Nextcloud fixture test is a separate
+   acceptance step from unit/browser doubles, and must be recorded as such.
+4. Run the affected contracts, documentation, package and source reconstruction
+   checks. Record the resulting immutable candidate and repeat affected F3/F4
+   qualification before release. Public URL verification remains an F5 gate;
+   local success does not authorize push, publication or deployment.
+
+Acceptance for this batch requires all of the following evidence:
+
+- A non-admin user can discover the offer through personal settings and each
+  supported MCP protocol path and retrieve the complete kit without maintainer
+  credentials. Source access is independent of unrelated capability grants while
+  existing authentication and connection policy remain enforced.
+- The retrieved kit and rebuilt app match the frozen revision/version. Keep the
+  expected manifest digest outside the files it inventories: embedding that final
+  digest in a hashed app file would create a checksum cycle. Do not derive trust
+  from a fresh digest calculated from the same untrusted download.
+- Positive and negative contract tests pass, and the local user journey passes
+  against a real isolated Nextcloud fixture. If that native test cannot run, mark
+  it blocked; unit/browser doubles do not close this acceptance criterion.
+- The local-to-public destination mapping is recorded before final qualification.
+  No loopback test URL is shipped and no post-qualification package edit supplies
+  the public URL. Public reachability is still verified separately in F5 after
+  authorization. All remaining F3/F4/host/client/human gates stay explicit.
+
+This review does not implement that batch, start an instance, configure a catalog,
+create a public endpoint or assign reviewers. The data needed from the owner stay
+the same: Nextcloud/PHP/database/app versions, installation method, app paths and
+mounts, automatic update entry points, subscription and backup/storage topology.
+Human security, operations/recovery, license/attribution, accessibility and language
+reviews remain unassigned/pending. Public HTTPS, Inspector's recorded 14/15
+storage result and the real ChatGPT journey remain explicit limitations.
