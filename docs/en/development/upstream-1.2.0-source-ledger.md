@@ -6,7 +6,11 @@
 This is the exhaustive source ledger for the
 [capability inventory and selection](upstream-1.2.0-inventory.md), recorded on
 2026-10-23. It describes original repository paths, not proposed fork paths or
-files copied into this branch. Nothing listed here has been ported by F2 analysis.
+files copied into this branch. The inventory analysis itself ported no behavior.
+Selected runtime ports are now implemented in batches A-D; documentation and final
+qualification continue in the [integration record](upstream-1.2.0-integration.md).
+The dispositions below remain the historical selection, not a current completion
+ledger; D06 and QQUEUE remain deferred.
 
 Range: `27da5e107ca06d92b7af9b8a80ad9c77c12ba91e` to
 `02526119b845ccc1d8399be002da3e30b5527df6`. The fork comparison is

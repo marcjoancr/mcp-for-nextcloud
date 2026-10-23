@@ -7,6 +7,17 @@
 Native Nextcloud application. Install this built archive using the [operational guides](../docs/en/guides/README.md). Source builds and contributions: [source repository](https://github.com/sintax-tech/mcp-for-nextcloud).
 
 
+## Selected upstream integration (development)
+
+This branch adds Notes append/replace, Deck labels and visible file unlinking,
+conditional NC34/35 Deck dependencies, precise Deck deadlines and an optional
+filename allowlist, alongside privacy and compatibility fixes. See the
+[tools](../docs/en/reference/tools.md) and
+[configuration](../docs/en/reference/configuration.md) guides for limits and defaults.
+Manifest version remains **1.1.2** pending the fork release decision; final
+qualification and human reviews remain pending. This is selected source
+integration, with native file linking deferred, not full upstream 1.2.0 parity.
+
 ## Contacts and Tasks (0.8.0)
 
 [Contacts and Tasks (0.8.0)](../docs/en/reference/tools/contacts-tasks.md).
@@ -104,6 +115,10 @@ AGPL-3.0-or-later, with the additional section 7(b) attribution term in [NOTICE]
 Smalot PdfParser, Symfony Polyfill Mbstring and the Composer autoloader are bundled. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for versions, copyright, licenses and separate development credits.
 
 **Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation (#10) and @Zegorax for administrator-registered OAuth clients (#8, #7).
+
+The upstream documentation also credits Sintax/Jhonatan Jaworski's contribution
+to [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). This historical
+credit is retained without implying that XERJ reviewed this fork.
 
 ## About Sintax
 

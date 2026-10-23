@@ -10,9 +10,20 @@ Administrators can independently restrict Files to selected folders, Calendar to
 
 After account/policy/operation admission, resource scope is checked before tag exclusions and native permissions. An unreadable scope produces temporary unavailability before resource lookup. Out-of-scope resources receive the generic missing-resource refusal and disappear from lists. Restrictions apply to the next operation without revoking the connection.
 
-Notes, Contacts, Deck and Talk have no module resource restriction in 1.1.0. A Files restriction therefore does not automatically restrict Notes stored in those folders. Their own permissions and applicable tag exclusions still apply. File attachment operations and structured references crossing those modules can require the Files scope: Talk hides inaccessible attachment IDs, Tasks filters protected ATTACH references from output while retaining stored DAV content, Calendar emits selected event fields rather than raw ATTACH, and Deck exposes attachment counts rather than file URLs. Free text is not a general data-loss-prevention filter.
+Notes, Contacts, Deck and Talk have no module resource restriction in 1.1.0. A Files restriction therefore does not automatically restrict Notes stored in those folders. Their own permissions and applicable tag exclusions still apply. File attachment operations and structured references crossing those modules can require the Files scope: Talk hides inaccessible attachment IDs, Tasks filters protected ATTACH references from output while retaining stored DAV content, Calendar emits selected event fields rather than raw ATTACH, and Deck lists only authorized visible native file associations and readable
+dependency references, with no native attachment count or hidden handles. Free text is not a general data-loss-prevention filter.
 
 While tag exclusions are configured, visible folders cannot be shared, copied or moved to another parent through MCP; refusal occurs before subtree enumeration or mutation. Same-parent renames retain native/lock checks. Existing folder-share listings return `url: null` without reading the public token. Structured output also removes public folder links when exclusions or Files restrictions prevent safe exposure. Use the native Files interface for the refused folder operations.
+
+## Optional filename policy
+
+The **Data protection** administration tab can limit filenames/extensions for MCP
+Files and Notes writes. It starts with **No restriction (default)**, never grants
+access, and keeps mandatory
+internal recovery backups. The [configuration guide](../reference/configuration.md#file-type-policy)
+explains the allowlist, extensionless option, folder-copy manifest, bounded
+preflight, partial results and native move/concurrency limits. It checks names,
+not MIME/content; it does not protect other clients or eliminate prompt injection.
 
 ## Locked file (1.0.5)
 

@@ -6,7 +6,7 @@
 
 ## Requirements
 
-- Nextcloud **32 to 35**, each release checked by the API contract tests against the oldest build of its major (with the matching Deck and Talk); Deck 1.16+ and Talk 22+ on 32, up to Deck 1.19 and Talk 25 on 35
+- Nextcloud **32 to 35**. Source-surface API contracts and disposable native tests are separate evidence; a fixture does not qualify every patch. Deck 1.16+ and Talk 22+ on 32, up to Deck 1.19 and Talk 25 on 35; the three Deck dependency tools additionally require the compatible NC34/35 APIs described in [Deck](reference/tools/deck.md#conditional-native-dependencies)
 - PHP **8.2+** with `zip`, `mbstring` and `dom`
 - Optional apps, only for their own tools (hidden while the app is disabled): Notes, Calendar, Contacts, Deck, Talk (`spreed`), Versions (`files_versions`, required for edits), Deleted files (`files_trashbin`, required for deletes)
 - Deck and Talk are optional: their tools appear only when the app is enabled in a supported version; an older release counts as disabled, its tools stay hidden and the admin page says which version brings them back
@@ -31,6 +31,13 @@ In Docker, run the `occ` commands inside the container as the web server user. I
 To update a build installed through SSH: `occ app:disable mcp`, remove `<apps>/mcp`, extract the new package, `occ app:enable mcp` and `occ upgrade` if Nextcloud asks for it. The folder must be replaced whole, so no old files are left in `vendor/`. To remove: `occ app:remove mcp`.
 
 The 1.1.0 migrations retain the original migration IDs and import legacy native/custom-client settings into authoritative rows. Valid 1.0.8 preferences and credentials survive upgrade. The supported qualification paths include original upstream 1.0.8, the migrated local 1.0.8, upgrades from upstream 1.1.0 and 1.1.1, and replacement of an already-migrated upstream 1.1.2 installation. Same-version replacement does not force an upgrade or rerun migrations to reset policy.
+
+This development branch selectively integrates upstream 1.2.0 behavior while
+retaining manifest version **1.1.2** pending the independent fork release decision.
+It is not an upgrade candidate for a host already running upstream 1.2.0. Release
+version, actual installed-version compatibility and host qualification must be
+resolved before publishing or installing that release. The selected features do
+not establish complete upstream 1.2.0 parity.
 
 ## Upgrade and recovery
 

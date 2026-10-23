@@ -21,8 +21,48 @@ Use the administration and personal settings interfaces for policy changes. Dire
 | Legacy app inputs | `oauth_native_client_enabled`, `oauth_custom_clients` | Migration inputs for the client table, not the live managed-client authority. |
 | Own table | `mcp_logs_groups` | Canonical JSON groups and version; empty means administrators only. Imports legacy appconfig on first read. |
 | App `mcp` | `checkout_max_bytes` | Checkout upload limit in bytes; default 50 MiB, constrained by PHP's `post_max_size`. |
+| App `mcp` | `file_write_policy` | Versioned optional filename allowlist; absent means off. Change in Data protection; invalid/unreadable state refuses affected writes. |
 | App `mcp` | `hidden_system_tags` | JSON list of excluded system-tag IDs; `[]` disables tag exclusions. |
 | App `mcp` | `logs_hide_file_names` | `1` by default: hide log-message text while exclusions are configured; `0` allows the complete log for diagnosis. |
+
+## File type policy
+
+In administration → **Data protection** → **File types writable through MCP**,
+choose **No restriction (default)** or **Only listed extensions**, then review and
+save. The setting applies globally to MCP Files and
+Notes writes, independently of grants, native permissions, resource restrictions,
+Guests, exclusions, locks and confirmations. It never makes an otherwise refused
+write available. This is a filename/extension rule, not MIME/content inspection,
+a malware scanner or protection against prompt injection; other clients are
+outside its scope.
+
+The allowlist accepts at most 128 unique extensions, separated by commas or lines.
+A leading dot is optional; tokens are lowercased and sorted. Each contains 1–32
+ASCII letters/digits, `_` or `-`, starting with a letter/digit. Evaluation uses the
+resolved final basename's last extension, case-insensitively. Extensionless names
+(including a leading-dot name with no later dot) need the separate explicit option,
+which defaults off. Empty names, trailing dots/whitespace and malformed names are refused
+while the policy is active; folder names themselves are not extension filtered.
+
+It covers create/upload, editing and replacement, checkout upload, version restore,
+copy/move, ordered batches and undo, and Notes create/edit/partial edit/move.
+Mandatory internal Files and Contacts recovery backups remain exempt; a public
+write using `.bak` or `.vcf` has no exemption. Preview and confirmation check the
+policy; mutation boundaries read it afresh, so a newly blocked checkout upload is
+refused and a blocked undo retains data and its receipt. An unavailable or malformed
+configuration fails closed. An uncertain save is not replayed automatically; use
+the interface's read/retry flow to inspect what is stored.
+
+With policy active, folder operations preflight at most 2,000 inspected/projected
+nodes per boundary; copies also retain the 1 GiB byte ceiling. Folder copy checks
+the visible/readable tree and copies from that checked manifest, with fresh checks per entry. Later additions
+are omitted; a failure can leave a reported partial copy, which is never deleted
+automatically. Folder move also preflights descendants but remains one native
+move: files another client inserts after the last check can move with the folder.
+Policy updates and filesystem writes share no atomic transaction, and native
+storage/content can change after a check. Visibility changes may withhold stale
+receipt details while retaining already written data. Review uncertain results
+before any new action; no automatic rollback or safe replay is promised.
 
 These tables describe persistence, not a public SQL mutation API. Editing rows or restoring only some tables can break revision, lifecycle and revocation guarantees. See [permissions](../guides/permissions.md), [OAuth](oauth.md) and the [upgrade/recovery guidance](../installation.md).
 

@@ -50,6 +50,26 @@ comments. A changed previously reviewed page remains an advisory review request.
 Use prose notices beginning “Traducción pendiente”, “Traducció pendent” or “Revisão
 pendente” / “Revisão humana pendente”, followed by the equivalent English source link.
 
+## Selected integration provenance
+
+The selected upstream 1.2.0 messages/titles are mapped through the existing
+`Mcp/Tools/Discovery` and module presentation owners, with `de`, `es` and `pt_BR`
+UI catalogs kept together. The selected additions and their rendered UI still
+need human review; no automated gate certifies language quality. German README
+expansion remains deferred and no German operational documentation tree is added.
+The original informal German UI credit remains with @matt-ek; adaptation of new
+messages is not a claim of their review.
+
+English operational pages now describe the selected ports. Existing Spanish,
+Catalan, Brazilian Portuguese and European Portuguese pages retain their real
+source revisions and visible pending notices; changed English pages make those
+drafts review-required. Do not advance a revision merely to hide that state.
+English, Brazilian Portuguese and Spanish store descriptions include selected
+capabilities while preserving the historical 1.1.2 feature paragraphs. The
+localized additions adapt the pinned upstream source, omit deferred file linking
+and add the fork's safety limits. Their XML provenance comment and this record
+keep human review pending; there is no German store-description addition.
+
 Contributor documentation is maintained in English.
 The operational coverage set consists of root/app READMEs and every page under
 `docs/en/` except `development/`. Keep each Portuguese variant independent: adapting

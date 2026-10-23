@@ -46,6 +46,15 @@ the candidate 1.1.2; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
 same-version replacement without forcing migrations. All three retain the actual
 declared versions and use only disposable instances.
 
+The selected upstream 1.2.0 source integration retains candidate version 1.1.2
+pending F3. These paths do not qualify an upgrade from an installed upstream
+1.2.0; the independent release version and actual host's installed version require
+separate qualification. Deck is pinned to 1.16.8/1.17.7/1.18.5/1.19.0 for
+NC32/33/34/35; Contacts is pinned to 8.3.21 for NC32 and 8.9.2 for NC33–35.
+Archive hashes and identity/version/server-bound checks precede provisioning.
+The three dependency tools are present only for verified NC34/35 Deck APIs;
+unsupported/disabled paths must remain covered as well as supported behavior.
+
 CLI probes require explicit completion: Nextcloud can log an exception and exit
 with status zero, so `Support/ProbeCompletion.php` makes an incomplete probe fail.
 Replacement verification removes only its own seeded user/client/scope after

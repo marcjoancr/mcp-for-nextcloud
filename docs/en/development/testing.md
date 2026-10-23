@@ -81,6 +81,25 @@ A failed app installation, empty selection or test failure is a failed cell.
 Harness qualification with an explicitly substituted version and filtered diagnostic
 runs do not certify the final package; report them separately.
 
+## Selected native fixture inputs
+
+The harness pins Deck 1.16.8 / 1.17.7 / 1.18.5 / 1.19.0 for NC32 / 33 / 34 / 35,
+and Contacts 8.3.21 for NC32 and 8.9.2 for NC33–35. Archive SHA-256 values live in
+`mcp/tests/Integration/ci/harness.sh`; the verifier checks app identity, declared
+version and supported server bounds before provisioning. Existing immutable core,
+Talk, Guests and storage fixtures remain owned by that harness. API fixture
+updates select the requested class in a multi-declaration file and add only the
+surfaces consumed by selected ports; deferred D06 adds no recipient/Circles claim.
+
+The native matrix retains run-owned labels, unique credentials, private networks,
+redacted public artifacts, coordinated recovery and owned cleanup. There is no
+Colima startup/shutdown or shared-engine queue. Selected source integration keeps
+the candidate at 1.1.2: the matrix covers the pinned older upgrades and same-version
+1.1.2 replacement, not an upgrade from an installed upstream 1.2.0. F3 owns that
+release-version and installed-host qualification. See the
+[execution record](upstream-1.2.0-integration.md) for actual current results;
+filtered batch diagnostics and complete cells are recorded separately.
+
 ## Private real-client acceptance
 
 `test:clients:unit` checks runner safety without containers and is included in

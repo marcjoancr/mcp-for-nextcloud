@@ -4,8 +4,9 @@
 # Adding a tool
 
 Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People and Logs are implemented examples
-of capability-based authoring. Their 74 tools use explicit catalogs and focused
-capabilities. Shared MCP infrastructure now has final owners; administration remains
+of capability-based authoring. Their tools use explicit catalogs and focused
+capabilities; see the [architecture catalog counts](architecture-specification.md#capability-ownership)
+for maximum and conditional availability. Shared MCP infrastructure now has final owners; administration remains
 a separate scope.
 
 ## Find the owner
