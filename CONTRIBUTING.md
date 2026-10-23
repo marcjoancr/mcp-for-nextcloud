@@ -9,6 +9,29 @@ The [architecture specification](docs/en/development/architecture-specification.
 and [tool-authoring guide](docs/en/development/adding-a-tool.md) explain ownership,
 registration and the contracts that changes must preserve.
 
+## Fork development workflow
+
+This fork develops its capability architecture on `fork/main`. That branch has
+been established locally; publication and a GitHub default-branch change remain
+pending. Base new topic branches on `fork/main`, not the older `main` or the frozen
+`refactor/complete-upstream-pr` reference. Verify the starting revision when using
+a worktree manager or task runner whose configured default may still be `main`.
+
+The contribution destination is `marcjoancr/mcp-for-nextcloud`. Preserve original
+attribution, but do not open new PRs against the original repository or update
+PR #14 as part of fork development. The local `upstream` remote was removed;
+read-only upstream research and explicitly selected ports remain possible by URL.
+For GitHub CLI, check `gh repo set-default --view` before an authorized remote
+action; a fork relationship alone does not guarantee the correct default target.
+
+Keep publication, default-branch changes and deployment explicitly authorized.
+The [fork continuation plan](docs/en/development/fork-continuation-plan.md) owns
+baseline references, release proposals, update safeguards and pending decisions.
+F3 identity/version/platform choices and human reviewers remain pending. No new
+runtime version or support claim follows from establishing this branch.
+
+## Contribution requirements
+
 Write code, identifiers, comments, PHPDoc and canonical documentation in English.
 Preserve localized output and meaningful multilingual fixtures. Update English
 guides with the change; reviewed translations can follow independently. Link only

@@ -3,13 +3,14 @@
 
 # Independent fork continuation plan
 
-Status: F0 closed by user confirmation on 2026-10-23; F1 not started. The user
-approved the development baseline, branch policy and ongoing maintenance
-accountability recorded below. The separate request to remove the local original
+Status: F0 and F1 completed locally on 2026-10-23. The user approved the
+development baseline, branch policy and ongoing maintenance accountability
+recorded below. The separate request to remove the local original
 repository remote has been carried out. Runtime implementation, publication,
-branch promotion, releases and deployment have not been authorized by this
-documentation task. F3 decisions, including public identity, initial version and
-platform scope, remain pending, as do human reviewer assignments.
+remote branch promotion, releases and deployment remain unauthorized. The user
+subsequently authorized F1 local branch creation and validation. F3 decisions,
+including public identity, initial version and platform scope, remain pending,
+as do human reviewer assignments.
 
 ## Purpose and baseline
 
@@ -61,7 +62,7 @@ Do not create compatibility wrappers merely to accommodate upstream file paths.
 | Reference | Proposed role | Rules |
 | --- | --- | --- |
 | `origin/refactor/complete-upstream-pr` | Existing PR #14 reference | Preserve its name and history; no fork-only development, force-push or automatic retargeting |
-| `fork/main` | Approved long-lived fork integration branch | Create from the exact candidate above when F1 is requested; initially local; protect before accepting remote contributions |
+| `fork/main` | Established local fork integration branch | Created from the frozen candidate with the reviewed documentation; publication and remote protection remain pending |
 | `feat/*`, `fix/*`, `docs/*`, `test/*` | Short-lived changes from `fork/main` | One reviewable objective, relevant checks and explicit compatibility impact |
 | `fix/upstream-<release>-<topic>` | Selected upstream ports | Record original commit, behavior and validation; no automatic upstream merges |
 | `release/fork-<major>.<minor>` | Optional supported maintenance line | Create only if more than one release line is actually supported |
@@ -343,10 +344,10 @@ server disclosure without additional evidence.
 ## F0 reference verification and decision record
 
 Checked and confirmed on 2026-10-23. Technical reference verification is complete
-and the user explicitly confirmed all three F0 decisions. F0 is closed; no F1
-branch, tag, runtime change or release has been created. The separate local remote
-configuration change is recorded below. F0 closure does not approve F3 decisions
-or complete any human review.
+and the user explicitly confirmed all three F0 decisions. At F0 closure no F1
+branch, tag, runtime change or release had been created. The later F1 branch action
+is recorded separately below. F0 closure does not approve F3 decisions or complete
+any human review. The local remote configuration change is recorded below.
 
 ### Verified immutable inputs
 
@@ -372,9 +373,9 @@ integrity. No release archive was downloaded or qualified during F0.
 
 Both the fork candidate and released upstream 1.2.0 declare app ID `mcp`, PHP
 minimum 8.2 and Nextcloud 32-35. This metadata agreement does not prove runtime
-parity or identify the user's actual production platform. The current local
-`main` remains `a1a7911cc72dcf2487d17e06e23edfa89b0ecf92`; no local `fork/main`
-exists. GitHub's PR response still reports base SHA `27da5e1`, whereas the direct
+parity or identify the user's actual production platform. At F0 verification, local
+`main` was `a1a7911cc72dcf2487d17e06e23edfa89b0ecf92` and no local `fork/main`
+existed. GitHub's PR response still reports base SHA `27da5e1`, whereas the direct
 upstream branch reference reports `7c5ef6d`; this API discrepancy is not used to
 select a source baseline. The PR head is independently verified against the fork
 branch, and the release is independently verified through its annotated tag.
@@ -417,9 +418,9 @@ F0 confirmation, not additional duties inferred by the assistant.
 ### F0 result and next gate
 
 F0 is closed: the technical references are verified and the three owner decisions
-are confirmed. F1 is eligible to start when requested, but has not begun in this
-task. A later F1 implementation must incorporate the reviewed documentation commit
-and this F0 closure commit; neither belongs on the PR head.
+are confirmed. The user subsequently requested F1; its execution record follows.
+The reviewed documentation and F0 closure commits belong on the fork line, not
+on the PR head.
 
 HTTPS, Inspector (including the previously recorded 14/15 encrypted-storage
 finding), ChatGPT and human reviews retain the acceptance limits already listed
@@ -449,6 +450,77 @@ workflow policy is therefore also explicit: no new original-project PRs, no
 pushes or publication without the user's corresponding request. PR #14 remains
 open at `14a76df` as a historical reference, not a branch for ongoing fork work.
 
+## F1 local development establishment
+
+On 2026-10-23, `fork/main` was created from the exact agreed candidate
+`14a76df26817fb8a4540eb9c9d1d0043e3e87506`, then fast-forwarded to
+`3fbe2dba1ddc26a8eadf79b41493916b072aab12`. This incorporates both reviewed commits:
+`8e44a40e0bfae9bc5d3aab8039c2f784250d4982` (plan and index) and
+`3fbe2dba1ddc26a8eadf79b41493916b072aab12` (verified F0 references, owner decisions
+and remote policy). No squash, cherry-pick or history rewrite was needed.
+
+[Contributing](../../../CONTRIBUTING.md#fork-development-workflow) now directs
+local development to `fork/main` and the fork repository. The `main` branch and
+PR head remain unchanged. This phase changes documentation and local Git branch
+state only; the complete `mcp/` runtime, tool inventory, dependency locks, migration
+identities and CI workflows remain identical to the agreed candidate. No F2 port
+or F3 identity/version change is included.
+
+### Remote policy proposal, not applied
+
+After explicit publication authorization, propose making `fork/main` the fork's
+GitHub default branch and protecting it from deletion and force-pushes. Require
+reviewed topic PRs, resolved review conversations and successful checks on the
+candidate revision. Required checks should cover package validation, REUSE,
+documentation/provenance, syntax, both static-analysis scopes, PHPUnit on PHP
+8.2-8.5 and all three browser engines, using the actual emitted CI job names.
+Confirm these names after the first authorized run rather than configuring
+nonexistent checks. Native upgrade/platform qualification remains an additional
+release gate for the declared support matrix.
+
+Reviewer assignment and repository feature availability must be resolved before
+claiming that this protection is active or allowing external contributions. No
+branch protection, repository default, remote branch or automation setting was
+changed in F1. No maintainer has been assigned or represented as having approved
+the code. Development tools that still default to `main` need an explicit
+`fork/main` starting point; their external configuration was not changed here.
+
+### F1 validation and remaining scope
+
+F1 is complete locally. The catalog `check` task, delegating to
+`composer --working-dir=mcp check`, exited 0 using PHP 8.4.27, Composer 2.8.8,
+Node 24.21.0 and npm 11.19.0. Locked dependencies and Composer platform requirements
+were checked. Results:
+
+| Gate | Result |
+| --- | --- |
+| Documentation and provenance | 145 Markdown files valid; 110 operational package sources; 96 translations still require human review |
+| Documentation tooling / client runner safety | 29 / 10 tests passed, no failures or skips |
+| PHP syntax and static analysis | 1,148 PHP files checked; both analysis scopes passed |
+| Complete PHP suite, including architecture tests | 7,691 tests and 65,394 assertions passed |
+| Browser suite | 654 tests passed across Chromium, Firefox and WebKit |
+| Production packaging | `mcp-1.1.2.tar.gz` built and validated; 110 staged documentation sources verified |
+| Scope and ancestry | `mcp/` and CI workflows identical to `14a76df`; both reviewed documentation commits are ancestors of `fork/main` |
+| Reference preservation | Local `main` unchanged; PR #14 still open at `14a76df`; only `origin` retained and GitHub CLI still defaults to the fork |
+
+The browser build test intentionally emits missing-module errors while asserting
+that failed builds reject and remove stale outputs. All three instances passed;
+these messages were not suppressed. Composer's existing PSR-4 warnings for
+explicitly loaded foreign-namespace test doubles also remain visible, as explained
+in the testing guide. No new runtime or test workaround was introduced.
+
+The complete gate ran against the unchanged runtime tree and F1 documentation;
+only this result record was then updated and the documentation checks repeated.
+Raw command output and generated packages remain local build artifacts. No new
+remote CI run was requested. The wider PHP version matrix, REUSE command, native
+Nextcloud matrix and real-client/host qualification were not rerun in F1; earlier
+candidate evidence is historical, not a new result for these scopes.
+
+F3 decisions and human reviewers remain pending, as do the documented HTTPS,
+Inspector and ChatGPT acceptance limitations. F2 may now be requested separately;
+no upstream 1.2.0 changes were integrated. Native/platform qualification and
+production deployment are outside this local branch-establishment phase.
+
 ## Validation of this documentation change
 
 Run the following from the repository root with the locked Node/npm toolchain:
@@ -465,5 +537,6 @@ acceptance or production package qualification. This English development plan st
 the operational package allowlist and does not require duplicate translations.
 The development index links this plan. No application behavior, version, legal
 text, deployment update configuration or PR state changes are part of this task.
-The only non-documentation change is the expressly requested local Git/GitHub CLI
-remote configuration recorded above.
+The non-documentation changes are the explicitly requested local Git/GitHub CLI
+remote configuration at F0 and local branch establishment at F1, recorded above.
+No remote repository setting was changed.
