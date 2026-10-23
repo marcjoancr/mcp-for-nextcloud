@@ -253,6 +253,7 @@ final class CardFileLinkFixture {
     }
     /** Real persistence with an injected lost response at the IManager boundary; no production fixture hooks. */
     private static function outcome(string $uid, array $input): array {
+        DeckFixture::loadProbeRuntime();
         $manager = Server::get(IManager::class);
         $admission = $input['admission'] ?? false;
         $observations = [];
