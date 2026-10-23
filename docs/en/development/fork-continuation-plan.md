@@ -4,12 +4,13 @@
 # Independent fork continuation plan
 
 Status: F0 and F1 completed locally on 2026-10-23. F2 inventory and selection
-are documented; the selected ports and runtime acceptance remain pending.
+are documented; selected integration is now authorized and in progress, with
+results tracked in the [execution record](upstream-1.2.0-integration.md).
 The user approved the development baseline, branch policy and ongoing
 maintenance accountability
 recorded below. The separate request to remove the local original
-repository remote has been carried out. Runtime implementation, publication,
-remote branch promotion, releases and deployment remain unauthorized. The user
+repository remote has been carried out. Publication, remote branch promotion,
+releases and deployment remain unauthorized. The user
 subsequently authorized F1 local branch creation and validation. F3 decisions,
 including public identity, initial version and platform scope, remain pending,
 as do human reviewer assignments.
@@ -33,7 +34,8 @@ This is not evidence that our candidate contains 1.2.0 or that upstream accepted
 our implementation. The release references are now verified in the
 [F0 record](#f0-reference-verification-and-decision-record). The
 [F2 inventory](upstream-1.2.0-inventory.md) records the selected and deferred
-changes; none has been integrated yet.
+changes. Current implementation and validation status is recorded separately
+in the [execution record](upstream-1.2.0-integration.md).
 
 Existing architecture and test rules remain owned by
 [the architecture specification](architecture-specification.md),
@@ -248,7 +250,8 @@ separately.
 Inventory and selection completed on 2026-10-23: see the
 [capability decisions and acceptance gates](upstream-1.2.0-inventory.md) and
 [exhaustive source ledger](upstream-1.2.0-source-ledger.md). Only this analysis
-was authorized. Implementation remains pending; F2 is not complete.
+was initially authorized. The user subsequently authorized the selected ports;
+follow the [execution record](upstream-1.2.0-integration.md). F2 is not complete.
 
 Create a capability inventory containing source commits, security implications,
 public contract changes, dependencies, migration effects and one disposition per
@@ -334,7 +337,7 @@ security monitoring is recorded.
 | --- | --- | --- |
 | Fork identity and first version | Independent display identity; propose 2.0.0 | Owner approval before metadata changes |
 | Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; platform scope and reviewers remain pending | Resolve platform scope before F3 and accountable release review before deployment |
-| Upstream 1.2.0 | Release references verified; F2 inventory and selection complete; selected ports and tests pending | No claim of 1.2.0 parity |
+| Upstream 1.2.0 | Release references verified; F2 inventory and selection complete; selected integration authorized and in progress | No claim of 1.2.0 parity |
 | Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |

@@ -13,7 +13,7 @@ use InvalidArgumentException;
 
 /** Adapts resources while retaining unavailable and unreadable resource semantics. */
 final class ResourceRequests {
-    public function __construct(private ?ResourceRegistry $resources) {}
+    public function __construct(private ServerIdentity $identity, private ?ResourceRegistry $resources) {}
 
     /** Preserves availability precedence, native validation and both protocol envelopes. */
     public function list(int|string $id, array $params, string $userId, bool $modern): array {
@@ -28,7 +28,7 @@ final class ResourceRequests {
                 'resources' => $list['resources'],
                 'ttlMs' => 0,
                 'cacheScope' => 'private',
-                '_meta' => [ProtocolMetadata::META_SERVER_INFO => ProtocolMetadata::SERVER_INFO],
+                '_meta' => [ProtocolMetadata::META_SERVER_INFO => $this->identity->info()],
             ] : $list);
         } catch (InvalidArgumentException $e) {
             return JsonRpcResponse::error($id, -32602, JsonRpcResponse::safeMessage($e->getMessage()));
@@ -48,7 +48,7 @@ final class ResourceRequests {
                 'resourceTemplates' => $templates['resourceTemplates'],
                 'ttlMs' => 0,
                 'cacheScope' => 'private',
-                '_meta' => [ProtocolMetadata::META_SERVER_INFO => ProtocolMetadata::SERVER_INFO],
+                '_meta' => [ProtocolMetadata::META_SERVER_INFO => $this->identity->info()],
             ] : $templates);
         } catch (InvalidArgumentException $e) {
             return JsonRpcResponse::error($id, -32602, JsonRpcResponse::safeMessage($e->getMessage()));
@@ -70,7 +70,7 @@ final class ResourceRequests {
                 'contents' => $read['contents'],
                 'ttlMs' => 0,
                 'cacheScope' => 'private',
-                '_meta' => [ProtocolMetadata::META_SERVER_INFO => ProtocolMetadata::SERVER_INFO],
+                '_meta' => [ProtocolMetadata::META_SERVER_INFO => $this->identity->info()],
             ] : $read);
         } catch (ToolFailure $e) {
             return JsonRpcResponse::error($id, $modern ? -32602 : -32002, $e->getMessage());

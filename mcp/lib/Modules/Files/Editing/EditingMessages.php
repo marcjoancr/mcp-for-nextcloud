@@ -59,11 +59,10 @@ final class EditingMessages {
     }
 
     /**
-     * @param int $occurrences how many times the snippet occurs
      * @return string the snippet given to files_replace is ambiguous
      */
-    public static function snippetAmbiguous(int $occurrences): string {
-        return Translator::t('The specified snippet appears %s times in the file; provide a unique snippet.', [(string)$occurrences]);
+    public static function snippetAmbiguous(): string {
+        return Translator::t('The specified snippet appears more than once in the file; provide a longer, unique snippet.');
     }
 
     /**

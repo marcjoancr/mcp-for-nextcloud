@@ -11,7 +11,7 @@ final class ToolRequestsTest extends TestCase {
     public function testDiagnosticAndValidationEnvelopesMatchBothEras(): void {
         $registry = $this->createMock(ToolRegistry::class);
         $registry->expects(self::never())->method('call');
-        $requests = new ToolRequests($registry);
+        $requests = new ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $registry);
         self::assertSame('mcp_status', $requests->list('alice')[0]['name']);
         foreach ([false, true] as $modern) {
             $result = $requests->call('id', ['name' => 'mcp_status'], 'alice', $modern);

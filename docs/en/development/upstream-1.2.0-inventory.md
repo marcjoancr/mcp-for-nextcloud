@@ -8,6 +8,10 @@ acceptance are pending. This executes only the inventory portion of F2 in the
 [fork continuation plan](fork-continuation-plan.md). It does not close F2's porting
 or test criteria, authorize deployment, or claim full 1.2.0 parity.
 
+Subsequent implementation is tracked in the
+[integration record](upstream-1.2.0-integration.md); this inventory preserves the
+reviewed selection and its acceptance criteria.
+
 ## Immutable scope and method
 
 | Input | Revision |

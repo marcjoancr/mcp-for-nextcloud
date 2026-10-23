@@ -77,7 +77,7 @@ final class FilesEditToolsTest extends FilesToolsTestCase {
     /** The count is over bytes, so the same snippet twice in a Latin-1 file is still ambiguous. */
     public function testReplaceCountsOccurrencesOverBytes(): void {
         $this->tree->addFile('/alice/files/Documentos/pessoas.csv', "Rio\nS\xE3o\nRio\n", 'text/csv');
-        $this->assertSame(EditingMessages::snippetAmbiguous(2),
+        $this->assertSame(EditingMessages::snippetAmbiguous(),
             $this->failure('files_replace', ['path' => '/Documentos/pessoas.csv', 'old' => 'Rio', 'new' => 'x']));
     }
 
@@ -201,12 +201,27 @@ final class FilesEditToolsTest extends FilesToolsTestCase {
         $this->plan('files_checkout', ['path' => '/Documentos/ata.md', 'etag' => 'outro']);
     }
 
-    /** substr_count does not count overlaps, and neither does str_replace; the two must agree. */
-    public function testReplaceWithAnOverlappingSnippetFollowsNonOverlappingSemantics(): void {
+    public function testReplaceRefusesOverlappingAmbiguityWithoutWriting(): void {
         $this->tree->addFile('/alice/files/Documentos/aaa.txt', 'aaa', 'text/plain');
-        $out = $this->json('files_replace', ['path' => '/Documentos/aaa.txt', 'old' => 'aa', 'new' => 'b']);
-        $this->assertSame('ba', $this->tree->nodes['/alice/files/Documentos/aaa.txt']['content']);
-        $this->assertStringContainsString('-aaa', $out['diff']);
+        $this->assertSame('The specified snippet appears more than once in the file; provide a longer, unique snippet.',
+            $this->failure('files_replace', ['path' => '/Documentos/aaa.txt', 'old' => 'aa', 'new' => 'b']));
+        $this->assertSame('aaa', $this->tree->nodes['/alice/files/Documentos/aaa.txt']['content']);
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    public function testMultibyteSnippetWithinTheSchemaCharacterLimitIsRefusedByBytesInBothOperations(): void {
+        $arguments = ['path' => '/Documentos/ata.md', 'old' => str_repeat('ç', 32769), 'new' => 'x'];
+        $this->validated('files_replace', $arguments);
+        foreach (['preview', 'call'] as $method) {
+            try {
+                $this->module->$method('files_replace', $arguments, 'alice');
+                self::fail('an oversized byte sequence was accepted');
+            } catch (ToolFailure $failure) {
+                self::assertStringContainsString('65536 bytes', $failure->getMessage());
+            }
+        }
+        self::assertSame([], $this->tree->contentReads);
+        self::assertSame([], $this->tree->ops);
     }
 
     public function testReplaceRefusesASnippetThatIsNotThere(): void {
@@ -215,9 +230,9 @@ final class FilesEditToolsTest extends FilesToolsTestCase {
         $this->assertSame([], $this->tree->ops);
     }
 
-    public function testReplaceRefusesAnAmbiguousSnippetAndSaysHowOftenItOccurs(): void {
+    public function testReplaceRefusesAnAmbiguousSnippetWithoutCountingMatches(): void {
         $this->tree->addFile('/alice/files/Documentos/repetido.md', 'a a a', 'text/markdown');
-        $this->assertSame(EditingMessages::snippetAmbiguous(3),
+        $this->assertSame('The specified snippet appears more than once in the file; provide a longer, unique snippet.',
             $this->failure('files_replace', ['path' => '/Documentos/repetido.md', 'old' => 'a', 'new' => 'b']));
         $this->assertSame([], $this->tree->ops);
     }

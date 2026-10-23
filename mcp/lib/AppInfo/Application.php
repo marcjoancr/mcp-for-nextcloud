@@ -221,7 +221,7 @@ class Application extends App implements IBootstrap {
                 static fn () => $c->get(\OCA\DAV\CardDAV\PhotoCache::class),
                 static fn () => $c->get(\OCA\DAV\CardDAV\Security\CardDavRateLimitingPlugin::class),
                 static fn () => $c->get(\OCA\DAV\CardDAV\Validation\CardDavValidatePlugin::class),
-                static fn () => new \OCA\DAV\AppInfo\PluginManager($c->get(\Psr\Container\ContainerInterface::class), $c->get(\OCP\App\IAppManager::class)),
+                static fn () => new \OCA\DAV\AppInfo\PluginManager($c->get(\OCP\IServerContainer::class), $c->get(\OCP\App\IAppManager::class)),
             ))->create(),
             new Session($c->get(IUserSession::class)), $c->get(\OCP\IAppConfig::class), $c->get(LoggerInterface::class),
         ));
@@ -456,10 +456,12 @@ class Application extends App implements IBootstrap {
                 $c->get(\OCA\Mcp\Modules\People\Search\PeopleSearch::class),
             ));
         $context->registerService(ResourceRegistry::class, static fn (ContainerInterface $c): ResourceRegistry => new ResourceRegistry($c->get(ToolRegistry::class), $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Modules\Files\Contracts\FileResourceReader::class), $c->get(\OCA\Mcp\Modules\Notes\Contracts\NoteResourceReader::class), $c->get(ToolRegistry::class)->guide(), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class)));
-        $context->registerService(\OCA\Mcp\Mcp\Protocol\ToolRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ToolRequests($c->get(ToolRegistry::class)));
-        $context->registerService(\OCA\Mcp\Mcp\Protocol\PromptRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\PromptRequests($c->get(PromptCatalog::class), $c->get(GrantPolicy::class)));
-        $context->registerService(\OCA\Mcp\Mcp\Protocol\ResourceRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ResourceRequests($c->get(ResourceRegistry::class)));
+        $context->registerService(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ServerIdentity($c->get(IAppManager::class)));
+        $context->registerService(\OCA\Mcp\Mcp\Protocol\ToolRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ToolRequests($c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class), $c->get(ToolRegistry::class)));
+        $context->registerService(\OCA\Mcp\Mcp\Protocol\PromptRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\PromptRequests($c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class), $c->get(PromptCatalog::class), $c->get(GrantPolicy::class)));
+        $context->registerService(\OCA\Mcp\Mcp\Protocol\ResourceRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ResourceRequests($c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class), $c->get(ResourceRegistry::class)));
         $context->registerService(McpProtocol::class, static fn (ContainerInterface $c): McpProtocol => new McpProtocol(
+            $c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class),
             $c->get(\OCA\Mcp\Mcp\Protocol\ToolRequests::class),
             $c->get(\OCA\Mcp\Mcp\Protocol\PromptRequests::class),
             $c->get(\OCA\Mcp\Mcp\Protocol\ResourceRequests::class),

@@ -61,9 +61,9 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
         $resources = new ResourceRegistry($registry, $policy, $apps, $users,
             $fileReader,
             $this->createMock(\OCA\Mcp\Modules\Notes\Contracts\NoteResourceReader::class), $registry->guide());
-        return [$registry, $policy, new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests($registry),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new PromptCatalog(), $policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests($resources), $logger), $resources];
+        return [$registry, $policy, new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $registry),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $resources), $logger), $resources];
     }
 
     private function module(): ToolModule {

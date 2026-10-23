@@ -23,6 +23,7 @@ use Psr\Log\LoggerInterface;
  */
 class McpProtocol {
     public function __construct(
+        private ServerIdentity $identity,
         private ToolRequests $tools,
         private PromptRequests $prompts,
         private ResourceRequests $resources,
@@ -89,7 +90,7 @@ class McpProtocol {
             return JsonRpcResponse::result($id, [
                 'protocolVersion' => ProtocolMetadata::VERSION,
                 'capabilities' => ['tools' => new \stdClass(), 'prompts' => new \stdClass(), 'resources' => new \stdClass()],
-                'serverInfo' => ProtocolMetadata::SERVER_INFO,
+                'serverInfo' => $this->identity->info(),
                 'instructions' => ToolPresentation::INSTRUCTIONS,
             ]);
         }
@@ -150,7 +151,7 @@ class McpProtocol {
         if ($methodHeader === '') {
             $this->logger->debug('MCP modern request without Mcp-Method header', ['app' => 'mcp', 'method' => mb_substr($method, 0, 64)]);
         }
-        $meta = [ProtocolMetadata::META_SERVER_INFO => ProtocolMetadata::SERVER_INFO];
+        $meta = [ProtocolMetadata::META_SERVER_INFO => $this->identity->info()];
         return match ($method) {
             'server/discover' => JsonRpcResponse::result($id, [
                 'resultType' => 'complete',

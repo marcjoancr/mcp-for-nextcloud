@@ -32,6 +32,7 @@ final class FilesBoundaryTest extends TestCase {
         'OCA\Mcp\Platform\FileAccess\Sharing\SharedWriteGuard',
         'OCA\Mcp\L10n\Translator',
         'OCA\Mcp\Platform\Time\UserTimezone',
+        'OCA\Mcp\Platform\Text\UniqueSnippet',
         'OCA\Mcp\Mcp\Confirmation\ConfirmationMessages',
         'OCA\Mcp\Platform\FileAccess\FileAccessMessages',
         'OCA\Mcp\Platform\FileAccess\Sharing\SharingMessages',

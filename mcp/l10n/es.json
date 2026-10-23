@@ -1,4 +1,11 @@
 { "translations": {
+    "The specified snippet must not be empty." : "El fragmento indicado no puede estar vacío.",
+    "The specified snippet appears more than once in the file; provide a longer, unique snippet." : "El fragmento indicado aparece más de una vez en el archivo; indique un fragmento más largo y único.",
+    "The specified snippet is longer than %d bytes; send a shorter, unique snippet." : "El fragmento indicado supera los %d bytes; envíe un fragmento más corto y único.",
+    "No visible task checked in this list has the category %s. Omit the category field to remove the category filter." : "Ninguna tarea visible consultada en esta lista tiene la categoría %s. Omita el campo de categoría para quitar el filtro de categoría.",
+    "Completed tasks were not checked. Set include_completed to true to include them." : "No se consultaron las tareas completadas. Establezca include_completed en true para incluirlas.",
+    "It has no letter or digit, so it looks like a placeholder rather than a real label." : "No tiene ninguna letra ni dígito, así que parece un marcador de posición y no una etiqueta real.",
+
     "Folders cannot be shared, copied or moved to another directory through this connector while files are excluded from MCP access. Use the Nextcloud Files interface for these folder operations." : "Las carpetas no se pueden compartir, copiar ni mover a otro directorio a través de este conector mientras haya archivos excluidos del acceso mediante MCP. Use la interfaz Archivos de Nextcloud para estas operaciones con carpetas.",
     "The file “%s” is locked by an app, usually because it is open in an editor." : "El archivo “%s” está bloqueado por una aplicación, normalmente porque está abierto en un editor.",
     "The file “%s” is locked by %s." : "El archivo “%s” está bloqueado por %s.",
@@ -467,7 +474,6 @@
     "The specified path is not a file." : "La ruta indicada no es un archivo.",
     "The specified path is not a folder." : "La ruta indicada no es una carpeta.",
     "The specified path is not an image file." : "La ruta indicada no es un archivo de imagen.",
-    "The specified snippet appears %s times in the file; provide a unique snippet." : "El fragmento indicado aparece %s veces en el archivo; indique un fragmento único.",
     "The specified snippet does not appear in the file." : "El fragmento indicado no aparece en el archivo.",
     "The specified snippet is not valid UTF-8; send it exactly as it appears in the file." : "El fragmento indicado no es UTF-8 válido; envíelo exactamente como aparece en el archivo.",
     "The task could not be read safely." : "No se pudo leer la tarea de forma segura.",

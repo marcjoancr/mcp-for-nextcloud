@@ -1,6 +1,13 @@
 OC.L10N.register(
     "mcp",
     {
+    "The specified snippet must not be empty." : "O trecho informado não pode estar vazio.",
+    "The specified snippet appears more than once in the file; provide a longer, unique snippet." : "O trecho informado aparece mais de uma vez no arquivo; informe um trecho maior e único.",
+    "The specified snippet is longer than %d bytes; send a shorter, unique snippet." : "O trecho informado passa de %d bytes; envie um trecho menor e único.",
+    "No visible task checked in this list has the category %s. Omit the category field to remove the category filter." : "Nenhuma tarefa visível consultada nesta lista tem a categoria %s. Omita o campo de categoria para remover o filtro de categoria.",
+    "Completed tasks were not checked. Set include_completed to true to include them." : "As tarefas concluídas não foram consultadas. Defina include_completed como true para incluí-las.",
+    "It has no letter or digit, so it looks like a placeholder rather than a real label." : "Ela não tem letra nem dígito, então parece um marcador e não um rótulo de verdade.",
+
     "Folders cannot be shared, copied or moved to another directory through this connector while files are excluded from MCP access. Use the Nextcloud Files interface for these folder operations." : "Pastas não podem ser compartilhadas, copiadas ou movidas para outro diretório por este conector enquanto houver arquivos excluídos do acesso pelo MCP. Use a interface Arquivos do Nextcloud para essas operações com pastas.",
     "The file “%s” is locked by an app, usually because it is open in an editor." : "O arquivo “%s” está travado por um aplicativo, geralmente porque está aberto em um editor.",
     "The file “%s” is locked by %s." : "O arquivo “%s” está travado por %s.",
@@ -469,7 +476,6 @@ OC.L10N.register(
     "The specified path is not a file." : "O caminho informado não é um arquivo.",
     "The specified path is not a folder." : "O caminho informado não é uma pasta.",
     "The specified path is not an image file." : "O caminho informado não é um arquivo de imagem.",
-    "The specified snippet appears %s times in the file; provide a unique snippet." : "O trecho informado aparece %s vezes no arquivo; informe um trecho único.",
     "The specified snippet does not appear in the file." : "O trecho informado não aparece no arquivo.",
     "The specified snippet is not valid UTF-8; send it exactly as it appears in the file." : "O trecho informado não é UTF-8 válido; envie-o exatamente como aparece no arquivo.",
     "The task could not be read safely." : "Não foi possível ler a tarefa com segurança.",

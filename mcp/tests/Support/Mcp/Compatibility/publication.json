@@ -647,7 +647,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -1619,7 +1619,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -2840,6 +2840,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -4402,7 +4403,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -6251,6 +6252,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -7913,7 +7915,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -10981,6 +10983,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -12305,7 +12308,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -13972,6 +13975,7 @@
                                     "old": {
                                         "type": "string",
                                         "minLength": 1,
+                                        "maxLength": 65536,
                                         "description": "Snippet to replace; must appear exactly once in the file"
                                     },
                                     "new": {
@@ -15534,7 +15538,7 @@
                                         "type": "string",
                                         "minLength": 1,
                                         "maxLength": 255,
-                                        "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                        "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                     },
                                     "limit": {
                                         "type": "integer",
@@ -17615,7 +17619,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -18587,7 +18591,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -19808,6 +19812,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -21370,7 +21375,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -23219,6 +23224,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -24881,7 +24887,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -27949,6 +27955,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -29273,7 +29280,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -30940,6 +30947,7 @@
                                     "old": {
                                         "type": "string",
                                         "minLength": 1,
+                                        "maxLength": 65536,
                                         "description": "Snippet to replace; must appear exactly once in the file"
                                     },
                                     "new": {
@@ -32502,7 +32510,7 @@
                                         "type": "string",
                                         "minLength": 1,
                                         "maxLength": 255,
-                                        "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                        "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                     },
                                     "limit": {
                                         "type": "integer",
@@ -34583,7 +34591,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -35555,7 +35563,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -36776,6 +36784,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -38338,7 +38347,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -40187,6 +40196,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -41849,7 +41859,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -44917,6 +44927,7 @@
                             "old": {
                                 "type": "string",
                                 "minLength": 1,
+                                "maxLength": 65536,
                                 "description": "Snippet to replace; must appear exactly once in the file"
                             },
                             "new": {
@@ -46241,7 +46252,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 255,
-                                "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                             },
                             "limit": {
                                 "type": "integer",
@@ -47908,6 +47919,7 @@
                                     "old": {
                                         "type": "string",
                                         "minLength": 1,
+                                        "maxLength": 65536,
                                         "description": "Snippet to replace; must appear exactly once in the file"
                                     },
                                     "new": {
@@ -49470,7 +49482,7 @@
                                         "type": "string",
                                         "minLength": 1,
                                         "maxLength": 255,
-                                        "description": "Only list tasks with this category, compared exactly but ignoring case."
+                                        "description": "Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter."
                                     },
                                     "limit": {
                                         "type": "integer",

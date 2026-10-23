@@ -34,6 +34,30 @@ final class TaskCategoriesTest extends TestCase {
     private CalendarDav $dav;
     private TasksModule $module;
 
+    public function testMissExplainsLiteralFilterAndCompletedScope(): void {
+        $page = $this->list(['category' => 'Missing']);
+        self::assertSame([], $page['tasks']);
+        self::assertArrayHasKey('note', $page);
+        self::assertStringContainsString('"Missing"', $page['note']);
+        self::assertStringContainsString('Completed tasks were not checked', $page['note']);
+        $all = $this->list(['category' => 'Missing', 'include_completed' => true]);
+        self::assertStringNotContainsString('Completed tasks were not checked', $all['note']);
+    }
+
+    public function testOffsetPastAMatchDoesNotProduceAMissNote(): void {
+        $this->tasks = ['t1' => $this->task('t1', 'Work', "CATEGORIES:Home\r\n")];
+        $page = $this->list(['category' => 'Home', 'offset' => 20]);
+        self::assertSame([], $page['tasks']);
+        self::assertArrayNotHasKey('note', $page);
+    }
+
+    public function testSymbolOnlyCategoryIsAValidLiteralFilter(): void {
+        $this->tasks = ['t1' => $this->task('t1', 'Work', "CATEGORIES:--\r\n")];
+        $page = $this->list(['category' => '--']);
+        self::assertSame(['t1'], array_column($page['tasks'], 'uid'));
+        self::assertArrayNotHasKey('note', $page);
+    }
+
     protected function setUp(): void {
         $this->tasks = ['t1' => $this->task('t1', 'Work')];
         $store = $this->createMockForIntersectionOfInterfaces([CalendarStore::class, \OCA\Mcp\Platform\Dav\CalDav\CollectionStore::class]);
@@ -232,8 +256,12 @@ final class TaskCategoriesTest extends TestCase {
         self::assertSame(['t3'], array_column($this->json($shared)['tasks'], 'uid'));
         $secret = $this->module->call('tasks_list_tasks', ['calendar' => self::PATH, 'category' => 'Secret'], 'alice');
         self::assertSame([], $this->json($secret)['tasks']);
+        $this->tasks = [];
+        self::assertSame($this->json($secret), $this->list(['category' => 'Secret']), 'a protected-only label and an absent label are indistinguishable');
         foreach ([$shared, $secret] as $result) {
-            self::assertStringNotContainsString('Secret', $result['content'][0]['text']);
+            $visible = $this->json($result);
+            unset($visible['note']); // The note echoes only the caller's literal filter.
+            self::assertStringNotContainsString('Secret', json_encode($visible));
             self::assertStringNotContainsString('plan', str_replace('Public plan', '', $result['content'][0]['text']));
         }
     }

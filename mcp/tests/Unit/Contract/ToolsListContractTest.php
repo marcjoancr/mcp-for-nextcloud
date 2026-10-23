@@ -156,9 +156,9 @@ final class ToolsListContractTest extends TestCase {
         $users->method('get')->willReturn($this->createMock(IUser::class));
         $modules = array_map(fn (string $class) => $this->build($class), Application::MODULES);
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $apps, $users);
-        $protocol = new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests(new ToolRegistry($modules, $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new PromptCatalog(), $policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(null), $this->createMock(LoggerInterface::class));
+        $protocol = new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new ToolRegistry($modules, $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), null), $this->createMock(LoggerInterface::class));
         $out = $protocol->handle($request, $version, 'alice', json_decode($headers, true));
         return json_encode($out['body'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
@@ -380,9 +380,9 @@ final class ToolsListContractTest extends TestCase {
     public function testInitializeEncodesCapabilitiesAsObjects(): void {
         $policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy((new InMemoryConfig())->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $this->createMock(IAppManager::class), $this->createMock(IUserManager::class));
-        $protocol = new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests(new ToolRegistry([], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new PromptCatalog(), $policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(null), $this->createMock(LoggerInterface::class));
+        $protocol = new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new ToolRegistry([], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), null), $this->createMock(LoggerInterface::class));
         $out = $protocol->handle(json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize', 'params' => [
             'protocolVersion' => '2025-11-25', 'capabilities' => new \stdClass(), 'clientInfo' => ['name' => 'Claude-User', 'version' => '1.0'],
         ]]), '', 'alice');

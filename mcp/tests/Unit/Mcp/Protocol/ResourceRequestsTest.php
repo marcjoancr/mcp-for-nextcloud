@@ -15,10 +15,10 @@ final class ResourceRequestsTest extends TestCase {
         $registry->method('list')->willThrowException(new \InvalidArgumentException('/private/path'));
         foreach ([false, true] as $modern) {
             foreach (['list', 'templates', 'read'] as $method) {
-                $response = (new ResourceRequests(null))->$method(1, ['uri' => 0, 'cursor' => 'invalid'], 'alice', $modern);
+                $response = (new ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), null))->$method(1, ['uri' => 0, 'cursor' => 'invalid'], 'alice', $modern);
                 self::assertSame([$modern ? 404 : 200, -32601], [$response['status'], $response['body']['error']['code']]);
             }
-            $requests = new ResourceRequests($registry);
+            $requests = new ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $registry);
             self::assertSame(-32602, $requests->read(1, ['uri' => 0], 'alice', $modern)['body']['error']['code']);
             self::assertSame($modern ? -32602 : -32002, $requests->read(1, ['uri' => 'nc://files/synthetic'], 'alice', $modern)['body']['error']['code']);
             self::assertSame('Invalid arguments', $requests->list(1, [], 'alice', $modern)['body']['error']['message']);

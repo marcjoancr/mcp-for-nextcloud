@@ -312,8 +312,19 @@ unpack_release_app() {
     docker exec -u www-data "$NC" tar -xzf "/mcp-it-tools/$app.tar.gz" -C /var/www/html/custom_apps
 }
 
+# Verify Contacts identity, installed version and declared Nextcloud bounds before enabling it.
+provision_contacts() {
+    unpack_release_app contacts contacts "$CONTACTS_TAG" "$CONTACTS_SHA"
+    docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/check-contacts-manifest.php \
+        /var/www/html/custom_apps/contacts/appinfo/info.xml "$MCP_IT_NC" "${CONTACTS_TAG#v}"
+    occ app:enable contacts
+    actual=$(occ config:app:get contacts installed_version)
+    [ "$actual" = "${CONTACTS_TAG#v}" ] || { echo "Unexpected installed Contacts $actual" >&2; return 1; }
+}
+
 # Release pinned per Nextcloud major: groupfolders, Talk and Notes each have one build per supported major. The Calendar
 # release below declares min-version 32 and max-version 35, so one build serves every major this matrix covers.
+# Contacts 8.3.21 supports NC32/33; Contacts 8.9.2 supports NC33–36 (release appinfo/info.xml).
 pin_releases() {
     case "$MCP_IT_NC" in
         32)
@@ -321,24 +332,28 @@ pin_releases() {
             TALK_TAG=v22.0.19; TALK_SHA=c053dbce9c2a4a76c42e937d4d095502ba48a38c2e6fa02d46c36762573d6bff
             NOTES_TAG=v5.0.2; NOTES_SHA=1bf9e97a92bae5901a17c93666c4ac0f36ddfe68c69caa5d2368b18be6af7fdc
             CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
+            CONTACTS_TAG=v8.3.21; CONTACTS_SHA=45d12ff526515ce5efc52d8e0d42bd3446a66b9a423ee4eb92ebd44a6b5974c3
             ;;
         33)
             GF_TAG=v21.0.15; GF_SHA=1ecdd644a2e913de8b333560717660f0ba75836309c4463af858e886cdc3a68c
             TALK_TAG=v23.0.12; TALK_SHA=a907070cb8c0eb69a0ef808f62ea6eea822365c97a1c0e6f4a86aa748eda6c79
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
             CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
+            CONTACTS_TAG=v8.9.2; CONTACTS_SHA=92f7c79c411273045ed6346f6988c05af673c3170a3adaba91a15066b8dce7c5
             ;;
         34)
             GF_TAG=v22.0.6; GF_SHA=bfff357b12bbd24257d8d127cf30e83a72256e7659f1cc3e32bd09fe647d2f9b
             TALK_TAG=v24.0.6; TALK_SHA=4a8d5cf52ed42223ea9937860f70c2e9dca1df8bfd5f75b871ae7569d2106110
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
             CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
+            CONTACTS_TAG=v8.9.2; CONTACTS_SHA=92f7c79c411273045ed6346f6988c05af673c3170a3adaba91a15066b8dce7c5
             ;;
         35)
             GF_TAG=v23.0.1; GF_SHA=3949e6a45947188090c170c6983aae11a1d66134ec317ffe7b7609062f3aecf3
             TALK_TAG=v25.0.6; TALK_SHA=2b3e3eae42d9bf8ba8da2ab244d16347a3cfacbb8bff346bd99cf32cd6f9c65e
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
             CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
+            CONTACTS_TAG=v8.9.2; CONTACTS_SHA=92f7c79c411273045ed6346f6988c05af673c3170a3adaba91a15066b8dce7c5
             ;;
         *)
             echo "No pinned releases for Nextcloud $MCP_IT_NC" >&2
@@ -391,7 +406,7 @@ cmd_provision() {
     log="$ARTIFACTS/provision.log"
     : > "$log"
     : > "$WORK/provision-failures"
-    for part in groupfolders files_external talk notes calendar guests; do
+    for part in groupfolders files_external talk notes calendar contacts guests; do
         echo "=== provisioning $part" | tee -a "$log"
         case "$part" in
             groupfolders) step=provision_groupfolders ;;
@@ -399,6 +414,7 @@ cmd_provision() {
             talk) step="install_release_app spreed spreed $TALK_TAG $TALK_SHA" ;;
             notes) step="install_release_app notes notes $NOTES_TAG $NOTES_SHA" ;;
             calendar) step="install_release_app calendar calendar $CAL_TAG $CAL_SHA" ;;
+            contacts) step=provision_contacts ;;
             # Unpacked only: Guests/GuestRestrictionsTest enables it for its own scenarios, since it adds a user and a
             # group backend every other test would see.
             guests) step="unpack_release_app guests guests $GUESTS_TAG $GUESTS_SHA" ;;
@@ -447,6 +463,8 @@ cmd_report() {
     status=$(occ status)
     installed=$(occ config:app:get mcp installed_version)
     expected=$(cat "$WORK/expected-version")
+    pin_releases
+    contacts="$(occ config:app:get contacts installed_version) (expected ${CONTACTS_TAG#v}; archive sha256 $CONTACTS_SHA)"
     fence='```'
     report="$ARTIFACTS/runtime.md"
     cat > "$report" <<REPORT
@@ -458,6 +476,7 @@ Database: $database
 $php_version
 $status
 mcp installed_version: $installed (expected $expected)
+Contacts: $contacts
 $fence
 REPORT
     cat "$report"

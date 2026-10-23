@@ -306,9 +306,9 @@ final class ResourceRegistryTest extends TestCase {
     }
 
     public function testDualEraProtocolIntegration(): void {
-        $protocol = new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests($this->toolRegistry),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new PromptCatalog(), $this->policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests($this->registry), $this->createMock(LoggerInterface::class));
+        $protocol = new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $this->toolRegistry),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $this->policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $this->registry), $this->createMock(LoggerInterface::class));
 
         // 1. Legacy initialize advertises resources capability
         $legacyInit = $protocol->handle(json_encode([
@@ -438,9 +438,9 @@ final class ResourceRegistryTest extends TestCase {
 
         $registry = new ResourceRegistry($this->toolRegistry, $this->policy, $this->appManager, $this->userManager, new \OCA\Mcp\Modules\Files\Reading\NextcloudFileResourceReader($this->rootFolder, $guard, $this->extractor), new \OCA\Mcp\Modules\Notes\Resources\NextcloudNoteResourceReader($this->notesFolders, new \OCA\Mcp\Modules\Notes\Storage\NoteLookup(), new \OCA\Mcp\Modules\Notes\Content\NoteContent(), $guard), new ToolGuide([]));
 
-        $protocol = new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests($this->toolRegistry),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new PromptCatalog(), $this->policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests($registry), $this->createMock(LoggerInterface::class));
+        $protocol = new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $this->toolRegistry),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $this->policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $registry), $this->createMock(LoggerInterface::class));
 
         $out = $protocol->handle(json_encode([
             'jsonrpc' => '2.0',
@@ -553,9 +553,9 @@ final class ResourceRegistryTest extends TestCase {
 
     #[\PHPUnit\Framework\Attributes\DataProvider('erasProvider')]
     public function testAHiddenNoteAnswersAsAMissingResourceInBothEras(int $code, string $version): void {
-        $protocol = new McpProtocol(new \OCA\Mcp\Mcp\Protocol\ToolRequests($this->toolRegistry),
-            new \OCA\Mcp\Mcp\Protocol\PromptRequests(new PromptCatalog(), $this->policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests($this->registryWith($this->guardHiding([$this->noteId]))), $this->createMock(LoggerInterface::class));
+        $protocol = new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $this->toolRegistry),
+            new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $this->policy),
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $this->registryWith($this->guardHiding([$this->noteId]))), $this->createMock(LoggerInterface::class));
         $params = ['uri' => 'nc://notes/' . $this->noteId]
             + ($version === \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::MODERN_VERSION ? ['_meta' => [\OCA\Mcp\Mcp\Protocol\ProtocolMetadata::META_VERSION => \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::MODERN_VERSION]] : []);
 

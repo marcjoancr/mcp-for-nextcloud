@@ -316,6 +316,7 @@
                     "old": {
                         "type": "string",
                         "minLength": 1,
+                        "maxLength": 65536,
                         "description": "Snippet to replace; must appear exactly once in the file"
                     },
                     "new": {
@@ -1144,6 +1145,7 @@
                         "old": {
                             "type": "string",
                             "minLength": 1,
+                            "maxLength": 65536,
                             "description": "Snippet to replace; must appear exactly once in the file"
                         },
                         "new": {
@@ -2637,6 +2639,7 @@
                         "old": {
                             "type": "string",
                             "minLength": 1,
+                            "maxLength": 65536,
                             "description": "Snippet to replace; must appear exactly once in the file"
                         },
                         "new": {

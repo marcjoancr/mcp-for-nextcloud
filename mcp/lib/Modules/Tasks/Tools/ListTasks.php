@@ -29,7 +29,7 @@ final class ListTasks implements \OCA\Mcp\Mcp\Tools\Tool
                         'default' => false,
                         'description' => 'Include completed tasks.',
                     ],
-                    'category' => DavCollectionSchema::text('Only list tasks with this category, compared exactly but ignoring case.', 1, 255),
+                    'category' => DavCollectionSchema::text('Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter.', 1, 255),
                     'limit' => DavCollectionSchema::limit(),
                     'offset' => DavCollectionSchema::offset(),
                 ],
