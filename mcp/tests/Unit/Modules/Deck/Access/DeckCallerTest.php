@@ -50,7 +50,7 @@ final class DeckCallerTest extends TestCase {
             $factories[$tool::definition()->name] = static fn() => throw new \LogicException('Metadata resolved a tool');
         }
         $module = new DeckModule($factories, $this->createMock(\OCA\Mcp\Modules\Deck\Access\DeckAvailability::class));
-        self::assertCount(13, $module->definitions());
+        self::assertCount(17, $module->definitions());
         self::assertNotEmpty($module->guideNotes());
         self::assertNull($module->renderPlan('unknown', []));
         self::assertFalse(class_exists('OCA\Deck\Service\BoardService', false));

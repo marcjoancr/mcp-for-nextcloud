@@ -27,7 +27,7 @@ source-derived signatures, not permissive test doubles or implementations.
 The modeled members are exactly those present in each declaration file; each file
 links its source and SHA-256 below. Keeping the public/protected surface of a required
 class also preserves its interface contracts and inherited API. Four Deck ancestors/
-interfaces supplement the 35 directly missing host classes. No synthetic `__call`,
+interfaces supplement the 38 directly missing host classes. No synthetic `__call`,
 return type, suppression or application alias was introduced. The actual Entity
 magic contract remains inherited from OCP where upstream uses it.
 
@@ -90,3 +90,6 @@ attribution. Hashes identify the complete upstream source before body removal.
 | [OCA\Deck\Service\PermissionService](symbols/OCA/Deck/Service/PermissionService.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Service/PermissionService.php) | `2b3dfd18222f09062269b3e401713fbe3fc9d921445ef6991cfbeb6783743651` |
 | [OCA\Deck\Service\StackService](symbols/OCA/Deck/Service/StackService.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Service/StackService.php) | `b345f8e32109a78b936c30a7a71691f951f04a4649628ac31715351d4081b061` |
 | [OCA\Deck\StatusException](symbols/OCA/Deck/StatusException.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/StatusException.php) | `b283c77c5c11c657fa863fcf1fee68599836816b227016213cca955114c15e13` |
+| [OCA\Deck\Db\LabelMapper](symbols/OCA/Deck/Db/LabelMapper.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Db/LabelMapper.php) | `8ff05d8a3e63c2219397214ac8391a40e64ff60971504a564da8ba5e103e01b7` |
+| [OCA\Deck\Service\AttachmentService](symbols/OCA/Deck/Service/AttachmentService.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Service/AttachmentService.php) | `b5a28438eea4536c01756d568937d2354ee9ca00759d39a81bd2fad25a19282c` |
+| [OCA\Deck\Sharing\DeckShareProvider](symbols/OCA/Deck/Sharing/DeckShareProvider.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Sharing/DeckShareProvider.php) | `a41695cdbb513201fdfae629d2a4fc37b3c040d901c97666dd41f09277f21269` |

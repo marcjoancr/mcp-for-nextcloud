@@ -21,7 +21,11 @@ use OCA\Mcp\Mcp\Tools\ToolModule;
 
 final class DeckModule implements ToolModule, PreviewsWrites, RendersPlans, ToolGuideNotes {
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories, private DeckAvailability $availability) {
+    public function __construct(
+        private array $factories,
+        private DeckAvailability $availability,
+        private ?\OCA\Mcp\Modules\Deck\Access\DeckCapabilities $capabilities = null,
+    ) {
         $expected = array_keys(DeckToolCatalog::definitions());
         if (array_diff($expected, array_keys($factories)) !== [] || array_diff(array_keys($factories), $expected) !== []) {
             throw new \LogicException('Deck factories must match the catalog exactly');
@@ -34,11 +38,14 @@ final class DeckModule implements ToolModule, PreviewsWrites, RendersPlans, Tool
     }
 
     public function definitions(): array {
-        return array_values(DeckToolCatalog::definitions());
+        return array_values(array_filter(
+            DeckToolCatalog::definitions(),
+            fn(array $d): bool => !$this->isDependency($d['name']) || $this->dependenciesAvailable(),
+        ));
     }
 
     public function guideNotes(): array {
-        return DeckGuide::notes();
+        return array_merge(DeckGuide::notes(), ['Use deck_list_labels before incremental add/remove label edits; repeat plan_state after approval. Unlinking a visible native file association can remove another editor’s association and the access/mount it provides, including your last mount. The file itself remains; recovery may require the native Deck UI.'], $this->dependenciesAvailable() ? [\OCA\Mcp\Modules\Deck\Presentation\CapabilityMessages::TOOL_READ_DEPENDENCIES_DESCRIPTION] : []);
     }
 
     public function call(
@@ -58,6 +65,7 @@ final class DeckModule implements ToolModule, PreviewsWrites, RendersPlans, Tool
         if (!isset($this->factories[$name]) || DeckToolCatalog::definitions()[$name]['operation'] === 'read') {
             throw new \InvalidArgumentException(ErrorMessages::errorUnknownTool());
         }
+        $this->assertAvailable($name, $userId);
         $tool = $this->resolve($name);
         if (!$tool instanceof WriteTool) {
             throw new \InvalidArgumentException('Tool has no write preview');
@@ -74,6 +82,18 @@ final class DeckModule implements ToolModule, PreviewsWrites, RendersPlans, Tool
             throw new \InvalidArgumentException(ErrorMessages::errorUnknownTool());
         }
         $this->availability->assertFor($userId);
+        if ($this->isDependency($name) && !$this->dependenciesAvailable()) {
+            throw new \InvalidArgumentException(\OCA\Mcp\Modules\Deck\Presentation\CapabilityMessages::dependenciesUnavailable());
+        }
+    }
+
+    private function dependenciesAvailable(): bool {
+        // Missing capability information fails closed.
+        return ($this->capabilities ?? null)?->dependencies() ?? false;
+    }
+
+    private function isDependency(string $name): bool {
+        return in_array($name, ['deck_read_card_dependencies','deck_add_card_dependency','deck_remove_card_dependency'], true);
     }
 
     private function resolve(string $name): Tool {

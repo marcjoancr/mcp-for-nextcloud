@@ -252,7 +252,7 @@ final class DeckPlanRendererTest extends TestCase {
                 'deck_edit_card' => $this->module->preview('deck_edit_card', ['cardId' => 7, 'title' => 'Tarefa Nova'], 'alice'),
                 'deck_move_card' => $this->module->preview('deck_move_card', ['cardId' => 7, 'stackId' => 11], 'alice'),
                 'deck_delete_card' => $this->module->preview('deck_delete_card', ['cardId' => 7], 'alice'),
-            ] + $this->structurePlans(),
+            ] + $this->structurePlans() + $this->capabilityPlans(),
         );
     }
 
@@ -345,7 +345,7 @@ final class DeckPlanRendererTest extends TestCase {
                 'deck_edit_card' => $this->assigneePlan(),
                 'deck_move_card' => $this->module->preview('deck_move_card', ['cardId' => 7, 'stackId' => 11], 'alice'),
                 'deck_delete_card' => $this->module->preview('deck_delete_card', ['cardId' => 7], 'alice'),
-            ] + $this->structurePlans(),
+            ] + $this->structurePlans() + $this->capabilityPlans(),
         );
     }
 
@@ -363,5 +363,12 @@ final class DeckPlanRendererTest extends TestCase {
         $this->assertStringStartsWith('Create card in *B\*1* › *L\_2*: **\*\*urgente\*\***', $text);
         $this->assertStringNotContainsString("\nNothing was changed", $text);
         $this->assertStringNotContainsString('](javascript', $text);
+    }
+    private function capabilityPlans(): array {
+        $board=['name'=>'Board','shared'=>true,'owner'=>'owner','ownerDisplayName'=>'Owner'];
+        return [
+            'deck_edit_card_labels'=>['card'=>['title'=>'Card'],'board'=>$board,'before'=>[['id'=>1,'title'=>'Before']],'after'=>[['id'=>2,'title'=>'After']]],
+            'deck_unlink_card_file'=>['card'=>['title'=>'Card'],'board'=>$board,'file'=>['name'=>'visible.txt'],'createdBy'=>'Creator'],
+        ];
     }
 }

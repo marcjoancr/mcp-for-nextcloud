@@ -22,8 +22,8 @@ final class DeckDispatchTest extends TestCase {
 
     public function testDefinitionsDoNotResolveTools(): void {
         $module = new DeckModule($this->factories(), $this->createMock(\OCA\Mcp\Modules\Deck\Access\DeckAvailability::class));
-        self::assertSame(json_encode(array_values(DeckToolCatalog::definitions())), json_encode($module->definitions()));
-        self::assertCount(13, $module->definitions());
+        self::assertSame(json_encode(array_values(array_filter(DeckToolCatalog::definitions(),static fn(array $d):bool=>!str_contains($d['name'],'dependency')&&!str_contains($d['name'],'dependencies')))),json_encode($module->definitions()));
+        self::assertCount(17, $module->definitions());
         self::assertNotEmpty($module->guideNotes());
     }
 
@@ -55,7 +55,7 @@ final class DeckDispatchTest extends TestCase {
 
     public function testMetadataDoesNotRequireAConstructedModule(): void {
         $module = (new \ReflectionClass(DeckModule::class))->newInstanceWithoutConstructor();
-        self::assertCount(13, $module->definitions());
+        self::assertCount(17, $module->definitions());
     }
     public function testResolvedToolMustMatchItsFactoryName(): void {
         $factories = $this->factories();
@@ -91,7 +91,7 @@ final class DeckDispatchTest extends TestCase {
             };
         };
         $availability = $this->createMock(\OCA\Mcp\Modules\Deck\Access\DeckAvailability::class);
-        $availability->expects(self::never())->method('assertFor');
+        $availability->expects(self::once())->method('assertFor')->with('alice');
         self::assertSame([['path' => '/a'], 'alice'], (new DeckModule($factories, $availability))->preview('deck_edit_card', ['path' => '/a'], 'alice'));
         self::assertSame(1, $resolved);
     }

@@ -12,7 +12,7 @@ use OCP\Server;
 
 require dirname(__DIR__) . '/bootstrap.php';
 [$script, $uid, $action] = $argv;
-if (!in_array($uid, [F::OWNER, F::EDITOR], true)) {
+if (!in_array($uid, [F::OWNER, F::READER, F::EDITOR, F::OUTSIDER], true)) {
     throw new RuntimeException('Not a disposable Deck fixture actor');
 }
 Server::get(OCP\IUserSession::class)->setUser(Server::get(OCP\IUserManager::class)->get($uid));
@@ -26,4 +26,10 @@ $apps->loadApp('deck');
 $boards = Server::get(BoardService::class);
 $boards->setUserId($uid);
 $in = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
-echo json_encode(OCA\Mcp\Tests\Integration\Deck\CardDueDateFixture::run($uid, $action, $in), JSON_THROW_ON_ERROR);
+if (str_starts_with($action, 'guest-')) {
+    echo json_encode(OCA\Mcp\Tests\Integration\Guests\GuestDeckParityFixture::run($uid, $action, $in), JSON_THROW_ON_ERROR);
+} elseif (str_starts_with($action, 'date-')) {
+    echo json_encode(OCA\Mcp\Tests\Integration\Deck\CardDueDateFixture::run($uid, $action, $in), JSON_THROW_ON_ERROR);
+} else {
+    require __DIR__ . '/capability-actor.php';
+}

@@ -11,6 +11,8 @@ use RuntimeException;
 /** Native fixtures only; each actor boots a fresh CLI request, so Deck DI never retains another actor's UID. */
 final class DeckFixture {
     public const OWNER = 'mcp-it-deck-owner';
+    public const READER = 'mcp-it-deck-reader';
+    public const OUTSIDER = 'mcp-it-deck-outsider';
     public const EDITOR = 'mcp-it-deck-editor';
 
     public static function run(string $uid, string $action, array $input = []): array {
