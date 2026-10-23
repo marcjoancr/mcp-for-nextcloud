@@ -3,9 +3,9 @@
 
 # Independent fork continuation plan
 
-Status: F0 and F1 completed locally on 2026-10-23. F2 inventory and selection
-are documented; selected integration is now authorized and in progress, with
-results tracked in the [execution record](upstream-1.2.0-integration.md).
+Status: F0, F1 and the selected F2 integration completed locally on 2026-10-23.
+The [execution record](upstream-1.2.0-integration.md) records the ordered batches,
+corrections, automated qualification and acceptance limits.
 The user approved the development baseline, branch policy and ongoing
 maintenance accountability
 recorded below. The separate request to remove the local original
@@ -251,9 +251,11 @@ Inventory and selection completed on 2026-10-23: see the
 [capability decisions and acceptance gates](upstream-1.2.0-inventory.md) and
 [exhaustive source ledger](upstream-1.2.0-source-ledger.md). Only this analysis
 was initially authorized. The user subsequently authorized the selected ports;
-batches A-D are now implemented, with documentation reconciliation and final
-qualification in progress. Follow the [execution record](upstream-1.2.0-integration.md).
-F2 is not complete; deferred D06 precludes full upstream 1.2.0 parity.
+batches A-E and their local automated gates are now complete. Follow the
+[execution record](upstream-1.2.0-integration.md), including all 16 native matrix
+cells and the failures corrected before the final pass. F2 closes only the selected
+scope; deferred D06 precludes full upstream 1.2.0 parity. F3 and human reviews remain
+pending, and installed-upstream-1.2.0 upgrades are not yet qualified.
 
 Create a capability inventory containing source commits, security implications,
 public contract changes, dependencies, migration effects and one disposition per
@@ -339,7 +341,7 @@ security monitoring is recorded.
 | --- | --- | --- |
 | Fork identity and first version | Independent display identity; propose 2.0.0 | Owner approval before metadata changes |
 | Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; platform scope and reviewers remain pending | Resolve platform scope before F3 and accountable release review before deployment |
-| Upstream 1.2.0 | Release references verified; F2 inventory and selection complete; selected runtime ports implemented, final qualification in progress | No claim of 1.2.0 parity |
+| Upstream 1.2.0 | F2 selected ports and local automated qualification complete; installed-upstream-1.2.0 upgrade and F3 release decisions pending | No claim of 1.2.0 parity |
 | Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |

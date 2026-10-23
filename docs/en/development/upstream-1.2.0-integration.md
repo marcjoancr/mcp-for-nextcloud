@@ -3,10 +3,11 @@
 
 # Selected upstream 1.2.0 integration
 
-Status: implementation in progress. The user authorized batches A-E of the
-[reviewed inventory](upstream-1.2.0-inventory.md), in order, with validation before
-advancing. F3 identity/version/platform decisions and human reviewers remain
-pending. No push or deployment is authorized; PR #14 remains a reference.
+Status: selected integration completed locally on 2026-10-23. Batches A-E of the
+[reviewed inventory](upstream-1.2.0-inventory.md) were implemented in order, with
+validation before advancing and final qualification recorded below. F3
+identity/version/platform decisions and human reviewers remain pending.
+No push or deployment is authorized; PR #14 remains a reference.
 
 ## Inputs and scope
 
@@ -30,7 +31,7 @@ existing migration IDs remain unchanged pending F3.
 | B | Notes partial edits and Deck deadlines | Complete | 7,810 PHP tests / 66,899 assertions; native 16 / 429; architecture, analyses and review pass |
 | C | Selected Deck labels, files and dependencies | Complete | 8,002 PHP tests / 68,714 assertions; four native diagnostics, 17 tests each; analyses and review pass |
 | D | Complete optional filename policy and administration | Complete | 8,151 PHP tests / 69,862 assertions; native 20 / 270 in MariaDB and SQLite; recovery, analyses and review pass |
-| E | Documentation, metadata and final qualification | In progress | Local reconciliation verified; whole-integration review and final interpreter/native qualification pending |
+| E | Documentation, metadata and final qualification | Complete locally | Final PHP suite 8,174 / 69,939; 687 browser cases; 16 unfiltered native cells; interpreter, analysis, documentation, package, attribution and agent review gates pass |
 
 Each batch requires focused regression checks, architecture/unit tests and static
 analysis before the next batch. Native tests use disposable run-owned resources;
@@ -315,7 +316,7 @@ change was made.
 | Complete browser suite | 687 tests across Chromium, Firefox and WebKit |
 | Syntax and both fixed static-analysis scopes | 1,259 PHP files; both analyses pass |
 | Documentation and client-runner safety tests | 29 and 10 cases, respectively; no skips/failures |
-| Final documentation and production package checks | 149 Markdown files; 110 package sources staged and verified |
+| Documentation and production package checks at the batch E checkpoint | 149 Markdown files; 110 package sources staged and verified |
 | Translation provenance | 96 drafts remain review-required; no invalid provenance |
 | REUSE 6.2.0 | All 1,615 files pass declared copyright/license checks |
 | Focused metadata/discovery/localization/API/provisioning contracts | 84 tests / 9,031 assertions |
@@ -331,17 +332,213 @@ European Portuguese operational translations keep their actual source revisions;
 no revision was advanced to hide stale content. German UI review remains pending,
 and the deferred German README was not added.
 
-The final local package before final qualification has SHA256
+The local package at this batch E checkpoint has SHA256
 `197933a884afeb3e0bc812c038bd5e1ae2ddf42fd97a86f0eb676d592b3ccc3d`.
-The wider interpreter/native qualification and whole-integration review are still
-pending at this checkpoint. The candidate retains version 1.1.2: its existing
+The wider interpreter/native qualification and whole-integration review were still
+pending at this checkpoint; their completed results are recorded below. The candidate retains version 1.1.2: its existing
 upgrade baselines do not qualify an upgrade from installed upstream 1.2.0.
 F3 must select the release version and qualify the actual installation path.
 
-## Remaining acceptance
+## Final review and qualification
 
-F2 is not complete until every selected batch and its required gates are recorded.
-F3 decisions, technical/security review, accessibility and language review remain
-pending. Public HTTPS, Inspector's public journey and encrypted-storage 14/15
-finding, and ChatGPT consent/tool/revocation acceptance remain unresolved. Local
-unit, browser or native checks do not silently certify those external paths.
+The whole-integration review identified avoidable high-fanout Deck lookups before
+the readable graph limits were applied. The correction checks the existing visible
+node/edge/depth budgets immediately after each freshly authorized target. Native
+adjacency materialization and filtering hidden relations remain outside those
+visible budgets; no raw hidden-edge limit or partial graph was introduced.
+
+The same limits now apply to complete origin snapshots. A subsequent scoped
+review caught a predictable boundary problem: an addition could exceed the
+post-write verification limit. Proposed additions are now checked before approval
+or native mutation, after target authorization. Exact-limit additions, no-ops and
+removals retain their behavior. Native-boundary regressions reproduced both bugs,
+including the previously invoked overflowing write. Final scoped review found no
+remaining actionable findings; this is not human security approval.
+
+The immutable runtime correction is `9c7efe4`. QA-only commits `3de717b`,
+`8c1aeb7` and `17a6ea1` address the native failures described below. The final
+native matrix uses `17a6ea1`; later documentation-only commits do not change that
+runtime or its test fixtures.
+
+| Gate | Final evidence |
+| --- | --- |
+| Complete PHP suite, PHP 8.4.27 | 8,174 tests / 69,939 assertions; exit 0, including five new executable harness regressions |
+| Deck scope after both budget corrections | 603 tests / 4,408 assertions |
+| PHP 8.2.29, 8.3.35 and 8.5.11 | Each complete pre-budget-fix suite passed 8,151 tests / 69,862 assertions; each final changed-boundary rerun passed 58 tests / 179 assertions, and each supplementary harness rerun passed 14 tests / 129 assertions |
+| Syntax and fixed static analysis | Full syntax checks cover 1,259 PHP files; both analysis scopes pass after the runtime corrections; subsequent QA-only files pass syntax and harness ShellCheck |
+| Browsers | All 687 cases passed before the final PHP-only and native-fixture corrections; JavaScript and templates did not change afterward |
+| Attribution | REUSE 6.2.0 passes all 1,615 files; independent human license review remains pending |
+
+The additional PHP interpreters ran as no-network CLI containers. The new harness
+regressions require real Git for source identity and executable temporary fixture
+scripts. Early supplementary CLI attempts failed because that minimal environment
+lacked Git and mounted its temporary directory without execution; those attempts
+were retained as failures. Read-only real Git/tool-library/metadata mounts and an
+executable private temporary filesystem supplied the missing prerequisites without
+changing repository code, assertions or the running native matrix. A previously
+used PHP 8.2 image reference was also unavailable locally; its exact official
+repository-qualified digest was recovered before the successful rerun. The cached
+image supplying PHP 8.2 was used only as an interpreter, never as a Nextcloud 29
+service or a claim of support for that major. PHP 8.5 emitted retained deprecation
+notices in the host Composer 2.8.8 dependencies (`React/Promise` and `JsonSchema`),
+before application tests. The application suites passed without a PHPUnit
+deprecation result; the old external Composer toolchain is not claimed warning-free.
+
+### Native failures and corrections
+
+The first NC32 upgrade attempt, `mcp-it-20261023123552-4de49fefa4ef`, failed before
+the suite: Nextcloud migrated the candidate to 1.1.2 and then automatically
+replaced it with App Store 1.2.0. The installed-version assertion correctly refused
+to certify that different application. The disposable harness now sets and verifies
+boolean `appstoreenabled=false` before any baseline/candidate operation. Real
+`occ upgrade`, version and package-hash checks remain mandatory. Five behavioral
+harness tests first failed and then passed, including configuration write/readback
+failure cases. This test-only control does not implement F3 production update
+controls; the observed replacement makes that remaining release requirement concrete.
+
+The first full NC32 fresh run, `mcp-it-20261023123551-f0e980de32f1`, failed with
+264 cases, 3,459 assertions, 17 failures and nine matrix-specific skips. It is not
+passing evidence. Fourteen failures concerned missing external mounts and three
+concerned the new policy fixtures' authentication/admission.
+
+The new policy fixtures reused shared accounts after other suites removed their
+eligibility and revoked cached bearer credentials. They now use the existing
+disposable-user fixture, explicit necessary grants and fresh credentials. Every
+policy refusal, positive control and undo assertion was retained. An ordered
+native regression that primes the old fixture, revokes the client and clears
+shared eligibility passes seven tests / 76 assertions in
+`mcp-it-20261023125638-821ab933c34d`.
+
+Controlled mount diagnostics disproved an initial Contacts-order hypothesis:
+provisioning alone passed four tests / 19 assertions
+(`mcp-it-20261023125234-95f02cdfdbd7`), and Contacts followed by provisioning passed
+seven / 50 (`mcp-it-20261023125232-d0831f69b5c3`). Inspector followed by provisioning
+reproduced the missing mounts: eight / 56, one failure
+(`mcp-it-20261023125638-a2348059c837`). The inspector test reset the global native
+filesystem in a long-lived process but left warm setup caches. It now explicitly
+rebuilds both fixture users through native `setupForUser()` and checks all three
+external mount points for both users, preserving the share/exclusion proof.
+The formerly failing sequence passes eight / 71 in
+`mcp-it-20261023130017-3edb839cd467`. No production exclusion or authorization
+logic was relaxed to resolve these fixture failures.
+
+### Complete native matrix
+
+All 16 unfiltered cells passed against
+`17a6ea1b53910af0362a817ec2b4242ab3953a8c`: 4,224 test cases across the matrix,
+61,415 assertions and 102 explicitly inapplicable cases skipped. Every command
+and collected runner result exited 0, with zero errors/failures.
+No diagnostic filter, qualification-version override or missing-app skip was used.
+Each retained archive was independently hashed against its recorded SHA256, and
+every source identity matched the commit above. Exact run-label checks found no
+remaining containers or networks. No host port was published.
+
+The reproducible command is `composer --working-dir=mcp test:integration -- NC DB MODE`,
+with the cell values below and the pinned inputs recorded afterward. Sanitized
+local evidence is retained under `mcp/build/integration/RUN/mcp-it/artifacts/`:
+`result.json`, `junit.xml`, `source-commit.txt`, `packages.sha256`, stage logs
+and the environment report. These ignored local artifacts are not committed or
+publicly available; the tables preserve their result and identity.
+
+| Cell | Tests / assertions / skips | Run | Candidate archive SHA256 |
+| --- | --- | --- | --- |
+| `32:mariadb:fresh` | 264 / 3622 / 9 | `mcp-it-20261023130511-e8065b22bd8a` | `4ba96991bda753a3cf1a02ddac72cba140cc99fe8d7f65ef7e45cec2e6669146` |
+| `32:mariadb:upgrade` | 264 / 3826 / 3 | `mcp-it-20261023130510-7adf73eacbd3` | `199282a79a19bb0a1e7263951678ce3f093369791172b5ea77dc6e0bb890c0ea` |
+| `33:mariadb:fresh` | 264 / 3622 / 9 | `mcp-it-20261023131200-0a3a2d888f16` | `153c98fb8e89d7621743e86a4fc9ed83eb71d4f6b792c9fcb1f9865af2a88a33` |
+| `33:mariadb:upgrade` | 264 / 3826 / 3 | `mcp-it-20261023131208-934699cf639b` | `eb35ce6a0f534b4a95dc1207448aed6018f9cd951ed774edfd66c053ba1746b4` |
+| `34:mariadb:fresh` | 264 / 3695 / 9 | `mcp-it-20261023131818-8d601d90e933` | `2c68be5000386ef5d380bed1489c224fc2b331c80d05fb94481504a2bd464888` |
+| `34:mariadb:upgrade` | 264 / 3899 / 3 | `mcp-it-20261023131856-529ab98f604b` | `b1603c89cb860bb281fc77aec38cb8aaf85c07407ee56309624dc3223c2562bf` |
+| `35:mariadb:fresh` | 264 / 3696 / 9 | `mcp-it-20261023132531-53589d876793` | `6b68dc6fb571d3cd24c5669cddf28cd5ac84c306c1e9fe805d2ad041ddebde29` |
+| `35:mariadb:upgrade` | 264 / 3899 / 3 | `mcp-it-20261023132623-6848125b7320` | `084fdc1991622b4e1b30d3cc31ffa31a35c085a6ca60b18ba89f26a7548375e9` |
+| `35:mariadb:upgrade-local` | 264 / 3899 / 3 | `mcp-it-20261023133322-254c425f28f5` | `d9b4cd77bb59938ec51a9225714cc73b0e3c10f3cdfe39f5cfbf8bc083ee836e` |
+| `35:mariadb:upgrade-upstream` | 264 / 3696 / 9 | `mcp-it-20261023133450-42e3d45a7e8d` | `f0c20f980407655b5ea4cb95eaffbe6a02f0ab2698274ebb25d229cc56a7f4e8` |
+| `35:mariadb:upgrade-upstream-111` | 264 / 3695 / 9 | `mcp-it-20261023134145-07eb1d677b6d` | `41a711c948641233ed04cfe80035bc2a71ef5ae9565057fc34542b0eef2c0ee8` |
+| `35:mariadb:replace-upstream` | 264 / 3695 / 9 | `mcp-it-20261023134238-a0c4832baa64` | `4214763a8f86a76a347af64da9d243cf388586b8f95598307896311d81c43550` |
+| `35:pgsql:fresh` | 264 / 4312 / 6 | `mcp-it-20261023135204-1a43b01df9e9` | `5e24fcb8fd561d590f085df1e9c5e0819a9a403f1aa5923e1c1a9062264b8af4` |
+| `35:pgsql:upgrade` | 264 / 4517 / 0 | `mcp-it-20261023135203-cde856682017` | `7fe11bfcb3daf453c4eb72e0363702fb914a77419f2bc27f17487fda69b587d6` |
+| `35:sqlite:fresh` | 264 / 3656 / 12 | `mcp-it-20261023140103-40061ddd5f7a` | `0ce64352cf2b757c08efadc79dfdd90155f2f64d38bc39b2040f7a5294322b64` |
+| `35:sqlite:upgrade` | 264 / 3860 / 6 | `mcp-it-20261023140121-ccc6880227c8` | `878878e2b6b38fe91d84e62199ef0ff2bbbe8d28e422b1315af0c3f759d5e16f` |
+
+The image inputs were pinned, rather than resolved from floating tags:
+
+| Image | Exact reference |
+| --- | --- |
+| nextcloud:32.0.15-apache | `nextcloud:32.0.15-apache@sha256:ea5ecac73dfe90f7bf80e4867edfcf3f0fcbf4e5d83ea75cf433f7ef545ed412` |
+| mariadb:10.11.19 | `mariadb:10.11.19@sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2` |
+| nextcloud:33.0.9-apache | `nextcloud:33.0.9-apache@sha256:8f46dc79e9abf4f1e330ca9a7d9d9b8a8811ecc28f18018c1951281e522499e8` |
+| nextcloud:34.0.4-apache | `nextcloud:34.0.4-apache@sha256:0e5688ba0988b9112cf03f9c6bab53eccb466d278435f6596f16c1f25acacf74` |
+| nextcloud:35.0.1-apache | `nextcloud:35.0.1-apache@sha256:8f2f0e93aca5e9457019933936dea1f313052e72c696b4aecb31580a208b859f` |
+| postgres:16.15 | `postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d` |
+
+Upgrade baselines were immutable local objects:
+
+| Mode | Baseline commit |
+| --- | --- |
+| `upgrade` | `a1a7911cc72dcf2487d17e06e23edfa89b0ecf92` |
+| `upgrade-local` | `1f0b4232e18b2c778d3585b878116d1cabb93d05` |
+| `upgrade-upstream` | `0911f9123a661968e707fc4c391adcf9d37c3e84` |
+| `upgrade-upstream-111` | `65e4e08b68c3f8d1ba78398a082ec567b0b0f4e4` |
+| `replace-upstream` | `27da5e107ca06d92b7af9b8a80ad9c77c12ba91e` |
+
+Deck was pinned to 1.16.8 / 1.17.7 / 1.18.5 / 1.19.0 for NC32 / 33 / 34 / 35;
+Contacts to 8.3.21 on NC32 and 8.9.2 on NC33-35. Native dependency refusals on
+NC32/33 are asserted results, not skipped coverage.
+
+The intentional skips are the three PostgreSQL query-log tests outside PostgreSQL;
+six legacy snapshot/credential tests where that mode has no 1.0.8 fixture; and
+SQLite's two real-deadlock cases and one concurrent group-lifecycle case, whose
+database serialization semantics differ. SQLite lock-wait/retry behavior still
+runs in `UserCausesTest`.
+Historical upstream modes still execute the harness's version, preservation and
+replacement checks; skipped legacy fixture tests must not be represented as run.
+The upgrade and replacement modes do not establish an upgrade from installed 1.2.0.
+
+The NC35/SQLite/fresh run `mcp-it-20261023140103-40061ddd5f7a` also passed
+coordinated app/database recovery: restored assets matched, old access/refresh/code credentials were rejected,
+explicit reconnection worked and the service remained closed. This disposable
+rehearsal does not establish a backup or recovery procedure for the user's host.
+
+### Final documentation and package gate
+
+After the matrix, `docs:check`, `docs:translations`, `test:docs` and `package`
+all exited 0. Documentation validation covers 149 Markdown files and 110 package
+sources; all 29 documentation tests pass with no skips. The 96 translation drafts
+remain review-required. The production package was rebuilt and its 110 staged
+sources verified; SHA256 is
+`8a027beeb004ab3676135f0d7f3bef30c53ea95282b6a78954082e87e9d8f1fa`.
+This final development report and status updates are excluded from the package.
+The final prose update was followed by a fresh documentation check and clean diff
+check. No runtime or test fixture changed after the qualified revision above.
+
+### Local implementation history
+
+| Commit | Change |
+| --- | --- |
+| `2d2ae6d` | fix(upstream): integrate selected 1.2.0 safety and compatibility fixes |
+| `c3b6c99` | feat(upstream): add partial note edits and timezone-safe Deck deadlines |
+| `605dfd0` | feat(deck): add labels, visible files and native dependencies |
+| `f556268` | feat(files): enforce an optional filename policy across writes |
+| `26f20cf` | docs(upstream): reconcile selected 1.2.0 capabilities and qualification |
+| `9c7efe4` | fix(deck): enforce readable dependency budgets before further lookups |
+| `3de717b` | test(integration): prevent App Store replacement of native candidates |
+| `8c1aeb7` | test(policy): isolate native write-policy accounts and credentials |
+| `17a6ea1` | test(inspector): rebuild native mounts after fixture teardown |
+
+### Acceptance boundaries
+
+All results refer to the selected ports, not complete upstream 1.2.0 parity.
+D06 native linking/recipient expansion, Colima engine control and German README
+expansion remain deliberately excluded. The app still declares 1.1.2: the
+existing upgrade baselines do not establish an upgrade from installed upstream
+1.2.0. F3 must choose public identity/version/platform scope, implement release
+source availability and production update controls, and qualify the actual host
+and installation path before release/deployment.
+
+Technical/security, accessibility, documentation-language and rendered German UI
+reviewers remain unassigned/pending. All 96 operational translation drafts remain
+review-required with their real English provenance. Public HTTPS remains pending;
+Inspector's public journey and the earlier encrypted-storage isolation result of
+14/15 with nonzero exit remain unresolved; ChatGPT consent/tool/revocation
+acceptance remains pending. Local automated results do not certify those paths.
+No push, deployment, release or PR change was performed; PR #14 remains a historical
+reference and the removed upstream remote was not restored.

@@ -5,13 +5,14 @@
 
 Status: the analysis and selection were completed on 2026-10-23. This document
 preserves that inventory phase, its findings against the evaluated fork revision,
-and the reviewed acceptance criteria. Selected runtime ports in batches A-D are
-now implemented; batch E reconciles documentation and metadata. Final qualification
-remains in progress in the [integration record](upstream-1.2.0-integration.md).
+and the reviewed acceptance criteria. Selected batches A-E and their local
+automated qualification are now complete, as recorded in the
+[integration record](upstream-1.2.0-integration.md). F3 and human review remain pending.
 
 The inventory's original findings and validation below are historical, not a
 statement that the current branch has no ports or runtime tests. This inventory
-does not close F2's test criteria, authorize deployment, or claim full 1.2.0 parity.
+alone does not establish F2's test results, authorize deployment, or claim full 1.2.0
+parity; the later execution record supplies the selected-scope test evidence.
 See the [fork continuation plan](fork-continuation-plan.md) for F3 and review gates.
 
 ## Immutable scope and method

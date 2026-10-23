@@ -7,8 +7,8 @@ This is the exhaustive source ledger for the
 [capability inventory and selection](upstream-1.2.0-inventory.md), recorded on
 2026-10-23. It describes original repository paths, not proposed fork paths or
 files copied into this branch. The inventory analysis itself ported no behavior.
-Selected runtime ports are now implemented in batches A-D; documentation and final
-qualification continue in the [integration record](upstream-1.2.0-integration.md).
+Selected batches A-E and local automated qualification are now complete in the
+[integration record](upstream-1.2.0-integration.md); F3 and human review remain pending.
 The dispositions below remain the historical selection, not a current completion
 ledger; D06 and QQUEUE remain deferred.
 
