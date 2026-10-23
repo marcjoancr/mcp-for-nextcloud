@@ -190,9 +190,9 @@ release command; its YAML parses, but no remote workflow was triggered.
 
 | Gate | Current state and next evidence |
 | --- | --- |
-| Immutable local source/runtime kit | Historical `39148aa` retained; new local acceptance candidate `ae8ea636` includes the source offer. Regenerate and requalify at the final release revision |
-| Ordinary-user source access | Implemented; local non-admin personal-settings/MCP retrieval and reconstruction pass for `ae8ea636` (evidence below). F5 must separately verify the authorized immutable public destination |
-| Publication suitability | Pending historical-content review, final notices/source review and trusted digest publication policy |
+| Immutable local source/runtime kit | Historical kits retained; reviewed branch commit `0000d8c` now has a verified/rebuilt local kit (technical audit below). Regenerate and requalify at the final release revision |
+| Ordinary-user source access | Implemented; local non-admin personal-settings/MCP retrieval and reconstruction pass for `0000d8c` as well as the earlier candidate. F5 must separately verify the authorized immutable public destination |
+| Publication suitability | Technical source/history audit recorded below; retained historical developer paths, screenshots, final notices and trusted digest publication still require human disposition |
 | Update exclusion | Concrete filtered-catalog/manual-artifact candidate above; pending owner acceptance of service operation and host-specific qualification |
 | Native/custom-app integrity | Local content verifier passes; native UI/signature behavior, permissions and trusted digest custody still pending |
 | Server facts | Versions, container method, app persistence and S3 driver observed on 2026-10-24 (inventory below). Complete update-writer, subscription and backup/recovery facts remain pending; no secrets requested |
@@ -720,3 +720,190 @@ application code, package, full PHP/browser suite or native fixture was rebuilt
 or rerun for this documentation-only review. The diff excludes the supplied SSH
 coordinates and observed private service/container identifiers. These checks do
 not replace historical-content review or any pending host/client/human acceptance.
+
+## Technical source-distribution audit
+
+Executed on **2026-10-24** against reviewed commit
+`0000d8c807cfae300c2009ce53f9efb4a5df8081`, starting from clean local `fork/main`.
+Kit integrity, non-admin retrieval and reconstruction pass. The scanners retain
+their nonzero finding results and the classifications below. **Publication
+suitability and F3 remain open**: retained historical metadata, human review and
+the other release gates are not cleared by this audit. No production connection or change was made.
+This completion report is subsequent documentation, not part of that frozen kit.
+
+### Source and dependency inventory
+
+The selected commit contains **1,683 tracked files**, including 725 application
+library files, 46 JavaScript source files, 17 build/documentation/release scripts,
+653 test files, dependency manifests/locks, notices and original attribution.
+The downloaded bundle retains exactly the original **17,287 reachable objects**:
+1,056 commits, 8,328 trees and 7,903 blobs. All historical trees were inspected for
+external gitlinks and all blobs for Git LFS pointers; neither was found. Required
+historical English revisions therefore remain available for translation provenance.
+
+| Distribution area | Checked content and result |
+| --- | --- |
+| Runtime package | 938 regular files; generated identity agrees with version 2.0.0 and the selected source commit |
+| Preferred application source | PHP/templates/assets and all 46 JavaScript inputs retained in the bundle; the clean build's asset graph has only app-owned inputs and no external runtime imports |
+| Build inputs | Canonical packaging/asset/docs scripts, Composer/npm locks and source-delivery/reconstruction tooling retained |
+| Runtime dependencies | `smalot/pdfparser` v2.12.5 and `symfony/polyfill-mbstring` v1.43.0 match locked versions and source references; no development Composer packages installed in the runtime |
+| Dependency source archive | All 73 vendor files, including loader and licenses, match the runtime vendor tree byte for byte |
+| Notices and attribution | Application LICENSE/NOTICE, THIRD-PARTY-NOTICES, LGPL/GPL/MIT/Unicode texts and both dependency/Composer license files are present; personal settings retain Sintax attribution |
+| Development dependencies | All 50 locked Composer package names (2 runtime / 48 development) are accounted for in THIRD-PARTY-NOTICES; PHPStan has a separate section. This name inventory does not certify every dependency's license/notice accuracy |
+| JavaScript development toolchain | npm lock contains 112 entries including the root, with 8 direct development tools. Playwright 1.64.1 (Apache-2.0) and esbuild 0.28.2 (MIT) are recorded in the lock but not individually listed in THIRD-PARTY-NOTICES; six documentation tools are listed there. None of these tool packages is shipped in the runtime |
+| Reconstruction scope | Locked registries or trusted caches are still needed for build tools/dependencies. The kit is not an offline toolchain distribution; archive timestamp identity is not claimed |
+
+License identifiers above report repository/lock evidence, not legal sign-off.
+Existing notices explicitly retain unknown embedded upstream versions (such as
+TCPDF-derived code and Unicode data provenance); this audit does not invent those
+versions. Human license/attribution review remains required. REUSE passes for all
+**1,666 covered files**, but is not used as proof of historical privacy or complete
+legal clearance.
+
+### Historical-content audit and limits
+
+[Gitleaks 8.30.1](https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1) was
+obtained from its official release and its archive checked against that release's
+checksum list. Archive SHA-256:
+`551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb`.
+The explicit [versioned default rules](https://github.com/gitleaks/gitleaks/blob/v8.30.1/config/gitleaks.toml)
+have SHA-256 `e163e53b9e7e8a8511e77271e2b323ed057759542a6d988258afe3a1fa329caf`.
+This establishes the scanner inputs, not a publisher-signature verification.
+
+Scans used full redaction, no size cutoff, archive/decode depth 2, no baseline or
+repository-specific suppressions, and ignored inline `gitleaks:allow` comments.
+The scanner's shipped default rule allowlists still apply. Reports and original
+exit codes were retained; no finding was removed to obtain a green scanner exit.
+
+| Audit scope | Recorded result |
+| --- | --- |
+| Initial Git diff scan | 887 commits reported; 52 findings; exit 1 |
+| Explicit merge-parent diffs (`--full-history -m` at the full SHA) | 1,054 commits reported; 69 findings: 50 evidence hashes and 19 documented example credentials; exit 1 |
+| Direct object-content scan | All 7,903 blobs and 1,056 complete commit objects exported by object ID and scanned: 8,959 inputs / 225,941,400 bytes; 212 findings: 45 evidence hashes and 167 documented example credentials; exit 1 |
+| Separate binary fixture scan | Five binary blobs supplied, with archive/decode depth 2; no findings; exit 0 |
+| Supplemental object checks | All blobs and commit objects checked for private-key markers, two selected production access/service indicators, SSH coordinates and developer paths; all trees checked for gitlinks |
+
+The merge scan's reported commit count was not assumed to equal reachable-history
+coverage. An empty-commit explanation was tested and disproved. Direct scanning
+of every reachable blob and complete commit object removes dependence on that
+count for content coverage. The reports overlap and their findings must not be
+summed as distinct secrets.
+
+Every scanner finding was checked against the corresponding committed line or
+exact object bytes. Generic-key matches were values in `evidence_sha256` or
+`package.fileSha256` maps; curl-auth matches were explicit documentation password
+placeholders. **No confirmed credential disclosure was identified by these
+checks.** That statement is narrower than proving that no secrets exist.
+
+Supplemental checks identified 161 historical SSH example occurrences, classified
+as placeholder hosts, and **14 historical blob objects across 10 removed document
+paths containing developer-machine paths**. Those paths are absent from the
+selected tree but remain in the bundle. Their publication disposition stays
+pending with the owner/reviewers; nothing was silently removed or rewritten.
+Neither of the two selected production access/service indicators was found;
+private-key markers and external LFS pointers were also absent under these checks.
+The exact private indicators remain outside this document. This is not a complete
+inventory of server identifiers or an exhaustive private-data rule set. Contributor metadata is retained, and screenshots were not visually/OCR
+cleared; encoded content beyond depth 2, scanner blind spots and human publication
+judgment remain explicit limits. A newly confirmed disclosure would block
+publication without automatically authorizing history rewriting.
+
+### New kit, non-admin retrieval and reconstruction
+
+The complete local kit is under ignored
+`mcp/build/source/0000d8c807cfae300c2009ce53f9efb4a5df8081/`. Its bundle advertises
+only `HEAD` at the selected SHA. The manifest digest was recorded separately before
+retrieval; it was not obtained from an untrusted download and treated as approval.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Manifest | `032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f` |
+| Runtime archive | `62d4a3724d75da91006ad3969d7344c0fed50eaf1766d05d1ce183056046d421` |
+| Source bundle | `1a41322f79c67c3a2b75bbed4db0912c0b6cf6c56669c5d5ba12a232f5479d87` |
+| Runtime dependency sources | `7691814a000196b86ed4d98b6d36f2677e7601f5cd81ed3ff8b98acd3fc4075a` |
+| BUILDING.md | `3ed1b1c2581950a863c4b1888908e10d6a1d853db7ce40b44d201759b301fe48` |
+
+The accepted native run is **`mcp-source-413047499830643b`**, with **124 checks**,
+runner result 0 and an independently recorded Composer subprocess return code 0.
+It exercised non-admin personal settings, both MCP discovery paths, Basic/Bearer,
+varying Files grants, denied anonymous/disconnected MCP, unavailable metadata,
+credential-free download and tamper rejection. It used the existing pinned
+NC35.0.1/Apache/SQLite fixture, with no host ports; it does not qualify the observed
+LinuxServer/Nginx/PostgreSQL/S3 production topology or public HTTPS.
+
+An earlier run (`mcp-source-226f8cfed16c8578`) recorded 124 checks and runner result
+0, but the execution wrapper reported exit 1. No runner failure marker was found;
+the discrepancy's cause was not established. It was not used as the completion
+gate. The repeated run above explicitly recorded the subprocess status and passed.
+
+The actually downloaded bundle was cloned and rebuilt at the same detached SHA in
+`mcp/build/f3-audit-rebuild-l1cyvhff/`. Trusted installed-tree verification confirms
+all **938 file contents and sizes** agree. All **73 dependency-source files** agree
+with the packaged vendor tree, and the reconstructed source retains all **17,287
+reachable objects**. No differences were normalized away. Docker inspection after
+both runs found no remaining integration-labeled containers or networks.
+
+Fresh checks also pass: **11 release boundary tests**, canonical source packaging,
+package/documentation validation during both build and reconstruction, and REUSE.
+The full PHP/browser suite and final platform matrix were not rerun: this batch
+changed no application code. Earlier full-suite evidence remains bound to its
+recorded inputs, not relabeled as a fresh run.
+
+Final documentation checks pass for **153 Markdown files / 110 package sources**
+and all **29 documentation-tool tests**. Translation provenance is valid; the
+**96 drafts remain review-required**. An independent automated engineering review
+found no actionable inconsistency and independently compared all kit hashes,
+downloaded-file equality, reconstructed object IDs, runtime files and dependency
+files. It reviewed saved scan/native evidence without rerunning those commands;
+cleanup relies on the recorded Docker audit. It does not approve human privacy,
+licenses, screenshots, production/client behavior or an absolute absence of secrets.
+
+### Evidence retention and next gate
+
+Sanitized inventories, redacted scanner reports, per-finding classifications and
+private diagnostic scripts are retained under mode-0700 ignored
+`mcp/build/f3-distribution-audit/`. Build, reconstruction and subprocess-status logs
+are retained under private `/tmp/mcp-f3-audit/`. Native evidence and the downloaded
+kit are under ignored `mcp/build/source-acceptance/mcp-source-413047499830643b/`.
+These are local retention paths, not public evidence links. Do not publish the
+raw object export, reports or execution logs as a substitute for a reviewed source
+release. The audit tool is cached outside the repository; no new product tooling
+or runtime endpoint was introduced.
+
+This completes the executed local inventory, bounded technical history scan,
+reviewed-commit kit, ordinary-user retrieval and reconstruction checks. It does
+not clear the retained historical metadata or screenshots for publication. The
+source-audit coverage and those remaining human decisions must accompany the
+future release review. A later final release revision requires a new kit and
+affected qualification; the proposed public mapping remains unverified.
+
+The next engineering scope is the isolated target-profile and 1.2.0 → 2.0.0
+upgrade/update/recovery proposal using the observed host facts, while the actual
+writers, active database facts and coordinated S3/config/database backup evidence
+remain incomplete. A new catalog service or production change is not authorized.
+**HTTPS, Inspector 14/15, the real ChatGPT journey and security, operations,
+license/attribution, accessibility and language reviewers remain pending. F3 is
+still open.** No production access, push, release publication or deployment occurred.
+
+### Review before committing the source audit
+
+The review rechecked the retained kit hashes, downloaded-file equality, exact
+reconstructed runtime inventory, complete bundle object set and saved native
+results. It confirmed the scanner finding counts and classifications while
+preserving their nonzero exit statuses. The text now distinguishes successful
+kit acceptance from scanner findings, bounds the server-indicator search to the
+two inputs actually checked, and avoids equating dependency-name coverage with
+legal approval.
+
+Fresh review checks passed: trusted kit/installed-tree verification, documentation
+validation for **153 Markdown files / 110 package sources**, all **29 documentation
+tests**, and translation provenance with **96 drafts still review-required**.
+Only this development report changed; it is outside the runtime package allowlist.
+
+This documentation commit does not rebuild the kit for its own new revision or
+transfer the `0000d8c` digest to it. No scanner or native fixture was rerun for this
+review; their recorded evidence remains explicit. Historical metadata, screenshot
+and license/privacy disposition, target-profile/upgrade/update/recovery evidence,
+public source delivery, **HTTPS, Inspector 14/15, ChatGPT and human reviewers**
+remain pending. F3 stays open. No server connection/change, push or deployment
+is part of this review.
