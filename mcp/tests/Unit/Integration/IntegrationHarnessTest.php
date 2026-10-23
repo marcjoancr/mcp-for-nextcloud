@@ -58,6 +58,110 @@ final class IntegrationHarnessTest extends TestCase {
         }
     }
 
+    /** @return array{int,string,string,string,list<list<string>>,string} */
+    private function installWithAppStoreControl(string $mode): array {
+        $app = dirname(__DIR__, 3);
+        $directory = sys_get_temp_dir() . '/mcp-install-guard-' . bin2hex(random_bytes(8));
+        mkdir($directory . '/bin', 0700, true);
+        mkdir($directory . '/mcp-it', 0700);
+        file_put_contents($directory . '/plan.json', '{}');
+        file_put_contents($directory . '/mcp-it/credentials', "DB_PASSWORD=unused\nDB_ROOT_PASSWORD=unused\nADMIN_PASSWORD=unused\n");
+        file_put_contents($directory . '/appstore', 'true');
+        file_put_contents($directory . '/effects', '');
+        // Replace only Docker: package extraction and the actual harness shell still run.
+        file_put_contents($directory . '/bin/docker', '#!' . PHP_BINARY . "\n" . <<<'PHP'
+<?php
+$directory = getenv('MCP_GUARD_DIRECTORY');
+$mode = getenv('MCP_GUARD_MODE');
+$args = array_slice($argv, 1);
+$position = array_search('/var/www/html/occ', $args, true);
+$occ = $position === false ? [] : array_slice($args, $position + 1);
+if (($occ[0] ?? '') === 'config:system:set' && ($occ[1] ?? '') === 'appstoreenabled') {
+    if ($mode === 'set-fails') exit(23);
+    if (in_array('--value=false', $occ, true) && in_array('--type=boolean', $occ, true) && $mode !== 'ignored') {
+        file_put_contents($directory . '/appstore', $mode === 'string' ? '"false"' : 'false');
+    }
+    exit(0);
+}
+if (($occ[0] ?? '') === 'config:system:get' && ($occ[1] ?? '') === 'appstoreenabled') {
+    if ($mode === 'unreadable') exit(24);
+    echo file_get_contents($directory . '/appstore'), "\n";
+    exit(0);
+}
+file_put_contents($directory . '/effects', json_encode($args) . "\n", FILE_APPEND);
+if (file_get_contents($directory . '/appstore') !== 'false') {
+    fwrite(STDERR, "App operation reached Docker before App Store was disabled.\n");
+    exit(25);
+}
+switch ($occ[0] ?? '') {
+    case 'app:enable': file_put_contents($directory . '/version', '1.0.8'); break;
+    case 'upgrade': file_put_contents($directory . '/version', '1.1.2'); break;
+    case 'config:app:get': echo file_get_contents($directory . '/version'), "\n"; break;
+    case 'app:list': echo "  - mcp: enabled\n"; break;
+    case 'status': echo '{"installed":true}', "\n"; break;
+}
+PHP);
+        chmod($directory . '/bin/docker', 0700);
+        try {
+            foreach (['baseline' => '1.0.8', 'branch' => '1.1.2'] as $package => $version) {
+                $archive = new \PharData($directory . '/mcp-it/mcp-' . $package . '.tar');
+                $archive->addFromString('mcp/appinfo/info.xml', '<info><version>' . $version . '</version></info>');
+                $archive->compress(\Phar::GZ);
+                unset($archive);
+            }
+            $environment = array_merge(getenv(), [
+                'PATH' => $directory . '/bin:' . getenv('PATH'),
+                'MCP_IT_LOCAL' => '1', 'RUNNER_TEMP' => $directory,
+                'MCP_IT_RUN_ID' => 'guard-test', 'MCP_IT_NET' => 'guard-test-net',
+                'MCP_IT_NC_NAME' => 'guard-test-nc', 'MCP_IT_DB_NAME' => 'guard-test-db',
+                'MCP_IT_NC_IMAGE' => 'unused', 'MCP_IT_BASELINE' => 'fixture', 'MCP_IT_MODE' => 'upgrade',
+                'MCP_IT_QUALIFICATION_VERSION' => '', 'MCP_IT_PHPUNIT_ARGS' => '',
+                'MCP_GUARD_DIRECTORY' => $directory, 'MCP_GUARD_MODE' => $mode,
+            ]);
+            $process = proc_open(['sh', $app . '/tests/Integration/ci/harness.sh', 'install-app'],
+                [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $app, $environment);
+            self::assertIsResource($process);
+            fclose($pipes[0]);
+            $out = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
+            fclose($pipes[1]); fclose($pipes[2]);
+            $status = proc_close($process);
+            $effects = array_map(static fn(string $line): array => json_decode($line, true, 512, JSON_THROW_ON_ERROR),
+                file($directory . '/effects', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+            return [$status, $out, $error, file_get_contents($directory . '/appstore'), $effects,
+                is_file($directory . '/mcp-it/expected-version') ? file_get_contents($directory . '/mcp-it/expected-version') : ''];
+        } finally {
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST);
+            foreach ($files as $file) {
+                if ($file->isDir()) rmdir($file->getPathname());
+                else unlink($file->getPathname());
+            }
+            rmdir($directory);
+        }
+    }
+
+    public function testInstallDisablesAppStoreBeforeBaselineAndKeepsActualUpgrade(): void {
+        [$status, $out, $error, $store, $effects, $expected] = $this->installWithAppStoreControl('applied');
+        self::assertSame(0, $status, $error);
+        self::assertSame('false', $store);
+        self::assertStringContainsString('mcp 1.0.8 is installed and enabled', $out);
+        self::assertSame("1.1.2\n", $expected);
+        self::assertContains(['exec', '-u', 'www-data', 'guard-test-nc', 'php', '/var/www/html/occ', 'upgrade'], $effects);
+    }
+
+    public static function rejectedAppStoreControl(): array {
+        return ['write failure' => ['set-fails'], 'ignored write' => ['ignored'],
+            'string instead of boolean' => ['string'], 'unreadable setting' => ['unreadable']];
+    }
+
+    #[DataProvider('rejectedAppStoreControl')]
+    public function testInstallStopsBeforeAppOperationsWhenAppStoreControlIsUnverified(string $mode): void {
+        [$status, , , , $effects, $expected] = $this->installWithAppStoreControl($mode);
+        self::assertNotSame(0, $status);
+        self::assertSame([], $effects, 'No baseline or candidate operation may start without verified App Store control.');
+        self::assertSame('', $expected);
+    }
+
     public static function invalid(): array {
         return ['empty' => [[]], 'unsupported host' => [['--plan', '31', 'sqlite', 'fresh']],
             'unsupported combination' => [['--plan', '32', 'pgsql', 'fresh']],

@@ -210,6 +210,11 @@ assert_installed_version() {
 
 # Installs through the server's own installer (app:enable runs the app's migrations); upgrade goes through occ upgrade.
 cmd_install_app() {
+    # Only this disposable instance: occ upgrade also checks App Store updates after local migrations.
+    # Keep the baseline/candidate packages under test instead of silently downloading another mcp release.
+    occ config:system:set appstoreenabled --value=false --type=boolean
+    appstore_enabled=$(occ config:system:get appstoreenabled --output=json)
+    [ "$appstore_enabled" = false ] || { echo 'App Store must be disabled on the disposable test instance' >&2; exit 1; }
     if [ -n "$MCP_IT_BASELINE" ]; then
         mkdir -p "$WORK/baseline-pkg"
         tar -xzf "$WORK/mcp-baseline.tar.gz" -C "$WORK/baseline-pkg"
