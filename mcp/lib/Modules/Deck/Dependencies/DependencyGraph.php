@@ -44,24 +44,24 @@ final class DependencyGraph {
 		$edges = [];
 		for ($cursor = 0; $cursor < count($queue); $cursor++) {
 			[$id, $depth] = $queue[$cursor];
-			$node = $this->gateway->dependencyNode($userId, $id, $view);
+			$node = $this->gateway->dependencyNode($userId, $id, $view,
+				function (array $target) use ($id, $depth, &$edges, &$visited, &$queue): void {
+					$targetId = (int)$target['card']->getId();
+					$key = $id . ':' . $targetId;
+					$edges[$key] = ['originId' => $id, 'targetId' => $targetId];
+					if (count($edges) > $this->maxEdges) {
+						throw new DeckRefusalException(CapabilityMessages::dependencyGraphLimit());
+					}
+					if (isset($visited[$targetId])) {
+						return;
+					}
+					if (count($visited) >= $this->maxNodes || $depth >= $this->maxDepth) {
+						throw new DeckRefusalException(CapabilityMessages::dependencyGraphLimit());
+					}
+					$visited[$targetId] = true;
+					$queue[] = [$targetId, $depth + 1];
+			});
 			$nodes[$id] = ['card' => $node['card'], 'boardId' => $node['boardId']];
-			foreach ($node['targets'] as $target) {
-				$targetId = (int)$target['card']->getId();
-				$key = $id . ':' . $targetId;
-				$edges[$key] = ['originId' => $id, 'targetId' => $targetId];
-				if (count($edges) > $this->maxEdges) {
-					throw new DeckRefusalException(CapabilityMessages::dependencyGraphLimit());
-				}
-				if (isset($visited[$targetId])) {
-					continue;
-				}
-				if (count($visited) >= $this->maxNodes || $depth >= $this->maxDepth) {
-					throw new DeckRefusalException(CapabilityMessages::dependencyGraphLimit());
-				}
-				$visited[$targetId] = true;
-				$queue[] = [$targetId, $depth + 1];
-			}
 		}
 		ksort($nodes, SORT_NUMERIC);
 		$edges = array_values($edges);

@@ -17,8 +17,9 @@ interface DependencyNodeSource {
 	 * @param string $userId Authenticated caller.
 	 * @param int $cardId Source card, including archived cards still readable in Deck.
 	 * @param array|null $view Parent listings shared only within one public graph/state operation.
+	 * @param \Closure(array{card: Card, boardId: int}): void|null $acceptTarget Called after each distinct target READ, before resolving the next; may refuse an oversized graph.
 	 * @return array{card: Card, boardId: int, targets: list<array{card: Card, boardId: int}>} Only readable targets, ordered by ID.
 	 * @throws \Throwable For an unreadable source or uncertain lookup; never returns a partial accessible adjacency.
 	 */
-	public function dependencyNode(string $userId, int $cardId, ?array &$view = null): array;
+	public function dependencyNode(string $userId, int $cardId, ?array &$view = null, ?\Closure $acceptTarget = null): array;
 }

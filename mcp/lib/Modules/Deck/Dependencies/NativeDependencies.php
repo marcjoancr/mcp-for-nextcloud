@@ -40,10 +40,11 @@ final class NativeDependencies implements DependencyAccess {
 	 * @param string $userId Authenticated caller.
 	 * @param int $cardId Source card, including archived cards still readable in Deck.
 	 * @param array|null $view Parent listings shared only within one public graph/state operation.
+	 * @param \Closure(array{card: Card, boardId: int}): void|null $acceptTarget Incremental readable graph budget check.
 	 * @return array{card: Card, boardId: int, targets: list<array{card: Card, boardId: int}>} Only readable targets, ordered by ID.
 	 * @throws \Throwable For an unreadable source or uncertain lookup; never returns a partial accessible adjacency.
 	 */
-	public function dependencyNode(string $userId, int $cardId, ?array &$view = null): array {
+	public function dependencyNode(string $userId, int $cardId, ?array &$view = null, ?\Closure $acceptTarget = null): array {
 		if (!property_exists(Card::class, 'dependentCards') || !method_exists(CardMapper::class, 'findDependenciesForCards')) {
 			throw new DeckRefusalException(CapabilityMessages::dependenciesUnavailable());
 		}
@@ -56,7 +57,7 @@ final class NativeDependencies implements DependencyAccess {
 		$card = clone $source['card'];
 		$adjacency = ($this->cardMapperProvider)()->findDependenciesForCards([$cardId]);
 		$this->references->setNativeDependencies($card, $adjacency[$cardId] ?? []);
-		$card = $this->references->filter($userId, $card, $view, true, $targets);
+		$card = $this->references->filter($userId, $card, $view, true, $targets, $acceptTarget);
 		usort($targets, static fn (array $a, array $b): int => $a['card']->getId() <=> $b['card']->getId());
 		return ['card' => $card, 'boardId' => $source['boardId'], 'targets' => $targets];
 	}
@@ -78,7 +79,15 @@ final class NativeDependencies implements DependencyAccess {
 			throw new DeckRefusalException(CapabilityMessages::dependencyCycle());
 		}
 		$view = [];
-		$origin = $this->dependencyNode($userId, $originId, $view);
+		$originNodes = [$originId => true];
+		$originEdges = 0;
+		$origin = $this->dependencyNode($userId, $originId, $view,
+			static function (array $target) use (&$originNodes, &$originEdges): void {
+				$originNodes[(int)$target['card']->getId()] = true;
+				if (++$originEdges > DependencyGraph::MAX_EDGES || count($originNodes) > DependencyGraph::MAX_NODES) {
+					throw new DeckRefusalException(CapabilityMessages::dependencyGraphLimit());
+				}
+			});
 		$this->caller->bind($userId);
 		($this->permissionServiceProvider)()->checkPermission(($this->cardMapperProvider)(), $originId, Acl::PERMISSION_EDIT);
 		$target = $this->references->target($userId, $targetId, $view);
@@ -94,6 +103,10 @@ final class NativeDependencies implements DependencyAccess {
 			static fn (array $node): int => (int)$node['card']->getId(), $origin['targets']), true);
 		$graph = null;
 		if ($assign && !$present && $checkCycle) {
+			// Reserve the proposed readable edge and distinct target before approving a write.
+			if ($originEdges + 1 > DependencyGraph::MAX_EDGES || count($originNodes) + 1 > DependencyGraph::MAX_NODES) {
+				throw new DeckRefusalException(CapabilityMessages::dependencyGraphLimit());
+			}
 			$graph = (new DependencyGraph($this))->read($userId, $targetId, $view);
 			foreach ($graph['nodes'] as $node) {
 				if ((int)$node['card']->getId() === $originId) {
