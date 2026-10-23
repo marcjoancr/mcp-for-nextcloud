@@ -86,7 +86,7 @@ Circles privilege is cleared before subsequent authorization and native writes,
 and at operation boundaries, including error paths. A cleanup
 failure refuses before writing or reports an uncertain effect after a write attempt.
 
-The operation refuses Guests, folders, archived sources, unresolved or unsupported
+The operation refuses Guest callers, folders, archived sources, unresolved or unsupported
 recipients, disabled sharing, group-only sharing, enforced internal expiry,
 prohibited resharing, and a group/Team audience when group sharing is disabled.
 Failures to determine identity or policy also refuse. It does not suggest disabling

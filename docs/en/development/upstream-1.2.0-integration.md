@@ -9,7 +9,7 @@ validation before advancing and final qualification recorded below. F3
 identity/version/platform decisions and human reviewers remain pending.
 No push or deployment is authorized; PR #14 remains a reference. A later review
 adds D06 under the [native-link follow-up plan](deck-file-link-integration.md).
-Its local implementation is complete; native qualification is in progress.
+Its implementation and local native qualification are complete.
 Sections A-E and their final matrix below describe the earlier candidate, before
 D06. The follow-up evidence is recorded separately and does not relabel old runs.
 
@@ -582,3 +582,127 @@ No dependency manifest/lock or migration file changed. Identity/version remain
 1.1.2. Native evidence for this follow-up must identify the committed candidate,
 filters, JUnit results, archive hashes and owned-resource cleanup separately from
 the original A-E matrix. F3, human review, HTTPS, Inspector and ChatGPT remain open.
+
+### Native qualification and fixture corrections
+
+The first D06 diagnostic, `mcp-it-20261023154837-711231e67954`, failed with
+13 cases / 647 assertions, three errors and one failure. Fresh fault-injection
+actors did not inherit PHPUnit's autoloader, and a recipient fixture resolved
+Circles unconditionally even when the optional app was disabled. Commit
+`0e50d0b` loads the already pinned, SHA-verified PHPUnit PHAR only for those
+actors and applies production's no-autoload cleanup guard. Two isolated host
+regressions reproduced the defects before correction. Native assertions were
+retained; no production dependency or runtime changed. The six focused cells
+below then passed, each with 13 tests / 730 assertions and no skips.
+
+The first unfiltered run, `mcp-it-20261023161218-45d54b73fe0b`, lost its outer
+command with exit 143. Its native process continued and completed JUnit with
+276 cases / 4,165 assertions, two failures, no errors and nine expected skips.
+The cause of the outer termination was not established. Evidence was collected
+and redacted manually; exact container/network IDs and ownership labels were
+checked before cleanup. This attempt is failed evidence, not a passing cell.
+
+Both assertions expected execution errors after Files READ was revoked. The
+corrected discovery contract instead hides the tools before execution. Commit
+`f97c07b` requires the exact unknown-tool refusal, absence of both file tools,
+and an independent direct-module authorization refusal without stale metadata.
+Other scope/tag/source/archive assertions and preservation checks remain strict.
+Focused host checks pass 16 tests / 110 assertions; the native rerun below is
+the behavioral acceptance for this fixture-only correction. Its external driver
+prints periodic status while preserving the native command and exit result;
+this does not establish the cause or repair of the earlier outer termination.
+
+All six focused cells use source revision
+`0e50d0bdfd493fab0a1d5e8f4c7461d99aca0fd2`; the final unfiltered cell uses
+`f97c07b18cd99128fd93a1a85ae76e90ad91348b`. The latter changes only two native
+test paths. Their production runtime is byte-identical. The original 16-cell
+A-E matrix still belongs to `17a6ea1`; it is not relabeled as a fresh D06 matrix.
+
+The focused filter is
+`CardFileLinkTest|BoardRecipientTest|GuestDeckParityTest`. These six runs are
+diagnostics for the changed boundary, not six complete native suites. The
+unfiltered run has no diagnostic filter. Its nine skips are the six legacy
+snapshot/credential cases absent from a fresh installation and three
+PostgreSQL-only query-log cases. No D06 case is skipped.
+
+| Cell / scope | Cases / assertions / skips | Run | Production archive SHA256 |
+| --- | --- | --- | --- |
+| `32:mariadb:fresh` / focused | 13 / 730 / 0 | `mcp-it-20261023160522-5646a2de78f8` | `bb46de59767c6717f48107e8876a14b71aa665b98d8433f71881e7435d1f8c6f` |
+| `33:mariadb:fresh` / focused | 13 / 730 / 0 | `mcp-it-20261023160523-13ea0cfea485` | `5f38cb3fca2945588b7cee0d99efaf03d1500d43c1a8aff34975d59f885b149e` |
+| `34:mariadb:fresh` / focused | 13 / 730 / 0 | `mcp-it-20261023160905-f1b2a2d5749f` | `e3f9a8db070b6ac79538d321ffeadefcac778ac1bb7b60ae6fe4c7aaea96cac6` |
+| `35:mariadb:fresh` / focused | 13 / 730 / 0 | `mcp-it-20261023160202-3bfcf6263db9` | `8a4dbfb2896922faa0fb4a728ef7ad426f22e69d38079d755529c6b91c039077` |
+| `35:pgsql:fresh` / focused | 13 / 730 / 0 | `mcp-it-20261023160904-8338b94a735d` | `d550dfd8898fbf7c4df5676a3366ea4fd46129a607593376f6caaa7c64766248` |
+| `35:sqlite:fresh` / focused | 13 / 730 / 0 | `mcp-it-20261023161217-36f5f2a93f82` | `8904b86a550a71098bcd2977e4cbc13e2da7a28e19910e6f83475c6d18548e83` |
+| `35:mariadb:fresh` / unfiltered | 276 / 4237 / 9 | `mcp-it-20261023162638-d94df3c0d9e5` | `4e40e3f077a30c67a50bc53cdbe0286ec7e3499b7629a9721144e2ad683f2d38` |
+
+The final unfiltered result is 276 cases / 4,237 assertions, with no errors or
+failures and nine expected skips. Across the seven runs, there are 354 case
+executions / 8,617 assertions; these totals include repeated tests across cells.
+
+Every passing run has outer and runner exit 0, no JUnit errors/failures, verified
+production/test archive hashes and no remaining owned container or network.
+Each archive matches 741 tracked production files and the two declared generated
+JavaScript entries; all 103 archived native test/source files match the recorded
+Git revision. An initial stricter audit rejected the two generated entries as
+untracked; the final audit explicitly recognizes only those entries and compares
+their exact bytes with the validated build. It still rejects other extra files.
+
+The NC35/SQLite run also passes coordinated app/database recovery: restored assets
+match, old access/refresh/code credentials are rejected, explicit reconnection
+works and the service remains closed. This disposable rehearsal does not qualify
+the eventual host's backup procedure.
+
+### Interpreter coverage and final boundaries
+
+Full syntax and PHP suites pass on PHP 8.2.29, 8.3.35 and 8.5.11, each with
+8,424 tests / 71,499 assertions, against the unchanged production candidate
+`697e249`. The PHP 8.2 container is used only as a CLI interpreter; it is not a
+Nextcloud 29 support claim. The two subsequent fixture-runtime regressions also
+pass separately on all three interpreters (2 tests / 6 assertions each). PHP
+8.4.27, browsers, analysis and packaging are covered by the full catalog gate
+above. Later commits alter only fixtures and documentation, so these
+results must not be presented as a second complete catalog run at the final HEAD.
+
+REUSE 6.2.0 passes for all 1,648 files after the fixture regressions are added.
+The later two-path fixture correction preserves their license headers. Source
+provenance and the original attribution remain intact; no suppression or broad
+snapshot refresh is introduced.
+
+F2's selected runtime and D06 follow-up are locally qualified. F3 identity,
+version, platform/host scope, corresponding-source/release controls and an
+upgrade from installed upstream 1.2.0 remain pending. Technical/security,
+accessibility, documentation-language and rendered German UI reviewers remain
+unassigned; all 96 operational translation drafts remain review-required.
+Public HTTPS, Inspector's public journey and encrypted-store isolation finding,
+and ChatGPT consent/tool/revocation acceptance remain open. No push, deployment,
+release or PR modification was performed; PR #14 remains a historical reference.
+
+Reproduce the unfiltered cell with Node 24.21 on PATH:
+
+```sh
+composer --working-dir=mcp test:integration -- 35 mariadb fresh
+```
+
+For focused cells, set `MCP_IT_PHPUNIT_ARGS` to the filter above and select the
+recorded Nextcloud/database/fresh tuple. Sanitized evidence remains local under
+`mcp/build/integration/<run>/mcp-it/artifacts`; raw logs and credentials must not be
+published. These are local runs, not newly executed GitHub Actions checks.
+
+### Documentation closure and final review
+
+The independent whole-change review found no material correctness, security or
+compatibility issue. Its minor conditional tool-count correction is applied:
+79 module tools / 81 total without native dependencies. The guide now explicitly
+identifies Guest callers, without inventing a ban on local Guest recipients.
+The scoped wording re-review found no new actionable issue. Agent review does
+not replace the pending accountable human reviews.
+
+After those corrections, `docs:check`, `docs:translations`, `test:docs` and
+`package` each exited 0 in a fail-fast sequence. The checks cover 150 Markdown
+files, 110 packaged sources and 29 passing documentation tests; 96 translation
+drafts remain review-required. The final production archive SHA256 is
+`1c8aa384419542d5f552738fc92b82f4109236c472de6c0aaf99430d603e7a1a`.
+The development report and follow-up plan are excluded from the archive; recording
+this closure does not change its packaged inputs. A final documentation/diff check
+follows this record before the local evidence commit. No runtime code changed
+after the qualified candidate, and no push or deployment was performed.

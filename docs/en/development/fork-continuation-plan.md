@@ -7,7 +7,7 @@ Status: F0, F1 and the selected F2 integration completed locally on 2026-10-23.
 The [execution record](upstream-1.2.0-integration.md) records the ordered batches,
 corrections, automated qualification and acceptance limits. The renewed review adds
 D06 native file linking under its [follow-up plan](deck-file-link-integration.md);
-local implementation is complete and native qualification is in progress.
+implementation and local native qualification are complete.
 The user approved the development baseline, branch policy and ongoing
 maintenance accountability
 recorded below. The separate request to remove the local original
@@ -345,7 +345,7 @@ security monitoring is recorded.
 | --- | --- | --- |
 | Fork identity and first version | Independent display identity; propose 2.0.0 | Owner approval before metadata changes |
 | Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; platform scope and reviewers remain pending | Resolve platform scope before F3 and accountable release review before deployment |
-| Upstream 1.2.0 | Initial F2 selected ports qualified; D06 follow-up locally implemented with native qualification in progress; installed-upstream-1.2.0 upgrade and F3 release decisions pending | Do not equate source integration with release or host qualification |
+| Upstream 1.2.0 | Initial F2 selected ports qualified; D06 follow-up locally qualified with separate evidence; installed-upstream-1.2.0 upgrade and F3 release decisions pending | Do not equate source integration with release or host qualification |
 | Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |
