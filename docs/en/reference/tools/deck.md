@@ -87,8 +87,15 @@ a duplicate addition or missing removal is a no-op.
 
 Traversal is bounded to 100 readable nodes including the root, 500 readable edges
 and shortest-path depth 20. Exceeding a bound refuses the result instead of
-returning an incomplete graph. Unreadable cards disclose no IDs, counts, handles
-or hidden-limit indicator. Self-relations and cycles detectable through readable
+returning an incomplete graph. The same readable node/edge limits apply to the
+complete origin adjacency snapshot required for additions, removals and result
+verification; oversized origins must be changed through Deck's native interface.
+A new relation must also fit these bounds before its plan or write is approved.
+Target authorization and entity lookups stop at the first readable overflow.
+Deck still materializes each native adjacency before filtering, and filtering
+unreadable relations can require additional lookups; these limits do not cap
+total work or memory. Unreadable cards consume no readable budget and disclose
+no IDs, counts, handles or hidden-limit indicator. Self-relations and cycles detectable through readable
 cards are refused; hidden cycles and a concurrent change between the last check
 and native write cannot be excluded. This is no global acyclicity guarantee.
 

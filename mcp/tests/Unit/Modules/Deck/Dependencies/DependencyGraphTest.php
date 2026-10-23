@@ -32,13 +32,17 @@ final class DependencyGraphTest extends TestCase {
 	 */
 	private function gateway(array $adjacency, string $interface = DependencyNodeSource::class): DependencyNodeSource {
 		$gateway = $this->createMock($interface);
-		$gateway->method('dependencyNode')->willReturnCallback(static function (string $uid, int $id) use ($adjacency): array {
+		$gateway->method('dependencyNode')->willReturnCallback(static function (string $uid, int $id, ?array &$view, ?\Closure $acceptTarget) use ($adjacency): array {
 			if (!array_key_exists($id, $adjacency)) {
 				throw new \RuntimeException('read failed');
 			}
+			$targets = array_map(static fn (int $target): array =>
+				['card' => new Card(['id' => $target]), 'boardId' => 20], $adjacency[$id]);
+			foreach ($targets as $target) {
+				$acceptTarget($target);
+			}
 			return ['card' => new Card(['id' => $id, 'title' => 'Card ' . $id, 'dependentCards' => [999]]),
-				'boardId' => 20, 'targets' => array_map(static fn (int $target): array =>
-					['card' => new Card(['id' => $target]), 'boardId' => 20], $adjacency[$id])];
+				'boardId' => 20, 'targets' => $targets];
 		});
 		return $gateway;
 	}

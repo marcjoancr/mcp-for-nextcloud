@@ -38,11 +38,12 @@ final class CardReferenceFilter {
 	 * @param array|null $view Parent listings memoized inside one public call.
 	 * @param bool $strict True for graph reads: uncertain DB/DI failures abort instead of claiming completeness.
 	 * @param array|null $targets Receives fresh readable target cards and board IDs; never raw hidden IDs.
+	 * @param \Closure(array{card: Card, boardId: int}): void|null $acceptTarget Optional readable graph budget check before resolving another target.
 	 * @return Card Card with only readable native references, without poisoning a cached native entity.
 	 * @throws \Throwable In strict mode for an uncertain lookup.
 	 */
 	public function filter(string $userId, Card $card, ?array &$view = null,
-		bool $strict = false, ?array &$targets = null): Card {
+		bool $strict = false, ?array &$targets = null, ?\Closure $acceptTarget = null): Card {
 		if (!property_exists($card, 'dependentCards')) {
 			return $card;
 		}
@@ -56,6 +57,9 @@ final class CardReferenceFilter {
 			try {
 				$target = $this->target($userId, (int)$id, $view);
 				if ($target !== null) {
+					if ($acceptTarget !== null) {
+						$acceptTarget($target);
+					}
 					$readable[] = (int)$id;
 					if ($targets !== null) {
 						$targets[] = $target;
