@@ -28,7 +28,7 @@ existing migration IDs remain unchanged pending F3.
 | Baseline | Existing fork runtime | Passed | 7,691 PHP tests, 65,394 assertions on PHP 8.4.27 |
 | A | Existing privacy, resource-safety and compatibility fixes | Complete | 7,752 PHP tests / 66,518 assertions; focused native 4 / 60; browser 6; architecture, analyses and attribution pass |
 | B | Notes partial edits and Deck deadlines | Complete | 7,810 PHP tests / 66,899 assertions; native 16 / 429; architecture, analyses and review pass |
-| C | Selected Deck labels, files and dependencies | Pending | Not run |
+| C | Selected Deck labels, files and dependencies | Complete | 8,002 PHP tests / 68,714 assertions; four native diagnostics, 17 tests each; analyses and review pass |
 | D | Complete optional filename policy and administration | Pending | Not run |
 | E | Documentation, metadata and final qualification | Pending | Not run |
 
@@ -138,6 +138,83 @@ The preceding failed diagnostics are
 Neither is counted as passing. Existing Notes plan/result captures remain intact;
 contract edits are limited to selected schemas, descriptions and guides. Batch C
 capabilities were not enabled by this batch.
+
+## Batch C evidence
+
+Implemented D03-D05 in `Modules/Deck/Labels`, `Files` and `Dependencies`, with
+seven thin tool adapters and explicit composition. The original thirteen Deck
+tools remain. Subject to normal grants and app availability, seventeen tools are
+available without dependency support and twenty with a verified native API.
+Dependency discovery stays lazy; preview and execution recheck availability.
+NC34 admits Deck >=1.18.5 and <1.19.0; NC35 admits >=1.19.0 and <1.20.0,
+together with the required native members. Only the pinned versions below were
+qualified; no claim covers every patch in those admission ranges.
+
+Label edits remain incremental and board-local. File operations require current
+Files read access and every alias to satisfy scope, exclusions, Guests and native
+READ checks. Unlink removes only the association and verifies that association
+directly after writing; loss of file visibility alone cannot establish success.
+Plans explain the possible loss of the association's access/mount and the absence
+of automatic recovery. Uncertain results disclose no obsolete file metadata and
+do not encourage a blind retry. D06 linking and recipient expansion remain absent.
+
+Dependency traversal is bounded to 100 readable nodes, 500 edges and depth 20;
+mutations require origin EDIT and target READ, reject detectable cycles and
+revalidate confirmations. Hidden or concurrently changing relations prevent any
+claim of a globally acyclic graph. Native file/label/dependency adapters remain
+separate from tools and presentation, with no compatibility facades.
+
+| Gate | Result |
+| --- | --- |
+| Complete PHP suite before the narrow parser/comment cleanup | 8,002 tests / 68,714 assertions; PHP 8.4.27 |
+| Architecture | 42 tests / 16,300 assertions |
+| Localization | 5 tests / 5,624 assertions |
+| PHP lint | 1,232 files |
+| Both fixed static-analysis scopes | Passed, without new suppressions |
+| API/parser after cleanup | 2,374 tests / 4,852 assertions |
+| Cleanup syntax and whitespace | Five changed files pass syntax; tracked and all fifty new files checked for whitespace |
+| Independent review | No actionable findings remain after scoped cleanup review; human review remains pending |
+
+The cleanup removed an unused Circles parser mapping outside the selected scope,
+corrected constructor PHPDoc and removed whitespace-only lines. Comparing PHP
+tokens confirmed that production instructions were unchanged. New host declarations
+retain official source signatures and digests. Compatibility captures add only the
+four unconditional tools and the corresponding Deck guide fields; the three gated
+tools have separate contracts. Existing tool objects, identity and frozen result
+captures were preserved. Earlier failing/stalled capture comparisons are not
+counted as passing runs.
+
+### Native capability diagnostics
+
+All four cells ran the following filter with seventeen tests and no PHPUnit skips:
+`McpDeckLabelsTest|McpDeckCardFilesTest|McpDeckDependenciesTest|McpDeckDependencyWritesTest|GuestDeckParityTest`.
+NC32/33 assert that dependency tools are absent and direct calls are refused;
+NC34/35 exercise the native graph and write paths. These tests also cover labels,
+file association visibility/unlinking and Guests parity across Basic, Bearer and
+native WebDAV alias access. They are filtered diagnostics, not complete matrix
+cells. Each run tested the working tree based on `c3b6c99` with batch C changes.
+
+| Cell | Deck | Assertions | Run |
+| --- | --- | --- | --- |
+| NC32 / MariaDB / fresh | 1.16.8 | 513 | `mcp-it-20261023104653-b86c7c856abb` |
+| NC33 / MariaDB / fresh | 1.17.7 | 513 | `mcp-it-20261023104920-53b9e2620428` |
+| NC34 / MariaDB / fresh | 1.18.5 | 586 | `mcp-it-20261023104653-b4bdf4ee8d1d` |
+| NC35 / MariaDB / fresh | 1.19.0 | 586 | `mcp-it-20261023104943-1f14fdd709be` |
+
+Production archive SHA256 values, in the same order:
+
+- NC32: `30b662b3ba427f183aa31a3d557bcb48a937a3288aefb75518530de6122eaf08`.
+- NC33: `22db4a89e92a5a97e075ca5ebbfbc78fc9bf2529158ad15454938c851bc57003`.
+- NC34: `8fb98f7a5c8106c06a46d166e72345d9e63591d5fdcd25c0a31e917adf98c73a`.
+- NC35: `94056bf29b5b2517bd1f319546c9cfb0c6278d3f1a6431bfd78871c74d785e28`.
+
+Each native invocation and collected `result.json` recorded exit 0; independent
+JUnit checks confirmed no errors, failures or skips, and exact run-label checks
+found no remaining containers or networks. The outer process coordinating
+NC34/35 nevertheless reported exit 143 after both child results had been fully
+recorded. Its cause is unconfirmed: the wrapper itself is not reported as passing.
+The per-cell evidence and cleanup were verified independently. Later qualification
+uses individual cell invocations to keep orchestration status separate.
 
 ## Remaining acceptance
 

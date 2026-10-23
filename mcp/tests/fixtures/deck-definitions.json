@@ -479,6 +479,165 @@
             "module": "deck",
             "operation": "delete",
             "app": "deck"
+        },
+        {
+            "name": "deck_list_labels",
+            "description": "Lists the labels available on a readable Deck board, with their IDs, titles and colours. Available on Nextcloud 32 through 35 when Deck is enabled.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "boardId": {
+                        "type": "integer",
+                        "description": "Board ID."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Page size.",
+                        "minimum": 1,
+                        "maximum": 200,
+                        "default": 50
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "description": "Offset.",
+                        "minimum": 0
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "boardId"
+                ]
+            },
+            "module": "deck",
+            "operation": "read",
+            "app": "deck"
+        },
+        {
+            "name": "deck_edit_card_labels",
+            "description": "Adds or removes only the requested label IDs on a Deck card; preserves all other labels. Use deck_list_labels for that board. Preview first and repeat plan_state with confirm: true. At most 100 IDs per list; duplicates and already satisfied requests are unchanged; an ID cannot occur in both lists. A foreign-board label is refused. Read partial results before any further action. Available on Nextcloud 32 through 35.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "cardId": {
+                        "type": "integer",
+                        "description": "Card ID."
+                    },
+                    "add": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "maxItems": 100
+                    },
+                    "remove": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "maxItems": 100
+                    },
+                    "confirm_shared": {
+                        "type": "boolean",
+                        "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "cardId"
+                ]
+            },
+            "module": "deck",
+            "operation": "edit",
+            "app": "deck"
+        },
+        {
+            "name": "deck_list_card_files",
+            "description": "Lists only visible existing native file associations of a readable Deck card. Requires deck.read and files.read, Files resource scope, exclusion tags and native node READ. No legacy deck_file or folders, no upload, no hidden count/handle; IDs are association/share IDs distinct from fileId. All visible items ordered by attachmentId; native Card attachmentCount stays omitted. Available on Nextcloud 32 through 35. An association you cannot see is omitted and answered like a missing one. Open the card in Deck without treating that answer as proof that a hidden association exists.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "cardId": {
+                        "type": "integer",
+                        "description": "Card ID."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "cardId"
+                ]
+            },
+            "module": "deck",
+            "operation": "read",
+            "app": "deck"
+        },
+        {
+            "name": "deck_unlink_card_file",
+            "description": "Unlinks one visible native file association, preserving the original file and other shares. Requires deck.edit and files.read, active editable source and Files scope/tags/node READ; no files.share grant is needed. Revokes this type-12 share for all current/future card members, including a share created by someone else; independent shares may retain access. Preview first, repeat plan_state and the exact file_state receipt with confirm:true. file_state is accepted only on confirm; invalid/replayed/stale receipt, hidden and nonexistent association share one refusal. A confirmed absent association is a no-op only with valid original HMAC and the original file still visible. Never unlinks invisible files, legacy deck_file or folders. Available on Nextcloud 32 through 35. An editor of the card can unlink a visible association created by someone else. A folder you can already see, and an archived card or board, are refused in plain language.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "cardId": {
+                        "type": "integer",
+                        "description": "Card ID."
+                    },
+                    "attachmentId": {
+                        "type": "integer",
+                        "description": "Bare native type-12 Deck file share ID returned as attachmentId by deck_list_card_files, not fileId. Legacy deck_file and folders are unsupported."
+                    },
+                    "file_state": {
+                        "type": "object",
+                        "properties": {
+                            "fileId": {
+                                "type": "integer",
+                                "description": "Original Files node ID from the plan receipt."
+                            },
+                            "createdBy": {
+                                "type": "string",
+                                "description": "Native share initiator from the plan receipt.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "createdAt": {
+                                "type": "integer",
+                                "description": "Native share creation timestamp from the plan receipt.",
+                                "minimum": 0
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "fileId",
+                            "createdBy",
+                            "createdAt"
+                        ]
+                    },
+                    "confirm_shared": {
+                        "type": "boolean",
+                        "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "cardId",
+                    "attachmentId"
+                ]
+            },
+            "module": "deck",
+            "operation": "edit",
+            "app": "deck"
         }
     ],
     "guide": [
@@ -490,6 +649,7 @@
         "duedate accepts YYYY-MM-DD (local midnight), YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z/±HH:MM. Nonexistent local times are refused; repeated local times use the first occurrence. Output duedate remains the local date and dueAt gives the instant with the account offset, without a timezone field. overdue is based on the local day, not the time; dueBefore accepts only YYYY-MM-DD.",
         "Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.",
         "A card description is capped at 100000 characters and a title at 255.",
-        "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end."
+        "deck_move_card can reorder a card within its current list or move it to another list, including one on another board. Set stackId to the destination list; without order, the card goes to the end.",
+        "Use deck_list_labels before incremental add/remove label edits; repeat plan_state after approval. Unlinking a visible native file association can remove another editor’s association and the access/mount it provides, including your last mount. The file itself remains; recovery may require the native Deck UI."
     ]
 }

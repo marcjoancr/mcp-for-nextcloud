@@ -81,6 +81,11 @@ final class DeckFormatter {
      * @param int|null $boardId Board the card belongs to, resolved once by the capability for listings.
      * @return array{id: int, stackId: int, boardId: int|null, title: string, description: string, type: string, owner: string, order: int, archived: bool, done: int|null, duedate: string|null, dueAt: string|null, lastModified: int, assignedUsers: list<array{uid: string, displayName: string}>, overdue: bool, url: string|null}
      */
+    public function reference(Card $card, int $boardId): array {
+        return ['id'=>(int)$card->getId(), 'boardId'=>$boardId, 'stackId'=>(int)$card->getStackId(), 'title'=>(string)$card->getTitle(),
+            'url'=>$this->urls->linkToRouteAbsolute(self::CARD_ROUTE, ['boardId'=>$boardId,'cardId'=>(int)$card->getId()])];
+    }
+
     public function card(Card $card, ?int $boardId = null): array {
         $boardId ??= $card->getRelatedBoard()?->getId();
         $assignedUsers = [];

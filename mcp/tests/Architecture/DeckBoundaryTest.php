@@ -11,6 +11,10 @@ use PHPUnit\Framework\TestCase;
 final class DeckBoundaryTest extends TestCase
 {
     private const SHARED = [
+        'OCA\Mcp\Access\Grants\GrantPolicy',
+        'OCA\Mcp\Access\ResourceScope\FilesAccessGuard',
+        'OCA\Mcp\Mcp\Confirmation\PlanState',
+        'OCA\Mcp\Mcp\Confirmation\PlanChanged',
         'OCA\Mcp\Access\Policy\PolicyUnavailable',
         'OCA\Mcp\Mcp\Tools\ToolModule',
         'OCA\Mcp\Mcp\Confirmation\PreviewsWrites',

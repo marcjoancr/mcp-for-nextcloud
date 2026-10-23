@@ -229,7 +229,7 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $module = $get(\OCA\Mcp\Modules\Deck\DeckModule::class);
-        self::assertCount(13, $module->definitions());
+        self::assertCount(17, $module->definitions());
         foreach (\OCA\Mcp\Modules\Deck\DeckToolCatalog::classes() as $tool) {
             self::assertInstanceOf($tool, $get($tool));
         }

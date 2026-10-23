@@ -234,6 +234,10 @@ final class NextcloudApiContractTest extends TestCase {
         }
         $surface = self::surface($major, $class);
         $this->assertNotNull($surface, "$class does not exist in Nextcloud $major");
+        if (self::gated($call, $major)) {
+            $this->assertFalse(self::serves($surface, $method), "$call is unexpectedly available in Nextcloud $major");
+            return;
+        }
         $this->assertTrue(self::serves($surface, $method), "$call does not exist in Nextcloud $major");
         if (!isset($surface['methods'][$method])) {
             // An Entity getter takes no argument; there is no signature to compare.

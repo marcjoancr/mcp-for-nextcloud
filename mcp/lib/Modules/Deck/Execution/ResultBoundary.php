@@ -36,6 +36,8 @@ class ResultBoundary {
     ): array {
         try {
             return DeckResult::ok($operation());
+        } catch (\OCA\Mcp\Mcp\Confirmation\PlanChanged $e) {
+            throw $e;
         } catch (InvalidArgumentException $e) {
             throw $e;
         } catch (DeckUnconfirmedException $e) {

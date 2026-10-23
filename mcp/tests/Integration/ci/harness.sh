@@ -275,7 +275,7 @@ cmd_fixtures() {
         *"- password_policy:"*) occ app:disable password_policy ;;
     esac
     password=$(openssl rand -hex 24)
-    for uid in mcp-it-alice mcp-it-bob mcp-it-legacy mcp-it-deck-owner mcp-it-deck-editor; do
+    for uid in mcp-it-alice mcp-it-bob mcp-it-legacy mcp-it-deck-owner mcp-it-deck-editor mcp-it-deck-reader mcp-it-deck-outsider; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
     if [ "$MCP_IT_MODE" = upgrade ] || [ "$MCP_IT_MODE" = upgrade-local ]; then

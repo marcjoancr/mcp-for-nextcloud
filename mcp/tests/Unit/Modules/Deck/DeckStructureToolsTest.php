@@ -117,7 +117,7 @@ final class DeckStructureToolsTest extends TestCase {
         $names = array_column($this->moduleWith($this->deckDoubles())->definitions(), 'name');
         self::assertSame(
             ['deck_create_board', 'deck_create_stack', 'deck_delete_stack', 'deck_delete_board'],
-            array_slice($names, 9),
+            array_slice($names, 9, 4),
         );
     }
 

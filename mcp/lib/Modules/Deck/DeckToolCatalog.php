@@ -42,6 +42,13 @@ final class DeckToolCatalog {
             CreateStack::class,
             DeleteStack::class,
             DeleteBoard::class,
+            \OCA\Mcp\Modules\Deck\Tools\ListLabels::class,
+            \OCA\Mcp\Modules\Deck\Tools\EditCardLabels::class,
+            \OCA\Mcp\Modules\Deck\Tools\ListCardFiles::class,
+            \OCA\Mcp\Modules\Deck\Tools\UnlinkCardFile::class,
+            \OCA\Mcp\Modules\Deck\Tools\ReadCardDependencies::class,
+            \OCA\Mcp\Modules\Deck\Tools\AddCardDependency::class,
+            \OCA\Mcp\Modules\Deck\Tools\RemoveCardDependency::class,
         ];
     }
 

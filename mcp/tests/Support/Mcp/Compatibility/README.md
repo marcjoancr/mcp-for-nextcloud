@@ -49,3 +49,13 @@ properties/descriptions and Notes/Deck guide notes, plus the Deck deadline input
 description. These explicit fields were patched in place; existing plan, result
 and protocol fixtures were not regenerated. The new partial-write and timed
 deadline behaviors have focused regression and native persistence tests.
+
+Batch C adds only the four unconditional label/file tools to the reviewed Deck
+catalog captures, updates the Deck-only guide count/line and appends its new
+behavior note. The protocol capture changes only the same additive tools in
+`tools/list` arrays; every existing tool object, server identity and other
+protocol field was compared unchanged. `results.json` remains byte-for-byte
+unchanged. Dependency discovery has separate supported/unsupported capability
+tests; the metadata-only capture has no verified native capability and therefore
+keeps those three tools unavailable. Existing factory/catalog equality still
+covers all twenty declared classes.

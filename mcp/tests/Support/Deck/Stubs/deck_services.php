@@ -190,6 +190,12 @@ namespace OCA\Deck\Service {
 
 	/** Card service double; signatures mirror Deck `v1.17.5` `lib/Service/CardService.php`. */
 	class CardService {
+		public function assignDependentCard(int $cardId, int $dependentCardId): Card { throw new \LogicException('Stub'); }
+		public function removeDependentCard(int $cardId, int $dependentCardId): Card { throw new \LogicException('Stub'); }
+
+		public function assignLabel(int $cardId, int $labelId): Card { throw new \LogicException('Stub'); }
+		public function removeLabel(int $cardId, int $labelId): Card { throw new \LogicException('Stub'); }
+
 		/**
 		 * @param int $cardId Card to read.
 		 * @return Card Enriched card.
@@ -297,4 +303,17 @@ namespace OCA\Deck\Service {
 			throw new \LogicException('Stub: expected a PHPUnit mock.');
 		}
 	}
+}
+
+namespace OCA\Deck\Service {
+class AttachmentService {
+    public function delete(int $cardId, int $attachmentId, string $type = 'deck_file'): \OCA\Deck\Db\Attachment { throw new \RuntimeException('stub'); }
+}
+}
+namespace OCA\Deck\Sharing {
+class DeckShareProvider {
+    public function getSharedWithByType(int $cardId, int $shareType, $limit, $offset): array { throw new \RuntimeException('stub'); }
+    public function getShareById($id, $recipientId = null): \OCP\Share\IShare { throw new \RuntimeException('stub'); }
+    public function getSharesByPath(\OCP\Files\Node $path): array { throw new \RuntimeException('stub'); }
+}
 }

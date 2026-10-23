@@ -58,6 +58,16 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Deck\\Db\\LabelMapper::findAll' => ['boardId', 'limit', 'offset'],
+        'OCA\\Deck\\Service\\CardService::assignLabel' => ['cardId', 'labelId'],
+        'OCA\\Deck\\Service\\CardService::removeLabel' => ['cardId', 'labelId'],
+        'OCA\\Deck\\Service\\CardService::assignDependentCard' => ['cardId', 'dependentCardId'],
+        'OCA\\Deck\\Service\\CardService::removeDependentCard' => ['cardId', 'dependentCardId'],
+        'OCA\\Deck\\Db\\CardMapper::findDependenciesForCards' => ['cardIds'],
+        'OCA\\Deck\\Service\\AttachmentService::delete' => ['cardId', 'attachmentId', 'type'],
+        'OCA\\Deck\\Sharing\\DeckShareProvider::getSharedWithByType' => ['cardId', 'shareType', 'limit', 'offset'],
+        'OCA\\Deck\\Sharing\\DeckShareProvider::getShareById' => ['id'],
+        'OCA\\Deck\\Sharing\\DeckShareProvider::getSharesByPath' => ['path'],
         // Talk, held untyped by OCA\Mcp\Modules\Talk.
         'OCA\\Talk\\Manager::getRoomForUserByToken' => ['token', 'userId'],
         'OCA\\Talk\\Manager::getRoomsForUser' => ['userId'],
@@ -141,6 +151,7 @@ final class NextcloudApiUsage {
      * @var array<string, array<string, string>> "Class::method" => parameter => why its default is right
      */
     public const REVIEWED_TRAILING = [
+        'OCA\\Deck\\Sharing\\DeckShareProvider::getShareById' => ['recipientId' => 'Optional native recipient filter remains null; exact type/card binding is checked separately.'],
         'OCA\\Talk\\Manager::getRoomForUserByToken' => [
             'sessionId' => 'null: the module reads no session, it never joins the room',
             'includeLastMessage' => 'false: the last message is not part of what the module answers',
@@ -272,6 +283,32 @@ final class NextcloudApiUsage {
      * @var array<string, array{missing: list<string>, fallback: string, by: string, elsewhere?: array<string, string>}>
      */
     public const VERSION_GATED = [
+        'OCA\\Deck\\Db\\CardMapper::findDependenciesForCards' => [
+            'missing' => ['31', '32', '33'],
+            'fallback' => 'OCA\\Deck\\Db\\Card::getId',
+            'by' => \OCA\Mcp\Modules\Deck\Dependencies\NativeDependencies::class,
+        ],
+        'OCA\\Deck\\Service\\CardService::assignDependentCard' => [
+            'missing' => ['31', '32', '33'],
+            'fallback' => 'OCA\\Deck\\Db\\Card::getId',
+            'by' => \OCA\Mcp\Modules\Deck\Dependencies\NativeDependencies::class,
+        ],
+        'OCA\\Deck\\Service\\CardService::removeDependentCard' => [
+            'missing' => ['31', '32', '33'],
+            'fallback' => 'OCA\\Deck\\Db\\Card::getId',
+            'by' => \OCA\Mcp\Modules\Deck\Dependencies\NativeDependencies::class,
+        ],
+        'OCA\\Deck\\Db\\Card::getDependentCards' => [
+            'missing' => ['31', '32', '33'],
+            'fallback' => 'OCA\\Deck\\Db\\Card::getId',
+            'by' => \OCA\Mcp\Modules\Deck\Reading\CardReferenceFilter::class,
+        ],
+        'OCA\\Deck\\Db\\Card::setDependentCards' => [
+            'missing' => ['31', '32', '33'],
+            'fallback' => 'OCA\\Deck\\Db\\Card::getId',
+            'by' => \OCA\Mcp\Modules\Deck\Reading\CardReferenceFilter::class,
+        ],
+
         'OCA\\DAV\\CalDAV\\EmbeddedCalDavServer' => [
             'missing' => ['31'],
             'fallback' => 'OCA\\DAV\\CalDAV\\InvitationResponse\\InvitationResponseServer',
@@ -298,7 +335,7 @@ final class NextcloudApiUsage {
             'missing' => ['31', '32', '33'],
             'fallback' => 'OCA\\Deck\\Service\\CardService::update',
             'by' => \OCA\Mcp\Modules\Deck\Cards\CardUpdateArguments::class,
-            'elsewhere' => ['Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor'],
+            'elsewhere' => ['Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor', 'Modules/Deck/Labels/LabelListing.php' => 'OCA\\Deck\\Db\\Label::getColor', 'Modules/Deck/Labels/NativeLabels.php' => 'OCA\\Deck\\Db\\Label::getColor'],
         ],
         // Up to Talk 23 Room::getLobbyState() opens a lobby whose timer has passed by itself.
         'OCA\\Talk\\Service\\RoomService::validateLobbyTimer' => [
