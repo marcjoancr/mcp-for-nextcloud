@@ -10,13 +10,13 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 | Task | Reference |
 | --- | --- |
 | Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md) |
-| Track F3 identity and release preparation | [F3 execution record](fork-f3-preparation.md) |
+| Track F3 identity and release preparation | [F3 execution record](fork-f3-preparation.md), [source delivery and control evidence](fork-f3-delivery.md) |
 | Evaluate upstream 1.2.0 changes | [Capability inventory and selection](upstream-1.2.0-inventory.md), [integration results](upstream-1.2.0-integration.md), [native file-link follow-up](deck-file-link-integration.md) |
 | Understand ownership and dependencies | [Architecture](architecture-specification.md) |
 | Add or change an MCP capability | [Adding a tool](adding-a-tool.md) |
 | Change administration or personal settings | [Administration JavaScript](admin-javascript.md) |
 | Understand analyzer scope and host doubles | [Static analysis](static-analysis.md) |
-| Build the installable artifact | [Packaging](packaging.md) |
+| Build the installable artifact and source kit | [Packaging](packaging.md), [source delivery and integrity](source-delivery.md) |
 | Edit guides or translations | [Documentation](documentation.md), [translations](translations.md) |
 | Change filename write enforcement | [Filename write policy sink inventory](file-write-policy-sinks.md) |
 | Change file visibility rules | [Exclusion and folder exposure contract](contracts/exclusion-and-folder-exposure.md) |

@@ -185,10 +185,12 @@ actual-host recovery and the final candidate's F4 matrix. Installed upstream
 remain pending. Translation drafts and the changed localized metadata/UI still
 require human review; English installation guidance governs this candidate.
 
-The next technical step is to choose and qualify the source-delivery/update-control
-mechanism against the final candidate. The owner still needs to supply actual
-Nextcloud/PHP/database/app versions and installation topology. No production
-inspection, infrastructure change, push, tag, PR action or deployment is included.
+The [local delivery follow-up](fork-f3-delivery.md) records the next execution:
+a source/runtime kit built from a committed revision, read-only integrity tooling
+and the concrete update-control candidate. Its narrower local results do not close target-host
+qualification. The owner still needs to supply actual Nextcloud/PHP/database/app
+versions and installation topology. No production inspection, infrastructure
+change, push, tag, PR action or deployment is included.
 
 
 ### Review before the local F3 commit

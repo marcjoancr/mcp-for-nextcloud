@@ -12,6 +12,7 @@ composer --working-dir=mcp docs:check
 composer --working-dir=mcp docs:translations
 composer --working-dir=mcp test:docs
 composer --working-dir=mcp test:clients:unit
+composer --working-dir=mcp test:release
 composer --working-dir=mcp assets:build
 composer --working-dir=mcp test:js
 composer --working-dir=mcp test
@@ -171,3 +172,11 @@ Package failure probes cover documentation validation, build, staging, archive
 inspection and extracted verification. The actual archive must match the explicit
 manifest and transformed source bytes, including legal files and assets. Follow
 [source packaging](packaging.md) for the complete distribution contract.
+
+## Source delivery verification
+
+`test:release` exercises committed-source isolation and trusted-manifest/installed
+file checks, including altered, missing, extra and symlink entries. It runs in
+`composer check` and the CI quality workflow, rejects empty discovery and does not
+start Nextcloud or publish artifacts. See [source delivery](source-delivery.md)
+for kit preparation, read-only verification and its separate deployment gates.
