@@ -164,7 +164,12 @@ switch ($action) {
         $registry = new \OCA\Mcp\Mcp\Tools\ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, Server::get(Psr\Log\LoggerInterface::class)));
         $tool = ($in['unlink'] ?? false) ? 'deck_unlink_card_file' : 'deck_list_card_files';
         try { $out = ['result' => $policy->within($uid, fn () => $registry->call($tool, $in['arguments'], $uid))]; }
-        catch (InvalidArgumentException) { $out = ['refused' => true]; }
+        catch (InvalidArgumentException $failure) { $out = ['refused' => true, 'refusalClass' => $failure::class]; }
+        if (($in['filesRead'] ?? true) === false) {
+            $out['tools'] = array_column($registry->list($uid), 'name');
+            // Independently bypass registry discovery: the module's own Files guard must still refuse.
+            $out['directResult'] = $policy->within($uid, fn () => $module->call($tool, $in['arguments'], $uid));
+        }
         break;
     case 'mcp-dependency':
         $module = (new \OCA\Mcp\AppInfo\Application())->getContainer()->get(\OCA\Mcp\Modules\Deck\DeckModule::class);
