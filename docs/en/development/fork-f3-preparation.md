@@ -5,8 +5,15 @@
 
 Status: partial local execution on 2026-10-23 from `5ff6672`. This record belongs
 to the [fork continuation plan](fork-continuation-plan.md). No release is published
-or deployed. The actual server facts and all human reviewer assignments remain
-pending. Earlier evidence certifies only the revisions stated in its records.
+or deployed. At this initial stage, server facts and human reviewer assignments
+were pending. The later [host inventory](fork-f3-delivery.md#intended-host-read-only-inventory)
+records partial facts supplied on 2026-10-24; reviewers remain pending. Earlier
+evidence certifies only the revisions stated in its records.
+
+This is the initial identity/preparation record. The later [source-offer delivery
+record](fork-f3-delivery.md#local-source-offer-implementation-and-acceptance)
+supersedes its source-access pending state: local non-admin acceptance and
+reconstruction have passed, with implementation committed as `f8fb2ab`.
 
 ## Owner decisions and candidate changes
 
@@ -86,9 +93,9 @@ alone excludes those build inputs and is not a complete source offer. Packaging
 also needs historical English source revisions for translation provenance; a
 plain source ZIP without Git history is not a sufficient clean-build input.
 
-The administrator footer retains visible Sintax attribution. There is currently
-no release-bound source download exposed to every MCP user through both normal
-personal settings and protocol discovery. A repository link to a moving branch
+The administrator footer retains visible Sintax attribution. At this initial
+preparation stage there was no release-bound source download exposed to every MCP
+user through both normal personal settings and protocol discovery. A repository link to a moving branch
 is not sufficient to close that gate. The final release must provide a usable,
 immutable corresponding-source destination, verify ordinary-user access locally,
 and verify the public destination only after authorized publication. No fabricated
@@ -177,9 +184,10 @@ inside `mcp/build/f3-preparation/source-rebuild/mcp/build/integration/`. Local
 the reconstruction and artifact checks. Raw parent logs and fixture credentials
 must not be published. These local paths are evidence retention, not public URLs.
 
-F3 is not closed. Remaining work includes source-offer delivery and ordinary-user
-acceptance, actual-host facts, update-control and integrity qualification,
-actual-host recovery and the final candidate's F4 matrix. Installed upstream
+At this initial preparation stage, remaining work included source-offer delivery
+and ordinary-user acceptance (subsequently demonstrated in the linked delivery
+record). F3 remains open for the remaining host-control facts, update-control and
+integrity qualification, actual-host recovery and the final candidate's F4 matrix. Installed upstream
 1.2.0 upgrade is still unverified. Public HTTPS, Inspector's previously recorded
 14/15 encrypted-storage result, ChatGPT's real journey and all human reviews
 remain pending. Translation drafts and the changed localized metadata/UI still

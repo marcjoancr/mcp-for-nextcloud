@@ -350,7 +350,7 @@ security monitoring is recorded.
 | Item | Recommendation or current status | Consequence |
 | --- | --- | --- |
 | Fork identity and first version | Owner confirmed Nextcloud MCP and 2.0.0; development metadata updated | Qualification remains pending; no published release |
-| Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; qualification profiles confirmed; actual-host facts and reviewers remain pending | Resolve host compatibility and accountable release review before deployment |
+| Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; reference qualification profiles confirmed; partial host facts recorded in the [delivery inventory](fork-f3-delivery.md#intended-host-read-only-inventory), with host controls and reviewers still pending | Resolve host compatibility and accountable release review before deployment |
 | Upstream 1.2.0 | Initial F2 selected ports qualified; D06 follow-up locally qualified with separate evidence; installed-upstream-1.2.0 upgrade and F3/F4 qualification pending | Do not equate source integration with release or host qualification |
 | Update exclusion and integrity handling | [Local content verifier and filtered-catalog candidate](fork-f3-delivery.md) prepared; target-host mechanism remains unqualified | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
@@ -430,10 +430,10 @@ The phase deadlines below remain in effect. F0 closure does not prematurely appr
 | --- | --- | --- |
 | Public display identity | **Nextcloud MCP**, selected by the user; retain technical identity and original attribution | Confirmed; implementation and qualification tracked in F3 |
 | Initial release version | Independent `2.0.0` approved; `fork-v2.0.0` remains the planned tag, not created | Confirmed; release qualification pending |
-| Intended host and support scope | Proposed NC 33–35 profiles approved; actual host versions and final qualification remain pending | User supplies host facts; assistant validates profiles / F3–F4 |
+| Intended host and support scope | NC 33–35 reference profiles approved; [initial host inventory](fork-f3-delivery.md#intended-host-read-only-inventory) identifies LinuxServer/Nginx, NC35.0.2/PHP CLI 8.5.12 and a PostgreSQL 16.15 binary in the apparent database container (active SQL-server version unverified). This differs from the approved Apache fixtures | Record the additional target-profile decision and qualify it; update/recovery facts and final acceptance remain pending / F3–F4 |
 | Supported clients | ChatGPT is the stated intended client; qualify its real journey before claiming support or deploying a path that depends on it | User defines release scope / before F3; acceptance before dependent deployment |
 | Reviewer assignments | Technical/security, accessibility, document languages and German UI remain unassigned; the user coordinates assignment or a documented scope decision | User coordinates; reviewers pending / record disposition before F4 release readiness; accountable security and release review before deployment |
-| Update exclusion, integrity and source-offer mechanism | Engineering investigation and an isolated reproducible test, within the approved identity/platform scope | Assistant prepares evidence / F3; no mechanism is asserted to work yet |
+| Update exclusion, integrity and source-offer mechanism | Local source offer and file-content verification implemented and tested; update exclusion and native host integrity remain unqualified. See the [delivery record](fork-f3-delivery.md) | Assistant prepares evidence / F3; local source acceptance does not qualify host update or recovery controls |
 
 The assistant can resolve Git object selection, source comparisons, inventory
 structure, focused test selection and implementation details within approved scope.

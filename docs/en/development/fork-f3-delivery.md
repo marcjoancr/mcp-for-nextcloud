@@ -3,12 +3,16 @@
 
 # F3: local delivery, update control and integrity
 
-Status: local source-offer implementation and acceptance on 2026-10-23; **F3 remains open**. This follows the
+Status: local source-offer acceptance on 2026-10-23 and partial host inventory on
+2026-10-24; **F3 remains open**. This follows the
 [F3 identity record](fork-f3-preparation.md) and
-[fork continuation plan](fork-continuation-plan.md). The owner authorized the reviewed local source-offer batch, including disposable
-native acceptance, but not publication or deployment to the intended server. No target
-server facts or human reviewer assignments have been supplied. PR #14 remains a
-historical reference; no upstream remote or PR action is introduced.
+[fork continuation plan](fork-continuation-plan.md). The owner authorized the
+reviewed local source-offer batch, including disposable native acceptance, and
+subsequent read-only host inspection. Publication and deployment remain
+unauthorized. See the [intended-host inventory](#intended-host-read-only-inventory)
+for observed facts and their limits. Human reviewers and the remaining host-control
+facts are still pending. PR #14 remains a historical reference; no upstream remote
+or PR action is introduced.
 
 ## Historical local source kit
 
@@ -191,7 +195,7 @@ release command; its YAML parses, but no remote workflow was triggered.
 | Publication suitability | Pending historical-content review, final notices/source review and trusted digest publication policy |
 | Update exclusion | Concrete filtered-catalog/manual-artifact candidate above; pending owner acceptance of service operation and host-specific qualification |
 | Native/custom-app integrity | Local content verifier passes; native UI/signature behavior, permissions and trusted digest custody still pending |
-| Server facts | Owner must provide Nextcloud/PHP/database/app versions, installation method, app paths/mounts, updater jobs, subscription and backup/storage topology; no secrets requested |
+| Server facts | Versions, container method, app persistence and S3 driver observed on 2026-10-24 (inventory below). Complete update-writer, subscription and backup/recovery facts remain pending; no secrets requested |
 | Recovery and platform matrix | Earlier two native cells retained as historical evidence; final maintained-patch 14-cell matrix and intended-host recovery remain pending; installed upstream 1.2.0 upgrade unverified |
 | Client exposure | Public HTTPS and ChatGPT's real journey pending; Inspector's recorded encrypted-storage result remains 14/15 |
 | Human review | Security, operations/recovery, license/attribution, accessibility and languages remain unassigned/pending; 96 translation drafts are not approved |
@@ -511,3 +515,208 @@ update/integrity/recovery qualification, the final platform matrix and installed
 upstream upgrade, source-history/publication review, trusted public delivery,
 HTTPS, Inspector **14/15**, ChatGPT and the human reviewers remain pending. No
 push, PR action, public exposure or intended-server deployment is included.
+
+## Remaining local work after the source-offer commit
+
+Assessment on **2026-10-24**, from clean local `fork/main` at
+`f8fb2abd1140186c53f27d55fd9ae197b7da5fa2`. This is a review of the existing F3
+criteria, not authorization to publish, deploy or introduce an update-catalog
+service. **F3 remains open.** This assessment preceded the owner's host access
+details; the [later inventory](#intended-host-read-only-inventory) supplies part
+of the previously missing facts without changing the source-audit scope.
+
+Fresh read-only verification confirms that the retained `ae8ea636` kit still
+matches its separately recorded digest and all 938 reconstructed installed files.
+Both retained native acceptance records report 124 checks, a non-admin user and
+exit 0. No native instance was started in this assessment, and the complete suite
+was not rerun. Those records still describe the earlier frozen candidate; the
+new `f8fb2ab` commit includes the reviewed runner and documentation but has no
+newly generated kit from this assessment. Do not transfer the old manifest digest
+or release qualification to it.
+
+### What can be completed without server facts
+
+| Work | Current state | Independent local completion or limit |
+| --- | --- | --- |
+| Identity and version implementation | Nextcloud MCP / 2.0.0 committed; technical app identity preserved | Done for development; this is not a published release |
+| Local ordinary-user source offer | Implemented; actual personal-settings/MCP retrieval and reconstruction pass for the frozen candidate | The local behavior criterion is demonstrated. A later release still needs its own revision-bound kit and affected qualification |
+| Technical source/dependency/notice completeness | Rebuild, vendor equality and REUSE evidence exist; publication inventory and historical-content findings are not consolidated | Can audit now; report concrete coverage and gaps, without claiming human license/security approval |
+| Source kit containing the reviewed implementation and runner | Latest reviewed implementation is `f8fb2ab`; retained positive kit is the verification-only `ae8ea636` snapshot | Can generate and validate one new local kit from an explicitly selected full reviewed commit after the audit; not a final F4 freeze |
+| Documentation translation coverage | New source-delivery configuration section is English-only; 96 existing drafts need review | Can prepare equivalent drafts with real English provenance; human language approval stays pending |
+| Generic update, native integrity and recovery checks | Candidate update-control design exists; no accepted host-specific mechanism | Representative isolated tests can be designed independently, but a new catalog service needs separate design/operational acceptance. These tests cannot close intended-host gates |
+| Final platform matrix and installed-upstream-1.2.0 upgrade | Not complete for the final artifact | Reference-profile work can proceed in the separate F4 batch after reviewing maintenance pins. The later host inventory supplies the reported installed version; exact installed source/migrations and target-profile qualification are still needed |
+| Public source retrieval and digest custody | Proposed destination only; no release published | F5 authorization and verification required; local file hashes do not establish trusted public publication |
+| Human approval | Reviewers unassigned/pending | Automated checks cannot assign reviewers or approve security, licensing, accessibility or translations |
+
+### Recommended next step: technical source-distribution audit
+
+Prioritize the existing F3 source-completeness audit, then bind its evidence to a
+reviewed branch commit. This addresses the remaining local distribution work
+without assuming a server topology. Preparing the final platform matrix now would
+not settle source-publication suitability; implementing a filtered catalog now
+would introduce an operational service the owner has not accepted. Translation
+drafts remain useful independent work, but do not replace this source audit.
+
+The next execution batch should:
+
+1. Select and record the full reviewed source revision. `f8fb2ab` is the current
+   implementation baseline, not an instruction to use a mutable branch name or
+   to label it as the final release. If the audit requires corrections, resolve
+   and review those first, then select the corresponding committed revision.
+2. Inventory preferred application sources, JavaScript/build inputs, dependency
+   locks, required reconstruction history, runtime dependency source/licenses,
+   notices and visible original attribution. Compare the actual package and kit
+   with that inventory; distinguish shipped runtime dependencies from build/test
+   tooling. Record unavailable source/version facts as gaps rather than filling
+   them with guesses. REUSE passing alone does not prove this completeness.
+3. Audit the exact history reachable from that revision for unintended private
+   content, credentials, host details and material unsuitable for distribution.
+   Record tooling/version, scope, exclusions and findings; select any scanning
+   tool before running it rather than assuming one is installed. Keep raw findings
+   private and publish only sanitized evidence. A clean scan is not human
+   clearance; a confirmed disclosure blocks publication. Do not rewrite history
+   or remove original attribution as an automatic remedy.
+4. Prepare the complete five-file kit once the selected inputs are ready. Record
+   its manifest digest separately; verify it with the trusted local verifier,
+   run `test:source` with a non-admin fixture, then clone the actually downloaded
+   bundle and reconstruct the app at the same detached revision. Compare the
+   complete installed inventory and dependency sources, without normalizing
+   differences. Record the new source SHA and hashes separately from `ae8ea636`.
+5. Consolidate the inventory, sanitized findings, native retrieval, reconstruction
+   and cleanup evidence in this delivery record. Reuse existing commands; do not
+   add an application download endpoint, public ingress or unrelated tooling.
+   Run affected checks if corrections are needed, keeping failed/blocked checks
+   explicit. Preserve the local-to-proposed-public mapping and all F3/F4/F5 gates.
+
+Acceptance for that batch: an explicit committed input; an accounted-for source,
+dependency and notice inventory; documented historical-audit coverage and unresolved
+findings; matching package/source identity; complete verified non-admin download;
+exact reconstruction and dependency-source correspondence; no remaining owned
+fixture resources; and no claim of public availability or human sign-off. If a
+required input or check is unavailable, record the limitation instead of closing
+that part of acceptance. Requalify the final release after any later source change.
+
+### What still needs the owner, infrastructure or reviewers
+
+The later host inventory supplies the reported Nextcloud/PHP/app versions,
+container method, app persistence and S3 driver. Remaining facts include the
+active database connection/server version, complete update writers/jobs,
+subscription and backup/storage topology. These determine actual update exclusion,
+native integrity behavior and coordinated recovery. Do not invent missing values
+or deploy the generic filtered-catalog proposal on the owner's behalf.
+
+**Public HTTPS** remains unverified. **Inspector** retains its earlier **14/15**
+encrypted-storage result and pending public-ingress journey; this is not evidence
+of a newly observed server disclosure. **ChatGPT** still lacks the real
+consent/tool/revocation acceptance. These limitations do not prevent the local
+source audit, but they prevent unsupported client/production claims and any
+operation that depends on those unverified paths.
+
+Security, operations/recovery, license/attribution, accessibility and language
+reviewers remain unassigned/pending; the owner retains the previously accepted
+operation/recovery responsibility. The new audit does not substitute for their
+sign-off. No push, release tag, PR action, infrastructure change or deployment is
+part of this assessment or the proposed local audit batch.
+
+## Intended-host read-only inventory
+
+On **2026-10-24**, the owner supplied the SSH destination for the intended
+Nextcloud installation in Coolify. Read-only inspection used the existing SSH
+trust and account permissions. This supplies part of the previously missing host
+facts; it does not authorize deployment, maintenance operations or changing the
+approved support matrix. Access coordinates, container/service identifiers,
+credentials and raw environment values are deliberately absent from this public
+record.
+
+| Observed item | Result |
+| --- | --- |
+| Orchestrator / ingress components | Running containers reference `coollabsio/coolify:4.5.0` and `traefik:v3.7.13`. Application-reported versions, traffic routing and public HTTPS/client journeys were not tested |
+| Nextcloud runtime | Installed 35.0.2, internal version 35.0.2.2; maintenance false; no database upgrade pending according to `occ status` |
+| Container image | `lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac` |
+| PHP / architecture / web server | PHP CLI 8.5.12; x86-64; Nginx 1.30.4. FPM-specific settings and extensions were not inventoried |
+| Database | Nextcloud reports `pgsql`. A database container associated by service naming reports PostgreSQL 16.15 from `postgres --version`; the actual connection target and active SQL-server version were not independently verified |
+| Installed MCP | Enabled app reports version 1.2.0. Its origin and exact installed bytes have not been compared with upstream or the fork |
+| Other relevant enabled apps | Calendar 6.6.3, Contacts 8.9.2, Deck 1.19.0, Notes 6.1.0, Talk (`spreed`) 25.0.6, OAuth2 2.0.0 |
+| Other app observations | `files_external` 2.0.0 is disabled; Tasks and Groupfolders were not listed in the selected app inventory |
+| App persistence | Logical MCP path `/app/www/public/apps/mcp` resolves to `/config/www/nextcloud/apps/mcp`; app directory owned by `abc:users`, mode `0755` |
+| Persistent mounts | Named Docker volumes at `/config` and `/data`, both writable; an additional read-only initialization-script bind is present. No backup inspection performed |
+| Primary file storage | Configured data directory `/data`; object-store class `\OC\Files\ObjectStore\S3`. Endpoint, bucket, credentials, versioning, retention and backups were not queried |
+| Background mode | Nextcloud configuration reports `cron`; this does not prove scheduler execution or identify all maintenance/update jobs |
+| Container restart policy | `unless-stopped`; this is not an app/image update-exclusion mechanism |
+
+The initial `docker ps` required the account's existing noninteractive sudo
+permission. A plain `occ status` invocation failed because the object-store
+environment was absent from that CLI process. The same read-only query succeeded
+when invoked with the container's existing s6 environment and service identity:
+
+```sh
+docker exec CONTAINER s6-envdir /run/s6/container_environment \
+  s6-setuidgid abc php /app/www/public/occ status --output=json
+```
+
+This was an execution-context issue for the query, not proof of a web outage.
+No environment values were printed or retained in this record.
+`config:system:get apps_paths` returned exit 1 without an explicit value; the MCP path was subsequently resolved
+with `app:getpath mcp` and filesystem link inspection, rather than assuming an
+app-path configuration. Other recorded facts came from selected `occ` queries,
+image/mount metadata and version commands. No full configuration dump, database
+contents, user files or secret values were requested.
+
+### Consequences for the remaining qualification
+
+The intended host uses **LinuxServer/Nginx**, while the approved reference
+profiles and prior native source-acceptance fixture use Apache. Do not transfer
+that evidence into an assertion that the LinuxServer deployment is qualified.
+Record the additional target profile before changing the declared support matrix;
+prepare an isolated equivalent profile for relevant tests. The installed MCP
+version makes **1.2.0 → 2.0.0** the concrete upgrade journey to qualify, with a
+comparison of the actual installed source and migrations first. Version equality
+alone does not prove that the installed app is the unmodified upstream release.
+
+The source-distribution audit above remains actionable without production changes.
+The host inventory also makes the subsequent isolated upgrade/update/recovery
+proposal concrete. Before executing that broader batch, inventory the active
+Coolify redeploy/image-update paths, Nextcloud app-update paths and other writers;
+review the initialization hook's role without exposing secrets; and establish the
+coordinated backup/restore procedure for database, configuration/app state and S3
+objects. A `/data` volume snapshot alone is not evidence of complete recovery for
+this object-store configuration. Do not access storage credentials or change
+production writers merely to fill an evidence gap.
+
+Still unresolved: active database connection/server version, actual updater/job
+ownership and schedules, catalog/subscription policy, S3 and database/config
+backup topology, retention and restore evidence, custom-app integrity policy,
+final platform qualification and human review. The
+owner need not supply the versions and basic app paths already observed; request
+only facts that cannot be established through authorized read-only inspection.
+**Public HTTPS, Inspector 14/15 and its pending public journey, real ChatGPT
+acceptance, and all human reviewers remain pending.** Seeing an ingress proxy or
+receiving `occ status` does not close any of those gates.
+
+Only read-only remote inspection was performed. No app was installed, updated or
+removed; no configuration, image, schedule, storage policy or service state was
+changed. No push, publication, PR action or deployment occurred. **F3 remains open.**
+
+### Documentation review and acceptance limits
+
+The 2026-10-24 review compared this inventory with the prior command results;
+it made no further server connection or server change. It distinguishes Docker
+image references from independently queried runtime versions and the database
+binary version from the active SQL-server version. Service-name association does
+not prove the database connection target. CLI status does not certify the web UI,
+TLS ingress, background execution, backups or recovery.
+
+The source-access criterion remains demonstrated only for the recorded local
+candidate. A new source kit and the future LinuxServer/Nginx qualification must
+have explicit inputs and their own evidence. The declared support matrix is
+unchanged; neither the observed host nor the proposed local audit closes F3.
+HTTPS, Inspector **14/15**, ChatGPT and all human reviews remain pending.
+
+Fresh documentation validation passes for **153 Markdown files / 110 package
+sources**, all **29 documentation-tool tests** pass, and translation provenance is
+valid with **96 drafts still review-required**. The changed files are the three
+F3/fork development records; none belongs to the runtime package allowlist. No
+application code, package, full PHP/browser suite or native fixture was rebuilt
+or rerun for this documentation-only review. The diff excludes the supplied SSH
+coordinates and observed private service/container identifiers. These checks do
+not replace historical-content review or any pending host/client/human acceptance.
