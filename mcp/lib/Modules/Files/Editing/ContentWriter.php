@@ -19,6 +19,7 @@ use OCP\Lock\LockedException;
 
 final class ContentWriter {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private FileBackup $backup,
         private NodeAccessInfo $accessInfo,
         private FilesAccessGuard $visibilityGuard,
@@ -39,11 +40,13 @@ final class ContentWriter {
      * @throws ToolFailure when the preparation or the write fails
      */
     public function commit(Folder $root, string $userId, File $file, string $path, string $content, ?string $etag, string $before): array {
+        $this->fileTypes->assertWritableName($file->getName());
         $copy = $this->backup->prepare($root, $file, $path, $userId, $etag);
         $this->visibilityGuard->assertVisible($file);
         try {
             // Checked again right before the write: the backup took time, and files_lock does not refuse every lock.
-            NodeAccess::mutate(fn () => $this->locks === null ? $file->putContent($content) : $this->locks->run(fn () => $file->putContent($content), $file, $userId, $path), $this->visibilityGuard);
+            $write = fn () => $this->fileTypes->writeFile($file, fn () => $file->putContent($content));
+            NodeAccess::mutate(fn () => $this->locks === null ? $write() : $this->locks->run($write, $file, $userId, $path), $this->visibilityGuard);
         } catch (LockWriteFailure $e) {
             throw $e->withNote(EditingMessages::originalKept($copy));
         } catch (LockedException $e) {

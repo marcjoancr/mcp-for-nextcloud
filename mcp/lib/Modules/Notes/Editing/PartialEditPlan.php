@@ -18,6 +18,7 @@ use OCP\Files\Folder;
 /** Plans the partial edit without copying the note into the response. */
 final class PartialEditPlan {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private NoteContent $content,
         private NoteMetadata $metadata,
         private NoteNames $names,
@@ -41,6 +42,11 @@ final class PartialEditPlan {
         NoteChange::assertCurrent($note, $arguments['etag'] ?? null);
         if (!$note->isUpdateable()) {
             throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(\OCA\Mcp\Platform\FileAccess\FileAccessMessages::forbidden());
+        }
+        $snapshot = $this->fileTypes->snapshot();
+        $snapshot->assertWritableName($note->getName());
+        if (isset($arguments['title'])) {
+            $snapshot->assertWritableName($this->names->renamedName($note, $arguments['title']));
         }
         $current = $this->raw($note);
         $updated = NoteChange::apply($mode, $current, $arguments);

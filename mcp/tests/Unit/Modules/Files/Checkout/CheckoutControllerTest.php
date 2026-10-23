@@ -66,6 +66,15 @@ final class TestableCheckoutController extends CheckoutController {
  * that changed since the checkout is refused before any backup is taken.
  */
 final class CheckoutControllerTest extends TestCase {
+    private ?\OCA\Mcp\Tests\Unit\InMemoryAppConfig $fileTypeConfig = null;
+    public function fileTypeGuard(): \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard {
+        return \OCA\Mcp\Tests\Support\Files\FileTypePolicies::fromStore($this, $this->fileTypeConfig ??= new \OCA\Mcp\Tests\Unit\InMemoryAppConfig());
+    }
+    private function allowExtensions(array $extensions): void {
+        $this->fileTypeGuard(); sort($extensions);
+        $this->fileTypeConfig->stored['mcp']['file_write_policy'] = json_encode(['version' => 1, 'mode' => 'allowlist', 'extensions' => $extensions, 'allowExtensionless' => false]);
+    }
+
     private StagedBodyReader $bodyReader;
     private const FILE = '/alice/files/Documentos/ata.md';
     private const TOKEN = 'ncmcp_co_u_ABCdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
@@ -104,6 +113,30 @@ final class CheckoutControllerTest extends TestCase {
         $this->body = $body;
         $this->bodyReader->staged = $body;
         $this->headers['Content-Length'] = (string)strlen($body);
+    }
+
+    public function testChangedFilenamePolicyRefusesOldCheckoutBeforeSpendOrBackup(): void {
+        $this->issue(); $this->allowExtensions(['txt']);
+        self::assertSame(403, $this->controller->upload()->getStatus());
+        self::assertNotContains('consume', $this->store->ops); self::assertSame([], $this->tree->ops);
+        $this->allowExtensions(['md']);
+        self::assertSame(200, $this->controller->upload()->getStatus());
+    }
+    public function testCheckoutRechecksPolicyAfterMandatoryBackupAndKeepsBothOriginals(): void {
+        $this->issue(); $this->allowExtensions(['md']);
+        $this->tree->afterWrite = function (string $path): void { if (str_ends_with($path, '.bak')) $this->allowExtensions([]); };
+        self::assertSame(403, $this->controller->upload()->getStatus());
+        self::assertContains('consume', $this->store->ops);
+        self::assertSame('# Ata', $this->tree->nodes[self::FILE]['content']);
+        $backups = array_filter($this->tree->nodes, static fn($node, $path): bool => str_ends_with($path, '.bak'), ARRAY_FILTER_USE_BOTH);
+        self::assertCount(1, $backups);
+        self::assertSame('# Ata', array_values($backups)[0]['content']);
+        self::assertNotContains('write ' . self::FILE, $this->tree->ops);
+    }
+    public function testUnreadableCheckoutPolicyIs503AndLeavesLinkUsable(): void {
+        $this->issue(); $this->fileTypeConfig->stored['mcp']['file_write_policy'] = '';
+        self::assertSame(503, $this->controller->upload()->getStatus());
+        self::assertNotContains('consume', $this->store->ops); self::assertSame([], $this->tree->ops);
     }
 
     protected function setUp(): void {
@@ -176,7 +209,7 @@ final class CheckoutControllerTest extends TestCase {
             $this->hasher,
             new CheckoutService($urls, $config, $this->time, $this->hasher, $this->store, $this->apps, $this->users),
             new CheckoutPolicy($root, $session, $this->time, $this->policy, $this->store, $this->users, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), $this->guests()),
-            new CheckoutWriter($root, new CheckoutPolicy($root, $session, $this->time, $this->policy, $this->store, $this->users, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), $this->guests()), $backup, new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), null, $this->locks->service($this)),
+            new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new CheckoutPolicy($root, $session, $this->time, $this->policy, $this->store, $this->users, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), $this->guests()), $backup, new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this), null, $this->locks->service($this)),
             ($this->bodyReader = new StagedBodyReader($this->temp)),
             $this->createMock(LoggerInterface::class),
             $l10n,
@@ -905,7 +938,7 @@ final class CheckoutControllerTest extends TestCase {
             $this->hasher,
             new CheckoutService($this->createMock(IURLGenerator::class), $this->config->mock($this), $this->time, $this->hasher, $this->store, $this->apps, $this->users),
             new CheckoutPolicy($root, $this->session, $this->time, $this->policy, $this->store, $this->users, $guard),
-            new CheckoutWriter($root, new CheckoutPolicy($root, $this->session, $this->time, $this->policy, $this->store, $this->users, $guard), $backup, new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, null, null),
+            new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new CheckoutPolicy($root, $this->session, $this->time, $this->policy, $this->store, $this->users, $guard), $backup, new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, null, null),
             ($this->bodyReader = new StagedBodyReader($this->temp)),
             $this->createMock(LoggerInterface::class),
             null,
@@ -950,7 +983,7 @@ final class CheckoutControllerTest extends TestCase {
         $linkPolicy = new CheckoutPolicy($root, $this->session, $this->time, $this->policy, $this->store, $this->users, $guard);
         $controller = new TestableCheckoutController('mcp', $request, $this->session, $this->store, $this->hasher,
             new CheckoutService($this->createMock(IURLGenerator::class), $this->config->mock($this), $this->time, $this->hasher, $this->store, $this->apps, $this->users),
-            $linkPolicy, new CheckoutWriter($root, $linkPolicy,
+            $linkPolicy, new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, $linkPolicy,
                 new FileBackup($this->apps, $this->users, $this->time, $this->config->mock($this), $guard),
                 new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, null, $this->locks->service($this)),
             ($this->bodyReader = new StagedBodyReader($this->temp)), $this->createMock(LoggerInterface::class), null, $this->users);

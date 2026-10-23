@@ -24,6 +24,7 @@ use OCP\Files\Node;
 
 final class FileCheckout {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private IRootFolder $rootFolder,
         private CheckoutService $checkout,
         private NodeAccessInfo $accessInfo,
@@ -128,7 +129,9 @@ final class FileCheckout {
      * @throws ToolFailure when it is not a file
      */
     private function file(Folder $root, string $path): File {
-        return NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
+        $file = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
+        $this->fileTypes->assertWritableName($file->getName());
+        return $file;
     }
 
     /**

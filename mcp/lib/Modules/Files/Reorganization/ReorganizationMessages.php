@@ -10,6 +10,16 @@ namespace OCA\Mcp\Modules\Files\Reorganization;
 use OCA\Mcp\L10n\Translator;
 
 final class ReorganizationMessages {
+    /** @return string A live source grew beyond the validated copy budget. */
+    public static function copyBudgetReached(): string {
+        return Translator::t('The copy byte limit was reached. Existing output was retained. Review the destination before retrying.');
+    }
+
+    /** @return string A copy whose access changed may already have retained partial output. */
+    public static function copyAccessChanged(): string {
+        return Translator::t('The folder copy may be incomplete. Existing output was retained. Review the destination before retrying.');
+    }
+
     /** @return string something already sits where a folder would go */
     public static function destinationExists(): string {
         return Translator::t('A file or folder already exists at this destination.');

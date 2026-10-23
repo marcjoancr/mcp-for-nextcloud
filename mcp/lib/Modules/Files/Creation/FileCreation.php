@@ -51,6 +51,7 @@ final class FileCreation {
     private const LOCAL_FILE = '/path/to/local/file';
 
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private NodeAccessInfo $access,
         private SharedWriteGuard $guard,
         private CheckoutService $checkout,
@@ -210,6 +211,7 @@ final class FileCreation {
             throw self::invalidName();
         }
         $folder = $this->folder($root, $folderPath);
+        $this->fileTypes->assertWritableName($name);
         if ($folder->nodeExists($name)) {
             // Excluded and unresolved collisions use the same generic resource refusal.
             try {
@@ -248,11 +250,12 @@ final class FileCreation {
      * @throws ToolFailure with the message of a lock ({@see \OCA\Mcp\Platform\FileAccess\Locks\LockWriteFailure}) or a full quota, or {@see \OCA\Mcp\Modules\Files\Creation\CreationMessages::createFailed()}
      */
     public function write(Folder $folder, string $name, mixed $content, ?string $userId = null, bool $asUser = true): File {
+        $this->fileTypes->assertWritableName($name);
         if ($folder->nodeExists($name)) {
             throw new FileExists(CreationMessages::fileExists());
         }
         try {
-            $file = NodeAccess::requireFile(NodeAccess::mutate(fn () => $folder->newFile($name), $this->visibilityGuard));
+            $file = NodeAccess::requireFile(NodeAccess::mutate(fn () => $this->fileTypes->writeName($name, fn () => $folder->newFile($name)), $this->visibilityGuard));
         } catch (InvalidPathException) {
             throw self::invalidName();
         }
@@ -269,7 +272,7 @@ final class FileCreation {
             throw new FileExists(CreationMessages::fileExists());
         }
         try {
-            $put = static fn () => $current->putContent($content);
+            $put = fn () => $this->fileTypes->writeFile($current, fn () => $current->putContent($content));
             NodeAccess::mutate(fn () => $userId === null ? $put() : $this->locks->run($put, $current, $userId, null, $asUser), $this->visibilityGuard);
         } catch (ToolFailure $e) {
             // Already a readable refusal: a lock found by the check, or one the storage raised, explained.

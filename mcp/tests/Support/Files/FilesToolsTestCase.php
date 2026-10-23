@@ -110,6 +110,13 @@ use PHPUnit\Framework\TestCase;
  * a real time, plus the tools built exactly the way the registry builds them.
  */
 abstract class FilesToolsTestCase extends TestCase {
+    /** Explicit file-policy backend, absent until a scenario configures it. */
+    protected ?\OCA\Mcp\Tests\Unit\InMemoryAppConfig $fileTypeConfig = null;
+
+    public function fileTypeGuard(): \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard {
+        return FileTypePolicies::fromStore($this, $this->fileTypeConfig ??= new \OCA\Mcp\Tests\Unit\InMemoryAppConfig());
+    }
+
     /** Tools whose confirmed call gives back the plan_state of its plan. */
     protected const STATEFUL_PLANS = ['files_share', 'files_unshare'];
     /** The plan_state of a confirmed call whose plan refused: no state the write could ever compute. */
@@ -234,18 +241,18 @@ abstract class FilesToolsTestCase extends TestCase {
         ];
         $this->toolFactories = [
             'files_read' => fn () => new ReadFile(new FileReader($root, $extractor, $access, new OcrSupport($this->apps), $fileVisibility)),
-            'files_edit' => fn () => new EditFile(new TextFileEditor($root, $extractor, new ContentWriter($backup, $access, $fileVisibility, $locks), new ContentPlan($access, new SharedWriteGuard($access), $locks), new SharedWriteGuard($access), $fileVisibility, $locks)),
+            'files_edit' => fn () => new EditFile(new TextFileEditor(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, $extractor, new ContentWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $backup, $access, $fileVisibility, $locks), new ContentPlan($access, new SharedWriteGuard($access), $locks), new SharedWriteGuard($access), $fileVisibility, $locks)),
             'files_list' => fn () => new ListFiles($root, new DirectoryReader(new FileEntry($access), $this->visibilityGuard)),
             'files_search' => fn () => new SearchFiles($root, new FileSearch($db, $this->users, new FileEntry($access), $this->visibilityGuard, null, null)),
             'files_tree' => fn () => new ReadTree($root, new TreeReader($access, $this->visibilityGuard)),
-            'files_replace' => fn () => new ReplaceText(new TextReplacer($root, $extractor, new ContentWriter($backup, $access, $this->visibilityGuard, $locks), new ContentPlan($access, new SharedWriteGuard($access), $locks), new SharedWriteGuard($access), $this->visibilityGuard, $locks)),
+            'files_replace' => fn () => new ReplaceText(new TextReplacer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, $extractor, new ContentWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $backup, $access, $this->visibilityGuard, $locks), new ContentPlan($access, new SharedWriteGuard($access), $locks), new SharedWriteGuard($access), $this->visibilityGuard, $locks)),
             'files_versions_list' => fn () => new ListVersions($root, new VersionReader($this->apps, $this->users, $extractor, $access, fn () => ($this->createMock(\Psr\Container\ContainerInterface::class))->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->visibilityGuard),
             'files_version_read' => fn () => new ReadVersion($root, new VersionReader($this->apps, $this->users, $extractor, $access, fn () => ($this->createMock(\Psr\Container\ContainerInterface::class))->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $this->visibilityGuard),
-            'files_version_restore' => fn () => new RestoreVersion($root, new VersionRestorer(new VersionReader($this->apps, $this->users, $extractor, $access, fn () => ($this->createMock(\Psr\Container\ContainerInterface::class))->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $backup, $access, new SharedWriteGuard($access), $this->visibilityGuard, $locks, null)),
-            'files_checkout' => fn () => new CheckoutFile(new FileCheckout($root, $checkout, $access, new SharedWriteGuard($access), $this->visibilityGuard, $locks)),
-            'files_upload' => fn () => new UploadFile($root, new FileCreation($access, new SharedWriteGuard($access), $checkout, $this->filenames,
+            'files_version_restore' => fn () => new RestoreVersion($root, new VersionRestorer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new VersionReader($this->apps, $this->users, $extractor, $access, fn () => ($this->createMock(\Psr\Container\ContainerInterface::class))->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $backup, $access, new SharedWriteGuard($access), $this->visibilityGuard, $locks, null)),
+            'files_checkout' => fn () => new CheckoutFile(new FileCheckout(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, $checkout, $access, new SharedWriteGuard($access), $this->visibilityGuard, $locks)),
+            'files_upload' => fn () => new UploadFile($root, new FileCreation(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames,
                 $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->tagMapper, $this->visibilityRoot()), $this->creationLogger, $locks)),
-            'files_create' => fn () => new CreateFile($root, new FileCreation($access, new SharedWriteGuard($access), $checkout, $this->filenames,
+            'files_create' => fn () => new CreateFile($root, new FileCreation(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames,
                 $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->tagMapper, $this->visibilityRoot()), $this->creationLogger, $locks)),
             'files_image_view' => fn () => new ViewImage($root, $imageTools),
             'files_images_view' => fn () => new ViewImages($root, $imageTools),
@@ -254,10 +261,10 @@ abstract class FilesToolsTestCase extends TestCase {
             'files_share' => fn () => new ShareFile($root, $sharing['shareWriter']),
             'files_unshare' => fn () => new UnshareFile($root, $sharing['shareRemover']),
             'files_mkdir' => fn () => new MakeDirectory($root, new FolderCreator($access, new SharedWriteGuard($access), new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), $this->visibilityGuard)),
-            'files_copy' => fn () => new CopyFile($root, new CopyMove($access, $this->report(), $this->users, new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new TreeMeasure($this->visibilityGuard), new MoveExecution($this->visibilityGuard, $locks), $this->visibilityGuard, $locks)),
-            'files_move' => fn () => new MoveFile($root, new CopyMove($access, $this->report(), $this->users, new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new TreeMeasure($this->visibilityGuard), new MoveExecution($this->visibilityGuard, $locks), $this->visibilityGuard, $locks)),
-            'files_move_batch' => fn () => new MoveBatch($root, new BatchMover(new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new FolderPreparation($this->visibilityGuard), new MoveExecution($this->visibilityGuard, $locks), new BatchVisibility($this->visibilityGuard), $this->visibilityGuard), $this->batchStore ?? $this->batches, $this->time, new MovePlanner(new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new FolderPreparation($this->visibilityGuard), $access, new SharedWriteGuard($access), $this->visibilityGuard)),
-            'files_undo_batch' => fn () => new UndoBatch($root, new BatchUndo(new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new FolderPreparation($this->visibilityGuard), new MoveExecution($this->visibilityGuard, $locks), new BatchVisibility($this->visibilityGuard), $this->visibilityGuard), $this->batchStore ?? $this->batches, $this->time),
+            'files_copy' => fn () => new CopyFile($root, new CopyMove(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, $this->report(), $this->users, new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new TreeMeasure($this->visibilityGuard), new MoveExecution(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $this->visibilityGuard, $locks), $this->visibilityGuard, $locks)),
+            'files_move' => fn () => new MoveFile($root, new CopyMove(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, $this->report(), $this->users, new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new TreeMeasure($this->visibilityGuard), new MoveExecution(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $this->visibilityGuard, $locks), $this->visibilityGuard, $locks)),
+            'files_move_batch' => fn () => new MoveBatch($root, new BatchMover(new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new FolderPreparation($this->visibilityGuard), new MoveExecution(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $this->visibilityGuard, $locks), new BatchVisibility($this->visibilityGuard), $this->visibilityGuard), $this->batchStore ?? $this->batches, $this->time, new MovePlanner(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new FolderPreparation($this->visibilityGuard), $access, new SharedWriteGuard($access), $this->visibilityGuard)),
+            'files_undo_batch' => fn () => new UndoBatch($root, new BatchUndo(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new MoveInspection($access, new SharedWriteGuard($access), $this->visibilityGuard, $locks), new FolderPreparation($this->visibilityGuard), new MoveExecution(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $this->visibilityGuard, $locks), new BatchVisibility($this->visibilityGuard), $this->visibilityGuard), $this->batchStore ?? $this->batches, $this->time),
         ];
         $this->module = new FilesModule($this->toolFactories, ($this->visibilityGuard)->assertScopeReadable(...));
     }
@@ -439,17 +446,17 @@ abstract class FilesToolsTestCase extends TestCase {
         $get = fn (string $name) => $this->services[$name];
         if (isset($replace['backup'])) {
             $visibility = $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $this->config->mock($this), $this->tagMapper, $this->visibilityRoot());
-            $replace['editFile'] = new EditFile(new TextFileEditor($get('rootFolder'), $get('extractor'), new ContentWriter($replace['backup'], $get('accessInfo'), $visibility, $get('locks')), new ContentPlan($get('accessInfo'), $get('guard'), $get('locks')), $get('guard'), $visibility, $get('locks')));
+            $replace['editFile'] = new EditFile(new TextFileEditor(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $get('rootFolder'), $get('extractor'), new ContentWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $replace['backup'], $get('accessInfo'), $visibility, $get('locks')), new ContentPlan($get('accessInfo'), $get('guard'), $get('locks')), $get('guard'), $visibility, $get('locks')));
         }
         $value = fn (string $name) => $replace[$name] ?? $get($name);
-        $replace['replaceText'] = new ReplaceText(new TextReplacer(
+        $replace['replaceText'] = new ReplaceText(new TextReplacer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this),
             $value('rootFolder'), $value('extractor'),
-            new ContentWriter($value('backup'), $value('accessInfo'), $value('visibilityGuard'), $value('locks')),
+            new ContentWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $value('backup'), $value('accessInfo'), $value('visibilityGuard'), $value('locks')),
             new ContentPlan($value('accessInfo'), $value('guard'), $value('locks')),
             $value('guard'), $value('visibilityGuard'), $value('locks'),
         ));
-        $replace['restoreVersion'] = new RestoreVersion($value('rootFolder'), new VersionRestorer($value('versions'), $value('backup'), $value('accessInfo'), $value('guard'), $value('visibilityGuard'), $value('locks'), $value('timezone')));
-        $replace['checkoutFile'] = new CheckoutFile(new FileCheckout(
+        $replace['restoreVersion'] = new RestoreVersion($value('rootFolder'), new VersionRestorer(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $value('versions'), $value('backup'), $value('accessInfo'), $value('guard'), $value('visibilityGuard'), $value('locks'), $value('timezone')));
+        $replace['checkoutFile'] = new CheckoutFile(new FileCheckout(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this),
             $value('rootFolder'), $value('checkout'), $value('accessInfo'), $value('guard'), $value('visibilityGuard'), $value('locks'),
         ));
         $factories = $this->toolFactories;

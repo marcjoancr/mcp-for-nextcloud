@@ -13,7 +13,8 @@ use OCP\Files\Folder;
 
 /** Recomputes the approved effect, including a fresh read inside the write's lock check. */
 final class PartialEditConfirmation {
-    public function __construct(private PartialEditPlan $plans, private PlanState $states) {}
+    public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,private PartialEditPlan $plans, private PlanState $states) {}
 
     /** @param array<string, mixed> $arguments */
     public function content(Folder $root, File $note, string $userId, array $arguments, string $mode): string {
@@ -32,7 +33,7 @@ final class PartialEditConfirmation {
         return function () use ($root, $note, $userId, $arguments, $mode): void {
             // Nextcloud has no content compare-and-swap: a concurrent write after this last read can still race.
             $updated = $this->content($root, $note, $userId, $arguments, $mode);
-            $note->putContent($updated);
+            $this->fileTypes->writeFile($note, fn() => $note->putContent($updated));
         };
     }
 }

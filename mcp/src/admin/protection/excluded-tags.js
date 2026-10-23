@@ -5,7 +5,7 @@
  */
 import { createScope } from '../../platform/lifecycle.js'
 
-export function mountExcludedTags({ root, request, t, notifyError, createPicker, overviewAlert, tabAlert }) {
+export function mountExcludedTags({ root, request, t, notifyError, createPicker, overviewAlert, tabAlert, syncProtectionAlert }) {
 	const scope = createScope(root)
 	const api = scope.request(request)
 	function el(tag, props, children) {
@@ -37,7 +37,9 @@ export function mountExcludedTags({ root, request, t, notifyError, createPicker,
 			if (overviewAlert) {
 				overviewAlert.hidden = !isInvalid
 			}
-			if (tabAlert) {
+			if (syncProtectionAlert) {
+                syncProtectionAlert()
+            } else if (tabAlert) {
 				tabAlert.hidden = !isInvalid
 			}
 		}

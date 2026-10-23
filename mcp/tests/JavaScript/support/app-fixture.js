@@ -26,6 +26,7 @@ export const test = base.extend({
             oauth: { customClients: [], hostsDefault: true, hosts: ['cloud.example'], nativeClientEnabled: false, nativeClientId: 'native', nativeRedirectUris: ['http://127.0.0.1/callback'] },
             limit: { configuredBytes: 1048576, effectiveBytes: 1048576, phpBytes: 8388608 },
             privacy: { hideFileNames: true },
+            filePolicy: { version: 1, mode: 'off', extensions: [], allowExtensionless: false },
             connections: [1, 2].map(id => ({ id, uid: 'alice', displayName: 'Alice', client: { id: 'https://client.example/' + id, host: 'client.example', native: false }, createdAt: 1700000000, expiresAt: 1800000000 })),
             hasMore: false, total: 2,
         }
@@ -89,6 +90,10 @@ export const test = base.extend({
             if (path === '/api/logs-access') {
                 if (method === 'PUT') { Object.assign(state.logAccess, { groups: body.groups, version: state.logAccess.version + 1 }); advance() }
                 return { ...state.logAccess, revision: state.revision }
+            }
+            if (path === '/api/file-write-policy') {
+                if (method === 'PUT') Object.assign(state.filePolicy, body)
+                return state.filePolicy
             }
             if (path === '/api/logs-privacy') {
                 if (method === 'PUT') Object.assign(state.privacy, body)

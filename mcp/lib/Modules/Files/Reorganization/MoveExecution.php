@@ -14,6 +14,7 @@ use OCP\Files\Node;
 
 final class MoveExecution {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private FilesAccessGuard $visibilityGuard,
         private ?LockAwareWrite $locks = null,
     ) {}
@@ -27,7 +28,11 @@ final class MoveExecution {
      * @param string $userId authenticated user
      * @return Node what the write returned
      */
-    public function locked(callable $write, Node $node, string $userId): Node {
-        return NodeAccess::mutate(fn () => $this->locks === null ? $write() : $this->locks->run($write, $node, $userId), $this->visibilityGuard);
+    public function locked(callable $write, Node $node, string $userId, string $to): Node {
+        $guarded = function () use ($write, $node, $to): Node {
+            (new FileTypePreflight($this->visibilityGuard))->inspect($node, $to, $this->fileTypes->snapshot());
+            return $write();
+        };
+        return NodeAccess::mutate(fn () => $this->locks === null ? $guarded() : $this->locks->run($guarded, $node, $userId), $this->visibilityGuard);
     }
 }

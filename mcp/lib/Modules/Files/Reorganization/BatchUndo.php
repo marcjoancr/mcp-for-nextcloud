@@ -19,6 +19,7 @@ use OCP\Files\Node;
 
 final class BatchUndo {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private MoveInspection $moveInspection,
         private FolderPreparation $folderPreparation,
         private MoveExecution $moveExecution,
@@ -68,7 +69,7 @@ final class BatchUndo {
                 $this->batchVisibility->assertPathsVisible($root, [$move['to'], $move['from']]);
                 $node = NodeAccess::run(fn () => NodeAccess::get($root, $move['to']));
                 FolderExposureGate::assertMove($root, $node, $move['from'], $this->visibilityGuard);
-                NodeAccess::run(fn () => $this->moveExecution->locked(fn (): Node => $node->move(MovePaths::absolute($root, $move['from'])), $node, $userId));
+                NodeAccess::run(fn () => $this->moveExecution->locked(fn (): Node => $node->move(MovePaths::absolute($root, $move['from'])), $node, $userId, $move['from']));
                 $undone++;
                 $this->batchVisibility->assertPathsVisible($root, [$move['to'], $move['from']]);
             } catch (\Throwable $e) {
@@ -167,7 +168,7 @@ final class BatchUndo {
      * @return list<array{from:string, to:string, reason:string}> the items that block the undo, empty when it may run
      */
     private function undoConflicts(Folder $root, Batch $batch, string $userId): array {
-        $conflicts = [];
+        $conflicts = (new FileTypePreflight($this->visibilityGuard))->moves($root, $batch->moves, $this->fileTypes->snapshot(), true);
         foreach (array_reverse($batch->moves) as $move) {
             try {
                 $this->assertUndoable($root, $batch, $move, $userId);

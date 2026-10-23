@@ -16,6 +16,11 @@ class NoteNames
 {
     private const MAX_SUFFIX = 100;
 
+    /** Resolved filename when the destination category does not exist yet. */
+    public function initialName(string $title): string {
+        return self::title($title) . '.md';
+    }
+
     /**
      * @param Folder $folder category folder
      * @param string $title raw title

@@ -26,6 +26,7 @@ use OCP\Files\Folder;
  */
 final class MovePlanner {
     public function __construct(
+        private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private MoveInspection $inspection,
         private FolderPreparation $preparation,
         private NodeAccessInfo $access,
@@ -43,9 +44,10 @@ final class MovePlanner {
      */
     public function plan(Folder $root, string $userId, array $moves, array $mkdirs): MovePlan {
         FolderExposureGate::assertMoves($root, $moves, $this->visibilityGuard);
+        $typeConflicts = (new FileTypePreflight($this->visibilityGuard))->moves($root, $moves, $this->fileTypes->snapshot());
         $planned = [];
         $personal = [];
-        $conflicts = [];
+        $conflicts = $typeConflicts;
         $denied = [];
         $shared = [];
         $confirmation = null;

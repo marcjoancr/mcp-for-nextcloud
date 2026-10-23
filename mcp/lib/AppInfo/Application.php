@@ -67,6 +67,14 @@ class Application extends App implements IBootstrap {
 
     /** @param IRegistrationContext $context registration context of the app */
     public function register(IRegistrationContext $context): void {
+        $context->registerService(\OCA\Mcp\Access\FileWritePolicy\FileWritePolicy::class,
+            static fn (ContainerInterface $c): \OCA\Mcp\Access\FileWritePolicy\FileWritePolicy => new \OCA\Mcp\Access\FileWritePolicy\FileWritePolicy(
+                $c->get(\OCP\IAppConfig::class), $c->get(\OCP\IDBConnection::class),
+            ));
+        $context->registerService(\OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard::class,
+            static fn (ContainerInterface $c): \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard => new \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard(
+                $c->get(\OCA\Mcp\Access\FileWritePolicy\FileWritePolicy::class),
+            ));
         $context->registerService(\OCA\Mcp\Access\Guests\GuestRestrictions::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Access\Guests\GuestRestrictions(
             $c->get(IAppManager::class), $c->get(\OCP\IRequest::class),
             static fn () => $c->get('OCA\\Guests\\GuestManager'),
