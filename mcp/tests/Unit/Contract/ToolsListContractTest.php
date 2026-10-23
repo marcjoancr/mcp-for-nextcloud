@@ -201,7 +201,7 @@ final class ToolsListContractTest extends TestCase {
         $this->assertContains('mcp_status', $names);
         $this->assertSame([], array_values(array_filter($names, static fn (string $name) => preg_match('/^(notes|calendar|deck|talk)_/', $name) === 1)));
         $initialize = json_decode($this->initializeJson(false), false, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame(ToolPresentation::INSTRUCTIONS, $initialize->result->instructions);
+        $this->assertSame(ToolPresentation::INSTRUCTIONS . "\n\nSource delivery is unavailable. Contact your administrator.", $initialize->result->instructions);
     }
 
     /**
@@ -372,9 +372,9 @@ final class ToolsListContractTest extends TestCase {
 
     public function testInitializeSendsDisplayInstructions(): void {
         $result = json_decode($this->initializeJson())->result;
-        $this->assertSame(ToolPresentation::INSTRUCTIONS, $result->instructions);
+        $this->assertSame(ToolPresentation::INSTRUCTIONS . "\n\nSource delivery is unavailable. Contact your administrator.", $result->instructions);
         $discover = json_decode($this->discoverJson())->result;
-        $this->assertSame(ToolPresentation::INSTRUCTIONS, $discover->instructions);
+        $this->assertSame(ToolPresentation::INSTRUCTIONS . "\n\nSource delivery is unavailable. Contact your administrator.", $discover->instructions);
     }
 
     public function testInitializeEncodesCapabilitiesAsObjects(): void {

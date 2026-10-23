@@ -1,4 +1,11 @@
 { "translations": {
+    "Source code for this version" : "Código-fonte desta versão",
+    "Source delivery is unavailable. Contact your administrator." : "A entrega do código-fonte está indisponível. Entre em contato com seu administrador.",
+    "Download the complete source kit, including dependency sources and build instructions." : "Baixe o kit completo de código-fonte, incluindo o código das dependências e as instruções de compilação.",
+    "Version: %s" : "Versão: %s",
+    "Source revision: %s" : "Revisão do código-fonte: %s",
+    "Expected manifest SHA-256: %s" : "SHA-256 esperado do manifesto: %s",
+
     "The saved policy was verified. Your unsaved input is preserved; review it before saving." : "A política salva foi verificada. Sua entrada não salva foi preservada; confira-a antes de salvar.",
 
     "The copy byte limit was reached. Existing output was retained. Review the destination before retrying." : "O limite de bytes da cópia foi atingido. O conteúdo já criado foi mantido. Confira o destino antes de tentar novamente.",

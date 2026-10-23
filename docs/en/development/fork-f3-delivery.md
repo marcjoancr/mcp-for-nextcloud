@@ -3,14 +3,14 @@
 
 # F3: local delivery, update control and integrity
 
-Status: local preparation on 2026-10-23; **F3 remains open**. This follows the
+Status: local source-offer implementation and acceptance on 2026-10-23; **F3 remains open**. This follows the
 [F3 identity record](fork-f3-preparation.md) and
-[fork continuation plan](fork-continuation-plan.md). The owner authorized local
-source delivery and control preparation, not publication or deployment. No target
+[fork continuation plan](fork-continuation-plan.md). The owner authorized the reviewed local source-offer batch, including disposable
+native acceptance, but not publication or deployment to the intended server. No target
 server facts or human reviewer assignments have been supplied. PR #14 remains a
 historical reference; no upstream remote or PR action is introduced.
 
-## Local source kit
+## Historical local source kit
 
 The new [source delivery workflow](source-delivery.md) builds only an explicit
 committed revision. This run freezes the existing candidate
@@ -139,9 +139,9 @@ signature or claim that content hashes grant an App Store signing identity.
 A separately authenticated digest publication/signing policy remains a release
 gate; no signing keys or certificate authorization were provisioned here.
 
-## Validation and unresolved gates
+## Historical delivery-tool validation and current gates
 
-| Fresh validation | Result |
+| Delivery-tool validation before this source-offer batch | Result |
 | --- | --- |
 | Complete catalog `check` with pinned toolchain | Exit 0; PHP 8.4.27, Node 24.21.0, npm 11.19.0 |
 | PHP suite | 8,424 tests / 71,509 assertions pass |
@@ -186,8 +186,8 @@ release command; its YAML parses, but no remote workflow was triggered.
 
 | Gate | Current state and next evidence |
 | --- | --- |
-| Immutable local source/runtime kit | Prepared and rebuilt for `39148aa`; regenerate at final frozen release revision |
-| Ordinary-user source access | Local implementation and non-admin personal-settings/MCP acceptance remain pending; they can be prepared without host facts or public publication. F5 must separately verify the authorized immutable public destination |
+| Immutable local source/runtime kit | Historical `39148aa` retained; new local acceptance candidate `ae8ea636` includes the source offer. Regenerate and requalify at the final release revision |
+| Ordinary-user source access | Implemented; local non-admin personal-settings/MCP retrieval and reconstruction pass for `ae8ea636` (evidence below). F5 must separately verify the authorized immutable public destination |
 | Publication suitability | Pending historical-content review, final notices/source review and trusted digest publication policy |
 | Update exclusion | Concrete filtered-catalog/manual-artifact candidate above; pending owner acceptance of service operation and host-specific qualification |
 | Native/custom-app integrity | Local content verifier passes; native UI/signature behavior, permissions and trusted digest custody still pending |
@@ -196,9 +196,10 @@ release command; its YAML parses, but no remote workflow was triggered.
 | Client exposure | Public HTTPS and ChatGPT's real journey pending; Inspector's recorded encrypted-storage result remains 14/15 |
 | Human review | Security, operations/recovery, license/attribution, accessibility and languages remain unassigned/pending; 96 translation drafts are not approved |
 
-No new native instance was deployed for this work. These build/integrity checks do
-not replace the remaining server, client or human acceptance. No push, tag, PR
-change or deployment is included.
+The original delivery-tool work started no native instance. The source-offer batch
+below subsequently used disposable native fixtures. Neither set of checks replaces
+the remaining server, client or human acceptance. No push, release tag, PR change
+or deployment to the intended server is included.
 
 ## Review before committing the delivery tooling
 
@@ -252,9 +253,9 @@ by this review.
 | Production update exclusion, native integrity policy and recovery | No | Require actual installation paths/mounts, update mechanisms, subscription, versions, permissions and coordinated backup facts |
 | Publication, real ChatGPT access and human sign-off | Not closed by local tests | Require their own authorization/access or reviewers; preserve the existing HTTPS/Inspector/ChatGPT limits |
 
-### Recommended next implementation batch
+### Reviewed local source-offer batch
 
-Prioritize the **local source-offer journey** before the final release freeze or
+The reviewed plan prioritized the **local source-offer journey** before the final release freeze or
 introducing an update-catalog service. Intermediate builds remain necessary for
 testing. This batch can close the local source-access criterion only after its
 acceptance checks pass; it does not close all of F3 or select the owner's server
@@ -301,10 +302,212 @@ Acceptance for this batch requires all of the following evidence:
   the public URL. Public reachability is still verified separately in F5 after
   authorization. All remaining F3/F4/host/client/human gates stay explicit.
 
-This review does not implement that batch, start an instance, configure a catalog,
+The preceding documentation-only review did not implement that batch, start an instance, configure a catalog,
 create a public endpoint or assign reviewers. The data needed from the owner stay
 the same: Nextcloud/PHP/database/app versions, installation method, app paths and
 mounts, automatic update entry points, subscription and backup/storage topology.
 Human security, operations/recovery, license/attribution, accessibility and language
 reviews remain unassigned/pending. Public HTTPS, Inspector's recorded 14/15
 storage result and the real ChatGPT journey remain explicit limitations.
+
+## Local source-offer implementation and acceptance
+
+The owner authorized this batch after the reviewed plan above. Implementation
+started from `bee9ffd` on local `fork/main`. The shared `Release/SourceOffer`
+service binds operator-controlled `mcp_source_offer` system configuration to the
+installed version and generated `appinfo/source.json`. Personal settings and both
+MCP discovery paths present the same five artifact links, source revision and
+expected manifest digest. Authentication, connection admission and capability
+policy remain enforced. No application file-serving endpoint or outbound URL
+fetch was added. Original attribution remains visible.
+
+A clean committed package generates its identity; a dirty development package
+explicitly has no valid source offer. Missing, malformed or mismatched metadata
+shows an unavailable offer without source links. The expected final manifest
+digest and destination remain outside the hashed runtime, avoiding a checksum
+cycle. See the [configuration contract](../reference/configuration.md#source-delivery)
+and [source acceptance command](source-delivery.md#disposable-native-source-acceptance).
+
+### Frozen candidate and downloaded-source reconstruction
+
+The verification-only snapshot is
+`ae8ea63612ca8da27f4351601614651a1fbaa4ba`, Nextcloud MCP **2.0.0**, committed solely
+inside ignored `mcp/build/source-offer-final-evecc7la/repository/`. This is not a
+release commit on `fork/main`, a pushed reference or a published source offer.
+It contains the implementation and corrected native runner; the completion report
+and testing-guide update were written afterward. Regenerate the final kit from
+the final reviewed release commit rather than relabeling these artifacts.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Manifest, recorded separately before native retrieval | `ccc86dab9d08fe492b9184be1e86da344c23db065411a500a5ec3bbd6c8ad754` |
+| Runtime archive | `2b6c49d7614d4bffe04c74f96d6da33b40c8b6896d3f7d7a72bb3dad799a16f5` |
+| Source bundle | `8d566e087663dc2dcbd25cf9a4d2c726a8e3c4091960c4ed27a147e2f55cb1d4` |
+| Runtime dependency sources | `047d4e0f5cdf570c8291961f4a7905bc633296faad65a451eeb1d705b06a0c29` |
+| Reconstruction instructions | `fdf5ed0a7a46b790f851e7c9b98c17d13595a66829222f81337c1a9d2b810bc1` |
+
+Final native run: `mcp-source-dce9f4e3b2c60115`, using
+`nextcloud:35.0.1-apache@sha256:8f2f0e93aca5e9457019933936dea1f313052e72c696b4aecb31580a208b859f`
+and fresh SQLite. This is the existing pinned reference profile, not a new claim
+that the final maintained-patch matrix has been qualified.
+
+All **124 native checks** passed, including:
+
+- Real personal-settings HTTP access by a verified non-admin user, with the source
+  revision, expected digest, complete links and attribution visible.
+- Both `initialize` and `server/discover`, with Basic and Bearer authentication,
+  with Files read grants enabled and disabled, advertising the same offer.
+- Unauthenticated MCP denied with HTTP 401 and disconnected MCP denied with
+  HTTP 403; personal source access remains available when MCP is disconnected.
+- All five artifacts downloaded with no credentials and checked against the
+  separately recorded digest. Missing/wrong-revision settings show no source
+  links. Altering the downloaded bundle is rejected by the host verifier; restoring
+  its original size restores the verified downloaded kit.
+
+The actual HTTP-downloaded bundle was cloned into ignored
+`mcp/build/source-offer-rebuild-xViFuI/source/`, checked out at the same detached
+revision, and rebuilt with the locked dependencies. The trusted verifier confirms
+all **938 installed file contents and sizes** match the frozen manifest. The
+separate dependency-source archive also matches all **73 packaged vendor files**.
+No differences were normalized away. Tar/gzip byte identity, offline toolchain
+reconstruction, server permissions and live database/configuration integrity are
+not asserted by this comparison.
+
+### Local-to-public destination mapping
+
+The native fixture used `http://127.0.0.1:8765`, served inside its container from
+`/tmp/mcp-source-fixture`, outside the Nextcloud document tree. Neither the source
+server nor Nextcloud published a host port. The test URL is supplied through the
+fixture's system configuration; it is not embedded in the generated runtime
+identity or its production configuration. Test source necessarily records that
+fixture address so the acceptance can be reproduced.
+
+The proposed future base is
+`https://github.com/marcjoancr/mcp-for-nextcloud/releases/download/fork-v2.0.0`,
+with the same five filenames. This is a **proposed mapping only**, not an existing
+or verified publication. F5 must authorize publication, upload the final kit,
+retain its independently trusted digest, verify ordinary-user HTTPS retrieval
+and set external `mcp_source_offer` metadata for that final revision. No package
+edit after qualification is needed to change the destination. Do not point a
+served release at the local fixture or claim this intermediate kit is final.
+
+### Checks, corrections and evidence retention
+
+| Validation | Result |
+| --- | --- |
+| Complete catalog `check`, pinned Node 24.21.0/npm 11.19.0 and PHP 8.4.27 | Exit 0 |
+| PHP suite | 8,428 tests / 71,609 assertions pass |
+| Browser suite | 690 tests pass across Chromium, Firefox and WebKit |
+| Tooling suites | 29 documentation, 10 client-runner and 9 release tests pass |
+| Syntax and static analysis | 1,289 PHP files checked; both analyzer scopes pass |
+| Documentation/package | 153 Markdown files / 110 package sources valid; production archive validates |
+| Native source-offer acceptance | 124 checks; non-admin settings and both MCP paths; exit 0 |
+| Downloaded-source reconstruction | All 938 installed files match; all 73 vendor source files match |
+| Final runner checks | 9 release tests, 14 integration-harness tests / 129 assertions and 3 affected PHP syntax checks pass |
+| Attribution | REUSE passes for all 1,664 files |
+| Cleanup | Read-only Docker audit found no remaining integration-labeled containers or networks |
+
+The first complete check exposed expected protocol instruction fixtures, missing
+Portuguese interface strings and the new service's required attribution header.
+Those failures were corrected explicitly; the affected 22 tests then passed with
+5,412 assertions before the complete check passed. Protocol fixture changes only
+record the new explicit unavailable-source message; other frozen behavior remains
+unchanged. Six new interface strings are translated in Spanish, German and
+Brazilian Portuguese, with human language review still pending.
+
+Native development also exposed an exception-completion gap in the probe and an
+HTTP 404 when serving fixture artifacts under Nextcloud's web tree. The runner
+never reported those attempts as accepted. The probe now uses the harness's
+completion guard, and the runner requires matching structured completion evidence.
+A dedicated static, filename-restricted loopback fixture solved retrieval without
+relaxing Nextcloud protections. The successful final native run includes these
+corrections. The complete catalog run preceded those test-runner corrections;
+final targeted checks and the real native run validate the corrected runner.
+Application runtime code did not change after the complete catalog passed.
+
+An independent read-only engineering review found no actionable static defect;
+it did not certify native execution, reconstruction, publication or human sign-off.
+The execution results above supply the local native and reconstruction evidence.
+Private raw logs, full catalog JSON and rebuild results are retained locally under
+`/tmp/mcp-f3-offer/`. Final native `acceptance.json`, `result.json`, image plan and
+actually retrieved artifacts are under ignored
+`mcp/build/source-acceptance/mcp-source-dce9f4e3b2c60115/`. These are local retention
+paths, not public evidence URLs; do not publish raw fixture failure logs.
+
+### Remaining gates and next step
+
+The local ordinary-user source-access criterion is now demonstrated for the
+frozen candidate. **F3 remains open.** The pre-commit review is recorded below;
+rebuild and requalify the final release revision when the remaining release
+gates permit it. Do not treat a source-offer success as permission to deploy.
+
+Still pending: intended-server versions, installation method, app paths/mounts,
+updater jobs, subscription and backup/storage topology; owner acceptance and
+host-specific qualification of update exclusion; custom-app integrity policy,
+trusted digest custody, coordinated recovery, the final maintained-patch platform
+matrix and installed-upstream-1.2.0 upgrade. Historical-content/source publication
+review and actual public retrieval remain separate gates. Public HTTPS, Inspector's
+recorded **14/15** encrypted-storage result and the real ChatGPT journey remain
+explicit limitations.
+
+Security, operations/recovery, license/attribution, accessibility and language
+reviewers remain unassigned/pending. The **96 documentation translation drafts**
+remain `review-required`; the new source-delivery configuration section also needs
+translation into those language editions. No new human approval is inferred from
+automated checks. No push, release tag, PR action, updater infrastructure change
+or intended-server deployment occurred.
+
+## Review before committing the local source offer
+
+This review checked the actual implementation, protocol-fixture diff, retained
+kit and native evidence. It found a runner cleanup defect: failed network
+inspection was treated as an ownership mismatch and could leave acceptance
+successful without confirming cleanup. The runner now fails on inspection errors,
+foreign ownership or removal failures, attempts cleanup of both owned resources,
+and reports success only after cleanup completes. Two regression tests cover
+these boundaries, including refusal to delete another run's resources and omission
+of raw Docker diagnostics from reported errors. The release suite now has 11 tests.
+
+Evidence directories now explicitly use mode `0700`. Earlier retained evidence
+already had private permissions in this devbox; the correction removes reliance
+on the invoking process's umask rather than asserting a previous disclosure.
+No application runtime behavior, source-offer metadata or authentication/grant
+policy changed during this review. The protocol-fixture audit confirms exactly
+12 instruction strings changed from the original baseline, with all other JSON
+values unchanged.
+
+The corrected runner completed another real native run,
+`mcp-source-c9195a4eb3341e79`: **124 checks, exit 0**, against the same frozen
+`ae8ea63612ca8da27f4351601614651a1fbaa4ba` runtime and separately trusted manifest
+digest recorded above. All five artifacts were downloaded and verified again;
+Docker inspection afterward found no remaining integration-labeled containers
+or networks, and the new run directory is mode `0700`. The runner corrections
+are in the reviewed working tree, not in that earlier frozen bundle. This
+explicitly remains candidate-runtime evidence, not qualification of a later
+release commit.
+
+Fresh read-only verification confirms the retained reconstruction still matches
+all **938 installed files**, and the separate dependency archive still matches all
+**73 runtime vendor files**. A new reconstruction was not needed: runtime/build
+inputs did not change. REUSE passes for all **1,666 files**. Review logs are
+retained under `/tmp/mcp-f3-offer/review-*`; the repeat native artifacts are under
+ignored `mcp/build/source-acceptance/mcp-source-c9195a4eb3341e79/`.
+
+The fresh complete catalog `check` passed with exit 0: **8,428 PHP tests /
+71,617 assertions**, **690 browser tests**, 29 documentation tests, 10 client
+runner tests and **11 release tests**. Syntax validation checked **1,290 PHP
+files**; both static-analysis scopes passed. Documentation validated **153 Markdown
+files / 110 package sources**, and production packaging passed. The three expected
+`missing.js` errors belong to deliberate browser build-failure tests; the suite
+passed without suppressing them. All 96 documentation translations still require
+human review. The final working-tree package is a dirty development build, so its
+source offer is deliberately unavailable; the separate frozen candidate above
+supplies the positive native evidence.
+
+The commit records the local offer, packaging identity, acceptance runner, tests,
+translations and documentation together. It does not publish the kit or turn this
+intermediate snapshot into a final release. **F3 remains open**: server facts,
+update/integrity/recovery qualification, the final platform matrix and installed
+upstream upgrade, source-history/publication review, trusted public delivery,
+HTTPS, Inspector **14/15**, ChatGPT and the human reviewers remain pending. No
+push, PR action, public exposure or intended-server deployment is included.

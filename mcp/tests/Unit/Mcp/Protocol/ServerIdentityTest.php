@@ -19,7 +19,7 @@ final class ServerIdentityTest extends TestCase {
         $apps = $this->createMock(IAppManager::class);
         // Core manifest caching remains enabled: getAppVersion is called with its default cache argument.
         $apps->method('getAppVersion')->with('mcp')->willReturn(InstalledApp::VERSION);
-        $identity = new ServerIdentity($apps);
+        $identity = new ServerIdentity($apps, new \OCA\Mcp\Release\SourceOffer($this->createMock(\OCP\IConfig::class), $apps));
         $policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
         $policy->setGrant('alice', 'files', 'edit', true);
         $prompts = new PromptRequests($identity, new PromptCatalog(), $policy);

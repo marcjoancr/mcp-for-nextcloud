@@ -19,6 +19,7 @@ final class InstalledApp {
     public static function identity(TestCase $test): ServerIdentity {
         $apps = (new \ReflectionMethod($test, 'createMock'))->invoke($test, IAppManager::class);
         $apps->method('getAppVersion')->with('mcp')->willReturn(self::VERSION);
-        return new ServerIdentity($apps);
+        return new ServerIdentity($apps, new \OCA\Mcp\Release\SourceOffer(
+            (new \ReflectionMethod($test, 'createMock'))->invoke($test, \OCP\IConfig::class), $apps));
     }
 }

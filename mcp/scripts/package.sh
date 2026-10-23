@@ -25,6 +25,7 @@ for dir in js css img l10n; do
         cp -R "$dir" "$stage/mcp/"
     fi
 done
+node scripts/release/identity.mjs "$stage/mcp"
 node scripts/docs/cli.mjs stage "$stage"
 composer install --quiet --no-dev --optimize-autoloader --no-interaction --working-dir="$stage/mcp"
 rm "$stage/mcp/composer.lock"

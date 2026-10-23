@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Mcp\Protocol;
 
-use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -91,7 +90,7 @@ class McpProtocol {
                 'protocolVersion' => ProtocolMetadata::VERSION,
                 'capabilities' => ['tools' => new \stdClass(), 'prompts' => new \stdClass(), 'resources' => new \stdClass()],
                 'serverInfo' => $this->identity->info(),
-                'instructions' => ToolPresentation::INSTRUCTIONS,
+                'instructions' => $this->identity->instructions(),
             ]);
         }
         if ($method === 'ping') {
@@ -159,7 +158,7 @@ class McpProtocol {
                 // The prompt set is static, so no listChanged notification is ever needed.
                 'capabilities' => ['tools' => new \stdClass(), 'prompts' => ['listChanged' => false], 'resources' => new \stdClass()],
                 // DiscoverResult carries the same display guidance the legacy initialize does.
-                'instructions' => ToolPresentation::INSTRUCTIONS,
+                'instructions' => $this->identity->instructions(),
                 // Discovery is only answered to an authenticated user, so shared caches must not keep it.
                 'ttlMs' => 0,
                 'cacheScope' => 'private',

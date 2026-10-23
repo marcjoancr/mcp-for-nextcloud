@@ -71,3 +71,38 @@ Nextcloud owns `enabled`, `installed_version`, `types`, `levels` and `ocsid`; th
 [Operational guides](../guides/README.md).
 
 English · [Español](../../es/reference/configuration.md) · [Català](../../ca/reference/configuration.md) · [Português (Brasil)](../../pt-BR/reference/configuration.md) · [Português (Portugal)](../../pt-PT/reference/configuration.md)
+
+## Source delivery
+
+An operator configures the source destination separately, through Nextcloud's
+system configuration (`config.php`), after staging the complete kit:
+
+```php
+'mcp_source_offer' => [
+    'version' => '2.0.0',
+    'sourceCommit' => 'FULL_40_CHARACTER_COMMIT_SHA',
+    'manifestSha256' => 'SEPARATELY_TRUSTED_64_CHARACTER_MANIFEST_SHA256',
+    'baseUrl' => 'https://sources.example.invalid/immutable-release-directory',
+],
+```
+
+This system setting is release metadata, not a user or capability preference.
+Replace the placeholder revision and digest with those of the approved source kit;
+replace the example destination with a directory serving its five files:
+`manifest.json`, `source.bundle`, `runtime-dependencies.tar.gz`,
+`mcp-<version>.tar.gz` and `BUILDING.md`. Keep the expected digest in a separately
+trusted operator record, outside the app files covered by that manifest.
+
+The version and source commit must match the package's generated
+`appinfo/source.json` and installed app version. Dirty development packages have
+no source identity. Absent, invalid or mismatched configuration displays an
+unavailable offer in personal settings and MCP discovery; it does not grant
+access or change authentication. A configured offer still needs successful
+retrieval and digest verification before release acceptance.
+
+Use HTTPS with no credentials, query, fragment, percent encoding or traversal
+segments. Literal loopback HTTP is reserved for isolated acceptance fixtures.
+Do not publish a fixture URL as a release destination or send Nextcloud credentials
+to a source host. The application only presents the links; it does not fetch them.
+Public publication, supported integrity behavior and target-host update/recovery
+qualification remain separate release gates.
