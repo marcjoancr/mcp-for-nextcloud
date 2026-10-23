@@ -68,3 +68,10 @@ Source and translation checks also run for direct `sh scripts/package.sh` calls.
 Freshness is advisory; invalid provenance is an error. Full source history is
 required for packaging, including CI's standalone package job. Runtime installation
 needs neither Git nor Node nor development dependencies.
+
+## Immutable source delivery
+
+Use [source delivery and integrity](source-delivery.md) to build a local kit from
+a reviewed full commit SHA, including corresponding sources, runtime dependencies,
+the validated app archive and an exact file manifest. This is separate from
+publication, Nextcloud signing and ordinary-user source-offer acceptance.

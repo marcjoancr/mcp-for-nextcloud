@@ -352,7 +352,7 @@ security monitoring is recorded.
 | Fork identity and first version | Owner confirmed Nextcloud MCP and 2.0.0; development metadata updated | Qualification remains pending; no published release |
 | Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; qualification profiles confirmed; actual-host facts and reviewers remain pending | Resolve host compatibility and accountable release review before deployment |
 | Upstream 1.2.0 | Initial F2 selected ports qualified; D06 follow-up locally qualified with separate evidence; installed-upstream-1.2.0 upgrade and F3/F4 qualification pending | Do not equate source integration with release or host qualification |
-| Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
+| Update exclusion and integrity handling | [Local content verifier and filtered-catalog candidate](fork-f3-delivery.md) prepared; target-host mechanism remains unqualified | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |
 | ChatGPT | Real consent/tool/revocation journey pending | Block a claim of supported ChatGPT production use until verified or explicitly exclude it from release scope |

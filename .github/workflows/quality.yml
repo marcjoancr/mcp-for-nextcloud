@@ -37,7 +37,7 @@ jobs:
         working-directory: mcp
 
   documentation:
-    name: Documentation and translation provenance
+    name: Documentation, provenance and source delivery
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,4 +59,6 @@ jobs:
       - run: composer docs:translations
         working-directory: mcp
       - run: composer test:docs
+        working-directory: mcp
+      - run: composer test:release
         working-directory: mcp

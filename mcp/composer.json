@@ -69,6 +69,7 @@
             "@docs:translations @no_additional_args",
             "@test:docs @no_additional_args",
             "@test:clients:unit @no_additional_args",
+            "@test:release @no_additional_args",
             "@lint @no_additional_args",
             "@analyse @no_additional_args",
             "@test @no_additional_args",
@@ -111,6 +112,22 @@
         "test:clients:storage": [
             "Composer\\Config::disableProcessTimeout",
             "node tests/ClientAcceptance/storage-run.mjs"
+        ],
+        "package:source": [
+            "Composer\\Config::disableProcessTimeout",
+            "node scripts/release/cli.mjs prepare"
+        ],
+        "verify:source": [
+            "Composer\\Config::disableProcessTimeout",
+            "node scripts/release/cli.mjs verify"
+        ],
+        "verify:installed": [
+            "Composer\\Config::disableProcessTimeout",
+            "node scripts/release/cli.mjs installed"
+        ],
+        "test:release": [
+            "Composer\\Config::disableProcessTimeout",
+            "node scripts/release/cli.mjs test @no_additional_args"
         ]
     },
     "scripts-descriptions": {
@@ -131,6 +148,10 @@
         "test:integration": "Run one pinned disposable native cell: -- [--plan] NC DB MODE; starts containers only without --plan.",
         "test:clients": "Run private TLS/Inspector acceptance against an explicitly selected retained fixture; requires three absolute paths. No public exposure.",
         "test:clients:unit": "Check the client acceptance runner safety boundaries without containers.",
-        "test:clients:storage": "Check pinned Inspector encrypted storage across issuers in isolated processes; requires its absolute installation path. No containers or network."
+        "test:clients:storage": "Check pinned Inspector encrypted storage across issuers in isolated processes; requires its absolute installation path. No containers or network.",
+        "package:source": "Build a local source/runtime kit from one reviewed full commit SHA; no publication.",
+        "verify:source": "Verify a kit against a separately trusted manifest SHA-256: -- KIT DIGEST.",
+        "verify:installed": "Read-only exact installed-file verification: -- KIT DIGEST APP_DIRECTORY.",
+        "test:release": "Run source delivery and integrity boundary tests; fixed scope, fails on empty discovery."
     }
 }
