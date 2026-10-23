@@ -2,9 +2,12 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
-# MCP for Cloud
+# Nextcloud MCP
 
-Native Nextcloud application. Install this built archive using the [operational guides](../docs/en/guides/README.md). Source builds and contributions: [source repository](https://github.com/sintax-tech/mcp-for-nextcloud).
+Independent continuation of MCP for Cloud by Sintax, maintained in this fork.
+Not an official Nextcloud product or the upstream App Store package.
+
+Native Nextcloud application. Before using this development candidate, read the [installation requirements and pending release gates](../docs/en/installation.md). Source builds and contributions: [source repository](https://github.com/marcjoancr/mcp-for-nextcloud).
 
 
 ## Selected upstream integration (development)
@@ -14,7 +17,7 @@ conditional NC34/35 Deck dependencies, precise Deck deadlines and an optional
 filename allowlist, alongside privacy and compatibility fixes. See the
 [tools](../docs/en/reference/tools.md) and
 [configuration](../docs/en/reference/configuration.md) guides for limits and defaults.
-Manifest version remains **1.1.2** pending the fork release decision;
+The independent **Nextcloud MCP 2.0.0** development candidate retains app ID `mcp`;
 release and host qualification and human reviews remain pending. Native file linking
 requires explicit approval of its current and future audience and retains native
 sharing limitations. Source integration does not establish an upgrade from an
@@ -50,11 +53,11 @@ installed upstream 1.2.0 or certify every client/platform combination.
 
 ## Packaging
 
-For source builds and contribution guides, use the [source repository](https://github.com/sintax-tech/mcp-for-nextcloud). Runtime installation does not require Node or Composer.
+For source builds and contribution guides, use the [source repository](https://github.com/marcjoancr/mcp-for-nextcloud). Runtime installation does not require Node or Composer.
 
 ### Package rule: no macOS metadata
 
-Source build and archive rules are maintained in the [source repository](https://github.com/sintax-tech/mcp-for-nextcloud).
+Source build and archive rules are maintained in the [source repository](https://github.com/marcjoancr/mcp-for-nextcloud).
 
 ### Runtime dependencies
 
@@ -106,7 +109,7 @@ See [third-party notices](THIRD-PARTY-NOTICES.md) for bundled dependencies and t
 
 ## Development
 
-For source builds and contribution guides, use the [source repository](https://github.com/sintax-tech/mcp-for-nextcloud). Runtime installation does not require Node or Composer.
+For source builds and contribution guides, use the [source repository](https://github.com/marcjoancr/mcp-for-nextcloud). Runtime installation does not require Node or Composer.
 
 ## License
 

@@ -4,12 +4,28 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+### Nextcloud MCP 2.0.0 candidate
+
+- Adopt the independently maintained **Nextcloud MCP** display name and version
+  **2.0.0**, retaining app ID `mcp`, existing routes, migration identities and
+  original attribution. Project and issue links point to the fork.
+- Raise the native installation minimums to Nextcloud 33 and PHP 8.4. NC35 remains
+  the maximum; qualified profile targets and outstanding release gates are listed
+  in [installation](docs/en/installation.md). Historical PHP 8.2/8.3 tests do not
+  extend native production support.
+- Replace the upstream 1.1.2 same-version replacement test with a real upgrade to
+  2.0.0. Preserve the earlier NC32 and same-version evidence in Git history.
+- This is an unpublished development candidate. Source-offer delivery, update
+  control, integrity handling, final platform/installed-version qualification,
+  actual-host facts and human reviews remain pending. Public HTTPS, Inspector
+  and ChatGPT acceptance are not established by local unit or native tests.
+
 ### Selected upstream 1.2.0 integration
 
-Selected source: `02526119b845ccc1d8399be002da3e30b5527df6`; the manifest remains
-1.1.2 pending the independent fork release decision. Final qualification and human
-reviews remain pending. Native file linking/recipient expansion, the Colima queue
-and the German README addition are deferred; no full 1.2.0 parity is claimed.
+Selected source: `02526119b845ccc1d8399be002da3e30b5527df6`; the independent
+candidate now declares 2.0.0. Final qualification and human reviews remain pending.
+The Colima queue and German README addition are excluded from this integration;
+no blanket upstream 1.2.0 parity or installed-1.2.0 upgrade claim is made.
 
 - Notes gains mutually exclusive append/unique-passage replacement with ETag and
   plan-state confirmation. Existing full-content and title-only edits remain.
@@ -18,6 +34,11 @@ and the German README addition are deferred; no full 1.2.0 parity is claimed.
   Unlink can revoke access for every card member, including the caller's last
   mount, while preserving the file. Bounded readable-graph cycle checks cannot
   exclude hidden cycles or the final check-to-write race. See [Deck](docs/en/reference/tools/deck.md).
+- Deck native file linking requires explicit confirmation of the current and
+  future board/group/Team audience, native read/share and Deck edit permissions,
+  and supported sharing policy. It links rather than copies a file; incomplete
+  recipient expansion and unsupported policy are refused. Later membership or
+  policy changes do not trigger continuous revalidation or automatic revocation.
 - An optional filename allowlist starts off and narrows Files/Notes writes,
   including uploads, restoration, folder operations, batches and undo. Internal
   recovery backups remain exempt. See [configuration](docs/en/reference/configuration.md#file-type-policy)

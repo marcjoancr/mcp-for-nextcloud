@@ -6,40 +6,48 @@
 
 ## Requirements
 
-- Nextcloud **32 to 35**. Source-surface API contracts and disposable native tests are separate evidence; a fixture does not qualify every patch. Deck 1.16+ and Talk 22+ on 32, up to Deck 1.19 and Talk 25 on 35; the three Deck dependency tools additionally require the compatible NC34/35 APIs described in [Deck](reference/tools/deck.md#conditional-native-dependencies)
-- PHP **8.2+** with `zip`, `mbstring` and `dom`
-- Optional apps, only for their own tools (hidden while the app is disabled): Notes, Calendar, Contacts, Deck, Talk (`spreed`), Versions (`files_versions`, required for edits), Deleted files (`files_trashbin`, required for deletes)
-- Deck and Talk are optional: their tools appear only when the app is enabled in a supported version; an older release counts as disabled, its tools stay hidden and the admin page says which version brings them back
+Nextcloud MCP **2.0.0** is an independent development candidate. It is not yet a
+qualified release and must not be deployed based on this document alone. It keeps
+app ID `mcp`, so it replaces the original application rather than installing beside
+it. The Nextcloud App Store package is the original MCP for Cloud, not this fork.
 
-The normal installation is through the Nextcloud App Store: *Apps* → search for **MCP for Cloud** → **Download and enable** (or `occ app:install mcp`). The store package is signed and updates through the app updater. The SSH installation below is the alternative, for development or for testing a local build.
+The approved qualification targets are:
+
+| Nextcloud | PHP | Database | Reference platform |
+| --- | --- | --- | --- |
+| 35 | 8.5 | MariaDB 10.11 or PostgreSQL 16 | Linux x86-64 / Apache |
+| 34 | 8.5 | MariaDB 10.11 | Linux x86-64 / Apache |
+| 33 | 8.4 | MariaDB 10.11 | Linux x86-64 / Apache |
+
+Use security-maintained patches. The final candidate and exact patches still need
+qualification; manifest bounds do not certify every combination. SQLite remains a
+local test/recovery target, not an initial production profile. NC 32 is excluded
+from this release's deployment scope; its historical tests do not prove an upgrade
+sequence from an NC 32 host. PHP needs `zip`, `mbstring` and `dom`.
+
+Optional apps provide only their own tools: Notes, Calendar, Contacts, Deck, Talk
+(`spreed`), Versions (`files_versions`, required for edits) and Deleted files
+(`files_trashbin`, required for deletes). Disabled or unsupported apps have hidden
+tools. Deck's three dependency tools additionally require the compatible NC34/35
+APIs described in [Deck](reference/tools/deck.md#conditional-native-dependencies).
 
 ### Install via SSH
 
-Replace `<server>`, `<nextcloud>` (installation root), `<apps>` (writable apps directory, for example `custom_apps` or `apps`, according to `apps_paths` in `config/config.php`) and `<www>` (web server user, for example `www-data`).
+The source build produces `mcp-2.0.0.tar.gz`. No production installation command is
+approved yet. Before installation, record the exact current server/app versions,
+qualify their in-place upgrade and coordinated restore, and prove that each
+routine update path preserves the fork. A higher version number does not stop a
+future App Store package replacing it. Do not use `occ app:install mcp` to install
+this fork or force-enable it on a platform outside its manifest bounds.
 
-```sh
-scp build/mcp-1.1.2.tar.gz <server>:/tmp/
-ssh <server>
-sudo tar -xzf /tmp/mcp-1.1.2.tar.gz -C <nextcloud>/<apps>/
-sudo chown -R <www>:<www> <nextcloud>/<apps>/mcp
-sudo -u <www> php <nextcloud>/occ app:enable mcp
-sudo -u <www> php <nextcloud>/occ app:list | grep -A1 mcp
-```
-
-In Docker, run the `occ` commands inside the container as the web server user. If PHP uses OPcache with `validate_timestamps=0`, restart PHP-FPM after copying the files.
-
-To update a build installed through SSH: `occ app:disable mcp`, remove `<apps>/mcp`, extract the new package, `occ app:enable mcp` and `occ upgrade` if Nextcloud asks for it. The folder must be replaced whole, so no old files are left in `vendor/`. To remove: `occ app:remove mcp`.
-
-The 1.1.0 migrations retain the original migration IDs and import legacy native/custom-client settings into authoritative rows. Valid 1.0.8 preferences and credentials survive upgrade. The supported qualification paths include original upstream 1.0.8, the migrated local 1.0.8, upgrades from upstream 1.1.0 and 1.1.1, and replacement of an already-migrated upstream 1.1.2 installation. Same-version replacement does not force an upgrade or rerun migrations to reset policy.
-
-This development branch selectively integrates upstream 1.2.0 behavior while
-retaining manifest version **1.1.2** pending the independent fork release decision.
-It is not an upgrade candidate for a host already running upstream 1.2.0. Release
-version, actual installed-version compatibility and host qualification must be
-resolved before publishing or installing that release. The source integration,
-including native Deck file linking, does not establish release qualification for
-all hosts or clients. Qualify the actual release revision, installation path and
-client scope before deployment.
+The controlled procedure must verify the candidate digest and corresponding
+source, enable maintenance mode, replace the app directory as a whole, run the
+native upgrade and verify migrations, policy, assets and existing connections
+before reopening traffic. It must also establish custom-app integrity behavior
+without disabling Nextcloud integrity checks globally. Those checks remain release
+gates; the actual host, public HTTPS, Inspector, ChatGPT and human review are still
+pending. Legacy migration IDs are retained. An installed upstream 1.2.0 to 2.0.0
+upgrade is not established merely by integrating its source changes.
 
 ## Upgrade and recovery
 

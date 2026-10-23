@@ -4,15 +4,17 @@
 
 <div align="center">
 
-# MCP for Cloud
+# Nextcloud MCP
+
+Independent continuation of MCP for Cloud by Sintax, maintained in this fork.
+Not an official Nextcloud product or the upstream App Store package.
 
 **A native Nextcloud app that turns your Nextcloud into an MCP server.**
 Let Claude and other MCP clients work with your files, notes, calendars, contacts, tasks, Deck boards and Talk conversations, subject to MCP policy, resource restrictions and each user's native Nextcloud permissions.
 
-[![Tests](https://github.com/sintax-tech/mcp-for-nextcloud/actions/workflows/tests.yml/badge.svg)](https://github.com/sintax-tech/mcp-for-nextcloud/actions/workflows/tests.yml)
-[![Nextcloud 32–35](https://img.shields.io/badge/Nextcloud-32--35-0082c9?logo=nextcloud&logoColor=white)](https://nextcloud.com)
-[![Nextcloud App Store](https://img.shields.io/badge/App%20Store-mcp-0082c9?logo=nextcloud&logoColor=white)](https://apps.nextcloud.com/apps/mcp)
-[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777bb4?logo=php&logoColor=white)](https://www.php.net)
+[![Tests](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml/badge.svg)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml)
+[![Nextcloud 33–35](https://img.shields.io/badge/Nextcloud-33--35-0082c9?logo=nextcloud&logoColor=white)](https://nextcloud.com)
+[![PHP 8.4+](https://img.shields.io/badge/PHP-8.4%2B-777bb4?logo=php&logoColor=white)](https://www.php.net)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18%20%7C%202026--07--28-111)](https://modelcontextprotocol.io)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue)](#license)
 
@@ -32,7 +34,7 @@ conditional NC34/35 Deck dependencies, precise Deck deadlines and an optional
 filename allowlist, alongside privacy and compatibility fixes. See the
 [tools](docs/en/reference/tools.md) and
 [configuration](docs/en/reference/configuration.md) guides for limits and defaults.
-Manifest version remains **1.1.2** pending the fork release decision;
+The independent **Nextcloud MCP 2.0.0** development candidate retains app ID `mcp`;
 release and host qualification and human reviews remain pending. Native file linking
 requires explicit approval of its current and future audience and retains native
 sharing limitations. Source integration does not establish an upgrade from an
@@ -65,7 +67,7 @@ Group grants, per-user resource restrictions, access inspection, registered OAut
 
 ## Installation
 
-Install **MCP for Cloud** from Nextcloud Apps, enable the service and user eligibility in administration, then connect a client with the user’s own account.
+This independent fork is a development candidate, not the App Store release. Read the [installation requirements](docs/en/installation.md) and pending release gates before using a built artifact.
 
 [Installation](docs/en/installation.md).
 

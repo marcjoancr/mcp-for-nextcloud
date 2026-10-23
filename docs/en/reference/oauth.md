@@ -10,7 +10,7 @@ The protected-resource metadata is at `/apps/mcp/.well-known/oauth-protected-res
 
 ## Published, native and registered clients
 
-Administrators manage clients under **Administration → MCP for Cloud → Clients and connections**. Saves require an administrator, Nextcloud CSRF protection and the current policy revision.
+Administrators manage clients under **Administration → Nextcloud MCP → Clients and connections**. Saves require an administrator, Nextcloud CSRF protection and the current policy revision.
 
 | Client type | Identity and redirect rules |
 | --- | --- |

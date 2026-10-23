@@ -90,7 +90,7 @@ final class InfoXmlTest extends TestCase {
         $names = $this->manifest()->name;
         $this->assertCount(1, $names, 'appinfo/info.xml must have exactly one <name>');
         $this->assertNull($names[0]['lang'], '<name> must not carry a lang attribute');
-        $this->assertSame('MCP for Cloud', trim((string)$names[0]));
+        $this->assertSame('Nextcloud MCP', trim((string)$names[0]));
     }
 
     /** The description says what the app does, how it keeps the user in control and which clients connect to it. */
@@ -104,13 +104,13 @@ final class InfoXmlTest extends TestCase {
             foreach ($expected[$lang] as $needle) {
                 $this->assertStringContainsString($needle, $text, "description ($lang)");
             }
-            $this->assertStringContainsString('Nextcloud 32–35', $text, "description ($lang) names the supported Nextcloud versions");
+            $this->assertStringContainsString('Nextcloud 33–35', $text, "description ($lang) names the supported Nextcloud versions");
         }
     }
 
     public function testStoreMetadataPointsAtThePublicRepository(): void {
         $manifest = $this->manifest();
-        $repository = 'https://github.com/sintax-tech/mcp-for-nextcloud';
+        $repository = 'https://github.com/marcjoancr/mcp-for-nextcloud';
 
         $this->assertSame('mcp', (string)$manifest->id);
         $this->assertSame($repository, (string)$manifest->website);
@@ -130,16 +130,12 @@ final class InfoXmlTest extends TestCase {
         $this->assertSame([$base . 'admin.png', $base . 'plan.png'], array_map('strval', iterator_to_array($this->manifest()->screenshot, false)));
     }
 
-    /**
-     * Nextcloud 32 to 35, each checked by the API contracts; the code and the contracts also cover 31, which is not
-     * declared. PHP from 8.2, the platform of composer.json and of the bundled vendor/: 32 and 33 still run on it, 35
-     * requires 8.3 by itself, so nothing may need a later PHP than 8.2.
-     */
-    public function testDependenciesDeclareNextcloud32To35AndPhp82(): void {
+    /** Release profiles are narrower than the historical PHP compatibility test toolchain. */
+    public function testDependenciesDeclareForkPlatformMinimums(): void {
         $dependencies = $this->manifest()->dependencies;
 
-        $this->assertSame(['32', '35'], [(string)$dependencies->nextcloud['min-version'], (string)$dependencies->nextcloud['max-version']]);
-        $this->assertSame('8.2', (string)$dependencies->php['min-version']);
+        $this->assertSame(['33', '35'], [(string)$dependencies->nextcloud['min-version'], (string)$dependencies->nextcloud['max-version']]);
+        $this->assertSame('8.4', (string)$dependencies->php['min-version']);
         $this->assertNull($dependencies->php['max-version']);
         $composer = json_decode((string)file_get_contents(dirname(self::MANIFEST, 2) . '/composer.json'), true);
         $this->assertSame('>=8.2', $composer['require']['php']);

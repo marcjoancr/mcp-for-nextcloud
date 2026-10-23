@@ -13,9 +13,10 @@ maintenance accountability
 recorded below. The separate request to remove the local original
 repository remote has been carried out. Publication, remote branch promotion,
 releases and deployment remain unauthorized. The user
-subsequently authorized F1 local branch creation and validation. F3 decisions,
-including public identity, initial version and platform scope, remain pending,
-as do human reviewer assignments.
+subsequently authorized F1 local branch creation and validation. F3 decisions
+for public identity, initial version and platform scope are now confirmed as
+recorded in the [F3 execution record](fork-f3-preparation.md). Qualification,
+actual-host facts and human reviewer assignments remain pending.
 
 ## Purpose and baseline
 
@@ -102,8 +103,8 @@ retrieval does not authorize publication or contribution to the original.
 
 ## Versions, identity and support
 
-Recommend an independent release sequence beginning with **2.0.0**, subject to the
-release owner's approval and native upgrade qualification. This communicates a
+The owner approved an independent release sequence beginning with **2.0.0**.
+Native upgrade and release qualification remain required. This communicates a
 new maintenance line; it does not claim upstream 2.0.0 parity or an MCP protocol
 break. Record actual compatibility changes rather than deriving them from the
 number alone. Define compatibility for MCP tool/resource contracts, authorization,
@@ -126,7 +127,7 @@ points must be identified.
   an in-place continuation. Preserve the installation directory `mcp/`. The fork
   and original cannot be installed side by side under the same ID.
 - Give the display name, README and release descriptions an explicit independent
-  fork identity, retaining legal attribution. The final public name is pending;
+  fork identity, retaining legal attribution. The owner selected **Nextcloud MCP**; describe it as an independent fork and
   do not imply endorsement or ownership of upstream/Nextcloud trademarks.
 - Initially support one stable fork line and a documented Nextcloud/PHP/database
   matrix. Adopt the existing NC 32-35 test matrix as a qualification starting
@@ -282,9 +283,9 @@ Remaining optional omissions are release notes, not concealed test exclusions.
 
 ### F3: Qualify identity, licensing and upgrade control
 
-Obtain the owner choices in the [F3 decision proposal](#f3-decision-proposal)
-before changing release metadata or declaring supported platforms. Confirmation
-settles the design scope; it does not satisfy the qualification gates below.
+Identity, version and qualification profiles are confirmed in the
+[F3 execution record](fork-f3-preparation.md). These choices settle the design
+scope; they do not satisfy the qualification gates below or declare a release.
 
 Implement the approved version/identity and source-offer design. Audit visible
 attribution, corresponding-source completeness and dependency licenses. Rebuild
@@ -305,13 +306,14 @@ requires its own authorization.
 
 ### F4: Qualify a release candidate
 
-Adapt version-sensitive qualification explicitly before the first fork release.
-The current `replace-upstream` cell requires the candidate version to equal the
-1.1.2 baseline; it is not valid unchanged for a 2.0.0 candidate. Preserve the pinned
-1.1.2 source and cover that path as an actual upgrade with `occ upgrade`. Keep a
-separate same-version replacement case only where its preconditions hold. Update
-the matrix, runner, assertions and descriptions together; do not silently remove
-coverage or weaken equality/upgrade checks to obtain a pass.
+Version-sensitive qualification has been adapted for 2.0.0: the pinned upstream
+1.1.2 source now uses `upgrade-upstream-112` and a real `occ upgrade`. The old
+same-version replacement and NC32 native cells remain historical evidence at
+`5ff6672`, not runnable modes for a candidate whose version/minimums exclude them.
+The candidate matrix now has 14 cells. Full final-artifact qualification, current
+patch pins and the actual installed upstream version remain outstanding; see the
+[F3 execution record](fork-f3-preparation.md). Do not weaken version guards or
+force compatibility to obtain passing results.
 
 Run `composer --working-dir=mcp check`, REUSE validation and the native matrix for
 the declared supported platforms using the final artifact. Cover the actual
@@ -347,9 +349,9 @@ security monitoring is recorded.
 
 | Item | Recommendation or current status | Consequence |
 | --- | --- | --- |
-| Fork identity and first version | Independent display identity; propose 2.0.0 | Owner approval before metadata changes |
-| Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; platform scope and reviewers remain pending | Resolve platform scope before F3 and accountable release review before deployment |
-| Upstream 1.2.0 | Initial F2 selected ports qualified; D06 follow-up locally qualified with separate evidence; installed-upstream-1.2.0 upgrade and F3 release decisions pending | Do not equate source integration with release or host qualification |
+| Fork identity and first version | Owner confirmed Nextcloud MCP and 2.0.0; development metadata updated | Qualification remains pending; no published release |
+| Long-term owner and support scope | User confirmed maintenance/security and operation/recovery ownership; qualification profiles confirmed; actual-host facts and reviewers remain pending | Resolve host compatibility and accountable release review before deployment |
+| Upstream 1.2.0 | Initial F2 selected ports qualified; D06 follow-up locally qualified with separate evidence; installed-upstream-1.2.0 upgrade and F3/F4 qualification pending | Do not equate source integration with release or host qualification |
 | Update exclusion and integrity handling | Mechanism not yet qualified on target Nextcloud | Deployment blocker |
 | Public HTTPS | Still pending | Do not claim public-ingress acceptance |
 | Inspector | Public-ingress journey pending; earlier encrypted-storage isolation result was 14/15 with nonzero exit, an external client finding | Keep evidence and limits explicit; assess relevance to the supported client path |
@@ -418,18 +420,17 @@ has been configured. Reviewers remain unassigned.
 
 ### Decisions that may remain open after F0
 
-The concrete [F3 proposal](#f3-decision-proposal) below supplies recommended
-values for identity, version and platforms; none has been accepted yet.
-These substantive choices remain pending. The user retains decision ownership
-and coordinates reviewer assignments; the assistant prepares technical options
-and evidence. The phase deadlines below
-remain in effect. F0 closure does not prematurely approve deployment.
+The [F3 proposal](#f3-decision-proposal) below is retained as decision history.
+The owner subsequently selected Nextcloud MCP and approved 2.0.0 plus the proposed
+platform profiles. The [execution record](fork-f3-preparation.md) is authoritative
+for the current status. Host facts and reviewer assignments remain pending.
+The phase deadlines below remain in effect. F0 closure does not prematurely approve deployment.
 
-| Decision | Recommendation, still pending | Decision owner / deadline |
+| Decision | Current disposition | Decision owner / deadline |
 | --- | --- | --- |
-| Public display identity | `MCP for Nextcloud (marcjoancr fork)`, retaining the technical app identity and original attribution; see the F3 proposal | User / before F3 |
-| Initial release version | Independent `2.0.0`, numeric app version and `fork-v2.0.0` release tag; subject to native upgrade checks | User / before F3 |
-| Intended host and support scope | Propose NC 33–35 while officially maintained, with the concrete profiles and evidence limits below; record the actual host before final qualification | User supplies scope, assistant verifies available evidence / before F3 |
+| Public display identity | **Nextcloud MCP**, selected by the user; retain technical identity and original attribution | Confirmed; implementation and qualification tracked in F3 |
+| Initial release version | Independent `2.0.0` approved; `fork-v2.0.0` remains the planned tag, not created | Confirmed; release qualification pending |
+| Intended host and support scope | Proposed NC 33–35 profiles approved; actual host versions and final qualification remain pending | User supplies host facts; assistant validates profiles / F3–F4 |
 | Supported clients | ChatGPT is the stated intended client; qualify its real journey before claiming support or deploying a path that depends on it | User defines release scope / before F3; acceptance before dependent deployment |
 | Reviewer assignments | Technical/security, accessibility, document languages and German UI remain unassigned; the user coordinates assignment or a documented scope decision | User coordinates; reviewers pending / record disposition before F4 release readiness; accountable security and release review before deployment |
 | Update exclusion, integrity and source-offer mechanism | Engineering investigation and an isolated reproducible test, within the approved identity/platform scope | Assistant prepares evidence / F3; no mechanism is asserted to work yet |
@@ -441,6 +442,10 @@ exposing HTTPS. The user's long-term responsibilities are limited to the explici
 F0 confirmation, not additional duties inferred by the assistant.
 
 ### F3 decision proposal
+
+Historical proposal, superseded by the owner confirmations and current status in
+the [F3 execution record](fork-f3-preparation.md). The text below records the options
+as presented; its pending language describes that earlier decision point.
 
 Prepared and reviewed on 2026-10-23 against local revision `c7a7585`. This is a
 recommendation for owner confirmation, not an accepted support policy or a release. Current
@@ -663,8 +668,10 @@ remote CI run was requested. The wider PHP version matrix, REUSE command, native
 Nextcloud matrix and real-client/host qualification were not rerun in F1; earlier
 candidate evidence is historical, not a new result for these scopes.
 
-F3 decisions and human reviewers remain pending, as do the documented HTTPS,
-Inspector and ChatGPT acceptance limitations. The subsequent F2 inventory is
+At F1 closure, F3 decisions and human reviewers were still pending, alongside
+the documented HTTPS, Inspector and ChatGPT acceptance limitations. The later
+[F3 record](fork-f3-preparation.md) distinguishes confirmed decisions from remaining
+qualification and reviewer gates. The subsequent F2 inventory is
 linked above. At F1 closure no upstream 1.2.0 runtime changes had been integrated.
 Later selected ports and qualification are recorded in the
 [execution record](upstream-1.2.0-integration.md); the F1 evidence above is historical.

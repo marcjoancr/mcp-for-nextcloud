@@ -96,11 +96,14 @@ contracts do not certify every untested app patch.
 The native matrix retains run-owned labels, unique credentials, private networks,
 redacted public artifacts, coordinated recovery and owned cleanup. There is no
 Colima startup/shutdown or shared-engine queue. Selected source integration keeps
-the candidate at 1.1.2: the matrix covers the pinned older upgrades and same-version
-1.1.2 replacement, not an upgrade from an installed upstream 1.2.0. F3 owns that
-release-version and installed-host qualification. See the
-[execution record](upstream-1.2.0-integration.md) for actual current results;
-filtered batch diagnostics and complete cells are recorded separately.
+the independent candidate at 2.0.0. The matrix now upgrades the pinned upstream
+1.1.2 through `upgrade-upstream-112`; the historical same-version replacement
+and NC32 cells remain recorded at `5ff6672`. Current candidate cells begin at NC33.
+An installed upstream 1.2.0 upgrade and final platform qualification remain open.
+F3/F4 own final release and installed-host qualification. See the
+[F3 execution record](fork-f3-preparation.md) for the 2.0.0 candidate and the
+[upstream integration record](upstream-1.2.0-integration.md) for earlier revisions.
+Filtered batch diagnostics and complete cells are recorded separately.
 
 ## Private real-client acceptance
 
@@ -125,7 +128,7 @@ CI splits work without redefining commands: PHP 8.2–8.5 runs `test`; PHP 8.2 q
 runs manifest validation, `lint` and `analyse`; packaging runs once and REUSE remains
 its own job. A documentation quality job uses the same commands and full Git history;
 packaging also validates documentation independently. Local `check` does not run the REUSE action or other PHP interpreters.
-Local completion must report these limits and real Nextcloud 32–35 checks separately.
+Local completion must report these limits and real Nextcloud checks for the approved candidate profiles separately.
 Native API snapshots are useful contracts, not proof of real ACL, locks, shares,
 optional applications, audit effects or persistence behavior.
 
