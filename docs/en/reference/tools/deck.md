@@ -58,7 +58,8 @@ references also require Files scope, exclusion-tag checks, Guests restrictions
 and native node READ across the caller's aliases. Invisible references are omitted
 or answered like missing ones, without counts or handles; the card response no
 longer exposes native `attachmentCount`. Legacy `deck_file` uploads and folders
-are unsupported here. Creating a new native file association is deferred.
+are unsupported here. Creating a new native file association uses the separately
+authorized link operation described below.
 
 Unlinking revokes that association for all current and future card members,
 including when another editor created it. Independent shares may retain access;
@@ -66,6 +67,51 @@ you may lose your own last Deck mount. There is no automatic recovery; restoring
 the association may require Deck's native interface. A stale or invalid receipt
 is refused. A confirmed already-absent association is a no-op only with a valid
 original receipt and the original file still visible.
+
+## Native file linking
+
+`deck_link_card_file` links one existing visible regular file to an active Deck card.
+It requires `deck.edit`, `files.read` and `files.share`, native card EDIT and file
+READ/SHARE. The preview identifies the file owner, whether this is a reshare, the
+current recipient total and up to ten names (80 Unicode characters each). It must
+be approved with `confirm: true`, the exact `plan_state`, and `confirm_shared`
+where the existing shared-write rules require it.
+
+The native association gives READ access to current and future board members,
+including inherited group/Team members. It does not upload or copy the file.
+It does not change existing independent shares. A changed file, source, audience,
+sharing policy or permission invalidates confirmation before the native write.
+Core policy and actor checks precede privileged Teams expansion; temporary native
+Circles privilege is cleared before subsequent authorization and native writes,
+and at operation boundaries, including error paths. A cleanup
+failure refuses before writing or reports an uncertain effect after a write attempt.
+
+The operation refuses Guests, folders, archived sources, unresolved or unsupported
+recipients, disabled sharing, group-only sharing, enforced internal expiry,
+prohibited resharing, and a group/Team audience when group sharing is disabled.
+Failures to determine identity or policy also refuse. It does not suggest disabling
+those protections. Native sharing hooks and notifications may run. Optional default internal expiry
+does not apply to this native share type; enforced internal expiry is refused.
+
+A complete audience is required: at most 128 ACL entries, 1,000 distinct local
+people, 5,000 cooperative work steps and two seconds checked between native calls.
+There is no partial-audience success. Native membership allocation and blocking I/O
+are outside these cooperative bounds. A limited name preview is not a limited share:
+the association reaches the complete native audience and its future members.
+
+Membership/policy changes after creation do not trigger automatic revocation by
+MCP; validation and the native share are not one atomic transaction. These limits
+also matter when interpreting an uncertain write result. Inspect current state
+before retrying; observing a share after an error does not establish which actor
+created it. Conversely, a missing association after an attempted creation does not
+prove that nothing happened: a hook or another actor could have removed it after
+it granted access or triggered notifications. Such failures remain uncertain and
+do not authorize a blind retry. Unlinking removes only the native association and its resulting access;
+the file and independent shares remain.
+
+The filename policy governs covered Files/Notes content writes and destinations;
+a native Deck association is not a new file-content write. Files visibility, scope,
+exclusions and native sharing policy still apply.
 
 ## Conditional native dependencies
 
@@ -99,7 +145,7 @@ no IDs, counts, handles or hidden-limit indicator. Self-relations and cycles det
 cards are refused; hidden cycles and a concurrent change between the last check
 and native write cannot be excluded. This is no global acyclicity guarantee.
 
-After an uncertain or partial label/dependency/unlink result, inspect the current
+After an uncertain or partial label/dependency/link/unlink result, inspect the current
 Deck state before taking further action. Observing the requested state after an
 error does not prove which actor changed it or that the whole request completed;
 do not automatically repeat the write.

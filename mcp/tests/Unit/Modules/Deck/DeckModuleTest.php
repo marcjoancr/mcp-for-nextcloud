@@ -39,6 +39,16 @@ require_once __DIR__ . '/../../../Support/Deck/Stubs/deck_stubs.php';
 final class DeckModuleTest extends TestCase {
     use \OCA\Mcp\Tests\Support\Deck\DeckToolFixtures;
     use \OCA\Mcp\Tests\Support\Deck\DeckNativeFixtures;
+    public function testNativeFileLinkIsPublishedWithStrictTargets(): void {
+        $definitions = \OCA\Mcp\Modules\Deck\DeckToolCatalog::definitions();
+        self::assertArrayHasKey('deck_link_card_file', $definitions);
+        $definition = $definitions['deck_link_card_file'];
+        self::assertSame('edit', $definition['operation']);
+        self::assertSame(['cardId', 'fileId'], $definition['inputSchema']['required']);
+        self::assertSame(1, $definition['inputSchema']['properties']['fileId']['minimum']);
+        self::assertStringContainsString('current and future board members', $definition['description']);
+    }
+
     private IAppManager $appManager;
     private DeckModule $module;
     /**
@@ -120,7 +130,7 @@ final class DeckModuleTest extends TestCase {
         self::assertInstanceOf(ToolModule::class, $this->module);
     }
 
-    public function testDeclaresTheSeventeenUnconditionallyAvailableToolsInOrder(): void {
+    public function testDeclaresTheEighteenUnconditionallyAvailableToolsInOrder(): void {
         self::assertSame(
             [
                 'deck_list_boards',
@@ -140,6 +150,7 @@ final class DeckModuleTest extends TestCase {
                 'deck_edit_card_labels',
                 'deck_list_card_files',
                 'deck_unlink_card_file',
+                'deck_link_card_file',
             ],
             array_column($this->module->definitions(), 'name'),
         );

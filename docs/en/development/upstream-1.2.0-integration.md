@@ -7,7 +7,11 @@ Status: selected integration completed locally on 2026-10-23. Batches A-E of the
 [reviewed inventory](upstream-1.2.0-inventory.md) were implemented in order, with
 validation before advancing and final qualification recorded below. F3
 identity/version/platform decisions and human reviewers remain pending.
-No push or deployment is authorized; PR #14 remains a reference.
+No push or deployment is authorized; PR #14 remains a reference. A later review
+adds D06 under the [native-link follow-up plan](deck-file-link-integration.md).
+Its local implementation is complete; native qualification is in progress.
+Sections A-E and their final matrix below describe the earlier candidate, before
+D06. The follow-up evidence is recorded separately and does not relabel old runs.
 
 ## Inputs and scope
 
@@ -17,8 +21,9 @@ The fork starts at `5e86968` on `fork/main`. Source behavior is taken from upstr
 [source ledger](upstream-1.2.0-source-ledger.md) records provenance and decisions.
 
 The selected corrections and capabilities are adapted to existing module,
-access, platform and MCP owners. Native linking/recipient expansion (D06),
-Colima/engine management and the German README addition remain excluded.
+access, platform and MCP owners. At this initial checkpoint, native
+linking/recipient expansion (D06), Colima/engine management and the German README
+addition were excluded. The later review supersedes only the D06 deferment.
 No complete upstream 1.2.0 parity is claimed. App ID, public name, version and
 existing migration IDs remain unchanged pending F3.
 
@@ -527,8 +532,9 @@ check. No runtime or test fixture changed after the qualified revision above.
 ### Acceptance boundaries
 
 All results refer to the selected ports, not complete upstream 1.2.0 parity.
-D06 native linking/recipient expansion, Colima engine control and German README
-expansion remain deliberately excluded. The app still declares 1.1.2: the
+At this checkpoint, D06 native linking/recipient expansion, Colima engine control
+and German README expansion were deliberately excluded. The D06 follow-up below
+supersedes its exclusion; the other decisions remain. The app still declares 1.1.2: the
 existing upgrade baselines do not establish an upgrade from installed upstream
 1.2.0. F3 must choose public identity/version/platform scope, implement release
 source availability and production update controls, and qualify the actual host
@@ -542,3 +548,37 @@ Inspector's public journey and the earlier encrypted-storage isolation result of
 acceptance remains pending. Local automated results do not certify those paths.
 No push, deployment, release or PR change was performed; PR #14 remains a historical
 reference and the removed upstream remote was not restored.
+
+## Review and D06 follow-up
+
+This follow-up reviews `04eb9a6`, preserving the A-E results above as historical evidence for their exact candidate. The source remains upstream `02526119b845ccc1d8399be002da3e30b5527df6`. Read-only review found no additional actionable defect in A/B/D or the already selected Deck capabilities. The saved 16 native results were independently checked against JUnit, runner exit status, package hashes and cleanup; each archive also matched all 725 runtime files from the qualified revision. These checks do not qualify new D06 code.
+
+The renewed authorization includes coherent 1.2.0 capabilities. D06's earlier exclusion was reconsidered against existing native Files group sharing: both intentionally include future members and persist independently of later MCP configuration changes. D06 is therefore adapted with explicit native lifetime semantics, complete current-audience admission, Files READ/SHARE and Deck EDIT checks, strict core-policy refusal and signed confirmation. No private synthetic sharing model or transition handler is introduced.
+
+The port adds `deck_link_card_file` in focused `Modules/Deck/Files/Linking` and `Modules/Deck/Recipients` owners. A generic internal `grantAllOf` contract exposes cross-module requirements consistently. It also corrects discovery for the existing file-list/unlink tools, whose execution already required Files read; unlink still does not require Files share. The maximum inventory is 82 module tools plus two diagnostics, or 79 plus two when native dependencies are unavailable; Deck contributes 21 or 18 respectively.
+
+Independent review required two corrections before qualification. First, native Deck board hydration can start a privileged Circles session through an unrelated visible board. Final cleanup alone did not protect intermediate authorization. The D06 source boundary now avoids that hydration, and privilege is cleared before subsequent authorization and native writes as well as on operation exit. Second, an absent readback after native creation throws cannot prove that no write occurred: a hook or concurrent unlink can remove the committed association. Such attempts remain uncertain, without stale metadata, rollback or an invitation to retry blindly.
+
+Meaningful RED tests preceded the new tool and privilege-order corrections. All unsuccessful attempts remain distinguishable from passing evidence: one early full suite was stopped while formatting a multi-megabyte expected-value difference; exact byte comparison now produces a bounded diagnostic. The next full suite failed on outdated contract expectations and inherited Node 22 rather than the pinned Node 24 environment. Only the approved 48 compatibility JSON-pointer changes were accepted after reversal against the baseline; `results.json` is byte-identical. A package attempt also correctly rejected an operational page's link to an excluded development report; the link was removed before the final package gate. The controller also initially invoked the final catalog with inherited Node 22; the asset build refused it before PHP/browser/package execution. Repeating with the pinned Node 24.21 PATH preserves the version guard. No failure was counted as a pass.
+
+### Candidate gates before native qualification
+
+The scoped independent re-review marks both findings addressed, with no new
+actionable finding. The full catalog then passes on PHP 8.4.27 and Node 24.21.0:
+8,424 PHP tests / 71,499 assertions, 687 browser tests, 1,285 syntax-checked PHP
+files, both static-analysis scopes, 29 documentation tests, 10 client-runner unit
+tests, documentation validation and the production package. Documentation covers
+150 Markdown files and 110 packaged sources; 96 translation drafts remain
+review-required. REUSE 6.2.0 passes for all 1,647 files.
+
+Focused fix coverage passes 130 tests / 1,438 assertions; API/architecture checks
+pass 2,564 tests / 22,202 assertions. These are subsets of the full suite and are
+not additional coverage totals. Native fixtures include real sharing, a plain
+target plus an unrelated visible Circle board, denied Guest/file/policy admission,
+and an injected persist-remove-throw boundary. Their execution and the additional
+PHP interpreter checks remain pending at this candidate checkpoint.
+
+No dependency manifest/lock or migration file changed. Identity/version remain
+1.1.2. Native evidence for this follow-up must identify the committed candidate,
+filters, JUnit results, archive hashes and owned-resource cleanup separately from
+the original A-E matrix. F3, human review, HTTPS, Inspector and ChatGPT remain open.

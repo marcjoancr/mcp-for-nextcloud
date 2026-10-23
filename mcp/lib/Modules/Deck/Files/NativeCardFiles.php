@@ -61,7 +61,7 @@ final class NativeCardFiles implements CardFileAccess {
 		if ($edit) {
 			($this->permissionServiceProvider)()->checkPermission(($this->cardMapperProvider)(), $cardId, Acl::PERMISSION_EDIT);
 			if ($source['card']->getArchived() || $board->getArchived()) {
-				throw new DeckRefusalException(CapabilityMessages::fileUnavailable());
+				throw DeckRefusalException::inactiveFileSource($userId, $cardId, $source['boardId']);
 			}
 		}
 		$owner = (string)$board->getOwner();

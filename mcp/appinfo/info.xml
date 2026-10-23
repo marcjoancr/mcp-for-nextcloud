@@ -22,7 +22,8 @@
 ## Selected capabilities
 
 - **Partial Notes edits.** Append text or replace one unique passage, with an ETag and a fresh confirmation plan; full-content and title-only edits remain available.
-- **Deck labels and visible files.** Discover labels, change only requested label associations, list visible native card files and unlink an association while preserving the original file. Unlinking can revoke access for all card members, including your own last mount; it does not create new file associations. Hidden files disclose no counts or handles.
+- **Deck labels and visible files.** Discover labels, change only requested label associations, list visible native card files and unlink an association while preserving the original file. Unlinking can revoke access for all card members, including your own last mount; new associations require their own confirmation through the native file-link tool. Hidden files disclose no counts or handles.
+- **Native Deck file linking.** Requires Deck edit and Files read/share grants, native permissions and a fresh confirmed audience/policy plan. Grants read-only access to current and future board/group/team members; no copy or upload. Unsupported sharing policies and incomplete audiences are refused. Later policy/membership changes are not continuously enforced and do not trigger automatic revocation.
 - **Conditional Deck dependencies.** Read and change native outgoing relations only on compatible Nextcloud 34/35 Deck APIs. Readable-graph bounds and concurrent changes limit cycle checks; relations do not automatically block task progress.
 - **Deck deadlines.** Date-only and time-of-day inputs are normalized to UTC for persistence, with account-local output; old affected dates require explicit review, not an automatic bulk shift.
 
@@ -67,7 +68,8 @@ Nextcloud 32–35 and PHP 8.2 or later. Deck and Talk are optional: their tools 
 ## Capacidades selecionadas
 
 - **Edições parciais de notas.** Edite o texto inteiro, acrescente texto ou substitua um trecho único, com ETag e um novo plano de confirmação; a edição só do título continua disponível.
-- **Etiquetas e arquivos visíveis do Deck.** Liste, adicione e remova apenas as etiquetas pedidas e liste ou desvincule associações nativas de arquivos visíveis. O arquivo original nunca é apagado. Desvincular pode retirar o acesso de todos os membros, inclusive a sua última montagem; não cria novas associações. Arquivos ocultos não expõem contagens nem identificadores.
+- **Etiquetas e arquivos visíveis do Deck.** Liste, adicione e remova apenas as etiquetas pedidas e liste ou desvincule associações nativas de arquivos visíveis. O arquivo original nunca é apagado. Desvincular pode retirar o acesso de todos os membros, inclusive a sua última montagem; novas associações exigem confirmação própria na ferramenta nativa de vínculo. Arquivos ocultos não expõem contagens nem identificadores.
+- **Vínculo nativo de arquivos do Deck.** Exige permissões de edição do Deck e leitura/compartilhamento de Files, permissões nativas e um novo plano confirmado de destinatários e política. Concede leitura aos membros atuais e futuros do quadro/grupo/equipe, sem cópia nem envio. Políticas incompatíveis e destinatários incompletos são recusados. Mudanças posteriores de política ou membros não são aplicadas continuamente nem causam revogação automática.
 - **Dependências condicionais do Deck.** Leia e altere relações nativas de saída somente nas APIs compatíveis do Nextcloud 34/35. Os limites do grafo legível e as mudanças concorrentes limitam a detecção de ciclos; as relações não bloqueiam automaticamente o progresso das tarefas.
 - **Prazos do Deck.** Datas e horários são convertidos para UTC antes de salvar e exibidos no fuso da conta. Datas antigas afetadas precisam de revisão explícita, sem ajuste automático em lote.
 
@@ -111,7 +113,8 @@ Nextcloud 32–35 e PHP 8.2 ou superior. O Deck e o Talk são opcionais: as ferr
 ## Capacidades seleccionadas
 
 - **Ediciones parciales de notas.** Edite todo el texto, añada texto o sustituya un fragmento único, con ETag y un nuevo plan de confirmación; sigue disponible la edición solo del título.
-- **Etiquetas y archivos visibles de Deck.** Liste, añada y quite solo las etiquetas solicitadas y liste o desvincule asociaciones nativas de archivos visibles. El archivo original nunca se borra. Desvincular puede retirar el acceso de todos los miembros, incluido su último montaje; no crea nuevas asociaciones. Los archivos ocultos no exponen recuentos ni identificadores.
+- **Etiquetas y archivos visibles de Deck.** Liste, añada y quite solo las etiquetas solicitadas y liste o desvincule asociaciones nativas de archivos visibles. El archivo original nunca se borra. Desvincular puede retirar el acceso de todos los miembros, incluido su último montaje; las asociaciones nuevas requieren su propia confirmación en la herramienta de enlace nativo. Los archivos ocultos no exponen recuentos ni identificadores.
+- **Enlace nativo de archivos de Deck.** Exige permisos de edición de Deck y lectura/compartición de Files, permisos nativos y un nuevo plan confirmado de destinatarios y políticas. Concede lectura a miembros actuales y futuros del tablero/grupo/equipo, sin copiar ni cargar archivos. Se rechazan las políticas incompatibles y los destinatarios incompletos. Los cambios posteriores de políticas o miembros no se aplican continuamente ni provocan revocación automática.
 - **Dependencias condicionales de Deck.** Lea y modifique relaciones nativas de salida solo en las API compatibles de Nextcloud 34/35. Los límites del grafo legible y los cambios concurrentes limitan la detección de ciclos; las relaciones no bloquean automáticamente el progreso de tareas.
 - **Vencimientos de Deck.** Las fechas y horas se convierten a UTC antes de guardarse y se muestran en la zona de la cuenta. Las fechas antiguas afectadas requieren una revisión explícita, sin ajuste automático en lote.
 

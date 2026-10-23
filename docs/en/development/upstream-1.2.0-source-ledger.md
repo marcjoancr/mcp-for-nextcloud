@@ -10,7 +10,9 @@ files copied into this branch. The inventory analysis itself ported no behavior.
 Selected batches A-E and local automated qualification are now complete in the
 [integration record](upstream-1.2.0-integration.md); F3 and human review remain pending.
 The dispositions below remain the historical selection, not a current completion
-ledger; D06 and QQUEUE remain deferred.
+ledger. D06's original deferment is superseded by the
+[authorized native-link follow-up](deck-file-link-integration.md); its source rows
+retain the original classification for traceability. QQUEUE remains deferred.
 
 Range: `27da5e107ca06d92b7af9b8a80ad9c77c12ba91e` to
 `02526119b845ccc1d8399be002da3e30b5527df6`. The fork comparison is
@@ -29,7 +31,7 @@ contains the precise contracts, source commits, target owners and test gates.
 | --- | --- |
 | D01/D04/QA | Adapt privacy, alias and Guests tests to selected Deck behavior; retain existing fork guards |
 | D02, D03, D04, D05 | Port the named selected Deck capability and its necessary tests |
-| D06 | Defer link-only native sharing/recipient code and tests; do not register dormant tools |
+| D06 | Initially deferred; native sharing/recipient code and tests are now adapted under the separate follow-up contract; no dormant tools |
 | DECK | Adapt selected D01-D05 and shared presentation/contract tests; introduce reference filtering with D05; omit D06-only paths and keep already-present move behavior |
 | FILES | Adapt file safety and optional W01 write coverage; keep existing capability owners and receipts |
 | N01/W01 | Adapt Notes partial edits and complete optional file-policy integration |
@@ -40,7 +42,7 @@ contains the precise contracts, source commits, target owners and test gates.
 | T01 | Adapt no-match explanation/tests; retain existing listing/repository separation |
 | OBS | Adapt narrowly classified expected-refusal log levels |
 | QA/QQUEUE | Adapt pinned test app provisioning and manifest checks; defer Colima/engine lifecycle and queue code |
-| QA/D06 | Adapt required API/parser/provenance behavior; defer unused recipient/Circles surfaces associated only with D06 |
+| QA/D06 | Adapt required API/parser/provenance behavior; recipient/Circles surfaces initially deferred, now consumed by D06 follow-up |
 | QA/META | Adapt selected contracts and tests to fork paths; do not wholesale replace expectations or add deferred claims |
 | META | Adapt implemented feature descriptions/presentation later; defer version choice to F3 |
 | DOC | Adapt selected messages/docs/credits, retain our English/i18n owners; defer German README expansion and reject duplicate README/HISTORY ownership |
@@ -364,8 +366,8 @@ META/F3 work; runner queue changes remain deferred.
 | [aa7a30d](https://github.com/sintax-tech/mcp-for-nextcloud/commit/aa7a30d851d452c16a28ced63ef616aba730e658) | Contribution | M01: port installed-version identity | Report the installed app version in the MCP server info |
 | [4909e05](https://github.com/sintax-tech/mcp-for-nextcloud/commit/4909e05c90f8c903fdc83b3c1c11fd6458cf5a39) | Contribution | N01/F02: port partial edits and bounded matcher | Edit notes in place with append and single-snippet replace |
 | [35683b5](https://github.com/sintax-tech/mcp-for-nextcloud/commit/35683b5a6e7f2cbb4587082fea8382d0f6b7f4b9) | Contribution | F01: port size preflight | Check the reported size before files_replace reads the file |
-| [7fef90b](https://github.com/sintax-tech/mcp-for-nextcloud/commit/7fef90baf2cb5b7429b52b295d542e3f579647d4) | Contribution | D06: defer recipient expansion | Resolve Deck board recipients and bind link plans to canonical audience hashes (#9) |
-| [da7ff40](https://github.com/sintax-tech/mcp-for-nextcloud/commit/da7ff403ee441691dcf837ee221008011146e40e) | Contribution | D06: defer native linking | Link files to Deck cards natively under strict sharing policies (#9) |
+| [7fef90b](https://github.com/sintax-tech/mcp-for-nextcloud/commit/7fef90baf2cb5b7429b52b295d542e3f579647d4) | Contribution | D06: initially deferred; recipient expansion adapted in follow-up | Resolve Deck board recipients and bind link plans to canonical audience hashes (#9) |
+| [da7ff40](https://github.com/sintax-tech/mcp-for-nextcloud/commit/da7ff403ee441691dcf837ee221008011146e40e) | Contribution | D06: initially deferred; native linking adapted in follow-up | Link files to Deck cards natively under strict sharing policies (#9) |
 | [5f67546](https://github.com/sintax-tech/mcp-for-nextcloud/commit/5f67546ed4250c99f9aa66f51f5e1d8d2e60e362) | Contribution | T01: port no-match note | Explain empty category-filtered task listings instead of returning a bare empty page (#16) |
 | [ab905c0](https://github.com/sintax-tech/mcp-for-nextcloud/commit/ab905c0b5cadc59a6b1daec53491f54a1c73e65f) | Contribution | Already present: retain Tasks listing/repository owners | Move the tasks_list_tasks listing into its own handler with a shared protected-task reader (#16) |
 | [efeafc5](https://github.com/sintax-tech/mcp-for-nextcloud/commit/efeafc5a61d34e8311e1188476408d7eec78c6bb) | Contribution | DOC: retain canonical docs; do not copy README/HISTORY layout | Move earlier release notes to HISTORY and tidy the README |
@@ -391,7 +393,7 @@ META/F3 work; runner queue changes remain deferred.
 | [c8e0817](https://github.com/sintax-tech/mcp-for-nextcloud/commit/c8e08172c55fc4d576b0461e298bfe870e518886) | Integration only | History only; use reviewed final tree | Merge file type policy checks for file copy and move into the 1.2.0 work |
 | [a55d554](https://github.com/sintax-tech/mcp-for-nextcloud/commit/a55d554ef479dcba9a8c9fb6181883ddab0eefdc) | Contribution | W01: port folder/batch/undo guards | Apply the file type policy to folder copy and move, batches and undo (#15) |
 | [d7da63f](https://github.com/sintax-tech/mcp-for-nextcloud/commit/d7da63fd4797f8f16e09db9e5e54d1f68aa80794) | Integration only | History only; use reviewed final tree | Merge file type policy checks for folders, batches and undo into the 1.2.0 work |
-| [97752bd](https://github.com/sintax-tech/mcp-for-nextcloud/commit/97752bd69433a2ecf6d48038c070ec841649c966) | Contribution | DOC: adapt selected features only; exclude D06 claims | Present the full Deck cut in the guide, messages, translations and READMEs (#9) |
+| [97752bd](https://github.com/sintax-tech/mcp-for-nextcloud/commit/97752bd69433a2ecf6d48038c070ec841649c966) | Contribution | DOC: initial selected features; D06 claims added with its qualified follow-up | Present the full Deck cut in the guide, messages, translations and READMEs (#9) |
 | [a285be3](https://github.com/sintax-tech/mcp-for-nextcloud/commit/a285be37cdb62c069d07cba96b226dc339fa79ba) | Integration only | History only; use reviewed final tree | Merge the full Deck guide, messages and documentation into the 1.2.0 work |
 | [5a88b32](https://github.com/sintax-tech/mcp-for-nextcloud/commit/5a88b32294e7e7a6319b672e0fde5fcfeb6b2366) | Contribution | W01: port edit/replace/restore guards | Apply the file type policy to edit, replace and version restore (#15) |
 | [a5e3070](https://github.com/sintax-tech/mcp-for-nextcloud/commit/a5e30705539640a3c698a938f77e19fe21c93b9d) | Integration only | History only; use reviewed final tree | Merge file type policy checks for edit, replace and version restore into the 1.2.0 work |

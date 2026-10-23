@@ -7,8 +7,8 @@ These files describe host APIs missing from Composer dependencies. They are scan
 by PHPStan only, never required, registered or included in Composer autoload.
 The application still uses the actual Nextcloud and optional-app classes at runtime.
 
-The host reference matches the existing API snapshot for Nextcloud 33.0.0 and Deck
-1.17.0. OCP itself comes from the exact stable33 commit in `composer.lock` and is
+The host reference matches the existing API snapshot for Nextcloud 33.0.0, Deck
+1.17.0 and the newly consumed Circles 33.0.0 APIs. OCP itself comes from the exact stable33 commit in `composer.lock` and is
 scanned directly from `vendor/nextcloud/ocp`; it is not redeclared here. Talk is
 currently dynamically typed and needs no additional declarations for the level-0
 gate. Existing native API contract tests remain mandatory for its consumed methods.
@@ -27,7 +27,7 @@ source-derived signatures, not permissive test doubles or implementations.
 The modeled members are exactly those present in each declaration file; each file
 links its source and SHA-256 below. Keeping the public/protected surface of a required
 class also preserves its interface contracts and inherited API. Four Deck ancestors/
-interfaces supplement the 38 directly missing host classes. No synthetic `__call`,
+interfaces supplement the 42 directly missing host classes. No synthetic `__call`,
 return type, suppression or application alias was introduced. The actual Entity
 magic contract remains inherited from OCP where upstream uses it.
 
@@ -93,3 +93,7 @@ attribution. Hashes identify the complete upstream source before body removal.
 | [OCA\Deck\Db\LabelMapper](symbols/OCA/Deck/Db/LabelMapper.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Db/LabelMapper.php) | `8ff05d8a3e63c2219397214ac8391a40e64ff60971504a564da8ba5e103e01b7` |
 | [OCA\Deck\Service\AttachmentService](symbols/OCA/Deck/Service/AttachmentService.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Service/AttachmentService.php) | `b5a28438eea4536c01756d568937d2354ee9ca00759d39a81bd2fad25a19282c` |
 | [OCA\Deck\Sharing\DeckShareProvider](symbols/OCA/Deck/Sharing/DeckShareProvider.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Sharing/DeckShareProvider.php) | `a41695cdbb513201fdfae629d2a4fc37b3c040d901c97666dd41f09277f21269` |
+| [OCA\Deck\Db\AclMapper](symbols/OCA/Deck/Db/AclMapper.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Db/AclMapper.php) | `942e6d47e582545901d8342451bfb7f6de52bf1857dec8ece12b628600a7f338` |
+| [OCA\Deck\Service\CirclesService](symbols/OCA/Deck/Service/CirclesService.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/deck/v1.17.0/lib/Service/CirclesService.php) | `5ef53b05da163f08f6976a9f87ebae8f2b70cc42660dc08cbaf3b1e8ae0f99e0` |
+| [OCA\Circles\Model\Member](symbols/OCA/Circles/Model/Member.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/circles/v33.0.0/lib/Model/Member.php) | `6da993feac2f08a7ceb6491b83713613ecd87e1312f97f37c15c6b1f3e213b12` |
+| [OCA\Circles\CirclesManager](symbols/OCA/Circles/CirclesManager.php) | [pinned source](https://raw.githubusercontent.com/nextcloud/circles/v33.0.0/lib/CirclesManager.php) | `16e1cdc062c9b4caab3847d65e98aae96e40328d4238964a69e25a487be63adc` |

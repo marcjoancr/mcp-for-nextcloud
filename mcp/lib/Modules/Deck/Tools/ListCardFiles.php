@@ -18,7 +18,7 @@ final class ListCardFiles implements Tool {
     public const TOOL = 'deck_list_card_files';
     public function __construct(private \OCA\Mcp\Modules\Deck\Files\CardFileOperations $operation) {}
     public static function definition(): ToolDefinition {
-        return new ToolDefinition(self::TOOL, 'deck', 'read', CapabilityMessages::TOOL_CARD_FILES_DESCRIPTION, DeckSchema::schema(['cardId'=>DeckSchema::integer('Card ID.')],['cardId']), 'deck');
+        return new ToolDefinition(self::TOOL, 'deck', 'read', CapabilityMessages::TOOL_CARD_FILES_DESCRIPTION, DeckSchema::schema(['cardId'=>DeckSchema::integer('Card ID.')],['cardId']), 'deck', grantAllOf: ['files'=>['read']]);
     }
     public function execute(array $arguments, ToolContext $context): array {
         return $this->operation->handle($arguments, $context->userId);

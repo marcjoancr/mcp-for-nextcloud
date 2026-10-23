@@ -9,14 +9,16 @@ Native Nextcloud application. Install this built archive using the [operational 
 
 ## Selected upstream integration (development)
 
-This branch adds Notes append/replace, Deck labels and visible file unlinking,
+This branch adds Notes append/replace, Deck labels and visible file linking/unlinking,
 conditional NC34/35 Deck dependencies, precise Deck deadlines and an optional
 filename allowlist, alongside privacy and compatibility fixes. See the
 [tools](../docs/en/reference/tools.md) and
 [configuration](../docs/en/reference/configuration.md) guides for limits and defaults.
-Manifest version remains **1.1.2** pending the fork release decision; final
-qualification and human reviews remain pending. This is selected source
-integration, with native file linking deferred, not full upstream 1.2.0 parity.
+Manifest version remains **1.1.2** pending the fork release decision;
+release and host qualification and human reviews remain pending. Native file linking
+requires explicit approval of its current and future audience and retains native
+sharing limitations. Source integration does not establish an upgrade from an
+installed upstream 1.2.0 or certify every client/platform combination.
 
 ## Contacts and Tasks (0.8.0)
 

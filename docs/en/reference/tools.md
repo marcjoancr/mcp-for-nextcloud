@@ -4,8 +4,8 @@
 
 # Tools
 
-The module catalogs contain at most **81 module tools**, plus `mcp_status` and
-`mcp_guide` (83 total). Three Deck dependency tools are conditional on compatible
+The module catalogs contain at most **82 module tools**, plus `mcp_status` and
+`mcp_guide` (84 total). Three Deck dependency tools are conditional on compatible
 NC34/35 native APIs, leaving at most 78 module tools (80 total) without them.
 App availability and each account's access further reduce these counts.
 

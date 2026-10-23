@@ -130,6 +130,7 @@ class DeckSchema {
             'module' => $definition->module,
             'operation' => $definition->operation,
             'app' => $definition->app,
+            ...($definition->grantAllOf === null ? [] : ['grantAllOf' => $definition->grantAllOf]),
         ];
     }
 }

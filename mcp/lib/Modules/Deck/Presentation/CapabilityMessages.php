@@ -109,6 +109,10 @@ public const PARAM_LABEL_OFFSET = 'Number of labels to skip.';
 		return Translator::t('The original file is preserved. Unlinking revokes this association for all current and future card members, including when another member created it. Independent shares may still provide access. This removes only a native file share, never a legacy upload or folder.')
             . ' ' . Translator::t('You may lose your own last Deck mount. There is no automatic recovery; restoring the association may require the native Deck interface.');
 	}
+	public static function fileSourceInactive(): string {
+        return \OCA\Mcp\L10n\Translator::t('An archived card or board cannot gain or lose a file association.');
+    }
+
 	public static function fileUnavailable(): string {
 		return self::errorNotFoundOrForbidden();
 	}

@@ -7,7 +7,11 @@ Status: the analysis and selection were completed on 2026-10-23. This document
 preserves that inventory phase, its findings against the evaluated fork revision,
 and the reviewed acceptance criteria. Selected batches A-E and their local
 automated qualification are now complete, as recorded in the
-[integration record](upstream-1.2.0-integration.md). F3 and human review remain pending.
+[integration record](upstream-1.2.0-integration.md). The subsequent review and user
+authorization select D06 too: its local implementation is complete, with native
+qualification in progress under the [follow-up plan](deck-file-link-integration.md).
+The D06 disposition below is superseded explicitly; other inventory findings keep
+their historical baseline. F3 and human review remain pending.
 
 The inventory's original findings and validation below are historical, not a
 statement that the current branch has no ports or runtime tests. This inventory
@@ -74,7 +78,7 @@ with the fork's explicit `Access/`, `Platform/`, `Mcp/` and `Modules/` ownership
 | D03 / P2 | Port label discovery and incremental edits `e0a6b39`, `a007fe8` | Add capability-owned `Modules/Deck/Labels` operations and two tool adapters; preserve unrelated labels and reject foreign-board labels. |
 | D04 / P2 | Port visible card-file listing/unlink from `fb39797`, plus alias/Guests tests `704bdce`, `b9b131e` | Add `Modules/Deck/Files` operations. Use explicit Files visibility access rather than treating Deck access as Files access. Unlink removes an association only, never the original file. |
 | D05 / P2 | Port dependency read/change `7ce8ee2`, `f4609bf` | Add `Modules/Deck/Dependencies` operations and a native API capability check. Advertise and execute only on verified compatible NC34/35 Deck APIs; no synthetic fallback graph. |
-| D06 / deferred | Defer new native file linking and recipient expansion `7fef90b`, `da7ff40` | `deck_link_card_file` creates read-only access for current and future board/group/team members. Creation-time checks do not continuously enforce later scope/policy changes. No sharing-audience acceptance exists for this fork; do not register the tool, its write path or link-only recipient infrastructure yet. |
+| D06 / P2, follow-up | Port native file linking and recipient expansion `7fef90b`, `da7ff40` under the renewed user authorization | The original deferment is superseded by the [coherence review and follow-up contract](deck-file-link-integration.md): existing native Files group shares already persist outside later MCP policy changes. Require strict native/Files grants, complete audience and core-policy admission, fresh explicit confirmation, cleanup of privileged Circles state and clear current/future-member and non-atomicity warnings. Local implementation is complete; native qualification is recorded separately. |
 | W01 / P2, complete unit | Port optional filename policy `42a44f7`, `772f81f`, `18fe511`, `2f90d5f`, `a55d554`, `5a88b32`, `29b1761`, with corrections `3ceabe2`, `ecba970`, `e41cafd`, `5822966` | Add a proposed `Access/FileWritePolicy` owner for configuration/decisions and `Platform/FileAccess` boundary primitives, consumed by existing Files and Notes operations. Complete the sink coverage before exposing an enabled policy. |
 | OBS / P1 | Port narrow expected-refusal logging from `55c23d4` | Adapt Deck integration failures and `Modules/Files/Sharing/ShareWriter.php` / `ShareRemover.php`; only proven expected refusals or AlreadyShared cases move to debug. Uncertain/partial writes and unexpected failures keep warnings/errors. |
 | QA / supporting | Adapt native pins/provisioning `d526e2f`, `229a1c8`, API/parser and selected feature tests | Extend existing test owners and the fork's disposable matrix. Preserve our full-history, recovery, isolation and redaction behavior; tests are selected by adopted behavior, not copied by directory. |
@@ -170,7 +174,7 @@ Distinguish the share/attachment ID from the original file ID, validate its exac
 card/type binding and verify the raw association after writing. A file becoming
 unreadable is not proof that the association disappeared. Do not echo obsolete
 file metadata or claim safe retries after an uncertain result. Recovery may need
-the native Deck UI while D06 remains excluded. Hidden and missing associations
+the native Deck UI; D06 does not make an uncertain unlink safe to retry. Hidden and missing associations
 share a generic refusal. A folder-specific refusal is permitted only after its
 visibility is established; retain the corrected native regression from `d43c0f9`.
 
@@ -192,12 +196,14 @@ actual result. Test grant revocation, archived parents, stale plans and uncertai
 writes as well as graph traversal. An accessible bounded graph is not proof that
 no hidden or concurrently changing dependency can exist. Preserve honest limitations.
 
-D06 is deliberately deferred, including its link-only recipient fixtures/tests.
-Reconsider only with an approved sharing-audience contract, documented future
+D06 was deferred during the initial selection. The later
+[follow-up contract](deck-file-link-integration.md) supersedes that decision and
+includes its necessary recipient/identity fixtures and tests.
+The follow-up retains the required sharing-audience contract, documented future
 membership/revocation behavior, tests for guest/unknown/remote recipients,
-restricted groups/teams, share permissions and expiry, and a native race review.
-Do not import dormant link handlers as transition code. D04 remains useful without
-D06. A release that omits D06 must not claim complete upstream 1.2.0 functionality.
+restricted groups/teams, share permissions and expiry, and native race review.
+The implementation is live capability code, with no dormant transition handlers.
+Completing D06 does not replace F3 release/host decisions or client/human acceptance.
 
 ### Optional file-write policy as one complete capability
 
@@ -258,8 +264,9 @@ upstream's host management scripts.
 
 Adapt API parsing for files with multiple declarations by selecting the requested
 class. Apply new API surfaces/provenance only when their consumer is selected.
-Circles/recipient-only surfaces and their generation helpers belong to deferred
-D06; do not inflate the fork's supported API claims by importing unused fixtures.
+Circles/recipient surfaces and their generation helpers were excluded while D06
+was deferred. The follow-up adds only consumed source-derived surfaces and their
+provenance; unrelated optional API fixtures remain excluded.
 Retain current analysis scopes, PHP 8.2-8.5 test compatibility and native major
 fixtures; run the contract tests for supported and unsupported capability paths.
 
@@ -294,13 +301,13 @@ Guests/Files/Talk alias hardening and stronger access guards while adapting new
 cross-capability consumers. Unchanged 1.1.2 behavior is not reimplemented merely
 to match upstream class names.
 
-## Implementation order for a later authorization
+## Original implementation order and follow-up
 
 | Batch | Selected work | Acceptance before continuing |
 | --- | --- | --- |
 | A | D01, F01, F02, C01, O01, M01, T01, OBS | Focused privacy, size, ambiguity, locking, OAuth, metadata, task-page and logging regressions pass; public shape changes explicitly reviewed; all existing architecture and unit checks pass |
 | B | N01 and D02 | ETag/plan-state/partial-result and timezone round-trip tests pass, including existing modes and date-only compatibility |
-| C | D03, D04, D05 with required QA surfaces | Discovery gating, visibility/Guests aliases, incremental writes, native graph/file semantics and supported Deck matrix tests pass; no D06 write path is registered |
+| C | D03, D04, D05 with required QA surfaces | Discovery gating, visibility/Guests aliases, incremental writes, native graph/file semantics and supported Deck matrix tests pass; D06 was absent at this original checkpoint |
 | D | W01 core, sink inventory, routes/UI, then every Files/Notes sink | Coverage inventory has no unexplained sink; off-mode compatibility and unavailable-state refusal verified; replay/undo/copy/move/race/partial-result tests pass before enabling |
 | E | Selected DOC/META changes and final QA reconciliation | Only implemented features appear in tools, manifest and guides; source provenance, translations, API contracts, browser suite, complete Composer check, package and REUSE validation pass; native qualification covers all changed integration boundaries |
 
@@ -309,7 +316,8 @@ D03-D05 select seven new tool names: `deck_list_labels`,
 `deck_read_card_dependencies`, `deck_add_card_dependency` and
 `deck_remove_card_dependency`. The last three are conditionally available as
 specified above. Keep all 13 existing Deck tools and their names; the eighth
-upstream addition, `deck_link_card_file`, is deferred. Test discovery and direct
+upstream addition, `deck_link_card_file`, is implemented by the separately reviewed
+D06 follow-up. Test discovery and direct
 calls for missing grants, disabled apps and unsupported versions, including the
 Files read requirement for D04. Do not translate discovery filtering into a new
 permission grant or authorize calls merely because a tool was listed earlier.

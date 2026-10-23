@@ -341,6 +341,40 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Deck\Dependencies\DependencyAccess::class, static fn(ContainerInterface $c)=> $c->get(\OCA\Mcp\Modules\Deck\Dependencies\NativeDependencies::class));
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\ListLabels::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\ListLabels(new \OCA\Mcp\Modules\Deck\Labels\LabelListing($c->get(\OCA\Mcp\Modules\Deck\Labels\LabelsAccess::class), $c->get(LoggerInterface::class))));
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\EditCardLabels::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\EditCardLabels(new \OCA\Mcp\Modules\Deck\Labels\LabelEditing($c->get(\OCA\Mcp\Modules\Deck\Labels\LabelsAccess::class), $c->get(LoggerInterface::class), $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class), static fn()=> $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class)), $c->get(\OCA\Mcp\Modules\Deck\Execution\PreviewBoundary::class)));
+        $context->registerService(\OCA\Mcp\Modules\Deck\Files\Linking\NativeLinkSource::class, static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Deck\Files\Linking\NativeLinkSource(
+            $c->get(\OCA\Mcp\Modules\Deck\Access\DeckCaller::class), static fn()=> $c->get(\OCA\Deck\Db\CardMapper::class),
+            static fn()=> $c->get(\OCA\Deck\Db\BoardMapper::class), static fn()=> $c->get(\OCA\Deck\Db\StackMapper::class),
+            static fn()=> $c->get(\OCA\Deck\Service\PermissionService::class), $c->get(\OCP\IUserManager::class), static function () use ($c):void {
+                if (class_exists(\OCA\Circles\CirclesManager::class, false)) { $c->get(\OCA\Circles\CirclesManager::class)->stopSession(); }
+            }));
+        $context->registerService(\OCA\Mcp\Modules\Deck\Tools\LinkCardFile::class, static function (ContainerInterface $c) {
+            $gateway = $c->get(\OCA\Mcp\Modules\Deck\Files\Linking\NativeLinkSource::class)->context(...);
+            $logger = $c->get(LoggerInterface::class);
+            $clear = static function () use ($c):void {
+                if (class_exists(\OCA\Circles\CirclesManager::class, false)) { $c->get(\OCA\Circles\CirclesManager::class)->stopSession(); }
+            };
+            $operation = new \OCA\Mcp\Modules\Deck\Files\Linking\CardFileLinking($logger, static function () use ($c, $gateway, $logger, $clear): array {
+                $caller = $c->get(\OCA\Mcp\Modules\Deck\Access\DeckCaller::class);
+                $grants = $c->get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
+                $guard = $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class);
+                $shares = $c->get(\OCP\Share\IManager::class);
+                $config = $c->get(\OCP\IConfig::class);
+                $apps = $c->get(\OCP\App\IAppManager::class);
+                $users = $c->get(\OCP\IUserManager::class);
+                $plans = $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class);
+                $native = new \OCA\Mcp\Modules\Deck\Files\Linking\NativeCardFileLink($shares, $caller, static fn()=> $c->get(\OCA\Deck\Sharing\DeckShareProvider::class));
+                $policy = new \OCA\Mcp\Modules\Deck\Files\Linking\CardLinkPolicy($shares, $config, $apps, $users, $c->get(\OCP\IUserSession::class), static fn()=> $c->get('OCA\\Guests\\GuestManager'));
+                $directory = new \OCA\Mcp\Modules\Deck\Recipients\DeckRecipientDirectory(static fn()=> $c->get(\OCA\Deck\Db\AclMapper::class), static fn()=> $c->get(\OCA\Deck\Service\CirclesService::class), $users, $c->get(\OCP\IGroupManager::class), $apps, static fn()=> $c->get(\OCA\Circles\CirclesManager::class)->stopSession());
+                $recipients = new \OCA\Mcp\Modules\Deck\Recipients\BoardRecipientResolver($gateway, $grants, $directory, $plans, $logger, $clear);
+                $prepare = new \OCA\Mcp\Modules\Deck\Files\Linking\CardFileLinkPreparation($gateway, $grants, $guard, new \OCA\Mcp\Modules\Deck\Files\CardFileNodeAccess($guard, $c->get(\OCP\Files\IRootFolder::class)), $policy, $native, $c->get(\OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo::class), $recipients, $clear);
+                return ['prepare'=>$prepare, 'native'=>$native, 'plans'=>new \OCA\Mcp\Modules\Deck\Files\Linking\CardLinkPlan($plans), 'shared'=>$c->get(\OCA\Mcp\Platform\FileAccess\Sharing\SharedWriteGuard::class)];
+            }, static function () use ($c): void {
+                if (class_exists(\OCA\Circles\CirclesManager::class, false)) {
+                    $c->get(\OCA\Circles\CirclesManager::class)->stopSession();
+                }
+            });
+            return new \OCA\Mcp\Modules\Deck\Tools\LinkCardFile($operation, $c->get(\OCA\Mcp\Modules\Deck\Execution\PreviewBoundary::class));
+        });
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\ListCardFiles::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\ListCardFiles(new \OCA\Mcp\Modules\Deck\Files\CardFileOperations($c->get(LoggerInterface::class), static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Files\CardFiles::class), $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class), static fn()=> $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), false)));
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\UnlinkCardFile::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\UnlinkCardFile(new \OCA\Mcp\Modules\Deck\Files\CardFileOperations($c->get(LoggerInterface::class), static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Files\CardFiles::class), $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class), static fn()=> $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), true), $c->get(\OCA\Mcp\Modules\Deck\Execution\PreviewBoundary::class)));
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\ReadCardDependencies::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\ReadCardDependencies(new \OCA\Mcp\Modules\Deck\Dependencies\DependencyReading($c->get(\OCA\Mcp\Modules\Deck\Dependencies\DependencyAccess::class), $c->get(LoggerInterface::class), $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class))));
@@ -349,6 +383,7 @@ class Application extends App implements IBootstrap {
         $context->registerService(DeckModule::class, static fn (ContainerInterface $c): DeckModule => new DeckModule([
             'deck_list_labels' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\ListLabels::class),
             'deck_edit_card_labels' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\EditCardLabels::class),
+            'deck_link_card_file' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\LinkCardFile::class),
             'deck_list_card_files' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\ListCardFiles::class),
             'deck_unlink_card_file' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\UnlinkCardFile::class),
             'deck_read_card_dependencies' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\ReadCardDependencies::class),

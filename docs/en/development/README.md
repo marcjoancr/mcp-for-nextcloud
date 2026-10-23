@@ -10,7 +10,7 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 | Task | Reference |
 | --- | --- |
 | Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md) |
-| Evaluate upstream 1.2.0 changes | [Capability inventory and selection](upstream-1.2.0-inventory.md), [integration results](upstream-1.2.0-integration.md) |
+| Evaluate upstream 1.2.0 changes | [Capability inventory and selection](upstream-1.2.0-inventory.md), [integration results](upstream-1.2.0-integration.md), [native file-link follow-up](deck-file-link-integration.md) |
 | Understand ownership and dependencies | [Architecture](architecture-specification.md) |
 | Add or change an MCP capability | [Adding a tool](adding-a-tool.md) |
 | Change administration or personal settings | [Administration JavaScript](admin-javascript.md) |

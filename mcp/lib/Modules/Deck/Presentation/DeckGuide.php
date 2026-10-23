@@ -27,6 +27,7 @@ class DeckGuide {
             'Older affected deadlines must be corrected manually after checking the intended date in Deck; existing stored instants are never shifted automatically.',
             'A card description is capped at ' . CardInput::MAX_DESCRIPTION_LENGTH . ' characters and a title at 255.',
             'deck_move_card can reorder a card within its current list or move it to another list, including one on another board. ' . 'Set stackId to the destination list; without order, the card goes to the end.',
+            'deck_link_card_file requires deck.edit, files.read and files.share. Its approved plan grants native read-only file access to current and future board/group/team members. It refuses unsupported sharing policies or incomplete audiences; later membership/policy changes and the final native-write race are not continuously enforced or automatically revoked.',
         ];
     }
 }
