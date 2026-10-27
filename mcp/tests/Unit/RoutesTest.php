@@ -154,6 +154,7 @@ final class RoutesTest extends TestCase {
             'logs_privacy#show' => [], 'logs_privacy#update' => [],
             'connections#index' => [], 'connections#revokeUser' => [], 'connections#destroy' => [],
             'checkout_limit#show' => [], 'checkout_limit#update' => [],
+            'backupSettings#show' => [], 'backupSettings#update' => [],
             'file_write_policy#show' => [], 'file_write_policy#update' => [],
             'tags#index' => [], 'tags#update' => [],
             'override_preview#index' => [],

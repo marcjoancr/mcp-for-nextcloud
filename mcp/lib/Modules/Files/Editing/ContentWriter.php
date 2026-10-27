@@ -45,7 +45,7 @@ final class ContentWriter {
         $this->visibilityGuard->assertVisible($file);
         try {
             // Checked again right before the write: the backup took time, and files_lock does not refuse every lock.
-            $write = fn () => $this->fileTypes->writeFile($file, fn () => $file->putContent($content));
+            $write = fn () => $this->fileTypes->writeFile($file, function () use ($file, $content, $path) { $this->backup->assertWritablePath($path); return $file->putContent($content); });
             NodeAccess::mutate(fn () => $this->locks === null ? $write() : $this->locks->run($write, $file, $userId, $path), $this->visibilityGuard);
         } catch (LockWriteFailure $e) {
             throw $e->withNote(EditingMessages::originalKept($copy));

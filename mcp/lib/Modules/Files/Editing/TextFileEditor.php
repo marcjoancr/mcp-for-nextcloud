@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Files\Editing;
 
 use OCA\Mcp\Modules\Files\Reading\TextExtractor;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite;
 use OCA\Mcp\Platform\FileAccess\Nodes\NodeAccess;
@@ -25,6 +25,7 @@ final class TextFileEditor {
     public const MAX_EDIT_BYTES = 10 * 1024 * 1024;
 
     public function __construct(
+        private BackupLocation $backupLocation,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private IRootFolder $rootFolder,
         private TextExtractor $extractor,
@@ -94,7 +95,7 @@ final class TextFileEditor {
     }
 
     private function assertNotBackup(string $path): void {
-        if (BackupLocation::isBackupPath($path)) {
+        if ($this->backupLocation->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
     }

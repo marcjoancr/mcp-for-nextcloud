@@ -49,7 +49,7 @@
             "name": "files_edit",
             "module": "files",
             "operation": "edit",
-            "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning and creates a copy in \"/MCP backups\". If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
+            "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

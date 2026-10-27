@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Reorganization;
 
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Modules\Files\Access\FolderExposureGate;
 use OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite;
@@ -20,6 +22,7 @@ use OCP\Files\Node;
 
 final class CopyMove {
     public function __construct(
+        private BackupLocation $backupLocation,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private NodeAccessInfo $access,
         private MoveReport $report,
@@ -53,7 +56,7 @@ final class CopyMove {
         $source = $this->moveInspection->writable($root, $from);
         FolderExposureGate::assertExposure($source, $this->visibilityGuard);
         NodeAccess::checkEtag($source, $etag);
-        $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'));
+        $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'), $this->backupLocation);
         $this->moveInspection->assertFree($root, $to);
         $manifest = (new FileTypePreflight($this->visibilityGuard))->inspect($source, $to, $this->fileTypes->snapshot(), true);
         $measured = $manifest ?? $this->treeMeasure->measure($source);
@@ -63,7 +66,7 @@ final class CopyMove {
         $receipt = $root->getRelativePath($source->getPath()) ?? '';
         // Reading a locked file is allowed, so the source is not checked; files_lock may still refuse a copy between
         // storages, and that refusal is explained.
-        $result = (new ListedTreeCopy($this->fileTypes, $this->moveInspection, $this->visibilityGuard, $this->locks))->execute($root, $userId, $source, $to, $manifest);
+        $result = (new ListedTreeCopy($this->backupLocation, $this->fileTypes, $this->moveInspection, $this->visibilityGuard, $this->locks))->execute($root, $userId, $source, $to, $manifest);
         $copy = $result['node'];
         if (!$result['listed'] && $copy !== null) {
             $this->visibilityGuard->clearCache();
@@ -146,7 +149,7 @@ final class CopyMove {
         $source = $this->moveInspection->writable($root, $from);
         FolderExposureGate::assertExposure($source, $this->visibilityGuard);
         NodeAccess::checkEtag($source, $etag);
-        $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'));
+        $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'), $this->backupLocation);
         $this->moveInspection->assertFree($root, $to);
         $manifest = (new FileTypePreflight($this->visibilityGuard))->inspect($source, $to, $this->fileTypes->snapshot(), true);
         $measured = $manifest ?? $this->treeMeasure->measure($source);

@@ -179,7 +179,7 @@ class AttachmentAccessTest extends TestCase {
         $config->app['mcp'][\OCA\Mcp\Access\Visibility\VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $tagMapper->method('getTagIdsForObjects')->willReturn(['777' => ['999']]);
-        $guard = new \OCA\Mcp\Access\Visibility\VisibilityGuard($config->mock($this), $tagMapper, $root);
+        $guard = new \OCA\Mcp\Access\Visibility\VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $tagMapper, $root);
 
         $access = new AttachmentAccess($this->shareManager, $guard, \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
 
@@ -286,7 +286,7 @@ class AttachmentAccessTest extends TestCase {
                 return $out;
             });
 
-        return new \OCA\Mcp\Access\Visibility\VisibilityGuard($config->mock($this), $tagMapper, $root);
+        return new \OCA\Mcp\Access\Visibility\VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $tagMapper, $root);
     }
 }
 

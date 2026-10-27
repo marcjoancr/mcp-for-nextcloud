@@ -26,6 +26,7 @@ export const test = base.extend({
             oauth: { customClients: [], hostsDefault: true, hosts: ['cloud.example'], nativeClientEnabled: false, nativeClientId: 'native', nativeRedirectUris: ['http://127.0.0.1/callback'] },
             limit: { configuredBytes: 1048576, effectiveBytes: 1048576, phpBytes: 8388608 },
             privacy: { hideFileNames: true },
+            backups: { version: 1, folder: 'MCP backups', reserved: ['MCP backups'], copies: true, effectiveCopies: true, versionsAvailable: true, versionsForActor: true },
             filePolicy: { version: 1, mode: 'off', extensions: [], allowExtensionless: false },
             connections: [1, 2].map(id => ({ id, uid: 'alice', displayName: 'Alice', client: { id: 'https://client.example/' + id, host: 'client.example', native: false }, createdAt: 1700000000, expiresAt: 1800000000 })),
             hasMore: false, total: 2,
@@ -90,6 +91,14 @@ export const test = base.extend({
             if (path === '/api/logs-access') {
                 if (method === 'PUT') { Object.assign(state.logAccess, { groups: body.groups, version: state.logAccess.version + 1 }); advance() }
                 return { ...state.logAccess, revision: state.revision }
+            }
+            if (path === '/api/backup-settings') {
+                if (method === 'PUT') {
+                    Object.assign(state.backups, { folder: body.folder, copies: body.copies,
+                        reserved: [...new Set([...state.backups.reserved, body.folder])], effectiveCopies: body.copies || !state.backups.versionsForActor })
+                    advance()
+                }
+                return { ...state.backups, revision: state.revision }
             }
             if (path === '/api/file-write-policy') {
                 if (method === 'PUT') Object.assign(state.filePolicy, body)

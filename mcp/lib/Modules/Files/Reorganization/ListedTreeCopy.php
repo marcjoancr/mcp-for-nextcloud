@@ -7,6 +7,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Reorganization;
 
+use OCA\Mcp\Modules\Files\Editing\BackupWriteBoundary;
+
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Platform\FileAccess\Nodes\NodeAccess;
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 use OCA\Mcp\Access\FileWritePolicy\FileWritePolicyUnavailable;
@@ -19,6 +23,7 @@ use OCP\Files\Node;
 final class ListedTreeCopy {
     /** Required native authorization, locking and policy services. */
     public function __construct(
+        private BackupLocation $backupLocation,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private MoveInspection $inspection,
         private \OCA\Mcp\Access\ResourceScope\FilesAccessGuard $visibilityGuard,
@@ -75,7 +80,7 @@ final class ListedTreeCopy {
                     $this->fileTypes->snapshot();
                     $copy = NodeAccess::mutate(function () use ($root, $entry, $parent): Folder {
                         $this->listed($root, $entry);
-                        return $parent->newFolder($this->name($entry['to']));
+                        return BackupWriteBoundary::run($entry['to'], $this->backupLocation, fn () => $parent->newFolder($this->name($entry['to'])));
                     }, $this->visibilityGuard);
                 } else {
                     $bytes += max(0, (int)$node->getSize());
@@ -186,9 +191,10 @@ final class ListedTreeCopy {
      * @return Node Result of the official node copy, preserving the existing lock-capture behavior.
      */
     private function native(Folder $root, Node $source, string $absolute, string $userId, string $to, ?array $identity = null): Node {
-        $copy = function () use ($root, $source, $absolute, $identity): Node {
+        $copy = function () use ($root, $source, $absolute, $identity, $to): Node {
             $current = $identity === null ? $source : $this->listed($root, $identity);
-            return $current->copy($absolute);
+            BackupWriteBoundary::node($current, $this->backupLocation);
+            return BackupWriteBoundary::run($to, $this->backupLocation, fn () => $current->copy($absolute));
         };
         $write = function () use ($source, $to, $copy): Node {
             if ($source instanceof Folder) {

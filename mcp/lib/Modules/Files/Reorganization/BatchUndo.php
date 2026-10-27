@@ -7,6 +7,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Reorganization;
 
+use OCA\Mcp\Modules\Files\Editing\BackupWriteBoundary;
+
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
@@ -19,6 +23,7 @@ use OCP\Files\Node;
 
 final class BatchUndo {
     public function __construct(
+        private BackupLocation $backupLocation,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private MoveInspection $moveInspection,
         private FolderPreparation $folderPreparation,
@@ -100,11 +105,11 @@ final class BatchUndo {
                 continue;
             }
             $folder = $root->get($relative);
-            if (!$folder instanceof Folder || !$folder->isDeletable() || $folder->getDirectoryListing() !== []) {
+            if ($this->backupLocation->contains($dir) || !$folder instanceof Folder || !$folder->isDeletable() || $folder->getDirectoryListing() !== []) {
                 $kept[] = $dir;
                 continue;
             }
-            NodeAccess::run(fn () => NodeAccess::mutate(fn () => $folder->delete(), $this->visibilityGuard));
+            NodeAccess::run(fn () => NodeAccess::mutate(fn () => BackupWriteBoundary::run($dir, $this->backupLocation, fn () => $folder->delete()), $this->visibilityGuard));
             $this->batchVisibility->assertPathsVisible($root, [$dir]);
             $removed[] = $dir;
         }
@@ -168,6 +173,7 @@ final class BatchUndo {
      * @return list<array{from:string, to:string, reason:string}> the items that block the undo, empty when it may run
      */
     private function undoConflicts(Folder $root, Batch $batch, string $userId): array {
+        $this->backupLocation->current();
         $conflicts = (new FileTypePreflight($this->visibilityGuard))->moves($root, $batch->moves, $this->fileTypes->snapshot(), true);
         foreach (array_reverse($batch->moves) as $move) {
             try {
@@ -188,6 +194,8 @@ final class BatchUndo {
      *         changed or a lock refuses the move back
      */
     private function assertUndoable(Folder $root, Batch $batch, array $move, string $userId): void {
+        MovePaths::notBackup($move['to'], $this->backupLocation);
+        MovePaths::notBackup($move['from'], $this->backupLocation);
         $there = NodeAccess::run(fn () => NodeAccess::get($root, $move['to']));
         if ((int)$there->getId() !== $move['toId']) {
             throw new ToolFailure(ReorganizationMessages::notTheBatchNode());
@@ -217,7 +225,7 @@ final class BatchUndo {
     /**
      * Which of the folders a batch created the undo would remove, and which it would keep.
      *
-     * Only an empty folder the batch itself created goes; a folder with content, one the user cannot delete
+     * Only an empty, unreserved folder the batch itself created goes; a folder with content, one the user cannot delete
      * and one that is not there any more are all kept. Reading it is what lets the plan answer the question
      * before anything is moved back, so it reads the tree as the undo will leave it: the items the batch moved
      * in are gone by the time the folders are looked at.
@@ -236,7 +244,7 @@ final class BatchUndo {
                 continue;
             }
             $folder = $root->get($relative);
-            if (!$folder instanceof Folder || !$folder->isDeletable()) {
+            if ($this->backupLocation->contains($dir) || !$folder instanceof Folder || !$folder->isDeletable()) {
                 $kept[] = $dir;
                 continue;
             }

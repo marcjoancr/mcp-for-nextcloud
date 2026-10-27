@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Access\ResourceScope;
 
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Access\Guests\GuestRestrictions;
 use OCA\Mcp\Access\Policy\PolicyUnavailable;
 use OCA\Mcp\Access\Visibility\VisibilityGuard;
@@ -33,6 +35,7 @@ use Psr\Log\LoggerInterface;
 class FilesAccessGuard extends VisibilityGuard {
     private FilesScope $scope;
     public function __construct(
+        private BackupLocation $backupLocation,
         FilesScope $scope,
         IConfig $config,
         ISystemTagObjectMapper $tagMapper,
@@ -43,7 +46,7 @@ class FilesAccessGuard extends VisibilityGuard {
         private ?GuestRestrictions $guests = null,
     ) {
         $this->scope = $scope;
-        parent::__construct($config, $tagMapper, $rootFolder, $tagManager, $logger, $events);
+        parent::__construct($backupLocation, $config, $tagMapper, $rootFolder, $tagManager, $logger, $events);
     }
 
     /**

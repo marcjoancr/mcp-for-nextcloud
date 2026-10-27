@@ -94,7 +94,7 @@ final class LogsMigrationCompatibilityTest extends TestCase {
         $this->config->system['logtimezone'] = 'America/Sao_Paulo';
         $this->config->system['loglevel'] = 2;
         $config = $this->config->mock($this);
-        $this->guard = new VisibilityGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
+        $this->guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
         $this->privacy = new LogFileNames((new InMemoryAppConfig())->worker($this), $this->guard);
         $this->policy = InMemoryConfig::policy($config, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $this->policy->setGrant('root', 'logs', 'read', true);

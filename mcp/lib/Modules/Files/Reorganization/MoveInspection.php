@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Reorganization;
 
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
@@ -21,6 +23,7 @@ use OCP\Files\Node;
 
 final class MoveInspection {
     public function __construct(
+        private BackupLocation $backupLocation,
         private NodeAccessInfo $access,
         private SharedWriteGuard $guard,
         private FilesAccessGuard $visibilityGuard,
@@ -46,7 +49,7 @@ final class MoveInspection {
     public function inspect(Folder $root, string $from, string $to, ?string $etag = null, array $mkdirs = []): Inspection {
         $source = $this->writable($root, $from);
         NodeAccess::checkEtag($source, $etag);
-        $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'));
+        $to = MovePaths::notBackup(PathGuard::normalize($to, 'to'), $this->backupLocation);
         // A folder landing inside itself is refused before the destination check, so the user hears the real
         // reason instead of "something is already there" for a subfolder of the folder they are moving.
         $this->assertNotIntoItself($root, $source, $to);
@@ -99,7 +102,7 @@ final class MoveInspection {
     public function writable(Folder $root, string $path): Node {
         // run() turns a missing node into a ToolFailure here, so a batch plan can put the item in its
         // denied list instead of the whole call failing.
-        $path = MovePaths::notBackup(PathGuard::normalize($path));
+        $path = MovePaths::notBackup(PathGuard::normalize($path), $this->backupLocation);
         $node = NodeAccess::run(fn () => NodeAccess::get($root, $path, $this->visibilityGuard));
         if (!$node->isUpdateable()) {
             throw new ToolFailure(FileAccessMessages::forbidden());

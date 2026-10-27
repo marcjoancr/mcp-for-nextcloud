@@ -242,7 +242,7 @@ final class FilesBatchTest extends FilesToolsTestCase {
         $this->tree->addFile('/alice/files/C', 'um arquivo', 'text/plain');
         $access = new NodeAccessInfo(
             FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
-        $reorganization = new FolderPreparation(\OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this));
+        $reorganization = new FolderPreparation(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this));
         try {
             $reorganization->createFolders($this->tree->rootFolder(), ['/A/B', '/C']);
             $this->fail('createFolders aceitou uma pasta sobre um arquivo');

@@ -7,6 +7,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Reorganization;
 
+use OCA\Mcp\Modules\Files\Editing\BackupWriteBoundary;
+
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite;
 use OCA\Mcp\Platform\FileAccess\Nodes\NodeAccess;
@@ -14,6 +18,7 @@ use OCP\Files\Node;
 
 final class MoveExecution {
     public function __construct(
+        private BackupLocation $backupLocation,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private FilesAccessGuard $visibilityGuard,
         private ?LockAwareWrite $locks = null,
@@ -31,7 +36,8 @@ final class MoveExecution {
     public function locked(callable $write, Node $node, string $userId, string $to): Node {
         $guarded = function () use ($write, $node, $to): Node {
             (new FileTypePreflight($this->visibilityGuard))->inspect($node, $to, $this->fileTypes->snapshot());
-            return $write();
+            BackupWriteBoundary::node($node, $this->backupLocation);
+            return BackupWriteBoundary::run($to, $this->backupLocation, $write);
         };
         return NodeAccess::mutate(fn () => $this->locks === null ? $guarded() : $this->locks->run($guarded, $node, $userId), $this->visibilityGuard);
     }

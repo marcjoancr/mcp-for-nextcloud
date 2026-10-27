@@ -53,7 +53,7 @@ final class FilesScopeTest extends TestCase {
         $this->tree->addFile('/alice/files/Archive/old.md', 'old');
         $this->config = new InMemoryConfig();
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode([self::HIDDEN_TAG]);
-        $this->guard = new VisibilityGuard($this->config->mock($this), $this->tags(), $this->tree->filesystemRoot());
+        $this->guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tags(), $this->tree->filesystemRoot());
     }
 
     private function tags(): ISystemTagObjectMapper {
@@ -74,7 +74,7 @@ final class FilesScopeTest extends TestCase {
     }
 
     private function gate(?string $operationUser = 'alice'): FilesAccessGuard {
-        return new FilesAccessGuard($this->scope($operationUser), $this->config->mock($this), $this->tags(), $this->tree->filesystemRoot(), null, null, null);
+        return new FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->scope($operationUser), $this->config->mock($this), $this->tags(), $this->tree->filesystemRoot(), null, null, null);
     }
 
     private function node(string $path): Node {
@@ -99,7 +99,7 @@ final class FilesScopeTest extends TestCase {
         foreach ([true, false] as $hides) {
             $guests = $this->getMockBuilder(\OCA\Mcp\Access\Guests\GuestRestrictions::class)->disableOriginalConstructor()->onlyMethods(['hidesExternalStorage'])->getMock();
             $guests->method('hidesExternalStorage')->willReturnCallback(fn (string $uid): bool => $uid === 'alice' && $hides);
-            $gate = new FilesAccessGuard($this->scope(), $this->config->mock($this), $this->tags(), $this->tree->filesystemRoot(), null, null, null, $guests);
+            $gate = new FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->scope(), $this->config->mock($this), $this->tags(), $this->tree->filesystemRoot(), null, null, null, $guests);
             $label = $hides ? 'hidden' : 'allowed';
             $this->assertSame(!$hides, $gate->isVisible($this->node('/Archive/old.md')), "external file, storage $label");
             $this->assertSame(!$hides, $gate->isTraversable($this->node('/Archive/old.md')), "crossing it, storage $label");
@@ -218,7 +218,7 @@ final class FilesScopeTest extends TestCase {
      */
     public function testTheOwnersChainAboveAShareRootCounts(): void {
         [$root, $node] = $this->sharedWithBob();
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tags(), null);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tags(), null);
         $scope = fn (?array $items) => FilesScopes::over($this, $guard, $root, static fn (): ?array => $items, 'bob');
         $this->assertTrue($scope(['100'])->allows('bob', $node), 'alice\'s Projects, above the share root');
         $this->assertTrue($scope(['300'])->allows('bob', $node), 'the share root as bob sees it');
@@ -311,9 +311,9 @@ final class FilesScopeTest extends TestCase {
             $this->tree->addFile("/alice/files/Projects/deep/f$i.md", 'x');
         }
         $calls = 0;
-        $counting = new class ($this->config->mock($this), $this->tags(), $this->tree->filesystemRoot(), $calls) extends VisibilityGuard {
-            public function __construct($config, $tags, $root, private int &$calls) {
-                parent::__construct($config, $tags, $root);
+        $counting = new class (\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config), $this->config->mock($this), $this->tags(), $this->tree->filesystemRoot(), $calls) extends VisibilityGuard {
+            public function __construct($backupLocation, $config, $tags, $root, private int &$calls) {
+                parent::__construct($backupLocation, $config, $tags, $root);
             }
             public function parentOf(Node $node): Node {
                 $this->calls++;
@@ -343,7 +343,7 @@ final class FilesScopeTest extends TestCase {
             $lookups++;
             return $root->getUserFolder($uid);
         });
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tags(), null);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tags(), null);
         $scope = FilesScopes::over($this, $guard, $counted, static fn (): array => ['100'], 'bob');
         foreach ([1, 2, 3] as $ignored) {
             $this->assertTrue($scope->allows('bob', $node));

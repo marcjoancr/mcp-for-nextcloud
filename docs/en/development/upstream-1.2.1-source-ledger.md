@@ -9,20 +9,20 @@ paths from `02526119b845ccc1d8399be002da3e30b5527df6` to
 `3c61e928f3abdb37ad60b80ed207a5e243bf0ec4`; `A` is added and `M` modified.
 Original paths are evidence references, not target locations in the fork.
 This does not claim a complete line-by-line security review or implementation of
-all paths. U1's source review is focused; U2-U5 require their own detailed audit
-before implementation. Mixed groups denote overlapping responsibilities, not
+all paths. U1 and [U2](upstream-1.2.1-u2-integration.md) have focused source
+reviews; U3-U5 still require their own detailed audit before implementation. Mixed groups denote overlapping responsibilities, not
 permission to copy an entire file.
 
 | Group | Disposition / fork ownership |
 | --- | --- |
 | C0/U5 | Keep the fork's existing disposable matrix and baseline probes; repair public baseline reproducibility in C0. Evaluate upstream release-upgrade probes for any missing coverage later. Do not copy queue/engine control. |
 | U1 | Adapt root/origin recognition and mirror visibility into `Access/Visibility`, with unit and native privacy tests. |
-| U1/U2 | Apply only visibility changes for U1; configuration injection and full reserved-name handling belong to U2. |
-| U2 | Pending: shared backup settings and mutation policy, Files editing/checkout/versions/reorganization/creation, Contacts deletion, admin controller, authored `src` modules and templates. Never reintroduce generated/monolithic administration scripts. |
+| U1/U2 | Adapted: U1 canonical origin/mirror recognition plus U2 configured NFC/historical names and explicit policy injection. |
+| U2 | Adapted: `Access/BackupPolicy`, Files capability consumers and mutation boundaries, mandatory Contacts copies, admin controller, authored `src/admin/backups` modules/template and checkout guidance. See the U2 record for validation and limits. |
 | U3 | Pending: Tasks Content, Reading, Creation, Editing and Presentation owners; keep hierarchy serialization at the DAV write boundary. |
 | U4 | Pending: `Modules/Mail` read capabilities, optional app admission, explicit grants, native/API fixtures and attributed sources. |
 | U4/U5 | Pending: adapt only required host API/source contracts and generators. Preserve the fork's independent fixtures and supported platform floor; source evidence for older versions is not a new support promise. |
-| U2/U4 | Pending: compose selected owners explicitly and adapt prompts without rebuilding a shared catch-all service. |
+| U2/U4 | U2 uses explicit policy dependencies and updates existing checkout guidance. U4 composition remains pending; no shared catch-all service is restored. |
 | U3/U4/U5 | Pending: expose implemented capability contracts in the current MCP presentation owners and targeted tests. |
 | U5 | Pending: canonical English guides, interface locales, tool/route/manifest contracts and original credits. Retain fork identity/version and translation provenance. Do not copy duplicate README trees or assert unimplemented features. |
 

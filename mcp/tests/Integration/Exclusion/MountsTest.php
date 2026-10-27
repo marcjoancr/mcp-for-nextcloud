@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Integration\Exclusion;
 
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCP\Files\Folder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
@@ -209,10 +209,10 @@ final class MountsTest extends ExclusionTestCase {
     /** @return bool whether a backup file of the user's backup folder holds exactly this content */
     private function backupHolds(string $content): bool {
         $home = $this->userFolder(self::ALICE);
-        if (!$home->nodeExists(BackupLocation::FOLDER)) {
+        if (!$home->nodeExists(BackupLocation::LEGACY)) {
             return false;
         }
-        $pending = [$home->get(BackupLocation::FOLDER)];
+        $pending = [$home->get(BackupLocation::LEGACY)];
         while ($pending !== []) {
             $node = array_pop($pending);
             if ($node instanceof Folder) {

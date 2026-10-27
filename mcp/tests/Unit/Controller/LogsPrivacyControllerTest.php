@@ -29,7 +29,7 @@ final class LogsPrivacyControllerTest extends TestCase {
     private function controller(array $body = []): LogsPrivacyController {
         $request = $this->createMock(IRequest::class);
         $request->method('getParam')->willReturnCallback(static fn (string $key, $default = null) => $body[$key] ?? $default);
-        $guard = new VisibilityGuard($this->config->mock($this), $this->createMock(ISystemTagObjectMapper::class));
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->createMock(ISystemTagObjectMapper::class));
         return new LogsPrivacyController('mcp', $request, new LogFileNames($this->appConfig->worker($this), $guard));
     }
 

@@ -8,6 +8,7 @@ import { mountService } from './overview/service.js'
 import { mountCheckoutLimit } from './overview/checkout-limit.js'
 import { mountEndpointCopy } from './overview/endpoint-copy.js'
 import { mountOauthClients } from './clients/oauth-clients.js'
+import { mountBackupSettings } from './backups/controller.js'
 import { mountFileWritePolicy } from './protection/file-policy-controller.js'
 import { mountExcludedTags } from './protection/excluded-tags.js'
 import { mountLogAccess } from './logs/access-groups.js'
@@ -54,6 +55,7 @@ export function mountAdmin({ root, ...dependencies }) {
         mountCheckoutLimit(section('mcp-block-status')),
         mountEndpointCopy({ ...dependencies, root }),
         mountOauthClients(section('mcp-block-oauth')),
+        mountBackupSettings(section('mcp-backup-settings')),
         mountFileWritePolicy({ ...section('mcp-file-write-policy'), syncProtectionAlert, overviewAlert: root.querySelector('#mcp-file-policy-overview') }),
         mountExcludedTags({ ...section('mcp-block-tags'), createPicker: picker, syncProtectionAlert,
             overviewAlert: root.querySelector('#mcp-tags-invalid-overview'),

@@ -7,6 +7,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Reorganization;
 
+use OCA\Mcp\Modules\Files\Editing\BackupWriteBoundary;
+
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
@@ -17,6 +21,7 @@ use OCP\Files\Folder;
 
 final class FolderPreparation {
     public function __construct(
+        private BackupLocation $backupLocation,
         private FilesAccessGuard $visibilityGuard,
     ) {}
 
@@ -33,7 +38,7 @@ final class FolderPreparation {
      *   sits under a hidden node, or the folder that would receive it cannot take a new entry
      */
     public function checkFolder(Folder $root, string $path): void {
-        $relative = ltrim(MovePaths::notBackup(PathGuard::normalize($path)), '/');
+        $relative = ltrim(MovePaths::notBackup(PathGuard::normalize($path), $this->backupLocation), '/');
         $parent = $root;
         $walk = [];
         foreach (PathGuard::segments($relative) as $segment) {
@@ -101,7 +106,7 @@ final class FolderPreparation {
                     }
                     continue;
                 }
-                $folder = NodeAccess::run(fn () => NodeAccess::mutate(fn () => $root->newFolder($below), $this->visibilityGuard));
+                $folder = NodeAccess::run(fn () => NodeAccess::mutate(fn () => BackupWriteBoundary::run('/' . $below, $this->backupLocation, fn () => $root->newFolder($below)), $this->visibilityGuard));
                 $this->visibilityGuard->assertVisible($folder);
                 $created[] = '/' . $below;
             }

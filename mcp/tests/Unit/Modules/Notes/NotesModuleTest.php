@@ -482,7 +482,7 @@ final class NotesModuleTest extends TestCase
         $tagMapper = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['999']);
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string) $this->ata => ['999']]);
-        $guard = new VisibilityGuard($this->config->mock($this), $tagMapper, $this->tree->filesystemRoot());
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $tagMapper, $this->tree->filesystemRoot());
         $root = $this->createMock(IRootFolder::class);
         $root->method('getUserFolder')->willReturnCallback(fn() => $this->tree->rootFolder());
         $apps = $this->createMock(IAppManager::class);
@@ -584,7 +584,7 @@ final class NotesModuleTest extends TestCase
             }
             return $out;
         });
-        $guard = new VisibilityGuard($this->config->mock($this), $tagMapper);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $tagMapper);
         $root = $this->createMock(IRootFolder::class);
         $root->method('getUserFolder')->willReturnCallback(fn() => $this->tree->rootFolder());
         $apps = $this->createMock(IAppManager::class);

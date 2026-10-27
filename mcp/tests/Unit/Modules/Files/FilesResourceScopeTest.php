@@ -55,9 +55,9 @@ final class FilesResourceScopeTest extends FilesToolsTestCase {
         });
         $config = new \OCA\Mcp\Tests\Unit\InMemoryConfig();
         $config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode([self::HIDDEN_TAG]);
-        $plain = new VisibilityGuard($config->mock($this), $tags, $this->visibilityRoot());
+        $plain = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $tags, $this->visibilityRoot());
         $scope = FilesScopes::over($this, $plain, $this->visibilityRoot(), fn (): array|null|false => $this->withScope ? $this->items : null);
-        $this->visibilityGuard = new FilesAccessGuard($scope, $config->mock($this), $tags, $this->visibilityRoot());
+        $this->visibilityGuard = new FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $scope, $config->mock($this), $tags, $this->visibilityRoot());
         parent::setUp();
         $this->tree->addFile('/alice/files/Projects/plan.md', "# Plan\nscope", 'text/markdown');
         $this->tree->addFile('/alice/files/Projects/photo.png', 'png', 'image/png');

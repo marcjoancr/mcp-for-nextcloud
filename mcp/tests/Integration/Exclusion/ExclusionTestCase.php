@@ -210,7 +210,7 @@ abstract class ExclusionTestCase extends IntegrationTestCase {
     }
 
     protected function newGuard(bool $withEvents = false): VisibilityGuard {
-        return new VisibilityGuard(
+        return new VisibilityGuard(new \OCA\Mcp\Access\BackupPolicy\BackupLocation(new \OCA\Mcp\Access\BackupPolicy\BackupSettingsDocument(\OCP\Server::get(\OCP\IDBConnection::class))),
             Server::get(IConfig::class),
             Server::get(ISystemTagObjectMapper::class),
             Server::get(IRootFolder::class),

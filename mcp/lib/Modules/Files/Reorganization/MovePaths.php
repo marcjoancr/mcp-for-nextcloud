@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Files\Reorganization;
 
 use OCA\Mcp\Modules\Files\Editing\EditingMessages;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Platform\FileAccess\Paths\PathGuard;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use OCP\Files\Folder;
@@ -63,10 +63,10 @@ final class MovePaths {
      *
      * @param string $path normalized user-relative path, a source or a destination
      * @return string the same path
-     * @throws ToolFailure when the path is /MCP backups or inside it
+     * @throws ToolFailure when the path is inside a current or historical reserved root
      */
-    public static function notBackup(string $path): string {
-        if (BackupLocation::isBackupPath($path)) {
+    public static function notBackup(string $path, BackupLocation $location): string {
+        if ($location->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
         return $path;

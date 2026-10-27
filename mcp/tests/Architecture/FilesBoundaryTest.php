@@ -14,6 +14,8 @@ use PHPUnit\Framework\TestCase;
 /** Files depends only on its capabilities, MCP contracts and explicitly shared platform services. */
 final class FilesBoundaryTest extends TestCase {
     private const SHARED = [
+        'OCA\Mcp\Access\BackupPolicy\BackupLocation',
+        'OCA\Mcp\Access\BackupPolicy\BackupCopies',
         'OCA\Mcp\Access\FileWritePolicy\FileTypeCheck',
         'OCA\Mcp\Access\FileWritePolicy\FileTypeDenied',
         'OCA\Mcp\Access\FileWritePolicy\FileWritePolicyUnavailable',

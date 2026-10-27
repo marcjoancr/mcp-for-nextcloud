@@ -591,7 +591,7 @@ final class ApplicationRegistrationTest extends TestCase {
         $mapper = new \OCA\Mcp\Db\LogsGroupsMapper($db->connection(), (new InMemoryAppConfig())->worker($this));
         $groups->method('getBackends')->willReturn([new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static function () use (&$allowed): array { return ['admin' => $allowed ? ['root'] : []]; })]);
         $access = \OCA\Mcp\Tests\Unit\InMemoryConfig::logsAccess($this, $nativeConfig, $groups, $mapper, new InMemoryLocks());
-        $guard = new \OCA\Mcp\Access\Visibility\VisibilityGuard($nativeConfig, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
+        $guard = new \OCA\Mcp\Access\Visibility\VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $nativeConfig, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
         $privacy = new \OCA\Mcp\Access\Logs\LogFileNames((new InMemoryAppConfig())->worker($this), $guard);
         $log = new \OCA\Mcp\Tests\Support\Logs\FakeFileLog(\OCA\Mcp\Tests\Support\Logs\FakeFileLog::lines(1, static fn (): array => ['message' => 'synthetic-private']));
         $nativeFactory = $this->createMock(\OCP\Log\ILogFactory::class);
