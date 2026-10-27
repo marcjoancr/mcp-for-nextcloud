@@ -24,7 +24,7 @@ final class IntegrationHarnessTest extends TestCase {
     public function testPlanResolvesPinnedCellsWithoutStartingContainers(): void {
         foreach ([[33, 'mariadb', 'fresh'], [33, 'mariadb', 'upgrade'], [34, 'mariadb', 'fresh'],
             [35, 'pgsql', 'upgrade'], [35, 'sqlite', 'fresh'], [35, 'mariadb', 'upgrade-local'],
-            [35, 'mariadb', 'upgrade-upstream-112'], [35, 'mariadb', 'upgrade-upstream'], [35, 'mariadb', 'upgrade-upstream-111']] as [$nc, $db, $mode]) {
+            [35, 'mariadb', 'upgrade-upstream-120'], [35, 'mariadb', 'upgrade-upstream-112'], [35, 'mariadb', 'upgrade-upstream'], [35, 'mariadb', 'upgrade-upstream-111']] as [$nc, $db, $mode]) {
             [$status, $out, $error] = $this->invoke(['--plan', (string)$nc, $db, $mode]);
             self::assertSame(0, $status, $error);
             $plan = json_decode($out, true, 512, JSON_THROW_ON_ERROR);
@@ -36,6 +36,7 @@ final class IntegrationHarnessTest extends TestCase {
             self::assertTrue($plan['disposable']);
             if ($mode === 'upgrade') self::assertSame('a1a7911cc72dcf2487d17e06e23edfa89b0ecf92', $plan['baseline_commit']);
             if ($mode === 'upgrade-local') self::assertSame('14a76df26817fb8a4540eb9c9d1d0043e3e87506', $plan['baseline_commit']);
+            if ($mode === 'upgrade-upstream-120') self::assertSame('02526119b845ccc1d8399be002da3e30b5527df6', $plan['baseline_commit']);
             if ($mode === 'upgrade-upstream-112') self::assertSame('27da5e107ca06d92b7af9b8a80ad9c77c12ba91e', $plan['baseline_commit']);
             if ($mode === 'upgrade-upstream-111') self::assertSame('65e4e08b68c3f8d1ba78398a082ec567b0b0f4e4', $plan['baseline_commit']);
             if ($mode === 'upgrade-upstream') self::assertSame('0911f9123a661968e707fc4c391adcf9d37c3e84', $plan['baseline_commit']);

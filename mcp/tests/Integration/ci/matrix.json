@@ -4,7 +4,8 @@
     "upgrade-local": "14a76df26817fb8a4540eb9c9d1d0043e3e87506",
     "upgrade-upstream": "0911f9123a661968e707fc4c391adcf9d37c3e84",
     "upgrade-upstream-111": "65e4e08b68c3f8d1ba78398a082ec567b0b0f4e4",
-    "upgrade-upstream-112": "27da5e107ca06d92b7af9b8a80ad9c77c12ba91e"
+    "upgrade-upstream-112": "27da5e107ca06d92b7af9b8a80ad9c77c12ba91e",
+    "upgrade-upstream-120": "02526119b845ccc1d8399be002da3e30b5527df6"
   },
   "cells": [
     {

@@ -47,6 +47,8 @@ upstream fetch can substitute for a missing fork baseline. This replaces the old
 local-only 1.0.8 preparation commit, which was absent from public clones. The
 separate `upgrade` cells retain the real 1.0.8 schema/OAuth migration coverage. `upgrade-upstream` installs 1.1.0 and runs `occ upgrade` to
 the candidate 2.0.0; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
+`upgrade-upstream-120` pins upstream 1.2.0 and uses the same state/credential
+probe on NC35/MariaDB. It does not replace the LinuxServer/Nginx rehearsal.
 `upgrade-upstream-112` installs the pinned upstream 1.1.2 and runs a real
 `occ upgrade` to the newer candidate. The fixture verifies policy, scopes, clients,
 credentials and migration state. The historical same-version replacement remains
