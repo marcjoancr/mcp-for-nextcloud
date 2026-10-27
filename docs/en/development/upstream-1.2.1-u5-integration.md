@@ -211,12 +211,49 @@ would falsely qualify an unsupported deployment.
   real ChatGPT consent/tools/revocation remain pending.
 - Human security, operations/recovery, license, accessibility and language reviews
   remain pending. Automated checks and agent review are not human approval.
-- Remote CI of the eventual U5 commit must be observed separately. A corrected
-  local run does not retroactively turn U4's failed workflow green.
+- Every later commit requires its own remote CI. The published U5 results below
+  close that gate for the identified input; they do not retroactively turn U4's
+  failed workflow green.
 
-U5 remains on the local `chore/upstream-121-reconciliation` branch; publication
-and remote checks of these new commits remain pending. The earlier authorization
-was used to publish the three U4 commits; no further push is claimed here.
+## Authorized publication follow-up (2026-10-27)
+
+The owner subsequently authorized incorporating U5 into `fork/main`, pushing it
+and checking CI. The clean local `fork/main` worktree was fast-forwarded to
+`f2795c008a23bb696b825f1a346f0872fc95f387`; origin advanced from `99df0211` to
+that same commit without rewriting history. This includes `6bdfbe7b` (upgrade
+contracts and pinned 1.2.0 coverage) and `f2795c00` (reconciliation, metadata and
+evidence). The original `main` and PR reference branch were not changed.
+
+The following remote evidence belongs to this exact published input. The earlier
+U4 failure remains a historical result, not a failure silently marked successful.
+
+| Workflow | Observed result | Coverage |
+| --- | --- | --- |
+| [Package](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40561746396) | Success | Production archive validation and REUSE. |
+| [Quality](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40561746401) | Success | PHP syntax, both PHPStan scopes, documentation/provenance and source-delivery controls. |
+| [Tests](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40561746439) | Success | PHPUnit on PHP 8.2, 8.3, 8.4 and 8.5; JavaScript on Chromium, Firefox and WebKit. |
+| [Native integration](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40561746462) | Success | All 15 native cells and matrix generation passed, including opt-in Mail and the added upstream 1.2.0 upgrade. |
+
+The JavaScript browser-installation step completed on U5 and its suite passed;
+U4's earlier stalled step does not establish the outcome of this newer run.
+Historical PHP 8.2/8.3 API-fixture coverage does not lower the native PHP 8.4 floor.
+
+All four workflows and all their jobs were verified completed/success at
+**2026-10-27 18:49 UTC**, without a rerun or cancellation. Native CI now covers the
+full 15-cell matrix on one commit, extending the six local U5 cells recorded
+above. All five previously failing legacy-upgrade cells passed. GitHub exposes
+15 sanitized native evidence artifacts on that run, retained for 14 days; these
+are expiring diagnostic artifacts, not permanent release/source kits. Local API
+snapshots are retained under `mcp/build/upstream-1.2.1-u5/publication/` (ignored).
+
+This follow-up changes only the development report and baseline documentation;
+it introduces no runtime, dependency, test or workflow change. Its own push will
+trigger new workflows, whose conclusions must be checked separately rather than
+inferred from the parent commit. The table deliberately identifies the completed
+U5 input, avoiding a self-referential claim about the commit containing this text.
+Documentation validation passes: 173 Markdown files, 115 package sources, and
+`git diff --check`. LinuxServer/recovery, trusted release delivery, HTTPS,
+Inspector, ChatGPT and human reviews remain pending as listed above.
 
 No production server was modified, no deployment or release was performed, and
 PR #14 and its reference branch remain unchanged.

@@ -17,8 +17,10 @@ capability batches; **selected 1.2.1 capability integration is reconciled in U5;
 [U1 record](upstream-1.2.1-u1-integration.md) covers backup visibility; the
 [U2 record](upstream-1.2.1-u2-integration.md) covers configured backups and copy
 policy; [U3](upstream-1.2.1-u3-integration.md) adds Tasks hierarchy and
-[U4](upstream-1.2.1-u4-integration.md) adds optional Mail. [U5](upstream-1.2.1-u5-integration.md) records reconciliation and pending release gates. The U3 record links the four passing U2 workflows; subsequent commits
-need their own checks.
+[U4](upstream-1.2.1-u4-integration.md) adds optional Mail.
+[U5](upstream-1.2.1-u5-integration.md#authorized-publication-follow-up-2026-10-27)
+records reconciliation, publication at `f2795c00`, exact-commit CI evidence and
+pending release gates. Later commits require their own checks.
 
 Create new topic branches from `fork/main` and contribute to this fork. Preserve
 ancestry and attribution. Native integration CI now watches pushes to `fork/main`;
@@ -43,7 +45,8 @@ The base checkout's old `main` is retained, so do not start development from it.
 No harness files were placed in the repository.
 
 GitHub started Quality, Tests, Package and Native integration on the first push.
-Remote CI is **pending**, not included in the local passing result below. Inspect
+Remote CI was **pending at that initial publication**, separate from the local
+passing result below. The U5 record above supplies later publication evidence. Inspect
 the [fork's Actions runs](https://github.com/marcjoancr/mcp-for-nextcloud/actions)
 for the actual final commit before relying on remote qualification. No release,
 tag, production change or deployment was performed.
@@ -54,7 +57,8 @@ with REUSE 6.2.0 (exit 1, 1,674/1,675 files attributed), then corrected with an 
 `REUSE.toml` entry. REUSE now passes (exit 0, 1,675/1,675 files attributed). The
 profile bytes and frozen digest are unchanged. The full Composer check does not
 include REUSE; its earlier passing result did not cover this separate CI gate.
-Remote results for the corrected commit must still be checked.
+At that point remote results for the corrected commit remained pending; later
+batch records retain their own results rather than rewriting this initial record.
 
 ## Local verification
 
