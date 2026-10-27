@@ -13,8 +13,8 @@
   },
   "candidate": {
     "version": "2.0.0",
-    "sourceCommit": "0000d8c807cfae300c2009ce53f9efb4a5df8081",
-    "manifestSha256": "032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f"
+    "sourceCommit": "940c3da36f0d9c5310a98d7c3f355d2d99c86d33",
+    "manifestSha256": "2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63"
   },
   "images": {
     "nextcloud": {
