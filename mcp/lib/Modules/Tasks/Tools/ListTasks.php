@@ -19,7 +19,7 @@ final class ListTasks implements \OCA\Mcp\Mcp\Tools\Tool
             name: 'tasks_list_tasks',
             module: 'tasks',
             operation: 'read',
-            description: 'List tasks, including undated tasks, in one visible task calendar, optionally only those with a category.',
+            description: 'List tasks, including undated tasks, in one visible task calendar, optionally only those with a category or only the subtasks of one task.',
             inputSchema: [
                 'type' => 'object',
                 'properties' => (object) [
@@ -30,6 +30,7 @@ final class ListTasks implements \OCA\Mcp\Mcp\Tools\Tool
                         'description' => 'Include completed tasks.',
                     ],
                     'category' => DavCollectionSchema::text('Literal category label to match exactly, ignoring case. Omit this field to list tasks without a category filter.', 1, 255),
+                    'parent' => DavCollectionSchema::text('Only list the direct subtasks of the task with this UID. Omit the field to list every task.', 1, 255),
                     'limit' => DavCollectionSchema::limit(),
                     'offset' => DavCollectionSchema::offset(),
                 ],

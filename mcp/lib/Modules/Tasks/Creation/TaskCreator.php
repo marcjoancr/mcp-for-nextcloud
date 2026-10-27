@@ -20,6 +20,7 @@ final class TaskCreator
         private ITimeFactory $time,
         private TaskPatch $patch,
         private TaskWriter $writer,
+        private \OCA\Mcp\Modules\Tasks\Hierarchy\TaskParentStep $parent,
     )
     {
     }
@@ -49,12 +50,17 @@ final class TaskCreator
     }
     public function preview(array $arguments, string $userId): array
     {
-        return $this->prepare($arguments, $userId)['plan'];
+        return $this->parent->plan($this->prepare($arguments, $userId), $arguments, $userId, false)['plan'];
     }
     public function execute(array $arguments, string $userId): array
     {
-        $prepared = $this->prepare($arguments, $userId);
-        $this->plans->assertAcknowledged($prepared['plan'], $arguments);
-        return $this->writer->save($prepared, $userId);
+        $calendar = $this->access->resolveWritable($userId, $arguments['calendar'], 'VTODO');
+        return $this->parent->guarded($calendar, $arguments, function () use ($arguments, $userId): array {
+            $prepared = $this->parent->plan($this->prepare($arguments, $userId), $arguments, $userId, false);
+            $this->plans->assertAcknowledged($prepared['plan'], $arguments);
+            return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($this->parent->afterWrite(
+                $this->writer->save($prepared, $userId), $prepared['calendar'], $arguments,
+            ));
+        });
     }
 }

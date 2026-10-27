@@ -18,6 +18,7 @@ final class TaskPatch
         private TaskDocument $document,
         private TaskCategories $categories,
         private TaskDates $dates,
+        private TaskRelations $relations,
     )
     {
     }
@@ -45,6 +46,7 @@ final class TaskPatch
         $categories = array_key_exists('categories', $arguments) ? $this->categories->validCategories($arguments['categories']) : null;
         $calendar = clone $original;
         $task = $this->document->master($calendar);
+        $this->relations->apply($task, $arguments);
         if ($categories !== null) {
             // The list replaces every CATEGORIES line; one multi-value line escapes commas inside a name.
             unset($task->CATEGORIES);

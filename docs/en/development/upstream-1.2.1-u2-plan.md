@@ -141,7 +141,7 @@ standalone global script. Tests: `tests/JavaScript/admin/backups.spec.js`.
 - [x] Obtain one independent whole-branch review, fix material findings with RED/GREEN
   tests, and record exact commands/results and failed attempts. Prepare the validated
   fork delta for the authorized commit/publication.
-- [ ] Observe U2 CI for the final published head; C0 results do not qualify it.
+- [x] Observe U2 CI for the final published head; see the U3 prerequisite record.
 - [x] Confirm no legacy owners, transitional aliases or duplicated settings sources.
 
 No deployment or upstream PR #14 changes. U3 hierarchy, U4 Mail and U5 full parity,

@@ -18,7 +18,7 @@ use Sabre\VObject\Reader;
 use Throwable;
 final class TaskDocument
 {
-    public function __construct(private TaskCategories $categories)
+    public function __construct(private TaskCategories $categories, private TaskRelations $relations)
     {
     }
     public function parse(string $data): VCalendar
@@ -57,6 +57,7 @@ final class TaskDocument
         };
         return [
             'uid' => (string) $task->UID,
+            'parent' => $this->relations->parent($task),
             'summary' => (string) $task->SUMMARY,
             'description' => (string) $task->DESCRIPTION,
             'status' => (string) $task->STATUS,

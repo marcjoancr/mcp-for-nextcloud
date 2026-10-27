@@ -72,8 +72,8 @@ final class EmbeddedDavDispatcherTest extends TestCase {
     public function testVtodoCreationAndCompletionUseTheSameCalDavPipeline(): void {
         $categories = new \OCA\Mcp\Modules\Tasks\Content\TaskCategories();
         $data = new \OCA\Mcp\Modules\Tasks\Content\TaskPatch(
-            new \OCA\Mcp\Modules\Tasks\Content\TaskDocument($categories),
-            $categories, new \OCA\Mcp\Modules\Tasks\Content\TaskDates());
+            new \OCA\Mcp\Modules\Tasks\Content\TaskDocument($categories, new \OCA\Mcp\Modules\Tasks\Content\TaskRelations()),
+            $categories, new \OCA\Mcp\Modules\Tasks\Content\TaskDates(), new \OCA\Mcp\Modules\Tasks\Content\TaskRelations());
         $now=new \DateTimeImmutable('2026-10-01T12:00:00Z');
         $task=$data->create(['summary'=>'Undated task'],$now);
         $created=$this->dispatcher->put('alice','personal','task.ics',$task->serialize());

@@ -73,3 +73,11 @@ schemas, grants, annotations, ordering and result captures are retained. The
 older Files definitions/pilot captures receive the same description replacements.
 Policy, Files flow, browser and native tests exercise the behavior independently;
 these captures were not regenerated from the new implementation.
+
+The 2026-10-27 U3 port adds only Tasks parent create/edit schemas, direct-child
+listing schema/description and hierarchy guide notes to the relevant captures.
+DAV plans/results add `parent: null` and empty `parents` title maps for the
+existing top-level create/edit cases. Calendar/Contacts contracts, grants,
+existing renderings and all unrelated result/protocol fields remain unchanged.
+These explicit additive patches are covered independently by the pinned 1.2.1
+subtask, hierarchy/lock and native CalDAV cases; captures were not regenerated.

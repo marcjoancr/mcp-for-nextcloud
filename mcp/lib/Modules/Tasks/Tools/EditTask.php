@@ -63,6 +63,12 @@ final class EditTask implements \OCA\Mcp\Mcp\Tools\WriteTool
                         ],
                         'description' => 'Free-text task categories, as in the Tasks app: 1-255 characters each after trimming spaces. The list replaces all existing categories; [] clears them; omit to preserve them.',
                     ],
+                    'parent' => [
+                        'type' => ['string', 'null'],
+                        'minLength' => 1,
+                        'maxLength' => 255,
+                        'description' => 'UID of the parent task, making this task its subtask as in the Tasks app. The parent must be in the same calendar; null makes the task top-level; omit to preserve it.',
+                    ],
                     'confirm_shared' => [
                         'type' => 'boolean',
                         'description' => 'Acknowledge changing a collection owned by another person after showing the shared notice.',
