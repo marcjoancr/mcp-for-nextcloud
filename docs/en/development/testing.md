@@ -75,7 +75,7 @@ never starts/stops the shared daemon, prunes images or creates linked worktrees.
 Linux `ip`, PHP, Composer, OpenSSL, curl and the locked Node/npm versions are required.
 
 The source checkout's `mcp/tests/Integration/README.md` describes all
-14 cells, separate suite ordering, baseline probes and private versus publishable
+15 cells, separate suite ordering, baseline probes and private versus publishable
 artifacts. The integration workflow uses the same command and immutable input
 manifest. Full Git history is required for source/translation provenance.
 A failed app installation, empty selection or test failure is a failed cell.
@@ -114,7 +114,10 @@ Colima startup/shutdown or shared-engine queue. Selected source integration keep
 the independent candidate at 2.0.0. The matrix now upgrades the pinned upstream
 1.1.2 through `upgrade-upstream-112`; the historical same-version replacement
 and NC32 cells remain recorded at `5ff6672`. Current candidate cells begin at NC33.
-An installed upstream 1.2.0 upgrade and final platform qualification remain open.
+The `upgrade-upstream-120` cell adds the pinned upstream 1.2.0 → 2.0.0
+transition on disposable NC35/Apache/MariaDB, preserving state and bearer access.
+Its result is recorded in [U5](upstream-1.2.1-u5-integration.md). The real installed
+LinuxServer/Nginx upgrade, recovery and final platform qualification remain open.
 F3/F4 own final release and installed-host qualification. See the
 [F3 execution record](fork-f3-preparation.md) for the 2.0.0 candidate and the
 [upstream integration record](upstream-1.2.0-integration.md) for earlier revisions.

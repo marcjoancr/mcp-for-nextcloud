@@ -18,7 +18,7 @@
 | `calendar_delete_event` | calendar.delete | Deletes the series into the trash bin; requires active retention. |
 | `calendar_transfer_event` | calendar.transfer | MOVE to a calendar of another owner shared with write access; refuses attendees. |
 
-Calendar exposes reading and the five writes, with no terminal step. The writes start off in the admin matrix (Administration → MCP) and only appear for those who received the grant; every write also requires `confirm: true`, the Nextcloud ACL (and `confirm_shared` on someone else's calendar) and the optional ETag. Compatibility: the app declares `min-version` 32 and `max-version` 35 in `info.xml`; the internal part (the core's `EmbeddedCalDavServer`) is covered by the tests and by that range, and a new Nextcloud version requires a new version of the app. The Calendar app must be enabled for the user. Sabre and Symfony Console come from the Nextcloud core and stay out of the package's `vendor/`.
+Calendar exposes reading and the five writes, with no terminal step. The writes start off in the admin matrix (Administration → MCP) and only appear for those who received the grant; every write also requires `confirm: true`, the Nextcloud ACL (and `confirm_shared` on someone else's calendar) and the optional ETag. Compatibility: the app declares `min-version` 33 and `max-version` 35 in `info.xml`; the internal part (the core's `EmbeddedCalDavServer`) is covered by the tests and by that range, and a new Nextcloud version requires a new version of the app. The Calendar app must be enabled for the user. Sabre and Symfony Console come from the Nextcloud core and stay out of the package's `vendor/`.
 
 | Write tool | Grant | Behavior |
 | --- | --- | --- |

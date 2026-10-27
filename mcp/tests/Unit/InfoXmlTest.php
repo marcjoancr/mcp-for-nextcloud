@@ -66,13 +66,13 @@ final class InfoXmlTest extends TestCase {
     }
 
     /**
-     * The store shows the summary and the description in English, Brazilian Portuguese and Spanish.
+     * The store shows the summary and the description in English, Brazilian Portuguese, Spanish and German.
      * The name is not translated: it is a single <name> without lang (see the test below).
      */
     public function testSummaryAndDescriptionComeInEveryLanguageOfTheApp(): void {
         foreach (['summary', 'description'] as $element) {
             $texts = $this->localized($element);
-            $this->assertSame(['en', 'pt-br', 'es'], array_keys($texts), $element);
+            $this->assertSame(['en', 'pt-br', 'es', 'de'], array_keys($texts), $element);
             foreach ($texts as $lang => $text) {
                 $this->assertNotSame('', $text, "$element ($lang)");
                 $this->assertStringNotContainsStringIgnoringCase('test release', $text, "$element ($lang)");
@@ -100,6 +100,7 @@ final class InfoXmlTest extends TestCase {
             'pt-br' => ['Arquivos', 'Notas', 'Calendário', 'Contatos', 'Tarefas', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'nunca apaga'],
             'es' => ['Archivos', 'Notas', 'Calendario', 'Contactos', 'Tareas', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'nunca borra'],
         ];
+        $expected['de'] = ['Dateien', 'Notes', 'Kalender', 'Kontakten', 'Aufgaben', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'nicht gelöscht'];
         foreach ($this->localized('description') as $lang => $text) {
             foreach ($expected[$lang] as $needle) {
                 $this->assertStringContainsString($needle, $text, "description ($lang)");
@@ -108,11 +109,32 @@ final class InfoXmlTest extends TestCase {
         }
     }
 
+    /** Public descriptions must not promise mandatory Files copies after the configurable policy port. */
+    public function testSelected121CapabilitiesAndCopyLimitsAppearInEveryStoreLocale(): void {
+        $required = [
+            'en' => ['64', 'previous names', 'Contact deletion always requires a verified backup', 'no message reading', 'native versions are not guaranteed'],
+            'pt-br' => ['64', 'nomes anteriores', 'Excluir contato sempre exige backup verificado', 'sem ler mensagens', 'não há garantia de versão nativa'],
+            'es' => ['64', 'nombres anteriores', 'Eliminar contactos siempre exige copia verificada', 'sin leer mensajes', 'no se garantiza una versión nativa'],
+            'de' => ['64', 'Frühere Namen', 'Kontakte löschen benötigt immer eine geprüfte Sicherung', 'ohne Nachrichten zu lesen', 'nicht für jede Datei'],
+        ];
+        $descriptions = $this->localized('description');
+        foreach ($required as $locale => $phrases) {
+            self::assertArrayHasKey($locale, $descriptions);
+            foreach ($phrases as $phrase) {
+                self::assertStringContainsString($phrase, $descriptions[$locale], $locale . ': ' . $phrase);
+            }
+        }
+        foreach (['every edit keeps a backup', 'toda edição guarda um backup', 'cada edición guarda una copia'] as $obsolete) {
+            foreach ($descriptions as $description) self::assertStringNotContainsString($obsolete, $description);
+        }
+    }
+
     public function testStoreMetadataPointsAtThePublicRepository(): void {
         $manifest = $this->manifest();
         $repository = 'https://github.com/marcjoancr/mcp-for-nextcloud';
 
         $this->assertSame('mcp', (string)$manifest->id);
+        $this->assertSame('2.0.0', (string)$manifest->version);
         $this->assertSame($repository, (string)$manifest->website);
         $this->assertSame($repository . '/issues', (string)$manifest->bugs);
         $this->assertSame($repository . '.git', (string)$manifest->repository);

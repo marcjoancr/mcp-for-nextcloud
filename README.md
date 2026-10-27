@@ -10,7 +10,7 @@ Independent continuation of MCP for Cloud by Sintax, maintained in this fork.
 Not an official Nextcloud product or the upstream App Store package.
 
 **A native Nextcloud app that turns your Nextcloud into an MCP server.**
-Let Claude and other MCP clients work with your files, notes, calendars, contacts, tasks, Deck boards and Talk conversations, subject to MCP policy, resource restrictions and each user's native Nextcloud permissions.
+Let Claude and other MCP clients work with your files, notes, calendars, contacts, tasks, Deck boards, Talk conversations and cached Mail folders, subject to MCP policy, resource restrictions and each user's native Nextcloud permissions.
 
 [![Tests](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml/badge.svg)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml)
 [![Nextcloud 33–35](https://img.shields.io/badge/Nextcloud-33--35-0082c9?logo=nextcloud&logoColor=white)](https://nextcloud.com)
@@ -37,8 +37,8 @@ filename allowlist, alongside privacy and compatibility fixes. See the
 The independent **Nextcloud MCP 2.0.0** development candidate retains app ID `mcp`;
 release and host qualification and human reviews remain pending. Native file linking
 requires explicit approval of its current and future audience and retains native
-sharing limitations. Source integration does not establish an upgrade from an
-installed upstream 1.2.0 or certify every client/platform combination.
+sharing limitations. The intended LinuxServer/Nginx upgrade and recovery remain
+pending; disposable Apache results do not certify every client/platform combination.
 
 ## What's new in 1.1.2
 
@@ -111,6 +111,15 @@ This independent fork is a development candidate, not the App Store release. Rea
 
 [Development](docs/en/development/setup.md).
 
+## Selected 1.2.1 capabilities
+
+Configurable [backup policy](docs/en/reference/configuration.md#mcp-backup-copies),
+[Tasks hierarchy](docs/en/reference/tools/tasks.md) and optional
+[Mail account/folder reads](docs/en/reference/tools/mail.md) are integrated into
+the capability architecture. Mail requires an explicit read grant. See the
+[reconciliation and acceptance limits](docs/en/development/upstream-1.2.1-u5-integration.md);
+2.0.0 remains a development candidate.
+
 ## Changelog
 
 [Changelog](CHANGELOG.md).
@@ -127,7 +136,8 @@ AGPL-3.0-or-later, with the additional section 7(b) attribution term in [NOTICE]
 
 The package includes Smalot PdfParser, Symfony Polyfill Mbstring and the Composer autoloader. See versions, licenses, copyright and development dependencies in [THIRD-PARTY-NOTICES.md](mcp/THIRD-PARTY-NOTICES.md).
 
-**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation (#10) and @Zegorax for administrator-registered OAuth clients (#8, #7).
+**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation (#10) and @Zegorax for administrator-registered OAuth clients (#8, #7), and @mturgeonferland for the original Tasks
+subtask contribution ([#18](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18)).
 
 The upstream documentation also credits Sintax/Jhonatan Jaworski's contribution
 to [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). This historical

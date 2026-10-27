@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
-# Contacts and Tasks (0.8.0)
+# Contacts and Tasks
 
 | Module | Tools | Dependency |
 |---|---|---|
@@ -13,9 +13,12 @@ The Contacts catalogs are own/shared, explicitly filtering any system principal.
 
 `GrantPolicy`/`GrantMatrix` include `contacts` and `tasks` with read/create/edit/delete, with writes off by default. Completing a task uses edit. `PreviewsWrites` produces the plan with no side effects; `WriteGate` requires confirm:true; shares require confirm_shared; a supplied ETag is checked and If-Match uses the re-read one. Editing a vCard preserves unknown fields, parameters, groups and the version; the plan includes every before/after property and the full vCard.
 
-**Deleting a contact is PERMANENT in Nextcloud 33, with no trash bin.** Only after confirmation, `ContactBackup` saves the complete original vCard in `/MCP backups/Contacts/<catalog>/<name-or-uid>.<YYYYmmdd-HHMMSS>-<unique-suffix>.vcf`, in the account's time zone and in the actor's folder. It uses an application mutex, a random suffix and a collision check so it never selects existing files, and verifies the copy by re-reading the bytes. A failure prevents the CardDAV DELETE; the result reports backupPath. Re-import through the Contacts interface to recover. No backup is created in the preview.
+**Deleting a contact is PERMANENT in Nextcloud 33, with no trash bin.** Only after confirmation, `ContactBackup` saves the complete original vCard under `Contacts/<catalog>/<name-or-uid>.<YYYYmmdd-HHMMSS>-<unique-suffix>.vcf` in the configured personal-root backup folder (default `/MCP backups`), in the account's time zone and in the actor's folder. It uses an application mutex, a random suffix and a collision check so it never selects existing files, and verifies the copy by re-reading the bytes. A failure prevents the CardDAV DELETE; the result reports backupPath. Re-import through the Contacts interface to recover. No backup is created in the preview. This verified copy remains mandatory even when Files copies are suspended.
 
 Tasks use VTODO, include undated tasks, hide PRIVATE/CONFIDENTIAL ones of another owner and exclude objects in the trash bin. Reading recurrence is allowed; writes on series or tasks with attendees are refused. Fields that did not change stay in the iCalendar; completing writes STATUS/PERCENT-COMPLETE/COMPLETED, and lowering progress reopens the task. Deleting uses the CalDAV trash bin, refuses zero retention and checks deleted-at after the DELETE. Listings use limit/offset/nextOffset; completed tasks require include_completed. Categories (`CATEGORIES`) are free text: reading and listing return `categories`, merged from every `CATEGORIES` line (escaped commas respected), trimmed and deduplicated ignoring Unicode case, keeping the first spelling; create and edit accept `categories` (up to 50 items of 1–255 characters after trimming, no control characters, validated before any write): omitting it leaves every line untouched, `[]` removes them and a list replaces them with one multi-value line. `tasks_list_tasks` filters by `category` (exact, case-folded) before `offset`/`limit`, together with `include_completed`. The plan shows each name quoted, before and after. Categories of tasks hidden by CLASS are never read, filtered or shown.
+
+[Task hierarchy](tasks.md) documents parent UIDs, direct-child filtering, locking
+and the limits of cross-client cycle prevention.
 
 A completed visible scan with no matching category adds a note explaining the
 literal filter and whether completed tasks were searched; an empty page caused

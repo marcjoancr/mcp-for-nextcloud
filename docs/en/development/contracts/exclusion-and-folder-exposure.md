@@ -44,7 +44,8 @@ de/es/pt_BR with English source fallback.
 
 ## Backup-origin visibility
 
-Only the verified personal-root `MCP backups` location inherits exclusions from
+Only verified personal-root locations reserved by the backup policy (current and
+historical names, including `MCP backups`) inherit exclusions from
 its mirrored original. A same-named folder nested in an ordinary directory is
 ordinary; one nested inside a real backup remains part of the complete mirror
 path. Local received shares resolve the owner's original location, including renamed
@@ -54,8 +55,8 @@ federated owner metadata alone never identifies a local share.
 `Access/Visibility/BackupFolderMatcher` classifies roots/origins and
 `BackupMirrorVisibility` checks originals through the same guard. Unknown origins,
 cyclic ancestry or unavailable original checks fail closed, with generic inspector
-reasons. Existing invalidation hooks discard cached candidate metadata. This U1
-contract does not add configurable backup locations or optional pre-write copies.
+reasons. Existing invalidation hooks discard cached candidate metadata. U2 supplies configurable and historical names through `Access/BackupPolicy`;
+Files copy preferences never relax backup visibility or write reservations.
 
 ## D7: folder exposure
 
