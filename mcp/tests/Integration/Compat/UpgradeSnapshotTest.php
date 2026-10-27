@@ -63,7 +63,7 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
     public function testThePlanCoversEveryOperationInEveryStateAndTheBaselineStoredExactlyIt(): void {
         $this->assertSame('1.0.8', $this->seed['appVersion'], 'the snapshot must be written by the released baseline');
         $this->assertNotSame(getenv('MCP_IT_EXPECTED_VERSION'), $this->seed['appVersion']);
-        $this->assertSame(GrantPolicy::CATALOG, $this->seed['catalog'], 'the baseline and the branch must share the CATALOG');
+        LegacyCatalogContract::baseline($this->seed['catalog'], GrantPolicy::CATALOG);
         $plan = $this->seed['plan'];
         $this->assertSame(SnapshotProbe::uids(), array_keys($plan));
         $pairs = [];
@@ -71,7 +71,7 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
             $pairs[] = json_encode([$values['eligible'], $values['connected']]);
         }
         $this->assertCount(9, array_unique($pairs), 'every (eligible, connected) pair over 1/0/absent');
-        foreach (GrantPolicy::CATALOG as $module => $operations) {
+        foreach (LegacyCatalogContract::baseline($this->seed['catalog'], GrantPolicy::CATALOG) as $module => $operations) {
             foreach ($operations as $operation) {
                 $seen = array_count_values(array_map(static fn (?string $v): string => $v ?? 'absent', array_column($plan, "grant_{$module}_{$operation}")));
                 ksort($seen);
@@ -128,7 +128,9 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
 
     public function testTheBranchAndTheBaselineCodeGiveTheBaselineAnswersOverTheSameBytes(): void {
         $policy = Server::get(GrantPolicy::class);
-        $branch = SnapshotProbe::answers($policy, GrantPolicy::CATALOG, $this->config, $this->appConfig, $this->userConfig, SnapshotProbe::uids());
+        $branch = LegacyCatalogContract::answers(SnapshotProbe::answers($policy,
+            LegacyCatalogContract::baseline($this->seed['catalog'], GrantPolicy::CATALOG),
+            $this->config, $this->appConfig, $this->userConfig, SnapshotProbe::uids()));
         $this->assertSame($this->seed['answers'], $branch);
         $this->assertSame($this->seed['raw'], $this->raw(), 'reading through the branch wrote nothing');
 
