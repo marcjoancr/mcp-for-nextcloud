@@ -9,7 +9,8 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 
 | Task | Reference |
 | --- | --- |
-| Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md) |
+| Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md), [development baseline](fork-development-baseline.md) |
+| Evaluate upstream 1.2.1 | [Release intake and proposed capability batches](upstream-1.2.1-intake.md) |
 | Track F3 identity and release preparation | [F3 execution record](fork-f3-preparation.md), [source delivery and control evidence](fork-f3-delivery.md) |
 | Plan the isolated LinuxServer upgrade and recovery rehearsal | [LinuxServer/Nginx test plan](fork-linuxserver-upgrade-recovery-plan.md), [L0 results](fork-linuxserver-l0.md) |
 | Evaluate upstream 1.2.0 changes | [Capability inventory and selection](upstream-1.2.0-inventory.md), [integration results](upstream-1.2.0-integration.md), [native file-link follow-up](deck-file-link-integration.md) |

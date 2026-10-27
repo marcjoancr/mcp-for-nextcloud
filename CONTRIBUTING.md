@@ -12,8 +12,9 @@ registration and the contracts that changes must preserve.
 ## Fork development workflow
 
 This fork develops its capability architecture on `fork/main`. That branch has
-been established locally; publication and a GitHub default-branch change remain
-pending. Base new topic branches on `fork/main`, not the older `main` or the frozen
+been selected for publication as the GitHub default branch. Track its promotion
+in the [development baseline record](docs/en/development/fork-development-baseline.md).
+Base new topic branches on `fork/main`, not the older `main` or the frozen
 `refactor/complete-upstream-pr` reference. Verify the starting revision when using
 a worktree manager or task runner whose configured default may still be `main`.
 
@@ -27,8 +28,9 @@ action; a fork relationship alone does not guarantee the correct default target.
 Keep publication, default-branch changes and deployment explicitly authorized.
 The [fork continuation plan](docs/en/development/fork-continuation-plan.md) owns
 baseline references, release proposals, update safeguards and pending decisions.
-F3 identity/version/platform choices and human reviewers remain pending. No new
-runtime version or support claim follows from establishing this branch.
+The Nextcloud MCP identity, 2.0.0 target and proposed platform scope are confirmed.
+F3 qualification and human reviews remain pending; publishing a development branch
+does not certify a release or qualify a production server.
 
 ## Contribution requirements
 
