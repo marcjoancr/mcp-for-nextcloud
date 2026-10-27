@@ -7,7 +7,7 @@ use OCP\{Server, IDBConnection, IUserManager, IConfig};
 use OCA\Mcp\Db\{PolicyStateMapper, OAuthClientsMapper};
 use OCA\Mcp\OAuth\{OAuthClientsService, CustomClient, AuthorizationRequest, TokenService};
 
-if (PHP_SAPI !== 'cli' || !in_array($argv[1] ?? '', ['seed', 'verify'], true)) exit(2);
+if (PHP_SAPI !== 'cli' || !in_array($argv[1] ?? '', ['seed', 'seed-fork', 'verify'], true)) exit(2);
 define('OC_CONSOLE', 1);
 require_once __DIR__ . '/../Support/ProbeCompletion.php';
 $probeCompletion = new \OCA\Mcp\Tests\Integration\Support\ProbeCompletion();
@@ -32,10 +32,11 @@ function snapshot(IDBConnection $db, string $uid): array {
     }
     return $result;
 }
-if ($argv[1] === 'seed') {
-    // Exact pinned upstream baseline classes, never loaded alongside the candidate classes.
-    $policy = Server::get('OCA\Mcp\Service\GrantPolicy');
-    $writer = Server::get('OCA\Mcp\Service\Policy\PolicyWriter');
+if ($argv[1] !== 'verify') {
+    // Exact pinned baseline owners, never loaded alongside the candidate classes.
+    $fork = $argv[1] === 'seed-fork';
+    $policy = Server::get($fork ? 'OCA\Mcp\Access\Grants\GrantPolicy' : 'OCA\Mcp\Service\GrantPolicy');
+    $writer = Server::get($fork ? 'OCA\Mcp\Access\ResourceScope\ResourceScopeWriter' : 'OCA\Mcp\Service\Policy\PolicyWriter');
     $user = Server::get(IUserManager::class)->createUser($uid, bin2hex(random_bytes(24)));
     if ($user === false) throw new RuntimeException('Could not create replacement fixture');
     $policy->setGlobalEnabled(true); $policy->setEligible($uid, true); $policy->setConnected($uid, true);
@@ -54,10 +55,10 @@ if ($argv[1] === 'seed') {
         'redirect_uri' => $client['redirectUris'][0], 'resource' => $resource]);
     file_put_contents($path, json_encode(['snapshot' => snapshot($db, $uid), 'token' => $tokens['access_token'], 'resource' => $resource], JSON_THROW_ON_ERROR));
     chmod($path, 0600);
-    echo "Seeded upstream policy, restricted scope, client and generation-qualified credential.\n";
+    echo "Seeded baseline policy, restricted scope, client and generation-qualified credential.\n";
 } else {
     $before = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-    if ($before['snapshot'] !== snapshot($db, $uid)) throw new RuntimeException('Upstream transition changed persistent state');
+    if ($before['snapshot'] !== snapshot($db, $uid)) throw new RuntimeException('Baseline transition changed persistent state');
     $policy = Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
     $policy->within($uid, static function () use ($policy, $uid): void {
         if ($policy->scopeItems($uid, 'files') !== [] || $policy->granted($uid, 'notes', 'edit')) throw new RuntimeException('Replacement lost policy restrictions');
@@ -78,7 +79,7 @@ if ($argv[1] === 'seed') {
     Server::get(OAuthClientsService::class)->update(Server::get(PolicyStateMapper::class)->state()['revision'], null, null, []);
     if (!Server::get(IUserManager::class)->get($uid)?->delete()) throw new RuntimeException('Replacement fixture cleanup failed');
     unlink($path);
-    echo "Upstream transition preserved migrations, policy, clients, generations, scopes and bearer access; assets present.\n";
+    echo "Baseline transition preserved migrations, policy, clients, generations, scopes and bearer access; assets present.\n";
 }
 
 $probeCompletion->complete();

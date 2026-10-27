@@ -45,7 +45,7 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
 
     protected function setUp(): void {
         parent::setUp();
-        if (!in_array(getenv('MCP_IT_MODE'), ['upgrade', 'upgrade-local'], true)) {
+        if (getenv('MCP_IT_MODE') !== 'upgrade') {
             $this->markTestSkipped('Only an upgrade cell has the snapshot written by the baseline');
         }
         $path = (string)getenv('MCP_IT_SNAPSHOT');
@@ -143,7 +143,7 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
         // The script refuses any class of the app the reading loaded from elsewhere, and any class of Service, OAuth
         // or Db the server's boot loaded from the branch before its loader; these are the ones the reading needed.
         $this->assertSame([], preg_grep('/^OCA\\\\Mcp\\\\(Service|OAuth|Db)\\\\/', $read['boot']));
-        $this->assertContains(getenv('MCP_IT_MODE') === 'upgrade-local' ? 'OCA\\Mcp\\Access\\Grants\\GrantPolicy' : 'OCA\\Mcp\\Service\\GrantPolicy', $read['loaded']);
+        $this->assertContains('OCA\\Mcp\\Service\\GrantPolicy', $read['loaded']);
         $this->assertContains('OCA\\Mcp\\OAuth\\OAuthStore', $read['loaded']);
         $this->assertSame($this->seed['answers'], $read['answers']);
         $this->assertSame($this->seed['raw'], $read['raw']);
