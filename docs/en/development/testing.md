@@ -120,6 +120,23 @@ F3/F4 own final release and installed-host qualification. See the
 [upstream integration record](upstream-1.2.0-integration.md) for earlier revisions.
 Filtered batch diagnostics and complete cells are recorded separately.
 
+## Optional Mail acceptance
+
+Run `composer --working-dir=mcp test:integration -- 35 mariadb upgrade-local --mail`
+(or `fresh --mail`) to add pinned Mail 5.12.5 and Dovecot 2.4.5 to the existing
+private disposable cell. Add `--plan` before the cell to inspect pins without
+starting containers. Other cells reject this flag; ordinary runs do not install
+Mail and explicitly skip its two native cases. CI opts in on NC35/MariaDB/fresh.
+
+`mcp/tests/Integration/ci/mail-pins.json` records immutable image/archive inputs.
+No host ports are published; provisioning checks run ownership and cleanup only
+removes containers bearing that run's label. The IMAP password is a public fixture
+constant accepted only in that throwaway network. No real mail account is used.
+The tests exercise native DI, Basic/OAuth, revoked grants, ownership and unchanged
+cache/IMAP state with a server-only folder and stale-sync timestamp canary.
+API snapshots add only Mail surfaces from SHA-256-verified official archives;
+`generate-mail.php` preserves unrelated surfaces and `mail-sources.json` pins them.
+
 ## Private real-client acceptance
 
 `test:clients:unit` checks runner safety without containers and is included in

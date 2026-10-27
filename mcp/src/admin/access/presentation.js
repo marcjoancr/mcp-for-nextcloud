@@ -13,6 +13,7 @@ export function createPresentation({ t }) {
 			talk: t('mcp', 'Talk'),
 			people: t('mcp', 'People'),
 			logs: t('mcp', 'Server log'),
+			mail: t('mcp', 'Mail'),
 		}
 	}
 	function operationLabels() {

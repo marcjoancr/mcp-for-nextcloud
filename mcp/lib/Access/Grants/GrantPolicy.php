@@ -54,15 +54,17 @@ class GrantPolicy implements ScopeReader {
         // Account search; read only, so the model can find who to invite or message.
         'people' => ['read'],
         'talk' => ['read', 'reply', 'attach', 'quote', 'create'],
-        // Reading the server log; read only, and the one read that starts denied (see DENIED_READS).
+        // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
+        'mail' => ['read'],
     ];
 
     /**
      * Modules whose read starts denied like a write. The server log shows the file names, URLs and accounts of every
-     * user, so nobody may read it by omission: an administrator turns it on user by user.
+     * user, so nobody may read it by omission. Mail is a new sensitive capability: upgrading must not grant it.
+     * Administrators explicitly grant these reads to individuals or trusted groups.
      */
-    public const DENIED_READS = ['logs'];
+    public const DENIED_READS = ['logs', 'mail'];
 
     /** App id under which every value of this policy is stored. */
     public const APP = 'mcp';

@@ -45,6 +45,8 @@ final class NextcloudApiUsage {
      * {@see \OCA\Mcp\Platform\Dav\CalDav\EmbeddedCalDavDispatcher} detaches.
      */
     public const EXTRA_CLASSES = [
+        'OCA\\Mail\\Account',
+        'OCA\\Mail\\Db\\Mailbox',
         'OCA\\Circles\\Model\\Circle',
         'OCA\\Talk\\Participant',
         'OCP\\FilesMetadata\\Model\\IFilesMetadata',
@@ -59,6 +61,13 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Mail\\Service\\AccountService::findByUserId' => ['currentUserId'],
+        'OCA\\Mail\\Service\\AccountService::find' => ['userId', 'id'],
+        'OCA\\Mail\\Db\\MailboxMapper::findAll' => ['account'],
+        'OCA\\Mail\\Account::getId' => [],
+        'OCA\\Mail\\Account::getName' => [],
+        'OCA\\Mail\\Account::getEmail' => [],
+        'OCA\\Mail\\Account::getUserId' => [],
         'OCA\\Deck\\Db\\BoardMapper::find' => ['id','withLabels','withAcl','allowDeleted'],
         'OCA\\Deck\\Db\\BoardMapper::flushCache' => ['boardId','userId'],
         'OCP\\IGroup::count' => [],

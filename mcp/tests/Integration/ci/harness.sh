@@ -518,6 +518,11 @@ cmd_test() {
     if [ "$MCP_IT_DB" = pgsql ]; then
         set -- "$@" -e MCP_IT_PG_LOG=/mcp-it-pglog/postgresql.log
     fi
+    if [ "${MCP_IT_WITH_MAIL:-0}" = 1 ]; then
+        # Fixed public fixture values only; no user-controlled shell expansion.
+        set -- "$@" -e MCP_IT_WITH_MAIL=1 -e MCP_IT_IMAP_HOST="$MCP_IT_IMAP_NAME" -e MCP_IT_IMAP_PORT=31143 \
+            -e MCP_IT_IMAP_PASSWORD=mcp-it-imap-password
+    fi
     # MCP_IT_PHPUNIT_ARGS (local diagnostics only), e.g. "--filter SomeTest", is passed to PHPUnit as is.
     # shellcheck disable=SC2086
     docker exec -u www-data "$@" "$NC" php -d memory_limit=1G /mcp-it-tools/phpunit.phar \

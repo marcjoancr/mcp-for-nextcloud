@@ -102,7 +102,7 @@ Unicode notice described above applies to those tables as well.
 2016 Nextcloud GmbH and Nextcloud contributors, AGPL-3.0-or-later;
 [source](https://apps.nextcloud.com/schema/apps/info.xsd).
 Its original SPDX header is retained. Generated `tests/fixtures/nextcloud-api/*.php`
-record public API signatures from Nextcloud, Deck and Talk; they are test metadata,
+record public API signatures from Nextcloud, Deck, Talk, Circles and Mail; they are test metadata,
 not runtime libraries, and are covered by `REUSE.toml`.
 
 ## PHPStan (development only)
@@ -131,3 +131,21 @@ included in the production package.
 | parse5 | 8.0.1 | MIT | Ivan Nikulin and contributors | HTML link/anchor parsing |
 | markdownlint | 0.42.0 | MIT | David Anson | Structural Markdown lint |
 | katex (transitive override) | 0.18.2 | MIT | Khan Academy and contributors | Patched math dependency of the development linter |
+
+## Optional Mail test inputs
+
+The selected Mail implementation and tests retain upstream Sintax attribution
+from release 1.2.1 (`3c61e928f3abdb37ad60b80ed207a5e243bf0ec4`). Mail API metadata
+is generated from official Nextcloud Mail 5.0.0, 5.5.0, 5.7.0 and 5.9.0 sources;
+exact archive/server-file SHA-256 values are in
+`tests/fixtures/nextcloud-api/mail-sources.json`. These are API signatures, not
+bundled Mail source or libraries. Original Mail source notices remain in the
+verified archives; regeneration does not execute that app code.
+
+The opt-in disposable acceptance cell downloads Nextcloud Mail 5.12.5 and the
+Dovecot 2.4.5 image at immutable inputs in `tests/Integration/ci/mail-pins.json`.
+Mail is licensed under AGPL-3.0-or-later by Nextcloud GmbH and its contributors;
+[Dovecot core](https://github.com/dovecot/core/blob/2.4.5/COPYING) uses LGPL-2.1
+and MIT terms with file-specific exceptions; its image retains component notices. Neither app archive, image, message fixture state nor test harness is
+included in the production package. See the projects' retained license files in
+those inputs; human license review remains pending.

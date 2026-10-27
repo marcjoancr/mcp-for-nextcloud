@@ -485,6 +485,7 @@
         "DeckModule",
         "TalkModule",
         "PeopleModule",
-        "LogsModule"
+        "LogsModule",
+        "MailModule"
     ]
 }

@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 declare(strict_types=1);
 
+$arguments = array_slice($argv, 1);
+$mail = end($arguments) === '--mail';
+if ($mail) { array_pop($arguments); }
+$mailPins = json_decode(file_get_contents(__DIR__ . '/mail-pins.json'), true, 512, JSON_THROW_ON_ERROR);
 $manifest = json_decode(file_get_contents(__DIR__ . '/matrix.json'), true, 512, JSON_THROW_ON_ERROR);
 $plans = [];
 foreach ($manifest['cells'] as $cell) {
@@ -12,7 +16,7 @@ foreach ($manifest['cells'] as $cell) {
     }
     foreach ($modes as $mode) {
         $plans[] = $cell + ['mode' => $mode, 'baseline_commit' => $manifest['baselines'][$mode] ?? null,
-            'publishes_ports' => false, 'disposable' => true];
+            'publishes_ports' => false, 'disposable' => true, 'mail' => $mail ? $mailPins : null];
     }
 }
 if (array_slice($argv, 1) === ['--matrix']) {
@@ -20,7 +24,7 @@ if (array_slice($argv, 1) === ['--matrix']) {
     exit(0);
 }
 foreach ($plans as $plan) {
-    if (array_slice($argv, 1) === [$plan['nc'], $plan['db'], $plan['mode']]) {
+    if ($arguments === [$plan['nc'], $plan['db'], $plan['mode']] && (!$mail || ($plan['nc'] === '35' && $plan['db'] === 'mariadb' && in_array($plan['mode'], ['fresh', 'upgrade-local'], true)))) {
         echo json_encode($plan, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT), PHP_EOL;
         exit(0);
     }

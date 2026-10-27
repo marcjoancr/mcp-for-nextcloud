@@ -127,6 +127,10 @@ final class VisibilityContractTest extends TestCase {
     }
 
     private function build(string $class): object {
+        if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
+            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
+        }
+
         if ($class === \OCA\Mcp\Access\BackupPolicy\BackupSettingsDocument::class) {
             return \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::fromConfig($this, $this->config->appConfig($this));
         }
