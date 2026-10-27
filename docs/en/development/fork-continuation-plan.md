@@ -72,7 +72,7 @@ Do not create compatibility wrappers merely to accommodate upstream file paths.
 | Reference | Proposed role | Rules |
 | --- | --- | --- |
 | `origin/refactor/complete-upstream-pr` | Existing PR #14 reference | Preserve its name and history; no fork-only development, force-push or automatic retargeting |
-| `fork/main` | Established local fork integration branch | Created from the frozen candidate with the reviewed documentation; see the development baseline record for remote promotion and protection |
+| `fork/main` | Published fork integration and default branch | Created from the frozen candidate with the reviewed documentation; see the development baseline record for remote promotion and protection |
 | `feat/*`, `fix/*`, `docs/*`, `test/*` | Short-lived changes from `fork/main` | One reviewable objective, relevant checks and explicit compatibility impact |
 | `fix/upstream-<release>-<topic>` | Selected upstream ports | Record original commit, behavior and validation; no automatic upstream merges |
 | `release/fork-<major>.<minor>` | Optional supported maintenance line | Create only if more than one release line is actually supported |

@@ -18,9 +18,30 @@ capability batches; **1.2.1 is not yet integrated**.
 Create new topic branches from `fork/main` and contribute to this fork. Preserve
 ancestry and attribution. Native integration CI now watches pushes to `fork/main`;
 the other workflows already cover branch pushes. No production workflow is added.
-Remote promotion and protection must be verified after publication. Prevent force
-pushes and deletion; required-check and independent-review policies must be agreed
+Publication and default-branch promotion were verified through the GitHub API.
+Force pushes and deletion are disabled, including for administrators. Required-check
+and independent-review policies must be agreed
 against actual CI contexts and available reviewers, not invented sign-offs.
+
+## Verified publication
+
+The first publication reached `c2b61a2f5b788ae035f0a08d53109acb69a99817` on
+`origin/fork/main`. GitHub reports `fork/main` as the default and protected branch.
+The original `main` remains at `a1a7911cc72dcf2487d17e06e23edfa89b0ecf92`;
+`refactor/complete-upstream-pr` remains at
+`14a76df26817fb8a4540eb9c9d1d0043e3e87506`. No branch was renamed or deleted,
+and PR #14 was not changed. This record's follow-up commit advances only `fork/main`.
+
+The external devbox project profile now uses `fork/main` as its worktree base;
+project identity was revalidated, and local `origin/HEAD` points to the same branch.
+The base checkout's old `main` is retained, so do not start development from it.
+No harness files were placed in the repository.
+
+GitHub started Quality, Tests, Package and Native integration on the first push.
+Remote CI is **pending**, not included in the local passing result below. Inspect
+the [fork's Actions runs](https://github.com/marcjoancr/mcp-for-nextcloud/actions)
+for the actual final commit before relying on remote qualification. No release,
+tag, production change or deployment was performed.
 
 ## Local verification
 
