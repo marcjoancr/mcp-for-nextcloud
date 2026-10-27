@@ -101,6 +101,10 @@
             "Composer\\Config::disableProcessTimeout",
             "sh tests/Integration/ci/run-local.sh"
         ],
+        "test:integration:linuxserver": [
+            "Composer\\Config::disableProcessTimeout",
+            "sh tests/Integration/ci/linuxserver/run-local.sh"
+        ],
         "test:clients": [
             "Composer\\Config::disableProcessTimeout",
             "node tests/ClientAcceptance/run.mjs"
@@ -135,6 +139,7 @@
         ]
     },
     "scripts-descriptions": {
+        "test:integration:linuxserver": "Validate the isolated LinuxServer profile and source kit with --plan; execution is unavailable.",
         "test": "Run all tests, or pass PHPUnit arguments after --.",
         "test:architecture": "Run architecture checks; accepts PHPUnit arguments.",
         "test:api": "Run native API contracts and scanner tests; accepts PHPUnit arguments.",

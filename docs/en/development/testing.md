@@ -82,6 +82,20 @@ A failed app installation, empty selection or test failure is a failed cell.
 Harness qualification with an explicitly substituted version and filtered diagnostic
 runs do not certify the final package; report them separately.
 
+## LinuxServer offline planning
+
+The separate `test:integration:linuxserver` command implements L0 only. It needs
+Node and a complete reviewed source kit, accepts `--plan`, optional
+`--profile ABSOLUTE_FILE`, `--kit ABSOLUTE_DIRECTORY` and
+`--manifest-sha256 TRUSTED_DIGEST`, and creates no resources. Invocation without
+`--plan` fails; there is no runtime mode. It validates profile safety and kit
+integrity offline, not current registry availability or native readiness. See the
+[L0 invocation, fixed inputs and limits](fork-linuxserver-l0.md).
+
+Its PHPUnit command-boundary tests run in the normal `test`/`check` suite and use
+small synthetic trusted kits. The existing Apache matrix and its commands remain
+unchanged. LinuxServer native execution and recovery remain L1-L5 work.
+
 ## Selected native fixture inputs
 
 The harness pins Deck 1.16.8 / 1.17.7 / 1.18.5 / 1.19.0 for NC32 / 33 / 34 / 35,
