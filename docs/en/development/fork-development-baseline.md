@@ -13,7 +13,9 @@ PR #14. The original `main` and PR reference remain intact.
 `fork/main` contains the capability architecture, selected upstream 1.2.0 ports,
 Nextcloud MCP / 2.0.0 preparation and L0 at `80bd12ca`. The
 [1.2.1 intake](upstream-1.2.1-intake.md) records the newer release and proposed
-capability batches; **1.2.1 is not yet integrated**.
+capability batches; **1.2.1 is not fully integrated**. The
+[U1 record](upstream-1.2.1-u1-integration.md) covers backup visibility; U2-U5 remain
+pending.
 
 Create new topic branches from `fork/main` and contribute to this fork. Preserve
 ancestry and attribution. Native integration CI now watches pushes to `fork/main`;
