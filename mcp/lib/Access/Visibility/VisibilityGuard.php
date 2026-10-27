@@ -61,8 +61,14 @@ class VisibilityGuard {
     /** @var array<int, bool> per-request visibility in the owner's tree, independent of mounted paths */
     private array $ownerCache = [];
 
+    /** @var array<int, list<Node>> verified canonical nodes reused by backup visibility */
+    private array $ownerOrigins = [];
+
     /** @var array<string, array{node: Node, mount: string}|null> share root by ancestor id and mounted path */
     private array $shareRootCache = [];
+
+    /** Request-local metadata for verified backup origins. */
+    private ?BackupFolderMatcher $backupFolderMatcher = null;
 
     /**
      * @var array{reason?: string, folder?: Node}|null while explain() runs, the first reason the one decision of
@@ -250,7 +256,7 @@ class VisibilityGuard {
         }
 
         // Check /MCP backups mirror rule
-        if ($this->isHiddenBackup($node, $chain)) {
+        if ($this->isHiddenBackup($node)) {
             $this->because(self::EXPLAINED_BACKUP);
             if ($nodeId > 0) {
                 $this->cache[$nodeKey] = false;
@@ -385,6 +391,7 @@ class VisibilityGuard {
                     }
                 }
             }
+            $this->ownerOrigins[$id] = array_values($origins);
             return $this->ownerCache[$id] = true;
         } catch (\Throwable) {
             $this->warnVisibilityFailure();
@@ -717,7 +724,9 @@ class VisibilityGuard {
         $this->cache = [];
         $this->tagClean = [];
         $this->ownerCache = [];
+        $this->ownerOrigins = [];
         $this->shareRootCache = [];
+        $this->backupFolderMatcher?->clearCache();
     }
 
     /** Clears the in-memory caches. */
@@ -727,89 +736,20 @@ class VisibilityGuard {
         $this->cache = [];
         $this->tagClean = [];
         $this->ownerCache = [];
+        $this->ownerOrigins = [];
         $this->shareRootCache = [];
+        $this->backupFolderMatcher?->clearCache();
     }
 
-    /**
-     * Checks if $node is inside the backup folder, and if the original file still exists and is hidden.
-     *
-     * @param Node $node node being checked
-     * @param array<int, Node> $chain the node and its not-yet-cached ancestors, keyed by file id, as collected by the caller
-     * @return bool true when the node is a backup mirror of a hidden original
-     */
-    private function isHiddenBackup(Node $node, array $chain): bool {
-        // Find ancestor named \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER
-        $backupAncestor = null;
-        $segmentsBelowBackup = [];
-        $current = $node;
-
-        while ($current instanceof Node) {
-            if ($current instanceof IRootFolder) {
-                break; // Root has no parent: Root::getParent() throws NotFoundException
-            }
-            if ($current->getName() === \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER) {
-                $backupAncestor = $current;
-                break;
-            }
-            array_unshift($segmentsBelowBackup, $current->getName());
-            try {
-                $parent = $this->parentOf($current);
-                if (!$parent instanceof Node || (int)$parent->getId() === (int)$current->getId()) {
-                    break;
-                }
-                $current = $parent;
-            } catch (\Throwable) {
-                $this->warnVisibilityFailure();
-                return true;
-            }
-        }
-
-        if ($backupAncestor === null || $segmentsBelowBackup === []) {
-            return false;
-        }
-
-        try {
-            $userFolder = $this->parentOf($backupAncestor);
-        } catch (\Throwable) {
-            $this->warnVisibilityFailure();
-            return true;
-        }
-
-        if (!$userFolder instanceof Folder) {
-            return false;
-        }
-
-        // Reconstruct original relative path
-        $leaf = array_pop($segmentsBelowBackup);
-        if ($leaf !== null && preg_match('/^(.+)\.\d{8}-\d{6}(?:-\d+)?\.bak$/', $leaf, $matches)) {
-            $leaf = $matches[1];
-        }
-
-        $relDir = implode('/', $segmentsBelowBackup);
-        $originalRelPath = $relDir === '' ? (string)$leaf : $relDir . '/' . $leaf;
-
-        if ($originalRelPath === '' || !$userFolder->nodeExists($originalRelPath)) {
-            return false;
-        }
-
-        try {
-            $originalNode = $userFolder->get($originalRelPath);
-            // The original's own reason is not the backup's: it is recorded apart while the original is checked, and
-            // only an original that could not be evaluated is carried over (A.4: the gate not evaluated is named).
-            [$explaining, $this->explanation] = [$this->explanation, $this->explanation === null ? null : []];
-            try {
-                $hidden = !$this->isVisible($originalNode);
-                $original = $this->explanation;
-            } finally {
-                $this->explanation = $explaining;
-            }
-            if ($hidden && $original !== null && ($original['reason'] ?? self::EXPLAINED_NOT_EVALUATED) === self::EXPLAINED_NOT_EVALUATED) {
-                $this->because(self::EXPLAINED_NOT_EVALUATED);
-            }
-            return $hidden;
-        } catch (\Throwable) {
-            $this->warnVisibilityFailure();
-            return true;
-        }
+    /** Refuses a mirror when its original is hidden or its origin cannot be verified. */
+    private function isHiddenBackup(Node $node): bool {
+        $matcher = $this->backupFolderMatcher ??= new BackupFolderMatcher($this->rootFolder);
+        $shareRoot = $this->shareRootCache[(int)$node->getId() . ':' . $node->getPath()]['node'] ?? null;
+        $share = $shareRoot === null ? null : [
+            'root' => $shareRoot,
+            'origins' => $this->ownerOrigins[(int)$shareRoot->getId()] ?? [],
+        ];
+        return (new BackupMirrorVisibility($this, $matcher, $this->warnVisibilityFailure(...)))
+            ->isHidden($node, $this->explanation, $share);
     }
 }

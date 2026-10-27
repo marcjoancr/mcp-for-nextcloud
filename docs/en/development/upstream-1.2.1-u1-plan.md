@@ -35,7 +35,8 @@ to U2; do not add an otherwise unused normalization owner to this batch.
 ## Review focus
 
 - A same-named nested folder is ordinary even if its sibling original is hidden.
-- A real backup exposed through a local share keeps the owner's classification;
+- A real backup exposed through a local share keeps the owner's classification,
+  including renamed mounts, shared subtrees and individually shared backups;
   unknown owner, cyclic ancestry and unverifiable roots refuse access.
 - External/federated storage owner metadata is not proof of a local user/share.
 - A nested namesake inside an actual backup does not truncate the mirrored path.
@@ -66,25 +67,29 @@ Files:
 
 Interfaces:
 - `BackupFolderMatcher(?IRootFolder $rootFolder = null)` uses the existing
-  `BackupLocation::FOLDER`; `matches(Node $node, callable $parentOf): array` returns
-  verified `[Folder, list<string>]` pairs; `clearCache(): void` invalidates them.
+  `BackupLocation::FOLDER`; `matches(Node $node, callable $parentOf, ?array $share = null): array`
+  returns verified `[Folder, list<string>]` pairs. The optional share shape is
+  `{root: Node, origins: list<Node>}`, resolved and cached by the guard; `clearCache(): void` invalidates them.
 - `BackupMirrorVisibility(VisibilityGuard $guard, BackupFolderMatcher $matcher,
-  Closure $unavailable)` exposes `isHidden(Node $node, ?array &$explanation): bool`.
+  Closure $unavailable)` exposes `isHidden(Node $node, ?array &$explanation, ?array $share = null): bool`.
   The unavailable callback logs no paths, names or storage details.
 
 Steps:
-- [ ] Adapt the upstream regression suite to fork test doubles/owners; run it
+- [x] Adapt the upstream regression suite to fork test doubles/owners; run it
   first and observe ordinary nested-folder failures before changing production.
-- [ ] Implement the two focused owners and guard delegation; preserve original
+- [x] Implement the two focused owners and guard delegation; preserve original
   attribution. Run the new suite plus existing visibility, Files/Contacts privacy
   and architecture contracts; resolve discrepancies against real core behavior.
-- [ ] Add explicit cycle/failing-origin and invalidation tests where not already
+- [x] Add explicit cycle/failing-origin and invalidation tests where not already
   covered. Do not retain tests that merely count helper calls without protecting
   origin freshness or a privacy boundary.
-- [ ] Run `composer --working-dir=mcp check`, REUSE and the full native
+- [x] Run `composer --working-dir=mcp check`, REUSE and the full native
   NC35/MariaDB/upgrade-local cell including new exclusion regressions.
-- [ ] Obtain a separate code review, fix material findings, record evidence and
+- [x] Obtain a separate code review, fix material findings, record evidence and
   pending phases, then commit U1. No complete 1.2.1 parity claim.
+
+Completed evidence, including the subsequent alias correction and failed-fixture
+repetition, is recorded in the [U1 results](upstream-1.2.1-u1-integration.md).
 
 ## Acceptance and next batches
 

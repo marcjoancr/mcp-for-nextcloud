@@ -849,12 +849,15 @@ final class VisibilityGuardTest extends TestCase {
         $root = $this->createMock(\OCP\Files\IRootFolder::class);
         $root->method('getId')->willReturn(-1);
         $root->expects($this->never())->method('getParent');
-        $ownerFolder = $this->ancestryNode(1, $root, $owner);
-        $canonicalRoot = $this->ancestryNode(20, $ownerFolder, $owner);
+        $ownerFolder = $this->ancestryNode(1, $root, $owner, false, '/alice/files');
+        $canonicalRoot = $this->ancestryNode(20, $ownerFolder, $owner, false, '/alice/files/share');
         $counts = (object)['lookups' => 0, 'storageCalls' => [], 'parentCalls' => []];
         $make = function (int $id, Node $parent, bool $isShared) use ($owner, $counts): Node {
             $node = $this->createMock(Folder::class);
             $node->method('getId')->willReturn($id);
+            $path = match ($id) { 90 => '/bob/files', 20 => '/bob/files/share', default => '/bob/files/share/item-' . $id };
+            $node->method('getPath')->willReturn($path);
+            $node->method('getName')->willReturn(basename($path));
             $node->method('getParent')->willReturnCallback(function () use ($parent, $id, $counts): Node {
                 $counts->parentCalls[$id] = ($counts->parentCalls[$id] ?? 0) + 1;
                 return $parent;
@@ -866,11 +869,12 @@ final class VisibilityGuardTest extends TestCase {
                 return $storage;
             });
             $mount = $this->createMock(\OCP\Files\Mount\IMountPoint::class);
-            $mount->method('getMountPoint')->willReturn('/bob/files/share');
+            $mount->method('getMountPoint')->willReturn($isShared ? '/bob/files/share' : '/bob/files');
             $node->method('getMountPoint')->willReturn($mount);
             return $node;
         };
         $recipient = $make(90, $root, false);
+        $root->method('get')->with('/bob/files')->willReturn($recipient);
         $mountedRoot = $make(20, $recipient, $shared);
         $files = [];
         $origins = [20 => $canonicalRoot];

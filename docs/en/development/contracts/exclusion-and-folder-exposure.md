@@ -24,7 +24,7 @@ for the separate commands and evidence limits.
 | V4: local share origin | Guard contracts, native `Exclusion/SharedOriginTest` | File/subfolder shares follow the owner's ancestor chain; recipient-side excluded folders also apply. |
 | V5: mount aliases | `VisibilityGuardMountBoundaryTest`, native `Exclusion/MountsTest` and `PositiveControlsTest` | Home, groupfolders and local external mounts remain usable when allowed; distinct storage IDs do not inherit each other's tags. |
 | V6: federation | `VisibilityGuardTest` federated-share cases | Only local tags apply; remote owner configuration and production federation remain unqualified. |
-| V7: writes and backup privacy | `VisibilityContractTest`, `FileBackupPrivacyTest`, `FolderExposureTest`, native `Exclusion/WritesTest` | Generic refusals precede mutation; backup tagging precedes content. |
+| V7: writes and backup privacy | `VisibilityContractTest`, `FileBackupPrivacyTest`, `BackupFolderMatcherTest`, `FolderExposureTest`, native `Exclusion/WritesTest` and `BackupFolderTest` | Generic refusals precede mutation; backup tagging precedes content. |
 | V8: resources | `Mcp/Resources/ResourceRegistryTest::testV8ExcludedAndMissingResourcesAreByteIdentical` plus both protocol eras | Files, folders and Notes; lists/templates disclose no user items. |
 | V9: Talk attachments | `StructuredReferenceContractTest`, `OutputReferenceFilterTest`, native `TalkReferenceTest` and scope consumers | Hide inaccessible attachment IDs, preserve free text/type; excluded and missing are byte-identical. Attach/quote refuses without posting. |
 | V10: DAV and structured references | `StructuredReferenceContractTest`, `OutputReferenceFilterTest`, `Modules/Calendar/EventAttachmentOutputTest`, Deck `CardFormatterTest` | Tasks filters protected ATTACH from output while retaining DAV content; every Calendar tool's plan/result/error omits raw ATTACH; Deck exposes counts only. |
@@ -41,6 +41,21 @@ URLs, aliases, public folder links, Calendar file-ID/filename parameters and nes
 alarms retain their explicit filter contracts; ordinary external URLs and free
 text are not a general data-loss-prevention service. Runtime catalogs include
 de/es/pt_BR with English source fallback.
+
+## Backup-origin visibility
+
+Only the verified personal-root `MCP backups` location inherits exclusions from
+its mirrored original. A same-named folder nested in an ordinary directory is
+ordinary; one nested inside a real backup remains part of the complete mirror
+path. Local received shares resolve the owner's original location, including renamed
+mounts, shared backup subtrees and individually shared backup files. External or
+federated owner metadata alone never identifies a local share.
+
+`Access/Visibility/BackupFolderMatcher` classifies roots/origins and
+`BackupMirrorVisibility` checks originals through the same guard. Unknown origins,
+cyclic ancestry or unavailable original checks fail closed, with generic inspector
+reasons. Existing invalidation hooks discard cached candidate metadata. This U1
+contract does not add configurable backup locations or optional pre-write copies.
 
 ## D7: folder exposure
 
