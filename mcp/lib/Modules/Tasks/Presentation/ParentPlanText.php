@@ -31,8 +31,8 @@ final class ParentPlanText {
 	 */
 	public function __construct(mixed $titles) {
 		foreach (is_array($titles) ? $titles : [] as $uid => $title) {
-			if (is_string($uid) && is_scalar($title) && trim((string)$title) !== '') {
-				$this->titles[$uid] = trim((string)$title);
+			if ((is_string($uid) || is_int($uid)) && is_scalar($title) && trim((string)$title) !== '') {
+				$this->titles[(string)$uid] = trim((string)$title);
 			}
 		}
 	}
