@@ -119,8 +119,8 @@ found no critical or important issue. It identified a deferred presentation
 minor: PHP converts numeric-string UID keys to integers, which `ParentPlanText`
 currently ignores. A parent with UID `123` therefore appears as `"123"` without
 its readable title. The relation, UID disambiguation and authorization remain
-correct. A follow-up should accept/normalize integer keys and add a numeric UID
-rendered-plan regression. No second review or cosmetic fix pass was performed.
+correct. This was corrected in [U4](upstream-1.2.1-u4-integration.md) by accepting/normalizing
+integer keys, with a create/edit regression for UID `123` and `0`. No second review or cosmetic fix pass was performed.
 
 Review boundaries: single-process native interleaving does not establish
 multi-worker/cross-user contention behavior; exclusion across workers relies on
@@ -154,3 +154,6 @@ Publication advances only the already-authorized `fork/main`. U3 remote CI is
 pending at this documentation closure and must be checked for the resulting
 commit; U2 success is not substituted for it. Original `main` and upstream PR #14
 remain intact.
+
+U3 follow-up: all four workflows for `9b580041` passed; exact links and the
+numeric-title correction are recorded in [U4](upstream-1.2.1-u4-integration.md).

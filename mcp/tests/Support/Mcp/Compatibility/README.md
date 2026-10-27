@@ -81,3 +81,9 @@ existing top-level create/edit cases. Calendar/Contacts contracts, grants,
 existing renderings and all unrelated result/protocol fields remain unchanged.
 These explicit additive patches are covered independently by the pinned 1.2.1
 subtask, hierarchy/lock and native CalDAV cases; captures were not regenerated.
+
+U4 (upstream 1.2.1) appends only the two static Mail definitions to each locale's
+raw catalog. Existing published tools/protocol/results are unchanged because the
+historical fixture has no known Mail version; focused Mail publication/native tests
+exercise enabled, explicitly granted Mail. People/Logs captures append only
+`MailModule` to Application's module order. No complete capture was regenerated.

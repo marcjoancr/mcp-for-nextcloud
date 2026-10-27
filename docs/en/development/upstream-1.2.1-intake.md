@@ -9,7 +9,8 @@ The fork retains its capability architecture and 2.0.0 development version.
 The [U1 integration record](upstream-1.2.1-u1-integration.md) supersedes the initial
 no-port status for backup visibility. The [U2 record](upstream-1.2.1-u2-integration.md)
 tracks configurable backups and copy policy; the [U3 record](upstream-1.2.1-u3-integration.md)
-tracks Tasks hierarchy. U4-U5 remain pending.
+tracks Tasks hierarchy; [U4](upstream-1.2.1-u4-integration.md) adds optional Mail.
+U5 consolidation remains pending.
 
 ## Immutable references and scope
 
@@ -66,7 +67,7 @@ kit, not future upstream ports.
 ## Remaining acceptance
 
 Publishing `fork/main` enables independent development; the U1 record identifies
-the first implemented batch; U2 and U3 have their own records. U4-U5 and 2.0.0
+the first implemented batch; U2, U3 and U4 have their own records. U5 and 2.0.0
 release qualification remain pending. LinuxServer L1-L5, production profile facts,
 public HTTPS, the unresolved Inspector result, real ChatGPT flows and human
 security, operations, license, accessibility and language reviews remain pending.

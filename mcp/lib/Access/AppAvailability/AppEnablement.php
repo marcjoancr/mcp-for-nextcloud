@@ -26,7 +26,7 @@ final class AppEnablement {
      * whose `ChatManager::addSystemMessage()` takes the participant as its second argument; Deck 1.15.0 is the first
      * release for Nextcloud 31. tests/Unit/Contract checks the APIs used against these releases.
      */
-    public const MINIMUM_VERSIONS = ['deck' => '1.15.0', 'spreed' => '21.1.4'];
+    public const MINIMUM_VERSIONS = ['deck' => '1.15.0', 'spreed' => '21.1.4', 'mail' => '5.0.0'];
 
     /**
      * @param object $apps the server's IAppManager, of whichever supported Nextcloud is running
@@ -74,7 +74,7 @@ final class AppEnablement {
     }
 
     /**
-     * Only a version known to be too old is refused: an empty answer means the server could not tell, and an app
+     * Mail requires a known supported version; for existing Deck/Talk compatibility, an empty answer means the server could not tell. An app
      * without a minimum is never asked.
      *
      * @param object $apps the server's IAppManager
@@ -87,6 +87,6 @@ final class AppEnablement {
             return true;
         }
         $installed = (string)$apps->getAppVersion($appId);
-        return $installed === '' || version_compare($installed, $required, '>=');
+        return ($installed === '' && $appId !== 'mail') || version_compare($installed, $required, '>=');
     }
 }

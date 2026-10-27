@@ -4,9 +4,9 @@
 
 # Tools
 
-The module catalogs contain at most **82 module tools**, plus `mcp_status` and
-`mcp_guide` (84 total). Three Deck dependency tools are conditional on compatible
-NC34/35 native APIs, leaving at most 79 module tools (81 total) without them.
+The module catalogs contain at most **84 module tools**, plus `mcp_status` and
+`mcp_guide` (86 total). Three Deck dependency tools are conditional on compatible
+NC34/35 native APIs, leaving at most 81 module tools (83 total) without them.
 App availability and each account's access further reduce these counts.
 
 Each tool only appears in `tools/list` and can only be called when the user has the grant for the operation and the required app is enabled for them. Grant and app are checked again on every call. Everything runs as the authenticated user, through their own Nextcloud folder, and the Nextcloud permissions and shares keep applying.
@@ -16,7 +16,7 @@ Each tool only appears in `tools/list` and can only be called when the user has 
 `mcp_guide` (title **Tool guide**) describes the tools to the model itself, so it does not have to guess what each one does:
 
 - **no argument** — one line per module with the tool titles, only for the modules available **to that user** (the same grant and app filter as `tools/list`: a disabled module or one without a grant does not appear);
-- **with `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`) — each tool of the module: description, whether it reads or writes, parameters with type, whether required, description, `enum` and limits, and the confirmations it requires;
+- **with `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`) — each tool of the module: description, whether it reads or writes, parameters with type, whether required, description, `enum` and limits, and the confirmations it requires;
 - **with `tool`** — a single tool, with the module it belongs to.
 
 The guide is written in English; the model relays it in the user’s language.
@@ -44,6 +44,7 @@ Plus:
 - [Logs](tools/logs.md)
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
+- [Mail](tools/mail.md)
 
 `mcp_status` provides diagnostics without reading user data. Server identity in
 protocol, tool, prompt and resource metadata reports the installed app version

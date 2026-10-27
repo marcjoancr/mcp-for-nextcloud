@@ -69,7 +69,7 @@ final class GrantPolicyTest extends TestCase {
     public function testReadStartsAllowedAndWriteStartsDenied(): void {
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
-                $expected = $operation === 'read' && $module !== 'logs';
+                $expected = $operation === 'read' && !in_array($module, ['logs', 'mail'], true);
                 $this->assertSame($expected, $this->policy->granted('alice', $module, $operation), "$module.$operation");
                 $this->assertSame($expected, GrantPolicy::defaultGranted($module, $operation), "$module.$operation");
             }
@@ -169,6 +169,6 @@ final class GrantPolicyTest extends TestCase {
 
     public function testUnknownModuleIsRejected(): void {
         $this->expectException(InvalidArgumentException::class);
-        $this->policy->granted('alice', 'mail', 'read');
+        $this->policy->granted('alice', 'unknown-module', 'read');
     }
 }

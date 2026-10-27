@@ -156,6 +156,8 @@ final class ToolPresentation {
             // People
             'users_search' => Translator::t('Search people'),
             // Logs
+            'mail_list_accounts' => Translator::t('List mail accounts'),
+            'mail_list_mailboxes' => Translator::t('List mail folders'),
             'logs_list' => Translator::t('Read server log'),
             'logs_analyze' => Translator::t('Analyze server log'),
             default => self::humanized($name),
@@ -199,6 +201,7 @@ final class ToolPresentation {
             'deck' => Translator::t('Deck'),
             'talk' => Translator::t('Talk'),
             'people' => Translator::t('People'),
+            'mail' => Translator::t('Mail'),
             'logs' => Translator::t('Server log'),
             default => ucfirst($module),
         };

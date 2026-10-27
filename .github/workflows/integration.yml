@@ -53,7 +53,10 @@ jobs:
           CELL_NC: ${{ matrix.nc }}
           CELL_DB: ${{ matrix.db }}
           CELL_MODE: ${{ matrix.mode }}
-        run: composer --working-dir=mcp test:integration -- "$CELL_NC" "$CELL_DB" "$CELL_MODE"
+        run: |
+          set -- "$CELL_NC" "$CELL_DB" "$CELL_MODE"
+          if [ "$CELL_NC:$CELL_DB:$CELL_MODE" = 35:mariadb:fresh ]; then set -- "$@" --mail; fi
+          composer --working-dir=mcp test:integration -- "$@"
       - name: Upload sanitized evidence only
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

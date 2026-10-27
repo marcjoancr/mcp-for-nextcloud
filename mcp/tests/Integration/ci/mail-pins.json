@@ -1,0 +1,5 @@
+{
+  "mail_version": "5.12.5",
+  "mail_sha256": "c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0",
+  "imap_image": "dovecot/dovecot:2.4.5@sha256:43c14def08a57f25107593cbcf64a0a6fbae84a7b9de7aa038513c9b21e91914"
+}

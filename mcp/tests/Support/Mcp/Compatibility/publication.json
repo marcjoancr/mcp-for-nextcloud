@@ -14567,6 +14567,54 @@
                         "additionalProperties": false
                     }
                 }
+            ],
+            [
+                {
+                    "name": "mail_list_accounts",
+                    "description": "Lists the mail accounts the authenticated user set up in the Nextcloud Mail app, with the id, the name and the e-mail address of each one. Accounts other people delegated to the user are not listed. Read only: it does not contact the mail server and changes nothing.",
+                    "module": "mail",
+                    "app": "mail",
+                    "operation": "read",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_list_mailboxes",
+                    "description": "Lists the folders (mailboxes) of one mail account of the authenticated user: the id, the full path, the last segment of the path, the role (inbox, sent, drafts, trash, junk, archive, all, flagged or null) and the unread and total counts. The list and the counts come from what the Mail app stored at its last synchronization: this tool does not contact the mail server, marks nothing as read and changes no flag. Take account_id from mail_list_accounts.",
+                    "module": "mail",
+                    "app": "mail",
+                    "operation": "read",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Id of the account, as mail_list_accounts returns it."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 500,
+                                "default": 200,
+                                "description": "Maximum number of folders returned (default 200, at most 500)."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0,
+                                "description": "Number of folders to skip, from nextOffset of the previous page (default 0)."
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                }
             ]
         ],
         "protocol": {
@@ -32864,6 +32912,54 @@
                         "additionalProperties": false
                     }
                 }
+            ],
+            [
+                {
+                    "name": "mail_list_accounts",
+                    "description": "Lists the mail accounts the authenticated user set up in the Nextcloud Mail app, with the id, the name and the e-mail address of each one. Accounts other people delegated to the user are not listed. Read only: it does not contact the mail server and changes nothing.",
+                    "module": "mail",
+                    "app": "mail",
+                    "operation": "read",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_list_mailboxes",
+                    "description": "Lists the folders (mailboxes) of one mail account of the authenticated user: the id, the full path, the last segment of the path, the role (inbox, sent, drafts, trash, junk, archive, all, flagged or null) and the unread and total counts. The list and the counts come from what the Mail app stored at its last synchronization: this tool does not contact the mail server, marks nothing as read and changes no flag. Take account_id from mail_list_accounts.",
+                    "module": "mail",
+                    "app": "mail",
+                    "operation": "read",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Id of the account, as mail_list_accounts returns it."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 500,
+                                "default": 200,
+                                "description": "Maximum number of folders returned (default 200, at most 500)."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0,
+                                "description": "Number of folders to skip, from nextOffset of the previous page (default 0)."
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                }
             ]
         ],
         "protocol": {
@@ -51158,6 +51254,54 @@
                                 "description": "Entries to skip from the end of the log: pass scan.nextOffset of the previous answer to go further back. Nothing deeper than the last 20000 entries is read."
                             }
                         },
+                        "additionalProperties": false
+                    }
+                }
+            ],
+            [
+                {
+                    "name": "mail_list_accounts",
+                    "description": "Lists the mail accounts the authenticated user set up in the Nextcloud Mail app, with the id, the name and the e-mail address of each one. Accounts other people delegated to the user are not listed. Read only: it does not contact the mail server and changes nothing.",
+                    "module": "mail",
+                    "app": "mail",
+                    "operation": "read",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_list_mailboxes",
+                    "description": "Lists the folders (mailboxes) of one mail account of the authenticated user: the id, the full path, the last segment of the path, the role (inbox, sent, drafts, trash, junk, archive, all, flagged or null) and the unread and total counts. The list and the counts come from what the Mail app stored at its last synchronization: this tool does not contact the mail server, marks nothing as read and changes no flag. Take account_id from mail_list_accounts.",
+                    "module": "mail",
+                    "app": "mail",
+                    "operation": "read",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Id of the account, as mail_list_accounts returns it."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 500,
+                                "default": 200,
+                                "description": "Maximum number of folders returned (default 200, at most 500)."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0,
+                                "description": "Number of folders to skip, from nextOffset of the previous page (default 0)."
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
                         "additionalProperties": false
                     }
                 }

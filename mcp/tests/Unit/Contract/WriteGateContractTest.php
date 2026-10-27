@@ -28,6 +28,10 @@ use Psr\Log\LoggerInterface;
 final class WriteGateContractTest extends TestCase {
     /** Builds a concrete app class with real app collaborators and mocks for everything else. */
     private function build(string $class): object {
+        if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
+            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
+        }
+
         if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {
             return new \OCA\Mcp\Modules\Logs\LogsModule([
                 'logs_list' => fn () => $this->build(\OCA\Mcp\Modules\Logs\Tools\ListLogs::class),

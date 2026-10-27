@@ -1475,7 +1475,14 @@ OC.L10N.register(
     "Subtasks can be nested at most %s levels deep." : "Unteraufgaben können höchstens %s Ebenen tief verschachtelt werden.",
     "The parent task was not found in this calendar. A subtask must be in the same calendar as its parent." : "Die übergeordnete Aufgabe wurde in diesem Kalender nicht gefunden. Eine Unteraufgabe muss im selben Kalender wie ihre übergeordnete Aufgabe liegen.",
     "The task was saved, but its parent chain now loops back to it, probably because another client changed a related task at the same time. Make one of the tasks in that chain top-level (parent null) to fix it." : "Die Aufgabe wurde gespeichert, aber ihre Kette übergeordneter Aufgaben führt jetzt zu ihr selbst zurück, vermutlich weil ein anderer Client gleichzeitig eine verwandte Aufgabe geändert hat. Mache eine der Aufgaben dieser Kette zur obersten Ebene (parent null), um das zu beheben.",
-    "The tasks above the requested parent form a loop or cannot be read, so the nesting cannot be checked. Fix that hierarchy first, for example by making one of those tasks top-level." : "Die Aufgaben oberhalb der gewünschten übergeordneten Aufgabe bilden eine Schleife oder können nicht gelesen werden, daher lässt sich die Verschachtelung nicht prüfen. Korrigiere zuerst diese Hierarchie, zum Beispiel indem du eine dieser Aufgaben zur obersten Ebene machst."
+    "The tasks above the requested parent form a loop or cannot be read, so the nesting cannot be checked. Fix that hierarchy first, for example by making one of those tasks top-level." : "Die Aufgaben oberhalb der gewünschten übergeordneten Aufgabe bilden eine Schleife oder können nicht gelesen werden, daher lässt sich die Verschachtelung nicht prüfen. Korrigiere zuerst diese Hierarchie, zum Beispiel indem du eine dieser Aufgaben zur obersten Ebene machst.",
+    "mail": "E-Mail",
+    "Mail": "E-Mail",
+    "List mail accounts": "E-Mail-Konten auflisten",
+    "List mail folders": "E-Mail-Ordner auflisten",
+    "The Mail app is not available for this account.": "Die App E-Mail ist für dieses Konto nicht verfügbar.",
+    "Mail account not found.": "E-Mail-Konto nicht gefunden.",
+    "The Mail app has not synchronized the folders of this account yet; open the account in Mail once and try again.": "Die App E-Mail hat die Ordner dieses Kontos noch nicht synchronisiert. Öffne das Konto einmal in E-Mail und versuche es erneut."
 },
     "nplurals=2; plural=(n != 1);"
 );

@@ -11,7 +11,8 @@ Original paths are evidence references, not target locations in the fork.
 This does not claim a complete line-by-line security review or implementation of
 all paths. U1 and [U2](upstream-1.2.1-u2-integration.md) have focused source
 reviews; [U3](upstream-1.2.1-u3-integration.md) adapts the Tasks hierarchy after its
-focused audit. U4-U5 still require their own detailed audit before implementation. Mixed groups denote overlapping responsibilities, not
+focused audit. [U4](upstream-1.2.1-u4-integration.md) covers Mail; U5 remains the
+final cross-batch reconciliation. Mixed groups denote overlapping responsibilities, not
 permission to copy an entire file.
 
 | Group | Disposition / fork ownership |
@@ -21,10 +22,10 @@ permission to copy an entire file.
 | U1/U2 | Adapted: U1 canonical origin/mirror recognition plus U2 configured NFC/historical names and explicit policy injection. |
 | U2 | Adapted: `Access/BackupPolicy`, Files capability consumers and mutation boundaries, mandatory Contacts copies, admin controller, authored `src/admin/backups` modules/template and checkout guidance. See the U2 record for validation and limits. |
 | U3 | Adapted: Tasks Content, Reading, Hierarchy, Creation, Editing and Presentation; preserve shared DAV ports, use mandatory locking around parent-setting preparation/write, and report detected external cycles after save. See the U3 record for evidence and limits. |
-| U4 | Pending: `Modules/Mail` read capabilities, optional app admission, explicit grants, native/API fixtures and attributed sources. |
-| U4/U5 | Pending: adapt only required host API/source contracts and generators. Preserve the fork's independent fixtures and supported platform floor; source evidence for older versions is not a new support promise. |
-| U2/U4 | U2 uses explicit policy dependencies and updates existing checkout guidance. U4 composition remains pending; no shared catch-all service is restored. |
-| U3/U4/U5 | U3 updates only parent schemas, Tasks guide notes and plans in canonical owners. The shared ToolPresentation and WritePlanContractTest upstream deltas add Mail; they remain for U4/U5. |
+| U4 | Adapted: `Modules/Mail` read capabilities, optional app admission, explicit grants, native/API fixtures and attributed sources. |
+| U4/U5 | Mail API surfaces and source-verified generator adapted; unrelated API captures preserved. Full U5 reconciliation pending. Preserve the fork's independent fixtures and supported platform floor; source evidence for older versions is not a new support promise. |
+| U2/U4 | U2 uses explicit policy dependencies and updates existing checkout guidance. U4 uses explicit MailReader/resolver composition; no shared catch-all service is restored. |
+| U3/U4/U5 | U3 updates only parent schemas, Tasks guide notes and plans in canonical owners. The shared ToolPresentation and WritePlanContractTest upstream deltas add Mail; they are adapted in U4. |
 | U5 | Pending: canonical English guides, interface locales, tool/route/manifest contracts and original credits. Retain fork identity/version and translation provenance. Do not copy duplicate README trees or assert unimplemented features. |
 
 No upstream dependency lock or database migration path changes occur in this
