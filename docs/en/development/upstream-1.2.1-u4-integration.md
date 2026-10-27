@@ -171,3 +171,10 @@ mail server, hosted client or production topology.
 Publication is limited to the already-authorized `fork/main`; original `main`,
 PR #14 and its reference branch remain intact. New U4 remote CI is separate from
 the passing U3 prerequisite and must be observed for the resulting commit.
+
+Closure publication status: the numeric-UID fix is committed as `ff13cfc1` and
+Mail as `f4e5527c`. Automatic approval review rejected the attempted push to
+`fork/main`, considering authorization for that protected destination insufficiently
+explicit. No push took place; renewed owner confirmation is needed before retrying.
+The remote remains at U3 `9b580041`, whose four workflows were rechecked as
+completed/success. U4 remote CI has not started and remains pending publication.
