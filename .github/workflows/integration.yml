@@ -4,7 +4,7 @@
 name: Native integration
 on:
   push:
-    branches: [main]
+    branches: ['fork/main']
   pull_request:
   workflow_dispatch:
 permissions:

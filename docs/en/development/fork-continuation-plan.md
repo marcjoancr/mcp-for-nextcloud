@@ -11,9 +11,11 @@ implementation and local native qualification are complete.
 The user approved the development baseline, branch policy and ongoing
 maintenance accountability
 recorded below. The separate request to remove the local original
-repository remote has been carried out. Publication, remote branch promotion,
-releases and deployment remain unauthorized. The user
-subsequently authorized F1 local branch creation and validation. F3 decisions
+repository remote has been carried out. On 2026-10-27 the user authorized
+publication and default-branch promotion of `fork/main`, recorded in the
+[development baseline record](fork-development-baseline.md). Releases and deployment
+remain unauthorized. F1 local branch creation and validation were already authorized.
+F3 decisions
 for public identity, initial version and platform scope are now confirmed as
 recorded in the [F3 execution record](fork-f3-preparation.md). Qualification,
 actual-host facts and human reviewer assignments remain pending.
@@ -70,15 +72,16 @@ Do not create compatibility wrappers merely to accommodate upstream file paths.
 | Reference | Proposed role | Rules |
 | --- | --- | --- |
 | `origin/refactor/complete-upstream-pr` | Existing PR #14 reference | Preserve its name and history; no fork-only development, force-push or automatic retargeting |
-| `fork/main` | Established local fork integration branch | Created from the frozen candidate with the reviewed documentation; publication and remote protection remain pending |
+| `fork/main` | Established local fork integration branch | Created from the frozen candidate with the reviewed documentation; see the development baseline record for remote promotion and protection |
 | `feat/*`, `fix/*`, `docs/*`, `test/*` | Short-lived changes from `fork/main` | One reviewable objective, relevant checks and explicit compatibility impact |
 | `fix/upstream-<release>-<topic>` | Selected upstream ports | Record original commit, behavior and validation; no automatic upstream merges |
 | `release/fork-<major>.<minor>` | Optional supported maintenance line | Create only if more than one release line is actually supported |
 | Original repository URLs and pinned commit IDs | Read-only source and advisory references | No configured `upstream` remote; no automatic merges or new PRs to the original repository |
 
 Keep the existing `main` unchanged during preparation. Switching the fork's default
-branch to `fork/main` is a later, explicit repository administration action. It
-must update contribution instructions, CI assumptions and branch protection
+branch to `fork/main` is now authorized as an explicit repository administration
+action, tracked in the development baseline record. It must update contribution
+instructions, CI assumptions and branch protection
 without renaming or replacing the head of PR #14. Do not maintain two competing
 fork integration branches. The documentation branch `docs/fork-continuation-plan`
 is based on the frozen candidate; incorporate its reviewed documentation commit
