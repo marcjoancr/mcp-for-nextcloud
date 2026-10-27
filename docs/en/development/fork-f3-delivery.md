@@ -972,3 +972,27 @@ Fresh review validation passed: **154 Markdown files / 110 package sources**,
 still review-required**. `git diff --check` passed. The three documentation files
 remain outside the runtime package allowlist; no package or application/native
 suite was rerun for this documentation-only review.
+
+## LinuxServer L0 offline planning
+
+The [L0 execution record](fork-linuxserver-l0.md) fixes the app/image inputs and
+records baseline package preparation, candidate kit verification and the new
+strict offline `test:integration:linuxserver -- --plan` interface. It implements
+no container lifecycle or native probe. Standard SeaweedFS 4.49 was unavailable
+as an image tag; the available standard 4.48 release is selected explicitly by
+immutable index and linux/amd64 digests. The record keeps that decision and its
+limits visible. Registry manifest hashes and app archive/manifest checks do not
+certify runtime behavior or vulnerability status.
+
+L1-L5, the intended-host qualification and F3 remain open. **HTTPS, Inspector
+14/15, ChatGPT and human reviewers remain pending.** No server access/change,
+fixture execution, push, PR action or deployment was performed for L0.
+
+Fresh L0 validation passed: **23 focused tests / 165 assertions**, the actual
+audited kit in offline plan mode, and the complete catalog `check` with **8,451 PHP
+tests / 71,806 assertions**, **690 browser tests**, both static-analysis scopes
+and packaging. Documentation checks cover **155 Markdown files / 110 package
+sources**; all **96 translation drafts remain review-required**. The L0 record
+retains full counts, expected negative-test diagnostics and the dirty development
+package limitation. A fresh read-only review found no actionable issue. None of
+these results closes native LinuxServer or client/human acceptance.

@@ -11,7 +11,7 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 | --- | --- |
 | Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md) |
 | Track F3 identity and release preparation | [F3 execution record](fork-f3-preparation.md), [source delivery and control evidence](fork-f3-delivery.md) |
-| Plan the isolated LinuxServer upgrade and recovery rehearsal | [LinuxServer/Nginx test plan](fork-linuxserver-upgrade-recovery-plan.md) |
+| Plan the isolated LinuxServer upgrade and recovery rehearsal | [LinuxServer/Nginx test plan](fork-linuxserver-upgrade-recovery-plan.md), [L0 results](fork-linuxserver-l0.md) |
 | Evaluate upstream 1.2.0 changes | [Capability inventory and selection](upstream-1.2.0-inventory.md), [integration results](upstream-1.2.0-integration.md), [native file-link follow-up](deck-file-link-integration.md) |
 | Understand ownership and dependencies | [Architecture](architecture-specification.md) |
 | Add or change an MCP capability | [Adding a tool](adding-a-tool.md) |

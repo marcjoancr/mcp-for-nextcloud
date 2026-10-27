@@ -3,7 +3,9 @@
 
 # LinuxServer/Nginx isolated upgrade and recovery test plan
 
-**Status:** reviewed on 2026-10-24; no runner implemented or rehearsal executed.
+**Status:** reviewed on 2026-10-24; L0 offline planning is implemented.
+L1-L5 execution remains unimplemented and no rehearsal has run. See the
+[L0 input and validation record](fork-linuxserver-l0.md).
 This is a local qualification plan, not a production runbook or deployment approval.
 
 **Goal:** demonstrate a real MCP 1.2.0 → Nextcloud MCP 2.0.0 replacement and
@@ -49,7 +51,7 @@ implementation and fixture execution need their own subsequent task authorizatio
 | A successful CLI exit hides a failed native probe, TLS request or cleanup | L1/L5: explicit completion markers, assertions and exit codes; negative transport and ownership cases |
 | The observed production version is mistaken for verified production compatibility | L0/L5: distinguish frozen upstream baseline from installed source, reference database from actual SQL target, local S3 from production provider |
 
-## Inputs and unresolved pins
+## Frozen inputs and qualification gates
 
 Resolve these before starting a fixture, and record full values in a reviewed
 profile lock. Do not silently pull `latest`, rebuild a different candidate or
@@ -62,7 +64,7 @@ runtime versions separately; a tag does not establish them.
 | Initial candidate | Reviewed source-audit commit `0000d8c807cfae300c2009ce53f9efb4a5df8081`; complete retained kit, trusted manifest SHA-256 `032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f`. Recheck with `verify:source` before use. Later commits require their own kit and digest |
 | LinuxServer image | Observed `lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac`; verify availability and linux/amd64 selection in L0. Keep core version constant through app replacement and both restores |
 | PostgreSQL | Reuse the existing reference pin `postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d`; verify availability, SQL version and dump/restore tools. This is not the observed host's Alpine image or proof of its active SQL connection |
-| S3 fixture | Recommend one persistent, single-node SeaweedFS S3 fixture. L0 must select a supported released image, freeze its linux/amd64 digest and configuration, and review its export/restore contract. Exercise authenticated object read/write/list/delete and recovery in L1/L4, after fixture creation. Release and digest are unresolved and block fixture execution |
+| S3 fixture | Recommend one persistent, single-node SeaweedFS S3 fixture. L0 must select a supported released image, freeze its linux/amd64 digest and configuration, and review its export/restore contract. Exercise authenticated object read/write/list/delete and recovery in L1/L4, after fixture creation. L0 selects standard 4.48 with full index/platform digests in the profile lock; see the L0 record for the unavailable standard 4.49 tag |
 | Other apps | Target observed Calendar 6.6.3, Contacts 8.9.2, Deck 1.19.0, Notes 6.1.0 and Talk 25.0.6; record immutable source/archive digests and NC35 compatibility before provisioning. Core OAuth2 2.0.0 is distinct from MCP's OAuth implementation. Do not substitute versions silently |
 | Tools and harness | Record tool versions, harness commit and any harness diff, profile-lock hash, candidate manifest digest and baseline digest independently. Candidate evidence must never be attributed to the harness/documentation commit |
 
@@ -79,13 +81,14 @@ coverage remains in the separate reference matrix.
 
 ## Proposed test ownership and interfaces
 
-All paths below are **planned**, not available commands or files yet. Avoid
+The profile, planning entry point and harness unit tests below exist for L0.
+Runtime, checkpoint and native probe paths remain **planned**, not executable. Avoid
 adding another mode full of LinuxServer conditions to the Apache `harness.sh`.
 
 | Planned path | Responsibility |
 | --- | --- |
 | `mcp/tests/Integration/ci/linuxserver/profile.json` | Immutable profile inputs, limits and supported baseline/candidate pair; no secrets |
-| `mcp/tests/Integration/ci/linuxserver/run-local.sh` | Phase ordering, run ownership, failure propagation and final cleanup; no application assertions |
+| `mcp/tests/Integration/ci/linuxserver/run-local.sh`, `plan.mjs`, `profile.mjs` | L0 offline planning and strict profile/kit validation; future phase ordering must retain these checks |
 | `mcp/tests/Integration/ci/linuxserver/runtime.sh` | Private network/volumes, LinuxServer readiness, s6/abc execution, TLS setup, writer quiescence and controlled restart |
 | `mcp/tests/Integration/ci/linuxserver/checkpoint.sh` | PostgreSQL dump/restore and coherent config/app/data/object export/restore, manifest validation |
 | `mcp/tests/Integration/ci/linuxserver/transport.php` | Profile base URL and private CA validation; never change the Apache `Support/Http.php` contract implicitly |
@@ -97,10 +100,11 @@ adding another mode full of LinuxServer conditions to the Apache `harness.sh`.
 | `mcp/tests/Unit/Integration/LinuxServerHarnessTest.php` | Plan/argument validation, fail-closed orchestration, injected failure and ownership contracts |
 | `mcp/composer.json`, `docs/en/development/testing.md` | One documented `test:integration:linuxserver` entry point, without changing default matrix selection |
 
-The proposed entry point accepts `--plan`, `--profile FILE`, `--kit DIRECTORY`
+The L0 entry point accepts `--plan`, `--profile FILE`, `--kit DIRECTORY`
 and `--manifest-sha256 DIGEST`. `--plan` validates input structure and emits the
-resolved run plan without Docker mutations. Full execution generates a unique
-run ID and accepts no arbitrary existing container, database, volume or bucket.
+resolved plan without Docker calls or networking. Execution is currently rejected.
+Future full execution must generate a unique run ID and accept no arbitrary
+existing container, database, volume or bucket.
 
 The shared phase interface consumes a private run manifest (run ID, profile hash,
 exact owned resource IDs, base URL, CA path and private credential-file paths).
@@ -126,25 +130,26 @@ Test a second, non-admitted run-owned client to prove the gate, not just its con
 
 **Deliverable:** reviewed profile lock and a tested, non-mutating plan mode.
 
-- [ ] Review pinned baseline migrations and compare persisted schema/semantics
+- [x] Review pinned baseline migrations and compare persisted schema/semantics
   against 2.0.0. Enumerate intentional changes before writing upgrade assertions;
   unchanged policy, grants, scopes and credentials must remain unchanged. The
   selected commits have identical `mcp/lib/Migration/` trees; record the actual
   installed migration ledger and native upgrade outcome rather than inventing a
   new SQL migration for the version change. The old 1.1.2 replacement probe is a reference, not proof of 1.2.0 compatibility.
-- [ ] Reverify candidate kit integrity, baseline package provenance, all image/app
-  digests and required tools. Resolve the S3 pin and export/restore method. Keep
+- [x] Reverify candidate kit integrity, baseline package provenance, all image/app
+  digests and local build/planning tools. Live image tools remain an L1 check. Resolve the S3 pin and export/restore method. Keep
   missing or unavailable inputs as hard preflight blockers.
-- [ ] Implement plan validation with failing-then-passing tests for mutable images,
+- [x] Implement plan validation with failing-then-passing tests for mutable images,
   wrong baseline/candidate version, mismatched trusted digest, outside-resource
   targets and missing required fields. No shell evaluation of manifest values.
-- [ ] Bound one run to at most 4 CPUs, 8 GiB aggregate container memory and
+- [x] Encode the runtime limits in the profile: bound one run to at most 4 CPUs, 8 GiB aggregate container memory and
   30 GiB planned artifacts/volume data; require at least 40 GiB free at preflight.
   Limit seeded object bytes to 256 MiB. Abort on storage pressure; do not prune
   other projects or change host quotas. Use a 60-minute total runtime limit,
   5-minute readiness limits and bounded subprocess timeouts, then owned cleanup.
-- [ ] Run `composer --working-dir=mcp test -- tests/Unit/Integration/LinuxServerHarnessTest.php`
-  and the proposed `--plan` entry point; verify no resources were created.
+  Runtime enforcement and cleanup belong to L1-L5; L0 checks their configuration.
+- [x] Run `composer --working-dir=mcp test -- tests/Unit/Integration/LinuxServerHarnessTest.php`
+  and the implemented `--plan` entry point; verify no resources were created.
   L0 verifies pins and static contracts only; live S3 and SQL checks belong to L1.
 
 **Acceptance:** all pins resolved and recorded, digest checks pass, guardrail
@@ -398,9 +403,10 @@ executed. Production recovery readiness is not inferred from this fixture.
 
 ## Closure limits and next action
 
-The next implementable batch is **L0**: resolve the S3/app pins, verify inputs,
-and implement/test the plan-mode guardrails. No server access is needed for that
-batch. This planning task does not start it or create containers.
+The next implementable batch is **L1**, after reviewing the
+[L0 changes and evidence](fork-linuxserver-l0.md). L0 fixes the static inputs and
+implements offline planning only; it does not authorize or start a fixture.
+Before L1 execution, recheck runtime prerequisites and the availability of pins.
 
 | Still pending | Why local success does not close it |
 | --- | --- |
