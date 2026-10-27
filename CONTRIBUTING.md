@@ -11,8 +11,8 @@ registration and the contracts that changes must preserve.
 
 ## Fork development workflow
 
-This fork develops its capability architecture on `fork/main`. That branch has
-been selected for publication as the GitHub default branch. Track its promotion
+This fork develops its capability architecture on `fork/main`, the published
+GitHub default branch. Track its promotion
 in the [development baseline record](docs/en/development/fork-development-baseline.md).
 Base new topic branches on `fork/main`, not the older `main` or the frozen
 `refactor/complete-upstream-pr` reference. Verify the starting revision when using
