@@ -70,6 +70,6 @@ final class FileBackupPrivacyTest extends FilesToolsTestCase {
                 }
             });
         $guard = \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $this->config->mock($this), $mapper, $this->tree->filesystemRoot());
-        return new FileBackup($this->apps, $this->users, $this->time, $this->config->mock($this), $guard);
+        return new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $this->apps, $this->users, $this->time, $this->config->mock($this), $guard);
     }
 }

@@ -174,7 +174,7 @@ final class CheckoutCreateTest extends TestCase {
             $this->hasher,
             $checkout,
             new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests),
-            new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests), new FileBackup($apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this)), $this->locks->service($this)),
+            new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests), new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this)), $this->locks->service($this)),
             ($this->bodyReader = new StagedBodyReader($temp)),
             $this->createMock(LoggerInterface::class),
             null,
@@ -657,9 +657,9 @@ final class CheckoutCreateTest extends TestCase {
         });
         $tags = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $root = $this->tree->filesystemRoot();
-        $plain = new VisibilityGuard($this->config->mock($this), $tags, $root);
+        $plain = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $tags, $root);
         $scope = new \OCA\Mcp\Access\ResourceScope\FilesScope($policy, $plain, $root);
-        $this->guard = new \OCA\Mcp\Access\ResourceScope\FilesAccessGuard($scope, $this->config->mock($this), $tags, $root);
+        $this->guard = new \OCA\Mcp\Access\ResourceScope\FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $scope, $this->config->mock($this), $tags, $root);
         $this->rebuild();
         $this->stage('PK docx bytes');
         $this->issue();

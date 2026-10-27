@@ -60,7 +60,7 @@ final class OutputReferenceFilterTest extends TestCase {
             }
             return $result;
         });
-        $this->guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $this->guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper, $this->tree->filesystemRoot());
     }
 
     private function filter(?FileReferenceScope $scope = null, array $trusted = ['cloud.example.com', '*.cloud.example.net'], string $webroot = ''): OutputReferenceFilter {
@@ -343,7 +343,7 @@ final class OutputReferenceFilterTest extends TestCase {
         $this->tags = [];
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->expects(self::never())->method('getTagIdsForObjects');
-        $this->guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $this->guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper, $this->tree->filesystemRoot());
         $refuseAll = new class implements FileReferenceScope {
             public function restricts(string $userId): bool {
                 return true;
@@ -364,7 +364,7 @@ final class OutputReferenceFilterTest extends TestCase {
         $root->expects(self::never())->method('getUserFolder');
         $shares = $this->createMock(IShareManager::class);
         $shares->expects(self::never())->method('getShareById');
-        $guard = new VisibilityGuard($this->config->mock($this), $this->createMock(ISystemTagObjectMapper::class));
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->createMock(ISystemTagObjectMapper::class));
         $filter = OutputReferenceFilters::over($this, $root, $guard, $shares);
         $calendar = $this->calendar(':https://cloud.example.com/f/1');
 

@@ -61,6 +61,15 @@ final class PromptCatalogTest extends TestCase {
         return json_decode((string)json_encode($out['body']), false, 512, JSON_THROW_ON_ERROR);
     }
 
+    public function testCheckoutGuidanceDoesNotPromiseAnUnconditionalCopy(): void {
+        $this->policy->setGrant('alice', 'files', 'edit', true);
+        $prompt = $this->catalog->get(PromptCatalog::EDIT_LOCALLY, $this->policy, 'alice');
+        $text = json_encode($prompt, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        self::assertStringNotContainsString('/MCP backups', $text);
+        self::assertStringNotContainsString('restoring also creates a backup beforehand', $text);
+        self::assertStringContainsString('administrator MCP backup setting', $text);
+    }
+
     public function testThePromptIsListedWithItsTitleAndNoArguments(): void {
         $this->policy->setGrant('alice', 'files', 'edit', true);
         $list = $this->catalog->list($this->policy, 'alice');

@@ -12,7 +12,8 @@ final class FileWritePolicySinksTest extends TestCase {
     private const SINKS = [
         'Modules/Files/Creation/FileCreation.php' => ['newFile' => 1, 'putContent' => 1],
         'Modules/Files/Editing/ContentWriter.php' => ['putContent' => 1],
-        'Modules/Files/Editing/FileBackup.php' => ['copy' => 1, 'newFile' => 1, 'putContent' => 1],
+        'Modules/Files/Editing/FileBackup.php' => ['copy' => 2],
+        'Modules/Files/Editing/FileBackupCopy.php' => ['newFile' => 1, 'putContent' => 1],
         'Modules/Files/Checkout/CheckoutWriter.php' => ['putContent' => 1],
         'Modules/Files/Versions/VersionRestorer.php' => ['rollback' => 1, 'putContent' => 1],
         'Modules/Files/Reorganization/ListedTreeCopy.php' => ['copy' => 1],
@@ -55,7 +56,7 @@ final class FileWritePolicySinksTest extends TestCase {
         $lib = dirname(__DIR__, 2) . '/lib/';
         foreach (self::SINKS as $file => $methods) {
             $source = file_get_contents($lib . $file);
-            if (in_array($file, ['Modules/Files/Editing/FileBackup.php', 'Modules/Contacts/Deletion/ContactBackup.php'], true)) {
+            if (in_array($file, ['Modules/Files/Editing/FileBackup.php', 'Modules/Files/Editing/FileBackupCopy.php', 'Modules/Contacts/Deletion/ContactBackup.php'], true)) {
                 self::assertStringNotContainsString('FileTypeGuard', $source, 'Mandatory internal backups must remain available.');
             } elseif (str_contains($file, '/Tools/')) {
                 self::assertStringContainsString('$this->operation->', $source);

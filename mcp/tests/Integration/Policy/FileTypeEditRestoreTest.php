@@ -16,7 +16,7 @@ use OCA\Mcp\Tests\Integration\Support\DavClient;
 use OCA\Mcp\Tests\Integration\Support\LoginFactory;
 use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCA\Mcp\Tests\Integration\Support\ToolReply;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCP\Config\IUserConfig;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -217,10 +217,10 @@ final class FileTypeEditRestoreTest extends IntegrationTestCase {
 	 */
 	private function backupNames(string $uid): array {
 		$home = $this->home($uid);
-		if (!$home->nodeExists(BackupLocation::FOLDER)) {
+		if (!$home->nodeExists(BackupLocation::LEGACY)) {
 			return [];
 		}
-		$root = $home->get(BackupLocation::FOLDER);
+		$root = $home->get(BackupLocation::LEGACY);
 		if (!$root instanceof Folder || !$root->nodeExists($this->folder)) {
 			return [];
 		}
@@ -249,7 +249,7 @@ final class FileTypeEditRestoreTest extends IntegrationTestCase {
 	private function assertBackupHolds(string $uid, mixed $reported, string $expected): void {
 		$this->assertIsString($reported);
 		$relative = ltrim($reported, '/');
-		$this->assertStringStartsWith(BackupLocation::FOLDER . '/' . $this->folder . '/', $relative);
+		$this->assertStringStartsWith(BackupLocation::LEGACY . '/' . $this->folder . '/', $relative);
 		$this->assertStringEndsWith('.bak', $relative);
 		$node = $this->home($uid)->get($relative);
 		$this->assertInstanceOf(File::class, $node);

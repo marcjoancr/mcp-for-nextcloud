@@ -88,7 +88,7 @@ final class StructuredReferenceContractTest extends TestCase {
             }
             return $result;
         });
-        $this->guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $this->guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper, $this->tree->filesystemRoot());
         $this->data = $this->taskObject();
     }
 

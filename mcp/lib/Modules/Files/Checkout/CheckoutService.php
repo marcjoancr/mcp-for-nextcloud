@@ -154,7 +154,7 @@ final class CheckoutService {
     /**
      * Refuses a checkout whose upload could never be honoured, without minting anything.
      *
-     * The upload always takes a backup, so a checkout without files_versions would hand out two links
+     * Uploads retain the Versions precondition independently of the MCP copy setting. Without it, two links
      * that cannot work. The plan and the mint ask the same question here, so both say so the same way.
      *
      * @param string $userId authenticated user

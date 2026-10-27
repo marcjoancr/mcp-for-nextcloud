@@ -51,7 +51,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturnCallback(static fn (array $ids): array => in_array((string)$original, $ids, true) ? [(string)$original => ['42']] : []);
-        $guard = new VisibilityGuard($config->mock($this), $mapper, $tree->filesystemRoot());
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $mapper, $tree->filesystemRoot());
         self::assertSame(!$backup, $guard->isVisible($tree->node($path)));
         self::assertSame($backup ? VisibilityGuard::EXPLAINED_BACKUP : VisibilityGuard::EXPLAINED_VISIBLE, $guard->explain($tree->node($path))['reason']);
     }
@@ -110,7 +110,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $mount = $this->folder(3, $recipientParent->getPath() . '/MCP backups', $recipientParent, 'alice', true);
         $file = $this->folder(6, $mount->getPath() . '/secret.txt.20261024-120000.bak', $mount);
         $root->method('getUserFolder')->willReturnMap([['alice', $alice], ['bob', $bob]]);
-        $matches = (new BackupFolderMatcher($root))->matches($file, static fn (Node $node): Node => $node->getParent());
+        $matches = (new BackupFolderMatcher(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $root))->matches($file, static fn (Node $node): Node => $node->getParent());
         self::assertCount($realBackup ? 1 : 0, $matches);
         if ($realBackup) {
             self::assertSame($alice, $matches[0][0]);
@@ -129,7 +129,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $mount = $this->folder(2, '/alice/files/MCP backups', $home, null);
         $file = $this->folder(3, $mount->getPath() . '/x', $mount, null);
         $root->method('getUserFolder')->with('alice')->willReturn($home);
-        self::assertCount(1, (new BackupFolderMatcher($root))->matches($file, static fn (Node $node): Node => $node->getParent()));
+        self::assertCount(1, (new BackupFolderMatcher(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $root))->matches($file, static fn (Node $node): Node => $node->getParent()));
     }
 
     /**
@@ -144,7 +144,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $nested = $this->folder(3, $mount->getPath() . '/MCP backups', $mount, null);
         $file = $this->folder(4, $nested->getPath() . '/x', $nested, null);
         $root->expects(self::never())->method('getUserFolder');
-        self::assertSame([], (new BackupFolderMatcher($root))->matches($file, static fn (Node $node): Node => $node->getParent()));
+        self::assertSame([], (new BackupFolderMatcher(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $root))->matches($file, static fn (Node $node): Node => $node->getParent()));
     }
 
     /**
@@ -156,7 +156,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $tree = new FakeTree($this);
         $path = '/alice/files/MCP backups/docs/MCP backups/x.20261024-120000.bak';
         $tree->addFile($path, 'x');
-        $matches = (new BackupFolderMatcher())->matches($tree->node($path), static fn (Node $node): Node => $node->getParent());
+        $matches = (new BackupFolderMatcher(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), ))->matches($tree->node($path), static fn (Node $node): Node => $node->getParent());
         self::assertSame(['docs', 'MCP backups', 'x.20261024-120000.bak'], $matches[0][1]);
     }
 
@@ -175,7 +175,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturn([]);
-        $guard = new VisibilityGuard($config->mock($this), $mapper, $root);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $mapper, $root);
         self::assertFalse($guard->isVisible($file));
         self::assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($file)['reason']);
     }
@@ -194,7 +194,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $file = $this->folder(4, $backup->getPath() . '/x', $backup);
         $root->method('getUserFolder')->with('alice')->willReturn($alice);
         $this->expectException(\RuntimeException::class);
-        (new BackupFolderMatcher($root))->matches($file, static fn (Node $node): Node => $node->getParent());
+        (new BackupFolderMatcher(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $root))->matches($file, static fn (Node $node): Node => $node->getParent());
     }
 
     /** @return iterable<string, array{string, bool}> backend owner values and candidate depth */
@@ -224,7 +224,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturn([]);
-        $guard = new VisibilityGuard($config->mock($this), $mapper, $root);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $mapper, $root);
         self::assertTrue($guard->isVisible($file));
         self::assertSame(VisibilityGuard::EXPLAINED_VISIBLE, $guard->explain($file)['reason']);
     }
@@ -244,7 +244,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $one = $this->folder(5, $mount->getPath() . '/one', $mount);
         $two = $this->folder(6, $mount->getPath() . '/two', $mount);
         $root->method('getUserFolder')->with('alice')->willReturn($alice);
-        $matcher = new BackupFolderMatcher($root);
+        $matcher = new BackupFolderMatcher(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $root);
         $parentOf = static fn (Node $node): Node => $node->getParent();
         self::assertSame(['one'], $matcher->matches($one, $parentOf)[0][1]);
         self::assertSame(['two'], $matcher->matches($two, $parentOf)[0][1]);
@@ -276,7 +276,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturn([]);
-        $guard = new VisibilityGuard($config->mock($this), $mapper, $root);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $mapper, $root);
         self::assertTrue($guard->isVisible($one));
         self::assertTrue($guard->isVisible($two));
         self::assertSame(1, $lookups);
@@ -311,7 +311,7 @@ final class BackupFolderMatcherTest extends TestCase {
         });
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $logger->expects(self::once())->method('warning')->with('MCP visibility check failed; access refused', ['app' => 'mcp']);
-        $guard = new VisibilityGuard($config->mock($this), $mapper, $tree->filesystemRoot(), null, $logger);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $mapper, $tree->filesystemRoot(), null, $logger);
         self::assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($tree->node($path))['reason']);
     }
 
@@ -327,7 +327,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $two->method('getParent')->willReturn($one);
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Backup ancestry unavailable');
-        (new BackupFolderMatcher())->matches($one, static fn (Node $node): Node => $node->getParent());
+        (new BackupFolderMatcher(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), ))->matches($one, static fn (Node $node): Node => $node->getParent());
     }
     public static function backupShareKinds(): iterable {
         yield 'renamed backup root' => [false, false];
@@ -364,7 +364,7 @@ final class BackupFolderMatcherTest extends TestCase {
         $mapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use (&$hidden): array {
             return $hidden && in_array('99', array_map('strval', $ids), true) ? ['99' => ['42']] : [];
         });
-        $guard = new VisibilityGuard($config->mock($this), $mapper, $root);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $mapper, $root);
         self::assertTrue($guard->isVisible($copy), 'A visible original must not cause a generic refusal');
         $hidden = true;
         $guard->clearCache();

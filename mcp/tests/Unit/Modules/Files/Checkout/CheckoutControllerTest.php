@@ -182,7 +182,7 @@ final class CheckoutControllerTest extends TestCase {
         $urls = $this->createMock(IURLGenerator::class);
         $urls->method('linkToRouteAbsolute')->willReturnCallback(fn (string $route, array $args = []) => '/apps/mcp/' . ($args['token'] ?? ''));
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
-        $backup = new FileBackup($this->apps, $this->users, $this->time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this));
+        $backup = new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $this->apps, $this->users, $this->time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this));
 
         $controller = $this->build($root, $session ?? $this->session, $config, $urls, $backup, $access);
         $controller->route = ['token' => self::TOKEN];
@@ -858,7 +858,7 @@ final class CheckoutControllerTest extends TestCase {
         $urls->method('linkToRouteAbsolute')->willReturn('/apps/mcp/x');
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
         $controller = $this->build($root, $this->session, $config, $urls,
-            new FileBackup($this->apps, $this->users, $this->time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), $access, $l10n);
+            new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $this->apps, $this->users, $this->time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), $access, $l10n);
         $controller->route = ['token' => self::TOKEN];
 
         // 1. Multipart refusal in Portuguese
@@ -907,7 +907,7 @@ final class CheckoutControllerTest extends TestCase {
         $urls->method('linkToRouteAbsolute')->willReturn('/apps/mcp/x');
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
         $controller = $this->build($root, $this->session, $config, $urls,
-            new FileBackup($this->apps, $this->users, $this->time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), $access);
+            new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $this->apps, $this->users, $this->time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), $access);
         $controller->route = ['token' => self::TOKEN];
         $this->controller = $controller;
     }
@@ -925,7 +925,7 @@ final class CheckoutControllerTest extends TestCase {
             : throw new \LogicException('other user'));
 
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
-        $backup = new FileBackup($this->apps, $this->users, $this->time, $this->config->mock($this), $guard);
+        $backup = new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $this->apps, $this->users, $this->time, $this->config->mock($this), $guard);
 
         $request = $this->createMock(IRequest::class);
         $request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
@@ -972,8 +972,8 @@ final class CheckoutControllerTest extends TestCase {
         });
         $tags = $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class);
         $tags->method('getTagIdsForObjects')->willReturn([]);
-        $plain = new \OCA\Mcp\Access\Visibility\VisibilityGuard($this->config->mock($this), $tags, $this->tree->filesystemRoot());
-        $guard = new \OCA\Mcp\Access\ResourceScope\FilesAccessGuard(new \OCA\Mcp\Access\ResourceScope\FilesScope($policy, $plain, $this->tree->filesystemRoot()), $this->config->mock($this), $tags, $this->tree->filesystemRoot());
+        $plain = new \OCA\Mcp\Access\Visibility\VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $tags, $this->tree->filesystemRoot());
+        $guard = new \OCA\Mcp\Access\ResourceScope\FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), new \OCA\Mcp\Access\ResourceScope\FilesScope($policy, $plain, $this->tree->filesystemRoot()), $this->config->mock($this), $tags, $this->tree->filesystemRoot());
         $root = $this->createMock(IRootFolder::class);
         $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $uid === 'alice' ? $this->tree->rootFolder() : throw new \LogicException('other user'));
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
@@ -984,7 +984,7 @@ final class CheckoutControllerTest extends TestCase {
         $controller = new TestableCheckoutController('mcp', $request, $this->session, $this->store, $this->hasher,
             new CheckoutService($this->createMock(IURLGenerator::class), $this->config->mock($this), $this->time, $this->hasher, $this->store, $this->apps, $this->users),
             $linkPolicy, new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, $linkPolicy,
-                new FileBackup($this->apps, $this->users, $this->time, $this->config->mock($this), $guard),
+                new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $this->apps, $this->users, $this->time, $this->config->mock($this), $guard),
                 new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, null, $this->locks->service($this)),
             ($this->bodyReader = new StagedBodyReader($this->temp)), $this->createMock(LoggerInterface::class), null, $this->users);
         $controller->route = ['token' => self::TOKEN];

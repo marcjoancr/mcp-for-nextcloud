@@ -67,7 +67,7 @@ final class VisibilityGuardMountBoundaryTest extends TestCase {
         $mapper->method('assignTags')->willReturnCallback(function (string $id, string $type, array $tags): void {
             $this->assigned[$id] = array_map('strval', $tags);
         });
-        return new VisibilityGuard($config->mock($this), $mapper, $this->root);
+        return new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $mapper, $this->root);
     }
 
     /**

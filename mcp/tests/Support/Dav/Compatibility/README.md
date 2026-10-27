@@ -18,3 +18,9 @@ ETags, messages, field order or other payload values are normalized.
 Detailed feature tests retain multilingual, privacy, failure precedence, partial
 write, acknowledgement and non-mutation assertions. Do not regenerate these
 fixtures from changed implementation just to make a mismatch pass.
+
+The 2026-10-27 upstream 1.2.1 U2 integration replaces only the two copies of the
+Contacts guide sentence in `definitions.json`: the mandatory verified vCard backup
+uses the configured folder, rather than promising the fixed `/MCP backups` name.
+The default remains unchanged. No Calendar/Tasks contracts or plan captures are
+modified; the independent native backup tests cover configurable Contacts copies.

@@ -112,7 +112,7 @@ final class PromptCatalog {
             '   The link is valid for a few minutes and single-use: if it fails, run files_checkout again.',
             '3. Edit /tmp/file with your local tools. The user sees the diff; do not write anything outside the file.',
             '4. Return the file with curl -sS -T /tmp/file -X PUT -H "Content-Type: application/octet-stream" "$UPLOAD_URL".',
-            '   The server validates the token and ETag, creates a backup in "/MCP backups", saves the file, and returns the new ETag.',
+            '   The server validates the token and ETag, applies the administrator MCP backup setting, saves the file, and returns the new ETag.',
             '   If the file changed in the meantime, the response is a conflict (409) and nothing was written: re-read and repeat.',
             '',
             'If you do not have a shell to download and upload the file, do not use checkout: apply the change with',
@@ -128,7 +128,7 @@ final class PromptCatalog {
             'If the upload returns a confirmation prompt or a conflict, run files_checkout again — passing',
             'confirm_shared: true if the user has already confirmed — instead of retrying the same link.',
             '',
-            'To revert, use files_versions_list and files_version_restore; restoring also creates a backup beforehand.',
+            'To revert, use files_versions_list and files_version_restore; restoring follows the same administrator MCP backup setting.',
         ];
         if ($create) {
             $lines[] = '';

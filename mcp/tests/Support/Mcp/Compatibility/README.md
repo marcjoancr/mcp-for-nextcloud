@@ -64,3 +64,12 @@ The F3 local source-offer implementation appends only the explicit source-delive
 unavailable notice to the twelve discovery instruction strings in `protocol.json`.
 Configured delivery has separate identity/link tests. Tool definitions, results,
 server identity and authentication/authorization expectations are not regenerated.
+
+The 2026-10-27 upstream 1.2.1 U2 port updates the four Files overwrite descriptions,
+Files/Contacts guide notes and two checkout-prompt sentences to describe the
+administrator's copy policy and configured destination accurately. Only those
+literal strings are replaced in publication/protocol captures; tool names,
+schemas, grants, annotations, ordering and result captures are retained. The
+older Files definitions/pilot captures receive the same description replacements.
+Policy, Files flow, browser and native tests exercise the behavior independently;
+these captures were not regenerated from the new implementation.

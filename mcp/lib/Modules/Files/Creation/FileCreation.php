@@ -7,12 +7,14 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Creation;
 
+use OCA\Mcp\Modules\Files\Editing\BackupWriteBoundary;
+
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
 use OCA\Mcp\Modules\Files\Checkout\CheckoutService;
 use OCA\Mcp\Modules\Files\Editing\EditingMessages;
 use OCA\Mcp\Modules\Files\Reading\ReadingMessages;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Mcp\Tools\Validation\ArgumentValidationException;
 use OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite;
@@ -51,6 +53,7 @@ final class FileCreation {
     private const LOCAL_FILE = '/path/to/local/file';
 
     public function __construct(
+        private BackupLocation $backupLocation,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private NodeAccessInfo $access,
         private SharedWriteGuard $guard,
@@ -199,7 +202,7 @@ final class FileCreation {
         if ($path === '/') {
             throw self::invalidName();
         }
-        if (BackupLocation::isBackupPath($path)) {
+        if ($this->backupLocation->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
         $cut = (int)strrpos($path, '/');
@@ -255,7 +258,7 @@ final class FileCreation {
             throw new FileExists(CreationMessages::fileExists());
         }
         try {
-            $file = NodeAccess::requireFile(NodeAccess::mutate(fn () => $this->fileTypes->writeName($name, fn () => $folder->newFile($name)), $this->visibilityGuard));
+            $file = NodeAccess::requireFile(NodeAccess::mutate(fn () => $this->fileTypes->writeName($name, fn () => BackupWriteBoundary::writeNode($folder, $this->backupLocation, fn () => $folder->newFile($name), $name)), $this->visibilityGuard));
         } catch (InvalidPathException) {
             throw self::invalidName();
         }
@@ -272,7 +275,7 @@ final class FileCreation {
             throw new FileExists(CreationMessages::fileExists());
         }
         try {
-            $put = fn () => $this->fileTypes->writeFile($current, fn () => $current->putContent($content));
+            $put = fn () => $this->fileTypes->writeFile($current, fn () => BackupWriteBoundary::writeNode($current, $this->backupLocation, fn () => $current->putContent($content)));
             NodeAccess::mutate(fn () => $userId === null ? $put() : $this->locks->run($put, $current, $userId, null, $asUser), $this->visibilityGuard);
         } catch (ToolFailure $e) {
             // Already a readable refusal: a lock found by the check, or one the storage raised, explained.

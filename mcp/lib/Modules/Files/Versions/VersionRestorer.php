@@ -7,9 +7,13 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Versions;
 
+use OCA\Mcp\Modules\Files\Editing\BackupWriteBoundary;
+
+use OCA\Mcp\Modules\Files\Presentation\BackupPlan;
+
 use OCA\Mcp\Modules\Files\Editing\EditingMessages;
 use OCA\Mcp\Modules\Files\Editing\FileBackup;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Platform\Time\UserTimezone;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite;
@@ -29,6 +33,8 @@ final class VersionRestorer {
     private const COPY_MEMORY = 8388608;
 
     public function __construct(
+        private BackupLocation $backupLocation,
+        private BackupPlan $backupPlan,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private VersionReader $versions,
         private FileBackup $backup,
@@ -45,7 +51,7 @@ final class VersionRestorer {
      * With a lock provider (files_lock) there, the version is read through files_versions and written through the
      * file, like any edit: files_lock refuses the write when the file is locked, and the write goes through the normal
      * versioning of the file, as the versions backend decides it. What this method guarantees about the current
-     * content is the backup in /MCP backups, taken before. The core rollback is not used then, because VersionManager::rollback()
+     * content is the configured copy, if required by policy. The core rollback is not used then, because VersionManager::rollback()
      * (Nextcloud 32 to 35, handleAppLocks) catches the refusal of a Text or Office lock and repeats the write inside
      * that app's lock scope, over the document still open in the editor. The file then shows the restore time as its
      * modification time and the change as an edit, where the core rollback would show the version's time and a restore.
@@ -73,7 +79,10 @@ final class VersionRestorer {
         $manager = $this->versions->manager();
         if ($this->locks !== null && $this->locks->providerAvailable()) {
             $this->writeVersion($manager, $version, $file, $path, $viewerUid, $copy);
-        } elseif (NodeAccess::mutate(fn () => $this->fileTypes->writeFile($file, fn () => $manager->rollback($version)), $this->visibilityGuard) === false) {
+        } elseif (NodeAccess::mutate(fn () => $this->fileTypes->writeFile($file, function () use ($manager, $version, $path, $copy) {
+                BackupWriteBoundary::afterCopy($this->backup, $path, $copy);
+                return $manager->rollback($version);
+            }), $this->visibilityGuard) === false) {
             throw new ToolFailure(VersionMessages::versionRestoreFailed());
         }
         $node = NodeAccess::requireFile(NodeAccess::get($root, $path, $this->visibilityGuard));
@@ -117,10 +126,13 @@ final class VersionRestorer {
                     fclose($stream);
                 }
             }
-            NodeAccess::mutate(fn () => $this->locks->run(function () use ($file, $content): void {
+            NodeAccess::mutate(fn () => $this->locks->run(function () use ($file, $content, $path, $copy): void {
                 // Rewound inside, so a repeated write by the lock check starts from the first byte.
                 rewind($content);
-                $this->fileTypes->writeFile($file, fn () => $file->putContent($content));
+                $this->fileTypes->writeFile($file, function () use ($file, $content, $path, $copy) {
+                BackupWriteBoundary::afterCopy($this->backup, $path, $copy);
+                return $file->putContent($content);
+            });
             }, $file, $viewerUid, $path), $this->visibilityGuard);
         } catch (LockWriteFailure $e) {
             throw $e->withNote(EditingMessages::originalKept($copy));
@@ -141,7 +153,7 @@ final class VersionRestorer {
      */
     public function execute(Folder $root, string $userId, string $path, string $version, bool $confirmed): array {
         $path = PathGuard::normalize($path);
-        if (BackupLocation::isBackupPath($path)) {
+        if ($this->backupLocation->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
         $file = $this->file($root, $path);
@@ -164,25 +176,24 @@ final class VersionRestorer {
      */
     public function preview(Folder $root, string $userId, string $path, string $version): array {
         $path = PathGuard::normalize($path);
-        if (BackupLocation::isBackupPath($path)) {
+        if ($this->backupLocation->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
         $file = $this->file($root, $path);
         $shared = $this->guard->guard($file, $userId, $path, false);
-        return [
+        return $this->backupPlan->decorate([
             'action' => 'files_version_restore',
             'path' => $path,
             'version' => $this->versions->describe($file, $version, $userId),
             'timezone' => $this->timezone?->forUser($userId)->getName(),
             'current' => ['etag' => (string)$file->getEtag(), 'size' => (int)$file->getSize()],
-            'backup' => '/' . BackupLocation::FOLDER,
             'access' => $this->access->describe($file, $userId),
             'shared' => $shared === null ? [] : [$shared],
             'requiresSharedConfirmation' => $shared !== null,
             'recoverable' => true,
             'consequence' => EditingMessages::planBackupConsequence(),
             'message' => VersionMessages::planRestore(),
-        ] + $this->lockNotice($file, $userId, $path);
+        ] + $this->lockNotice($file, $userId, $path), $userId);
     }
 
     /**

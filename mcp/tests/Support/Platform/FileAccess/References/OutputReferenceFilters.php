@@ -29,7 +29,7 @@ final class OutputReferenceFilters {
      * @return VisibilityGuard the guard
      */
     public static function openGuard(TestCase $test): VisibilityGuard {
-        return new VisibilityGuard((new InMemoryConfig())->mock($test), self::mock($test, ISystemTagObjectMapper::class));
+        return new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($test), (new InMemoryConfig())->mock($test), self::mock($test, ISystemTagObjectMapper::class));
     }
 
     /**
@@ -45,7 +45,7 @@ final class OutputReferenceFilters {
             self::mock($test, IShareManager::class),
             $config,
             self::mock($test, IURLGenerator::class),
-            new VisibilityGuard($config, self::mock($test, ISystemTagObjectMapper::class)),
+            new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($test), $config, self::mock($test, ISystemTagObjectMapper::class)),
             new UnrestrictedFileReferenceScope(),
         );
     }

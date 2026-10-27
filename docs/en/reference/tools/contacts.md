@@ -6,7 +6,7 @@
 
 | Module | Read | Write |
 | --- | --- | --- |
-| **Contacts** | list personal/shared address books, search and read contacts, including the read-only accounts catalog of the instance (colleagues, with `accountId` for invitations) under the admin user-enumeration settings | create and edit while preserving unknown vCard fields; permanently delete only after a verified `.vcf` backup in `/MCP backups/Contacts` |
+| **Contacts** | list personal/shared address books, search and read contacts, including the read-only accounts catalog of the instance (colleagues, with `accountId` for invitations) under the admin user-enumeration settings | create and edit while preserving unknown vCard fields; permanently delete only after a verified `.vcf` backup under `Contacts` in the configured backup folder (default `/MCP backups/Contacts`; mandatory even if Files copies are suspended) |
 
 [Contacts and Tasks behavior](contacts-tasks.md).
 

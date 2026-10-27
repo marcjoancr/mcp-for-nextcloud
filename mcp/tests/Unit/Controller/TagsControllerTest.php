@@ -30,7 +30,7 @@ final class TagsControllerTest extends TestCase {
         $this->tagMapper = $this->createMock(ISystemTagObjectMapper::class);
         $this->tagManager = $this->createMock(ISystemTagManager::class);
         $this->request = $this->createMock(IRequest::class);
-        $this->guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper);
+        $this->guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper);
     }
 
     private function controller(): TagsController {
@@ -116,7 +116,7 @@ final class TagsControllerTest extends TestCase {
         $tag1->method('getId')->willReturn('10');
         $this->tagManager->method('getTagsByIds')->willReturn(['10' => $tag1]);
 
-        $guardWithManager = new VisibilityGuard($this->config->mock($this), $this->tagMapper, null, $this->tagManager);
+        $guardWithManager = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, null, $this->tagManager);
         $controller = new TagsController('mcp', $this->request, $guardWithManager, $this->tagManager);
 
         $this->request->method('getParam')->with('tagIds')->willReturn(['10', '99']);
@@ -130,7 +130,7 @@ final class TagsControllerTest extends TestCase {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["10"]';
         $this->tagManager->method('getTagsByIds')->willThrowException(new \RuntimeException('down'));
         $this->tagManager->method('getAllTags')->willThrowException(new \RuntimeException('down'));
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, null, $this->tagManager);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, null, $this->tagManager);
         $controller = new TagsController('mcp', $this->request, $guard, $this->tagManager);
 
         $this->request->method('getParam')->with('tagIds')->willReturn(['10', '30']);
@@ -145,7 +145,7 @@ final class TagsControllerTest extends TestCase {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["10"]';
         $this->tagManager->method('getTagsByIds')->willThrowException(new \RuntimeException('down'));
         $this->tagManager->method('getAllTags')->willThrowException(new \RuntimeException('down'));
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, null, $this->tagManager);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, null, $this->tagManager);
         $controller = new TagsController('mcp', $this->request, $guard, $this->tagManager);
 
         $this->request->method('getParam')->with('tagIds')->willReturn([]);
@@ -201,7 +201,7 @@ final class TagsControllerTest extends TestCase {
             return '["10"]';
         });
         $config->expects($this->never())->method('setAppValue');
-        $guard = new VisibilityGuard($config, $this->tagMapper);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config, $this->tagMapper);
         $controller = new TagsController('mcp', $this->request, $guard);
         $data = $controller->index()->getData();
         $this->assertSame(1, $reads);
@@ -231,7 +231,7 @@ final class TagsControllerTest extends TestCase {
         $config->expects($this->once())->method('setAppValue')->willReturnCallback(function ($app, $key, $value) use (&$stored): void {
             $stored = $value;
         });
-        $guard = new VisibilityGuard($config, $this->tagMapper);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config, $this->tagMapper);
         $controller = new TagsController('mcp', $this->request, $guard);
         $this->request->method('getParam')->with('tagIds')->willReturn([]);
         $response = $controller->update();

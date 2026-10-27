@@ -7,8 +7,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Checkout;
 
+use OCA\Mcp\Modules\Files\Presentation\BackupPlan;
+
 use OCA\Mcp\Modules\Files\Editing\EditingMessages;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite;
 use OCA\Mcp\Platform\FileAccess\Nodes\NodeAccess;
@@ -24,6 +26,8 @@ use OCP\Files\Node;
 
 final class FileCheckout {
     public function __construct(
+        private BackupLocation $backupLocation,
+        private BackupPlan $backupPlan,
         private \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard $fileTypes,
         private IRootFolder $rootFolder,
         private CheckoutService $checkout,
@@ -89,7 +93,7 @@ final class FileCheckout {
         $shared = $this->guard->guard($file, $userId, $path, false);
         // The same refusal the mint gives, so the plan cannot promise links the upload would not honour.
         $this->checkout->assertAvailable($userId);
-        return [
+        return $this->backupPlan->decorate([
             'action' => 'files_checkout',
             'path' => $path,
             'etag' => (string)$file->getEtag(),
@@ -98,7 +102,6 @@ final class FileCheckout {
             'downloadTtlSeconds' => CheckoutService::DOWNLOAD_TTL,
             'uploadTtlSeconds' => CheckoutService::UPLOAD_TTL,
             'uploadMaxBytes' => $this->checkout->maxBytes(),
-            'backup' => '/' . BackupLocation::FOLDER,
             'access' => $this->accessInfo->describe($file, $userId),
             'shared' => $shared === null ? [] : [$shared],
             'requiresSharedConfirmation' => $shared !== null,
@@ -106,7 +109,7 @@ final class FileCheckout {
             'linksAfterConfirmation' => true,
             'consequence' => CheckoutMessages::planCheckoutConsequence(),
             'message' => CheckoutMessages::planCheckout(),
-        ] + $this->lockNotice($file, $userId, $path, false);
+        ] + $this->lockNotice($file, $userId, $path, false), $userId);
     }
 
     /**
@@ -117,7 +120,7 @@ final class FileCheckout {
      * @throws ToolFailure when the path is inside the backup folder
      */
     private function assertNotBackup(string $path): void {
-        if (BackupLocation::isBackupPath($path)) {
+        if ($this->backupLocation->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
     }

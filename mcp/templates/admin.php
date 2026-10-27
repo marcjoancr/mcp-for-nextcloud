@@ -311,6 +311,7 @@
 
     <div role="tabpanel" id="mcp-panel-protection" aria-labelledby="mcp-tab-protection" class="mcp-tab-panel" tabindex="0">
     <?php include __DIR__ . '/admin-file-write-policy.php'; ?>
+    <?php include __DIR__ . '/admin-backups.php'; ?>
     <div class="section mcp-block" id="mcp-block-tags">
         <h2><?php p($l->t('Excluded from MCP access')); ?></h2>
         <p class="settings-hint mcp-hint"><?php p($l->t('Files and folders tagged with a selected tag, and everything inside those folders, are completely hidden from the tools of this MCP connector. The server log tools respect this only while “Hide the text of log messages” is on.')); ?></p>

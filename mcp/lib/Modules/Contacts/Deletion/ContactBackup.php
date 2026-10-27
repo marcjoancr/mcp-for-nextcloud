@@ -7,6 +7,8 @@
 declare (strict_types=1);
 namespace OCA\Mcp\Modules\Contacts\Deletion;
 
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Platform\Time\UserTimezone;
 use OCA\Mcp\Platform\FileAccess\Locks\LockMessages;
@@ -33,6 +35,7 @@ class ContactBackup
      * @return void
      */
     public function __construct(
+        private BackupLocation $backupLocation,
         private IRootFolder $roots,
         private ITimeFactory $time,
         private IConfig $config,
@@ -48,7 +51,7 @@ class ContactBackup
      */
     public function directory(string $bookName): string
     {
-        return '/' . \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER . '/Contacts/' . $this->segment($bookName);
+        return '/' . $this->backupLocation->current()['folder'] . '/Contacts/' . $this->segment($bookName);
     }
     /**
      * Saves a unique full vCard copy and verifies its content before permitting deletion.

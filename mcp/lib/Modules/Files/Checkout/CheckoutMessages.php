@@ -89,7 +89,7 @@ final class CheckoutMessages {
             . 'Upload raw bytes with curl -T /tmp/file -X PUT -H "Content-Type: application/octet-stream" "$UPLOAD_URL". '
             . 'A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, '
             . 'and bound to you, the file, and current ETag: if the file changes before upload, nothing is '
-            . 'written. Upload creates the same backup as files_edit. If the file is outside your personal '
+            . 'written. Upload follows the same administrator backup setting as files_edit. If the file is outside your personal '
             . 'folder, only issue links after asking the user and retrying with confirm_shared.';
     }
 

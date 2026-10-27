@@ -271,7 +271,7 @@
             "name": "files_edit",
             "module": "files",
             "operation": "edit",
-            "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning and creates a copy in \"/MCP backups\". If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
+            "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -304,7 +304,7 @@
             "name": "files_replace",
             "module": "files",
             "operation": "edit",
-            "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and creates a copy in \"/MCP backups\". If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
+            "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and applies the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -344,7 +344,7 @@
             "name": "files_checkout",
             "module": "files",
             "operation": "edit",
-            "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload creates the same backup as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
+            "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload follows the same administrator backup setting as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -427,7 +427,7 @@
             "module": "files",
             "operation": "restore",
             "app": "files_versions",
-            "description": "Restore a previous file version, first creating a copy of current content in \"/MCP backups\". If the file is outside your personal folder, restore only after asking the user and retrying with confirm_shared.",
+            "description": "Restore a previous file version. Pre-write copies use the configured MCP backup folder unless suspended by the administrator while native versioning is enabled. If the file is outside your personal folder, restore only after asking the user and retrying with confirm_shared.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1090,7 +1090,7 @@
             {
                 "name": "files_edit",
                 "title": "Edit file",
-                "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning and creates a copy in \"/MCP backups\". If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
+                "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1133,7 +1133,7 @@
             {
                 "name": "files_replace",
                 "title": "Replace part of a file",
-                "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and creates a copy in \"/MCP backups\". If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
+                "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and applies the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1183,7 +1183,7 @@
             {
                 "name": "files_checkout",
                 "title": "Download file for local editing",
-                "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload creates the same backup as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
+                "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload follows the same administrator backup setting as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -1285,7 +1285,7 @@
             {
                 "name": "files_version_restore",
                 "title": "Restore file version",
-                "description": "Restore a previous file version, first creating a copy of current content in \"/MCP backups\". If the file is outside your personal folder, restore only after asking the user and retrying with confirm_shared.",
+                "description": "Restore a previous file version. Pre-write copies use the configured MCP backup folder unless suspended by the administrator while native versioning is enabled. If the file is outside your personal folder, restore only after asking the user and retrying with confirm_shared.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -2584,7 +2584,7 @@
             {
                 "name": "files_edit",
                 "title": "Edit file",
-                "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning and creates a copy in \"/MCP backups\". If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
+                "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -2627,7 +2627,7 @@
             {
                 "name": "files_replace",
                 "title": "Replace part of a file",
-                "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and creates a copy in \"/MCP backups\". If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
+                "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and applies the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -2677,7 +2677,7 @@
             {
                 "name": "files_checkout",
                 "title": "Download file for local editing",
-                "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload creates the same backup as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
+                "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload follows the same administrator backup setting as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {

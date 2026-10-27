@@ -4,7 +4,7 @@
 
 # Configuration
 
-Use the administration and personal settings interfaces for policy changes. Direct `occ` writes to policy preferences bypass revision checks, group resolution and credential revocation; they are not a supported way to administer the 1.1.0 policy. Read-only diagnostics such as `occ config:app:get mcp service_enabled` remain useful.
+Use the administration and personal settings interfaces for policy changes. Direct `occ` writes to policy preferences bypass revision checks, group resolution and credential revocation; they are not a supported way to administer policy. Read-only diagnostics such as `occ config:app:get mcp service_enabled` remain useful.
 
 | Storage | Key or owner | Meaning |
 | --- | --- | --- |
@@ -22,8 +22,49 @@ Use the administration and personal settings interfaces for policy changes. Dire
 | Own table | `mcp_logs_groups` | Canonical JSON groups and version; empty means administrators only. Imports legacy appconfig on first read. |
 | App `mcp` | `checkout_max_bytes` | Checkout upload limit in bytes; default 50 MiB, constrained by PHP's `post_max_size`. |
 | App `mcp` | `file_write_policy` | Versioned optional filename allowlist; absent means off. Change in Data protection; invalid/unreadable state refuses affected writes. |
+| App `mcp` | `backup_settings` | Version 1 document with the current root folder, historical reserved names and Files copy preference. Absent: `MCP backups`, copies on. Change in Data protection; malformed/unavailable state refuses applicable operations. |
 | App `mcp` | `hidden_system_tags` | JSON list of excluded system-tag IDs; `[]` disables tag exclusions. |
 | App `mcp` | `logs_hide_file_names` | `1` by default: hide log-message text while exclusions are configured; `0` allows the complete log for diagnosis. |
+
+## MCP backup copies
+
+In administration → **Data protection** → **MCP backup copies**, choose a single
+folder name directly under each acting user's personal Files root. The default is
+`MCP backups`; a dot folder such as `.mcp-backups` is supported. Names are normalized
+to Unicode NFC, limited to 255 UTF-8 bytes and validated by Nextcloud. Paths,
+separators, control characters, `.` and `..` are refused.
+
+Changing the name does not move or delete existing copies. The folder is created
+on the first copy. Every previously configured name, including `MCP backups`, stays
+reserved against MCP Files writes at the actor's root; nested ordinary folders
+with the same name are not automatically reserved. Existing exclusions continue
+to protect mirrors of hidden originals, including canonical shared aliases. This
+is not a filesystem ACL or a general write ban through renamed shared mounts.
+
+Files pre-write copies default on. Administrators can suspend them only with
+Versions enabled; its availability is checked again for the acting user. Unknown
+or unavailable Versions makes copies required and never enables a write otherwise
+refused by the existing Versions precondition. Native versioning follows its own
+policy and does not guarantee recovery of every file/backend. Plans and receipts
+show an empty backup path when no MCP copy will be/was made and do not promise
+MCP recovery. Contacts deletion always requires a verified full vCard copy under
+`/<configured folder>/Contacts`, regardless of the Files setting.
+
+The administrator API uses GET/PUT `/api/backup-settings`, with authentication,
+admin and CSRF checks. PUT sends the complete `folder`, boolean `copies` and string
+`expectedRevision`. Missing/stale revisions return 428/409. The panel preserves
+unsaved input after a conflict or uncertain result and requires a verified reload
+before another save. Responses verify that the revision still matches the settings;
+a concurrent commit during response assembly requires another read. Corrupt configuration does not fall back to defaults or lose
+historical reservations; recovery requires investigating and restoring its last
+known complete document, not deleting the key.
+
+Writes re-read reservations at mutation boundaries, including checkout links and
+batch undo. Undo checks all recorded endpoints before moving anything and retains
+recorded directories that became reserved. Policy commits and native filesystem writes are not one atomic
+transaction: a concurrent change after the final check is outside this guarantee.
+A refusal after copy/creation can leave an accurately reported backup or empty
+file; no automatic deletion or replay is attempted.
 
 ## File type policy
 
@@ -46,7 +87,7 @@ while the policy is active; folder names themselves are not extension filtered.
 
 It covers create/upload, editing and replacement, checkout upload, version restore,
 copy/move, ordered batches and undo, and Notes create/edit/partial edit/move.
-Mandatory internal Files and Contacts recovery backups remain exempt; a public
+Internal Files and mandatory Contacts recovery backups remain exempt; a public
 write using `.bak` or `.vcf` has no exemption. Preview and confirmation check the
 policy; mutation boundaries read it afresh, so a newly blocked checkout upload is
 refused and a blocked undo retains data and its receipt. An unavailable or malformed

@@ -14,7 +14,7 @@ use OCA\Mcp\Modules\Files\Reading\OcrSupport;
 use OCA\Mcp\Modules\Files\Reading\TextExtractor;
 use OCA\Mcp\Modules\Files\Versions\VersionMessages;
 use OCA\Mcp\Modules\Files\Versions\VersionReader;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Tests\Support\Files\FilesToolsTestCase;
 use OCA\Mcp\Tests\Support\Files\Stubs\FakeVersion;
@@ -145,7 +145,7 @@ final class FilesPlanTest extends FilesToolsTestCase {
         $this->assertStringContainsString('-dois', $plan['diff']);
         $this->assertStringContainsString('+três', $plan['diff']);
         $this->assertSame(['before' => 8, 'after' => 9], $plan['size']);
-        $this->assertSame('/' . BackupLocation::FOLDER, $plan['backup']);
+        $this->assertSame('/' . BackupLocation::LEGACY, $plan['backup']);
         $this->assertSame([], $plan['shared']);
         $this->assertFalse($plan['requiresSharedConfirmation']);
         $this->assertTrue($plan['recoverable']);
@@ -159,7 +159,7 @@ final class FilesPlanTest extends FilesToolsTestCase {
         $this->assertSame(['occurrences' => 1, 'replaced' => 1], $plan['snippet']);
         $this->assertStringContainsString('+quatro', $plan['diff']);
         $this->assertSame(['before' => 8, 'after' => 10], $plan['size']);
-        $this->assertSame('/' . BackupLocation::FOLDER, $plan['backup']);
+        $this->assertSame('/' . BackupLocation::LEGACY, $plan['backup']);
         $this->assertTrue($plan['recoverable']);
         $this->assertNothingWritten();
     }
@@ -172,7 +172,7 @@ final class FilesPlanTest extends FilesToolsTestCase {
         $this->assertTrue($plan['linksAfterConfirmation']);
         $this->assertArrayNotHasKey('download', $plan);
         $this->assertArrayNotHasKey('upload', $plan);
-        $this->assertSame('/' . BackupLocation::FOLDER, $plan['backup']);
+        $this->assertSame('/' . BackupLocation::LEGACY, $plan['backup']);
         $this->assertTrue($plan['recoverable']);
         $this->assertNothingWritten();
         $this->assertSame([], $this->store->rows, "no checkout token may be stored by a plan");
@@ -253,7 +253,7 @@ final class FilesPlanTest extends FilesToolsTestCase {
         $this->assertSame('1759100000', $plan['version']['revision']);
         $this->assertSame(['list'], $this->manager->ops, 'a plan reads the versions and never rolls back');
         $this->assertArrayHasKey('etag', $plan['current']);
-        $this->assertSame('/' . BackupLocation::FOLDER, $plan['backup']);
+        $this->assertSame('/' . BackupLocation::LEGACY, $plan['backup']);
         $this->assertTrue($plan['recoverable']);
         $this->assertNothingWritten();
     }

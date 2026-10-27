@@ -22,7 +22,7 @@ final class FilesGuards {
         $config ??= (new InMemoryConfig())->mock($test);
         $tags ??= $mock(ISystemTagObjectMapper::class);
         $root ??= $mock(IRootFolder::class);
-        $plain = new VisibilityGuard($config, $tags, $root, ...$options);
-        return new FilesAccessGuard(FilesScopes::over($test, $plain, $root, static fn () => null), $config, $tags, $root, ...$options);
+        $plain = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($test), $config, $tags, $root, ...$options);
+        return new FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($test), FilesScopes::over($test, $plain, $root, static fn () => null), $config, $tags, $root, ...$options);
     }
 }

@@ -58,8 +58,7 @@ final class VersionMessages {
 
     /** @return string description of files_version_restore */
     public static function versionRestoreTool(): string {
-        return 'Restore a previous file version, first creating a copy of current content in '
-            . '"/MCP backups". If the file is outside your personal folder, '
+        return 'Restore a previous file version. Pre-write copies use the configured MCP backup folder unless suspended by the administrator while native versioning is enabled. If the file is outside your personal folder, '
             . 'restore only after asking the user and retrying with confirm_shared.';
     }
 }

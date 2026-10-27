@@ -20,6 +20,23 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
   actual-host facts and human reviews remain pending. Public HTTPS, Inspector
   and ChatGPT acceptance are not established by local unit or native tests.
 
+### Selected upstream 1.2.1 integration
+
+U1 and U2 are integrated into the fork architecture; Tasks hierarchy, optional Mail
+and complete 1.2.1 qualification remain pending.
+
+- Preserve backup-mirror privacy across verified personal roots and canonical
+  shared aliases without treating ordinary nested names as backup folders.
+- Add revisioned administration of the backup folder and Files pre-write copies.
+  Names are NFC-normalized; historical root names remain reserved. Copies default
+  on and can be suspended only with Versions available; Contacts deletion always
+  requires a verified vCard copy. Existing copies are never moved or deleted.
+- Recheck reservations at write boundaries and preflight every undo endpoint;
+  retain recorded folders that became reserved. Plans, receipts and client guidance
+  describe the effective copy policy without promising native version recovery.
+  See [configuration](docs/en/reference/configuration.md#mcp-backup-copies) and
+  [U2 evidence](docs/en/development/upstream-1.2.1-u2-integration.md).
+
 ### Selected upstream 1.2.0 integration
 
 Selected source: `02526119b845ccc1d8399be002da3e30b5527df6`; the independent

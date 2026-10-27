@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Checkout;
 
+use OCA\Mcp\Modules\Files\Editing\BackupWriteBoundary;
+
 use OCA\Mcp\Mcp\Confirmation\ConfirmationMessages;
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
@@ -86,7 +88,10 @@ final class CheckoutWriter {
             $asUser = $this->actsAsUser($row->userId);
             $copy = $this->backup->prepare($root, $file, $row->path, $row->userId, $row->etag, $asUser);
             $this->visibilityGuard->assertVisible($file);
-            $write = fn () => $this->fileTypes->writeFile($file, fn () => $file->putContent((string)file_get_contents($body)));
+            $write = fn () => $this->fileTypes->writeFile($file, function () use ($row, $file, $body, $copy) {
+                BackupWriteBoundary::afterCopy($this->backup, $row->path, $copy);
+                return $file->putContent((string)file_get_contents($body));
+            });
             // Checked again right before the write: the backup took time, and files_lock does not refuse every lock.
             NodeAccess::mutate(fn () => $this->locks === null ? $write() : $this->locks->run($write, $file, $row->userId, $row->path, $asUser), $this->visibilityGuard);
             $node = NodeAccess::requireFile(NodeAccess::get($root, $row->path, $this->visibilityGuard));

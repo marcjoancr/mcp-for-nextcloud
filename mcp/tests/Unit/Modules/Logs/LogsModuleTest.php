@@ -83,7 +83,7 @@ final class LogsModuleTest extends TestCase {
         $mapper = new \OCA\Mcp\Db\LogsGroupsMapper($db->connection(), (new \OCA\Mcp\Tests\Unit\InMemoryAppConfig())->worker($this));
         $groups->method('getBackends')->willReturn([new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn (): array => ['admin' => ['root']])]);
         $access = \OCA\Mcp\Tests\Unit\InMemoryConfig::logsAccess($this, $config, $groups, $mapper, new \OCA\Mcp\Tests\Unit\InMemoryLocks());
-        $guard = new \OCA\Mcp\Access\Visibility\VisibilityGuard($config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
+        $guard = new \OCA\Mcp\Access\Visibility\VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config, $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class));
         $fileNames = new \OCA\Mcp\Access\Logs\LogFileNames($this->appConfig->worker($this), $guard);
         $query = new \OCA\Mcp\Modules\Logs\Reading\LogQuery(new LogScanner(new LogReader($factory)), $config, $fileNames);
         $envelope = new \OCA\Mcp\Modules\Logs\Presentation\LogEnvelope($config);

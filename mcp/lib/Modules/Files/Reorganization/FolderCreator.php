@@ -10,7 +10,7 @@ namespace OCA\Mcp\Modules\Files\Reorganization;
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
 use OCA\Mcp\Modules\Files\Editing\EditingMessages;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Platform\FileAccess\Nodes\NodeAccess;
 use OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo;
@@ -21,6 +21,7 @@ use OCP\Files\Folder;
 
 final class FolderCreator {
     public function __construct(
+        private BackupLocation $backupLocation,
         private NodeAccessInfo $access,
         private SharedWriteGuard $guard,
         private MoveInspection $moveInspection,
@@ -47,7 +48,7 @@ final class FolderCreator {
         if ($path === '/') {
             throw new ToolFailure(ReorganizationMessages::destinationExists());
         }
-        if (BackupLocation::isBackupPath($path)) {
+        if ($this->backupLocation->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
         $relPath = ltrim($path, '/');
@@ -95,7 +96,7 @@ final class FolderCreator {
         if ($path === '/') {
             throw new ToolFailure(ReorganizationMessages::destinationExists());
         }
-        if (BackupLocation::isBackupPath($path)) {
+        if ($this->backupLocation->contains($path)) {
             throw new ToolFailure(EditingMessages::backupPath());
         }
         $rel = ltrim($path, '/');

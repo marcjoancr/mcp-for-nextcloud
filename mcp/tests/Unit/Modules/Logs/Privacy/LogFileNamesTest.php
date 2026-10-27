@@ -129,7 +129,7 @@ final class LogFileNamesTest extends TestCase {
         $config = new InMemoryConfig();
         $appConfig = new InMemoryAppConfig();
         $service = fn (): LogFileNames => new LogFileNames($appConfig->worker($this),
-            new VisibilityGuard($config->mock($this), $this->createMock(ISystemTagObjectMapper::class)));
+            new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config->mock($this), $this->createMock(ISystemTagObjectMapper::class)));
 
         $this->assertTrue($service()->enabled());
         $this->assertFalse($service()->active(), 'Without configured tags nothing changes');

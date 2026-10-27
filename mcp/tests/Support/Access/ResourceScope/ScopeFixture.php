@@ -91,7 +91,7 @@ final class ScopeFixture {
             }
             return $result;
         });
-        $this->guard = new VisibilityGuard($this->config->mock($test), $mapper, $this->tree->filesystemRoot());
+        $this->guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($test), $this->config->mock($test), $mapper, $this->tree->filesystemRoot());
 
         $this->calendars = new FakeCalendarStore();
         $this->calendars->addCalendar('principals/users/alice', 11, 'personal', 'principals/users/alice', ['name' => 'Personal', 'components' => ['VEVENT']]);

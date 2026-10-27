@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Files\Editing;
 
 use OCA\Mcp\L10n\Translator;
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
 
 final class EditingMessages {
     /**
@@ -33,7 +32,7 @@ final class EditingMessages {
 
     /** @return string an edit inside the backup folder */
     public static function backupPath(): string {
-        return Translator::t('Files in \'/%s\' cannot be edited via MCP.', [BackupLocation::FOLDER]);
+        return Translator::t('MCP backup folders, including previously configured names, are protected against writes through MCP.');
     }
 
     /** @return string versioning is off for the user */
@@ -77,7 +76,7 @@ final class EditingMessages {
      * @return string closing sentence of a lock refusal that came after the backup
      */
     public static function originalKept(string $backup): string {
-        return Translator::t('The original is kept in %s.', [$backup]);
+        return $backup === '' ? Translator::t('No MCP pre-write copy was created; native versioning follows its own policy.') : Translator::t('The original is kept in %s.', [$backup]);
     }
 
     /**
@@ -85,13 +84,13 @@ final class EditingMessages {
      * @return string a failed write, naming where the original still is
      */
     public static function writeFailed(string $backup): string {
-        return Translator::t('Failed to write file; original preserved in %s.', [$backup]);
+        return $backup === '' ? Translator::t('Failed to write file. No MCP pre-write copy was created; native versioning follows its own policy.') : Translator::t('Failed to write file; original preserved in %s.', [$backup]);
     }
 
     /** @return string description of files_edit */
     public static function editTool(): string {
         return 'Replace the content of an existing text file and return the diff. Before writing, requires '
-            . 'active versioning and creates a copy in "/MCP backups". If the file is outside your personal '
+            . 'active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal '
             . 'folder, only write after asking the user and retrying the call with confirm_shared. '
             . 'Never creates, moves, or deletes files.';
     }
@@ -115,8 +114,7 @@ final class EditingMessages {
     /** @return string description of files_replace */
     public static function replaceTool(): string {
         return 'Replace a unique snippet of an existing text file and return the diff. The specified snippet '
-            . 'must appear exactly once. Before writing, requires active versioning and creates a copy '
-            . 'in "/MCP backups". If the file is outside your personal folder, only write after '
+            . 'must appear exactly once. Before writing, requires active versioning and applies the administrator backup setting. If the file is outside your personal folder, only write after '
             . 'asking the user and retrying the call with confirm_shared.';
     }
 

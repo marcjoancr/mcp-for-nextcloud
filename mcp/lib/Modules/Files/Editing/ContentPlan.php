@@ -7,7 +7,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Files\Editing;
 
-use OCA\Mcp\Platform\FileAccess\BackupLocation;
+use OCA\Mcp\Modules\Files\Presentation\BackupPlan;
+
 use OCA\Mcp\Platform\FileAccess\Locks\LockAwareWrite;
 use OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo;
 use OCA\Mcp\Platform\FileAccess\Sharing\SharedWriteGuard;
@@ -17,6 +18,7 @@ use OCP\Files\Node;
 
 final class ContentPlan {
     public function __construct(
+        private BackupPlan $backupPlan,
         private NodeAccessInfo $accessInfo,
         private SharedWriteGuard $guard,
         private ?LockAwareWrite $locks = null,
@@ -35,16 +37,15 @@ final class ContentPlan {
      */
     public function describe(File $file, string $userId, string $path, array $plan): array {
         $shared = $this->guard->guard($file, $userId, $path, false);
-        return $plan + [
+        return $this->backupPlan->decorate($plan + [
             'path' => $path,
             'etag' => (string)$file->getEtag(),
-            'backup' => '/' . BackupLocation::FOLDER,
             'access' => $this->accessInfo->describe($file, $userId),
             'shared' => $shared === null ? [] : [$shared],
             'requiresSharedConfirmation' => $shared !== null,
             'recoverable' => true,
             'consequence' => EditingMessages::planBackupConsequence(),
-        ] + $this->lockNotice($file, $userId, $path);
+        ] + $this->lockNotice($file, $userId, $path), $userId);
     }
 
     /**

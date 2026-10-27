@@ -29,7 +29,7 @@ class BatchStore {
 
     /**
      * Stores a batch, first dropping the ones whose lifetime has ended. It is a row that goes, not a file
-     * of the user: /MCP backups never gets a window like this one.
+     * of the user: reserved backup roots never get a window like this one.
      *
      * @param Batch $batch the batch that ran
      * @return int the id of the stored row

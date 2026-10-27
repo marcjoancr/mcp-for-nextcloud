@@ -127,6 +127,9 @@ final class VisibilityContractTest extends TestCase {
     }
 
     private function build(string $class): object {
+        if ($class === \OCA\Mcp\Access\BackupPolicy\BackupSettingsDocument::class) {
+            return \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::fromConfig($this, $this->config->appConfig($this));
+        }
         if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {
             return new \OCA\Mcp\Modules\Logs\LogsModule([
                 'logs_list' => fn () => $this->build(\OCA\Mcp\Modules\Logs\Tools\ListLogs::class),

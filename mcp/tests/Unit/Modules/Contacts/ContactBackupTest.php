@@ -53,7 +53,7 @@ final class ContactBackupTest extends TestCase {
         $config = $this->createMock(IConfig::class);
         $config->method('getUserValue')->willReturn('America/Sao_Paulo');
         $this->locks = $this->createMock(ILockingProvider::class);
-        $this->backup = new ContactBackup($roots, $time, $config, $this->locks);
+        $this->backup = new ContactBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $roots, $time, $config, $this->locks);
     }
 
     public function testFullVcardIsReadBackAndUniqueNameUsesAccountTimezone(): void {

@@ -7,10 +7,11 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Access\Visibility;
 
+use OCA\Mcp\Access\BackupPolicy\BackupLocation;
+
 use OCA\Mcp\Platform\FileAccess\FileAccessMessages;
 
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
-use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
@@ -77,6 +78,7 @@ class VisibilityGuard {
     private ?array $explanation = null;
 
     public function __construct(
+        private BackupLocation $backupLocation,
         private IConfig $config,
         private ISystemTagObjectMapper $tagMapper,
         private ?IRootFolder $rootFolder = null,
@@ -255,7 +257,7 @@ class VisibilityGuard {
             }
         }
 
-        // Check /MCP backups mirror rule
+        // Check current and historical backup mirror rules
         if ($this->isHiddenBackup($node)) {
             $this->because(self::EXPLAINED_BACKUP);
             if ($nodeId > 0) {
@@ -727,6 +729,7 @@ class VisibilityGuard {
         $this->ownerOrigins = [];
         $this->shareRootCache = [];
         $this->backupFolderMatcher?->clearCache();
+        $this->backupLocation->invalidate();
     }
 
     /** Clears the in-memory caches. */
@@ -739,11 +742,12 @@ class VisibilityGuard {
         $this->ownerOrigins = [];
         $this->shareRootCache = [];
         $this->backupFolderMatcher?->clearCache();
+        $this->backupLocation->invalidate();
     }
 
     /** Refuses a mirror when its original is hidden or its origin cannot be verified. */
     private function isHiddenBackup(Node $node): bool {
-        $matcher = $this->backupFolderMatcher ??= new BackupFolderMatcher($this->rootFolder);
+        $matcher = $this->backupFolderMatcher ??= new BackupFolderMatcher($this->backupLocation, $this->rootFolder);
         $shareRoot = $this->shareRootCache[(int)$node->getId() . ':' . $node->getPath()]['node'] ?? null;
         $share = $shareRoot === null ? null : [
             'root' => $shareRoot,

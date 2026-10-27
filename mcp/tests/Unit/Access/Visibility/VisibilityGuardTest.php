@@ -57,7 +57,7 @@ final class VisibilityGuardTest extends TestCase {
             return '["42"]';
         });
         $this->tree->addFile('/alice/files/plain', 'x');
-        $guard = new VisibilityGuard($config, $this->tagMapper);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $config, $this->tagMapper);
         $this->assertFalse($guard->isVisible($this->tree->node('/alice/files/plain')));
         $this->assertTrue($guard->isVisible($this->tree->node('/alice/files/plain')));
         $this->assertSame(2, $calls);
@@ -126,7 +126,7 @@ final class VisibilityGuardTest extends TestCase {
         $events->method('addListener')->willReturnCallback(function (string $name, callable $listener) use (&$listeners): void {
             $listeners[$name] = $listener;
         });
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
         $node = $this->tree->node('/alice/files/item');
         $this->assertTrue($guard->isVisible($node));
         $this->tagAssignments[(string)$id] = ['42'];
@@ -187,7 +187,7 @@ final class VisibilityGuardTest extends TestCase {
         $this->tree->afterMove = function (string $from, string $to) use ($events, $source): void {
             $events->dispatchTyped(new \OCP\Files\Events\Node\NodeRenamedEvent($source, $this->tree->node($to)));
         };
-        return new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
+        return new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
     }
 
     public function testPartialMutationFailureStillInvalidatesVisibility(): void {
@@ -227,7 +227,7 @@ final class VisibilityGuardTest extends TestCase {
             $this->assertSame(PHP_INT_MIN, $priority);
             $listeners[$name] = $listener;
         });
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
         $this->assertTrue($guard->isVisible($file));
         $this->tagAssignments[(string)$id] = ['42'];
         $event = $twoNodes ? new $class($file, $file) : new $class($file);
@@ -243,7 +243,7 @@ final class VisibilityGuardTest extends TestCase {
         $events->method('addListener')->willReturnCallback(static function (string $name, callable $listener) use (&$listeners): void {
             $listeners[$name] = $listener;
         });
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot(), null, null, $events);
         $file = $this->tree->node('/alice/files/file');
         $this->assertTrue($guard->isVisible($file));
         $this->assertArrayHasKey(\OCP\SystemTag\MapperEvent::EVENT_ASSIGN, $listeners);
@@ -258,7 +258,7 @@ final class VisibilityGuardTest extends TestCase {
     }
 
     private function guard(): VisibilityGuard {
-        return new VisibilityGuard($this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot());
+        return new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $this->tree->filesystemRoot());
     }
 
     public function testZeroCostWhenNoTagsConfigured(): void {
@@ -291,7 +291,7 @@ final class VisibilityGuardTest extends TestCase {
             'MCP visibility check failed; access refused', ['app' => 'mcp']
         );
         $node = $this->tree->rootFolder();
-        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot(), null, $logger);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper, $this->tree->filesystemRoot(), null, $logger);
         $this->assertFalse($guard->isVisible($node));
         $this->assertTrue($guard->isVisible($node));
     }
@@ -312,7 +312,7 @@ final class VisibilityGuardTest extends TestCase {
         $folder->method('getById')->willReturn([$node]);
         $root = $this->createMock(\OCP\Files\IRootFolder::class);
         $root->method('getUserFolder')->willReturn($folder);
-        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $root);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper, $root);
         $this->assertFalse($guard->isVisible($node));
         $this->assertFalse($guard->isVisible($node));
     }
@@ -326,7 +326,7 @@ final class VisibilityGuardTest extends TestCase {
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturn(['123' => ['42']]);
         $mapper->expects($this->never())->method('assignTags');
-        $guard = new VisibilityGuard($this->config->mock($this), $mapper);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper);
         $this->expectException(ToolFailure::class);
         $guard->copyHiddenTags($source, $destination);
     }
@@ -379,7 +379,7 @@ final class VisibilityGuardTest extends TestCase {
         $this->tagAssignments[(string)$origId] = ['7'];
 
         // Backup mirror path
-        $backupPath = '/alice/files/' . \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER . '/docs/secret.txt.20261001-120000.bak';
+        $backupPath = '/alice/files/' . \OCA\Mcp\Access\BackupPolicy\BackupLocation::LEGACY . '/docs/secret.txt.20261001-120000.bak';
         $backupId = $this->tree->addFile($backupPath, 'secret');
         $backup = $this->tree->node($backupPath);
 
@@ -395,7 +395,7 @@ final class VisibilityGuardTest extends TestCase {
         $orig = $this->tree->node('/alice/files/secret.txt');
         $this->tagAssignments[(string)$origId] = ['7'];
 
-        $backupPath = '/alice/files/' . \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER . '/secret.txt.20261001-120000.bak';
+        $backupPath = '/alice/files/' . \OCA\Mcp\Access\BackupPolicy\BackupLocation::LEGACY . '/secret.txt.20261001-120000.bak';
         $backupId = $this->tree->addFile($backupPath, 'secret');
         $backup = $this->tree->node($backupPath);
 
@@ -449,7 +449,7 @@ final class VisibilityGuardTest extends TestCase {
 
         $tagManager->method('getTagsByIds')->willReturn(['10' => $tag1]);
 
-        $guard = new VisibilityGuard(
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this),
             $this->config->mock($this),
             $this->tagMapper,
             null,
@@ -482,7 +482,7 @@ final class VisibilityGuardTest extends TestCase {
 
         $origId = $this->tree->addFile('/alice/files/docs/secret.txt', 'secret');
         $this->tagAssignments[(string)$origId] = ['7'];
-        $backupPath = '/alice/files/' . \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER . '/docs/secret.txt.20261001-120000.bak';
+        $backupPath = '/alice/files/' . \OCA\Mcp\Access\BackupPolicy\BackupLocation::LEGACY . '/docs/secret.txt.20261001-120000.bak';
         $this->tree->addFile($backupPath, 'secret');
 
         $this->assertFalse($guard->isVisible($this->tree->node($backupPath)));
@@ -493,7 +493,7 @@ final class VisibilityGuardTest extends TestCase {
         $guard = $this->guard();
 
         $this->tree->addFile('/alice/files/docs/report.txt', 'report');
-        $backupPath = '/alice/files/' . \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER . '/docs/report.txt.20261001-120000.bak';
+        $backupPath = '/alice/files/' . \OCA\Mcp\Access\BackupPolicy\BackupLocation::LEGACY . '/docs/report.txt.20261001-120000.bak';
         $this->tree->addFile($backupPath, 'report');
 
         $this->assertTrue($guard->isVisible($this->tree->node('/alice/files/docs/report.txt')));
@@ -503,7 +503,7 @@ final class VisibilityGuardTest extends TestCase {
     /** A3: a tag manager that cannot answer refuses the save and keeps the previous protection. */
     public function testTagManagerFailureKeepsProtection(): void {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, null, $this->failingTagManager());
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, null, $this->failingTagManager());
 
         $refused = false;
         try {
@@ -520,7 +520,7 @@ final class VisibilityGuardTest extends TestCase {
 
     public function testExplicitRemovalOfAllTagsNeedsNoTagManager(): void {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, null, $this->failingTagManager());
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, null, $this->failingTagManager());
 
         $guard->setHiddenTagIds([]);
 
@@ -535,7 +535,7 @@ final class VisibilityGuardTest extends TestCase {
         $logger->expects($this->once())->method('warning')->with(
             'MCP hidden tags configuration is invalid; access refused', ['app' => 'mcp']
         );
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, null, null, $logger);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, null, null, $logger);
 
         $secretId = $this->tree->addFile('/alice/files/secret.txt', 'secret');
         $this->tagAssignments[(string)$secretId] = ['42'];
@@ -631,7 +631,7 @@ final class VisibilityGuardTest extends TestCase {
         $logger->expects($this->once())->method('warning')->with(
             'MCP hidden tags configuration is invalid; access refused', ['app' => 'mcp']
         );
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper, null, null, $logger);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, null, null, $logger);
         $this->tree->addFile('/alice/files/plain.txt', 'plain');
         $this->tree->addFile('/alice/files/copy.txt', 'copy');
         $plain = $this->tree->node('/alice/files/plain.txt');
@@ -723,7 +723,7 @@ final class VisibilityGuardTest extends TestCase {
     public function testMissingRootResolverRefusesAccess(): void {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $this->tree->addFile('/alice/files/report.txt', 'report', 'text/plain', ['scope' => 'shared']);
-        $guard = new VisibilityGuard($this->config->mock($this), $this->tagMapper);
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper);
         $this->assertFalse($guard->isVisible($this->tree->node('/alice/files/report.txt')));
     }
 
@@ -888,7 +888,7 @@ final class VisibilityGuardTest extends TestCase {
             return [$origins[$id]];
         });
         $root->method('getUserFolder')->willReturn($ownerFolder);
-        return [new VisibilityGuard($this->config->mock($this), $this->tagMapper, $root), $files, $counts];
+        return [new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $root), $files, $counts];
     }
 
     /** @return array{VisibilityGuard, Node} */
@@ -908,7 +908,7 @@ final class VisibilityGuardTest extends TestCase {
         $folder->expects($this->never())->method('getOwner');
         $node = $this->ancestryNode(30, $folder, $owner);
         $node->expects($this->never())->method('getOwner');
-        return [new VisibilityGuard($this->config->mock($this), $this->tagMapper, $root), $node];
+        return [new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $root), $node];
     }
 
     /** @return array{VisibilityGuard, Node, Node} */
@@ -942,7 +942,7 @@ final class VisibilityGuardTest extends TestCase {
                 }
             );
         }
-        return [new VisibilityGuard($this->config->mock($this), $this->tagMapper, $root), $alias, $aliasSub];
+        return [new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $this->tagMapper, $root), $alias, $aliasSub];
     }
 
     private function ancestryNode(int $id, Node $parent, ?\OCP\IUser $owner, bool $shared = false, string $path = ''): Folder {
@@ -1025,7 +1025,7 @@ final class VisibilityGuardTest extends TestCase {
         $guard = $this->guard();
         $original = $this->tree->addFile('/alice/files/docs/secret.txt', 'secret');
         $this->tagAssignments[(string)$original] = ['7'];
-        $backup = '/alice/files/' . \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER . '/docs/secret.txt.20261001-120000.bak';
+        $backup = '/alice/files/' . \OCA\Mcp\Access\BackupPolicy\BackupLocation::LEGACY . '/docs/secret.txt.20261001-120000.bak';
         $this->tree->addFile($backup, 'secret');
 
         // The original's own reason (a direct tag) is not the backup's.
@@ -1037,7 +1037,7 @@ final class VisibilityGuardTest extends TestCase {
     public function testA5ABackupWhoseOriginalCannotBeEvaluatedIsNotEvaluated(): void {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = json_encode(['7']);
         $original = (string)$this->tree->addFile('/alice/files/docs/plain.txt', 'plain');
-        $backup = '/alice/files/' . \OCA\Mcp\Platform\FileAccess\BackupLocation::FOLDER . '/docs/plain.txt.20261001-120000.bak';
+        $backup = '/alice/files/' . \OCA\Mcp\Access\BackupPolicy\BackupLocation::LEGACY . '/docs/plain.txt.20261001-120000.bak';
         $this->tree->addFile($backup, 'plain');
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturnCallback(static function (array $ids) use ($original): array {
@@ -1046,7 +1046,7 @@ final class VisibilityGuardTest extends TestCase {
             }
             return array_fill_keys(array_map('strval', $ids), []);
         });
-        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper, $this->tree->filesystemRoot());
 
         $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($this->tree->node($backup))['reason']);
         $this->assertFalse($guard->isVisible($this->tree->node($backup)), 'still refused');
@@ -1061,7 +1061,7 @@ final class VisibilityGuardTest extends TestCase {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willThrowException(new \RuntimeException('down'));
-        $guard = new VisibilityGuard($this->config->mock($this), $mapper, $this->tree->filesystemRoot());
+        $guard = new VisibilityGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $this->config->mock($this), $mapper, $this->tree->filesystemRoot());
         $this->assertSame(VisibilityGuard::EXPLAINED_NOT_EVALUATED, $guard->explain($plain)['reason']);
         $this->assertFalse($guard->isVisible($plain));
     }

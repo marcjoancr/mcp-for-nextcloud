@@ -26,7 +26,7 @@ abstract class FilesEditFixture extends FilesReadFixture {
         $locks = $this->locks->service($this);
         $time = $this->createMock(ITimeFactory::class);
         $time->method('getTime')->willReturn(1790000000);
-        $backup = new FileBackup($this->apps, $this->users, $time, $this->config->mock($this), $this->visibility, $locks);
-        $this->editor = new TextFileEditor(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $this->root, $this->extractor, new ContentWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $backup, $this->access, $this->visibility, $locks), new ContentPlan($this->access, new SharedWriteGuard($this->access), $locks), new SharedWriteGuard($this->access), $this->visibility, $locks);
+        $backup = new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config)), $this->apps, $this->users, $time, $this->config->mock($this), $this->visibility, $locks);
+        $this->editor = new TextFileEditor(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $this->root, $this->extractor, new ContentWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $backup, $this->access, $this->visibility, $locks), new ContentPlan(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::plan($this, $this->config), $this->access, new SharedWriteGuard($this->access), $locks), new SharedWriteGuard($this->access), $this->visibility, $locks);
     }
 }

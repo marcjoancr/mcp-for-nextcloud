@@ -580,7 +580,7 @@ final class ResourceRegistryTest extends TestCase {
         $plain = $this->openGuard();
         $scope = \OCA\Mcp\Tests\Support\Access\ResourceScope\FilesScopes::over($this, $plain, $this->tree->filesystemRoot(),
             static function () use (&$items): array|false { return $items; });
-        $files = new \OCA\Mcp\Access\ResourceScope\FilesAccessGuard($scope, $this->config->mock($this),
+        $files = new \OCA\Mcp\Access\ResourceScope\FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $scope, $this->config->mock($this),
             $this->createMock(\OCP\SystemTag\ISystemTagObjectMapper::class), $this->tree->filesystemRoot());
         $registry = new ResourceRegistry($this->toolRegistry, $this->policy, $this->appManager, $this->userManager,
             new \OCA\Mcp\Modules\Files\Reading\NextcloudFileResourceReader($this->rootFolder, $files, $this->extractor),

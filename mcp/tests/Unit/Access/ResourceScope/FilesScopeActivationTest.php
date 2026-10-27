@@ -45,7 +45,7 @@ final class FilesScopeActivationTest extends TestCase {
         $tags = $this->createMock(ISystemTagObjectMapper::class);
         $tags->method('getTagIdsForObjects')->willReturnCallback(fn (array $ids): array => array_combine(array_map('strval', $ids),
             array_map(fn ($id): array => $this->fx->tags[(string)$id] ?? [], $ids)));
-        $gate = new FilesAccessGuard($scope, $this->fx->config->mock($this), $tags, $this->fx->tree->filesystemRoot());
+        $gate = new FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), $scope, $this->fx->config->mock($this), $tags, $this->fx->tree->filesystemRoot());
         return [$policy, $gate, new FilesReferenceScope($scope)];
     }
 
