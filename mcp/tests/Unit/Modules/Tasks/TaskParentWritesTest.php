@@ -20,6 +20,16 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
  * when a loop appears after the write, the schema, and no cascade to subtasks.
  */
 final class TaskParentWritesTest extends TaskListingCase {
+    public function testNumericParentUidsKeepTheirTitlesInCreateAndEditPlans(): void {
+        $this->tasks['123'] = $this->task('123', 'First project');
+        $this->tasks['0'] = $this->task('0', 'Zero project');
+        $this->tasks['t1'] = $this->task('t1', 'Work', "RELATED-TO:123\r\n");
+        $create = $this->module->preview('tasks_create_task', ['calendar' => self::PATH, 'summary' => 'Step', 'parent' => '123'], 'alice');
+        self::assertStringContainsString('**First project** ("123")', $this->module->renderPlan('tasks_create_task', $create));
+        $edit = $this->module->preview('tasks_edit_task', ['calendar' => self::PATH, 'uid' => 't1', 'parent' => '0'], 'alice');
+        self::assertStringContainsString('**First project** ("123") → **Zero project** ("0")', $this->module->renderPlan('tasks_edit_task', $edit));
+    }
+
 	/**
 	 * Two parents with the same title, or titles that read alike once cut, are told apart by UID in the plan.
 	 *
