@@ -22,8 +22,9 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ### Selected upstream 1.2.1 integration
 
-U1 and U2 are integrated into the fork architecture; Tasks hierarchy, optional Mail
-and complete 1.2.1 qualification remain pending.
+U1–U5 reconcile the selected 1.2.1 capabilities with the fork architecture.
+Release, intended-server and hosted-client qualification remain pending; see the
+[U5 record](docs/en/development/upstream-1.2.1-u5-integration.md).
 
 - Preserve backup-mirror privacy across verified personal roots and canonical
   shared aliases without treating ordinary nested names as backup folders.
@@ -37,12 +38,23 @@ and complete 1.2.1 qualification remain pending.
   See [configuration](docs/en/reference/configuration.md#mcp-backup-copies) and
   [U2 evidence](docs/en/development/upstream-1.2.1-u2-integration.md).
 
+- Add Tasks parent reads, direct-child filtering and confirmed parent changes,
+  preserving other relations and rejecting cycles or depth beyond 64. Keep numeric
+  parent UID titles. Original subtasks contribution: @mturgeonferland.
+- Add optional Mail account and cached-folder reads with explicit permission,
+  ownership checks and no message reading, synchronization or mutation.
+- Reconcile every upstream path, preserve all 84 module tool names and schema
+  constraints, qualify configured-copy descriptions and add German store metadata.
+- Repair old-release upgrade comparisons to require a denied Mail grant while
+  retaining every old permission; add the pinned upstream 1.2.0 upgrade cell.
+
 ### Selected upstream 1.2.0 integration
 
 Selected source: `02526119b845ccc1d8399be002da3e30b5527df6`; the independent
 candidate now declares 2.0.0. Final qualification and human reviews remain pending.
 The Colima queue and German README addition are excluded from this integration;
-no blanket upstream 1.2.0 parity or installed-1.2.0 upgrade claim is made.
+no blanket upstream 1.2.0 parity or intended-server upgrade claim is made. U5
+records the separate disposable Apache 1.2.0 upgrade evidence.
 
 - Notes gains mutually exclusive append/unique-passage replacement with ETag and
   plan-state confirmation. Existing full-content and title-only edits remain.

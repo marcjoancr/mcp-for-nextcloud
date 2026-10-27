@@ -32,3 +32,5 @@ existing app passwords and OAuth credentials. Resource selection by Mail account
 is not provided; the grant covers the actor's owned accounts.
 
 [All tools](../tools.md) · [Permissions](../../guides/permissions.md)
+
+English · [Español](../../../es/reference/tools/mail.md) · [Català](../../../ca/reference/tools/mail.md) · [Português (Brasil)](../../../pt-BR/reference/tools/mail.md) · [Português (Portugal)](../../../pt-PT/reference/tools/mail.md)

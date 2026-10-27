@@ -51,3 +51,5 @@ E também:
 [Guias de operação](../guides/README.md).
 
 [English](../../en/reference/tools.md) · [Español](../../es/reference/tools.md) · [Català](../../ca/reference/tools.md) · Português (Brasil) · [Português (Portugal)](../../pt-PT/reference/tools.md)
+
+[Mail](tools/mail.md).

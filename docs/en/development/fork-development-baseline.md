@@ -13,11 +13,11 @@ PR #14. The original `main` and PR reference remain intact.
 `fork/main` contains the capability architecture, selected upstream 1.2.0 ports,
 Nextcloud MCP / 2.0.0 preparation and L0 at `80bd12ca`. The
 [1.2.1 intake](upstream-1.2.1-intake.md) records the newer release and proposed
-capability batches; **1.2.1 is not fully integrated**. The
+capability batches; **selected 1.2.1 capability integration is reconciled in U5; release qualification remains pending**. The
 [U1 record](upstream-1.2.1-u1-integration.md) covers backup visibility; the
 [U2 record](upstream-1.2.1-u2-integration.md) covers configured backups and copy
 policy; [U3](upstream-1.2.1-u3-integration.md) adds Tasks hierarchy and
-[U4](upstream-1.2.1-u4-integration.md) adds optional Mail. U5 remains pending. The U3 record links the four passing U2 workflows; subsequent commits
+[U4](upstream-1.2.1-u4-integration.md) adds optional Mail. [U5](upstream-1.2.1-u5-integration.md) records reconciliation and pending release gates. The U3 record links the four passing U2 workflows; subsequent commits
 need their own checks.
 
 Create new topic branches from `fork/main` and contribute to this fork. Preserve

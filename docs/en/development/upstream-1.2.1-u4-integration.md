@@ -178,3 +178,7 @@ Mail as `f4e5527c`. Automatic approval review rejected the attempted push to
 explicit. No push took place; renewed owner confirmation is needed before retrying.
 The remote remains at U3 `9b580041`, whose four workflows were rechecked as
 completed/success. U4 remote CI has not started and remains pending publication.
+
+The owner subsequently authorized publication; `fork/main` reached `99df0211`.
+[U5](upstream-1.2.1-u5-integration.md) records the resulting CI failure in legacy
+upgrade comparisons and its repair. The prior publication blocker above is historical.
