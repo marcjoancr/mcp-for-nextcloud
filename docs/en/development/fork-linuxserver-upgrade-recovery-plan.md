@@ -3,8 +3,10 @@
 
 # LinuxServer/Nginx isolated upgrade and recovery test plan
 
-**Status:** reviewed on 2026-10-24; L0 offline planning is implemented.
-L1-L5 execution remains unimplemented and no rehearsal has run. See the
+**Status:** reviewed for U5 on 2026-10-27. L0 offline planning is implemented,
+but its committed profile still selects the pre-U5 candidate `0000d8c8`.
+**Reopen L0 input qualification for U5 before L1.** L1-L5 execution remains
+unimplemented and no LinuxServer rehearsal has run. Preserve the historical
 [L0 input and validation record](fork-linuxserver-l0.md).
 This is a local qualification plan, not a production runbook or deployment approval.
 
@@ -61,7 +63,8 @@ runtime versions separately; a tag does not establish them.
 | Input | Selection and gate |
 | --- | --- |
 | Baseline | Upstream 1.2.0 commit `02526119b845ccc1d8399be002da3e30b5527df6`; use its reviewed packaging inputs and lockfiles, record archive SHA-256 and extracted inventory. This is not yet a byte comparison with the installed server app |
-| Initial candidate | Reviewed source-audit commit `0000d8c807cfae300c2009ce53f9efb4a5df8081`; complete retained kit, trusted manifest SHA-256 `032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f`. Recheck with `verify:source` before use. Later commits require their own kit and digest |
+| Historical L0 candidate | Reviewed source-audit commit `0000d8c807cfae300c2009ce53f9efb4a5df8081`; complete retained kit, trusted manifest SHA-256 `032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f`. Recheck with `verify:source` before use. Later commits require their own kit and digest |
+| Recommended U5 candidate | Published `fork/main` commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, including U5 and its publication record. Its source kit, independently retained manifest digest and refreshed profile hash are **not yet prepared**. The historical kit/digest cannot qualify this revision |
 | LinuxServer image | Observed `lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac`; verify availability and linux/amd64 selection in L0. Keep core version constant through app replacement and both restores |
 | PostgreSQL | Reuse the existing reference pin `postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d`; verify availability, SQL version and dump/restore tools. This is not the observed host's Alpine image or proof of its active SQL connection |
 | S3 fixture | Recommend one persistent, single-node SeaweedFS S3 fixture. L0 must select a supported released image, freeze its linux/amd64 digest and configuration, and review its export/restore contract. Exercise authenticated object read/write/list/delete and recovery in L1/L4, after fixture creation. L0 selects standard 4.48 with full index/platform digests in the profile lock; see the L0 record for the unavailable standard 4.49 tag |
@@ -75,8 +78,14 @@ describes the S3 implementation; L0 must verify the selected release's commands
 and persistence contract rather than relying on a mutable example.
 
 Tasks and Groupfolders were absent from the selected host inventory, and external
-storage was disabled. Record their absence explicitly. Core DAV/VTODO coverage
-can exercise Tasks without claiming an installed Tasks UI; broader optional-app
+storage was disabled. Keep the five-app L0 fixture unchanged for this first
+LinuxServer journey; Mail is not installed in that fixture. Test missing-app
+non-advertisement and effective `mail.read` denial without inferring the host's
+Mail installation state. Positive Mail coverage remains in U5's separate Apache
+opt-in cell. Adding Mail/Dovecot to LinuxServer requires an explicit profile
+variant with reviewed pins, resources and tests; it is not an implicit dependency
+of this rehearsal. Record the selected app inventory explicitly. Core DAV/VTODO
+coverage can exercise Tasks without claiming an installed Tasks UI; broader optional-app
 coverage remains in the separate reference matrix.
 
 ## Proposed test ownership and interfaces
@@ -126,9 +135,93 @@ commands in closed state, then verify quiescence again before snapshots. Transit
 to probe-only only after the phase's safety checks; every failure returns to closed.
 Test a second, non-admitted run-owned client to prove the gate, not just its config.
 
+## U5 evidence and immediate next batch
+
+The [U5 reconciliation record](upstream-1.2.1-u5-integration.md) covers all selected
+1.2.1 capabilities. Published `940c3da3` has passing
+[Quality](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40563539950),
+[Tests](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40563540195),
+[Package](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40563540304)
+and [Native integration](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40563540166).
+All 15 Apache cells passed, including the upstream 1.2.0 replacement and opt-in
+Mail. These checks cover the candidate source revision, not a new source-kit
+archive or LinuxServer/Nginx/PostgreSQL/S3 recovery. Native artifact retention is
+14 days; workflow links are not a permanent backup or trusted release record.
+
+### Next batch: refresh L0 inputs for U5, without starting a fixture
+
+Use the existing source-delivery and planning commands. Do not add a second kit
+builder or change the planner to accept a mismatched candidate.
+
+- [ ] Freeze candidate `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`; record the
+  execution worktree/harness revision separately. Later harness-only commits may
+  test that candidate, but any application fix needs a new frozen kit and evidence.
+- [ ] Prepare its complete kit with the reviewed toolchain:
+  `composer --working-dir=mcp package:source -- 940c3da36f0d9c5310a98d7c3f355d2d99c86d33`.
+  The builder writes `mcp/build/source/<full-commit>/` and rejects an existing
+  destination. Inspect and verify any existing kit; never overwrite it silently.
+  Retain the emitted manifest digest in an independent reviewed record, then run
+  `composer --working-dir=mcp verify:source -- ABSOLUTE_KIT TRUSTED_DIGEST`.
+  Check all five kit files, runtime `appinfo/source.json` identity and extracted
+  inventory. The dirty development archive used during U5 is not this kit.
+- [ ] Reverify the retained 1.2.0 baseline archive against the L0 hash/inventory.
+  If unavailable, rebuild from its pinned source and compare extracted content,
+  record the reason and new archive/inventory hashes before updating the lock.
+  If the retained inventory cannot be recovered or content differences cannot be
+  explained against the pinned build inputs, stop: a freshly calculated hash is
+  not evidence that the baseline content is equivalent.
+  U5's Apache baseline archive has a different hash: a shared source commit does
+  not authorize substituting one archive under another archive's digest.
+- [ ] Recheck the three pinned OCI index/platform manifests and five app archives
+  without starting containers; keep the exact core/app versions. An unavailable
+  pin or unexpected byte difference blocks this batch, not a fallback to latest.
+  Leave live SQL/S3/FPM behavior, runtime tool availability and resource enforcement
+  to L1 preflight. No production SSH connection or data is needed.
+- [ ] Update only the reviewed candidate fields (and any explicitly justified
+  rebuilt-baseline fields) in
+  `mcp/tests/Integration/ci/linuxserver/profile.json`; preserve strict validation
+  in `profile.mjs`. Record the resulting profile SHA-256 separately from the kit
+  manifest digest and candidate commit. Historical L0 evidence remains historical.
+- [ ] Run the existing `LinuxServerHarnessTest.php` suite and the real
+  `composer --working-dir=mcp test:integration:linuxserver -- --plan --kit ABSOLUTE_KIT --manifest-sha256 TRUSTED_DIGEST`
+  entry point. Require the selected U5 identity, matching hashes, zero exit,
+  `validationScope: "profile-and-source-kit"` and `executionAvailable: false`.
+  Wrong digest/commit, changed kit, unsafe profile and execution-without-plan
+  cases must remain nonzero. Validate documentation and record all results.
+
+**Acceptance and stop point:** complete verified U5 kit, refreshed profile and
+baseline provenance, freshly verified external pins, passing offline guardrails,
+no container/server operation. A missing kit/digest or failed pin verification
+keeps L0-U5 open. This batch does not implement L1 or qualify upgrade/recovery.
+The review task only revises documentation and reruns existing planning tests;
+no U5 kit, refreshed profile or real U5 planning result is claimed.
+
+### Following batch: implement and validate L1 only
+
+After L0-U5 passes, implement the existing L1 design in `runtime.sh` with focused
+lifecycle/transport owners and `LinuxServerHarnessTest.php` failure tests. Preserve
+`run-local.sh`, `plan.mjs` and `profile.mjs` as the guarded entry boundary. The
+entry point must identify a baseline-bootstrap-only result and reject requests
+for unimplemented L2-L5; a healthy baseline cannot be reported as an upgrade pass.
+The exact execution CLI is a reviewed L1 deliverable, not an available command now.
+
+Enforce aggregate CPU/memory/disk/time limits across every owned service/client;
+verify the source endpoint using the pinned Nextcloud Nginx (no extra unpinned
+server image). Prove admission closure survives restart, denied clients and bad
+TLS fail, and successful/error/ordinary-interruption runs clean only their exact
+owned resources. A hard kill remains incomplete and requires an explicit owned
+resource audit/cleanup on the next run, as specified in L5. Run the isolated L1
+acceptance with synthetic data only after its implementation checks pass. Its exit gate is a working, privately trusted
+1.2.0 baseline on LinuxServer/PostgreSQL/S3 plus verified cleanup. L2 then seeds
+and captures B0; L3 upgrades U5; L4 restores B1 and rolls back B0; L5 closes evidence.
+Human review, public HTTPS and hosted clients are separate acceptance gates, not
+manual actions required to run this automated fixture.
+
 ## L0 — Freeze inputs and build the guardrails
 
 **Deliverable:** reviewed profile lock and a tested, non-mutating plan mode.
+The completed boxes below record historical L0. They do not close the unchecked
+U5 refresh above; the source change reopens its input qualification.
 
 - [x] Review pinned baseline migrations and compare persisted schema/semantics
   against 2.0.0. Enumerate intentional changes before writing upgrade assertions;
@@ -262,6 +355,8 @@ Never copy a live PostgreSQL data directory as this plan's backup method.
   credentials remain denied. Preserve confirmation safety: tampered fingerprints
   and plans whose relevant state changed must fail without side effects; do not
   equate age alone with invalidity. Classify intentional invalidation explicitly.
+- [ ] Apply the U5-specific expectations below before checkpoint B1; retain the
+  pre-probe state snapshot separately from intentional policy and content changes.
 - [ ] Run positive and negative capability checks on the same seeded records.
   Include Files/Notes preview-confirm edits, DAV reads/writes and deletion backup,
   Deck dates/labels/dependencies/link/unlink/audience checks, Talk privacy,
@@ -287,6 +382,29 @@ no privilege expansion, lost data, duplicate app tree or unresolved required
 check. Record expected warnings separately from failures. App-store disablement
 and same-image recreation demonstrate fixture control/persistence only, not
 production update exclusion or safety of a future image change.
+
+### U5-specific upgrade and recovery expectations
+
+The 1.2.0 and U5 `mcp/lib/Migration/` Git trees are identical
+(`5213776af89952492bb1476cf3af05a5dd4cd3be`). That does not imply identical policy
+or application behavior: check the installed migration ledger and actual state.
+Do not import the 1.0.8-specific `LegacyCatalogContract` as the complete 1.2.0
+comparison. Reuse assertions from `ci/replacement.php` through explicit profile
+adapters, without its Apache path/transport assumptions or post-verification
+cleanup: that probe deletes its seeded user, OAuth clients and private token
+file. LinuxServer must retain its synthetic records and private expected-state
+fixtures through B1 and both recovery paths; cleanup belongs to the run lifecycle.
+
+| Concern | L2/L3 assertion | R1 and R0 assertion |
+| --- | --- | --- |
+| Preserved state / new operation | Compare old grants, scopes, policy bytes/events, OAuth state and generation before any probe writes. Allow only the explicit new `mail.read`, effectively denied for every seeded user/group combination; existing credentials must not gain it. | R1 preserves B1 grants/restrictions before the deliberate recovery credential cut. R0 restores the baseline catalog and complete matching B0 state; no candidate-only settings are spliced into the old DB. |
+| Backup configuration and visibility | With no stored `backup_settings`, observe `MCP backups`, historical reservation and copies enabled without inventing a migration write. Then use the real revisioned admin API to rename the destination and test current/old backup privacy, shared aliases and ordinary nested names. Exercise optional Files copies only under native Versions admission and mandatory Contacts deletion copies. Disabling Versions must make copies effectively required while the existing `files_edit` refusal still applies; verify unchanged content rather than expecting the fallback to authorize a write. | B1 includes the deliberately configured backup document, reserved names, actual backup payloads and effective policy. R1 must restore all of them across DB and S3/local data; R0 returns to B0's original configuration and content. |
+| Tasks hierarchy | Native-seed parent/child VTODOs and numeric UIDs; verify readable parent titles, direct-child listing, reparenting and preserved non-parent relations. Reject cycles, cross-calendar parents and depth beyond 64 without writes; include the allowed depth-64 boundary. Unavailable locking must reject confirmed writes that assign a parent, while removing a parent remains allowed under ordinary grants/ACLs; MCP locking does not serialize external CalDAV writers. | Compare UIDs, relations, readable titles and ordinary permissions after each version-matched restore. Do not require new U5 tool fields from the 1.2.0 probe or claim cascading completion/deletion. |
+| Optional Mail | Keep Mail absent in this five-app fixture; verify no advertised Mail tools and denied effective read. Cite positive cache-only/ownership evidence from the separate U5 Mail cell without claiming LinuxServer Mail qualification. | R1 restores the same app inventory and denied Mail grant. R0 restores the 1.2.0 catalog without a Mail entry; do not require the baseline policy API to resolve an unknown operation. Neither path installs Mail or introduces a new permission. |
+| Source identity | Download the complete frozen U5 kit through the private Nginx source endpoint, exercise non-admin personal/MCP discovery and verify downloaded/installed bytes against the separately trusted manifest. | R1 restores the matching offer configuration and complete kit. R0 uses its own baseline behavior and must not advertise a U5 kit as the source of 1.2.0. |
+
+The existing credential expiry, epoch-cut, stateless confirmation, cross-store
+checkpoint and fail-closed admission requirements below remain mandatory for U5.
 
 ## L4 — Restore 2.0.0 and roll back a failed upgrade
 
@@ -403,10 +521,11 @@ executed. Production recovery readiness is not inferred from this fixture.
 
 ## Closure limits and next action
 
-The next implementable batch is **L1**, after reviewing the
-[L0 changes and evidence](fork-linuxserver-l0.md). L0 fixes the static inputs and
-implements offline planning only; it does not authorize or start a fixture.
-Before L1 execution, recheck runtime prerequisites and the availability of pins.
+The immediate next batch is **L0-U5 input refresh**, as specified above. The
+committed profile still selects the old candidate; no verified U5 kit or manifest
+digest is recorded for this LinuxServer profile. L1 follows only after that gate
+passes and its lifecycle/transport implementation is validated. L2-L5 remain
+separate sequential phases, not commands that can be run today.
 
 | Still pending | Why local success does not close it |
 | --- | --- |

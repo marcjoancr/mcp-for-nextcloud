@@ -996,3 +996,42 @@ sources**; all **96 translation drafts remain review-required**. The L0 record
 retains full counts, expected negative-test diagnostics and the dirty development
 package limitation. A fresh read-only review found no actionable issue. None of
 these results closes native LinuxServer or client/human acceptance.
+
+## LinuxServer plan review after U5 (2026-10-27)
+
+Published U5 commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33` passes all four CI
+workflows and the full **15-cell Apache matrix**, including upstream 1.2.0
+replacement. The [LinuxServer plan](fork-linuxserver-upgrade-recovery-plan.md#u5-evidence-and-immediate-next-batch)
+now selects it as the recommended candidate for renewed L0 input qualification.
+The committed profile still names `0000d8c8`: a new complete source kit, trusted
+manifest digest, reviewed profile hash and external-pin recheck are required
+before implementing/running L1. This review neither changes that lock nor
+prepares a kit or creates a fixture.
+
+The plan explicitly covers U5 backup policy/privacy, Tasks hierarchy and denied
+Mail defaults across upgrade and version-matched R0/R1 restores. The five-app
+LinuxServer fixture keeps Mail absent; positive Mail acceptance remains separate
+Apache evidence. Identical migration source trees do not certify persisted state,
+Nginx/FPM execution or coherent PostgreSQL/S3 recovery.
+
+L0-U5 refresh is the next bounded batch; L1-L5, intended-host qualification and F3
+remain open. Public **HTTPS**, **Inspector 14/15/encrypted storage**, **ChatGPT**,
+security, operations/recovery, license/attribution, accessibility and language
+reviewers remain pending. No production access/change, deployment, push or PR #14
+operation is part of this review.
+
+Review checks pass: **23 LinuxServer planning tests / 165 assertions**,
+**29 documentation-tool tests**, **173 Markdown files / 115 package sources**,
+valid translation provenance (**100 drafts still review-required**), and
+`git diff --check`. Migration tree equality was checked directly against the two immutable Git objects. The
+planning tests use synthetic trusted kits and exercise guardrails; no real U5
+kit or U5 `--plan` result is claimed. Only these three development documents
+changed; no runtime package or native fixture was rebuilt for this review.
+
+The documentation review also narrows acceptance to the actual contracts:
+Apache probe teardown must not erase the LinuxServer recovery fixtures; R0 has
+no Mail catalog entry; disabled Versions still refuses `files_edit`; and the
+Tasks locking refusal applies to confirmed parent assignment, not removal.
+Unexplained baseline-inventory differences block L0 refresh, and a hard-killed
+run remains incomplete until its exact owned resources are audited. These are
+plan corrections only; no runner, profile, runtime code or source kit was changed.

@@ -9,6 +9,16 @@ worktree. This record covers input selection, offline guardrails and local check
 server was neither contacted nor modified; no push, PR action or deployment was
 performed. See the [reviewed test plan](fork-linuxserver-upgrade-recovery-plan.md).
 
+## U5 follow-up scope (2026-10-27)
+
+This is historical L0 evidence for `0000d8c8`, not LinuxServer qualification of U5.
+The [updated plan](fork-linuxserver-upgrade-recovery-plan.md#u5-evidence-and-immediate-next-batch)
+reopens candidate-kit/profile qualification for published `940c3da3` before L1.
+The current profile and its recorded hashes remain unchanged in this review.
+The U5 source revision has passing Apache CI; no U5 source kit or LinuxServer
+runtime is certified by the old offline result. HTTPS, Inspector, ChatGPT and
+human reviews remain pending.
+
 ## Frozen inputs and evidence
 
 The canonical machine-readable lock is
