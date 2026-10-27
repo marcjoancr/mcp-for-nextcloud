@@ -9,7 +9,6 @@ namespace OCA\Mcp\Modules\Tasks\Execution;
 
 use OCA\Mcp\Platform\Dav\CalDav\CalDavWriter as CalendarDav;
 use OCA\Mcp\Platform\Dav\CalDav\ObjectStore as CalendarStore;
-use OCA\Mcp\Mcp\Tools\Results\ToolResult;
 use RuntimeException;
 use OCA\Mcp\Modules\Tasks\Content\TaskDocument;
 final class TaskWriter
@@ -47,6 +46,6 @@ final class TaskWriter
             );
         }
         $written = $this->store->object($calendar->id, $uri) ?? throw new RuntimeException('Task read back failed');
-        return ToolResult::json($this->output->item($userId, $this->data->parse($written['data'])) + ['etag' => $written['etag'], 'calendar' => $calendar->path]);
+        return $this->output->item($userId, $this->data->parse($written['data'])) + ['etag' => $written['etag'], 'calendar' => $calendar->path];
     }
 }

@@ -75,6 +75,6 @@ final class TaskCompleter
     {
         $prepared = $this->prepare($arguments, $userId);
         $this->plans->assertAcknowledged($prepared['plan'], $arguments);
-        return $this->writer->save($prepared, $userId);
+        return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($this->writer->save($prepared, $userId));
     }
 }

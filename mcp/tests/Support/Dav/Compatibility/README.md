@@ -24,3 +24,11 @@ Contacts guide sentence in `definitions.json`: the mandatory verified vCard back
 uses the configured folder, rather than promising the fixed `/MCP backups` name.
 The default remains unchanged. No Calendar/Tasks contracts or plan captures are
 modified; the independent native backup tests cover configurable Contacts copies.
+
+The 2026-10-27 U3 port adds only Tasks parent create/edit schemas, direct-child
+listing schema/description and hierarchy guide notes to the relevant captures.
+DAV plans/results add `parent: null` and empty `parents` title maps for the
+existing top-level create/edit cases. Calendar/Contacts contracts, grants,
+existing renderings and all unrelated result/protocol fields remain unchanged.
+These explicit additive patches are covered independently by the pinned 1.2.1
+subtask, hierarchy/lock and native CalDAV cases; captures were not regenerated.

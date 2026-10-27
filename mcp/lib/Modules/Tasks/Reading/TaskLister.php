@@ -50,6 +50,9 @@ final class TaskLister
                 if (isset($arguments['category']) && !$this->categories->hasCategory($item, $arguments['category'])) {
                     continue;
                 }
+                if (isset($arguments['parent']) && $item['parent'] !== $arguments['parent']) {
+                    continue;
+                }
                 if ($matched++ < $offset) {
                     continue;
                 }
@@ -66,7 +69,7 @@ final class TaskLister
                 'hasMore' => $more,
                 'nextOffset' => $more ? $offset + count($items) : null,
             ];
-        if (isset($arguments['category']) && $matched === 0 && !$more) {
+        if (isset($arguments['category']) && !isset($arguments['parent']) && $matched === 0 && !$more) {
             $page['note'] = (new \OCA\Mcp\Modules\Tasks\Presentation\CategoryFilterNote())->forMiss(
                 $arguments['category'], (bool)($arguments['include_completed'] ?? false),
             );

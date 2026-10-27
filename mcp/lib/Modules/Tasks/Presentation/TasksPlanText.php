@@ -24,19 +24,21 @@ final class TasksPlanText
         'priority',
         'percentComplete',
         'categories',
+        'parent',
     ];
     public function changes(
         array $lines,
         array $before,
         array $after,
         DateTimeZone $zone,
+        ?ParentPlanText $parents = null,
     ): string
     {
         foreach (self::FIELDS as $field) {
-            $from = $this->value($before[$field] ?? null, $field, $zone);
-            $to = $this->value($after[$field] ?? null, $field, $zone);
+            $from = $this->value($before[$field] ?? null, $field, $zone, $parents);
+            $to = $this->value($after[$field] ?? null, $field, $zone, $parents);
             // Categories are compared as lists: two different lists may read alike once joined.
-            $same = $field === 'categories' ? $this->names($before[$field] ?? null) === $this->names($after[$field] ?? null) : $from === $to;
+            $same = $field === 'parent' ? ParentPlanText::same($before[$field] ?? null, $after[$field] ?? null) : ($field === 'categories' ? $this->names($before[$field] ?? null) === $this->names($after[$field] ?? null) : $from === $to);
             if ($same) {
                 continue;
             }
@@ -82,8 +84,12 @@ final class TasksPlanText
         mixed $value,
         string $field,
         DateTimeZone $zone,
+        ?ParentPlanText $parents = null,
     ): ?string
     {
+        if ($field === 'parent') {
+            return ($parents ?? new ParentPlanText([]))->value($value);
+        }
         if ($field === 'percentComplete') {
             return is_numeric($value) ? $this->text($value) . '%' : null;
         }
@@ -168,6 +174,7 @@ final class TasksPlanText
             'percentComplete' => Translator::t('Progress'),
             'completed' => Translator::t('Completed at'),
             'categories' => Translator::t('Categories'),
+            'parent' => Translator::t('Parent task'),
             default => Translator::t('Title'),
         };
     }

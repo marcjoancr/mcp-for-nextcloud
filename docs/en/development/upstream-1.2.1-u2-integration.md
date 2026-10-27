@@ -160,5 +160,6 @@ require corresponding language updates/review.
 Publication advances only the already-authorized `fork/main`. Evaluate its new
 [Actions runs](https://github.com/marcjoancr/mcp-for-nextcloud/actions) against the
 resulting commit; the passing C0 workflows are not evidence for the U2 revision.
-Remote U2 CI is pending at this documentation closure. No deployment,
+All four U2 workflows for `de607816` subsequently passed; the
+[U3 prerequisite record](upstream-1.2.1-u3-integration.md#u2-prerequisite) links the exact runs. No deployment,
 intended-server modification or upstream PR #14 change is part of U2.

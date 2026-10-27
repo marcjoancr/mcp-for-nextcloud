@@ -1467,7 +1467,15 @@ OC.L10N.register(
     "The board recipients exceed the supported resolution limits. No partial recipient count is available. Reduce the board audience or try again later." : "Os destinatários do quadro excedem os limites de resolução suportados. Não há contagem parcial disponível. Reduza o público do quadro ou tente novamente mais tarde.",
     "Native sharing hooks and notifications may run. Optional default internal expiry does not apply to this Deck share; mandatory internal expiry is refused." : "Eventos e notificações nativos de compartilhamento podem ocorrer. A expiração interna padrão opcional não se aplica a este compartilhamento do Deck; a expiração interna obrigatória é recusada.",
     "Link Deck card file" : "Vincular arquivo ao cartão do Deck",
-    "An archived card or board cannot gain or lose a file association." : "Um cartão ou quadro arquivado não pode ganhar nem perder um vínculo de arquivo."
+    "An archived card or board cannot gain or lose a file association." : "Um cartão ou quadro arquivado não pode ganhar nem perder um vínculo de arquivo.",
+    "A task cannot be its own parent or a subtask of one of its own subtasks." : "Uma tarefa não pode ser a própria tarefa principal nem uma subtarefa de uma das suas subtarefas.",
+    "Another change to the subtasks of this calendar is in progress; nothing was changed. Try again." : "Outra alteração nas subtarefas desta agenda está em andamento; nada foi alterado. Tente de novo.",
+    "Parent task" : "Tarefa principal",
+    "Setting the parent of a task needs the file locking of the server, which is disabled here; nothing was changed. An administrator can enable it. Making a task top-level still works." : "Definir a tarefa principal de uma tarefa exige o bloqueio de arquivos do servidor, que está desativado aqui; nada foi alterado. Um administrador pode ativá-lo. Deixar uma tarefa no nível principal continua funcionando.",
+    "Subtasks can be nested at most %s levels deep." : "As subtarefas podem ser aninhadas em no máximo %s níveis.",
+    "The parent task was not found in this calendar. A subtask must be in the same calendar as its parent." : "A tarefa principal não foi encontrada neste calendário. Uma subtarefa deve estar no mesmo calendário que a sua tarefa principal.",
+    "The task was saved, but its parent chain now loops back to it, probably because another client changed a related task at the same time. Make one of the tasks in that chain top-level (parent null) to fix it." : "A tarefa foi salva, mas a cadeia de tarefas principais dela agora volta para ela mesma, provavelmente porque outro cliente alterou uma tarefa relacionada ao mesmo tempo. Deixe uma das tarefas dessa cadeia no nível principal (parent null) para corrigir.",
+    "The tasks above the requested parent form a loop or cannot be read, so the nesting cannot be checked. Fix that hierarchy first, for example by making one of those tasks top-level." : "As tarefas acima da tarefa principal pedida formam um ciclo ou não podem ser lidas, então não dá para conferir o aninhamento. Corrija essa hierarquia antes, por exemplo deixando uma dessas tarefas no nível principal."
 },
     "nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 );

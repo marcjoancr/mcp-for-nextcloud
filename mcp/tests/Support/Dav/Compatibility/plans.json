@@ -709,6 +709,7 @@
                 "etag": null,
                 "before": null,
                 "after": {
+                    "parent": null,
                     "summary": "Draft",
                     "description": "",
                     "status": "NEEDS-ACTION",
@@ -723,7 +724,8 @@
                 "shared": [],
                 "recoverable": false,
                 "consequence": null,
-                "timezone": null
+                "timezone": null,
+                "parents": []
             },
             "rendered": "Creating the task **Draft** in the calendar *Tasks*.\n- Priority: without priority\n- Progress: 0%"
         },
@@ -749,6 +751,7 @@
                 "etag": "\"v1\"",
                 "before": {
                     "uid": "t1",
+                    "parent": null,
                     "summary": "Work",
                     "description": "",
                     "status": "NEEDS-ACTION",
@@ -763,6 +766,7 @@
                 },
                 "after": {
                     "uid": "t1",
+                    "parent": null,
                     "summary": "After",
                     "description": "",
                     "status": "NEEDS-ACTION",
@@ -778,7 +782,8 @@
                 "shared": [],
                 "recoverable": false,
                 "consequence": null,
-                "timezone": null
+                "timezone": null,
+                "parents": []
             },
             "rendered": "Editing the task **Work** in the calendar *Tasks*.\n- Title: Work → After"
         },
@@ -803,6 +808,7 @@
                 "etag": "\"v1\"",
                 "before": {
                     "uid": "t1",
+                    "parent": null,
                     "summary": "Work",
                     "description": "",
                     "status": "NEEDS-ACTION",
@@ -817,6 +823,7 @@
                 },
                 "after": {
                     "uid": "t1",
+                    "parent": null,
                     "summary": "Work",
                     "description": "",
                     "status": "COMPLETED",
@@ -857,6 +864,7 @@
                 "etag": "\"v1\"",
                 "before": {
                     "uid": "t1",
+                    "parent": null,
                     "summary": "Work",
                     "description": "",
                     "status": "NEEDS-ACTION",
@@ -908,7 +916,7 @@
             "content": [
                 {
                     "type": "text",
-                    "text": "{\n    \"uid\": \"t1\",\n    \"summary\": \"Work\",\n    \"description\": \"\",\n    \"status\": \"NEEDS-ACTION\",\n    \"percentComplete\": 0,\n    \"priority\": 0,\n    \"start\": null,\n    \"due\": null,\n    \"completed\": null,\n    \"categories\": [],\n    \"recurring\": false,\n    \"icalendar\": \"BEGIN:VCALENDAR\\r\\nVERSION:2.0\\r\\nPRODID:-//test//EN\\r\\nBEGIN:VTODO\\r\\nUID:t1\\r\\nDTSTAMP:20261001T100000Z\\r\\nSUMMARY:Work\\r\\nSTATUS:NEEDS-ACTION\\r\\nX-CUSTOM:keep\\r\\nEND:VTODO\\r\\nEND:VCALENDAR\\r\\n\",\n    \"etag\": \"\\\"v1\\\"\",\n    \"calendar\": \"/remote.php/dav/calendars/alice/tasks/\"\n}"
+                    "text": "{\n    \"uid\": \"t1\",\n    \"parent\": null,\n    \"summary\": \"Work\",\n    \"description\": \"\",\n    \"status\": \"NEEDS-ACTION\",\n    \"percentComplete\": 0,\n    \"priority\": 0,\n    \"start\": null,\n    \"due\": null,\n    \"completed\": null,\n    \"categories\": [],\n    \"recurring\": false,\n    \"icalendar\": \"BEGIN:VCALENDAR\\r\\nVERSION:2.0\\r\\nPRODID:-//test//EN\\r\\nBEGIN:VTODO\\r\\nUID:t1\\r\\nDTSTAMP:20261001T100000Z\\r\\nSUMMARY:Work\\r\\nSTATUS:NEEDS-ACTION\\r\\nX-CUSTOM:keep\\r\\nEND:VTODO\\r\\nEND:VCALENDAR\\r\\n\",\n    \"etag\": \"\\\"v1\\\"\",\n    \"calendar\": \"/remote.php/dav/calendars/alice/tasks/\"\n}"
                 }
             ]
         }

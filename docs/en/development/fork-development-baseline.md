@@ -16,8 +16,9 @@ Nextcloud MCP / 2.0.0 preparation and L0 at `80bd12ca`. The
 capability batches; **1.2.1 is not fully integrated**. The
 [U1 record](upstream-1.2.1-u1-integration.md) covers backup visibility; the
 [U2 record](upstream-1.2.1-u2-integration.md) covers configured backups and copy
-policy. U3-U5 remain pending. The U2 record also links the four passing published
-workflows for the corrected U1 baseline; later commits need their own checks.
+policy, and [U3](upstream-1.2.1-u3-integration.md) adds Tasks hierarchy. U4-U5 remain
+pending. The U3 record links the four passing U2 workflows; subsequent commits
+need their own checks.
 
 Create new topic branches from `fork/main` and contribute to this fork. Preserve
 ancestry and attribution. Native integration CI now watches pushes to `fork/main`;

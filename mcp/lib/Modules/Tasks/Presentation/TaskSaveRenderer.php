@@ -35,7 +35,7 @@ final class TaskSaveRenderer
             if ($field === 'summary') {
                 continue;
             }
-            $value = $this->text->value($after[$field] ?? null, $field, $zone);
+            $value = $this->text->value($after[$field] ?? null, $field, $zone, new ParentPlanText($plan['parents'] ?? []));
             if ($value !== null) {
                 $lines[] = '- ' . $this->text->label($field) . ': ' . $value;
             }
@@ -67,7 +67,8 @@ final class TaskSaveRenderer
             $lines,
             $before,
             $after,
-            $zone
+            $zone,
+            new ParentPlanText($plan['parents'] ?? []),
         );
     }
     public function complete(
