@@ -1035,3 +1035,33 @@ Tasks locking refusal applies to confirmed parent assignment, not removal.
 Unexplained baseline-inventory differences block L0 refresh, and a hard-killed
 run remains incomplete until its exact owned resources are audited. These are
 plan corrections only; no runner, profile, runtime code or source kit was changed.
+
+## LinuxServer L0-U5 input refresh (2026-10-27)
+
+The authorized [L0-U5 renewal](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27)
+prepares and verifies the complete local kit for published `940c3da3`, rechecks
+all three OCI index/platform pairs and five app archives, and verifies the
+retained 1.2.0 archive against its original 532-file inventory. Baseline, image,
+app and isolation pins are unchanged; only the candidate commit/digest changed.
+The record retains the trusted kit/profile hashes and exact checks separately
+from the harness revision. The real offline planner accepts U5 and rejects the
+six deliberately invalid inputs; the existing suite passes 23 tests/165 assertions.
+
+L0-U5 has no remaining input blocker. **L1 implementation and live qualification
+are next**, followed by L2-L5 upgrade/recovery evidence. No image layers, containers,
+production connection, push, deployment or PR #14 action occurred. This local
+kit does not close source-publication/history review or intended-host acceptance.
+**HTTPS, Inspector 14/15/encrypted storage, ChatGPT and all human reviewers remain
+pending**, as do the F3/F4/F5 release and recovery gates.
+
+Final validation passes 173 Markdown files/115 package sources, 29 documentation
+tests and 11 release controls; 100 translations remain review-required with valid
+provenance. One independent read-only review found no actionable issue and
+accepted L0-U5 only. It did not certify L1-L5, independent source reconstruction,
+production compatibility or any client/human gate; the L0 record preserves those
+limits. The subsequent owner-authorized review reverified the retained kit,
+baseline, OCI/app inputs and real-kit refusal controls before the local commit.
+No pin discrepancy or implementation change was required. The only corrections
+clarify this review/publication status and distinguish retained-byte verification
+from the original timestamped network checks. L1, HTTPS, Inspector, ChatGPT and
+human reviewers remain pending; no push or runtime operation was performed.

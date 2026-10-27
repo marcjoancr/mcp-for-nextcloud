@@ -3,11 +3,11 @@
 
 # LinuxServer/Nginx isolated upgrade and recovery test plan
 
-**Status:** reviewed for U5 on 2026-10-27. L0 offline planning is implemented,
-but its committed profile still selects the pre-U5 candidate `0000d8c8`.
-**Reopen L0 input qualification for U5 before L1.** L1-L5 execution remains
-unimplemented and no LinuxServer rehearsal has run. Preserve the historical
-[L0 input and validation record](fork-linuxserver-l0.md).
+**Status:** L0 input qualification was renewed for U5 on 2026-10-27. The profile
+now selects `940c3da3` with its separately verified source-kit digest. Offline
+planning passes; L1-L5 execution remains unimplemented and no LinuxServer
+rehearsal has run. See the [L0-U5 results](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27)
+and preserve the historical L0 evidence in that record.
 This is a local qualification plan, not a production runbook or deployment approval.
 
 **Goal:** demonstrate a real MCP 1.2.0 → Nextcloud MCP 2.0.0 replacement and
@@ -64,7 +64,7 @@ runtime versions separately; a tag does not establish them.
 | --- | --- |
 | Baseline | Upstream 1.2.0 commit `02526119b845ccc1d8399be002da3e30b5527df6`; use its reviewed packaging inputs and lockfiles, record archive SHA-256 and extracted inventory. This is not yet a byte comparison with the installed server app |
 | Historical L0 candidate | Reviewed source-audit commit `0000d8c807cfae300c2009ce53f9efb4a5df8081`; complete retained kit, trusted manifest SHA-256 `032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f`. Recheck with `verify:source` before use. Later commits require their own kit and digest |
-| Recommended U5 candidate | Published `fork/main` commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, including U5 and its publication record. Its source kit, independently retained manifest digest and refreshed profile hash are **not yet prepared**. The historical kit/digest cannot qualify this revision |
+| Current U5 candidate | Published `fork/main` commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, including U5 and its publication record. Complete local kit verified; manifest SHA-256 `2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63`. Refreshed profile and evidence are in the L0-U5 record; no LinuxServer runtime qualification is claimed |
 | LinuxServer image | Observed `lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac`; verify availability and linux/amd64 selection in L0. Keep core version constant through app replacement and both restores |
 | PostgreSQL | Reuse the existing reference pin `postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d`; verify availability, SQL version and dump/restore tools. This is not the observed host's Alpine image or proof of its active SQL connection |
 | S3 fixture | Recommend one persistent, single-node SeaweedFS S3 fixture. L0 must select a supported released image, freeze its linux/amd64 digest and configuration, and review its export/restore contract. Exercise authenticated object read/write/list/delete and recovery in L1/L4, after fixture creation. L0 selects standard 4.48 with full index/platform digests in the profile lock; see the L0 record for the unavailable standard 4.49 tag |
@@ -148,15 +148,15 @@ Mail. These checks cover the candidate source revision, not a new source-kit
 archive or LinuxServer/Nginx/PostgreSQL/S3 recovery. Native artifact retention is
 14 days; workflow links are not a permanent backup or trusted release record.
 
-### Next batch: refresh L0 inputs for U5, without starting a fixture
+### Completed batch: refresh L0 inputs for U5, without starting a fixture
 
 Use the existing source-delivery and planning commands. Do not add a second kit
 builder or change the planner to accept a mismatched candidate.
 
-- [ ] Freeze candidate `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`; record the
+- [x] Freeze candidate `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`; record the
   execution worktree/harness revision separately. Later harness-only commits may
   test that candidate, but any application fix needs a new frozen kit and evidence.
-- [ ] Prepare its complete kit with the reviewed toolchain:
+- [x] Prepare its complete kit with the reviewed toolchain:
   `composer --working-dir=mcp package:source -- 940c3da36f0d9c5310a98d7c3f355d2d99c86d33`.
   The builder writes `mcp/build/source/<full-commit>/` and rejects an existing
   destination. Inspect and verify any existing kit; never overwrite it silently.
@@ -164,7 +164,7 @@ builder or change the planner to accept a mismatched candidate.
   `composer --working-dir=mcp verify:source -- ABSOLUTE_KIT TRUSTED_DIGEST`.
   Check all five kit files, runtime `appinfo/source.json` identity and extracted
   inventory. The dirty development archive used during U5 is not this kit.
-- [ ] Reverify the retained 1.2.0 baseline archive against the L0 hash/inventory.
+- [x] Reverify the retained 1.2.0 baseline archive against the L0 hash/inventory.
   If unavailable, rebuild from its pinned source and compare extracted content,
   record the reason and new archive/inventory hashes before updating the lock.
   If the retained inventory cannot be recovered or content differences cannot be
@@ -172,17 +172,17 @@ builder or change the planner to accept a mismatched candidate.
   not evidence that the baseline content is equivalent.
   U5's Apache baseline archive has a different hash: a shared source commit does
   not authorize substituting one archive under another archive's digest.
-- [ ] Recheck the three pinned OCI index/platform manifests and five app archives
+- [x] Recheck the three pinned OCI index/platform manifests and five app archives
   without starting containers; keep the exact core/app versions. An unavailable
   pin or unexpected byte difference blocks this batch, not a fallback to latest.
   Leave live SQL/S3/FPM behavior, runtime tool availability and resource enforcement
   to L1 preflight. No production SSH connection or data is needed.
-- [ ] Update only the reviewed candidate fields (and any explicitly justified
+- [x] Update only the reviewed candidate fields (and any explicitly justified
   rebuilt-baseline fields) in
   `mcp/tests/Integration/ci/linuxserver/profile.json`; preserve strict validation
   in `profile.mjs`. Record the resulting profile SHA-256 separately from the kit
   manifest digest and candidate commit. Historical L0 evidence remains historical.
-- [ ] Run the existing `LinuxServerHarnessTest.php` suite and the real
+- [x] Run the existing `LinuxServerHarnessTest.php` suite and the real
   `composer --working-dir=mcp test:integration:linuxserver -- --plan --kit ABSOLUTE_KIT --manifest-sha256 TRUSTED_DIGEST`
   entry point. Require the selected U5 identity, matching hashes, zero exit,
   `validationScope: "profile-and-source-kit"` and `executionAvailable: false`.
@@ -193,8 +193,9 @@ builder or change the planner to accept a mismatched candidate.
 baseline provenance, freshly verified external pins, passing offline guardrails,
 no container/server operation. A missing kit/digest or failed pin verification
 keeps L0-U5 open. This batch does not implement L1 or qualify upgrade/recovery.
-The review task only revises documentation and reruns existing planning tests;
-no U5 kit, refreshed profile or real U5 planning result is claimed.
+The authorized refresh completed these steps; see the
+[exact kit, pins and offline results](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27).
+No L1 implementation or fixture execution followed.
 
 ### Following batch: implement and validate L1 only
 
@@ -220,8 +221,8 @@ manual actions required to run this automated fixture.
 ## L0 — Freeze inputs and build the guardrails
 
 **Deliverable:** reviewed profile lock and a tested, non-mutating plan mode.
-The completed boxes below record historical L0. They do not close the unchecked
-U5 refresh above; the source change reopens its input qualification.
+The completed boxes below record historical L0. The separate U5 refresh above
+records renewed input qualification; neither result certifies L1-L5 execution.
 
 - [x] Review pinned baseline migrations and compare persisted schema/semantics
   against 2.0.0. Enumerate intentional changes before writing upgrade assertions;
@@ -521,11 +522,10 @@ executed. Production recovery readiness is not inferred from this fixture.
 
 ## Closure limits and next action
 
-The immediate next batch is **L0-U5 input refresh**, as specified above. The
-committed profile still selects the old candidate; no verified U5 kit or manifest
-digest is recorded for this LinuxServer profile. L1 follows only after that gate
-passes and its lifecycle/transport implementation is validated. L2-L5 remain
-separate sequential phases, not commands that can be run today.
+The immediate next batch is **implement and validate L1**, following the completed
+L0-U5 refresh above. Its lifecycle/transport code still needs implementation and
+validation before an isolated fixture can run. L2-L5 remain separate sequential
+phases; no current command can execute this LinuxServer upgrade/recovery journey.
 
 | Still pending | Why local success does not close it |
 | --- | --- |

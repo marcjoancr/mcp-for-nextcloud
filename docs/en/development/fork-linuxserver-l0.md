@@ -14,10 +14,10 @@ performed. See the [reviewed test plan](fork-linuxserver-upgrade-recovery-plan.m
 This is historical L0 evidence for `0000d8c8`, not LinuxServer qualification of U5.
 The [updated plan](fork-linuxserver-upgrade-recovery-plan.md#u5-evidence-and-immediate-next-batch)
 reopens candidate-kit/profile qualification for published `940c3da3` before L1.
-The current profile and its recorded hashes remain unchanged in this review.
-The U5 source revision has passing Apache CI; no U5 source kit or LinuxServer
-runtime is certified by the old offline result. HTTPS, Inspector, ChatGPT and
-human reviews remain pending.
+That review left the profile unchanged. The authorized
+[U5 renewal below](#l0-u5-renewal-2026-10-27) now supersedes its candidate pin
+and offline planning result; it does not certify a LinuxServer runtime. HTTPS,
+Inspector, ChatGPT and human reviews remain pending.
 
 ## Frozen inputs and evidence
 
@@ -25,6 +25,8 @@ The canonical machine-readable lock is
 [`profile.json`](../../../mcp/tests/Integration/ci/linuxserver/profile.json).
 It records full image index/platform digests, app archive hashes and declared
 compatibility, baseline package identity, candidate identity and resource ceilings.
+The following table and original validation describe historical L0; the current
+candidate identity is recorded in the U5 renewal below.
 Public registry/API queries and downloaded release archives were verified locally;
 raw inputs and private command results are under `mcp/build/linuxserver-l0/` and
 are not committed. These hashes bind the observed bytes, not publisher signatures
@@ -207,3 +209,160 @@ No native Docker suite or real client campaign was executed by this check.
 
 L0 does not require human steps to run its automated checks. Human sign-off is
 retained as a separate gate, not presented as an automated result.
+
+## L0-U5 renewal (2026-10-27)
+
+The owner authorized the reviewed input refresh only. **L0-U5 passes; L1 has not
+started.** The execution checkout is based on `59d602a1` with only the two
+candidate fields in the profile and the related documentation changed. The frozen
+application source is **`940c3da36f0d9c5310a98d7c3f355d2d99c86d33`**, separately from this
+harness/documentation revision. The initial refresh left these changes uncommitted;
+the subsequent owner-authorized review records only the local profile/documentation
+commit. No push, production access, deployment, PR #14 action, image-layer pull or
+container operation is part of either task.
+
+### Frozen U5 kit and profile
+
+The canonical `composer --working-dir=mcp package:source -- 940c3da36f0d9c5310a98d7c3f355d2d99c86d33`
+built the complete kit at `mcp/build/source/940c3da36f0d9c5310a98d7c3f355d2d99c86d33/`.
+The build used Node **24.21.0**, npm **11.19.0**, PHP **8.4.27**, Composer **2.8.8**,
+Git **2.47.3** and GNU tar **1.35**, with the selected commit's build scripts and
+locked dependencies. Production packaging passed with **115 documentation sources**.
+The metadata/archive verification scripts used Python **3.13.5**.
+No dependency locks, publisher signatures or app version were changed.
+
+The trusted manifest digest was captured from that build and then independently
+supplied to `verify:source` and the planner; it was not replaced after tampering.
+Keep this digest outside the writable kit directory:
+
+- Source-kit manifest SHA-256: `2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63`.
+- Refreshed profile SHA-256: `743f2704669f259cc97810771a5bea58722871f9a13962bb5beae33b54d4cc63`.
+- Runtime identity: `mcp` / **2.0.0**, source commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`.
+- All **975** runtime regular files match the manifest's sizes and hashes;
+  `appinfo/source.json` identifies that exact commit/version. No links, duplicate
+  paths or special runtime entries were accepted.
+
+| Kit member (in addition to `manifest.json`) | Bytes | SHA-256 |
+| --- | --- | --- |
+| `BUILDING.md` | 1,549 | `f996079aca59a66d86f9e39c04dfa3e33734e469a1c740e75f9441bd7237ca76` |
+| `mcp-2.0.0.tar.gz` | 1,415,359 | `b48ba9054beffe923ccd7019aef79bca8fd863304bebae7b635b229d5f5aeaa9` |
+| `runtime-dependencies.tar.gz` | 133,164 | `2f6f748dfccaeeff0a35170b0b662e13596a6b68e5b189bb3d1ab4c1822fe35e` |
+| `source.bundle` | 9,210,398 | `1acd88d3f6ad580d1c35cd7441731328f0240aa6db696654464d1ff1bdbc9815` |
+
+The complete five-file kit passes the existing verifier. It remains a local,
+unpublished candidate: the Git bundle retains reachable source history and has
+not acquired human historical-content or release-publication approval. This batch
+checks the kit/package inventory, not independent reconstruction or a non-admin
+runtime download on LinuxServer; those acceptance gates remain separate.
+
+### Baseline and external pins
+
+Fresh verification at **2026-10-27T19:23:14.759755+00:00** passed all nine inputs:
+
+- The retained 1.2.0 archive has SHA-256
+  `dc7aff3427c527641440c3f553c4abe300ad96109079c7fa0ea37a0972d0e801`,
+  **1,280,730 bytes**, and **532** runtime files. Every archive file matched the
+  retained inventory, whose SHA-256 remains
+  `a120cbe11cf0cb838d1f8a0cc37799459a0c15c9124f7e48d5c353eb624940bf`.
+  Both were copied into this worktree's ignored evidence directory after checking.
+  No baseline rebuild, substituted Apache archive or baseline-pin change occurred.
+- Freshly fetched OCI index and linux/amd64 manifest bytes for **LinuxServer
+  Nextcloud 35.0.2**, **PostgreSQL 16.15** and **SeaweedFS 4.48** matched both locked
+  digests. Each index selected the expected unique linux/amd64 entry. Only registry
+  metadata was downloaded; no layers were pulled and no image was started.
+- Fresh official archives for **Calendar 6.6.3**, **Contacts 8.9.2**, **Deck 1.19.0**,
+  **Notes 6.1.0** and **Talk 25.0.6** matched their pinned sizes and SHA-256 hashes.
+  Their XML IDs, versions and declared Nextcloud/PHP bounds matched the lock.
+  This does not certify installed binaries or native app compatibility.
+
+All image/app/baseline values, resource limits and isolation settings remain
+unchanged. Only `candidate.sourceCommit` and `candidate.manifestSha256` changed.
+Image availability is an observation at the stated time, not a guarantee for L1;
+L1 must verify downloaded layers and live runtime prerequisites before starting.
+No new security approval is inferred from digest equality.
+
+### Offline checks and evidence
+
+Before editing the profile, the real U5 kit was correctly refused with
+`Trusted manifest digest does not match profile` (exit **1**). After the two-field
+refresh, the same canonical planning command passes (exit **0**) with the correct
+U5 identity, `validationScope: "profile-and-source-kit"` and
+`executionAvailable: false`.
+
+The existing boundary suite passes **23 tests / 165 assertions**. A separate
+seven-case check used the real kit and controlled local copies: one valid plan
+passed; wrong trusted digest, wrong candidate commit, a published-port profile,
+a mutable image, an altered kit member and invocation without `--plan` each
+returned exit **1** with its expected error. Tripwire Docker/SSH/download
+executables were never called. Expected refusals are retained as negative evidence,
+not hidden failures or successful native runs. No existing test was weakened.
+
+Evidence is under ignored `mcp/build/linuxserver-l0-u5/`: `kit-build.log`,
+`kit-verify.log`, `kit-inventory-verification.json`, `pin-verification.json`,
+registry metadata and downloaded app archives, the baseline archive/inventory,
+`profile-before.log`, `plan.json`, `plan-command.log`, `planner-tests.log` and
+`actual-kit-controls.json` with per-case output under `controls/`. The altered kit
+there is a deliberately invalid test copy, never the selected kit. These local
+paths are not public downloads or durable release publication.
+
+### Final validation and independent review
+
+Documentation validation passes **173 Markdown files / 115 package sources**;
+all **29 documentation-tool tests** and **11 release-tool controls** pass.
+Translation provenance is valid, with **100 drafts still review-required**.
+`git diff --check` passes. The frozen kit build already validated its production
+package; this profile/docs-only refresh did not rerun the full application or
+native matrix and does not claim a new runtime result.
+
+One independent read-only review reported **zero Critical, Important or Minor
+findings**, accepting L0-U5 only. It recomputed kit/profile/member hashes, checked
+all 975 runtime files and the packaged identity, all three retained OCI pairs,
+five app archives/XML metadata and the baseline's 532-file inventory. It checked
+the recorded planner/control results; it did not make another live registry
+availability query or independently reconstruct the source bundle.
+
+Live resource enforcement, private TLS/admission/cleanup, snapshot coherence,
+credential resurrection, startup/FPM behavior and intended-host compatibility
+were outside that review: their assertions belong to L1-L5 and cannot be inferred
+from static input hashes. Independent source reconstruction/history/publication
+acceptance and public HTTPS/Inspector/ChatGPT/human approval also remain separate
+gates. Treating any of those as passed would falsely qualify a deployment.
+No review finding was deferred; the above limits do not waive later acceptance.
+
+### Pre-commit verification of the renewal
+
+The subsequent review reverified the retained kit against the recorded trusted
+digest, its 975 runtime files and packaged identity, the baseline's 532 files,
+all three retained OCI index/platform pairs and five app archives/XML metadata.
+Only the two candidate fields differ from the previous profile; the recorded
+profile hash remains exact. No pin correction or kit rebuild was needed.
+
+Fresh checks pass: 23 planner tests/165 assertions, 11 release controls, the real
+U5 plan and all six expected negative controls, 29 documentation tests, document
+links/provenance and `git diff --check`. The 100 translation drafts still require
+human review. Evidence is retained separately under
+`mcp/build/linuxserver-l0-u5/review/`, including `retained-evidence.log`,
+`verify-source.log`, `planner-tests.log`, `release-tests.log`, `controls.log` and
+per-case output. These checks read the previously downloaded inputs; they are
+not another registry-availability observation. The timestamped external checks
+above remain the availability evidence, subject to L1 revalidation.
+
+### Remaining gates and next action
+
+No L0-U5 input blocker remains after the above checks. The next bounded task is
+**implement and validate L1** from the reviewed plan; execution is still rejected
+by the current runner. L1 must establish resource availability/enforcement, pinned
+image runtime behavior, Nginx/FPM identity and private TLS, PostgreSQL/S3 persistence,
+closed/probe-only admission, source serving and owned cleanup. L2-L5 must still
+prove coherent checkpoints, actual upgrade and both complete recovery paths.
+
+The intended host's exact app bytes, active database target, FPM/startup hooks,
+update writers and real S3/backup/recovery behavior remain unqualified. The local
+S3 fixture does not reproduce an unknown production provider. Trusted release
+publication/source delivery and final F3/F4/F5 acceptance remain open.
+
+**Public HTTPS, Inspector's 14/15/encrypted-storage result, real ChatGPT flows and
+human security, operations/recovery, license/attribution, accessibility and
+language reviews remain pending.** Automated input checks do not replace them,
+and private fixture trust would not certify public HTTPS. No real fixture or
+server change was made by this input refresh.
