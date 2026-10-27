@@ -17,6 +17,10 @@ The comparison baseline is released 1.2.0 at
 `02526119b845ccc1d8399be002da3e30b5527df6`, already evaluated in the
 [1.2.0 inventory](upstream-1.2.0-inventory.md).
 
+The [path ledger](upstream-1.2.1-source-ledger.md) maps every changed path to its
+proposed batch. The [U1 plan](upstream-1.2.1-u1-plan.md) defines the first executable
+privacy batch and the prerequisite CI baseline repair.
+
 The full Git comparison contains **165 changed files, 9,418 insertions and 639
 deletions**. The release includes backup policy changes, optional Mail queries,
 Tasks hierarchy and associated administration, localization and tests. These
