@@ -135,3 +135,22 @@ native cell, not the entire 14-cell CI matrix.
 
 This work makes no production deployment or release-readiness claim and does not
 modify the intended server or upstream PR #14.
+
+## Published CI follow-up (2026-10-27)
+
+At `19aff24650742aa03baf3ba8e81884ea0a19c37f`,
+[Package](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40492702540),
+[Quality](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40492702290)
+and [Native integration](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40492702283)
+passed. [Tests](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40492702382)
+failed in PHP 8.2, 8.3, 8.4 and 8.5 at the same ancestry contract; its browser job
+passed. PHPUnit's checkout retained only one commit, so the public baseline was
+unavailable even though it is an ancestor. The native workflow already fetched
+full history and passed all 14 cells.
+
+A local depth-one clone reproduced exit 128 for the exact baseline ancestry check;
+fetching its full history changed the same command to exit 0. The PHPUnit checkout
+now uses `fetch-depth: 0` and disables credential persistence. No test was skipped
+or weakened. The full local PHPUnit suite then passed **8,477 tests / 71,953
+assertions**, and actionlint passed. These local results do not retroactively make
+the failed remote run green; the corrected revision needs its own CI run.

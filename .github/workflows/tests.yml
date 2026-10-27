@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+# SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Verification-only CI: runs the PHPUnit suite on every PHP version the app supports.
@@ -24,6 +25,10 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
+        with:
+          # Integration harness contracts verify that the pinned fork baseline is an ancestor.
+          fetch-depth: 0
+          persist-credentials: false
       - name: Set up PHP ${{ matrix.php-version }}
         uses: shivammathur/setup-php@v2
         with:
