@@ -89,3 +89,10 @@ path = ["mcp/l10n/de.js", "mcp/l10n/de.json"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# Fork-owned LinuxServer planning inputs; JSON cannot carry SPDX comments.
+[[annotations]]
+path = ["mcp/tests/Integration/ci/linuxserver/profile.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

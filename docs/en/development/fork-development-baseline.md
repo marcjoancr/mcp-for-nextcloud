@@ -43,6 +43,14 @@ the [fork's Actions runs](https://github.com/marcjoancr/mcp-for-nextcloud/action
 for the actual final commit before relying on remote qualification. No release,
 tag, production change or deployment was performed.
 
+The first remote Package run failed its REUSE job: the new LinuxServer
+`profile.json` lacked a copyright/license annotation. This was reproduced locally
+with REUSE 6.2.0 (exit 1, 1,674/1,675 files attributed), then corrected with an exact
+`REUSE.toml` entry. REUSE now passes (exit 0, 1,675/1,675 files attributed). The
+profile bytes and frozen digest are unchanged. The full Composer check does not
+include REUSE; its earlier passing result did not cover this separate CI gate.
+Remote results for the corrected commit must still be checked.
+
 ## Local verification
 
 The full catalog check on 2026-10-27 passed with exit 0 before the L0 commit:
