@@ -96,6 +96,9 @@ cmd_packages() {
         # Clone, never a linked worktree: the server's shared worktree registry is not modified.
         git clone --no-hardlinks --no-checkout "$REPO_ROOT" "$WORK/baseline"
         if ! git -C "$WORK/baseline" cat-file -e "$MCP_IT_BASELINE^{commit}"; then
+            if [ "$MCP_IT_MODE" = upgrade-local ]; then
+                echo 'Fork baseline must be present in the candidate history' >&2; exit 1
+            fi
             git -C "$WORK/baseline" fetch https://github.com/sintax-tech/mcp-for-nextcloud.git "$MCP_IT_BASELINE"
         fi
         git -C "$WORK/baseline" checkout --detach "$MCP_IT_BASELINE"
@@ -224,9 +227,11 @@ cmd_install_app() {
         docker exec -u www-data "$NC" tar -xzf /tmp/mcp-baseline.tar.gz -C /var/www/html/custom_apps
         occ app:enable mcp
         assert_installed_version "$baseline_version"
-        if [ "$MCP_IT_MODE" != upgrade-upstream-112 ] && [ "$MCP_IT_MODE" != upgrade-upstream ] && [ "$MCP_IT_MODE" != upgrade-upstream-111 ]; then
+        if [ "$MCP_IT_MODE" = upgrade ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
             docker exec -u www-data -e MCP_IT_MODE="$MCP_IT_MODE" "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-policy.php seed /tmp/mcp-it-snapshot.json
+        elif [ "$MCP_IT_MODE" = upgrade-local ]; then
+            docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php seed-fork
         else
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php seed
         fi
@@ -255,7 +260,7 @@ cmd_install_app() {
         docker restart "$NC" >/dev/null
         wait_for 'Nextcloud after replacement' 180 nextcloud_ready
         occ maintenance:mode --off
-        if [ "$MCP_IT_MODE" = upgrade-upstream-112 ] || [ "$MCP_IT_MODE" = upgrade-upstream ] || [ "$MCP_IT_MODE" = upgrade-upstream-111 ]; then
+        if [ "$MCP_IT_MODE" != upgrade ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php verify
         fi
     else
@@ -280,7 +285,7 @@ cmd_fixtures() {
     for uid in mcp-it-alice mcp-it-bob mcp-it-legacy mcp-it-deck-owner mcp-it-deck-editor mcp-it-deck-reader mcp-it-deck-outsider; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
-    if [ "$MCP_IT_MODE" = upgrade ] || [ "$MCP_IT_MODE" = upgrade-local ]; then
+    if [ "$MCP_IT_MODE" = upgrade ]; then
         # Owners of the snapshot the baseline wrote before the upgrade (Compat/SnapshotProbe::uids).
         for i in 0 1 2 3 4 5 6 7 8; do
             docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "mcp-it-snap-$i"

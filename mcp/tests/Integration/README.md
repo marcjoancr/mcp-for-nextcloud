@@ -36,11 +36,16 @@ part of the evidence. The shared `tests/Support/Access/Policy/PolicyServices.php
 file composes real owners only; the unit bootstrap and its doubles are never loaded.
 
 `ci/legacy-policy.php` and the corresponding assertions in
-`Compat/UpgradeSnapshotTest.php` deliberately name the two pinned 1.0.8 layouts.
+`Compat/UpgradeSnapshotTest.php` deliberately name the released 1.0.8 layout.
 The probe runs in a separate process and checks each loaded class's source. These
 are exact baseline-fixture exceptions to retired-name scans, not candidate loaders.
-`ci/replacement.php` similarly seeds the pinned upstream layout, then verifies unchanged database state and bearer access
-after Apache restart. `upgrade-upstream` installs 1.1.0 and runs `occ upgrade` to
+`ci/replacement.php` seeds the pinned baseline layout, then verifies unchanged
+database state and bearer access after Apache restart. `upgrade-local` uses the
+public fork candidate `14a76df26817fb8a4540eb9c9d1d0043e3e87506` (1.1.2) and
+its capability owners. Its baseline must be reachable from candidate history; no
+upstream fetch can substitute for a missing fork baseline. This replaces the old
+local-only 1.0.8 preparation commit, which was absent from public clones. The
+separate `upgrade` cells retain the real 1.0.8 schema/OAuth migration coverage. `upgrade-upstream` installs 1.1.0 and runs `occ upgrade` to
 the candidate 2.0.0; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
 `upgrade-upstream-112` installs the pinned upstream 1.1.2 and runs a real
 `occ upgrade` to the newer candidate. The fixture verifies policy, scopes, clients,

@@ -28,7 +28,7 @@ final class LegacyCredentialsTest extends IntegrationTestCase {
 
     protected function setUp(): void {
         parent::setUp();
-        if (!in_array(getenv('MCP_IT_MODE'), ['upgrade', 'upgrade-local'], true)) {
+        if (getenv('MCP_IT_MODE') !== 'upgrade') {
             $this->markTestSkipped('Only an upgrade cell has credentials issued by the baseline');
         }
         $path = (string)getenv('MCP_IT_LEGACY');

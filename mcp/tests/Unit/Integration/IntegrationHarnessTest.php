@@ -35,7 +35,7 @@ final class IntegrationHarnessTest extends TestCase {
             self::assertFalse($plan['publishes_ports']);
             self::assertTrue($plan['disposable']);
             if ($mode === 'upgrade') self::assertSame('a1a7911cc72dcf2487d17e06e23edfa89b0ecf92', $plan['baseline_commit']);
-            if ($mode === 'upgrade-local') self::assertSame('1f0b4232e18b2c778d3585b878116d1cabb93d05', $plan['baseline_commit']);
+            if ($mode === 'upgrade-local') self::assertSame('14a76df26817fb8a4540eb9c9d1d0043e3e87506', $plan['baseline_commit']);
             if ($mode === 'upgrade-upstream-112') self::assertSame('27da5e107ca06d92b7af9b8a80ad9c77c12ba91e', $plan['baseline_commit']);
             if ($mode === 'upgrade-upstream-111') self::assertSame('65e4e08b68c3f8d1ba78398a082ec567b0b0f4e4', $plan['baseline_commit']);
             if ($mode === 'upgrade-upstream') self::assertSame('0911f9123a661968e707fc4c391adcf9d37c3e84', $plan['baseline_commit']);
@@ -59,7 +59,7 @@ final class IntegrationHarnessTest extends TestCase {
     }
 
     /** @return array{int,string,string,string,list<list<string>>,string} */
-    private function installWithAppStoreControl(string $mode): array {
+    private function installWithAppStoreControl(string $mode, string $cellMode = 'upgrade'): array {
         $app = dirname(__DIR__, 3);
         $directory = sys_get_temp_dir() . '/mcp-install-guard-' . bin2hex(random_bytes(8));
         mkdir($directory . '/bin', 0700, true);
@@ -114,7 +114,7 @@ PHP);
                 'MCP_IT_LOCAL' => '1', 'RUNNER_TEMP' => $directory,
                 'MCP_IT_RUN_ID' => 'guard-test', 'MCP_IT_NET' => 'guard-test-net',
                 'MCP_IT_NC_NAME' => 'guard-test-nc', 'MCP_IT_DB_NAME' => 'guard-test-db',
-                'MCP_IT_NC_IMAGE' => 'unused', 'MCP_IT_BASELINE' => 'fixture', 'MCP_IT_MODE' => 'upgrade',
+                'MCP_IT_NC_IMAGE' => 'unused', 'MCP_IT_BASELINE' => 'fixture', 'MCP_IT_MODE' => $cellMode,
                 'MCP_IT_QUALIFICATION_VERSION' => '', 'MCP_IT_PHPUNIT_ARGS' => '',
                 'MCP_GUARD_DIRECTORY' => $directory, 'MCP_GUARD_MODE' => $mode,
             ]);
@@ -147,6 +147,30 @@ PHP);
         self::assertStringContainsString('mcp 1.0.8 is installed and enabled', $out);
         self::assertSame("1.1.2\n", $expected);
         self::assertContains(['exec', '-u', 'www-data', 'guard-test-nc', 'php', '/var/www/html/occ', 'upgrade'], $effects);
+    }
+
+    public function testForkBaselineIsReachableFromThePublishedCandidateHistory(): void {
+        [$status, $out, $error] = $this->invoke(['--plan', '35', 'mariadb', 'upgrade-local']);
+        self::assertSame(0, $status, $error);
+        $baseline = json_decode($out, true, 512, JSON_THROW_ON_ERROR)['baseline_commit'];
+        $process = proc_open(['git', 'merge-base', '--is-ancestor', $baseline, 'HEAD'],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname(__DIR__, 4));
+        self::assertIsResource($process);
+        fclose($pipes[0]); stream_get_contents($pipes[1]); fclose($pipes[1]);
+        $error = stream_get_contents($pipes[2]); fclose($pipes[2]);
+        self::assertSame(0, proc_close($process), 'A clean candidate clone must contain the fork baseline: ' . $error);
+    }
+
+    public function testForkUpgradeUsesGenerationQualifiedStatePreservation(): void {
+        [$status, , $error, , $effects] = $this->installWithAppStoreControl('applied', 'upgrade-local');
+        self::assertSame(0, $status, $error);
+        $probe = '/mcp-it-src/mcp/tests/Integration/ci/replacement.php';
+        self::assertContains(['exec', '-u', 'www-data', 'guard-test-nc', 'php', $probe, 'seed-fork'], $effects);
+        self::assertContains(['exec', '-u', 'www-data', 'guard-test-nc', 'php', $probe, 'verify'], $effects);
+        foreach ($effects as $effect) {
+            self::assertNotContains('/mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php', $effect);
+            self::assertNotContains('/mcp-it-src/mcp/tests/Integration/ci/legacy-policy.php', $effect);
+        }
     }
 
     public static function rejectedAppStoreControl(): array {

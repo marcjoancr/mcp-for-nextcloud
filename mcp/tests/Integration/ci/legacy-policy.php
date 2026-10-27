@@ -64,8 +64,7 @@ $db = Server::get(\OCP\IDBConnection::class);
 $store = new \OCA\Mcp\OAuth\OAuthStore($db);
 // The baseline's constructor: (IConfig, OAuthStore, ?IUserConfig). Built by hand so the branch's container never
 // resolves it.
-$policyClass = getenv('MCP_IT_MODE') === 'upgrade-local'
-    ? 'OCA\\Mcp\\Access\\Grants\\GrantPolicy' : 'OCA\\Mcp\\Service\\GrantPolicy';
+$policyClass = 'OCA\\Mcp\\Service\\GrantPolicy';
 $policy = new $policyClass($config, $store, $userConfig);
 $source = (string)(new ReflectionClass($policy))->getFileName();
 if ($mode === 'read' && !str_starts_with($source, $lib)) {

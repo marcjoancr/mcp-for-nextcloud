@@ -75,7 +75,7 @@ never starts/stops the shared daemon, prunes images or creates linked worktrees.
 Linux `ip`, PHP, Composer, OpenSSL, curl and the locked Node/npm versions are required.
 
 The source checkout's `mcp/tests/Integration/README.md` describes all
-16 cells, separate suite ordering, baseline probes and private versus publishable
+14 cells, separate suite ordering, baseline probes and private versus publishable
 artifacts. The integration workflow uses the same command and immutable input
 manifest. Full Git history is required for source/translation provenance.
 A failed app installation, empty selection or test failure is a failed cell.

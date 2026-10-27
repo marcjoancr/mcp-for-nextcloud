@@ -95,3 +95,41 @@ server credentials are included in this publication.
 
 These release/operational gates do not prevent independently tested feature work
 on the fork. No server changes, deployment or upstream PR update are performed.
+
+## Native CI baseline correction (2026-10-27)
+
+On `0ed33039`, [Package](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40484058181),
+[Quality](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40484058259)
+and [Tests](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40484058101)
+passed. [Native integration](https://github.com/marcjoancr/mcp-for-nextcloud/actions/runs/40484058075)
+passed 13 of its 14 cells; `35:mariadb:upgrade-local` failed before starting the
+instance because `1f0b4232e18b2c778d3585b878116d1cabb93d05` was local-only and
+could not be fetched from upstream. This was a reproducibility defect, not a
+passing native matrix or an application failure.
+
+The corrected `upgrade-local` baseline is the already-public fork candidate
+`14a76df26817fb8a4540eb9c9d1d0043e3e87506` (1.1.2). The runner now seeds and verifies
+its generation-qualified policy, resource restrictions, OAuth client and bearer
+through its exact capability owners, before the shared suite. The pinned baseline
+must be reachable from candidate history and cannot fall back to upstream.
+Released 1.0.8-to-candidate migration assertions remain in `upgrade` cells; the
+old local-only preparation is no longer a current matrix input. Its historical
+evidence remains in the 1.2.0 integration record. No old private history was
+published to make CI pass, and no failing cell was removed.
+
+Two regressions failed before the fix (baseline ancestry and probe selection).
+The full focused harness suite then passed **16 tests / 175 assertions**, and
+syntax validation covered **99 integration PHP files**. The corrected full native
+cell passed with exit 0: **276 tests / 4,237 assertions / 9 skips** on NC35.0.1,
+PHP8.5.11 and MariaDB10.11.19. Six skips are pre-1.1 migration tests (covered by
+`upgrade`); three are PostgreSQL-specific query-window probes. The seed/verify
+probe passed before the suite, including unchanged state and HTTP bearer access.
+The run's owned containers/network were cleaned up; no ports were published.
+
+Local sanitized evidence: `mcp/build/integration/mcp-it-20261027100703-566e29b80e6b/mcp-it/artifacts/`.
+Candidate archive SHA-256:
+`7f4886028c294db952f025fed9c3b38740c2a906fd2cdf32cae7df72bf8c44c3`.
+Baseline archive SHA-256:
+`0d3cf0d4b353cef86a72d53b2a565eaad8a940d24739afbcaf19d2decc5b5076`.
+This exercised the working-tree correction over `0ed33039`; it is not a final
+release artifact or evidence that the corrected full remote matrix has passed.
