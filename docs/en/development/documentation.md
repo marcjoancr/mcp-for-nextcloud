@@ -34,6 +34,15 @@ validation, translations and packaging each have a separate module in that folde
 Use `mcp/tests/documentation/*.test.mjs` for behavior tests, with invalid Markdown
 stored as strings and temporary Git fixtures under ignored `mcp/build/`.
 
+The scoped `markdownlint` override fixes `re2js` at 2.8.7 for
+[GHSA-gg6h-894w-4m9c](https://github.com/advisories/GHSA-gg6h-894w-4m9c).
+Markdownlint 0.42.0 otherwise pins the affected 2.8.6 release. Keep this override
+until a reviewed markdownlint upgrade resolves a patched version itself; verify
+with a clean `npm ci --ignore-scripts`, `npm ls markdownlint re2js`, `npm audit`
+and the documentation tests. RE2JS 2.8.7 requires Node >=20, within the project's
+pinned Node 24.21.x toolchain. This is development tooling, not an app runtime
+dependency.
+
 Development-only Markdown dependencies are locked. The KaTeX override to 0.18.2
 fixes GHSA-238p-pmpm-9mq7 inherited through markdownlint's math extension; no math
 renderer or Node dependency ships in the app. Reassess the override on dependency
