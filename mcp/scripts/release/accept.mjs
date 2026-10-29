@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { verifyKit } from './integrity.mjs';
+import { inspectCandidate, stageCandidate } from '../../tests/Integration/ci/candidate-kit.mjs';
 import { cleanupSourceFixture } from './fixture-cleanup.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -17,19 +18,17 @@ function command(binary, args) {
 }
 try {
   if (!kitArgument || !digest || extra.length || !path.isAbsolute(kitArgument)) throw new Error('Usage: composer test:source -- ABSOLUTE_KIT TRUSTED_MANIFEST_SHA256');
+  const candidate = await inspectCandidate(kitArgument, digest);
   const manifest = await verifyKit(kitArgument, digest);
-  command('php', ['mcp/scripts/check_package.php', path.join(kitArgument, `mcp-${manifest.version}.tar.gz`)]);
-  const identity = JSON.parse(command('tar', ['-xOf', path.join(kitArgument, `mcp-${manifest.version}.tar.gz`), 'mcp/appinfo/source.json']));
-  if (identity.schemaVersion !== 1 || identity.sourceCommit !== manifest.sourceCommit || identity.version !== manifest.version) throw new Error('Runtime source identity does not match the kit');
   const plan = JSON.parse(command('php', ['mcp/tests/Integration/ci/matrix.php', '35', 'sqlite', 'fresh']));
   const id = `mcp-source-${randomBytes(8).toString('hex')}`;
   runRoot = path.join(root, 'mcp/build/source-acceptance', id);
   fs.mkdirSync(path.dirname(runRoot), { recursive: true });
   fs.mkdirSync(runRoot, { mode: 0o700 });
   fs.mkdirSync(path.join(runRoot, 'mcp-it'), { mode: 0o700 });
-  fs.writeFileSync(path.join(runRoot, 'plan.json'), JSON.stringify(plan));
-  fs.copyFileSync(path.join(kitArgument, `mcp-${manifest.version}.tar.gz`), path.join(runRoot, 'mcp-it/mcp-branch.tar.gz'));
-  env = { ...process.env, MCP_IT_LOCAL: '1', RUNNER_TEMP: runRoot, MCP_IT_RUN_ID: id,
+  fs.writeFileSync(path.join(runRoot, 'plan.json'), JSON.stringify({ ...plan, candidate }));
+  await stageCandidate(kitArgument, digest, path.join(runRoot, 'mcp-it'));
+  env = { ...process.env, MCP_IT_LOCAL: '1', MCP_IT_CANDIDATE_KIT: kitArgument, MCP_IT_CANDIDATE_DIGEST: digest, MCP_IT_QUALIFICATION_VERSION: '', RUNNER_TEMP: runRoot, MCP_IT_RUN_ID: id,
     MCP_IT_NC: '35', MCP_IT_DB: 'sqlite', MCP_IT_MODE: 'fresh', MCP_IT_BASELINE: '',
     MCP_IT_NC_IMAGE: plan.nc_image, MCP_IT_DB_IMAGE: '', MCP_IT_NET: `${id}-net`, MCP_IT_NC_NAME: `${id}-nc`, MCP_IT_DB_NAME: `${id}-db` };
   for (const step of ['start-db', 'start-nextcloud', 'install-app', 'fixtures']) {

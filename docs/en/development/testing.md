@@ -76,8 +76,10 @@ Linux `ip`, PHP, Composer, OpenSSL, curl and the locked Node/npm versions are re
 
 The source checkout's `mcp/tests/Integration/README.md` describes all
 15 cells, separate suite ordering, baseline probes and private versus publishable
-artifacts. The integration workflow uses the same command and immutable input
-manifest. Full Git history is required for source/translation provenance.
+artifacts. The integration workflow uses the checkout command and pinned image
+manifest. Final artifact acceptance uses the explicit `--candidate-kit` and, for
+upgrades, `--baseline-package` inputs described in that README; it must not
+substitute a fresh checkout build. Full Git history is required for source/translation provenance.
 A failed app installation, empty selection or test failure is a failed cell.
 Harness qualification with an explicitly substituted version and filtered diagnostic
 runs do not certify the final package; report them separately.

@@ -7,7 +7,7 @@
 These tests load the installed Nextcloud core, not unit doubles. Run an explicit
 cell with `composer --working-dir=mcp test:integration -- 35 sqlite fresh`.
 Prefix the three cell arguments with `--plan` to inspect pins without starting
-containers. `ci/matrix.php --matrix` lists all 14 candidate cells. Ordinary
+containers. `ci/matrix.php --matrix` lists all 15 declared cells. Ordinary
 `composer check` excludes only this native suite and never starts Docker.
 
 Docker and Linux `ip`/`flock`, PHP, Composer, the locked Node/npm versions, curl and OpenSSL
@@ -63,8 +63,9 @@ replace the pinned candidate with a newer published release. Archive hashes and
 exact installed-version assertions remain required. This disposable test setting
 does not qualify production update controls, which remain a separate F3 review.
 
-The current matrix still uses the previously qualified image pins. It does not
-certify newer security patches or an upgrade from installed upstream 1.2.0. F3/F4
+The matrix pins NC33.0.10, NC34.0.5 and NC35.0.2 amd64 images. Pin validation
+alone does not qualify these newer patches or the final candidate; the 15-cell
+campaign, including the explicit `upgrade-upstream-120` origin, must pass. F3/F4
 must bind final source and artifact evidence to the approved release profiles and
 the intended host before deployment. Deck is pinned to 1.16.8/1.17.7/1.18.5/1.19.0 for
 NC32/33/34/35; Contacts is pinned to 8.3.21 for NC32 and 8.9.2 for NC33–35.
@@ -99,3 +100,42 @@ and [upgrade and recovery](../../../docs/en/installation.md#upgrade-and-recovery
 for coordinated restoration and credential invalidation. Record the exact source,
 package hash, selected cell, exit status and inapplicable skips with each run;
 filtered runs and evidence from an older artifact do not qualify a new candidate.
+
+## Frozen candidate acceptance
+
+Checkout commands above build a development package. To qualify one reviewed
+runtime/source kit instead, place its explicit input before the cell arguments:
+
+```sh
+composer --working-dir=mcp test:integration -- --plan --candidate-kit /absolute/kit TRUSTED_MANIFEST_SHA256 35 sqlite fresh
+composer --working-dir=mcp test:integration -- --candidate-kit /absolute/kit TRUSTED_MANIFEST_SHA256 35 sqlite fresh
+composer --working-dir=mcp test:integration -- --plan --candidate-kit /absolute/kit TRUSTED_MANIFEST_SHA256 --baseline-package /absolute/baseline.tar.gz TRUSTED_BASELINE_SHA256 35 mariadb upgrade-upstream-120
+```
+
+`--plan` validates the kit's exact inventory, archive paths/types, source identity
+and extracted runtime bytes without Docker calls. Invalid or empty kit arguments
+fail; they never select checkout packaging. Upgrades in this mode require a
+retained baseline archive and its separately reviewed digest, checked against the
+tracked `ci/baseline-packages.json` mode/commit/hash mapping; there is no network
+fetch/rebuild fallback. Its association with the selected historical commit comes
+from that reviewed build provenance, not an identity field invented for older packages.
+The [M0 record](../../../docs/en/development/fork-platform-m0.md) identifies those
+inputs and their limits.
+
+A run copies the verified kit into its own directory and records candidate SHA,
+manifest/archive digests, runner SHA, dirty state and runner-file hashes separately.
+After install/upgrade it copies the owned container's actual application tree for
+read-only comparison with the kit, failing on missing, changed, extra or linked
+files before fixture/test execution. The source-offer runner uses the same gate.
+The measured inventory is retained in `installed-candidate.json`; version equality
+alone is not artifact identity. This does not certify a production instance.
+
+Checkout-only `upgrade-local` reconstruction needs `MCP_IT_BASELINE_NODE_BIN`
+pointing to the exact historical Node directory (24.21.0 for the pinned 1.1.2
+origin). The integration workflow prepares that separate runtime. Registry cache
+fetches use the current patched runtime and locked npm URLs; historical npm
+installation/build then use offline mode, and Composer networking is disabled.
+Missing cached inputs fail rather than weakening engines or fetching with the old
+runtime. Final candidate acceptance should use the reviewed retained baseline
+option above; historical reconstruction is not a claim that its old tooling is
+security-current. The private-TLS Inspector fixture is also still historical.

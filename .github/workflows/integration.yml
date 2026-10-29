@@ -44,10 +44,17 @@ jobs:
           coverage: none
           tools: composer:v2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        if: matrix.mode == 'upgrade-local'
+        with:
+          node-version: '24.21.0'
+      - name: Retain the historical offline baseline runtime
+        if: matrix.mode == 'upgrade-local'
+        run: echo "MCP_IT_BASELINE_NODE_BIN=$(dirname "$(command -v node)")" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: mcp/.node-version
       - name: Install locked npm version
-        run: npm install --global npm@11.19.0
+        run: npm install --global npm@11.19.1
       - name: Run the pinned disposable cell
         env:
           CELL_NC: ${{ matrix.nc }}

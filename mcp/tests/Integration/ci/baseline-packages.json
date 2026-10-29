@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "packages": {
+    "upgrade": {
+      "sourceCommit": "a1a7911cc72dcf2487d17e06e23edfa89b0ecf92",
+      "version": "1.0.8",
+      "archiveSha256": "7371124da35accd35061e18496169b5c6cb1c686d2395d05f297e3ef55a5115b",
+      "archiveBytes": 771321
+    },
+    "upgrade-local": {
+      "sourceCommit": "e55e1b456c06b275f7ee2a32c4262f831ddcc772",
+      "version": "1.1.2",
+      "archiveSha256": "a243104c16b3efaa0e0457a0802eeb2aba402501b774844aba33b4dd8ba0b3a3",
+      "archiveBytes": 1235420
+    },
+    "upgrade-upstream": {
+      "sourceCommit": "0911f9123a661968e707fc4c391adcf9d37c3e84",
+      "version": "1.1.0",
+      "archiveSha256": "0e86c0947e9b4af7833711074489f6762216d2c2ee8f6fbb69bf6143cea6ae0e",
+      "archiveBytes": 1135846
+    },
+    "upgrade-upstream-111": {
+      "sourceCommit": "65e4e08b68c3f8d1ba78398a082ec567b0b0f4e4",
+      "version": "1.1.1",
+      "archiveSha256": "6e5550fc06ec9fcc4acb6d05b775bb5af509a62b4ddadd30e3f992ff73966e0c",
+      "archiveBytes": 1136510
+    },
+    "upgrade-upstream-112": {
+      "sourceCommit": "27da5e107ca06d92b7af9b8a80ad9c77c12ba91e",
+      "version": "1.1.2",
+      "archiveSha256": "846e63066d3eadd084815efe63786d23fedd99e7e019f8c8864e3e7e6dbb005c",
+      "archiveBytes": 1139779
+    },
+    "upgrade-upstream-120": {
+      "sourceCommit": "02526119b845ccc1d8399be002da3e30b5527df6",
+      "version": "1.2.0",
+      "archiveSha256": "dc7aff3427c527641440c3f553c4abe300ad96109079c7fa0ea37a0972d0e801",
+      "archiveBytes": 1280730
+    }
+  }
+}

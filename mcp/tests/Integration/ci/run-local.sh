@@ -6,7 +6,27 @@ set -eu
 CI_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 plan_only=false
 if [ "${1:-}" = --plan ]; then plan_only=true; shift; fi
+MCP_IT_CANDIDATE_KIT=; MCP_IT_CANDIDATE_DIGEST=; MCP_IT_BASELINE_PACKAGE=; MCP_IT_BASELINE_DIGEST=
+if [ "${1:-}" = --candidate-kit ]; then
+    [ "$#" -ge 3 ] || exit 2
+    [ -n "$2" ] && [ -n "$3" ] || { echo "Empty candidate kit input" >&2; exit 2; }
+    MCP_IT_CANDIDATE_KIT=$2; MCP_IT_CANDIDATE_DIGEST=$3; shift 3
+    if [ "${1:-}" = --baseline-package ]; then
+        [ "$#" -ge 3 ] || exit 2
+        [ -n "$2" ] && [ -n "$3" ] || { echo "Empty baseline package input" >&2; exit 2; }
+        MCP_IT_BASELINE_PACKAGE=$2; MCP_IT_BASELINE_DIGEST=$3; shift 3
+    fi
+fi
 plan=$(php "$CI_DIR/matrix.php" "$@")
+if [ -n "$MCP_IT_CANDIDATE_KIT" ]; then
+    [ -z "${MCP_IT_QUALIFICATION_VERSION:-}" ] || { echo 'Candidate runs cannot override the app version' >&2; exit 2; }
+    if [ -n "$MCP_IT_BASELINE_PACKAGE" ]; then
+        plan=$(node "$CI_DIR/candidate-kit.mjs" plan "$MCP_IT_CANDIDATE_KIT" "$MCP_IT_CANDIDATE_DIGEST" "$plan" "$MCP_IT_BASELINE_PACKAGE" "$MCP_IT_BASELINE_DIGEST")
+    else
+        plan=$(node "$CI_DIR/candidate-kit.mjs" plan "$MCP_IT_CANDIDATE_KIT" "$MCP_IT_CANDIDATE_DIGEST" "$plan")
+    fi
+fi
+export MCP_IT_CANDIDATE_KIT MCP_IT_CANDIDATE_DIGEST MCP_IT_BASELINE_PACKAGE MCP_IT_BASELINE_DIGEST
 if [ "$plan_only" = true ]; then printf '%s\n' "$plan"; exit 0; fi
 ROOT=$(CDPATH='' cd -- "$CI_DIR/../../../.." && pwd)
 MCP_IT_RUN_ID="mcp-it-$(date -u +%Y%m%d%H%M%S)-$(php -r 'echo bin2hex(random_bytes(6));')"
