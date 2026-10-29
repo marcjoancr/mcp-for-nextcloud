@@ -60,7 +60,13 @@ PHPUNIT_SHA256=ce85745a2ec7d8e536621ebed69dfa36a8d504daf73be6750e93bb8c5b088835
 mkdir -p "$WORK" "$TOOLS_DIR" "$ARTIFACTS"
 chmod 0755 "$TOOLS_DIR"
 cp "$RUNNER_TEMP/plan.json" "$ARTIFACTS/plan.json"
-git -C "$REPO_ROOT" rev-parse HEAD > "$ARTIFACTS/source-commit.txt"
+git -C "$REPO_ROOT" rev-parse HEAD > "$ARTIFACTS/runner-commit.txt"
+if [ -f "$WORK/candidate.json" ]; then
+    php -r '$r=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $r["sourceCommit"], PHP_EOL;' "$WORK/candidate.json" > "$ARTIFACTS/source-commit.txt"
+    cp "$WORK/candidate.json" "$ARTIFACTS/candidate.json"
+else
+    cp "$ARTIFACTS/runner-commit.txt" "$ARTIFACTS/source-commit.txt"
+fi
 if [ -n "${MCP_IT_PHPUNIT_ARGS:-}" ]; then
     printf 'Filtered diagnostic run only: %s\n' "$MCP_IT_PHPUNIT_ARGS" > "$ARTIFACTS/diagnostic.txt"
 fi
@@ -90,9 +96,21 @@ info_version() {
 
 # Builds the branch package, and the baseline package for the upgrade mode, each with its own official script.
 cmd_packages() {
-    (cd "$REPO_ROOT/mcp" && npm ci --ignore-scripts)
-    build_package "$REPO_ROOT/mcp" "$WORK/mcp-branch.tar.gz"
-    if [ -n "$MCP_IT_BASELINE" ]; then
+    if [ -n "${MCP_IT_CANDIDATE_KIT:-}" ]; then
+        node "$REPO_ROOT/mcp/tests/Integration/ci/candidate-kit.mjs" stage "$MCP_IT_CANDIDATE_KIT" "$MCP_IT_CANDIDATE_DIGEST" "$WORK"
+        if [ -n "$MCP_IT_BASELINE" ]; then
+            [ -n "${MCP_IT_BASELINE_PACKAGE:-}" ] && [ -n "${MCP_IT_BASELINE_DIGEST:-}" ] || { echo 'Missing reviewed baseline package' >&2; exit 1; }
+            node "$REPO_ROOT/mcp/tests/Integration/ci/candidate-kit.mjs" baseline "$MCP_IT_BASELINE_PACKAGE" "$MCP_IT_BASELINE_DIGEST" "$MCP_IT_MODE" > "$ARTIFACTS/baseline.json"
+            baseline_commit=$(php -r '$r=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $r["sourceCommit"];' "$ARTIFACTS/baseline.json")
+            [ "$baseline_commit" = "$MCP_IT_BASELINE" ] || { echo 'Baseline source commit mismatch' >&2; exit 1; }
+            cp "$MCP_IT_BASELINE_PACKAGE" "$WORK/mcp-baseline.tar.gz"
+            printf '%s  %s\n' "$MCP_IT_BASELINE_DIGEST" "$WORK/mcp-baseline.tar.gz" | sha256_check
+        fi
+    else
+        (cd "$REPO_ROOT/mcp" && npm ci --ignore-scripts)
+        build_package "$REPO_ROOT/mcp" "$WORK/mcp-branch.tar.gz"
+    fi
+    if [ -n "$MCP_IT_BASELINE" ] && [ -z "${MCP_IT_CANDIDATE_KIT:-}" ]; then
         # Clone, never a linked worktree: the server's shared worktree registry is not modified.
         git clone --no-hardlinks --no-checkout "$REPO_ROOT" "$WORK/baseline"
         if ! git -C "$WORK/baseline" cat-file -e "$MCP_IT_BASELINE^{commit}"; then
@@ -103,7 +121,14 @@ cmd_packages() {
         fi
         git -C "$WORK/baseline" checkout --detach "$MCP_IT_BASELINE"
         if [ "$MCP_IT_MODE" = upgrade-local ]; then
-            (cd "$WORK/baseline/mcp" && npm ci --ignore-scripts)
+            # Fetch only locked registry tarballs with the patched current runtime.
+            # Historical installation/build then run offline with their own exact runtime.
+            [ -n "${MCP_IT_BASELINE_NODE_BIN:-}" ] || { echo 'Set MCP_IT_BASELINE_NODE_BIN for the historical fork build' >&2; exit 1; }
+            baseline_node=$("$MCP_IT_BASELINE_NODE_BIN/node" -p 'process.versions.node')
+            [ "$baseline_node" = "$(cat "$WORK/baseline/mcp/.node-version")" ] || { echo 'Historical baseline runtime mismatch' >&2; exit 1; }
+            php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); foreach ($p["packages"] as $entry) { if (!isset($entry["resolved"])) continue; $url=$entry["resolved"]; if (!str_starts_with($url,"https://registry.npmjs.org/")) throw new RuntimeException("Unapproved baseline registry"); echo $url, PHP_EOL; }' "$WORK/baseline/mcp/package-lock.json" > "$WORK/baseline-registry-urls"
+            while IFS= read -r url; do npm cache add "$url"; done < "$WORK/baseline-registry-urls"
+            (cd "$WORK/baseline/mcp" && PATH="$MCP_IT_BASELINE_NODE_BIN:$PATH" npm ci --offline --ignore-scripts)
         fi
         build_package "$WORK/baseline/mcp" "$WORK/mcp-baseline.tar.gz"
     fi
@@ -113,7 +138,10 @@ cmd_packages() {
 # build_package <app dir> <destination>: the script's last output line is the archive path. Its output goes through
 # a file, not a pipe, so a failing package.sh fails the step.
 build_package() {
-    (cd "$1" && if [ "$1" = "$REPO_ROOT/mcp" ] || [ "$MCP_IT_MODE" = upgrade-local ]; then composer package; else sh scripts/package.sh; fi) > "$WORK/package.out"
+    (cd "$1" && if [ "$1" = "$REPO_ROOT/mcp" ]; then composer package;
+        elif [ "$MCP_IT_MODE" = upgrade-local ]; then
+            PATH="$MCP_IT_BASELINE_NODE_BIN:$PATH" npm_config_offline=true COMPOSER_DISABLE_NETWORK=1 composer package;
+        else sh scripts/package.sh; fi) > "$WORK/package.out"
     cat "$WORK/package.out"
     archive=$(tail -n 1 "$WORK/package.out")
     cp "$1/$archive" "$2"
@@ -269,6 +297,9 @@ cmd_install_app() {
         occ app:enable mcp
     fi
     assert_installed_version "$expected"
+    if [ -n "${MCP_IT_CANDIDATE_KIT:-}" ]; then
+        node "$REPO_ROOT/mcp/tests/Integration/ci/candidate-kit.mjs" installed "$WORK" "$NC" "$MCP_IT_RUN_ID"
+    fi
     docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/schema.php > "$ARTIFACTS/migrations.json"
     echo "$expected" > "$WORK/expected-version"
 }

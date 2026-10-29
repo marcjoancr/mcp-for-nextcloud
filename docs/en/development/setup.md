@@ -58,8 +58,8 @@ documented in the [troubleshooting guide](../guides/troubleshooting.md). A green
 
 ## Administration JavaScript development
 
-Frontend verification uses Node **24.21.0** (see `mcp/.node-version`) and npm
-**11.19.0**. Activate those versions with your Node version manager before running
+Frontend verification uses Node **24.22.1** (see `mcp/.node-version`) and npm
+**11.19.1**. Activate those versions with your Node version manager before running
 Composer's asset build, PHPUnit, JavaScript, package or complete checks. The system Node version is not assumed.
 Install the committed dependency lock and the matching browsers explicitly:
 

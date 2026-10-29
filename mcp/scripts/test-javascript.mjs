@@ -3,8 +3,8 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
-if (!process.versions.node.startsWith('24.21.')) {
-    throw new Error('JavaScript verification requires Node 24.21.x; see docs/en/development/setup.md.')
+if (process.versions.node !== '24.22.1') {
+    throw new Error('JavaScript verification requires Node 24.22.1; see docs/en/development/setup.md.')
 }
 const app = fileURLToPath(new URL('../', import.meta.url))
 const env = { ...process.env }

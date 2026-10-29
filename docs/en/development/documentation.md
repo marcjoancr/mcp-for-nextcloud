@@ -40,7 +40,7 @@ Markdownlint 0.42.0 otherwise pins the affected 2.8.6 release. Keep this overrid
 until a reviewed markdownlint upgrade resolves a patched version itself; verify
 with a clean `npm ci --ignore-scripts`, `npm ls markdownlint re2js`, `npm audit`
 and the documentation tests. RE2JS 2.8.7 requires Node >=20, within the project's
-pinned Node 24.21.x toolchain. This is development tooling, not an app runtime
+pinned Node 24.22.1 toolchain. This is development tooling, not an app runtime
 dependency.
 
 Development-only Markdown dependencies are locked. The KaTeX override to 0.18.2

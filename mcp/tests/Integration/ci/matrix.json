@@ -11,31 +11,31 @@
     {
       "nc": "33",
       "db": "mariadb",
-      "nc_image": "nextcloud:33.0.9-apache@sha256:8f46dc79e9abf4f1e330ca9a7d9d9b8a8811ecc28f18018c1951281e522499e8",
-      "db_image": "mariadb:10.11.19@sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2"
+      "nc_image": "nextcloud:33.0.10-apache@sha256:9ef9786fec0274ff88d7467e246034f8ad4e5742e344de6e049e05a3ee2bb74d",
+      "db_image": "mariadb:10.11.19@sha256:6c65a843396dc6c78dd0da19eccaa0a91d25d9d26a4c2afcb75010ac3f59f5ea"
     },
     {
       "nc": "34",
       "db": "mariadb",
-      "nc_image": "nextcloud:34.0.4-apache@sha256:0e5688ba0988b9112cf03f9c6bab53eccb466d278435f6596f16c1f25acacf74",
-      "db_image": "mariadb:10.11.19@sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2"
+      "nc_image": "nextcloud:34.0.5-apache@sha256:e881320833451d8320727d7e20386c39021d51ba03bbb1e153ddfeb114ce6145",
+      "db_image": "mariadb:10.11.19@sha256:6c65a843396dc6c78dd0da19eccaa0a91d25d9d26a4c2afcb75010ac3f59f5ea"
     },
     {
       "nc": "35",
       "db": "mariadb",
-      "nc_image": "nextcloud:35.0.1-apache@sha256:8f2f0e93aca5e9457019933936dea1f313052e72c696b4aecb31580a208b859f",
-      "db_image": "mariadb:10.11.19@sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2"
+      "nc_image": "nextcloud:35.0.2-apache@sha256:c73d6b4ada5126dc56bbd6357f9c73c9caf99f4a692bd2da4187ea58b9089eec",
+      "db_image": "mariadb:10.11.19@sha256:6c65a843396dc6c78dd0da19eccaa0a91d25d9d26a4c2afcb75010ac3f59f5ea"
     },
     {
       "nc": "35",
       "db": "pgsql",
-      "nc_image": "nextcloud:35.0.1-apache@sha256:8f2f0e93aca5e9457019933936dea1f313052e72c696b4aecb31580a208b859f",
-      "db_image": "postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d"
+      "nc_image": "nextcloud:35.0.2-apache@sha256:c73d6b4ada5126dc56bbd6357f9c73c9caf99f4a692bd2da4187ea58b9089eec",
+      "db_image": "postgres:16.15@sha256:b95b87e93ceb7594715d5c71fb6e09f6fc878851ab537735d617325eb9ba8b1b"
     },
     {
       "nc": "35",
       "db": "sqlite",
-      "nc_image": "nextcloud:35.0.1-apache@sha256:8f2f0e93aca5e9457019933936dea1f313052e72c696b4aecb31580a208b859f",
+      "nc_image": "nextcloud:35.0.2-apache@sha256:c73d6b4ada5126dc56bbd6357f9c73c9caf99f4a692bd2da4187ea58b9089eec",
       "db_image": ""
     }
   ]

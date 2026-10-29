@@ -58,7 +58,7 @@ export async function buildAssets(root = app) {
     await Promise.all(outputs.map(path => rm(path, { force: true })))
     let stage
     try {
-        if (!process.versions.node.startsWith('24.21.')) throw new Error('Asset builds require Node 24.21.x; see docs/en/development/setup.md.')
+        if (process.versions.node !== '24.22.1') throw new Error('Asset builds require Node 24.22.1; see docs/en/development/setup.md.')
         await mkdir(join(root, 'build'), { recursive: true })
         await mkdir(join(root, 'js'), { recursive: true })
         stage = await mkdtemp(join(root, 'build/assets-stage-'))
