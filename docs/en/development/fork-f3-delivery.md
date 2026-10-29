@@ -1178,3 +1178,37 @@ This work does not start L5 or close F3. Intended-host acceptance, public HTTPS,
 Inspector (prior 14/15 with its encrypted-storage finding), hosted ChatGPT and
 human reviewers remain pending. No production operation, publication, push or
 change to PR #14 is authorized by this local recovery work.
+
+
+## LinuxServer L5 local closure (2026-10-29)
+
+The authorized [L5 evidence and cleanup record](fork-linuxserver-l5.md) closes the
+scoped local LinuxServer campaign. L0's U5 kit/profile and local image pins verify
+again; accepted L1-L4 result hashes and all eight retained checkpoint copies match
+before and after retention work. L4's final versions remain R1 2.0.0 and both R0
+cases 1.2.0. No application candidate changed.
+
+The sealer now normalizes copied checkpoint permissions; 42 LinuxServer controls
+pass. The full local check passes 8,707 PHP tests / 74,469 assertions, 717 browser
+tests, both static-analysis scopes, documentation and packaging. Initial Apache
+runs exposed three LinuxServer-only tests in the recursive Apache suite. The
+selection is corrected; both unfiltered repeats pass: NC35/MariaDB upgrade from
+1.2.0 has 300 tests / 4,435 assertions / 11 skips, and NC35/SQLite has 300 tests /
+4,396 assertions / 14 skips plus successful coordinated recovery. The report keeps
+the failed attempts, conditional skips and profile boundaries explicit.
+
+Cleanup removed obsolete private working copies after exact previews, retained
+accepted checkpoints with restrictive permissions, preserved historical results
+and verified absence of LinuxServer and all four Apache attempts' owned resources,
+including anonymous volumes. Retention/removal responsibility remains with the
+owner. This closure review retains the accepted synthetic checkpoints for the
+remaining F3/intended-host comparison and human review; revisit disposal at the
+next F3 release or intended-host acceptance decision.
+
+F3 remains open: intended-host qualification, final release/support-matrix gates,
+public HTTPS, Inspector's prior 14/15/encrypted-storage finding, hosted ChatGPT and
+human reviewers remain pending. Nothing was pushed or deployed and PR #14 was
+not changed. The closure review reverified the unchanged evidence and code,
+passed 42 Node controls and 57 focused PHP tests / 398 assertions, and validated
+documentation/package for the local commit. This is not production recovery
+approval or independent human acceptance.

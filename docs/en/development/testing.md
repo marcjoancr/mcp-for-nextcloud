@@ -105,7 +105,8 @@ tokenizer APK documented in the [L3 record](fork-linuxserver-l3.md).
 It additionally requires `--checkpoints ABSOLUTE_DIRECTORY`, `--b0-generation`,
 `--b0-sha256`, `--b1-generation` and `--b1-sha256`. The [L4 record](fork-linuxserver-l4.md)
 lists trusted inputs, the full restore/revocation contract and acceptance evidence.
-L5 remains rejected.
+L5 is the separate [evidence and regression closure](fork-linuxserver-l5.md);
+`--phase L5` is not a runtime command and remains rejected.
 
 The PHPUnit command-boundary tests and Node safety tests run in the normal
 `test`/`check` suite with synthetic inputs and no Docker access. Native L1/L2/L3/L4 are

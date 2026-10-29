@@ -153,11 +153,13 @@ Private artifacts are under `mcp/build/linuxserver-l3/runs/<run-id>/`, ignored b
 Git. Checkpoints contain ordinary synthetic application secrets and must remain
 private. Published documentation contains only sanitized counts, hashes and
 outcomes. Run/checkpoint directories are `0700` and private credential inputs
-are `0600`. Docker-copied database/config archives retain `0644` inside their
-`0700` checkpoint directory; they are not accessible to other host users, but
-normalizing all secret-bearing payloads to `0600` remains part of L5's explicit
-artifact-permission criterion. The owner retains responsibility for keeping and
-removing these private campaign artifacts after review.
+are `0600`. At L3 close, Docker-copied database/config archives retained `0644`
+inside their `0700` checkpoint directory; they are not accessible to other host users, but
+normalizing all secret-bearing payloads to `0600` was left for L5. The subsequent
+[L5 retention audit](fork-linuxserver-l5.md#permission-correction-and-retention)
+completed that restriction without changing accepted payload hashes and removed
+superseded diagnostic payloads. The owner retains responsibility for keeping and
+removing the accepted private campaign artifacts after review.
 `private/B1/pre-upgrade.json` and `pre-recreation.json` distinguish the
 preserved state from intentional regression mutations; `private/B1/expected.json`
 is the final credential/state oracle, separate from B1 payloads.

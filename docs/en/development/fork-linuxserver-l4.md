@@ -149,8 +149,10 @@ Post-cleanup verification passed for original B0/B1 and all three case generatio
 **93 / 293 / 293 / 93 / 93 payloads**, respectively, with four bound private input
 files each. The **26** retained private files are `0600` under `0700` private
 directories. Original B0/B1 hashes remain exactly those in the invocation above.
-The existing archive-mode normalization item remains in L5: Docker-copied
-archives can be `0644` inside their private `0700` checkpoint directories.
+At L4 close, archive-mode normalization remained for L5: Docker-copied archives
+could be `0644` inside private `0700` checkpoint directories. The subsequent
+[L5 closure](fork-linuxserver-l5.md#permission-correction-and-retention) restricts
+those host modes without changing payload bytes and records diagnostic disposal.
 
 - Final `result.json` SHA-256:
   `7d0b92a13a9fed6a6bc1c050d704a6117bbd90ff603e5b14bf8d8026ea4a6216`.

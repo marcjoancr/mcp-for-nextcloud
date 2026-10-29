@@ -89,3 +89,21 @@ test('checkpoint acceptance refuses codes expired during sealing, before publish
     assert.equal(JSON.parse(await fs.readFile(path.join(root, 'B1-trust.json'))).manifestSha256, accepted.digest);
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
+
+test('sealing restricts Docker-copied payloads and nested directories without changing bytes', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-checkpoint-modes-'));
+  try {
+    await fs.chmod(root, 0o755);
+    await fs.mkdir(path.join(root, 'objects'), { mode: 0o755 });
+    const files = ['database.dump', 'config.tar', 'data.tar', 's3.json', 'semantic.json', 'bootstrap.json', 'objects/object'];
+    for (const name of files) {
+      await fs.writeFile(path.join(root, name), name);
+      await fs.chmod(path.join(root, name), 0o644);
+    }
+    const digest = await sealCheckpoint(root, { generation: 'private-modes' });
+    await verifyCheckpoint(root, 'private-modes', digest);
+    for (const name of ['', 'objects']) assert.equal((await fs.stat(path.join(root, name))).mode & 0o777, 0o700, name || 'root');
+    for (const name of [...files, 'manifest.json']) assert.equal((await fs.stat(path.join(root, name))).mode & 0o777, 0o600, name);
+    for (const name of files) assert.equal(await fs.readFile(path.join(root, name), 'utf8'), name);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});

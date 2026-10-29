@@ -13,7 +13,9 @@ fixes, including exact policy refusals and complete private evidence persistence
 The [accepted standalone L2 closure](fork-linuxserver-l2.md#accepted-closure-capture)
 proves that phase. [L3 has passed](fork-linuxserver-l3.md) with its own fresh B0/B1;
 that retained pair supplies the [accepted L4 recovery](fork-linuxserver-l4.md).
-L4 passed R1 and both R0 boundaries with complete cleanup. L5 remains unstarted.
+L4 passed R1 and both R0 boundaries with complete cleanup. The authorized
+[L5 evidence and regression review](fork-linuxserver-l5.md) has passed locally,
+including Apache regressions, private-evidence retention and owned cleanup.
 This is a local qualification plan, not a production runbook or deployment approval.
 
 **Goal:** demonstrate a real MCP 1.2.0 → Nextcloud MCP 2.0.0 replacement and
@@ -98,7 +100,7 @@ coverage remains in the separate reference matrix.
 
 The dedicated profile now implements L0 planning and explicit L1-L4 execution.
 Lifecycle, checkpoint and native probes stay separate from the Apache `harness.sh`.
-L5 remains unimplemented and is rejected by the command.
+L5 is an evidence/cleanup phase, not a runtime mode; `--phase L5` is rejected.
 
 | Path | Responsibility |
 | --- | --- |
@@ -122,7 +124,7 @@ and `--manifest-sha256 DIGEST`. `--plan` validates input structure and emits the
 resolved plan without Docker calls or networking. Explicit `--phase L1` through `--phase L4` are implemented.
 [L4](fork-linuxserver-l4.md) additionally requires the accepted L3 checkpoint
 directory and independently supplied B0/B1 generations and trusted digests.
-L5 remains rejected.
+`--phase L5` remains rejected; its evidence review is an operational task.
 Every execution generates a unique run ID and accepts no arbitrary
 existing container, database, volume or bucket.
 
@@ -217,7 +219,8 @@ The L1 implementation uses a thin `runtime.mjs` boundary, focused Node
 lifecycle/transport owners and `LinuxServerHarnessTest.php` failure tests.
 `run-local.sh`, `plan.mjs` and `profile.mjs` remain the guarded entry boundary. The
 entry point must identify a baseline-bootstrap-only result and reject requests
-for unimplemented phases (currently L5); a healthy baseline cannot be reported as an upgrade pass.
+for unsupported runtime modes such as L5; a healthy baseline cannot be reported
+as an upgrade pass.
 Use `--phase L1 --inputs ABSOLUTE_DIRECTORY` with the existing kit arguments.
 The [L1 record](fork-linuxserver-l1.md#inputs-and-execution-boundary) documents
 its exact CLI, prerequisites and baseline-only result.
@@ -511,26 +514,27 @@ Do not treat a mutable `latest` manual as NC35 acceptance evidence.
 
 **Deliverable:** sanitized local report with reproducible inputs and honest limits.
 
-- [ ] Store private run evidence under `mcp/build/integration/<run-id>/`, mode
+- [x] Store private run evidence under `mcp/build/integration/<run-id>/`, mode
   `0700`, secret-bearing files `0600`; nothing from that directory enters Git.
-  The completed L1 bootstrap uses its dedicated
-  `mcp/build/linuxserver-l1/runs/<run-id>/` evidence directory.
+  LinuxServer L1-L4 use their dedicated
+  `mcp/build/linuxserver-l<phase>/runs/<run-id>/` evidence directories; L5 audit
+  records use `mcp/build/linuxserver-l5/`. The integration path holds Apache cells.
   Include each phase exit/completion status, immutable input hashes, migrations,
   assertion totals, checkpoint manifests, HTTP results, durations and warnings.
-- [ ] Unit-test cleanup ownership mismatches and Docker inspection/removal errors.
+- [x] Unit-test cleanup ownership mismatches and Docker inspection/removal errors.
   Inspect exact resource IDs and ownership before deleting; never use broad
   prune commands. A failed ownership query is a failure, not proof of absence.
   Cleanup runs on success, failure and ordinary interruption. A hard kill remains
   incomplete and needs an explicit owned-resource cleanup report on the next run.
-- [ ] Remove run-owned containers/networks/volumes and private working copies of
+- [x] Remove run-owned containers/networks/volumes and private working copies of
   secrets after evidence capture. Retain only needed private evidence with access
   restrictions and documented retention/removal responsibility; redact public
   summaries. Do not remove any existing fixture or unrelated worktree.
-- [ ] Run the new harness unit tests, `composer --working-dir=mcp check` and the
+- [x] Run the new harness unit tests, `composer --working-dir=mcp check` and the
   relevant existing Apache upgrade/recovery regression cells after implementation.
   Keep their result sets separate from this new profile; a failed native mandatory
   assertion cannot be overridden by a green unit suite.
-- [ ] Record L0-L5 outcomes and R0/R1 final versions in the F3 delivery record with
+- [x] Record L0-L5 outcomes and R0/R1 final versions in the F3 delivery record with
   links to the new local report. Rerun against a new frozen candidate if application
   changes become necessary; do not transfer old source-kit hashes or test results.
 
@@ -550,8 +554,10 @@ post-review run passed with a verified B1 and complete owned cleanup. The next
 batch, L4, has now passed R1, both R0 failure boundaries and fail-closed
 negative cases; the [L4 record](fork-linuxserver-l4.md) names the accepted final
 run, timings, hashes, remaining limits and complete cleanup.
-L5 closure has not started and remains rejected. B0/B1 integrity alone does not
-qualify restoration; only the completed recovery cases can establish that claim.
+L5 closure has passed locally; the [L5 record](fork-linuxserver-l5.md) separates
+evidence retention, corrected cross-profile test selection, regression outcomes
+and remaining acceptance gates. F3 and intended-host qualification remain open.
+B0/B1 integrity alone does not qualify restoration; only the completed recovery cases can establish that claim.
 
 | Still pending | Why local success does not close it |
 | --- | --- |
