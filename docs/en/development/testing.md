@@ -166,8 +166,8 @@ retained frozen fixture; it is never included in `check` and cannot target an
 arbitrary instance. See its [prerequisites, invocation and evidence limits](../../../mcp/tests/ClientAcceptance/README.md).
 The separate `test:clients:storage -- /absolute/inspector-install` command checks
 pinned Inspector encrypted persistence in fresh processes without containers or
-network. It is opt-in and currently returns nonzero for the preregistered-client
-issuer boundary; see [encrypted storage across issuers](../../../mcp/tests/ClientAcceptance/README.md#encrypted-storage-across-issuers).
+network. It is opt-in, uses Inspector 2.13.0 with Node 24.22.1, and checks DCR
+isolation separately from static-client issuer-stamp persistence; see [encrypted storage across issuers](../../../mcp/tests/ClientAcceptance/README.md#encrypted-storage-across-issuers).
 ChatGPT, public HTTPS and human verdicts remain separate acceptance work.
 
 ## Coverage and CI

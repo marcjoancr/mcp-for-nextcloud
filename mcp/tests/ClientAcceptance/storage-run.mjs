@@ -37,6 +37,12 @@ const required = [
   "read-after-controls",
   "static-client-boundary",
   "static-client-reload",
+  "static-stamp-a",
+  "static-stamp-reload",
+  "static-rebind-b",
+  "static-rebind-reload",
+  "static-change-secret",
+  "static-change-reload",
 ];
 const record = {
   schemaVersion: 1,
@@ -46,6 +52,9 @@ const record = {
   results: [],
   scope:
     "Installed Inspector encrypted storage/provider integration with synthetic credentials; no OAuth servers or network journeys.",
+  staticRegistrationScope: "resource-wide; cross-issuer secrecy not qualified",
+  sdkNetworkRebinding: "not-tested",
+  inspectorPublicAcceptance: "pending",
   https: "pending",
   chatgpt: "pending",
   humanReviews: "pending",
@@ -56,17 +65,21 @@ const sources = [
   "storage-worker.mjs",
   "support.mjs",
   "policy.mjs",
+  "inspector/package.json",
+  "inspector/package-lock.json",
 ];
 record.runnerSources = Object.fromEntries(
   sources.map((n) => [n, hash(fs.readFileSync(new URL(n, import.meta.url)))]),
 );
 try {
-  assert.equal(process.version, "v24.21.0");
+  assert.equal(process.version, "v24.22.1");
   const lock = fs.readFileSync(path.join(root, "package-lock.json"));
+  const pinnedLock = fs.readFileSync(new URL("./inspector/package-lock.json", import.meta.url));
   assert.equal(
-    hash(lock),
-    "d6e59c49bd1a5640d33d7d8c77a387e382553762e216173373c0f2af86c704ae",
+    hash(pinnedLock),
+    "bb115f7ef3eea6cc1d2fb7f6370c140064e0de71662384e5791b0ff952bfa828",
   );
+  assert.equal(hash(lock), hash(pinnedLock));
   const bundle = fs.readFileSync(
     path.join(
       root,
@@ -75,7 +88,7 @@ try {
   );
   assert.equal(
     hash(bundle),
-    "bd48a8df27412e4c01e876493a4e629d84d823ed44f0e738751a7efa3a8d18ca",
+    "d86de678206f583d2d9072d712f54dce33d03ecc8783ac63526c92fc5590d6f7",
   );
   const suffix =
     "\nexport {FileSecretStore, NodeOAuthStorage, BaseOAuthClientProvider};\n";
@@ -89,7 +102,8 @@ try {
     "dir",
   );
   record.inspector = {
-    version: "2.11.0",
+    version: "2.13.0",
+    nodeVersion: process.version,
     lockSha256: hash(lock),
     installedBundleSha256: hash(bundle),
     exportSuffixSha256: hash(suffix),
@@ -167,7 +181,6 @@ try {
         "wrong-key",
         "missing-key",
         "tampered-store",
-        "static-client-reload",
       ].includes(id) &&
       result.status !== "passed"
     )

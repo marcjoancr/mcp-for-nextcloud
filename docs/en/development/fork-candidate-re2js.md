@@ -174,13 +174,16 @@ The following gates stay open:
 - Trusted immutable source publication, retained-history/attribution review and
   unauthenticated retrieval for the final served version.
 - Public HTTPS: DNS, trusted certificates, ingress and hosted-client reachability.
-- Inspector: prior 14/15, nonzero outcome and encrypted-storage finding.
+- Inspector end-to-end acceptance. The historical 14/15 remains recorded; the
+  [local storage/provider blocker is resolved](inspector-storage-resolution.md).
 - Hosted ChatGPT consent, tool use and revocation.
 - Human security, operations/recovery, license/attribution, accessibility and
   language review; 100 translations remain review-required.
 
-Next, qualify the remaining declared platform matrix and final candidate source
-offer in isolated fixtures with an explicit scope. Production deployment and
-public-client acceptance remain separate gates. No server access, push,
+Next, follow the [isolated platform/source plan](fork-platform-source-acceptance-plan.md).
+M0 addresses the independently identified Node build-runtime advisory and exact
+kit consumption, freezes a successor, and precedes the source-offer/native cells.
+The RE2JS finding stays closed; this is a separate runtime prerequisite. Production
+deployment and public-client acceptance remain separate gates. No server access, push,
 deployment or PR #14 change occurred. All existing accepted L5 checkpoints remain
 under their recorded retention decision; none were removed by this batch.

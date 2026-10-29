@@ -184,7 +184,7 @@ try {
     }
     case "static-client-boundary": {
       // Persist a static registration, then read it in a separate worker below.
-      await storage.savePreregisteredClientInformation(resource, {
+      await provider.savePreregisteredClientInformation({
         client_id: "synthetic-static-client",
         client_secret: fixture.static.client,
       });
@@ -200,11 +200,86 @@ try {
       detail.staticRegistrationHasIssuer = a?.issuer !== undefined;
       detail.freshProcessReload = true;
       await disk();
-      assert.equal(
-        b?.client_secret,
-        undefined,
-        "Static credential was not isolated by requested issuer",
+      // Preregistered clients are resource-wide, not issuer-keyed DCR slots.
+      assert.equal(b?.client_secret, fixture.static.client);
+      assert.equal(a?.issuer, undefined);
+      assert.equal(b?.issuer, undefined);
+      const otherResource = new BaseOAuthClientProvider(
+        "https://other-resource.test/apps/mcp/",
+        { storage },
       );
+      assert.equal(await otherResource.clientInformation({ issuer: A }), undefined);
+      assert.equal(await otherResource.tokens({ issuer: B }), undefined);
+      detail.otherResourceDenied = true;
+      detail.staticCrossIssuerIsolationQualified = false;
+      break;
+    }
+    case "static-stamp-a":
+      // The SDK back-stamps through this save without a registrationKind.
+      await provider.saveClientInformation(
+        { client_id: "synthetic-static-client", client_secret: fixture.static.client },
+        { issuer: A },
+      );
+      assert.equal((await provider.clientInformation({ issuer: A }))?.issuer, A);
+      assert.equal(await storage.getClientInformation(resource, false, A), undefined);
+      await disk();
+      break;
+    case "static-stamp-reload":
+    case "static-rebind-reload": {
+      const issuer = action === "static-stamp-reload" ? A : B;
+      const other = issuer === A ? B : A;
+      // Mirror the real startup reseed in a new process with persisted storage.
+      await provider.savePreregisteredClientInformation({
+        client_id: "synthetic-static-client", client_secret: fixture.static.client,
+      });
+      const client = await provider.clientInformation({ issuer });
+      assert.equal(client?.client_secret, fixture.static.client);
+      assert.equal(client?.issuer, issuer);
+      const migrated = await provider.clientInformation({ issuer: other });
+      assert.equal(migrated?.client_secret, fixture.static.client);
+      assert.equal(migrated?.issuer, undefined);
+      // Reading a different issuer must not rewrite the persisted stamp.
+      assert.equal((await storage.getClientInformation(resource, true))?.issuer, issuer);
+      assert.equal((await storage.getClientInformation(resource, false, B))?.client_secret, fixture.b.client);
+      assert.equal((await provider.tokens({ issuer: B }))?.refresh_token, fixture.b.refresh);
+      assert.equal(await provider.tokens({ issuer: A }), undefined);
+      await disk();
+      Object.assign(detail, { freshProcessReload: true, stampPreserved: true,
+        unchangedReseedPreservesStamp: true, mismatchReadUnstamped: true,
+        dcrAndTokensPreserved: true, staticCrossIssuerIsolationQualified: false });
+      break;
+    }
+    case "static-rebind-b":
+      await provider.saveClientInformation(
+        { client_id: "synthetic-static-client", client_secret: fixture.static.client },
+        { issuer: B },
+      );
+      assert.equal((await provider.clientInformation({ issuer: B }))?.issuer, B);
+      assert.equal((await provider.clientInformation({ issuer: A }))?.issuer, undefined);
+      await disk();
+      break;
+    case "static-change-secret":
+      await provider.savePreregisteredClientInformation({
+        client_id: "synthetic-static-client", client_secret: fixture.a.client,
+      });
+      assert.equal((await provider.clientInformation({ issuer: B }))?.issuer, undefined);
+      assert.equal((await provider.clientInformation({ issuer: B }))?.client_secret, fixture.a.client);
+      await disk();
+      break;
+    case "static-change-reload": {
+      const client = await provider.clientInformation({ issuer: B });
+      assert.equal(client?.client_secret, fixture.a.client);
+      assert.equal(client?.issuer, undefined);
+      await provider.saveClientInformation(client, { issuer: B });
+      assert.equal((await provider.clientInformation({ issuer: B }))?.issuer, B);
+      await provider.savePreregisteredClientInformation({
+        client_id: "synthetic-replacement-client", client_secret: fixture.a.client,
+      });
+      assert.equal((await provider.clientInformation({ issuer: B }))?.issuer, undefined);
+      assert.equal((await provider.clientInformation({ issuer: B }))?.client_id, "synthetic-replacement-client");
+      await disk();
+      Object.assign(detail, { freshProcessReload: true, changedSecretClearsStamp: true,
+        changedClientIdClearsStamp: true });
       break;
     }
     default:

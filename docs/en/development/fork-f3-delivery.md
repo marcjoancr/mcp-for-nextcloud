@@ -1287,3 +1287,37 @@ are retained separately and documentation/package are revalidated. F3, intended
 host/final platform acceptance, trusted publication, HTTPS, Inspector, ChatGPT
 and human reviews remain open. No push, deployment, server operation or PR #14
 change occurred.
+
+
+## Platform/source plan and Inspector storage resolution (2026-10-29)
+
+The [next isolated campaign](fork-platform-source-acceptance-plan.md) names all
+15 current native cells and a separate ordinary-user source-offer/reconstruction
+gate. M0 first updates the independent Node build runtime and adds verified kit
+consumption/installed-tree gates, then freezes the reviewed successor kit.
+No matrix or source-offer container is started by this planning batch; the
+reviewed `cfeb26d4` kit and accepted LinuxServer checkpoints remain unchanged.
+
+The [Inspector storage investigation](inspector-storage-resolution.md) reproduces
+the original nonzero 14/15 outcome, corrects its unsupported static-client oracle,
+and demonstrates a genuine issuer-stamp persistence regression on 2.11.0. Pinned
+Inspector 2.13.0 / Node 24.22.1 passes the expanded 21-case encrypted backend suite,
+including fresh-process persistence and resource/issuer boundaries. This closes
+the local component blocker, not SDK network rebinding or end-to-end Inspector.
+
+F3, final platform/intended-host acceptance, immutable source publication and
+history/attribution review, public HTTPS, refreshed end-to-end Inspector, hosted
+ChatGPT and all human reviewers remain pending. No push, deployment, production
+server modification or PR #14 operation occurred.
+
+
+### Inspector and platform-plan review
+
+The [pre-commit review](inspector-storage-resolution.md#pre-commit-review) retains
+the original storage failures, confirms a fresh 21/21 result with unchanged runner
+bytes, and verifies the retained candidate and evidence indexes. Client-runner,
+documentation and release tests, documentation checks and packaging pass again.
+The plan now freezes M0 inputs after its prerequisite changes and requires an
+actual installed-tree comparison before native/source-offer acceptance. Neither
+gate is implemented by this review. F3, HTTPS, end-to-end Inspector, ChatGPT and
+all human reviewers remain pending; the frozen candidate is not regenerated.
