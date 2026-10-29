@@ -5,7 +5,9 @@
 
 This record covers the authorized L1 bootstrap on devbox on 2026-10-27.
 It does not qualify an upgrade, checkpoint, rollback, production deployment or
-hosted client. L2 has not started. PR #14 and remote branches are unchanged.
+hosted client. L2 had not started at L1 acceptance; its later authorized work
+is recorded separately in [L2 fixtures and B0](fork-linuxserver-l2.md).
+PR #14 and remote branches are unchanged.
 
 ## Inputs and execution boundary
 
@@ -36,8 +38,9 @@ composer --working-dir=mcp test:integration:linuxserver -- \
   --manifest-sha256 2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63
 ```
 
-`--phase L2` through `L5`, mixed planning/execution arguments and incomplete
-execution arguments are rejected. L1 results explicitly carry
+At the L1 revision, `--phase L2` through `L5` were rejected. The later L2
+implementation adds explicit B0 capture; L3-L5, mixed planning/execution
+arguments and incomplete execution arguments remain rejected. L1 results explicitly carry
 `scope: baseline-bootstrap`, `upgradePerformed: false` and
 `checkpointsCreated: false`. The 2.0.0 archive is served as a private integrity
 fixture only; it is neither installed nor advertised by the baseline app.

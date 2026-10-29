@@ -82,10 +82,10 @@ A failed app installation, empty selection or test failure is a failed cell.
 Harness qualification with an explicitly substituted version and filtered diagnostic
 runs do not certify the final package; report them separately.
 
-## LinuxServer planning and baseline bootstrap
+## LinuxServer planning, baseline and checkpoint
 
 The separate `test:integration:linuxserver` command supports offline L0 planning
-and explicit L1 baseline bootstrap. Planning needs Node and a complete reviewed
+and explicit L1 baseline bootstrap or L2 fixture/checkpoint execution. Planning needs Node and a complete reviewed
 source kit: use `--plan`, optional `--profile ABSOLUTE_FILE`,
 `--kit ABSOLUTE_DIRECTORY` and `--manifest-sha256 TRUSTED_DIGEST`. It creates no
 resources and does not certify registry availability or native readiness. See the
@@ -95,12 +95,14 @@ Execution additionally needs Docker, Python 3.12 or newer, OpenSSL, Linux networ
 and disk tools, the three already-pulled digest-pinned images and retained app
 archives. Use `--phase L1 --inputs ABSOLUTE_DIRECTORY` instead of `--plan`, with
 the same kit arguments. The [L1 record](fork-linuxserver-l1.md) describes exact
-scope, safety controls, evidence and limitations. Later phases are rejected;
+scope, safety controls, evidence and limitations. Use `--phase L2` for the
+[L2 fixture and B0 contract](fork-linuxserver-l2.md), with the same required
+inputs. L3-L5 are rejected;
 there is no upgrade/recovery execution mode yet.
 
 The PHPUnit command-boundary tests and Node safety tests run in the normal
-`test`/`check` suite with synthetic inputs and no Docker access. Native L1 is an
-explicit separate operation. The Apache matrix and its commands are unchanged.
+`test`/`check` suite with synthetic inputs and no Docker access. Native L1/L2 are
+explicit separate operations. The Apache matrix and its commands are unchanged.
 
 ## Selected native fixture inputs
 

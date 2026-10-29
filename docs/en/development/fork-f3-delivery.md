@@ -1103,3 +1103,39 @@ passes 26 checks and cleanup; 16 Node controls and the focused harness pass.
 The registered full check also passes again; the L1 record distinguishes its
 coverage from the subsequent focused budget validation and retains the failed
 intermediate native attempt. No phase or client/human gate beyond L1 is closed.
+
+## LinuxServer L2 fixture and checkpoint work (2026-10-29)
+
+The authorized [L2 batch](fork-linuxserver-l2.md) adds baseline-specific synthetic
+data, private-TLS capability/policy checks and coherent B0 export. Native
+runner checks and cleanup passed with 120 HTTP assertions and 87 S3 objects,
+but independent review found archive-containment and policy-oracle defects.
+Both findings were corrected with regression tests and a new successful native
+capture. The old B0 is superseded; the corrected dump matches all eleven policy
+tables in its independent oracle. Failed attempts remain documented. The unchanged
+U5 candidate remains uninstalled. L3-L5, intended-host acceptance, public HTTPS,
+Inspector's prior 14/15/encrypted-storage finding, ChatGPT and human reviewers
+remain pending. No production connection, push, deployment or PR #14 change is
+part of this batch.
+
+The implementation-stage L2 full check passes 8,690 PHP tests/74,266 assertions, 717 browser
+tests, both static-analysis scopes, documentation and packaging. Independent
+read-only verification after cleanup confirms all B0 payloads, four private-input
+hashes, all eleven policy tables and both volume archives. L2 is qualified
+locally; F3 remains open. The linked L2 record identifies the accepted generation,
+trusted digest and final evidence hashes.
+
+The [L2 closure review](fork-linuxserver-l2.md#closure-review-2026-10-29) corrects
+two further evidence defects: generic errors could count as policy denials, and
+the HTTP client silently failed to persist its private fixture state. A real
+filename-policy refusal now replaces the earlier invalid-extension case; checked
+private export, transfer hashes and mandatory state/plan checks prevent loss of
+HTTP-created evidence. Earlier captures remain recorded as unaccepted. The final
+native repeat and post-cleanup verification pass, including both pending plans,
+all eleven policy tables and all B0 payloads. The plan's obsolete next-step text
+now names L3, which remains unimplemented and requires separate authorization.
+HTTPS, Inspector, ChatGPT and human reviewers remain pending; F3 is not closed.
+The final post-fix full check passes 8,697 PHP tests/74,291 assertions,
+717 browser tests, both static-analysis scopes, documentation and packaging.
+The accepted generation and verification hashes are in the linked L2 closure
+record; no source-kit identity or published branch changed.

@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { command } from './command.mjs';
+import { SamplingGate } from './sampling.mjs';
 import { measureVolume } from './budget.mjs';
 import { Resources } from './resources.mjs';
 import { allocations, assertDisk, assertImage, ownershipLabel, finalStatus, assertLocalDocker } from './safety.mjs';
@@ -12,12 +13,13 @@ import { fixture } from './fixture.mjs';
 import { fixtureSubnet } from './network.mjs';
 import { bootstrap, validateBaseline } from './validation.mjs';
 
-export async function executeL1({ options, profile, profileSha256, manifest }) {
+export async function executeFixture({ options, profile, profileSha256, manifest }) {
   process.umask(0o077);
-  const runId = `mcp-l1-${randomUUID()}`;
-  const root = path.resolve(here, '../../../../build/linuxserver-l1/runs', runId);
+  const phase = options.phase;
+  const runId = `mcp-${phase.toLowerCase()}-${randomUUID()}`;
+  const root = path.resolve(here, `../../../../build/linuxserver-${phase.toLowerCase()}/runs`, runId);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
-  const result = { schemaVersion: 1, runId, phase: 'L1', scope: 'baseline-bootstrap', status: 'running',
+  const result = { schemaVersion: 1, runId, phase, scope: phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
     profileSha256, baseline: profile.baseline, candidate: profile.candidate, upgradePerformed: false,
     checkpointsCreated: false, checks: [], cleanup: 'pending', pending: ['L2-L5', 'public-https', 'inspector', 'chatgpt', 'human-review'] };
   let secrets = {}, app, s3, postgres, interrupted = false, cleaning = false;
@@ -27,14 +29,18 @@ export async function executeL1({ options, profile, profileSha256, manifest }) {
   const logArgs = ['--log-driver', 'local', '--log-opt', 'max-size=5m', '--log-opt', 'max-file=2'];
   const redact = text => Object.values(secrets).reduce((value, secret) => value.replaceAll(secret, '[redacted]'), text);
   const docker = async args => {
-    if (!cleaning && (interrupted || Date.now() >= deadline)) throw new Error('L1 interrupted or deadline exceeded');
+    if (!cleaning && (interrupted || Date.now() >= deadline)) throw new Error(`${phase} interrupted or deadline exceeded`);
     const reply = await command('docker', args, { timeout: cleaning ? 30000 : Math.min(300000, Math.max(1, deadline - Date.now())), signal: cleaning ? undefined : abort.signal });
     if (args[0] === 'exec' && args.includes('abc')) await fs.appendFile(path.join(root, 'diagnostics.log'), `native: ${redact(reply.out + reply.err)}\n`);
-    if (reply.code) await fs.appendFile(path.join(root, 'diagnostics.log'), `${args[0]} ${args[1]}: ${redact(reply.err + reply.out)}\n`);
+    if (reply.code) await fs.appendFile(path.join(root, 'diagnostics.log'), `${args[0]} ${args[1]} exit=${reply.code}: ${redact(reply.err + reply.out)}\n`);
     return reply;
   };
   const owner = new Resources(runId, docker, items => fs.writeFile(path.join(root, 'resources.json'), JSON.stringify({ runId, items }, null, 2)));
-  const checked = async args => (await owner.checked(args)).out;
+  const sampling = new SamplingGate();
+  const checked = async args => {
+    const call = async () => (await owner.checked(args)).out;
+    return !cleaning && ['start', 'stop', 'restart'].includes(args[0]) ? sampling.mutate(call) : call();
+  };
   const exec = (id, args) => checked(['exec', id, ...args]);
   const rawExec = (id, args) => docker(['exec', id, ...args]);
   const wait = async (label, callback) => {
@@ -48,7 +54,7 @@ export async function executeL1({ options, profile, profileSha256, manifest }) {
   const record = async (name, details = true) => {
     result.checks.push({ name, details });
     await fs.writeFile(path.join(root, 'result.json'), JSON.stringify(result, null, 2));
-    console.error(`L1: ${name}`);
+    console.error(`${phase}: ${name}`);
   };
   const close = async () => { if (app) await checked(['cp', path.join(root, 'closed'), `${app}:/config/mcp-l1-closed`]); };
   const onSignal = () => { interrupted = true; abort.abort(); };
@@ -75,7 +81,7 @@ export async function executeL1({ options, profile, profileSha256, manifest }) {
     }
     await prepareInputs(root, options, profile, manifest);
     await fs.mkdir(path.join(root, 'probes'), { mode: 0o755 });
-    for (const name of ['probe.php', 'health.php']) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
+    for (const name of ['probe.php', 'health.php', ...(phase === 'L2' ? ['l2-seed.php', 'l2-http.php', 'l2-s3.php', 's3-inventory.php', 'tool-response.php'] : [])]) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
     await fs.copyFile(path.resolve(here, '../../Support/ProbeCompletion.php'), path.join(root, 'probes/ProbeCompletion.php'));
     await fs.writeFile(path.join(root, 'probes/apps.json'), JSON.stringify(Object.fromEntries([['mcp', profile.baseline.version], ...profile.apps.map(app => [app.id, app.version])])));
     for (const name of await fs.readdir(path.join(root, 'probes'))) await fs.chmod(path.join(root, 'probes', name), 0o644);
@@ -149,13 +155,19 @@ export async function executeL1({ options, profile, profileSha256, manifest }) {
     monitor = setInterval(async () => {
       if (monitoring || cleaning || budgetFailure) return;
       monitoring = true;
-      try { await budget(); } catch (error) { budgetFailure = error; interrupted = true; abort.abort(); }
+      try { await sampling.sample(budget); } catch (error) { budgetFailure = error; interrupted = true; abort.abort(); }
       finally { monitoring = false; }
     }, 5000);
-    const context = { app, postgres, s3, client, denied, profile, manifest, root, exec, rawExec, checked, wait, record, close };
+    const context = { app, postgres, s3, client, denied, profile, manifest, root, exec, rawExec, checked, wait, record, close, profileSha256 };
     await bootstrap(context);
     await budget();
     await validateBaseline(context);
+    if (phase === 'L2') {
+      const { executeL2 } = await import('./l2.mjs');
+      result.checkpoint = await executeL2(context);
+      result.checkpointsCreated = true;
+      result.pending[0] = 'L3-L5';
+    }
     if (budgetFailure) throw budgetFailure;
     await budget();
     await record('aggregate-budget', { allocations: roles, peakMeasuredBytes: result.peakMeasuredBytes, diskBudgetGiB: profile.limits.diskBudgetGiB });
@@ -183,16 +195,16 @@ export async function executeL1({ options, profile, profileSha256, manifest }) {
       if (diagnosticError) { result.diagnostics = 'unavailable'; failure ??= diagnosticError; }
     }
     catch (error) { result.cleanup = error.message; result.status = 'failed'; result.failure ??= error.message; failure ??= error; }
-    // Keep only sanitized diagnostics and evidence; destroy synthetic credentials and private keys.
+    // L1 destroys private inputs. L2 retains only a verified B0 and its separate private recovery oracle.
     if (result.cleanup === 'complete') {
-      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log'].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
+      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log', ...(phase === 'L2' && result.checkpointsCreated ? ['B0', 'B0-trust.json', 'private'] : [])].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
     }
     result.status = finalStatus(Boolean(failure), interrupted, result.cleanup === 'complete');
-    if (interrupted) { result.failure ??= 'L1 interrupted'; failure ??= new Error('L1 interrupted'); }
+    if (interrupted) { result.failure ??= `${phase} interrupted`; failure ??= new Error(`${phase} interrupted`); }
     process.off('SIGINT', onSignal); process.off('SIGTERM', onSignal);
     result.finishedAt = new Date().toISOString();
     await fs.writeFile(path.join(root, 'result.json'), JSON.stringify(result, null, 2));
   }
   console.log(JSON.stringify({ ...result, evidence: root }, null, 2));
-  if (failure) throw new Error(`L1 failed; sanitized evidence: ${root}`);
+  if (failure) throw new Error(`${phase} failed; sanitized evidence: ${root}`);
 }

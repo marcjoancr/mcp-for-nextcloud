@@ -8,7 +8,10 @@
 implemented and has passed native acceptance with cleanup. See the
 [L1 results and limits](fork-linuxserver-l1.md) and preserve the historical
 [L0-U5 evidence](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27).
-L2-L5 remain unimplemented and have not started in this profile.
+L2 has passed native capture and retained-artifact verification after the review
+fixes, including exact policy refusals and complete private evidence persistence.
+Only the latest [accepted closure capture](fork-linuxserver-l2.md#accepted-closure-capture)
+is an accepted L2 input. L3-L5 remain unimplemented and unstarted.
 This is a local qualification plan, not a production runbook or deployment approval.
 
 **Goal:** demonstrate a real MCP 1.2.0 → Nextcloud MCP 2.0.0 replacement and
@@ -99,10 +102,10 @@ adding another mode full of LinuxServer conditions to the Apache `harness.sh`.
 | --- | --- |
 | `mcp/tests/Integration/ci/linuxserver/profile.json` | Immutable profile inputs, limits and supported baseline/candidate pair; no secrets |
 | `mcp/tests/Integration/ci/linuxserver/run-local.sh`, `plan.mjs`, `profile.mjs` | L0 offline planning and strict profile/kit validation; future phase ordering must retain these checks |
-| `mcp/tests/Integration/ci/linuxserver/runtime.sh` | Private network/volumes, LinuxServer readiness, s6/abc execution, TLS setup, writer quiescence and controlled restart |
-| `mcp/tests/Integration/ci/linuxserver/checkpoint.sh` | PostgreSQL dump/restore and coherent config/app/data/object export/restore, manifest validation |
-| `mcp/tests/Integration/ci/linuxserver/transport.php` | Profile base URL and private CA validation; never change the Apache `Support/Http.php` contract implicitly |
-| `mcp/tests/Integration/ci/linuxserver/baseline.php`, `candidate.php` | Version-specific policy/OAuth adapters; load only their matching installed version |
+| `mcp/tests/Integration/ci/linuxserver/runtime.mjs`, `fixture.mjs`, `validation.mjs` | Private network/volumes, LinuxServer readiness, s6/abc execution, TLS setup, writer quiescence and controlled restart |
+| `mcp/tests/Integration/ci/linuxserver/l2.mjs`, `checkpoint.mjs`, `volume_archive.py`, `l2-s3.php` | L2 coherent dump/config/data/object export and integrity; restore remains unimplemented |
+| `mcp/tests/Integration/ci/linuxserver/l2-http.php` | Baseline HTTP capability assertions and private CA validation; never change the Apache `Support/Http.php` contract implicitly |
+| `mcp/tests/Integration/ci/linuxserver/l2-seed.php`, future `candidate.php` | Version-specific policy/OAuth adapters; load only their matching installed version |
 | `mcp/tests/Integration/ci/linuxserver/upgrade.php` | Persisted-state and migration assertions across real app replacement |
 | `mcp/tests/Integration/ci/linuxserver/recovery.php` | Credential timeline, recovery closure and reconnection assertions |
 | `mcp/tests/Integration/ci/linuxserver/capabilities.php` | Select/adapt existing native capability cases through explicit path/transport inputs, without duplicating tool implementations |
@@ -112,7 +115,8 @@ adding another mode full of LinuxServer conditions to the Apache `harness.sh`.
 
 The L0 entry point accepts `--plan`, `--profile FILE`, `--kit DIRECTORY`
 and `--manifest-sha256 DIGEST`. `--plan` validates input structure and emits the
-resolved plan without Docker calls or networking. Execution is currently rejected.
+resolved plan without Docker calls or networking. Explicit `--phase L1` and
+`--phase L2` execution are implemented; later phases remain rejected.
 Future full execution must generate a unique run ID and accept no arbitrary
 existing container, database, volume or bucket.
 
@@ -188,7 +192,7 @@ builder or change the planner to accept a mismatched candidate.
   entry point. Require the selected U5 identity, matching hashes, zero exit,
   `validationScope: "profile-and-source-kit"` and `executionAvailable: false`
   at the L0-only revision. After L1 implementation this capability flag is true
-  with `availablePhases: ["L1"]`; `--plan` still performs no runtime operation.
+  with `availablePhases: ["L1"]` (extended to `["L1", "L2"]` by L2); `--plan` still performs no runtime operation.
   Wrong digest/commit, changed kit, unsafe profile and execution-without-plan
   cases must remain nonzero. Validate documentation and record all results.
 
@@ -207,7 +211,7 @@ The L1 implementation uses a thin `runtime.sh` boundary, focused Node
 lifecycle/transport owners and `LinuxServerHarnessTest.php` failure tests.
 `run-local.sh`, `plan.mjs` and `profile.mjs` remain the guarded entry boundary. The
 entry point must identify a baseline-bootstrap-only result and reject requests
-for unimplemented L2-L5; a healthy baseline cannot be reported as an upgrade pass.
+for unimplemented phases (currently L3-L5); a healthy baseline cannot be reported as an upgrade pass.
 Use `--phase L1 --inputs ABSOLUTE_DIRECTORY` with the existing kit arguments.
 The [L1 record](fork-linuxserver-l1.md#inputs-and-execution-boundary) documents
 its exact CLI, prerequisites and baseline-only result.
@@ -305,29 +309,29 @@ see the [LinuxServer image guide](https://docs.linuxserver.io/images/docker-next
 **Deliverable:** verified checkpoint **B0**, containing an actual running 1.2.0
 installation and private expected-state/credential fixtures outside the backup.
 
-- [ ] Seed administrator, allowed non-admin and denied users, group grants,
+- [x] Seed administrator, allowed non-admin and denied users, group grants,
   exclusions, restricted scopes, filename rules, OAuth clients and personal
   connection preferences. Prove allow/deny behavior through MCP Basic and Bearer
   in probe-only state before snapshotting. Baseline adapters use upstream classes
   only, in their own process; never load upstream and fork class trees together.
-- [ ] Seed Files content/shares, DAV events/contacts/VTODOs, Notes, Deck labels,
+- [x] Seed Files content/shares, DAV events/contacts/VTODOs, Notes, Deck labels,
   dependencies/file links and Talk-visible data using the pinned native APIs.
   Record IDs and content hashes plus negative visibility assertions, including
   read-only recipients and excluded files. Cover the adopted 1.2.0 behavior from
   the integration record; classify baseline capability incompatibility as a
   blocker, not a skipped passing test.
-- [ ] Issue test access/refresh tokens, a pending authorization code and pending
+- [x] Issue test access/refresh tokens, a pending authorization code and pending
   write-confirmation plans; retain them privately with issuance/checkpoint times.
   Both pinned versions set `CODE_TTL = 300`, `ACCESS_TTL = 3600` and refresh
   lifetime to 30 days. Record actual expiry bounds; use the timed recovery cases
   below so expiry cannot explain a passing rejection. Do not extend lifetimes,
   change host time or edit token expiry rows to make a native check pass.
-- [ ] Enter maintenance, block normal HTTP admission and pause every fixture
+- [x] Enter maintenance, block normal HTTP admission and pause every fixture
   writer/cron job. Verify quiescence, then create a PostgreSQL custom-format dump,
   capture synthetic role/bootstrap requirements, config/apps/themes and `/data`,
   and export all primary S3 object bytes and required metadata. Hash each object
   payload; do not use multipart ETags as content hashes.
-- [ ] Record one generation manifest covering all components, app/core versions,
+- [x] Record one generation manifest covering all components, app/core versions,
   profile/digests, ownership, capture interval and semantic inventory. Preserve
   modes, ownership and legitimate in-volume links; reject traversal, escaping
   links and special entries before archive extraction. Installed app content
@@ -530,12 +534,13 @@ executed. Production recovery readiness is not inferred from this fixture.
 
 ## Closure limits and next action
 
-L1 bootstrap has passed for the frozen U5 inputs; see the
-[execution report](fork-linuxserver-l1.md). The next separate batch is **L2**:
-seed the reviewed 1.2.0 capability fixtures and capture coherent checkpoint B0
-with admission closed and writers paused. L2 requires its own authorization and
-implementation. The current command rejects L2-L5 and cannot perform the
-LinuxServer upgrade/recovery journey; no checkpoint or U5 replacement is claimed.
+L1 baseline qualification and L2 fixture/B0 capture have passed for the frozen
+U5 inputs; see the [L1 report](fork-linuxserver-l1.md) and the latest accepted
+capture in the [L2 closure record](fork-linuxserver-l2.md#closure-review-2026-10-29).
+The next separate batch is **L3**, replacing the baseline app with the frozen
+2.0.0 candidate and verifying persistence. L3 requires its own authorization and
+implementation. The current command rejects L3-L5; no U5 app replacement or
+recovery is claimed. B0 integrity alone does not qualify restoration.
 
 | Still pending | Why local success does not close it |
 | --- | --- |

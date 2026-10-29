@@ -1,0 +1,26 @@
+<?php
+// SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+// SPDX-License-Identifier: AGPL-3.0-or-later
+declare(strict_types=1);
+namespace OCA\Mcp\Tests\Integration\LinuxServer;
+
+final class ToolResponse {
+    public static function result(array $response, ?string $denial = null): array {
+        $body = $response['body'] ?? null;
+        if (($response['status'] ?? null) !== 200 || !is_array($body)
+            || ($body['jsonrpc'] ?? null) !== '2.0' || ($body['id'] ?? null) !== 1
+            || array_key_exists('error', $body) || !is_array($body['result'] ?? null)) {
+            throw new \RuntimeException('Unexpected tool transport or RPC envelope');
+        }
+        $result = $body['result'];
+        if ($denial !== null) {
+            if (($result['isError'] ?? null) !== true
+                || ($result['content'] ?? null) !== [['type' => 'text', 'text' => $denial]]) {
+                throw new \RuntimeException('Expected policy denial was not returned');
+            }
+            return [];
+        }
+        if (($result['isError'] ?? false) !== false) throw new \RuntimeException('Unexpected tool failure');
+        return $result;
+    }
+}
