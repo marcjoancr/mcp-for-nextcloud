@@ -23,15 +23,22 @@ export class Resources {
     if (result.code !== 0) throw new Error(`Docker ${args[0]} ${args[1]} failed`);
     return result;
   }
-  async removeContainer(id) {
-    const item = this.items.find(item => item.kind === 'container' && item.id === id && !item.removed);
-    if (!item) throw new Error('Container is not an active owned resource');
-    const row = JSON.parse((await this.checked(['container', 'inspect', id])).out)[0];
-    assertOwned('container', id, row, this.runId);
-    await this.checked(['container', 'rm', '-f', '-v', id]);
+  async assertActive(kind, id) {
+    const item = this.items.find(item => item.kind === kind && item.id === id && !item.removed);
+    if (!item) throw new Error('Resource is not an active owned resource');
+    const row = JSON.parse((await this.checked([kind, 'inspect', id])).out)[0];
+    assertOwned(kind, id, row, this.runId);
+    return item;
+  }
+  async retire(kind, id) {
+    if (!['container', 'volume'].includes(kind)) throw new Error('Unsupported retirement');
+    const item = await this.assertActive(kind, id);
+    await this.checked([kind, 'rm', ...(kind === 'container' ? ['-f', '-v'] : []), id]);
     item.removed = true;
     await this.persist(this.items);
   }
+  async removeContainer(id) { return this.retire('container', id); }
+  async removeVolume(id) { return this.retire('volume', id); }
   async cleanupAfter(diagnostics) {
     let diagnosticError;
     try { await diagnostics(); } catch (error) { diagnosticError = error; }

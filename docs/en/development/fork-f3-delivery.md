@@ -1157,3 +1157,24 @@ archive-permission normalization item. No recovery is inferred from this upgrade
 L4/L5, intended-host acceptance, public HTTPS, Inspector (prior 14/15), ChatGPT
 and human review remain pending. The target server, published branches and
 PR #14 remain unchanged; F3 is not closed.
+
+## LinuxServer L4 recovery work (2026-10-29)
+
+The authorized [L4 batch](fork-linuxserver-l4.md) implements full restoration into
+fresh run-owned storage and both failed-upgrade rollback boundaries, using the
+accepted retained L3 B0/B1. It creates separate case generations with live
+credentials, verifies restored pre-revocation state, cuts the global auth epoch
+and user generations before admission, and checks rejection after controlled
+reconnection. The final run passed 72 stages, all three recovery cases and three
+failed-import negatives, with complete cleanup and post-cleanup artifact verification. The final
+local check passed 8,707 PHP tests / 74,469 assertions, 717 browser tests, static
+analysis, documentation and packaging. The linked report records accepted hashes,
+timings, diagnostic failures and the corrected exact stale-confirmation oracle.
+The closure review also requires an exact owner revocation cut and persisted DAV
+readback; focused regression tests and a fresh native repetition pass.
+Original checkpoints stay immutable.
+
+This work does not start L5 or close F3. Intended-host acceptance, public HTTPS,
+Inspector (prior 14/15 with its encrypted-storage finding), hosted ChatGPT and
+human reviewers remain pending. No production operation, publication, push or
+change to PR #14 is authorized by this local recovery work.

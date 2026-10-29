@@ -14,11 +14,15 @@ const native = async (c, file, mode, marker) => {
   const output = await c.exec(c.app, [...service, `/fixture-probes/${file}`, mode]);
   if (!output.includes(marker)) throw new Error(`Incomplete capture probe: ${mode}`);
 };
+export function checkpointPhase(name) {
+  if (!['B0', 'B1', 'B1-r1', 'B0-r0-replaced', 'B0-r0-upgraded'].includes(name)) throw new Error('Unknown checkpoint');
+  return name.slice(0, 2);
+}
 export async function capture(c, name, expected, oracle) {
-  if (!['B0', 'B1'].includes(name)) throw new Error('Unknown checkpoint');
+  const phase = checkpointPhase(name);
   const generation = randomUUID(), b0 = path.join(c.root, name);
   await fs.mkdir(b0, { mode: 0o700 });
-  const { users, pendingPlans, policySnapshot, adminPassword, current, ...semantic } = expected;
+  const { users, pendingPlans, policySnapshot, adminPassword, current, recoverySnapshot, historicalUsers, postSnapshotUsers, instanceSecretHash, ...semantic } = expected;
   await fs.writeFile(path.join(b0, 'semantic.json'), JSON.stringify(semantic, null, 2));
   for (const [source, target] of [['app.env', 'app.env'], ['pg.env', 'pg.env'], ['s3/s3.json', 's3.json']]) await fs.copyFile(path.join(c.root, source), path.join(oracle, target));
   await occ(c, 'maintenance:mode', '--on');
@@ -50,8 +54,8 @@ export async function capture(c, name, expected, oracle) {
     if (validation.code) throw new Error(`Unsafe ${component} archive: ${validation.err}`);
     owners[component] = JSON.parse(validation.out);
   }
-  await native(c, 'l2-s3.php', name === 'B0' ? 'export' : 'export-b1', 'MCP_L2_S3_COMPLETE');
-  await c.checked(['cp', `${c.app}:/tmp/${name === 'B0' ? 'l2-export' : 'l3-export'}/.`, b0]);
+  await native(c, 'l2-s3.php', phase === 'B0' ? 'export' : 'export-b1', 'MCP_L2_S3_COMPLETE');
+  await c.checked(['cp', `${c.app}:/tmp/${phase === 'B0' ? 'l2-export' : 'l3-export'}/.`, b0]);
   const s3 = JSON.parse(await fs.readFile(path.join(b0, 's3.json'), 'utf8'));
   const objects = Object.values(s3.objects);
   if (objects.reduce((sum, row) => sum + row.bytes, 0) > c.profile.limits.seedObjectMiB * 2**20) throw new Error('Synthetic object budget exceeded');
@@ -67,13 +71,13 @@ export async function capture(c, name, expected, oracle) {
   const finishedAt = new Date().toISOString();
   if (Object.entries(users).some(([uid, user]) => uid !== 'l2-denied' && (!Number.isSafeInteger(user.codeExpiresAt) || Date.parse(finishedAt) / 1000 >= user.codeExpiresAt))) throw new Error(`Pending authorization code expired before ${name} completed`);
   await fs.writeFile(path.join(b0, 'bootstrap.json'), JSON.stringify({ postgres: '16.15', database: 'nextcloud', owner: 'nextcloud', requiredRole: 'LOGIN SUPERUSER', credentials: `${path.relative(c.root, oracle)}/pg.env`, objectStoreCredentials: `${path.relative(c.root, oracle)}/s3.json`, appEnvironment: `${path.relative(c.root, oracle)}/app.env`, ports: [], admission: 'closed', maintenance: true, backgroundWriters: 'stopped', pgDataDirectoryCopied: false }, null, 2));
-  if (name === 'B1') {
+  if (phase === 'B1') {
     await fs.cp(path.join(c.root, 'source'), path.join(b0, 'source'), { recursive: true, errorOnExist: true });
     await verifyKit(path.join(b0, 'source'), c.profile.candidate.manifestSha256);
   }
   const privateInputs = {};
   for (const name of ['expected.json', 'app.env', 'pg.env', 's3.json']) privateInputs[name] = await sha256(path.join(oracle, name));
-  const metadata = { ...(name === 'B1' ? { sourceKit: c.profile.candidate } : {}), privateInputs, privateInputDirectory: path.relative(c.root, oracle), generation, startedAt, finishedAt, baseline: c.profile.baseline, installedMcp: name === 'B0' ? c.profile.baseline.version : c.profile.candidate.version, core: c.profile.nextcloudVersion, apps: c.profile.apps, profileSha256: c.profileSha256, images: c.profile.images, ownership: owners, oracleSha256: await sha256(path.join(oracle, 'expected.json')) };
+  const metadata = { ...(phase === 'B1' ? { sourceKit: c.profile.candidate } : {}), privateInputs, privateInputDirectory: path.relative(c.root, oracle), generation, startedAt, finishedAt, baseline: c.profile.baseline, installedMcp: phase === 'B0' ? c.profile.baseline.version : c.profile.candidate.version, core: c.profile.nextcloudVersion, apps: c.profile.apps, profileSha256: c.profileSha256, images: c.profile.images, ownership: owners, oracleSha256: await sha256(path.join(oracle, 'expected.json')) };
   const { digest, verifiedAt } = await finalizeCapture(c.root, name, metadata, users);
   await c.record(`${name}-verified`, { generation, manifestSha256: digest, startedAt, finishedAt, verifiedAt, objects: objects.length, bytes: objects.reduce((sum, row) => sum + row.bytes, 0), ownership: owners, pendingCodeLiveAtCapture: true });
   return { generation, manifestSha256: digest };

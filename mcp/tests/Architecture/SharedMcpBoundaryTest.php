@@ -95,6 +95,7 @@ final class SharedMcpBoundaryTest extends TestCase {
                 // Remove exact quoted class IDs; every other token in these files remains scanned.
                 $relative = substr($file->getPathname(), strlen($app) + 1);
                 $baselineIds = [
+                    'tests/Integration/ci/linuxserver/l4-state.php' => ['OCA\\Mcp\\'.'Service\\GrantPolicy'],
                     'tests/Integration/ci/linuxserver/l2-seed.php' => ['OCA\\Mcp\\'.'Service\\GrantPolicy', 'OCA\\Mcp\\'.'Service\\Policy\\PolicyWriter', 'OCA\\Mcp\\'.'Service\\Policy\\GroupGrantsService', 'OCA\\Mcp\\'.'Service\\VisibilityGuard', 'OCA\\Mcp\\'.'Service\\FileWritePolicy'],
                     'tests/Integration/ci/legacy-policy.php' => ['OCA\\Mcp\\'.'Service\\GrantPolicy'],
                     'tests/Integration/Compat/UpgradeSnapshotTest.php' => ['OCA\\Mcp\\'.'Service\\GrantPolicy'],

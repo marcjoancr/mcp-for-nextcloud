@@ -19,7 +19,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
   const runId = `mcp-${phase.toLowerCase()}-${randomUUID()}`;
   const root = path.resolve(here, `../../../../build/linuxserver-${phase.toLowerCase()}/runs`, runId);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
-  const result = { schemaVersion: 1, runId, phase, scope: phase === 'L3' ? 'isolated-upgrade' : phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
+  const result = { schemaVersion: 1, runId, phase, startedAt: new Date().toISOString(), scope: phase === 'L4' ? 'isolated-recovery' : phase === 'L3' ? 'isolated-upgrade' : phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
     profileSha256, baseline: profile.baseline, candidate: profile.candidate, upgradePerformed: false,
     checkpointsCreated: false, checks: [], cleanup: 'pending', pending: ['L2-L5', 'public-https', 'inspector', 'chatgpt', 'human-review'] };
   let secrets = {}, app, s3, postgres, interrupted = false, cleaning = false;
@@ -80,9 +80,14 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       await record(`image-${name}`, { id: row.Id, reference: pin.reference, platform: 'linux/amd64' });
     }
     await prepareInputs(root, options, profile, manifest);
+    let restoreTrust;
+    if (phase === 'L4') {
+      restoreTrust = await (await import('./restore-inputs.mjs')).prepareRestoreInputs({ root, profile, profileSha256 }, options);
+      result.inputCheckpoints = restoreTrust; result.recoveryCheckpoints = {};
+    }
     if (phase === 'L3') await (await import('./l3-lifecycle.mjs')).prepareTestInput({ root }, options);
     await fs.mkdir(path.join(root, 'probes'), { mode: 0o755 });
-    for (const name of ['probe.php', 'health.php', ...(phase !== 'L1' ? ['l2-seed.php', 'l2-http.php', 'l2-s3.php', 's3-inventory.php', 'tool-response.php', 'http-client.php'] : []), ...(phase === 'L3' ? ['l3-state.php', 'state-value.php', 'app-paths.php', 'l3-http.php', 'l3-test-bootstrap.php', 'l3-test-http.php', 'l3-tests.xml', 'TasksBoundaryTest.php', 'BackupBoundaryTest.php', 'DavUpgradeTest.php', 'l3-probe-support.php'] : [])]) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
+    for (const name of ['probe.php', 'health.php', ...(phase !== 'L1' ? ['l2-seed.php', 'l2-http.php', 'l2-s3.php', 's3-inventory.php', 'tool-response.php', 'http-client.php'] : []), ...(phase === 'L4' ? ['recovery-effects.php', 'l4-role.php', 'l4-state.php', 'l4-http.php', 'l4-s3.php', 'state-snapshot.php', 'state-value.php', 'l3-probe-support.php'] : []), ...(phase === 'L3' ? ['state-snapshot.php', 'l3-state.php', 'state-value.php', 'app-paths.php', 'l3-http.php', 'l3-test-bootstrap.php', 'l3-test-http.php', 'l3-tests.xml', 'TasksBoundaryTest.php', 'BackupBoundaryTest.php', 'DavUpgradeTest.php', 'l3-probe-support.php'] : [])]) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
     await fs.copyFile(path.resolve(here, '../../Support/ProbeCompletion.php'), path.join(root, 'probes/ProbeCompletion.php'));
     await fs.writeFile(path.join(root, 'probes/apps.json'), JSON.stringify(Object.fromEntries([['mcp', profile.baseline.version], ...profile.apps.map(app => [app.id, app.version])])));
     for (const name of await fs.readdir(path.join(root, 'probes'))) await fs.chmod(path.join(root, 'probes', name), 0o644);
@@ -90,9 +95,9 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     const network = await owner.create('network', `${runId}-net`, ['--internal', '--subnet', await fixtureSubnet(checked)]);
     const volumes = {};
     for (const name of ['config', 'data', 'postgres', 's3']) volumes[name] = await owner.create('volume', `${runId}-${name}`, []);
-    const create = async (role, image, args, suffix = role) => owner.create('container', `${runId}-${suffix}`, [
+    const create = async (role, image, args, suffix = role, tail = []) => owner.create('container', `${runId}-${suffix}`, [
       '--platform', profile.platform, '--network', network, '--cpus', String(roles[role].cpus), '--memory', `${roles[role].memoryMiB}m`,
-      '--memory-swap', `${roles[role].memoryMiB}m`, '--pids-limit', '512', ...logArgs, ...args, image,
+      '--memory-swap', `${roles[role].memoryMiB}m`, '--pids-limit', '512', ...logArgs, ...args, image, ...tail,
     ]);
     const clientArgs = ['--tmpfs', '/config:rw,size=16m', '--tmpfs', '/data:rw,size=16m', '--entrypoint', '/bin/sleep'];
     // Docker create command arguments follow the image, so clients use a separate explicit helper.
@@ -105,6 +110,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     const clientRow = JSON.parse(await checked(['inspect', client]))[0];
     const clientIp = Object.values(clientRow.NetworkSettings.Networks)[0].IPAddress;
     secrets = await fixture(root, clientIp, profile);
+    if (phase === 'L4') secrets = await (await import('./restore-inputs.mjs')).restoreEnvironment(root);
     await checked(['cp', path.join(root, 'config/tls/ca.crt'), `${client}:/tmp/ca.crt`]);
     await checked(['cp', path.join(root, 'config/tls/ca.crt'), `${denied}:/tmp/ca.crt`]);
     postgres = await create('postgres', profile.images.postgres.reference, ['--network-alias', 'postgres', '--env-file', path.join(root, 'pg.env'), '-v', `${volumes.postgres}:/var/lib/postgresql/data`]);
@@ -116,10 +122,10 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     ]);
     const appArgs = ['--network-alias', 'nc.fixture.test', '--env-file', path.join(root, 'app.env'),
       '-v', `${volumes.config}:/config`, '-v', `${volumes.data}:/data`, '-v', `${root}/source:/fixture-source:ro`, '-v', `${root}/probes:/fixture-probes:ro`];
-    app = await create('app', profile.images.nextcloud.reference, appArgs);
+    app = await create('app', profile.images.nextcloud.reference, [...appArgs, ...(phase === 'L4' ? ['--entrypoint', '/bin/sleep'] : [])], 'app', phase === 'L4' ? ['infinity'] : []);
     await checked(['cp', `${root}/config/.`, `${app}:/config`]);
     await checked(['start', postgres, s3]);
-    await startPausedApp(checked, root, app);
+    if (phase === 'L4') await checked(['start', app]); else await startPausedApp(checked, root, app);
     if (JSON.parse(await checked(['network', 'inspect', network]))[0].Internal !== true) throw new Error('Fixture network permits egress');
     for (const id of [app, postgres, s3, client, denied]) {
       const row = JSON.parse(await checked(['container', 'inspect', id]))[0];
@@ -160,16 +166,18 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       finally { monitoring = false; }
     }, 5000);
     const context = { app, postgres, s3, client, denied, profile, manifest, root, exec, rawExec, checked, wait, record, close, profileSha256 };
-    await bootstrap(context);
+    context.protect = value => { if (typeof value !== 'string' || !value) throw new Error('Invalid private redaction value'); secrets[`derived-${Object.keys(secrets).length}`] = value; };
+    context.markUpgrade = () => { result.upgradePerformed = true; };
+    context.retainCheckpoint = (name, trust) => { result.recoveryCheckpoints[name] = trust; result.checkpointsCreated = true; };
+    if (phase !== 'L4') { await bootstrap(context); await validateBaseline(context); }
     await budget();
-    await validateBaseline(context);
     context.recreateApp = async () => sampling.mutate(async () => {
       await owner.removeContainer(app);
       app = await create('app', profile.images.nextcloud.reference, appArgs, 'app-recreated');
       context.app = app;
       await startPausedApp(args => owner.checked(args), root, app);
     });
-    if (phase !== 'L1') {
+    if (phase === 'L2' || phase === 'L3') {
       const { executeL2 } = await import('./l2.mjs');
       result.checkpoint = await executeL2(context);
       result.checkpointsCreated = true;
@@ -180,6 +188,15 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       context.markUpgrade = () => { result.upgradePerformed = true; };
       result.upgradeCheckpoint = await executeL3(context, options);
       result.pending[0] = 'L4-L5';
+    }
+    if (phase === 'L4') {
+      const { configureRecovery } = await import('./restore-storage.mjs');
+      configureRecovery(context, { owner, sampling, volumes, create, network, roles, logArgs,
+        update: ids => { app = context.app = ids.app; postgres = context.postgres = ids.postgres; s3 = context.s3 = ids.s3; },
+      });
+      result.pending[0] = 'L4-L5';
+      result.recovery = await (await import('./l4.mjs')).executeL4(context, options, restoreTrust);
+      result.pending[0] = 'L5';
     }
     if (budgetFailure) throw budgetFailure;
     await budget();
@@ -210,7 +227,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     catch (error) { result.cleanup = error.message; result.status = 'failed'; result.failure ??= error.message; failure ??= error; }
     // Retain verified checkpoints and separate private oracles, never a partial B1.
     if (result.cleanup === 'complete') {
-      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log', 'native-tests.log', 'native-junit.xml', ...(result.checkpointsCreated ? ['B0', 'B0-trust.json', 'private', ...(result.upgradeCheckpoint ? ['B1', 'B1-trust.json'] : [])] : [])].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
+      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log', 'native-tests.log', 'native-junit.xml', ...Object.keys(result.recoveryCheckpoints ?? {}).flatMap(name => [name, `${name}-trust.json`]), ...(result.checkpointsCreated || result.inputCheckpoints ? ['B0', 'B0-trust.json', 'private', ...(result.upgradeCheckpoint || result.inputCheckpoints ? ['B1', 'B1-trust.json'] : [])] : [])].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
     }
     result.status = finalStatus(Boolean(failure), interrupted, result.cleanup === 'complete');
     if (interrupted) { result.failure ??= `${phase} interrupted`; failure ??= new Error(`${phase} interrupted`); }

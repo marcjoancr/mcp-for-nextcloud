@@ -10,8 +10,10 @@ implemented and has passed native acceptance with cleanup. See the
 [L0-U5 evidence](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27).
 L2 has passed native capture and retained-artifact verification after the review
 fixes, including exact policy refusals and complete private evidence persistence.
-Only the latest [accepted closure capture](fork-linuxserver-l2.md#accepted-closure-capture)
-is an accepted L2 input. L3-L5 remain unimplemented and unstarted.
+The [accepted standalone L2 closure](fork-linuxserver-l2.md#accepted-closure-capture)
+proves that phase. [L3 has passed](fork-linuxserver-l3.md) with its own fresh B0/B1;
+that retained pair supplies the [accepted L4 recovery](fork-linuxserver-l4.md).
+L4 passed R1 and both R0 boundaries with complete cleanup. L5 remains unstarted.
 This is a local qualification plan, not a production runbook or deployment approval.
 
 **Goal:** demonstrate a real MCP 1.2.0 → Nextcloud MCP 2.0.0 replacement and
@@ -68,7 +70,7 @@ runtime versions separately; a tag does not establish them.
 | --- | --- |
 | Baseline | Upstream 1.2.0 commit `02526119b845ccc1d8399be002da3e30b5527df6`; use its reviewed packaging inputs and lockfiles, record archive SHA-256 and extracted inventory. This is not yet a byte comparison with the installed server app |
 | Historical L0 candidate | Reviewed source-audit commit `0000d8c807cfae300c2009ce53f9efb4a5df8081`; complete retained kit, trusted manifest SHA-256 `032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f`. Recheck with `verify:source` before use. Later commits require their own kit and digest |
-| Current U5 candidate | Published `fork/main` commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, including U5 and its publication record. Complete local kit verified; manifest SHA-256 `2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63`. Refreshed profile and evidence are in the L0-U5 record; no LinuxServer runtime qualification is claimed |
+| Current U5 candidate | Published `fork/main` commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, including U5 and its publication record. Complete local kit verified; manifest SHA-256 `2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63`. Refreshed profile and evidence are in the L0-U5 record; runtime qualification belongs to the scoped L1-L4 records, not L0 alone |
 | LinuxServer image | Observed `lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac`; verify availability and linux/amd64 selection in L0. Keep core version constant through app replacement and both restores |
 | PostgreSQL | Reuse the existing reference pin `postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d`; verify availability, SQL version and dump/restore tools. This is not the observed host's Alpine image or proof of its active SQL connection |
 | S3 fixture | Recommend one persistent, single-node SeaweedFS S3 fixture. L0 must select a supported released image, freeze its linux/amd64 digest and configuration, and review its export/restore contract. Exercise authenticated object read/write/list/delete and recovery in L1/L4, after fixture creation. L0 selects standard 4.48 with full index/platform digests in the profile lock; see the L0 record for the unavailable standard 4.49 tag |
@@ -92,22 +94,24 @@ of this rehearsal. Record the selected app inventory explicitly. Core DAV/VTODO
 coverage can exercise Tasks without claiming an installed Tasks UI; broader optional-app
 coverage remains in the separate reference matrix.
 
-## Proposed test ownership and interfaces
+## Test ownership and interfaces
 
-The profile, planning entry point and harness unit tests below exist for L0.
-Runtime, checkpoint and native probe paths remain **planned**, not executable. Avoid
-adding another mode full of LinuxServer conditions to the Apache `harness.sh`.
+The dedicated profile now implements L0 planning and explicit L1-L4 execution.
+Lifecycle, checkpoint and native probes stay separate from the Apache `harness.sh`.
+L5 remains unimplemented and is rejected by the command.
 
-| Planned path | Responsibility |
+| Path | Responsibility |
 | --- | --- |
 | `mcp/tests/Integration/ci/linuxserver/profile.json` | Immutable profile inputs, limits and supported baseline/candidate pair; no secrets |
 | `mcp/tests/Integration/ci/linuxserver/run-local.sh`, `plan.mjs`, `profile.mjs` | L0 offline planning and strict profile/kit validation; future phase ordering must retain these checks |
 | `mcp/tests/Integration/ci/linuxserver/runtime.mjs`, `fixture.mjs`, `validation.mjs` | Private network/volumes, LinuxServer readiness, s6/abc execution, TLS setup, writer quiescence and controlled restart |
-| `mcp/tests/Integration/ci/linuxserver/l2.mjs`, `capture.mjs`, `checkpoint.mjs`, `volume_archive.py`, `l2-s3.php` | Shared B0/B1 coherent dump/config/data/object export and integrity; restore remains unimplemented |
+| `mcp/tests/Integration/ci/linuxserver/l2.mjs`, `capture.mjs`, `checkpoint.mjs`, `volume_archive.py`, `l2-s3.php` | Shared B0/B1 and recovery-case coherent dump/config/data/object export and integrity |
 | `mcp/tests/Integration/ci/linuxserver/l2-http.php` | Baseline HTTP capability assertions and private CA validation; never change the Apache `Support/Http.php` contract implicitly |
 | `mcp/tests/Integration/ci/linuxserver/l2-seed.php`, `l3-state.php` | Version-specific policy/OAuth adapters; load only their matching installed version |
 | `mcp/tests/Integration/ci/linuxserver/l3.mjs`, `l3-lifecycle.mjs` | Persisted-state and migration assertions across real app replacement |
-| Future `mcp/tests/Integration/ci/linuxserver/recovery.php` | Credential timeline, recovery closure and reconnection assertions |
+| `mcp/tests/Integration/ci/linuxserver/l4.mjs`, `restore-inputs.mjs`, `restore-storage.mjs` | Trusted original inputs, fresh-storage restore, failure boundaries and owned resource retirement |
+| `mcp/tests/Integration/ci/linuxserver/l4-state.php`, `l4-http.php`, `l4-s3.php`, `l4-role.php`, `compare-volume.py`, `recovery-effects.php` | Version-specific credential cut/reconnection, mutation effects, object and ownership readback, private role reconstruction and fail-closed recovery |
+| `mcp/tests/Integration/ci/linuxserver/state-snapshot.php` | Shared semantic oracle for L3 preservation and L4 recovery |
 | `mcp/tests/Integration/ci/linuxserver/l3-tests.xml`, `l3-test-http.php`, `l3-http.php` | Select/adapt existing native capability cases through explicit path/transport inputs, without duplicating tool implementations |
 | `mcp/tests/Integration/ci/linuxserver/l3-http.php`, `l3.mjs` | Non-admin offer discovery and source download assertions; invoke existing release verification separately |
 | `mcp/tests/Unit/Integration/LinuxServerHarnessTest.php` | Plan/argument validation, fail-closed orchestration, injected failure and ownership contracts |
@@ -115,9 +119,10 @@ adding another mode full of LinuxServer conditions to the Apache `harness.sh`.
 
 The L0 entry point accepts `--plan`, `--profile FILE`, `--kit DIRECTORY`
 and `--manifest-sha256 DIGEST`. `--plan` validates input structure and emits the
-resolved plan without Docker calls or networking. Explicit `--phase L1`, `--phase L2` and `--phase L3` are implemented;
-L3 results are tracked in the [execution record](fork-linuxserver-l3.md).
-L4-L5 remain rejected.
+resolved plan without Docker calls or networking. Explicit `--phase L1` through `--phase L4` are implemented.
+[L4](fork-linuxserver-l4.md) additionally requires the accepted L3 checkpoint
+directory and independently supplied B0/B1 generations and trusted digests.
+L5 remains rejected.
 Every execution generates a unique run ID and accepts no arbitrary
 existing container, database, volume or bucket.
 
@@ -193,7 +198,7 @@ builder or change the planner to accept a mismatched candidate.
   entry point. Require the selected U5 identity, matching hashes, zero exit,
   `validationScope: "profile-and-source-kit"` and `executionAvailable: false`
   at the L0-only revision. After L1 implementation this capability flag is true
-  with `availablePhases: ["L1"]` (extended to `["L1", "L2", "L3"]` by subsequent phases); `--plan` still performs no runtime operation.
+  with `availablePhases: ["L1"]` (extended to `["L1", "L2", "L3", "L4"]` by subsequent phases); `--plan` still performs no runtime operation.
   Wrong digest/commit, changed kit, unsafe profile and execution-without-plan
   cases must remain nonzero. Validate documentation and record all results.
 
@@ -208,11 +213,11 @@ recorded below and in the [L1 results](fork-linuxserver-l1.md).
 
 ### L1 execution boundary
 
-The L1 implementation uses a thin `runtime.sh` boundary, focused Node
+The L1 implementation uses a thin `runtime.mjs` boundary, focused Node
 lifecycle/transport owners and `LinuxServerHarnessTest.php` failure tests.
 `run-local.sh`, `plan.mjs` and `profile.mjs` remain the guarded entry boundary. The
 entry point must identify a baseline-bootstrap-only result and reject requests
-for unimplemented phases (currently L4-L5); a healthy baseline cannot be reported as an upgrade pass.
+for unimplemented phases (currently L5); a healthy baseline cannot be reported as an upgrade pass.
 Use `--phase L1 --inputs ABSOLUTE_DIRECTORY` with the existing kit arguments.
 The [L1 record](fork-linuxserver-l1.md#inputs-and-execution-boundary) documents
 its exact CLI, prerequisites and baseline-only result.
@@ -435,12 +440,12 @@ This separates short-lived credential evidence from the longer capability suite.
 B0/B1 in the cases below refer to those explicitly recorded case generations;
 original checkpoint hashes and semantic inventories remain separate evidence.
 
-- [ ] **R1, restore B1:** after snapshot, change/delete records and revoke an active
+- [x] **R1, restore B1:** after snapshot, change/delete records and revoke an active
   credential. Restore the full 2.0.0 B1 generation into new volumes and an empty
   owned database/bucket. Match config, app, DB, local data and S3; compare file
   hashes and semantic state. The restored database must demonstrably contain the
   pre-revocation state before applying the recovery safety cut.
-- [ ] **R0, return to B0:** start a separate copy of B0, attempt replacement and
+- [x] **R0, return to B0:** start a separate copy of B0, attempt replacement and
   run two failure cases: immediately after app replacement, and after native
   `occ upgrade` returns but before reopening. The selected migration trees are
   identical: these are orchestration boundaries, not proof of interruption inside
@@ -450,12 +455,12 @@ original checkpoint hashes and semantic inventories remain separate evidence.
   set to fresh storage, including its 1.2.0 app and database. Verify the baseline
   through its version-specific probe. Preserve the failure evidence; do not claim
   the interrupted upgrade passed or that R0 leaves 2.0.0 installed.
-- [ ] For both paths, validate manifests **before** destructive restore steps,
+- [x] For both paths, validate manifests **before** destructive restore steps,
   keep Nginx admission/jobs blocked through startup and prevent automatic core/app
   upgrades. Require `pg_restore` to stop on errors; verify roles/ownership and no
   partial database import. Restore source-kit availability for the 2.0.0 source
   offer as part of its external configuration, not just the installed app files.
-- [ ] Before releasing maintenance, disable MCP globally and disconnect every
+- [x] Before releasing maintenance, disable MCP globally and disconnect every
   affected synthetic account with that restored version's supported policy API.
   Verify auth epoch/generation change, original restrictions and absence of new
   privileges. Reject pre-snapshot and post-snapshot access/refresh tokens and
@@ -465,7 +470,7 @@ original checkpoint hashes and semantic inventories remain separate evidence.
   A rollback must not resurrect a revocation that happened after its checkpoint.
   Only after this cut, enter probe-only with MCP still globally closed to assert
   denial over HTTP; reopen MCP explicitly for the subsequent reconnection checks.
-- [ ] Test Basic credentials are denied by MCP's disconnected/global policy; do
+- [x] Test Basic credentials are denied by MCP's disconnected/global policy; do
   not claim this revokes Nextcloud app passwords everywhere. Reconnect one reviewed
   synthetic account, issue fresh OAuth credentials and prove a permitted operation
   works while restricted operations still fail. Validate confirmations separately:
@@ -477,10 +482,10 @@ original checkpoint hashes and semantic inventories remain separate evidence.
   not assert blanket invalidation or rotate the Nextcloud instance secret. Require
   fresh previews in the recovery procedure and record this contract explicitly.
   Leave MCP closed at the end.
-- [ ] Apply and verify Nextcloud's recovery data-fingerprint procedure where state
+- [x] Apply and verify Nextcloud's recovery data-fingerprint procedure where state
   moves backwards. Measure checkpoint age and restore time; retain changed/deleted
   file expectations. Real desktop/mobile synchronization remains untested here.
-- [ ] Inject missing S3 content, bad archive hash, foreign generation, partial
+- [x] Inject missing S3 content, bad archive hash, foreign generation, partial
   restore, unavailable storage, wrong candidate digest and foreign resource IDs.
   Validate backup paths/types before extraction and exercise traversal/escaping
   symlink cases as well. Reject unsafe inputs before activation; do not resume
@@ -542,9 +547,11 @@ The authorized **L3** runner now replaces the baseline app with the frozen
 2.0.0 candidate and verifies persistence; its acceptance status and diagnostic
 attempts are tracked in the [L3 record](fork-linuxserver-l3.md). The final
 post-review run passed with a verified B1 and complete owned cleanup. The next
-batch is L4 and requires separate authorization; it has not started. L4 recovery and L5
-closure remain unimplemented, and the command rejects them. B0/B1 integrity
-alone does not qualify restoration.
+batch, L4, has now passed R1, both R0 failure boundaries and fail-closed
+negative cases; the [L4 record](fork-linuxserver-l4.md) names the accepted final
+run, timings, hashes, remaining limits and complete cleanup.
+L5 closure has not started and remains rejected. B0/B1 integrity alone does not
+qualify restoration; only the completed recovery cases can establish that claim.
 
 | Still pending | Why local success does not close it |
 | --- | --- |

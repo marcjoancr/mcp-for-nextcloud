@@ -82,10 +82,11 @@ A failed app installation, empty selection or test failure is a failed cell.
 Harness qualification with an explicitly substituted version and filtered diagnostic
 runs do not certify the final package; report them separately.
 
-## LinuxServer planning, checkpoints and isolated upgrade
+## LinuxServer planning, checkpoints, upgrade and recovery
 
 The separate `test:integration:linuxserver` command supports offline L0 planning
-and explicit L1 baseline bootstrap, L2 fixture/checkpoint capture or L3 isolated upgrade. Planning needs Node and a complete reviewed
+and explicit L1 baseline bootstrap, L2 fixture/checkpoint capture, L3 isolated
+upgrade or L4 recovery. Planning needs Node and a complete reviewed
 source kit: use `--plan`, optional `--profile ABSOLUTE_FILE`,
 `--kit ABSOLUTE_DIRECTORY` and `--manifest-sha256 TRUSTED_DIGEST`. It creates no
 resources and does not certify registry availability or native readiness. See the
@@ -99,11 +100,15 @@ scope, safety controls, evidence and limitations. Use `--phase L2` for the
 [L2 fixture and B0 contract](fork-linuxserver-l2.md), with the same required
 inputs. `--phase L3` chains a fresh L1/L2 baseline, upgrades to the frozen U5
 candidate and requires B1; it also needs the pinned PHPUnit PHAR and CLI-only
-tokenizer APK documented in the [L3 record](fork-linuxserver-l3.md). L4-L5 remain
-rejected; no restoration is implemented.
+tokenizer APK documented in the [L3 record](fork-linuxserver-l3.md).
+`--phase L4` consumes retained accepted L3 B0/B1 checkpoints, not live containers.
+It additionally requires `--checkpoints ABSOLUTE_DIRECTORY`, `--b0-generation`,
+`--b0-sha256`, `--b1-generation` and `--b1-sha256`. The [L4 record](fork-linuxserver-l4.md)
+lists trusted inputs, the full restore/revocation contract and acceptance evidence.
+L5 remains rejected.
 
 The PHPUnit command-boundary tests and Node safety tests run in the normal
-`test`/`check` suite with synthetic inputs and no Docker access. Native L1/L2/L3 are
+`test`/`check` suite with synthetic inputs and no Docker access. Native L1/L2/L3/L4 are
 explicit separate operations. The Apache matrix and its commands are unchanged.
 
 ## Selected native fixture inputs
@@ -126,9 +131,10 @@ the independent candidate at 2.0.0. The matrix now upgrades the pinned upstream
 and NC32 cells remain recorded at `5ff6672`. Current candidate cells begin at NC33.
 The `upgrade-upstream-120` cell adds the pinned upstream 1.2.0 → 2.0.0
 transition on disposable NC35/Apache/MariaDB, preserving state and bearer access.
-Its result is recorded in [U5](upstream-1.2.1-u5-integration.md). The real installed
-LinuxServer/Nginx upgrade status is tracked in [L3](fork-linuxserver-l3.md);
-recovery and final platform qualification remain open.
+Its result is recorded in [U5](upstream-1.2.1-u5-integration.md). The
+isolated LinuxServer/Nginx upgrade status is tracked in [L3](fork-linuxserver-l3.md)
+and recovery in [L4](fork-linuxserver-l4.md). Final platform and intended-host
+qualification remain open.
 F3/F4 own final release and installed-host qualification. See the
 [F3 execution record](fork-f3-preparation.md) for the 2.0.0 candidate and the
 [upstream integration record](upstream-1.2.0-integration.md) for earlier revisions.
