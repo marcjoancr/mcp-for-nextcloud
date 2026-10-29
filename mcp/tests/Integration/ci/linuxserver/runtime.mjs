@@ -9,7 +9,7 @@ import { measureVolume } from './budget.mjs';
 import { Resources } from './resources.mjs';
 import { allocations, assertDisk, assertImage, ownershipLabel, finalStatus, assertLocalDocker } from './safety.mjs';
 import { here, prepareInputs } from './inputs.mjs';
-import { fixture } from './fixture.mjs';
+import { fixture, startPausedApp } from './fixture.mjs';
 import { fixtureSubnet } from './network.mjs';
 import { bootstrap, validateBaseline } from './validation.mjs';
 
@@ -19,7 +19,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
   const runId = `mcp-${phase.toLowerCase()}-${randomUUID()}`;
   const root = path.resolve(here, `../../../../build/linuxserver-${phase.toLowerCase()}/runs`, runId);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
-  const result = { schemaVersion: 1, runId, phase, scope: phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
+  const result = { schemaVersion: 1, runId, phase, scope: phase === 'L3' ? 'isolated-upgrade' : phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
     profileSha256, baseline: profile.baseline, candidate: profile.candidate, upgradePerformed: false,
     checkpointsCreated: false, checks: [], cleanup: 'pending', pending: ['L2-L5', 'public-https', 'inspector', 'chatgpt', 'human-review'] };
   let secrets = {}, app, s3, postgres, interrupted = false, cleaning = false;
@@ -80,8 +80,9 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       await record(`image-${name}`, { id: row.Id, reference: pin.reference, platform: 'linux/amd64' });
     }
     await prepareInputs(root, options, profile, manifest);
+    if (phase === 'L3') await (await import('./l3-lifecycle.mjs')).prepareTestInput({ root }, options);
     await fs.mkdir(path.join(root, 'probes'), { mode: 0o755 });
-    for (const name of ['probe.php', 'health.php', ...(phase === 'L2' ? ['l2-seed.php', 'l2-http.php', 'l2-s3.php', 's3-inventory.php', 'tool-response.php'] : [])]) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
+    for (const name of ['probe.php', 'health.php', ...(phase !== 'L1' ? ['l2-seed.php', 'l2-http.php', 'l2-s3.php', 's3-inventory.php', 'tool-response.php', 'http-client.php'] : []), ...(phase === 'L3' ? ['l3-state.php', 'state-value.php', 'app-paths.php', 'l3-http.php', 'l3-test-bootstrap.php', 'l3-test-http.php', 'l3-tests.xml', 'TasksBoundaryTest.php', 'BackupBoundaryTest.php', 'DavUpgradeTest.php', 'l3-probe-support.php'] : [])]) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
     await fs.copyFile(path.resolve(here, '../../Support/ProbeCompletion.php'), path.join(root, 'probes/ProbeCompletion.php'));
     await fs.writeFile(path.join(root, 'probes/apps.json'), JSON.stringify(Object.fromEntries([['mcp', profile.baseline.version], ...profile.apps.map(app => [app.id, app.version])])));
     for (const name of await fs.readdir(path.join(root, 'probes'))) await fs.chmod(path.join(root, 'probes', name), 0o644);
@@ -89,7 +90,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     const network = await owner.create('network', `${runId}-net`, ['--internal', '--subnet', await fixtureSubnet(checked)]);
     const volumes = {};
     for (const name of ['config', 'data', 'postgres', 's3']) volumes[name] = await owner.create('volume', `${runId}-${name}`, []);
-    const create = async (role, image, args) => owner.create('container', `${runId}-${role}`, [
+    const create = async (role, image, args, suffix = role) => owner.create('container', `${runId}-${suffix}`, [
       '--platform', profile.platform, '--network', network, '--cpus', String(roles[role].cpus), '--memory', `${roles[role].memoryMiB}m`,
       '--memory-swap', `${roles[role].memoryMiB}m`, '--pids-limit', '512', ...logArgs, ...args, image,
     ]);
@@ -113,12 +114,12 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       profile.images.seaweedfs.reference, 'server', '-dir=/data', '-master.dir=/data', '-ip=s3', '-ip.bind=0.0.0.0', '-filer', '-s3', '-s3.config=/etc/seaweedfs/s3.json',
       `-volume.max=${profile.objectStore.volumeCount}`, `-master.volumeSizeLimitMB=${profile.objectStore.volumeSizeLimitMiB}`, '-volume.preStopSeconds=1',
     ]);
-    app = await create('app', profile.images.nextcloud.reference, ['--network-alias', 'nc.fixture.test', '--env-file', path.join(root, 'app.env'),
-      '-v', `${volumes.config}:/config`, '-v', `${volumes.data}:/data`, '-v', `${root}/source:/fixture-source:ro`, '-v', `${root}/probes:/fixture-probes:ro`]);
+    const appArgs = ['--network-alias', 'nc.fixture.test', '--env-file', path.join(root, 'app.env'),
+      '-v', `${volumes.config}:/config`, '-v', `${volumes.data}:/data`, '-v', `${root}/source:/fixture-source:ro`, '-v', `${root}/probes:/fixture-probes:ro`];
+    app = await create('app', profile.images.nextcloud.reference, appArgs);
     await checked(['cp', `${root}/config/.`, `${app}:/config`]);
-    // This image imports /etc/crontabs directly; it has no /defaults/crontabs.
-    await checked(['cp', `${root}/config/crontabs/.`, `${app}:/etc/crontabs`]);
-    await checked(['start', postgres, s3, app]);
+    await checked(['start', postgres, s3]);
+    await startPausedApp(checked, root, app);
     if (JSON.parse(await checked(['network', 'inspect', network]))[0].Internal !== true) throw new Error('Fixture network permits egress');
     for (const id of [app, postgres, s3, client, denied]) {
       const row = JSON.parse(await checked(['container', 'inspect', id]))[0];
@@ -162,11 +163,23 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     await bootstrap(context);
     await budget();
     await validateBaseline(context);
-    if (phase === 'L2') {
+    context.recreateApp = async () => sampling.mutate(async () => {
+      await owner.removeContainer(app);
+      app = await create('app', profile.images.nextcloud.reference, appArgs, 'app-recreated');
+      context.app = app;
+      await startPausedApp(args => owner.checked(args), root, app);
+    });
+    if (phase !== 'L1') {
       const { executeL2 } = await import('./l2.mjs');
       result.checkpoint = await executeL2(context);
       result.checkpointsCreated = true;
       result.pending[0] = 'L3-L5';
+    }
+    if (phase === 'L3') {
+      const { executeL3 } = await import('./l3.mjs');
+      context.markUpgrade = () => { result.upgradePerformed = true; };
+      result.upgradeCheckpoint = await executeL3(context, options);
+      result.pending[0] = 'L4-L5';
     }
     if (budgetFailure) throw budgetFailure;
     await budget();
@@ -195,9 +208,9 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       if (diagnosticError) { result.diagnostics = 'unavailable'; failure ??= diagnosticError; }
     }
     catch (error) { result.cleanup = error.message; result.status = 'failed'; result.failure ??= error.message; failure ??= error; }
-    // L1 destroys private inputs. L2 retains only a verified B0 and its separate private recovery oracle.
+    // Retain verified checkpoints and separate private oracles, never a partial B1.
     if (result.cleanup === 'complete') {
-      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log', ...(phase === 'L2' && result.checkpointsCreated ? ['B0', 'B0-trust.json', 'private'] : [])].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
+      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log', 'native-tests.log', 'native-junit.xml', ...(result.checkpointsCreated ? ['B0', 'B0-trust.json', 'private', ...(result.upgradeCheckpoint ? ['B1', 'B1-trust.json'] : [])] : [])].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
     }
     result.status = finalStatus(Boolean(failure), interrupted, result.cleanup === 'complete');
     if (interrupted) { result.failure ??= `${phase} interrupted`; failure ??= new Error(`${phase} interrupted`); }

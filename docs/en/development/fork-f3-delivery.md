@@ -1139,3 +1139,21 @@ The final post-fix full check passes 8,697 PHP tests/74,291 assertions,
 717 browser tests, both static-analysis scopes, documentation and packaging.
 The accepted generation and verification hashes are in the linked L2 closure
 record; no source-kit identity or published branch changed.
+
+
+## LinuxServer L3 isolated upgrade work (2026-10-29)
+
+The authorized [L3 batch](fork-linuxserver-l3.md) implements replacement of the
+frozen 1.2.0 baseline with U5 2.0.0, preservation assertions, native capability
+and source checks, same-image container recreation and coherent B1 capture.
+The post-review run passed 55 native tests / 1,144 assertions, all required
+probes, recreation and B1 capture. Post-cleanup verification passed, with zero
+owned containers, networks or volumes remaining. The final full local check
+also passed 8,697 PHP tests / 74,392 assertions, 717 browser tests, both static
+analysis scopes, documentation and packaging. The linked execution record names
+the accepted generations, hashes, rejected diagnostic attempts and minor L5
+archive-permission normalization item. No recovery is inferred from this upgrade.
+
+L4/L5, intended-host acceptance, public HTTPS, Inspector (prior 14/15), ChatGPT
+and human review remain pending. The target server, published branches and
+PR #14 remain unchanged; F3 is not closed.

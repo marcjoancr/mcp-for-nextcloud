@@ -66,3 +66,12 @@ server {
 `, 0o644);
   return secrets;
 }
+
+export async function startPausedApp(checked, root, app) {
+  // The pinned image imports /etc/crontabs directly at startup.
+  await checked(['cp', `${root}/config/crontabs/.`, `${app}:/etc/crontabs`]);
+  await checked(['start', app]);
+}
+
+// Query effective tables; cron.update is scheduler metadata, not a user's jobs.
+export const emptyCronTablesCommand = 'mcp_abc_cron=$(crontab -l -u abc) && mcp_root_cron=$(crontab -l -u root) && test -z "$mcp_abc_cron$mcp_root_cron"';

@@ -103,21 +103,22 @@ adding another mode full of LinuxServer conditions to the Apache `harness.sh`.
 | `mcp/tests/Integration/ci/linuxserver/profile.json` | Immutable profile inputs, limits and supported baseline/candidate pair; no secrets |
 | `mcp/tests/Integration/ci/linuxserver/run-local.sh`, `plan.mjs`, `profile.mjs` | L0 offline planning and strict profile/kit validation; future phase ordering must retain these checks |
 | `mcp/tests/Integration/ci/linuxserver/runtime.mjs`, `fixture.mjs`, `validation.mjs` | Private network/volumes, LinuxServer readiness, s6/abc execution, TLS setup, writer quiescence and controlled restart |
-| `mcp/tests/Integration/ci/linuxserver/l2.mjs`, `checkpoint.mjs`, `volume_archive.py`, `l2-s3.php` | L2 coherent dump/config/data/object export and integrity; restore remains unimplemented |
+| `mcp/tests/Integration/ci/linuxserver/l2.mjs`, `capture.mjs`, `checkpoint.mjs`, `volume_archive.py`, `l2-s3.php` | Shared B0/B1 coherent dump/config/data/object export and integrity; restore remains unimplemented |
 | `mcp/tests/Integration/ci/linuxserver/l2-http.php` | Baseline HTTP capability assertions and private CA validation; never change the Apache `Support/Http.php` contract implicitly |
-| `mcp/tests/Integration/ci/linuxserver/l2-seed.php`, future `candidate.php` | Version-specific policy/OAuth adapters; load only their matching installed version |
-| `mcp/tests/Integration/ci/linuxserver/upgrade.php` | Persisted-state and migration assertions across real app replacement |
-| `mcp/tests/Integration/ci/linuxserver/recovery.php` | Credential timeline, recovery closure and reconnection assertions |
-| `mcp/tests/Integration/ci/linuxserver/capabilities.php` | Select/adapt existing native capability cases through explicit path/transport inputs, without duplicating tool implementations |
-| `mcp/tests/Integration/ci/linuxserver/source-offer.php` | Non-admin offer discovery and source download assertions; invoke existing release verification separately |
+| `mcp/tests/Integration/ci/linuxserver/l2-seed.php`, `l3-state.php` | Version-specific policy/OAuth adapters; load only their matching installed version |
+| `mcp/tests/Integration/ci/linuxserver/l3.mjs`, `l3-lifecycle.mjs` | Persisted-state and migration assertions across real app replacement |
+| Future `mcp/tests/Integration/ci/linuxserver/recovery.php` | Credential timeline, recovery closure and reconnection assertions |
+| `mcp/tests/Integration/ci/linuxserver/l3-tests.xml`, `l3-test-http.php`, `l3-http.php` | Select/adapt existing native capability cases through explicit path/transport inputs, without duplicating tool implementations |
+| `mcp/tests/Integration/ci/linuxserver/l3-http.php`, `l3.mjs` | Non-admin offer discovery and source download assertions; invoke existing release verification separately |
 | `mcp/tests/Unit/Integration/LinuxServerHarnessTest.php` | Plan/argument validation, fail-closed orchestration, injected failure and ownership contracts |
 | `mcp/composer.json`, `docs/en/development/testing.md` | One documented `test:integration:linuxserver` entry point, without changing default matrix selection |
 
 The L0 entry point accepts `--plan`, `--profile FILE`, `--kit DIRECTORY`
 and `--manifest-sha256 DIGEST`. `--plan` validates input structure and emits the
-resolved plan without Docker calls or networking. Explicit `--phase L1` and
-`--phase L2` execution are implemented; later phases remain rejected.
-Future full execution must generate a unique run ID and accept no arbitrary
+resolved plan without Docker calls or networking. Explicit `--phase L1`, `--phase L2` and `--phase L3` are implemented;
+L3 results are tracked in the [execution record](fork-linuxserver-l3.md).
+L4-L5 remain rejected.
+Every execution generates a unique run ID and accepts no arbitrary
 existing container, database, volume or bucket.
 
 The shared phase interface consumes a private run manifest (run ID, profile hash,
@@ -192,7 +193,7 @@ builder or change the planner to accept a mismatched candidate.
   entry point. Require the selected U5 identity, matching hashes, zero exit,
   `validationScope: "profile-and-source-kit"` and `executionAvailable: false`
   at the L0-only revision. After L1 implementation this capability flag is true
-  with `availablePhases: ["L1"]` (extended to `["L1", "L2"]` by L2); `--plan` still performs no runtime operation.
+  with `availablePhases: ["L1"]` (extended to `["L1", "L2", "L3"]` by subsequent phases); `--plan` still performs no runtime operation.
   Wrong digest/commit, changed kit, unsafe profile and execution-without-plan
   cases must remain nonzero. Validate documentation and record all results.
 
@@ -211,7 +212,7 @@ The L1 implementation uses a thin `runtime.sh` boundary, focused Node
 lifecycle/transport owners and `LinuxServerHarnessTest.php` failure tests.
 `run-local.sh`, `plan.mjs` and `profile.mjs` remain the guarded entry boundary. The
 entry point must identify a baseline-bootstrap-only result and reject requests
-for unimplemented phases (currently L3-L5); a healthy baseline cannot be reported as an upgrade pass.
+for unimplemented phases (currently L4-L5); a healthy baseline cannot be reported as an upgrade pass.
 Use `--phase L1 --inputs ABSOLUTE_DIRECTORY` with the existing kit arguments.
 The [L1 record](fork-linuxserver-l1.md#inputs-and-execution-boundary) documents
 its exact CLI, prerequisites and baseline-only result.
@@ -350,30 +351,30 @@ Never copy a live PostgreSQL data directory as this plan's backup method.
 
 **Deliverable:** successful real upgrade evidence and healthy checkpoint **B1**.
 
-- [ ] With maintenance and writer/admission gates retained, verify and stage the
+- [x] With maintenance and writer/admission gates retained, verify and stage the
   candidate outside the scanned app path; replace the persistent MCP tree without
   leaving an old app or duplicate app ID in an apps directory. Run the native
   upgrade and capture its migration result. Keep the Nextcloud core image fixed.
-- [ ] Restart PHP-FPM/container under the gate to clear old code caches; verify
+- [x] Restart PHP-FPM/container under the gate to clear old code caches; verify
   installed bytes against the trusted candidate manifest, native app integrity
   output and CLI version identity. Enter probe-only state only after those checks,
   then verify Nginx version identity and run the following HTTP assertions. Record
   unsigned-fork warnings explicitly; never disable global integrity checks or reuse an upstream
   signature over changed files.
-- [ ] Compare the L0-approved schema/state expectations, migration IDs, grants,
+- [x] Compare the L0-approved schema/state expectations, migration IDs, grants,
   scopes, restrictions, client registrations and preferences. Test pre-upgrade
   unrevoked credentials still work within their original privileges and revoked
   credentials remain denied. Preserve confirmation safety: tampered fingerprints
   and plans whose relevant state changed must fail without side effects; do not
   equate age alone with invalidity. Classify intentional invalidation explicitly.
-- [ ] Apply the U5-specific expectations below before checkpoint B1; retain the
+- [x] Apply the U5-specific expectations below before checkpoint B1; retain the
   pre-probe state snapshot separately from intentional policy and content changes.
-- [ ] Run positive and negative capability checks on the same seeded records.
+- [x] Run positive and negative capability checks on the same seeded records.
   Include Files/Notes preview-confirm edits, DAV reads/writes and deletion backup,
   Deck dates/labels/dependencies/link/unlink/audience checks, Talk privacy,
   People/Logs permissions and filename enforcement. Read back allowed mutations
   through native APIs and verify denied operations changed nothing.
-- [ ] Check real admin/personal settings routes and assets, plus complete source
+- [x] Check real admin/personal settings routes and assets, plus complete source
   delivery through a non-admin personal session and MCP Basic/Bearer. Download
   all offered kit artifacts without maintainer credentials and compare their
   hashes. Anonymous MCP calls must be denied; disconnected users retain personal
@@ -383,7 +384,7 @@ Never copy a live PostgreSQL data directory as this plan's backup method.
   changed downloads. `Release/SourceOffer` matches metadata to `source.json`; it
   does not hash every installed file or automatically block execution of tampered
   PHP. Reuse release verification without claiming that runtime enforcement.
-- [ ] Recreate only the owned Nextcloud container with the same digest and volumes.
+- [x] Recreate only the owned Nextcloud container with the same digest and volumes.
   Start recreation in closed state, verify bytes, then enter probe-only to check
   DB state, objects and permissions. Return to closed and capture coherent B1
   with the L2 protocol after successful checks, including source-kit availability.
@@ -537,10 +538,13 @@ executed. Production recovery readiness is not inferred from this fixture.
 L1 baseline qualification and L2 fixture/B0 capture have passed for the frozen
 U5 inputs; see the [L1 report](fork-linuxserver-l1.md) and the latest accepted
 capture in the [L2 closure record](fork-linuxserver-l2.md#closure-review-2026-10-29).
-The next separate batch is **L3**, replacing the baseline app with the frozen
-2.0.0 candidate and verifying persistence. L3 requires its own authorization and
-implementation. The current command rejects L3-L5; no U5 app replacement or
-recovery is claimed. B0 integrity alone does not qualify restoration.
+The authorized **L3** runner now replaces the baseline app with the frozen
+2.0.0 candidate and verifies persistence; its acceptance status and diagnostic
+attempts are tracked in the [L3 record](fork-linuxserver-l3.md). The final
+post-review run passed with a verified B1 and complete owned cleanup. The next
+batch is L4 and requires separate authorization; it has not started. L4 recovery and L5
+closure remain unimplemented, and the command rejects them. B0/B1 integrity
+alone does not qualify restoration.
 
 | Still pending | Why local success does not close it |
 | --- | --- |

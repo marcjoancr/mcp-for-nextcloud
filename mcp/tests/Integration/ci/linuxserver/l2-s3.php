@@ -19,9 +19,9 @@ if (($argv[1] ?? '') === 'seed') {
     $upload->upload();
     $object = $s3->getObject(['Bucket' => $bucket, 'Key' => 'L2/multipart']);
     if ((string)$object['Body'] !== $body || !str_contains($object['ETag'], '-')) throw new RuntimeException('Multipart fixture failed');
-} elseif (($argv[1] ?? '') === 'export') {
+} elseif (in_array($argv[1] ?? '', ['export', 'export-b1'], true)) {
     if (isset($s3->getBucketVersioning(['Bucket' => $bucket])['Status'])) throw new RuntimeException('Unexpected S3 versioning');
-    $directory = '/tmp/l2-export';
+    $directory = $argv[1] === 'export' ? '/tmp/l2-export' : '/tmp/l3-export';
     if (!mkdir($directory, 0700) || !mkdir($directory . '/objects', 0700)) throw new RuntimeException('Export directory exists');
     $objects = [];
     foreach ($s3->getPaginator('ListObjectsV2', ['Bucket' => $bucket]) as $page) {

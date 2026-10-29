@@ -167,3 +167,100 @@ test('volume accounting retries concurrent file removal but never accepts a fail
   assert.equal(await measureVolume(async () => ({ code: 1, out: '' }), async () => false), null);
   await assert.rejects(measureVolume(async () => ({ code: 0, out: '' }), async () => true));
 });
+
+test('owned app replacement journals retirement and never deletes an unowned container', async () => {
+  const { Resources } = await import('./resources.mjs');
+  const calls = [], persisted = [];
+  const resources = new Resources('run', async args => {
+    calls.push(args);
+    if (args.includes('inspect')) return { code: 0, out: JSON.stringify([{ Id: 'app', Config: { Labels: { 'mcp.linuxserver.run': 'run' } } }]) };
+    return { code: 0, out: '' };
+  }, async items => persisted.push(structuredClone(items)));
+  resources.items.push({ kind: 'container', id: 'app', name: 'owned-app' });
+  await assert.rejects(resources.removeContainer('foreign'));
+  assert.equal(calls.length, 0);
+  await resources.removeContainer('app');
+  assert.equal(persisted.at(-1)[0].removed, true);
+  await resources.cleanup();
+  assert.equal(calls.filter(args => args.includes('rm')).length, 1);
+});
+
+test('native-suite evidence rejects empty, skipped, failed and unasserted cases', async () => {
+  const fs = await import('node:fs/promises'), os = await import('node:os'), path = await import('node:path');
+  const { command } = await import('./command.mjs');
+  const { here } = await import('./inputs.mjs');
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-l3-junit-'));
+  try {
+    for (const [body, valid] of [
+      ['<testcase name="native" assertions="2"/>', true], ['', false],
+      ['<testcase assertions="0"/>', false],
+      ...['skipped', 'failure', 'error'].map(tag => [`<testcase assertions="1"><${tag}/></testcase>`, false]),
+    ]) {
+      const file = path.join(root, 'junit.xml');
+      await fs.writeFile(file, `<testsuites><testsuite>${body}</testsuite></testsuites>`);
+      const result = await command('python3', ['-B', path.join(here, 'junit.py'), file]);
+      assert.equal(result.code === 0, valid, result.err);
+    }
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('LinuxServer HTTP profile refuses destinations outside its private origin', async () => {
+  const { command } = await import('./command.mjs');
+  const { here } = await import('./inputs.mjs');
+  const path = await import('node:path');
+  const code = "require $argv[1]; try { \\OCA\\Mcp\\Tests\\Integration\\Support\\Http::request('GET', $argv[2]); exit(1); } catch (RuntimeException $e) { exit($e->getMessage() === 'Unexpected native test destination' ? 0 : 2); }";
+  for (const url of ['https://example.invalid/', 'https://nc.fixture.test.evil.invalid/', 'http://nc.fixture.test/']) {
+    const result = await command('php', ['-r', code, path.join(here, 'l3-test-http.php'), url]);
+    assert.equal(result.code, 0, result.err);
+  }
+});
+
+test('database snapshot compares actual PostgreSQL stream bytes across sessions', async () => {
+  const { command } = await import('./command.mjs');
+  const { here } = await import('./inputs.mjs');
+  const path = await import('node:path');
+  const code = `require $argv[1]; $a = fopen('php://memory','r+'); $b = fopen('php://memory','r+');
+    fwrite($a, "BEGIN:VCARD\\r\\nFN:Unicode català\\r\\n"); fwrite($b, "BEGIN:VCARD\\r\\nFN:Unicode català\\r\\n");
+    if (databaseValue($a) !== databaseValue($b)) exit(1);
+    fwrite($b, 'changed'); if (databaseValue($a) === databaseValue($b)) exit(2);
+    if (databaseValue(null) !== null || databaseValue(false) !== 'f' || databaseValue(12) !== '12') exit(3);`;
+  const result = await command('php', ['-r', code, path.join(here, 'state-value.php')]);
+  assert.equal(result.code, 0, result.err);
+});
+
+test('app identity permits physical aliases but rejects a distinct duplicate tree', async () => {
+  const fs = await import('node:fs/promises'), os = await import('node:os'), path = await import('node:path');
+  const { command } = await import('./command.mjs');
+  const { here } = await import('./inputs.mjs');
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-l3-apps-'));
+  try {
+    await fs.mkdir(path.join(root, 'apps/mcp/appinfo'), { recursive: true });
+    await fs.writeFile(path.join(root, 'apps/mcp/appinfo/info.xml'), '<info><id>mcp</id></info>');
+    await fs.symlink(path.join(root, 'apps'), path.join(root, 'alias'));
+    const code = "require $argv[1]; libxml_set_external_entity_loader(static fn () => null); assertSingleMcpTree([['path'=>$argv[2].'/apps'],['path'=>$argv[2].'/alias']], $argv[2].'/apps/mcp');";
+    assert.equal((await command('php', ['-r', code, path.join(here, 'app-paths.php'), root])).code, 0);
+    await fs.mkdir(path.join(root, 'apps/duplicate/appinfo'), { recursive: true });
+    await fs.writeFile(path.join(root, 'apps/duplicate/appinfo/info.xml'), '<info><id>mcp</id></info>');
+    assert.notEqual((await command('php', ['-r', code, path.join(here, 'app-paths.php'), root])).code, 0);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('app startup prepares effective empty cron tables first and refuses startup on copy failure', async () => {
+  const { startPausedApp } = await import('./fixture.mjs');
+  const calls = [];
+  await startPausedApp(async args => { calls.push(args); }, '/run-owned', 'owned-app');
+  assert.deepEqual(calls, [['cp', '/run-owned/config/crontabs/.', 'owned-app:/etc/crontabs'], ['start', 'owned-app']]);
+  const failed = [];
+  await assert.rejects(startPausedApp(async args => { failed.push(args); throw new Error('copy failed'); }, '/run-owned', 'owned-app'), /copy failed/);
+  assert.equal(failed.length, 1);
+  assert.equal(failed[0][0], 'cp');
+});
+
+test('effective cron-table guard rejects jobs and query failures', async () => {
+  const { emptyCronTablesCommand } = await import('./fixture.mjs');
+  const { command } = await import('./command.mjs');
+  for (const [body, expected] of [['return 0', 0], ['echo "* * * * * job"; return 0', 1], ['return 1', 1]]) {
+    const result = await command('sh', ['-c', `crontab() { ${body}; }; ${emptyCronTablesCommand}`]);
+    assert.equal(result.code, expected);
+  }
+});
