@@ -15,7 +15,8 @@
          global auth epoch), so it runs after the baseline credentials of the upgrade cells are checked. -->
     <testsuites>
         <testsuite name="compat"><directory>Compat</directory></testsuite>
-        <testsuite name="integration"><directory>.</directory><exclude>Compat</exclude><exclude>Last</exclude></testsuite>
+        <!-- LinuxServer-only fixtures use ci/linuxserver/l3-tests.xml and its private bootstrap. -->
+        <testsuite name="integration"><directory>.</directory><exclude>Compat</exclude><exclude>Last</exclude><exclude>ci/linuxserver</exclude></testsuite>
         <testsuite name="last"><directory>Last</directory></testsuite>
     </testsuites>
 </phpunit>

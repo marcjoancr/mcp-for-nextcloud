@@ -17,22 +17,27 @@ export async function sha256(file) {
     return hash.digest('hex');
   } finally { await handle.close(); }
 }
-async function inventory(root, prefix = '') {
+async function inventory(root, prefix = '', restrict = false) {
+  const directory = path.join(root, prefix);
+  if (!(await fs.lstat(directory)).isDirectory()) throw new Error('Checkpoint directory must not be a link');
+  if (restrict) await fs.chmod(directory, 0o700);
   const entries = {};
   for (const name of (await fs.readdir(path.join(root, prefix))).sort()) {
     const relative = prefix + name;
     if (relative === 'manifest.json') continue;
     const file = path.join(root, relative), stat = await fs.lstat(file);
-    if (stat.isDirectory()) Object.assign(entries, await inventory(root, relative + '/'));
+    if (stat.isDirectory()) Object.assign(entries, await inventory(root, relative + '/', restrict));
     else {
       if (!stat.isFile()) throw new Error('Checkpoint payload must be a regular file');
+      if (restrict) await fs.chmod(file, 0o600);
       entries[relative] = { bytes: stat.size, sha256: await sha256(file) };
     }
   }
   return entries;
 }
 export async function sealCheckpoint(root, metadata) {
-  const files = await inventory(root);
+  // Docker copies preserve source modes; the host umask alone does not protect them.
+  const files = await inventory(root, '', true);
   for (const name of required) if (!files[name]) throw new Error(`Missing checkpoint component: ${name}`);
   const manifest = { schemaVersion: 1, ...metadata, files };
   await fs.writeFile(path.join(root, 'manifest.json'), JSON.stringify(manifest, null, 2), { mode: 0o600 });
