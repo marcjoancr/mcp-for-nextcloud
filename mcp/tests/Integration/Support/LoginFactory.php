@@ -17,7 +17,7 @@ use OCP\Server;
 
 /** Issues the two kinds of login the MCP endpoint accepts, through the server's and the app's own services. */
 final class LoginFactory {
-    private const RESOURCE = 'http://localhost/apps/mcp/';
+    private const RESOURCE = Http::BASE . '/apps/mcp/';
 
     /** An app password (permanent token), as the personal settings page creates it, used with HTTP Basic. */
     public static function basic(string $uid): Credential {

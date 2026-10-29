@@ -54,3 +54,38 @@ test('payload hashing rejects a symlink even when invoked directly', async () =>
     await assert.rejects(sha256(path.join(root, 'link')));
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
+
+test('B1 generation binds the complete nested source delivery, including its manifest', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-b1-source-'));
+  try {
+    for (const name of ['database.dump', 'config.tar', 'data.tar', 's3.json', 'semantic.json', 'bootstrap.json']) await fs.writeFile(path.join(root, name), name);
+    await fs.mkdir(path.join(root, 'source'));
+    for (const name of ['manifest.json', 'BUILDING.md', 'source.bundle', 'runtime-dependencies.tar.gz', 'mcp-2.0.0.tar.gz']) await fs.writeFile(path.join(root, 'source', name), name);
+    const digest = await sealCheckpoint(root, { generation: 'B1', installedMcp: '2.0.0' });
+    const manifest = await verifyCheckpoint(root, 'B1', digest);
+    assert.equal(Object.keys(manifest.files).filter(name => name.startsWith('source/')).length, 5);
+    await fs.writeFile(path.join(root, 'source/manifest.json'), 'changed');
+    await assert.rejects(verifyCheckpoint(root, 'B1', digest), /payload/);
+    await fs.writeFile(path.join(root, 'source/manifest.json'), 'manifest.json');
+    await fs.rm(path.join(root, 'source/source.bundle'));
+    await assert.rejects(verifyCheckpoint(root, 'B1', digest), /inventory/);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('checkpoint acceptance refuses codes expired during sealing, before publishing trust', async () => {
+  const { finalizeCapture } = await import('./capture.mjs');
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-capture-expiry-'));
+  try {
+    await fs.mkdir(path.join(root, 'B1'));
+    for (const name of ['database.dump', 'config.tar', 'data.tar', 's3.json', 'semantic.json', 'bootstrap.json']) await fs.writeFile(path.join(root, 'B1', name), name);
+    const metadata = { generation: 'test-generation', finishedAt: '2026-10-29T00:00:00.000Z' };
+    const expires = Date.parse(metadata.finishedAt) / 1000 + 1;
+    const users = { user: { codeExpiresAt: expires } };
+    await assert.rejects(finalizeCapture(root, 'B1', metadata, users, () => (expires + 1) * 1000), /expired/);
+    await assert.rejects(fs.stat(path.join(root, 'B1-trust.json')), { code: 'ENOENT' });
+    assert.equal(JSON.parse(await fs.readFile(path.join(root, 'B1/manifest.json'))).generation, metadata.generation);
+    const accepted = await finalizeCapture(root, 'B1', metadata, users, () => (expires - 0.5) * 1000);
+    assert.equal(accepted.verifiedAt, new Date((expires - 0.5) * 1000).toISOString());
+    assert.equal(JSON.parse(await fs.readFile(path.join(root, 'B1-trust.json'))).manifestSha256, accepted.digest);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});

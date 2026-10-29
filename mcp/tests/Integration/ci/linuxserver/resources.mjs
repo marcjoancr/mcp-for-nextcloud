@@ -23,6 +23,15 @@ export class Resources {
     if (result.code !== 0) throw new Error(`Docker ${args[0]} ${args[1]} failed`);
     return result;
   }
+  async removeContainer(id) {
+    const item = this.items.find(item => item.kind === 'container' && item.id === id && !item.removed);
+    if (!item) throw new Error('Container is not an active owned resource');
+    const row = JSON.parse((await this.checked(['container', 'inspect', id])).out)[0];
+    assertOwned('container', id, row, this.runId);
+    await this.checked(['container', 'rm', '-f', '-v', id]);
+    item.removed = true;
+    await this.persist(this.items);
+  }
   async cleanupAfter(diagnostics) {
     let diagnosticError;
     try { await diagnostics(); } catch (error) { diagnosticError = error; }
@@ -34,6 +43,7 @@ export class Resources {
     if (this.items.length === 0) return;
     const errors = [];
     for (const item of [...this.items].reverse()) {
+      if (item.removed) continue;
       try {
         if (item.id === null && item.name) {
           const names = (await this.checked([item.kind, 'ls', ...(item.kind === 'container' ? ['-a'] : []), '--format', item.kind === 'container' ? '{{.Names}}' : '{{.Name}}', '--filter', `name=${item.name}`])).out.trim().split('\n');

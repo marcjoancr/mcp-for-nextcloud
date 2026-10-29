@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<phpunit bootstrap="l3-test-bootstrap.php" colors="false" cacheResult="false" failOnWarning="true" failOnRisky="true" failOnSkipped="true" beStrictAboutOutputDuringTests="true">
+  <testsuites><testsuite name="linuxserver-upgrade">
+    <file>/fixture-tests/mcp/tests/Integration/Tasks/McpSubtasksTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Notes/NotesPartialEditTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Deck/McpDeckLabelsTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Deck/McpDeckDependenciesTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Deck/McpDeckDependencyWritesTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Deck/McpDeckCardFilesTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Deck/CardDueDatePersistenceTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Policy/BackupSettingsAdminHttpTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Exclusion/BackupConfigurationTest.php</file>
+    <file>/fixture-tests/mcp/tests/Integration/Exclusion/TalkReferenceTest.php</file>
+    <file>/fixture-probes/DavUpgradeTest.php</file>
+    <file>/fixture-probes/TasksBoundaryTest.php</file>
+    <file>/fixture-probes/BackupBoundaryTest.php</file>
+  </testsuite></testsuites>
+</phpunit>

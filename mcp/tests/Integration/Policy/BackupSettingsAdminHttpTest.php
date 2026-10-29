@@ -71,7 +71,7 @@ final class BackupSettingsAdminHttpTest extends IntegrationTestCase {
 		curl_setopt_array($browser, [CURLOPT_URL => Http::BASE . $path, CURLOPT_CUSTOMREQUEST => $method,
 			CURLOPT_POSTFIELDS => $form === null ? null : http_build_query($form),
 			CURLOPT_HTTPHEADER => $form === null ? ['Accept: text/html'] : ['Accept: text/html',
-				'Origin: http://localhost', 'Content-Type: application/x-www-form-urlencoded']]);
+				'Origin: ' . Http::BASE, 'Content-Type: application/x-www-form-urlencoded']]);
 		$raw = curl_exec($browser);
 		self::assertIsString($raw);
 		$size = (int)curl_getinfo($browser, CURLINFO_HEADER_SIZE);

@@ -11,6 +11,9 @@ if (!is_string($root) || $root === '' || !is_file($root . '/lib/base.php')) {
     fwrite(STDERR, "NEXTCLOUD_ROOT must point to an installed Nextcloud; the integration suite runs only in CI.\n");
     exit(1);
 }
+if (getenv('MCP_IT_PROFILE') === 'linuxserver') {
+    require_once __DIR__ . '/ci/linuxserver/l3-test-http.php';
+}
 require_once $root . '/lib/base.php';
 
 if (!\OCP\Server::get(\OCP\IConfig::class)->getSystemValueBool('installed')) {

@@ -69,7 +69,7 @@ final class LinuxServerHarnessTest extends TestCase {
         $plan = json_decode($out, true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('profile-and-source-kit', $plan['validationScope']);
         self::assertTrue($plan['executionAvailable']);
-        self::assertSame(['L1', 'L2'], $plan['availablePhases']);
+        self::assertSame(['L1', 'L2', 'L3'], $plan['availablePhases']);
         self::assertSame([], $plan['profile']['isolation']['publishedPorts']);
         self::assertSame($this->digest, $plan['sourceKit']['manifestSha256']);
         self::assertSame($this->profile['candidate']['sourceCommit'], $plan['sourceKit']['sourceCommit']);
@@ -107,7 +107,7 @@ final class LinuxServerHarnessTest extends TestCase {
         self::assertStringNotContainsString('do-not-print-this-value', $err);
     }
     public function testRejectsMissingInputsAndExecutionInsteadOfStartingAnything(): void {
-        foreach ([[], ['--plan'], ['--run'], [...$this->arguments(), '--container', 'existing'], [...$this->arguments(), '--plan'], ['--phase', 'L2'], ['--phase', 'L3', '--inputs', '/unused'], [...$this->arguments(), '--phase', 'L1'], ['--phase', 'L1']] as $args) {
+        foreach ([[], ['--plan'], ['--run'], [...$this->arguments(), '--container', 'existing'], [...$this->arguments(), '--plan'], ['--phase', 'L2'], ['--phase', 'L4', '--inputs', '/unused'], [...$this->arguments(), '--phase', 'L1'], ['--phase', 'L1']] as $args) {
             [$status, $out, $err] = $this->invoke($args);
             self::assertNotSame(0, $status);
             self::assertSame('', $out);
