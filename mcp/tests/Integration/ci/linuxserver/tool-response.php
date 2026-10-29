@@ -5,6 +5,16 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\LinuxServer;
 
 final class ToolResponse {
+    public static function staleNote(array $response, string $etag, ?string $freshPlan): void {
+        if ($freshPlan === null) {
+            self::result($response, 'The note changed since it was read; nothing was written. Current etag: ' . $etag);
+            return;
+        }
+        $result = self::result($response);
+        $data = $result['structuredContent'] ?? json_decode($result['content'][0]['text'] ?? '', true);
+        if (($data['requiresConfirmation'] ?? false) !== true || ($data['plan_state'] ?? null) !== $freshPlan) throw new \RuntimeException('Expected fresh note plan was not returned');
+    }
+
     public static function result(array $response, ?string $denial = null): array {
         $body = $response['body'] ?? null;
         if (($response['status'] ?? null) !== 200 || !is_array($body)

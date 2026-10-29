@@ -11,6 +11,21 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../../Integration/ci/linuxserver/tool-response.php';
 
 final class LinuxServerToolResponseTest extends TestCase {
+    public function testGenericErrorCannotPassAsStaleNoteRefusal(): void {
+        $response = ['status' => 200, 'body' => ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['isError' => true, 'content' => [['type' => 'text', 'text' => 'Unexpected error while accessing Nextcloud.']]]]];
+        $this->expectException(\RuntimeException::class);
+        ToolResponse::staleNote($response, 'current-etag', null);
+    }
+
+    public function testStaleNoteRequiresExactCurrentEtagOrFreshFingerprint(): void {
+        $response = ['status' => 200, 'body' => ['jsonrpc' => '2.0', 'id' => 1, 'result' => ['isError' => true, 'content' => [['type' => 'text', 'text' => 'The note changed since it was read; nothing was written. Current etag: current-etag']]]]];
+        ToolResponse::staleNote($response, 'current-etag', null);
+        $response['body']['result'] = ['structuredContent' => ['requiresConfirmation' => true, 'plan_state' => 'fresh-state']];
+        ToolResponse::staleNote($response, 'current-etag', 'fresh-state');
+        $this->expectException(\RuntimeException::class);
+        ToolResponse::staleNote($response, 'current-etag', 'different-state');
+    }
+
     public static function invalidDenials(): iterable {
         yield 'HTTP outage' => [503, null];
         yield 'HTML instead of RPC' => [500, '<html>error</html>'];

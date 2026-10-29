@@ -5,13 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { readProfile } from './profile.mjs';
 import { verifyKit } from '../../../../scripts/release/integrity.mjs';
 
-const usage = 'Usage: --plan [--profile ABSOLUTE_FILE] --kit ABSOLUTE_DIRECTORY --manifest-sha256 TRUSTED_DIGEST OR --phase L1|L2|L3 --inputs ABSOLUTE_DIRECTORY with the same kit options';
+const usage = 'Usage: --plan [--profile ABSOLUTE_FILE] --kit ABSOLUTE_DIRECTORY --manifest-sha256 TRUSTED_DIGEST OR --phase L1|L2|L3|L4 --inputs ABSOLUTE_DIRECTORY with the same kit options';
 function argumentsForPlan(args) {
   const options = { profile: fileURLToPath(new URL('./profile.json', import.meta.url)) };
   const seen = new Set();
   for (let i = 0; i < args.length; i++) {
     const key = args[i];
-    if (seen.has(key) || !['--plan', '--profile', '--kit', '--manifest-sha256', '--phase', '--inputs'].includes(key)) throw new Error(usage);
+    if (seen.has(key) || !['--plan', '--profile', '--kit', '--manifest-sha256', '--phase', '--inputs', '--checkpoints', '--b0-generation', '--b0-sha256', '--b1-generation', '--b1-sha256'].includes(key)) throw new Error(usage);
     seen.add(key);
     if (key === '--plan') continue;
     const value = args[++i];
@@ -20,10 +20,15 @@ function argumentsForPlan(args) {
   }
   if (seen.has('--plan') === seen.has('--phase')
     || (seen.has('--plan') && seen.has('--inputs'))
-    || (seen.has('--phase') && (!['L1', 'L2', 'L3'].includes(options.phase) || !options.inputs || !path.isAbsolute(options.inputs)))
+    || (seen.has('--phase') && (!['L1', 'L2', 'L3', 'L4'].includes(options.phase) || !options.inputs || !path.isAbsolute(options.inputs)))
     || !options.kit || !options['manifest-sha256']
     || !path.isAbsolute(options.kit) || !path.isAbsolute(options.profile)
     || !/^[a-f0-9]{64}$/.test(options['manifest-sha256'])) throw new Error(usage);
+  const recoveryKeys = ['checkpoints', 'b0-generation', 'b0-sha256', 'b1-generation', 'b1-sha256'];
+  if (options.phase === 'L4') {
+    if (!options.checkpoints || !path.isAbsolute(options.checkpoints)
+      || ['b0', 'b1'].some(name => !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(options[`${name}-generation`] ?? '') || !/^[a-f0-9]{64}$/.test(options[`${name}-sha256`] ?? ''))) throw new Error(usage);
+  } else if (recoveryKeys.some(key => options[key] !== undefined)) throw new Error(usage);
   return options;
 }
 try {
@@ -39,7 +44,7 @@ try {
   if (options.phase) {
     const { executeFixture } = await import('./runtime.mjs');
     await executeFixture({ options, profile, profileSha256, manifest });
-  } else console.log(JSON.stringify({ schemaVersion: 1, validationScope: 'profile-and-source-kit', executionAvailable: true, availablePhases: ['L1', 'L2', 'L3'],
+  } else console.log(JSON.stringify({ schemaVersion: 1, validationScope: 'profile-and-source-kit', executionAvailable: true, availablePhases: ['L1', 'L2', 'L3', 'L4'],
     profileSha256, profile, sourceKit: { sourceCommit: manifest.sourceCommit, version: manifest.version, manifestSha256: options['manifest-sha256'] },
     pending: ['registry-and-app-availability-recheck-before-execution', 'host-resource-and-runtime-tool-preflight', 'native-upgrade-and-recovery',
       'production-profile-qualification', 'public-https', 'inspector-14-of-15', 'chatgpt', 'human-review'] }, null, 2));
