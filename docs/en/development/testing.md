@@ -82,19 +82,25 @@ A failed app installation, empty selection or test failure is a failed cell.
 Harness qualification with an explicitly substituted version and filtered diagnostic
 runs do not certify the final package; report them separately.
 
-## LinuxServer offline planning
+## LinuxServer planning and baseline bootstrap
 
-The separate `test:integration:linuxserver` command implements L0 only. It needs
-Node and a complete reviewed source kit, accepts `--plan`, optional
-`--profile ABSOLUTE_FILE`, `--kit ABSOLUTE_DIRECTORY` and
-`--manifest-sha256 TRUSTED_DIGEST`, and creates no resources. Invocation without
-`--plan` fails; there is no runtime mode. It validates profile safety and kit
-integrity offline, not current registry availability or native readiness. See the
-[L0 invocation, fixed inputs and limits](fork-linuxserver-l0.md).
+The separate `test:integration:linuxserver` command supports offline L0 planning
+and explicit L1 baseline bootstrap. Planning needs Node and a complete reviewed
+source kit: use `--plan`, optional `--profile ABSOLUTE_FILE`,
+`--kit ABSOLUTE_DIRECTORY` and `--manifest-sha256 TRUSTED_DIGEST`. It creates no
+resources and does not certify registry availability or native readiness. See the
+[L0 inputs and limits](fork-linuxserver-l0.md).
 
-Its PHPUnit command-boundary tests run in the normal `test`/`check` suite and use
-small synthetic trusted kits. The existing Apache matrix and its commands remain
-unchanged. LinuxServer native execution and recovery remain L1-L5 work.
+Execution additionally needs Docker, Python 3.12 or newer, OpenSSL, Linux network
+and disk tools, the three already-pulled digest-pinned images and retained app
+archives. Use `--phase L1 --inputs ABSOLUTE_DIRECTORY` instead of `--plan`, with
+the same kit arguments. The [L1 record](fork-linuxserver-l1.md) describes exact
+scope, safety controls, evidence and limitations. Later phases are rejected;
+there is no upgrade/recovery execution mode yet.
+
+The PHPUnit command-boundary tests and Node safety tests run in the normal
+`test`/`check` suite with synthetic inputs and no Docker access. Native L1 is an
+explicit separate operation. The Apache matrix and its commands are unchanged.
 
 ## Selected native fixture inputs
 

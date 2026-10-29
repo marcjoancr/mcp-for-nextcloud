@@ -68,7 +68,8 @@ final class LinuxServerHarnessTest extends TestCase {
         self::assertSame(0, $status, $err);
         $plan = json_decode($out, true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('profile-and-source-kit', $plan['validationScope']);
-        self::assertFalse($plan['executionAvailable']);
+        self::assertTrue($plan['executionAvailable']);
+        self::assertSame(['L1'], $plan['availablePhases']);
         self::assertSame([], $plan['profile']['isolation']['publishedPorts']);
         self::assertSame($this->digest, $plan['sourceKit']['manifestSha256']);
         self::assertSame($this->profile['candidate']['sourceCommit'], $plan['sourceKit']['sourceCommit']);
@@ -106,13 +107,24 @@ final class LinuxServerHarnessTest extends TestCase {
         self::assertStringNotContainsString('do-not-print-this-value', $err);
     }
     public function testRejectsMissingInputsAndExecutionInsteadOfStartingAnything(): void {
-        foreach ([[], ['--plan'], ['--run'], [...$this->arguments(), '--container', 'existing'], [...$this->arguments(), '--plan']] as $args) {
+        foreach ([[], ['--plan'], ['--run'], [...$this->arguments(), '--container', 'existing'], [...$this->arguments(), '--plan'], ['--phase', 'L2'], [...$this->arguments(), '--phase', 'L1'], ['--phase', 'L1']] as $args) {
             [$status, $out, $err] = $this->invoke($args);
             self::assertNotSame(0, $status);
             self::assertSame('', $out);
             self::assertStringContainsString('Usage:', $err);
         }
     }
+    public function testRuntimeSafetyContracts(): void {
+        $process = proc_open(['node', '--test', $this->root() . '/tests/Integration/ci/linuxserver/runtime.test.mjs'],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($process);
+        fclose($pipes[0]);
+        $out = stream_get_contents($pipes[1]); $err = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        self::assertSame(0, proc_close($process), $out . $err);
+        self::assertStringContainsString('fail 0', $out);
+    }
+
     public function testRejectsMissingRequiredProfileField(): void {
         unset($this->profile['candidate']);
         [$status, $out, $err] = $this->invoke();
