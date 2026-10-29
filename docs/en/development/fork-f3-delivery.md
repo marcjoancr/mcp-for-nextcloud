@@ -5,8 +5,8 @@
 
 Status: local source-offer acceptance on 2026-10-23, partial host inventory on
 2026-10-24, L5 closure and a reconstructed local candidate on 2026-10-29;
-**F3 remains open**. See the [current candidate record](fork-candidate-after-l5.md)
-for its frozen identity and new development-dependency security finding. This
+**F3 remains open**. See the [current candidate record](fork-candidate-re2js.md)
+for its frozen identity and resolved development-dependency security finding. This
 follows the [F3 identity record](fork-f3-preparation.md) and
 [fork continuation plan](fork-continuation-plan.md). The owner authorized the
 reviewed local source-offer batch, including disposable native acceptance, and
@@ -1241,3 +1241,30 @@ publication/history review, public HTTPS, Inspector's prior 14/15 and encrypted
 storage finding, hosted ChatGPT and all human reviewers remain pending. The
 current kit is local, unpublished and unsigned; branch integration is not remote
 CI or production acceptance. Accepted L5 checkpoint retention is unchanged.
+
+
+## RE2JS remediation and replacement candidate (2026-10-29)
+
+The [replacement candidate](fork-candidate-re2js.md) closes the reported
+RE2JS/markdownlint finding. Commit `cfeb26d4` scopes an override to RE2JS 2.8.7
+under markdownlint 0.42.0, updates only that dependency's lock entry and documents
+the removal condition. The full npm audit moves from exit 1/two affected package
+entries to exit 0/no reported vulnerabilities after a clean install, and passes
+again in a bundle-only reconstruction. Production Composer audit is also clear.
+No broad dependency update, audit suppression or application code change occurred.
+
+The complete local check passes 8,707 PHP tests / 74,469 assertions, 717 browser
+tests, both static-analysis scopes, documentation and packaging. The new frozen
+2.0.0 kit verifies against its separately recorded digest. Reconstruction matches
+all 975 runtime files and all 73 dependency-source files. Compared with the prior
+candidate, only packaged source identity and Composer root references change.
+The linked record preserves the original failed audit and distinguishes the
+pre-commit development package from the clean frozen candidate. It supersedes the
+older local candidate without changing historical evidence or accepted checkpoints.
+
+F3 remains open. Final support-matrix/candidate acceptance, intended-host controls,
+trusted source publication and history/attribution review, public HTTPS, Inspector
+(prior 14/15 and encrypted-storage finding), hosted ChatGPT and all human reviewers
+remain pending. No push, server operation, deployment or PR #14 change occurred.
+The next bounded step is the remaining isolated platform and final source-offer
+acceptance, with its scope explicitly selected; this batch starts neither.

@@ -6,6 +6,10 @@
 Date: 2026-10-29. Status: local source/runtime candidate prepared and reconstructed;
 **unpublished, unsigned and not deployment-approved**. F3 remains open.
 
+This is a historical record. The [RE2JS-remediated candidate](fork-candidate-re2js.md)
+supersedes this kit for release preparation; the audit failure recorded here is
+preserved and does not describe the replacement candidate.
+
 ## Branch integration and frozen identity
 
 The owner authorized incorporating the seven reviewed LinuxServer commits into
