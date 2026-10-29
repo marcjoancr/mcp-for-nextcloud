@@ -1268,3 +1268,22 @@ trusted source publication and history/attribution review, public HTTPS, Inspect
 remain pending. No push, server operation, deployment or PR #14 change occurred.
 The next bounded step is the remaining isolated platform and final source-offer
 acceptance, with its scope explicitly selected; this batch starts neither.
+
+
+### RE2JS candidate closure review (2026-10-29)
+
+The [candidate closure review](fork-candidate-re2js.md#closure-review-2026-10-29)
+confirms that no further dependency change is required. A fresh clean install
+selects RE2JS 2.8.7; npm and locked production Composer audits remain clear. All
+29 documentation and 11 release/integrity tests pass again. The candidate's
+trusted digest, 20 original evidence records, source bundle/clone and retained
+975-file runtime and 73-file vendor reconstruction inventories verify unchanged.
+The earlier full suite remains historical evidence, not a new execution. npm
+audit remains a separate check outside `composer check`.
+
+Only documentation is updated, including the distinction between new checks,
+retained reconstruction evidence and the immutable `cfeb26d4` kit. Review logs
+are retained separately and documentation/package are revalidated. F3, intended
+host/final platform acceptance, trusted publication, HTTPS, Inspector, ChatGPT
+and human reviews remain open. No push, deployment, server operation or PR #14
+change occurred.

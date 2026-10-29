@@ -37,8 +37,9 @@ a timing-sensitive dependency benchmark.
 
 The replacement is **Nextcloud MCP 2.0.0**, app ID `mcp`, frozen at
 `cfeb26d4fdc7d4417e1e0d604e65cedf42040c4d`. The fix commit includes the two npm
-manifests and tooling guide. This report and follow-up navigation/F3 updates are subsequent
-documentation only; they do not mutate the kit or redefine its source revision.
+manifests and tooling guide. This report and follow-up navigation/F3 updates are
+subsequent documentation only; they do not mutate the kit or redefine its source
+revision.
 
 The five-file kit is retained under the existing `fork/main` worktree:
 
@@ -55,8 +56,9 @@ The five-file kit is retained under the existing `fork/main` worktree:
 | `source.bundle` | `724b385a0f69a2e6eb418943a718ed5fb00cdb3378f4b45777e1ba026011cb6a` |
 
 Retain the complete kit. Keep its expected manifest digest in this trusted local
-release record, outside the writable kit. Hashes are not a publisher signature. Generated files remain ignored private build artifacts; no public URL,
-release tag or ordinary-user publication claim is introduced.
+release record, outside the writable kit. Hashes are not a publisher signature.
+Generated files remain ignored private build artifacts; no public URL, release
+tag or ordinary-user publication claim is introduced.
 
 ## Reconstruction and validation
 
@@ -86,8 +88,9 @@ trusted manifest verifier: all **975 runtime files** match in paths, bytes and
 SHA-256, with no differences normalized away. All **73 packaged vendor files**
 also match the delivered runtime dependency source archive. The rebuilt package
 SHA-256 is `fab4991584fcbb1dfe22297928a8cd49832c9adce906326d6e4b3d37f70b35ad`;
-tar/gzip bytes differ from the original. Exact extracted contents, rather than identical compressed bytes or a complete offline
-toolchain, are the verified reproducibility boundary.
+tar/gzip bytes differ from the original. Exact extracted contents, rather than
+identical compressed bytes or a complete offline toolchain, are the verified
+reproducibility boundary.
 
 The reconstructed dependency tree also resolves RE2JS 2.8.7; its full audit reports
 zero vulnerabilities. The clean frozen package has a valid source identity and
@@ -121,6 +124,43 @@ the full suite or replace a human review; the validations above were executed by
 the implementing agent. A subsequent read-only review also matched the candidate
 report, F3 update, trusted digest, audit results and evidence index with the retained
 records, without rerunning tests or claiming human acceptance.
+
+## Closure review (2026-10-29)
+
+The follow-up review found no dependency or candidate-integrity defect. It
+confirmed that the lock changes only RE2JS and that the scoped override is applied
+after another clean `npm ci --ignore-scripts`. The package manifests and tooling
+guide still match the frozen fix commit in both the working tree and retained
+bundle clone. This review changes documentation only; it neither regenerates nor
+redefines the candidate at `cfeb26d4`.
+
+Fresh full npm audit exits 0 with no reported vulnerabilities; locked production
+Composer audit exits 0 with no advisories or abandoned packages. The 29 existing
+documentation tests and 11 release/integrity tests pass again. The security audit
+is an explicit separate check: `composer check` does not run `npm audit`, so its
+success alone must not be read as a current vulnerability assessment.
+
+The trusted manifest, all 20 indexed historical evidence files, bundle head and
+retained clone, reconstructed archive, both 975-file extracted trees and 73-file
+vendor source tree verify again without modifying the original records. The
+previous full 8,707-test PHP / 717-test browser execution remains verified evidence
+for unchanged code inputs; neither that full suite nor native/hosted-client
+acceptance was rerun for this documentation review. Rechecking retained rebuilt
+bytes is not a new reconstruction run.
+
+Fresh review evidence is kept separately under ignored
+`mcp/build/candidate-re2js-review/`. `integrity.json` records the read-only
+comparisons; `install.log`, `dependency-tree.json`, `npm-audit.json`,
+`composer-audit.json`, `docs-tests.log` and `release-tests.log` record the repeated
+checks. Final documentation and package validation are in `docs-check.log` and
+`package.log`. The package built from the documentation worktree is a development
+artifact; its expected dirty-checkout source-offer warning does not alter the
+frozen source kit or qualify a new release.
+
+The review index binds 10 files, including the passing checks for 180 Markdown
+files and 115 package sources, and the package log. Its SHA-256 is
+`3f574854346ab1b6b9351561f302f4afefe01511f4b6124979100af432baee72`.
+The final report edit is rechecked separately in `final-docs-check.log`; all earlier records remain intact.
 
 ## Pending acceptance and next step
 
