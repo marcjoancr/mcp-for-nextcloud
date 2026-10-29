@@ -3,9 +3,11 @@
 
 # F3: local delivery, update control and integrity
 
-Status: local source-offer acceptance on 2026-10-23 and partial host inventory on
-2026-10-24; **F3 remains open**. This follows the
-[F3 identity record](fork-f3-preparation.md) and
+Status: local source-offer acceptance on 2026-10-23, partial host inventory on
+2026-10-24, L5 closure and a reconstructed local candidate on 2026-10-29;
+**F3 remains open**. See the [current candidate record](fork-candidate-after-l5.md)
+for its frozen identity and new development-dependency security finding. This
+follows the [F3 identity record](fork-f3-preparation.md) and
 [fork continuation plan](fork-continuation-plan.md). The owner authorized the
 reviewed local source-offer batch, including disposable native acceptance, and
 subsequent read-only host inspection. Publication and deployment remain
@@ -1212,3 +1214,30 @@ not changed. The closure review reverified the unchanged evidence and code,
 passed 42 Node controls and 57 focused PHP tests / 398 assertions, and validated
 documentation/package for the local commit. This is not production recovery
 approval or independent human acceptance.
+
+
+## Local fork/main integration and candidate after L5 (2026-10-29)
+
+The seven reviewed LinuxServer commits were incorporated by fast-forward into
+local `fork/main`, from `940c3da3` through `8d6b4f28`. The
+[candidate record](fork-candidate-after-l5.md) freezes the full latter revision,
+records its trusted manifest digest and distinguishes the subsequent documentation
+commit from the immutable source/runtime kit. No push, deployment or PR #14 change
+occurred. The complete local check and 42 LinuxServer controls pass. A clean
+bundle-only reconstruction matches all 975 runtime files and 73 vendor files.
+Relative to U5, only source identity, a Composer command description and root
+Composer metadata differ; historical native evidence was not relabelled as a
+fresh execution of this candidate.
+
+A separate npm audit reports one high-severity RE2JS advisory through markdownlint,
+represented by two affected development-package entries, and exits 1. Production
+npm and locked production Composer audits report no advisories. This toolchain
+finding remains open and must be resolved before release publication; dependency
+locks were preserved in this batch. The next bounded engineering step is that
+remediation and a newly frozen, reconstructed candidate.
+
+F3, final support-matrix and intended-host qualification, trusted source
+publication/history review, public HTTPS, Inspector's prior 14/15 and encrypted
+storage finding, hosted ChatGPT and all human reviewers remain pending. The
+current kit is local, unpublished and unsigned; branch integration is not remote
+CI or production acceptance. Accepted L5 checkpoint retention is unchanged.
