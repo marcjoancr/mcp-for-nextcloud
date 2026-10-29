@@ -1065,3 +1065,41 @@ No pin discrepancy or implementation change was required. The only corrections
 clarify this review/publication status and distinguish retained-byte verification
 from the original timestamped network checks. L1, HTTPS, Inspector, ChatGPT and
 human reviewers remain pending; no push or runtime operation was performed.
+
+
+## LinuxServer L1 baseline qualification (2026-10-27)
+
+The separately authorized [L1 implementation and native acceptance](fork-linuxserver-l1.md)
+passed on the unchanged L0-U5 pins: LinuxServer NC35.0.2, PostgreSQL 16.15,
+authenticated persistent SeaweedFS and the six pinned baseline apps. The final
+native run passes 26 checks and removes its five containers, four volumes and
+internal network. The measured/reserved disk peak is about 2.06 GiB. Private TLS,
+CLI/FPM identity, pre-PHP admission, source-kit delivery, unavailable dependencies,
+restart persistence and ordinary-interruption cleanup have separate evidence.
+SIGTERM during execution and SIGINT during cleanup both correctly leave failed
+qualification with complete cleanup. No U5 app replacement or B0/B1 checkpoint
+was performed; the 2.0.0 kit is an unadvertised read-only integrity fixture.
+
+The full registered check passes 8,688 PHP tests/74,201 assertions, 717 browser
+tests, both static-analysis scopes, documentation and packaging. The independent
+automated review's three Important runner defects were fixed with failing-then-
+passing tests. Final focused controls and documentation/package checks cover the
+last preflight guard and report edits; see the linked report for command hashes,
+failed development attempts and the private evidence locations.
+
+**L1 is qualified locally; F3 is not closed.** The next separate batch is L2
+baseline capability seeding and coherent B0 capture, followed by L3-L5 replacement,
+recovery and regression closure. The intended server's runtime/update writers,
+backup and S3 semantics still require qualification. Public HTTPS, Inspector's
+prior 14/15/encrypted-storage finding, ChatGPT and all human reviewers remain
+pending. The 100 translations are still review-required. No intended-server
+connection, deployment, push, publication or PR #14 modification occurred.
+
+
+The 2026-10-29 [L1 closure review](fork-linuxserver-l1.md#review-and-local-closure-2026-10-29)
+adds fail-safe cleanup after diagnostic exceptions and complete-scan disk
+measurement under concurrent admission-file changes. The final native repeat
+passes 26 checks and cleanup; 16 Node controls and the focused harness pass.
+The registered full check also passes again; the L1 record distinguishes its
+coverage from the subsequent focused budget validation and retains the failed
+intermediate native attempt. No phase or client/human gate beyond L1 is closed.

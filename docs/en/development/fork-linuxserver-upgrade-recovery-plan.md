@@ -3,11 +3,12 @@
 
 # LinuxServer/Nginx isolated upgrade and recovery test plan
 
-**Status:** L0 input qualification was renewed for U5 on 2026-10-27. The profile
-now selects `940c3da3` with its separately verified source-kit digest. Offline
-planning passes; L1-L5 execution remains unimplemented and no LinuxServer
-rehearsal has run. See the [L0-U5 results](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27)
-and preserve the historical L0 evidence in that record.
+**Status:** L0 inputs were renewed for U5 on 2026-10-27; the profile selects
+`940c3da3` and its separately verified source kit. L1 baseline bootstrap is now
+implemented and has passed native acceptance with cleanup. See the
+[L1 results and limits](fork-linuxserver-l1.md) and preserve the historical
+[L0-U5 evidence](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27).
+L2-L5 remain unimplemented and have not started in this profile.
 This is a local qualification plan, not a production runbook or deployment approval.
 
 **Goal:** demonstrate a real MCP 1.2.0 → Nextcloud MCP 2.0.0 replacement and
@@ -185,7 +186,9 @@ builder or change the planner to accept a mismatched candidate.
 - [x] Run the existing `LinuxServerHarnessTest.php` suite and the real
   `composer --working-dir=mcp test:integration:linuxserver -- --plan --kit ABSOLUTE_KIT --manifest-sha256 TRUSTED_DIGEST`
   entry point. Require the selected U5 identity, matching hashes, zero exit,
-  `validationScope: "profile-and-source-kit"` and `executionAvailable: false`.
+  `validationScope: "profile-and-source-kit"` and `executionAvailable: false`
+  at the L0-only revision. After L1 implementation this capability flag is true
+  with `availablePhases: ["L1"]`; `--plan` still performs no runtime operation.
   Wrong digest/commit, changed kit, unsafe profile and execution-without-plan
   cases must remain nonzero. Validate documentation and record all results.
 
@@ -195,16 +198,19 @@ no container/server operation. A missing kit/digest or failed pin verification
 keeps L0-U5 open. This batch does not implement L1 or qualify upgrade/recovery.
 The authorized refresh completed these steps; see the
 [exact kit, pins and offline results](fork-linuxserver-l0.md#l0-u5-renewal-2026-10-27).
-No L1 implementation or fixture execution followed.
+That L0-only batch did not execute L1. The separately authorized L1 batch is
+recorded below and in the [L1 results](fork-linuxserver-l1.md).
 
-### Following batch: implement and validate L1 only
+### L1 execution boundary
 
-After L0-U5 passes, implement the existing L1 design in `runtime.sh` with focused
-lifecycle/transport owners and `LinuxServerHarnessTest.php` failure tests. Preserve
-`run-local.sh`, `plan.mjs` and `profile.mjs` as the guarded entry boundary. The
+The L1 implementation uses a thin `runtime.sh` boundary, focused Node
+lifecycle/transport owners and `LinuxServerHarnessTest.php` failure tests.
+`run-local.sh`, `plan.mjs` and `profile.mjs` remain the guarded entry boundary. The
 entry point must identify a baseline-bootstrap-only result and reject requests
 for unimplemented L2-L5; a healthy baseline cannot be reported as an upgrade pass.
-The exact execution CLI is a reviewed L1 deliverable, not an available command now.
+Use `--phase L1 --inputs ABSOLUTE_DIRECTORY` with the existing kit arguments.
+The [L1 record](fork-linuxserver-l1.md#inputs-and-execution-boundary) documents
+its exact CLI, prerequisites and baseline-only result.
 
 Enforce aggregate CPU/memory/disk/time limits across every owned service/client;
 verify the source endpoint using the pinned Nextcloud Nginx (no extra unpinned
@@ -255,32 +261,32 @@ not a production capacity or performance claim. Any change of inputs reopens L0.
 **Deliverable:** a synthetic NC35.0.2 instance with PostgreSQL and primary S3,
 with verified execution context and private transport.
 
-- [ ] Create a run-owned internal Docker network and separate `/config`, `/data`,
+- [x] Create a run-owned internal Docker network and separate `/config`, `/data`,
   PostgreSQL and S3 volumes. Publish no ports. Prepare pinned dependencies before
   removing runtime egress. Do not mount the host Docker socket inside containers.
-- [ ] Generate private fixture credentials and a CA/certificate for a fixture-only
+- [x] Generate private fixture credentials and a CA/certificate for a fixture-only
   hostname. Give clients that CA explicitly; verify hostname and certificate trust
   on real Nginx requests in probe-only state. Invalid trust/hostname must fail.
   No global verification bypass, public hostname or automatic HTTPS exposure.
-- [ ] Prepare the exact candidate kit on a run-owned, read-only, fixture-only HTTPS
+- [x] Prepare the exact candidate kit on a run-owned, read-only, fixture-only HTTPS
   endpoint trusted by the test client. Freeze its serving inputs in L0 too if it
   needs another image. Include it in ownership, resource, cleanup and recovery
   checks; advertise it only after the matching candidate is installed. No public
   source publication or new production route is involved.
-- [ ] Configure primary S3 **before installing Nextcloud**, with an exclusive
+- [x] Configure primary S3 **before installing Nextcloud**, with an exclusive
   synthetic bucket and no anonymous access. Use an explicitly unversioned bucket
   for this first fixture; production version history, retention locks and external
   encryption-key recovery are outside its evidence. Verify persistence across an
   owned S3 restart and record backend limits. Keep local data too.
-- [ ] Install the pinned apps and baseline MCP, disable the fixture app store and
+- [x] Install the pinned apps and baseline MCP, disable the fixture app store and
   control background jobs explicitly. Inventory the image's startup and cron
   processes so they can be paused during checkpoints. Do not copy the unknown
   production initialization hook or claim its effects have been modeled.
-- [ ] Resolve `/app/www/public/apps/mcp` to its actual persistent destination;
+- [x] Resolve `/app/www/public/apps/mcp` to its actual persistent destination;
   verify ownership, permissions, mounts and symlink boundary. Run `occ` with the
   image's s6 service environment and `abc` identity. Verify SQL server version,
   Nextcloud status, CLI/FPM versions/extensions and HTTP readiness independently.
-- [ ] Exercise failures for missing object-store environment, unavailable DB/S3,
+- [x] Exercise failures for missing object-store environment, unavailable DB/S3,
   wrong app path and absent probe completion. Each must stop the phase. Protect
   readiness diagnostics from dumping environment/configuration secrets.
 
@@ -497,6 +503,8 @@ Do not treat a mutable `latest` manual as NC35 acceptance evidence.
 
 - [ ] Store private run evidence under `mcp/build/integration/<run-id>/`, mode
   `0700`, secret-bearing files `0600`; nothing from that directory enters Git.
+  The completed L1 bootstrap uses its dedicated
+  `mcp/build/linuxserver-l1/runs/<run-id>/` evidence directory.
   Include each phase exit/completion status, immutable input hashes, migrations,
   assertion totals, checkpoint manifests, HTTP results, durations and warnings.
 - [ ] Unit-test cleanup ownership mismatches and Docker inspection/removal errors.
@@ -522,10 +530,12 @@ executed. Production recovery readiness is not inferred from this fixture.
 
 ## Closure limits and next action
 
-The immediate next batch is **implement and validate L1**, following the completed
-L0-U5 refresh above. Its lifecycle/transport code still needs implementation and
-validation before an isolated fixture can run. L2-L5 remain separate sequential
-phases; no current command can execute this LinuxServer upgrade/recovery journey.
+L1 bootstrap has passed for the frozen U5 inputs; see the
+[execution report](fork-linuxserver-l1.md). The next separate batch is **L2**:
+seed the reviewed 1.2.0 capability fixtures and capture coherent checkpoint B0
+with admission closed and writers paused. L2 requires its own authorization and
+implementation. The current command rejects L2-L5 and cannot perform the
+LinuxServer upgrade/recovery journey; no checkpoint or U5 replacement is claimed.
 
 | Still pending | Why local success does not close it |
 | --- | --- |

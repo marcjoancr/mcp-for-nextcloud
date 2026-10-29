@@ -139,7 +139,7 @@
         ]
     },
     "scripts-descriptions": {
-        "test:integration:linuxserver": "Validate the isolated LinuxServer profile and source kit with --plan; execution is unavailable.",
+        "test:integration:linuxserver": "Plan the isolated LinuxServer profile with --plan or explicitly bootstrap its baseline with --phase L1.",
         "test": "Run all tests, or pass PHPUnit arguments after --.",
         "test:architecture": "Run architecture checks; accepts PHPUnit arguments.",
         "test:api": "Run native API contracts and scanner tests; accepts PHPUnit arguments.",
