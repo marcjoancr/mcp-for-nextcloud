@@ -108,7 +108,15 @@ network requests:
 composer --working-dir=mcp test:clients:storage -- /absolute/inspector-install
 ```
 
-It requires the same pinned Inspector lock and exact installed CLI bundle hash.
+This storage command uses **Inspector 2.13.0 / Node 24.22.1**, independently of
+the historical 2.11.0 private-TLS runner above. The install manifests in
+`inspector/` are development-only inputs; they add no dependency to the app.
+Copy both manifests into a new private directory outside the repository, then
+run `npm ci --ignore-scripts --prefix /absolute/inspector-install` with Node
+24.22.1 on PATH. Keep the historical installation unchanged. Do not use floating `npx` installs
+or regenerate the reviewed lock. The runner verifies that exact lock and
+installed CLI bundle hash before importing code. The repository's normal build
+runtime pin is separate and has not been changed by this storage qualification.
 `storage-run.mjs` creates a private copy of the entire bundle with only an appended
 export declaration; all original bytes and implementation bodies remain intact.
 `storage-worker.mjs` imports it in a fresh process for each case and uses the real
@@ -116,13 +124,31 @@ export declaration; all original bytes and implementation bodies remain intact.
 AES-256-GCM/scrypt and synthetic credentials. No memory persistence double is used.
 The dependency installation is read-only; the copied bundle is never committed.
 
-The suite checks one resource with distinct issuers, restart/readback, separate
-access/refresh tokens and registered client secrets, rotation/deletion, unavailable
-keys and altered ciphertext. It also tests preregistered client credentials; the
-pinned provider currently returns that resource-wide static secret under another
-issuer. That required isolation case **fails**, so the command returns **1**.
-It is an explicit opt-in external-client qualification, separate from ordinary
-`check`; its failure must remain visible rather than be marked expected/pass.
+The 21 required cases check issuer-keyed DCR registrations and access/refresh
+tokens, restart/readback, rotation/deletion, unavailable keys and altered
+ciphertext. Static registrations have a different contract: they are configured
+per MCP resource. Their visibility under another issuer is recorded, not claimed
+as cross-issuer confidentiality; another resource must still receive no client or
+tokens. New tests exercise the actual SDK-style issuer save (no registrationKind),
+fresh-process restart and unchanged reseed, mismatch reads without a stored-state
+rewrite, rebinding, and clearing a stamp when credentials change. Existing DCR
+and token slots must survive static-client operations.
+
+Inspector 2.13.0 passes these cases. Inspector 2.11.0 fails the new stamp-save
+case before dependent cases run. The original 14/15 result is retained as history:
+its final assertion required static-client behavior outside the provider's
+contract, and is not evidence of token exfiltration or an MCP server defect.
+See the [diagnosis and exact evidence](../../../docs/en/development/inspector-storage-resolution.md).
+No required failure is treated as expected/pass; a failed or blocked required
+case still returns nonzero. This remains an explicit opt-in client-component
+qualification, separate from ordinary `check`.
+
+A passing result does **not** qualify SDK network rebinding, reuse of static
+secrets across authorization servers, private/public OAuth journeys or hosted
+ChatGPT. Prefer dynamic registration for the supported isolated multi-issuer
+scenario. Public Inspector acceptance remains pending; the old private-TLS runner
+must be refreshed and rerun on the chosen final fixture before making a new
+end-to-end client claim.
 
 Evidence lives in `~/.local/state/mcp-client-tests/storage-*/`. Key files, generated
 synthetic credentials, raw errors and copies of stores are private, not upload

@@ -1,0 +1,8 @@
+{
+  "name": "mcp-inspector-qualified-local",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "@modelcontextprotocol/inspector": "2.13.0"
+  }
+}
