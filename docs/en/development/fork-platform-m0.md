@@ -4,7 +4,7 @@
 # M0: verified platform inputs and source candidate
 
 Date: 2026-10-30. Scope: [M0 of the platform/source plan](fork-platform-source-acceptance-plan.md).
-This is local preparation and control validation, not native acceptance. M1-M4,
+**M0 complete.** This is local preparation and control validation, not native acceptance. M1-M4,
 public HTTPS, end-to-end Inspector, hosted ChatGPT and human reviews remain open.
 No production server access, deployment, push or PR #14 change is included.
 
@@ -138,10 +138,78 @@ The missing-module errors in browser output are deliberate failure-path fixtures
 not ignored build failures. All 15 pre-freeze plans also pass with the retained
 kit; this is input validation, not execution of native cells.
 
-Candidate freeze and bundle-only reconstruction are the remaining M0 steps at
-this code-freeze checkpoint. Evidence lives under ignored `mcp/build/m0/`; raw
-packaging/private state is not an upload bundle. The previous `cfeb26d4` kit
-remains immutable until its successor is recorded.
+The reviewed inputs are frozen in commit `efb27979b6a90122ce45a6a509e52390030f7ed9`. The complete
+check ran before this freeze; no executable inputs changed afterwards. The
+following closure documentation is a separate commit and does not redefine the
+candidate. Final npm audit reports zero vulnerabilities; the production Composer
+lock audit reports no advisories or abandoned packages.
+
+### Frozen candidate and independent reconstruction
+
+- App/version: `mcp` / `2.0.0`, unpublished and unsigned.
+- Source and verified runner commit: `efb27979b6a90122ce45a6a509e52390030f7ed9`.
+- Local kit: `mcp/build/source/efb27979b6a90122ce45a6a509e52390030f7ed9/`.
+- Separately trusted manifest SHA-256: `c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289`.
+
+| Kit file | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `BUILDING.md` | 1549 | `85e41099700b8edbb0b04622d561c1c5263139a79db8242e9f33cc5f0f17f57b` |
+| `mcp-2.0.0.tar.gz` | 1415469 | `e31aa5a9619b2a6181456d97b0af2da38569eae01079303ad7010b1b36d81297` |
+| `runtime-dependencies.tar.gz` | 133168 | `7c989cf1d2286e34babcbaad1e612eaddd10c6f12bd3c8929dacb0d93cbac27a` |
+| `source.bundle` | 9445585 | `b7dc7095ecc6c2494777121827fca5aba4013215de34508ecbd56aa6ce40a111` |
+| `manifest.json` | 159899 | `c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289` |
+
+`composer package:source -- efb27979b6a90122ce45a6a509e52390030f7ed9` created the kit from the reviewed
+commit. A separate clone from its `source.bundle`, detached at that SHA, then ran
+`npm ci --ignore-scripts` and `composer package` under Node24.22.1/npm11.19.1,
+PHP8.4.27 and Composer2.8.8. The reconstruction used locked registry dependencies;
+fully offline toolchain reconstruction is not claimed.
+
+All **975 extracted runtime files** match the original manifest byte for byte,
+including all **73 vendor files** also supplied by `runtime-dependencies.tar.gz`.
+The rebuilt archive SHA-256 is `d758c8a8e3f2503693d89eca4f9a606776fea6c9fb8c4ae9eaea49856a901903`.
+Its compressed bytes differ: 1,123 tar entry timestamps changed, while entry
+paths, modes, owners and types match. Timestamps were not normalized; acceptance
+compares every extracted path, size and hash, not archive equality.
+
+Compared with the prior `cfeb26d4` candidate, exactly two files differ:
+`appinfo/source.json` records the new SHA and `vendor/composer/installed.php`
+records that SHA in Composer's root version/reference. The textual differences
+were inspected; app behavior, compiled assets, served documentation and dependency
+code are unchanged. No difference was suppressed or rewritten. The previous kit
+and LinuxServer checkpoints remain immutable.
+
+All **15 final runner plans** pass against this successor, with the six reviewed
+upgrade archives and Mail enabled only on NC35/MariaDB fresh/upgrade-local. Each
+records the candidate/runner SHA separately and a clean runner state. A refusal
+shim confirms that no plan invoked Docker. Real-file staging retains the original
+archive hash and validates its copied kit. This is **0/15 native cells executed**;
+it does not certify the installed-tree gate against real Nextcloud yet.
+
+### Evidence and next step
+
+Local evidence is retained under ignored `mcp/build/m0/`. The 68-file
+`evidence-index.json` has SHA-256 `f515c6f0239b57e3908040fd5b82c114816d868e89d5bd5b01dcadb24a7ff255` and binds the final check,
+regression logs, pins, baselines, candidate, final plans, staging, reconstruction
+and audits. `reconstruction.json` records both archive hashes and every prior-kit
+difference; `rebuilt-inventory.json` records all 975 measured files. Historical
+packaging RED/GREEN logs remain alongside it. Private raw packaging state,
+clones, caches and generated trees are deliberately outside the index; the local
+evidence directory is not an approved upload bundle.
+
+Closure documentation and packaging checks pass again. The working-tree package
+is explicitly a dirty development build with its source offer disabled; it is
+not the frozen acceptance archive. Both immutable kits and all 68 indexed
+evidence files were reverified without changes. These closure checks are retained
+in `docs-final.log`, `package-final.log` and `closure-integrity.log` outside the
+already sealed evidence index.
+
+No M0 technical blocker remains. The next bounded batch is **M1**: ordinary-user
+source-offer acceptance and reconstruction from the downloaded kit, then full
+NC35/MariaDB fresh with Mail and upgrade from upstream1.2.0, all consuming this
+exact kit. M2/M3 complete the remaining matrix; M4 reconciles LinuxServer and
+release boundaries. Recheck input availability/pin changes before executing, and
+retain exact resource-ownership/cleanup evidence. M1 was not started here.
 
 M0 does not execute any of the 15 native cells, ordinary-user source retrieval,
 real OAuth journeys or a production recovery. HTTPS, Inspector end-to-end,

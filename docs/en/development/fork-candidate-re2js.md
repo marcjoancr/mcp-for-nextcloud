@@ -187,3 +187,13 @@ The RE2JS finding stays closed; this is a separate runtime prerequisite. Product
 deployment and public-client acceptance remain separate gates. No server access, push,
 deployment or PR #14 change occurred. All existing accepted L5 checkpoints remain
 under their recorded retention decision; none were removed by this batch.
+
+
+### Successor prepared in M0 (2026-10-30)
+
+The [M0 successor and reconstruction record](fork-platform-m0.md) closes the
+independent Node build-runtime prerequisite and exact-kit controls. It records
+`efb27979b6a90122ce45a6a509e52390030f7ed9`, its separately trusted manifest digest,
+full validation and the two commit-metadata differences from this immutable kit.
+The current next batch is M1, not another RE2JS remediation. No new native,
+LinuxServer, public-client or human acceptance is inferred from M0 preparation.

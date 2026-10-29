@@ -1321,3 +1321,21 @@ The plan now freezes M0 inputs after its prerequisite changes and requires an
 actual installed-tree comparison before native/source-offer acceptance. Neither
 gate is implemented by this review. F3, HTTPS, end-to-end Inspector, ChatGPT and
 all human reviewers remain pending; the frozen candidate is not regenerated.
+
+
+## M0 candidate and platform-input closure (2026-10-30)
+
+[M0 is complete](fork-platform-m0.md): patched Node24.22.1/npm11.19.1,
+reviewed image/baseline inputs, explicit immutable-kit consumption and measured
+installed-tree gates are implemented and covered by failure tests. The complete
+local check passes. The frozen successor is `efb27979b6a90122ce45a6a509e52390030f7ed9`;
+its bundle-only reconstruction matches all 975 runtime and 73 vendor files.
+Only source/Composer commit metadata differs from the prior candidate.
+
+All 15 successor plans pass without invoking Docker; **zero native cells have
+been executed for this kit**. Next is M1 ordinary-user source retrieval,
+downloaded-kit reconstruction and the two primary native cells. Prior L0-L5
+acceptance and Inspector component results remain scoped to their recorded inputs.
+F3, final/intended-host acceptance, trusted source publication/history review,
+HTTPS, end-to-end Inspector, hosted ChatGPT and all human reviewers remain open.
+No push, deployment, production-server operation or PR #14 change occurred.

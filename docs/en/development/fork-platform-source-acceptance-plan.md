@@ -4,10 +4,13 @@
 # Isolated platform and source-offer acceptance plan
 
 > Execute the batches in order, validating each gate before advancing. This
-> document specifies future work; it does not start the native matrix or authorize
-> publication, deployment, production access or changes to PR #14.
+> document records M0 completion and specifies the remaining work; it does not
+> start the native matrix or authorize publication, deployment, production access
+> or changes to PR #14.
 
-Date: 2026-10-29. **Next bounded batch: M0, then M1 after M0 passes.** M2-M4 define
+Date: 2026-10-29; M0 closure: 2026-10-30. **Next bounded batch: M1.**
+[M0 results and trusted candidate identity](fork-platform-m0.md) close preparation
+and control checks; no native cell has run for the successor. M2-M4 define
 completion criteria so the first batch cannot be mistaken for the entire matrix.
 HTTPS, Inspector end-to-end acceptance, hosted ChatGPT and human reviews stay open.
 
@@ -24,38 +27,44 @@ and [LinuxServer boundaries](fork-linuxserver-l5.md).
 
 ## Inputs and decisions
 
-The current reviewed kit is 2.0.0 at
+The current candidate is the [M0 successor](fork-platform-m0.md#frozen-candidate-and-independent-reconstruction)
+at `efb27979b6a90122ce45a6a509e52390030f7ed9`. All remaining batches must use
+its externally recorded manifest digest. The paragraphs below retain the original
+planning baseline and the prerequisites that M0 has now completed.
+
+The previous reviewed kit was 2.0.0 at
 `cfeb26d4fdc7d4417e1e0d604e65cedf42040c4d`, with trusted manifest SHA-256
 `b643a1596eab2612ec7881a8ebc76bc4a8e27611a8bf445c6daea679626004d9`.
 Its exact location and runtime/source hashes are in the candidate record. Keep it
 immutable. No result for a later checkout may silently inherit that kit identity.
 
-Two prerequisites were found while preparing this plan:
+Two prerequisites were found while preparing this plan (historical state):
 
-1. `run-local.sh` / `harness.sh packages` rebuild the checkout. They do not accept
-   the frozen kit. `source-commit.txt` currently describes the harness checkout,
+1. `run-local.sh` / `harness.sh packages` rebuilt the checkout without accepting
+   the frozen kit. `source-commit.txt` described the harness checkout,
    not necessarily the actual installed source identity.
-2. The repository build pin is Node 24.21.0. The official
+2. The repository build pin was Node 24.21.0. The official
    [October security release](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
-   identifies 24.22.1 as a patched runtime. Inspector storage now uses 24.22.1,
-   but the app's build pin/guards and previous candidate reconstruction have not
+   identifies 24.22.1 as a patched runtime. Inspector storage already used 24.22.1,
+   but the app's build pin/guards and previous candidate reconstruction had not
    been migrated. A clear npm audit does not assess Node runtime vulnerabilities.
 
-Recommended choice: M0 updates the build toolchain and freezes a reviewed successor
+Approved choice, completed in M0: update the build toolchain and freeze a reviewed successor
 kit, then every native cell and source-offer check consumes that same kit. The
-current kit remains the comparison baseline. An archive from a dirty checkout or
+previous kit remains the comparison baseline. An archive from a dirty checkout or
 rebuilding each cell independently is not an acceptable substitute. If the
 successor changes runtime logic or served docs, review those differences and
 repeat affected qualification; metadata-only differences still need recording.
 
-## Proposed image pins
+## Reviewed image pins
 
 The [official maintenance schedule](https://github.com/nextcloud/server/wiki/Maintenance-and-Release-Schedule)
 listed these maintained patches on 2026-10-29. Registry metadata was read without
 pulling layers or starting containers. Use the **linux/amd64 manifest digests**
-below, not a floating tag. Existing matrix configuration was not changed.
+below, not a floating tag. M0 has applied and verified these pins in the matrix;
+the database/Dovecot leaf digests and full metadata results are in its report.
 
-| Profile | Proposed image |
+| Profile | Reviewed image |
 | --- | --- |
 | NC33 / PHP8.4 / Apache | `nextcloud:33.0.10-apache@sha256:9ef9786fec0274ff88d7467e246034f8ad4e5742e344de6e049e05a3ee2bb74d` |
 | NC34 / PHP8.5 / Apache | `nextcloud:34.0.5-apache@sha256:e881320833451d8320727d7e20386c39021d51ba03bbb1e153ddfeb114ce6145` |
@@ -65,15 +74,16 @@ The corresponding image-index digests, for provenance only, are
 `5ded1127972ea84c29792215f0621c71929ed315cc47be946b489c7a1c1ad305`,
 `515c072ea1cf82ece3503f301fdf75dd5a7148abcc8fa10aaefd5ec56643b703` and
 `e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8`.
-Registry annotations name PHP 8.4 for NC33 and 8.5 for NC34/35; actual patch versions,
-architecture and version-specific core requirements still need M0 verification.
-Retain and verify the database pins in
+Registry annotations name PHP 8.4 for NC33 and 8.5 for NC34/35. M0 verified
+linux/amd64 metadata, expected PHP patch versions and version-specific core
+requirements. M1/M2 must still record the actual running versions.
+M0 retained the database releases in
 [`matrix.json`](../../../mcp/tests/Integration/ci/matrix.json): MariaDB 10.11.19 and
-PostgreSQL 16.15. Resolve their amd64 manifests and current maintenance status
-before admitting them. SQLite is a test profile, not a production support claim.
-Mail 5.12.5/Dovecot 2.4.5 inputs are in
-[`mail-pins.json`](../../../mcp/tests/Integration/ci/mail-pins.json); verify their
-compatibility/digests without expanding Mail to other core versions by inference.
+PostgreSQL 16.15, resolving their amd64 manifests and maintenance status. SQLite
+is a test profile, not a production support claim. M0 also verified
+Mail 5.12.5/Dovecot 2.4.5 inputs in
+[`mail-pins.json`](../../../mcp/tests/Integration/ci/mail-pins.json), without
+expanding Mail to other core versions by inference.
 
 ## M0 — Freeze executable inputs and prevent candidate substitution
 
@@ -84,23 +94,23 @@ new `mcp/tests/Integration/ci/candidate-kit.mjs`,
 `mcp/scripts/release/accept.mjs` for the matching installed-tree gate, and tests
 under `mcp/tests/release/native-candidate.test.mjs`.
 
-- [ ] Move the app build to Node 24.22.1 / npm 11.19.1 coherently, including guards,
+- [x] Move the app build to Node 24.22.1 / npm 11.19.1 coherently, including guards,
   engine declarations and CI setup; keep the historical P0/P1 fixture contract
   explicit rather than changing its pins under old evidence. Validate locked
   installs, audit, assets, documentation, package and the complete check.
-- [ ] Refresh native image pins and prove the expected core/PHP/DB versions and
+- [x] Refresh native image pins and prove the expected core/PHP/DB versions and
   linux/amd64 architecture. Recheck optional-app availability on each core.
-- [ ] Add an explicit native CLI input:
+- [x] Add an explicit native CLI input:
   `--candidate-kit ABSOLUTE_KIT TRUSTED_DIGEST`, before NC/DB/mode arguments.
   The helper verifies the kit and package paths/types, source identity and full
   installed-file manifest, then copies the exact archive into the owned run.
   Never rebuild or silently fall back when this input is invalid.
-- [ ] Record candidate SHA, manifest/archive digests and runner SHA separately in
+- [x] Record candidate SHA, manifest/archive digests and runner SHA separately in
   plans and artifacts. `--plan` validates inputs without Docker effects. Reject
   relative paths, bad digests, extra/altered files and identity mismatches before
   any resource creation. Add meaningful failure tests first; valid kit copies
   must retain their archive hash.
-- [ ] After fresh installation and after candidate replacement/upgrade, compare
+- [x] After fresh installation and after candidate replacement/upgrade, compare
   the **actual installed application tree** with the kit's runtime-file inventory
   and source identity, using the existing read-only integrity verifier. Version
   and enabled-state checks alone are insufficient. Require this gate in both the
@@ -108,12 +118,12 @@ under `mcp/tests/release/native-candidate.test.mjs`.
   the measured inventory/verdict and fail on missing, changed or extra files.
   Test that substituted installed bytes block advancement even when the archive
   and app version are valid. Do not repair or normalize the measured tree.
-- [ ] Keep baseline commits in `matrix.json` unchanged. Before execution, inventory
+- [x] Keep baseline commits in `matrix.json` unchanged. Before execution, inventory
   each baseline package and its source/build provenance. Legacy builds requiring
   an old runtime must use a verified retained package or isolated offline locked
   reconstruction; do not weaken their guards. Unavailable baseline inputs block
   the affected cell rather than skipping or replacing it.
-- [ ] Only after all M0 tooling, pin changes and prerequisite tests pass, freeze
+- [x] Only after all M0 tooling, pin changes and prerequisite tests pass, freeze
   the reviewed changes in a commit. Build and reconstruct the successor source
   kit from that commit and record its trusted digest outside it. Compare every
   extracted runtime file with `cfeb26d4`; do not normalize differences away.
@@ -135,7 +145,8 @@ runner, plus the new evidence report under `docs/en/development/`.
 - [ ] Run `composer --working-dir=mcp test:source -- ABSOLUTE_KIT TRUSTED_DIGEST`
   with the patched verification runtime and refreshed NC35/SQLite pin. It already
   consumes the archive and publishes no host port. Require M0's new installed-tree
-  gate before the source-offer checks; the existing runner does not yet have it.
+  gate before the source-offer checks; M0 implements it, but its real-container
+  acceptance remains part of this batch.
 - [ ] Require a non-admin's personal-settings offer, both MCP discovery paths,
   Basic/Bearer access boundaries, disabled-connection behavior, mismatched metadata
   denial, anonymous retrieval of all five files and rejection of a tampered copy.
