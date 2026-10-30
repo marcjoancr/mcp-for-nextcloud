@@ -1405,3 +1405,20 @@ F3, current-kit LinuxServer and intended-host/S3/recovery acceptance, final sour
 publication/history review, HTTPS, Inspector end-to-end, ChatGPT and all human
 reviewers remain pending. No push, deployment, production access or PR #14 change
 occurred; raw/private evidence is not approved for publication.
+
+
+## LinuxServer L0 renewal after M4 (2026-10-30)
+
+[The renewed L0 record](fork-linuxserver-l0-current-candidate.md) binds the existing
+LinuxServer profile to the frozen `efb27979` candidate. Only two candidate fields
+changed. Fresh checks verified three OCI index/platform pairs, five app archives
+and the retained 1.2.0 baseline; offline planning, six negative controls, 24 PHP
+planner tests, 42 Node LinuxServer controls and 23 release controls pass.
+SeaweedFS 4.48 remains an explicit isolated comparison pin despite later releases;
+no production-security or latest-version claim follows from its availability.
+
+No L1 was started and no historical evidence or checkpoint was relabelled. The
+next separate phase is renewed L1 qualification, followed by fresh B0 and the
+necessary upgrade/source/recovery evidence. Current-kit LinuxServer, intended
+host, source history/publication, F3, HTTPS, Inspector end-to-end, ChatGPT and
+human reviewers remain pending. No push, deployment or PR #14 change occurred.

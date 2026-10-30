@@ -3,7 +3,11 @@
 
 # LinuxServer/Nginx isolated upgrade and recovery test plan
 
-**Status:** L0 inputs were renewed for U5 on 2026-10-27; the profile selects
+**Current status:** [L0 renewal for the M4 candidate](fork-linuxserver-l0-current-candidate.md)
+binds the profile to `efb27979` and its verified kit. No L1-L4 run for that
+successor has started; renewed L1 qualification is the next separate phase.
+
+**Historical U5 campaign:** L0 inputs were renewed on 2026-10-27 for
 `940c3da3` and its separately verified source kit. L1 baseline bootstrap is now
 implemented and has passed native acceptance with cleanup. See the
 [L1 results and limits](fork-linuxserver-l1.md) and preserve the historical
@@ -72,7 +76,8 @@ runtime versions separately; a tag does not establish them.
 | --- | --- |
 | Baseline | Upstream 1.2.0 commit `02526119b845ccc1d8399be002da3e30b5527df6`; use its reviewed packaging inputs and lockfiles, record archive SHA-256 and extracted inventory. This is not yet a byte comparison with the installed server app |
 | Historical L0 candidate | Reviewed source-audit commit `0000d8c807cfae300c2009ce53f9efb4a5df8081`; complete retained kit, trusted manifest SHA-256 `032b62b39bd9c56055bb3306b4a06c12efb77f876ea6da0087a550a89fc39e6f`. Recheck with `verify:source` before use. Later commits require their own kit and digest |
-| Current U5 candidate | Published `fork/main` commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, including U5 and its publication record. Complete local kit verified; manifest SHA-256 `2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63`. Refreshed profile and evidence are in the L0-U5 record; runtime qualification belongs to the scoped L1-L4 records, not L0 alone |
+| Historical U5 candidate | Published `fork/main` commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, including U5 and its publication record. Complete local kit verified; manifest SHA-256 `2dd804e59c35f9784113bde8c1b1c579345965c3cfd8c157e06b0842b0aa1f63`. Refreshed profile and evidence are in the L0-U5 record; runtime qualification belongs to the scoped L1-L4 records, not L0 alone |
+| Current M4 candidate | `efb27979b6a90122ce45a6a509e52390030f7ed9`; trusted manifest `c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289`. Profile renewal passes; LinuxServer native qualification remains pending. See the [renewal record](fork-linuxserver-l0-current-candidate.md) |
 | LinuxServer image | Observed `lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac`; verify availability and linux/amd64 selection in L0. Keep core version constant through app replacement and both restores |
 | PostgreSQL | Reuse the existing reference pin `postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d`; verify availability, SQL version and dump/restore tools. This is not the observed host's Alpine image or proof of its active SQL connection |
 | S3 fixture | Recommend one persistent, single-node SeaweedFS S3 fixture. L0 must select a supported released image, freeze its linux/amd64 digest and configuration, and review its export/restore contract. Exercise authenticated object read/write/list/delete and recovery in L1/L4, after fixture creation. L0 selects standard 4.48 with full index/platform digests in the profile lock; see the L0 record for the unavailable standard 4.49 tag |
@@ -543,6 +548,11 @@ failures/blocked scenarios remain visible, and the report names exactly what was
 executed. Production recovery readiness is not inferred from this fixture.
 
 ## Closure limits and next action
+
+The accepted phases described below qualify U5 only. The renewed profile now
+selects the M4 candidate; [its L0 record](fork-linuxserver-l0-current-candidate.md)
+requires renewed L1 and subsequent native qualification before transferring any
+LinuxServer acceptance claim. Old checkpoints keep their original profile hash.
 
 L1 baseline qualification and L2 fixture/B0 capture have passed for the frozen
 U5 inputs; see the [L1 report](fork-linuxserver-l1.md) and the latest accepted

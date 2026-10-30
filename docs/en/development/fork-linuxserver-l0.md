@@ -3,6 +3,10 @@
 
 # LinuxServer L0: frozen inputs and offline planning
 
+Current status: [the M4-candidate L0 renewal](fork-linuxserver-l0-current-candidate.md)
+now binds the profile to `efb27979`. The original and U5 records below remain
+historical; no new LinuxServer fixture has run for this successor.
+
 L0 was implemented on 2026-10-24 from `463cb8a` on the isolated `fork/main`
 worktree. This record covers input selection, offline guardrails and local checks.
 **No LinuxServer fixture was started. L1-L5 and F3 remain open.** The intended

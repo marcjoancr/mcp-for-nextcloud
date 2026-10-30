@@ -3,6 +3,10 @@
 
 # M4: evidence reconciliation and remaining acceptance gates
 
+Subsequent status: [L0 input renewal](fork-linuxserver-l0-current-candidate.md)
+now binds LinuxServer planning to this candidate. Native LinuxServer acceptance
+and the external/human gates below remain pending.
+
 Date: 2026-10-30. **Local M4 reconciliation is complete; F3 and release acceptance
 remain open.** This phase reverified retained evidence and live resource absence.
 It did not repeat native suites, reconstruct the package again, qualify a new
