@@ -94,6 +94,9 @@ new `mcp/tests/Integration/ci/candidate-kit.mjs`,
 `mcp/scripts/release/accept.mjs` for the matching installed-tree gate, and tests
 under `mcp/tests/release/native-candidate.test.mjs`.
 
+Completed boxes below record implementation and local control validation. They
+do not certify execution against a real Nextcloud instance; that starts in M1.
+
 - [x] Move the app build to Node 24.22.1 / npm 11.19.1 coherently, including guards,
   engine declarations and CI setup; keep the historical P0/P1 fixture contract
   explicit rather than changing its pins under old evidence. Validate locked
@@ -110,10 +113,11 @@ under `mcp/tests/release/native-candidate.test.mjs`.
   relative paths, bad digests, extra/altered files and identity mismatches before
   any resource creation. Add meaningful failure tests first; valid kit copies
   must retain their archive hash.
-- [x] After fresh installation and after candidate replacement/upgrade, compare
-  the **actual installed application tree** with the kit's runtime-file inventory
-  and source identity, using the existing read-only integrity verifier. Version
-  and enabled-state checks alone are insufficient. Require this gate in both the
+- [x] Implement and test a gate that, after fresh installation and after candidate
+  replacement/upgrade, compares the **actual installed application tree** with
+  the kit's runtime-file inventory and source identity, using the existing
+  read-only integrity verifier. Version and enabled-state checks alone are
+  insufficient. Require this gate in both the
   native harness and source-offer runner before their acceptance tests; retain
   the measured inventory/verdict and fail on missing, changed or extra files.
   Test that substituted installed bytes block advancement even when the archive

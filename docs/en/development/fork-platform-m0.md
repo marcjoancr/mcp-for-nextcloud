@@ -85,8 +85,11 @@ includes PHP8.4. SQLite remains a test-only profile.
 
 All 21 retained optional-app/profile combinations (Deck, Groupfolders, Talk, Notes,
 Calendar, Contacts and Guests on NC33/34/35) verify their pinned archive hash,
-identity/version and declared Nextcloud/PHP bounds. This checks input availability
-and compatibility metadata, not enablement or runtime APIs. The downloaded Mail5.12.5 archive also matches its pinned hash and declares
+identity/version and declared Nextcloud bounds. PHP bounds are checked where
+present: Deck, Groupfolders, Talk and Guests do not declare them in any of these
+three profiles (12 combinations). Missing PHP bounds are not positive evidence of
+PHP compatibility; actual enablement and runtime APIs remain M1-M3 acceptance.
+The downloaded Mail 5.12.5 archive also matches its pinned hash and declares
 NC32-35/PHP8.1-8.5 compatibility; Mail tests remain restricted to the existing two
 NC35/MariaDB cells. Do not infer other Mail support.
 
@@ -147,7 +150,7 @@ lock audit reports no advisories or abandoned packages.
 ### Frozen candidate and independent reconstruction
 
 - App/version: `mcp` / `2.0.0`, unpublished and unsigned.
-- Source and verified runner commit: `efb27979b6a90122ce45a6a509e52390030f7ed9`.
+- Source and initial verified runner commit: `efb27979b6a90122ce45a6a509e52390030f7ed9`.
 - Local kit: `mcp/build/source/efb27979b6a90122ce45a6a509e52390030f7ed9/`.
 - Separately trusted manifest SHA-256: `c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289`.
 
@@ -216,3 +219,44 @@ real OAuth journeys or a production recovery. HTTPS, Inspector end-to-end,
 ChatGPT, security/operations/license/accessibility/language reviewers and trusted
 source publication/history review remain pending. All 100 translated documents
 retain their human-review requirement.
+
+
+## M0 closure review (2026-10-30)
+
+Reviewed the implementation in `efb27979` and closure record in `56435092`.
+No additional executable-code correction was identified. The changes in this
+review clarify two acceptance boundaries: 12 optional-app/profile combinations
+lack explicit PHP bounds, and completed M0 checklist items describe implemented
+controls with local tests rather than completed native installation tests.
+
+Fresh evidence verification confirms the original 68-file index, both immutable
+kits, all 975 runtime files, 73 vendor files, six baseline archive/commit records,
+21 optional-app/profile archives and the Mail archive. The retained reconstruction
+was reverified directly from its archive; it was not rebuilt again. The reported
+1,123 timestamp differences and two commit-metadata file differences also match.
+
+All 15 plans were repeated with a Docker refusal shim and passed without resource
+creation. The clean runner at `564350922db7c2acb8ecf1958de0e67d7a0ab949` still
+selects candidate `efb27979b6a90122ce45a6a509e52390030f7ed9`, with the same trusted
+manifest digest. Its eight recorded runner-file hashes match the frozen code
+commit. This review changes documentation only and does not regenerate or
+redefine the acceptance kit. Zero native cells have run for this candidate.
+
+The fresh complete catalog `check` passes: 8,707 PHP tests / 74,493 assertions,
+717 browser tests, 29 documentation tests, 10 client-runner tests, 23 release
+tests, both PHPStan scopes, 1,390 PHP syntax checks, documentation and package.
+Fresh npm and production Composer lock audits report no vulnerabilities/advisories;
+Composer reports no abandoned packages. The checkout package is a development
+validation artifact, not a replacement for the frozen acceptance archive.
+
+Review evidence is retained separately under ignored `mcp/build/m0-review/`.
+Its 38-file `evidence-index.json` has SHA-256
+`4773fb28593cb8ae8adb015704c998a9d4c339e85233a0c8b9ecb31d20403688`.
+It binds the fresh check, evidence-verification result, bundle check, audits and
+15 plans. The final documentation check is retained as `docs-final.log` outside
+that sealed index. The original M0 evidence and index remain unchanged.
+
+HTTPS, Inspector end-to-end, hosted ChatGPT, all human reviewers,
+intended-host/final platform acceptance and
+trusted source publication/history review remain pending. M1 was not started;
+no push, deployment, production-server operation or PR #14 change occurred.
