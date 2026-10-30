@@ -3,6 +3,10 @@
 
 # LinuxServer L4 recovery with the renewed candidate profile
 
+Subsequent status: [L5 for the renewed profile](fork-linuxserver-l5-current-candidate.md)
+now closes scoped local evidence, regression and retention acceptance. External
+and human gates remain open; the phase-end statements below retain their scope.
+
 Date: 2026-10-30. **L4 passes; L5 has not started.** The existing runner qualified
 full 2.0.0 restoration and both full 1.2.0 rollback cases with the renewed profile,
 including historical-credential rejection and fail-closed import negatives.

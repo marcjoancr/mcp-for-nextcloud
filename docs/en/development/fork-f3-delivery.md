@@ -1480,3 +1480,20 @@ independently verified; original L3 B0/B1 remain unchanged. L5 is unstarted.
 Local recovery evidence does not close intended-host qualification, F3, source
 history/publication, public HTTPS, Inspector end-to-end, ChatGPT or human reviews.
 No push, deployment, intended-server access or PR #14 change occurred.
+
+
+## Renewed-profile LinuxServer L5 (2026-10-31)
+
+[L5 local closure](fork-linuxserver-l5-current-candidate.md) passes for `efb27979`.
+The audit reconciles all 267 sealed phase records and eight retained checkpoint
+copies, preserves R1 → 2.0.0 and both R0 → 1.2.0 outcomes, and confirms owned
+LinuxServer resources absent. One retained JUnit mode was restricted without
+changing bytes. The full local check and two new unfiltered Apache regressions
+pass with the same frozen candidate; SQLite recovery also passes. Exact observed
+resources and previewed private working copies were removed; accepted evidence
+remains private for F3 and independent review.
+
+This closes scoped local LinuxServer acceptance, not intended-host recovery, F3,
+source-history/publication, public HTTPS, refreshed Inspector, hosted ChatGPT or
+human review. No application/runner change, push, deployment, intended-server
+access or PR #14 modification occurred.

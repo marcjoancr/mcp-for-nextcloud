@@ -3,9 +3,9 @@
 
 # LinuxServer L2 fixtures and B0 checkpoint
 
-Subsequent status: [L4 for the renewed profile](fork-linuxserver-l4-current-candidate.md)
-now passes isolated recovery qualification. L5 remains unstarted for that profile;
-the phase-end statements below retain their original scope.
+Subsequent status: [L5 for the renewed profile](fork-linuxserver-l5-current-candidate.md)
+now closes scoped local evidence, regression and retention acceptance. External
+and human gates remain open; the phase-end statements below retain their scope.
 
 This record covers the authorized L2 work on devbox on 2026-10-29, based on
 `edf2f9cb`. The implementation-stage review fixes passed native capture and cleanup, including

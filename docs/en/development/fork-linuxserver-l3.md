@@ -3,9 +3,9 @@
 
 # LinuxServer L3 isolated upgrade
 
-Subsequent status: [L4 for the renewed profile](fork-linuxserver-l4-current-candidate.md)
-now passes isolated recovery qualification. L5 remains unstarted for that profile;
-the phase-end statements below retain their original scope.
+Subsequent status: [L5 for the renewed profile](fork-linuxserver-l5-current-candidate.md)
+now closes scoped local evidence, regression and retention acceptance. External
+and human gates remain open; the phase-end statements below retain their scope.
 
 This record covers the authorized L3 implementation on devbox on 2026-10-29,
 starting from harness revision `017bce7d`. The application candidate remains the

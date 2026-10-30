@@ -3,9 +3,9 @@
 
 # LinuxServer L3 upgrade and B1 with the renewed candidate profile
 
-Subsequent status: [L4 for the renewed profile](fork-linuxserver-l4-current-candidate.md)
-now passes isolated recovery qualification. L5 remains unstarted for that profile;
-the phase-end statements below retain their original scope.
+Subsequent status: [L5 for the renewed profile](fork-linuxserver-l5-current-candidate.md)
+now closes scoped local evidence, regression and retention acceptance. External
+and human gates remain open; the phase-end statements below retain their scope.
 
 Date: 2026-10-30. **L3 passes; L4 has not started.** The existing runner upgraded
 a fresh isolated MCP 1.2.0 installation to the frozen 2.0.0 candidate, verified
