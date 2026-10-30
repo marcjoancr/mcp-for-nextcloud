@@ -8,6 +8,9 @@ source-offer fixture and reconstruction from its downloaded sources. M2-M4,
 public HTTPS, Inspector end-to-end, hosted ChatGPT and all human reviewers remain
 pending. No production deployment, push or PR #14 change is included.
 
+Subsequent [M2 acceptance](fork-platform-m2.md) brings the same candidate to
+10/15 native cells. The M1 results below remain the historical batch record.
+
 ## Identity and execution order
 
 The [approved plan](fork-platform-source-acceptance-plan.md) was executed in order:

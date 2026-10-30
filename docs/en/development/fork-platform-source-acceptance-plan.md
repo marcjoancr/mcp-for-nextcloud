@@ -4,15 +4,16 @@
 # Isolated platform and source-offer acceptance plan
 
 > Execute the batches in order, validating each gate before advancing. This
-> document records M0/M1 completion and specifies the remaining work; it does not
+> document records M0-M2 completion and specifies the remaining work; it does not
 > start the native matrix or authorize publication, deployment, production access
 > or changes to PR #14.
 
-Date: 2026-10-29; M0/M1 closure: 2026-10-30. **Next bounded batch: M2.**
+Date: 2026-10-29; M0-M2 closure: 2026-10-30. **Next bounded batch: M3.**
 [M0 results and trusted candidate identity](fork-platform-m0.md) close preparation
 and control checks. [M1 results](fork-platform-m1.md) accept the source offer,
-downloaded-source reconstruction and 2/15 native cells. M2-M4 define
-completion criteria so the first batch cannot be mistaken for the entire matrix.
+downloaded-source reconstruction and the first two native cells.
+[M2 results](fork-platform-m2.md) accept eight further cells, for **10/15 total**.
+M3/M4 define the remaining completion and reconciliation gates.
 HTTPS, Inspector end-to-end acceptance, hosted ChatGPT and human reviews stay open.
 
 **Goal:** qualify one immutable runtime/source kit against the approved reference
@@ -188,6 +189,10 @@ acceptance. Require SQLite's coordinated recovery result where selected by the
 runner. Each cell records actual versions, optional apps, candidate inventory,
 JUnit totals/skips, exit code and exact cleanup. Unsupported optional features
 remain explicit; a silently missing app does not establish capability parity.
+
+**Completed 2026-10-30:** [M2 results](fork-platform-m2.md) record all eight cells,
+expected skips, the NC33 Deck dependency limitation, verified legacy baselines,
+SQLite recovery and exact-owned cleanup. M3 was not started.
 
 ## M3 — Remaining upgrade origins
 

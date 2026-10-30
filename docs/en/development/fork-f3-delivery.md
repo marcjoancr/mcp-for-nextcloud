@@ -1351,3 +1351,20 @@ volumes were independently confirmed absent. Coverage is **2/15 native cells**,
 plus the distinct source fixture; M2 is next. HTTPS, Inspector end-to-end,
 ChatGPT, all human reviewers, final publication/history review and intended-host
 qualification remain pending. No push, deployment or PR #14 change occurred.
+
+
+## M2 core and database acceptance (2026-10-30)
+
+[M2 passes](fork-platform-m2.md) for the unchanged `efb27979` candidate: eight
+sequential native cells covering NC35/PostgreSQL, NC35/SQLite, NC34/MariaDB and
+NC33/MariaDB, each fresh and upgraded from the reviewed 1.0.8 baseline. The suites
+report 2,400 cases, 37,303 assertions, 64 expected conditional skips and no
+failures/errors. Candidate inventories and all four installed baselines match;
+SQLite coordinated recovery passes. All 14 containers, eight networks and
+14 volumes were independently confirmed absent.
+
+Coverage is now **10/15 native cells**. NC33/Deck 1.17.7 lacks the native dependency
+API; tests establish tool hiding/refusal there, not feature parity. M3 is next
+and was not started. M4, intended-host/S3/recovery qualification, final source
+publication/history review, HTTPS, Inspector end-to-end, ChatGPT and all human
+reviewers remain pending. No push, deployment or PR #14 change occurred.
