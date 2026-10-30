@@ -3,6 +3,11 @@
 
 # LinuxServer L1 baseline qualification
 
+Subsequent status: [L1 with the renewed profile](fork-linuxserver-l1-current-candidate.md)
+has passed baseline qualification. For this renewed profile, L2 and candidate
+upgrade/recovery remain pending; the phase-end statements below retain their
+original scope.
+
 This record covers the authorized L1 bootstrap on devbox on 2026-10-27.
 It does not qualify an upgrade, checkpoint, rollback, production deployment or
 hosted client. L2 had not started at L1 acceptance; its later authorized work

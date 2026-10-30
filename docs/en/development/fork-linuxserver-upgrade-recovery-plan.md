@@ -4,8 +4,10 @@
 # LinuxServer/Nginx isolated upgrade and recovery test plan
 
 **Current status:** [L0 renewal for the M4 candidate](fork-linuxserver-l0-current-candidate.md)
-binds the profile to `efb27979` and its verified kit. No L1-L4 run for that
-successor has started; renewed L1 qualification is the next separate phase.
+binds the profile to `efb27979` and its verified kit.
+[Renewed L1](fork-linuxserver-l1-current-candidate.md) passes baseline qualification;
+L2 has not started and is the next separate phase. Candidate installation and
+checkpoint restoration remain unqualified.
 
 **Historical U5 campaign:** L0 inputs were renewed on 2026-10-27 for
 `940c3da3` and its separately verified source kit. L1 baseline bootstrap is now
@@ -551,8 +553,9 @@ executed. Production recovery readiness is not inferred from this fixture.
 
 The accepted phases described below qualify U5 only. The renewed profile now
 selects the M4 candidate; [its L0 record](fork-linuxserver-l0-current-candidate.md)
-requires renewed L1 and subsequent native qualification before transferring any
-LinuxServer acceptance claim. Old checkpoints keep their original profile hash.
+records renewed inputs. [The new L1 run](fork-linuxserver-l1-current-candidate.md)
+qualifies the baseline only; new L2-L4 evidence is still required for this
+candidate. Old checkpoints keep their original profile hash.
 
 L1 baseline qualification and L2 fixture/B0 capture have passed for the frozen
 U5 inputs; see the [L1 report](fork-linuxserver-l1.md) and the latest accepted

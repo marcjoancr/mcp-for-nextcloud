@@ -1422,3 +1422,18 @@ next separate phase is renewed L1 qualification, followed by fresh B0 and the
 necessary upgrade/source/recovery evidence. Current-kit LinuxServer, intended
 host, source history/publication, F3, HTTPS, Inspector end-to-end, ChatGPT and
 human reviewers remain pending. No push, deployment or PR #14 change occurred.
+
+
+## Renewed-profile LinuxServer L1 (2026-10-30)
+
+[L1 passes](fork-linuxserver-l1-current-candidate.md) under the renewed `efb27979`
+profile: one native baseline run, 26 completed acceptance stages, exit 0 and
+independently verified removal of all five containers, one network and four
+volumes. Private TLS/admission, PostgreSQL/primary S3 persistence, CLI/FPM context,
+five-file source-kit retrieval and expected failure paths passed.
+
+Only MCP 1.2.0 was installed; the candidate kit was served privately without being
+advertised by the baseline. No upgrade or checkpoint was performed. L2 is next
+and remains unstarted. Current-candidate upgrade/recovery, intended-host acceptance,
+source publication/history, F3, public HTTPS, Inspector end-to-end, ChatGPT and
+human reviewers stay pending. No push, deployment or PR #14 change occurred.
