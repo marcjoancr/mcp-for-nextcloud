@@ -3,9 +3,9 @@
 
 # LinuxServer L0 renewal for the M4 candidate
 
-Subsequent status: [L3 with the renewed profile](fork-linuxserver-l3-current-candidate.md)
-has passed candidate upgrade/B1 qualification. Recovery remains pending for this
-profile; the phase-end statements below retain their original scope.
+Subsequent status: [L4 with the renewed profile](fork-linuxserver-l4-current-candidate.md)
+has passed isolated recovery qualification. L5 remains unstarted for this profile;
+the phase-end statements below retain their original scope.
 
 Date: 2026-10-30. **L0 input renewal passes; no new L1-L4 execution occurred.**
 The owner authorized profile/kit binding, pin verification and offline controls

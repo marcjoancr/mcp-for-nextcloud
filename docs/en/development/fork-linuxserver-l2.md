@@ -3,8 +3,8 @@
 
 # LinuxServer L2 fixtures and B0 checkpoint
 
-Subsequent status: [L3 for the renewed profile](fork-linuxserver-l3-current-candidate.md)
-now passes upgrade/B1 qualification. L4 remains unstarted for that profile;
+Subsequent status: [L4 for the renewed profile](fork-linuxserver-l4-current-candidate.md)
+now passes isolated recovery qualification. L5 remains unstarted for that profile;
 the phase-end statements below retain their original scope.
 
 This record covers the authorized L2 work on devbox on 2026-10-29, based on

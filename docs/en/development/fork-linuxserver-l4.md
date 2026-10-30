@@ -3,6 +3,10 @@
 
 # LinuxServer L4 isolated restore and recovery
 
+Subsequent status: [L4 for the renewed profile](fork-linuxserver-l4-current-candidate.md)
+now passes isolated recovery qualification. L5 remains unstarted for that profile;
+the phase-end statements below retain their original scope.
+
 This record covers the authorized L4 work on devbox on 2026-10-29, starting at
 harness revision `8cdc71fd`. The application remains the frozen U5 candidate
 `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, version 2.0.0, on the unchanged

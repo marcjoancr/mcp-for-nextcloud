@@ -1466,3 +1466,17 @@ bytes were verified and used unchanged. Public download availability remains
 unqualified. Current-candidate recovery/L5 closure, intended-host acceptance,
 source history/publication, F3, public HTTPS, Inspector end-to-end, ChatGPT and
 human reviewers remain pending. No push, deployment or PR #14 change occurred.
+
+
+## Renewed-profile LinuxServer L4 (2026-10-30)
+
+[L4 passes](fork-linuxserver-l4-current-candidate.md) for `efb27979`: R1 restores
+2.0.0; both R0 failure boundaries restore the complete matching 1.2.0 state.
+The run passed 72 stages and 273 HTTP checks, including timed historical-credential
+rejection, fresh permitted access, source restoration and three fail-closed
+import negatives. All five retained generations and exact resource absence were
+independently verified; original L3 B0/B1 remain unchanged. L5 is unstarted.
+
+Local recovery evidence does not close intended-host qualification, F3, source
+history/publication, public HTTPS, Inspector end-to-end, ChatGPT or human reviews.
+No push, deployment, intended-server access or PR #14 change occurred.
