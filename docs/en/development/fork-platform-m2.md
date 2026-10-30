@@ -8,6 +8,9 @@ Date: 2026-10-30. **M2 complete: eight additional native cells, 10/15 total with
 hosted ChatGPT and all human reviewers remain pending. No production-server
 operation, push, deployment or PR #14 change occurred.
 
+Subsequent [M3 acceptance](fork-platform-m3.md) brings the same candidate to
+15/15 native cells. The M2 results below remain the historical batch record.
+
 ## Identity and execution order
 
 The [approved plan](fork-platform-source-acceptance-plan.md#m2--remaining-core-and-database-profiles)

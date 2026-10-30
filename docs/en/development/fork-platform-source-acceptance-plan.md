@@ -4,16 +4,17 @@
 # Isolated platform and source-offer acceptance plan
 
 > Execute the batches in order, validating each gate before advancing. This
-> document records M0-M2 completion and specifies the remaining work; it does not
+> document records M0-M3 completion and specifies the remaining work; it does not
 > start the native matrix or authorize publication, deployment, production access
 > or changes to PR #14.
 
-Date: 2026-10-29; M0-M2 closure: 2026-10-30. **Next bounded batch: M3.**
+Date: 2026-10-29; M0-M3 closure: 2026-10-30. **Next bounded batch: M4 (not started).**
 [M0 results and trusted candidate identity](fork-platform-m0.md) close preparation
 and control checks. [M1 results](fork-platform-m1.md) accept the source offer,
 downloaded-source reconstruction and the first two native cells.
 [M2 results](fork-platform-m2.md) accept eight further cells, for **10/15 total**.
-M3/M4 define the remaining completion and reconciliation gates.
+[M3 results](fork-platform-m3.md) accept the last five origins, for **15/15 native
+cells**. M4 reconciliation and its separate acceptance gates remain open.
 HTTPS, Inspector end-to-end acceptance, hosted ChatGPT and human reviews stay open.
 
 **Goal:** qualify one immutable runtime/source kit against the approved reference
@@ -205,6 +206,10 @@ in `fresh` (M1) and `upgrade-local` (M3); it is not an extra matrix cell or a cl
 that every cell tests Mail. The current `matrix.php --matrix` returns 15 cells;
 older 14-cell reports stay historical. Do not drop a failed upgrade origin from
 the denominator or use filtered diagnostics as final acceptance.
+
+**Completed 2026-10-30:** [M3 results](fork-platform-m3.md) record the five origins
+in order, expected skips, executed Mail checks, preserved baseline inventories,
+continuity probes and exact-owned cleanup. M4 was not started.
 
 ## M4 — Reconcile evidence and close only the accepted scope
 

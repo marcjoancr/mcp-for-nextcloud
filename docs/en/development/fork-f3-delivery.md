@@ -1368,3 +1368,21 @@ API; tests establish tool hiding/refusal there, not feature parity. M3 is next
 and was not started. M4, intended-host/S3/recovery qualification, final source
 publication/history review, HTTPS, Inspector end-to-end, ChatGPT and all human
 reviewers remain pending. No push, deployment or PR #14 change occurred.
+
+
+## M3 remaining upgrade-origin acceptance (2026-10-30)
+
+[M3 passes](fork-platform-m3.md) for the unchanged `efb27979` candidate: five
+sequential NC35/MariaDB updates from 1.0.8, fork 1.1.2 with Mail, upstream 1.1.0,
+1.1.1 and 1.1.2. The suites report 1,500 cases, 22,432 assertions, 47 expected
+conditional skips and no failures/errors. All installed candidates and preserved
+baseline trees match; legacy/continuity checks and the two Mail cases passed.
+All 11 containers, five networks and 11 volumes were independently confirmed absent.
+A startup race in the external progress reader was reproduced and corrected;
+native runs and evidence were unaffected.
+
+Coverage is now **15/15 declared native cells**. M4 was not started and remains
+the next reconciliation gate. LinuxServer qualification for this successor,
+intended-host/S3/recovery acceptance, final source publication/history review,
+HTTPS, Inspector end-to-end, ChatGPT and all human reviewers remain pending.
+No push, deployment or PR #14 change occurred.
