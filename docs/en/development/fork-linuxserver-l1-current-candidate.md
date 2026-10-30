@@ -3,6 +3,10 @@
 
 # LinuxServer L1 with the renewed candidate profile
 
+Subsequent status: [L2 for the renewed profile](fork-linuxserver-l2-current-candidate.md)
+now passes fixture/B0 qualification. L3 remains unstarted for that profile;
+the phase-end statements below retain their original scope.
+
 Date: 2026-10-30. **L1 passes; L2 has not started.** The existing runner executed
 one new isolated baseline qualification under the [renewed L0 profile](fork-linuxserver-l0-current-candidate.md),
 following the [L1 plan](fork-linuxserver-upgrade-recovery-plan.md#l1--bootstrap-the-isolated-linuxserver-profile).

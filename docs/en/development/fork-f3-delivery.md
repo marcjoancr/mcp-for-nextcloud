@@ -1437,3 +1437,17 @@ advertised by the baseline. No upgrade or checkpoint was performed. L2 is next
 and remains unstarted. Current-candidate upgrade/recovery, intended-host acceptance,
 source publication/history, F3, public HTTPS, Inspector end-to-end, ChatGPT and
 human reviewers stay pending. No push, deployment or PR #14 change occurred.
+
+
+## Renewed-profile LinuxServer L2 (2026-10-30)
+
+[L2 passes](fork-linuxserver-l2-current-candidate.md) for the renewed `efb27979`
+profile: one isolated native run, 30 phase controls and 120 HTTP assertions,
+followed by independent B0 integrity/oracle checks and exact resource absence.
+B0 contains 93 payloads and 87 S3 objects; all eleven policy tables match the
+retained oracle. Only MCP 1.2.0 was installed. L3 is next and remains unstarted.
+
+This qualifies fixture data and coherent capture only. Current-candidate
+upgrade/recovery, intended-host acceptance, source history/publication, F3, public
+HTTPS, Inspector end-to-end, ChatGPT and human reviewers remain pending. No push,
+deployment, intended-server access or PR #14 change occurred.

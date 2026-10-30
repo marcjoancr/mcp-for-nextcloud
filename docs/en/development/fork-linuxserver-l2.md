@@ -3,6 +3,10 @@
 
 # LinuxServer L2 fixtures and B0 checkpoint
 
+Subsequent status: [L2 for the renewed profile](fork-linuxserver-l2-current-candidate.md)
+now passes fixture/B0 qualification. L3 remains unstarted for that profile;
+the phase-end statements below retain their original scope.
+
 This record covers the authorized L2 work on devbox on 2026-10-29, based on
 `edf2f9cb`. The implementation-stage review fixes passed native capture and cleanup, including
 comparison of all eleven policy tables against the actual dump. The closure review

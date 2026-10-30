@@ -5,8 +5,9 @@
 
 **Current status:** [L0 renewal for the M4 candidate](fork-linuxserver-l0-current-candidate.md)
 binds the profile to `efb27979` and its verified kit.
-[Renewed L1](fork-linuxserver-l1-current-candidate.md) passes baseline qualification;
-L2 has not started and is the next separate phase. Candidate installation and
+[Renewed L1](fork-linuxserver-l1-current-candidate.md) passes baseline qualification
+and [renewed L2](fork-linuxserver-l2-current-candidate.md) passes fixture/B0 capture.
+L3 has not started and is the next separate phase. Candidate installation and
 checkpoint restoration remain unqualified.
 
 **Historical U5 campaign:** L0 inputs were renewed on 2026-10-27 for
@@ -554,7 +555,8 @@ executed. Production recovery readiness is not inferred from this fixture.
 The accepted phases described below qualify U5 only. The renewed profile now
 selects the M4 candidate; [its L0 record](fork-linuxserver-l0-current-candidate.md)
 records renewed inputs. [The new L1 run](fork-linuxserver-l1-current-candidate.md)
-qualifies the baseline only; new L2-L4 evidence is still required for this
+qualifies the baseline; [renewed L2](fork-linuxserver-l2-current-candidate.md)
+now qualifies fixture/B0 capture. New L3-L4 evidence is still required for this
 candidate. Old checkpoints keep their original profile hash.
 
 L1 baseline qualification and L2 fixture/B0 capture have passed for the frozen
@@ -578,7 +580,7 @@ B0/B1 integrity alone does not qualify restoration; only the completed recovery 
 | Intended-host updates, backup and recovery | Actual app/image update writers, S3 provider/versioning/retention, backup topology and restoration mechanism remain unverified; disabling a local app store is not an approved production control |
 | Final release and support matrix | This is one additional target profile. The final frozen artifact, complete reference matrix, source-history/publication review and trusted distribution remain separate gates |
 | HTTPS | Private fixture TLS does not validate public DNS, certificate chain, ingress or hosted-client access |
-| Inspector | Prior result remains **14/15**, with a nonzero run and the external encrypted-storage finding unresolved; no new server disclosure is inferred and this plan does not rerun Inspector |
+| Inspector | Historical **14/15** remains a nonzero result. The [local storage/provider correction](inspector-storage-resolution.md) passed its separate qualification; refreshed end-to-end Inspector remains pending and is not exercised by this plan |
 | ChatGPT | Real hosted consent, tool use and revocation have not passed acceptance |
 | Human review | Security, operations/recovery, license/attribution, accessibility and language reviewers remain unassigned/pending. The owner retains operation/recovery responsibility, but that is not completed independent review |
 

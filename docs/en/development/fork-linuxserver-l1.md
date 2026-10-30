@@ -3,8 +3,8 @@
 
 # LinuxServer L1 baseline qualification
 
-Subsequent status: [L1 with the renewed profile](fork-linuxserver-l1-current-candidate.md)
-has passed baseline qualification. For this renewed profile, L2 and candidate
+Subsequent status: [L2 with the renewed profile](fork-linuxserver-l2-current-candidate.md)
+has passed fixture/B0 qualification after L1. For this renewed profile, candidate
 upgrade/recovery remain pending; the phase-end statements below retain their
 original scope.
 
