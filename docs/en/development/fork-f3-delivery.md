@@ -1339,3 +1339,15 @@ acceptance and Inspector component results remain scoped to their recorded input
 F3, final/intended-host acceptance, trusted source publication/history review,
 HTTPS, end-to-end Inspector, hosted ChatGPT and all human reviewers remain open.
 No push, deployment, production-server operation or PR #14 change occurred.
+
+
+## M1 isolated source and primary-platform acceptance (2026-10-30)
+
+[M1 passes](fork-platform-m1.md) for the unchanged `efb27979` candidate:
+124 source-offer checks, exact reconstruction from the anonymously downloaded
+kit, and both full NC35/MariaDB suites (fresh with Mail and upstream 1.2.0 upgrade).
+All three installed trees match the kit, and all owned containers, networks and
+volumes were independently confirmed absent. Coverage is **2/15 native cells**,
+plus the distinct source fixture; M2 is next. HTTPS, Inspector end-to-end,
+ChatGPT, all human reviewers, final publication/history review and intended-host
+qualification remain pending. No push, deployment or PR #14 change occurred.

@@ -7,6 +7,8 @@ Date: 2026-10-30. Scope: [M0 of the platform/source plan](fork-platform-source-a
 **M0 complete.** This is local preparation and control validation, not native acceptance. M1-M4,
 public HTTPS, end-to-end Inspector, hosted ChatGPT and human reviews remain open.
 No production server access, deployment, push or PR #14 change is included.
+Subsequent [M1 acceptance](fork-platform-m1.md) is recorded separately; the
+zero-native-cell statements below describe this M0 checkpoint.
 
 ## Runtime and compatibility
 

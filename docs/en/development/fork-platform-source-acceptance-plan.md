@@ -4,13 +4,14 @@
 # Isolated platform and source-offer acceptance plan
 
 > Execute the batches in order, validating each gate before advancing. This
-> document records M0 completion and specifies the remaining work; it does not
+> document records M0/M1 completion and specifies the remaining work; it does not
 > start the native matrix or authorize publication, deployment, production access
 > or changes to PR #14.
 
-Date: 2026-10-29; M0 closure: 2026-10-30. **Next bounded batch: M1.**
+Date: 2026-10-29; M0/M1 closure: 2026-10-30. **Next bounded batch: M2.**
 [M0 results and trusted candidate identity](fork-platform-m0.md) close preparation
-and control checks; no native cell has run for the successor. M2-M4 define
+and control checks. [M1 results](fork-platform-m1.md) accept the source offer,
+downloaded-source reconstruction and 2/15 native cells. M2-M4 define
 completion criteria so the first batch cannot be mistaken for the entire matrix.
 HTTPS, Inspector end-to-end acceptance, hosted ChatGPT and human reviews stay open.
 
@@ -146,21 +147,21 @@ unreviewed new runtime bytes. M0 is not native platform acceptance.
 **Files:** existing `mcp/scripts/release/accept.mjs`, source-offer fixture and native
 runner, plus the new evidence report under `docs/en/development/`.
 
-- [ ] Run `composer --working-dir=mcp test:source -- ABSOLUTE_KIT TRUSTED_DIGEST`
+- [x] Run `composer --working-dir=mcp test:source -- ABSOLUTE_KIT TRUSTED_DIGEST`
   with the patched verification runtime and refreshed NC35/SQLite pin. It already
   consumes the archive and publishes no host port. Require M0's new installed-tree
-  gate before the source-offer checks; M0 implements it, but its real-container
-  acceptance remains part of this batch.
-- [ ] Require a non-admin's personal-settings offer, both MCP discovery paths,
+  gate before the source-offer checks; M0 implemented it and the M1 results
+  record its successful execution against the real disposable instance.
+- [x] Require a non-admin's personal-settings offer, both MCP discovery paths,
   Basic/Bearer access boundaries, disabled-connection behavior, mismatched metadata
   denial, anonymous retrieval of all five files and rejection of a tampered copy.
-- [ ] From the **downloaded** kit, verify the trusted digest, clone the bundle,
+- [x] From the **downloaded** kit, verify the trusted digest, clone the bundle,
   detach at the candidate SHA, rebuild and compare every extracted runtime and
   vendor-source file. A successful download alone is insufficient.
-- [ ] Run full native NC35/MariaDB `fresh --mail`, then `upgrade-upstream-120`,
+- [x] Run full native NC35/MariaDB `fresh --mail`, then `upgrade-upstream-120`,
   both with the verified candidate-kit option implemented by M0. Preserve the
   exact installed 1.2.0 baseline before replacement and native upgrade evidence.
-- [ ] Independently verify removal of exact-owned containers, networks and
+- [x] Independently verify removal of exact-owned containers, networks and
   anonymous volumes. Any uncertain ownership/cleanup is a failed gate.
 
 **Acceptance:** source offer and fetched-source reconstruction pass; both native
