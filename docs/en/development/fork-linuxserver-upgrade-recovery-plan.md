@@ -7,8 +7,9 @@
 binds the profile to `efb27979` and its verified kit.
 [Renewed L1](fork-linuxserver-l1-current-candidate.md) passes baseline qualification
 and [renewed L2](fork-linuxserver-l2-current-candidate.md) passes fixture/B0 capture.
-L3 has not started and is the next separate phase. Candidate installation and
-checkpoint restoration remain unqualified.
+[Renewed L3](fork-linuxserver-l3-current-candidate.md) passes candidate upgrade/B1
+qualification. L4 has not started and is the next separate phase; checkpoint
+restoration remains unqualified.
 
 **Historical U5 campaign:** L0 inputs were renewed on 2026-10-27 for
 `940c3da3` and its separately verified source kit. L1 baseline bootstrap is now
@@ -556,8 +557,9 @@ The accepted phases described below qualify U5 only. The renewed profile now
 selects the M4 candidate; [its L0 record](fork-linuxserver-l0-current-candidate.md)
 records renewed inputs. [The new L1 run](fork-linuxserver-l1-current-candidate.md)
 qualifies the baseline; [renewed L2](fork-linuxserver-l2-current-candidate.md)
-now qualifies fixture/B0 capture. New L3-L4 evidence is still required for this
-candidate. Old checkpoints keep their original profile hash.
+now qualifies fixture/B0 capture and [renewed L3](fork-linuxserver-l3-current-candidate.md)
+qualifies upgrade/B1. New L4 recovery evidence is still required for this candidate.
+Old checkpoints keep their original profile hash.
 
 L1 baseline qualification and L2 fixture/B0 capture have passed for the frozen
 U5 inputs; see the [L1 report](fork-linuxserver-l1.md) and the latest accepted

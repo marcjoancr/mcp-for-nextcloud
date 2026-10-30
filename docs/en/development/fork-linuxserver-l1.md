@@ -3,10 +3,9 @@
 
 # LinuxServer L1 baseline qualification
 
-Subsequent status: [L2 with the renewed profile](fork-linuxserver-l2-current-candidate.md)
-has passed fixture/B0 qualification after L1. For this renewed profile, candidate
-upgrade/recovery remain pending; the phase-end statements below retain their
-original scope.
+Subsequent status: [L3 with the renewed profile](fork-linuxserver-l3-current-candidate.md)
+has passed candidate upgrade/B1 qualification. Recovery remains pending for this
+profile; the phase-end statements below retain their original scope.
 
 This record covers the authorized L1 bootstrap on devbox on 2026-10-27.
 It does not qualify an upgrade, checkpoint, rollback, production deployment or

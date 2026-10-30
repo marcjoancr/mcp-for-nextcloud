@@ -1451,3 +1451,18 @@ This qualifies fixture data and coherent capture only. Current-candidate
 upgrade/recovery, intended-host acceptance, source history/publication, F3, public
 HTTPS, Inspector end-to-end, ChatGPT and human reviewers remain pending. No push,
 deployment, intended-server access or PR #14 change occurred.
+
+
+## Renewed-profile LinuxServer L3 (2026-10-30)
+
+[L3 passes](fork-linuxserver-l3-current-candidate.md) for `efb27979`: native
+1.2.0 to 2.0.0 upgrade, preservation/capability/source checks, same-image app
+recreation and verified B1. The native suite passed 55 tests /
+1,144 assertions with no failures or skips; retained B0/B1 and exact
+resource absence were independently verified. L4 remains unstarted.
+
+The fresh PHPUnit PHAR download returned HTTP 403; the retained exact pinned
+bytes were verified and used unchanged. Public download availability remains
+unqualified. Current-candidate recovery/L5 closure, intended-host acceptance,
+source history/publication, F3, public HTTPS, Inspector end-to-end, ChatGPT and
+human reviewers remain pending. No push, deployment or PR #14 change occurred.

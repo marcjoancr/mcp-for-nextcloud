@@ -3,6 +3,10 @@
 
 # LinuxServer L2 and B0 with the renewed candidate profile
 
+Subsequent status: [L3 for the renewed profile](fork-linuxserver-l3-current-candidate.md)
+now passes upgrade/B1 qualification. L4 remains unstarted for that profile;
+the phase-end statements below retain their original scope.
+
 Date: 2026-10-30. **L2 passes; L3 has not started.** The unchanged runner
 created a fresh isolated MCP 1.2.0 fixture, seeded synthetic records and captured
 B0 under the [renewed profile](fork-linuxserver-l0-current-candidate.md), following

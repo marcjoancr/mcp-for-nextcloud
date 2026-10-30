@@ -3,6 +3,10 @@
 
 # LinuxServer L3 isolated upgrade
 
+Subsequent status: [L3 for the renewed profile](fork-linuxserver-l3-current-candidate.md)
+now passes upgrade/B1 qualification. L4 remains unstarted for that profile;
+the phase-end statements below retain their original scope.
+
 This record covers the authorized L3 implementation on devbox on 2026-10-29,
 starting from harness revision `017bce7d`. The application candidate remains the
 frozen U5 commit `940c3da36f0d9c5310a98d7c3f355d2d99c86d33`, version 2.0.0.
