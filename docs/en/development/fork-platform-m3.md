@@ -3,6 +3,9 @@
 
 # M3: remaining upgrade-origin acceptance
 
+Subsequent status: [M4 reconciliation](fork-platform-m4.md) is complete.
+The phase-end statements below describe M3; external and human gates stay open.
+
 Date: 2026-10-30. **M3 complete: five additional native cells, 15/15 declared
 cells with [M1](fork-platform-m1.md) and [M2](fork-platform-m2.md).** M4 was not
 started. Public HTTPS, Inspector end-to-end, hosted ChatGPT and all human reviewers

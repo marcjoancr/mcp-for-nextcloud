@@ -3,6 +3,11 @@
 
 # LinuxServer L5 local evidence and regression closure
 
+Subsequent status: [M4 reconciliation](fork-platform-m4.md) locates the retained
+L5 evidence in the same project's `upstream-121-reconciliation` worktree and
+compares U5 with the successor. This historical campaign does not qualify that
+new artifact for LinuxServer.
+
 This record follows the [L5 plan](fork-linuxserver-upgrade-recovery-plan.md#l5--review-evidence-validate-and-clean-up)
 on 2026-10-29, starting at harness revision `b664495f`. It covers evidence review,
 private-artifact retention, cleanup and the relevant existing Apache regressions.

@@ -1386,3 +1386,22 @@ the next reconciliation gate. LinuxServer qualification for this successor,
 intended-host/S3/recovery acceptance, final source publication/history review,
 HTTPS, Inspector end-to-end, ChatGPT and all human reviewers remain pending.
 No push, deployment or PR #14 change occurred.
+
+
+## M4 local reconciliation (2026-10-30)
+
+[M4 is complete](fork-platform-m4.md) for the frozen `efb27979` kit: all 15 native
+cells and the separate 124-check source fixture agree on candidate identity and
+installed files. Retained suites total 4,500 cases, 68,658 assertions and
+131 expected conditional skips. The downloaded-source reconstruction and
+73 dependency files still match. M4 repeated integrity and live cleanup checks,
+not native suites or reconstruction; all owned resources are absent.
+
+The historical LinuxServer U5 evidence is intact in its original same-project
+worktree. Only three runtime metadata/command-description paths differ, but this
+does not qualify the successor on LinuxServer. Renewing L0's profile/kit binding
+is the next bounded technical step, before any new isolated qualification.
+F3, current-kit LinuxServer and intended-host/S3/recovery acceptance, final source
+publication/history review, HTTPS, Inspector end-to-end, ChatGPT and all human
+reviewers remain pending. No push, deployment, production access or PR #14 change
+occurred; raw/private evidence is not approved for publication.

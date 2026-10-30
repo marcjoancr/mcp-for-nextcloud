@@ -4,17 +4,18 @@
 # Isolated platform and source-offer acceptance plan
 
 > Execute the batches in order, validating each gate before advancing. This
-> document records M0-M3 completion and specifies the remaining work; it does not
+> document records M0-M4 local completion and separate open acceptance gates; it does not
 > start the native matrix or authorize publication, deployment, production access
 > or changes to PR #14.
 
-Date: 2026-10-29; M0-M3 closure: 2026-10-30. **Next bounded batch: M4 (not started).**
+Date: 2026-10-29; M0-M4 local closure: 2026-10-30. **F3/release gates remain open.**
 [M0 results and trusted candidate identity](fork-platform-m0.md) close preparation
 and control checks. [M1 results](fork-platform-m1.md) accept the source offer,
 downloaded-source reconstruction and the first two native cells.
 [M2 results](fork-platform-m2.md) accept eight further cells, for **10/15 total**.
 [M3 results](fork-platform-m3.md) accept the last five origins, for **15/15 native
-cells**. M4 reconciliation and its separate acceptance gates remain open.
+cells**. [M4 reconciliation](fork-platform-m4.md) is complete; current-candidate
+LinuxServer qualification, final publication and intended-host/human gates remain open.
 HTTPS, Inspector end-to-end acceptance, hosted ChatGPT and human reviews stay open.
 
 **Goal:** qualify one immutable runtime/source kit against the approved reference
@@ -31,8 +32,9 @@ and [LinuxServer boundaries](fork-linuxserver-l5.md).
 ## Inputs and decisions
 
 The current candidate is the [M0 successor](fork-platform-m0.md#frozen-candidate-and-independent-reconstruction)
-at `efb27979b6a90122ce45a6a509e52390030f7ed9`. All remaining batches must use
-its externally recorded manifest digest. The paragraphs below retain the original
+at `efb27979b6a90122ce45a6a509e52390030f7ed9`. Any follow-up qualification must use
+its externally recorded manifest digest. M0-M4 local work is now complete.
+The paragraphs below retain the original
 planning baseline and the prerequisites that M0 has now completed.
 
 The previous reviewed kit was 2.0.0 at
@@ -213,18 +215,24 @@ continuity probes and exact-owned cleanup. M4 was not started.
 
 ## M4 — Reconcile evidence and close only the accepted scope
 
-- [ ] Confirm all cells and source-offer results bind the same immutable kit;
+- [x] Confirm all cells and source-offer results bind the same immutable kit;
   preserve failed attempts and distinguish diagnostic repetitions.
-- [ ] Reconcile LinuxServer L0-L5 separately: its tested kit was U5, not this final
-  successor. If claiming LinuxServer support for the final artifact, refresh its
+- [x] Reconcile LinuxServer L0-L5 separately: its tested kit was U5, not this final
+  successor. [M4](fork-platform-m4.md) records the exact delta and retained evidence.
+- [ ] Before claiming LinuxServer support for the final artifact, refresh its
   profile/kit pins and repeat the necessary candidate upgrade/source-offer/recovery
   qualification under that plan. Do not overwrite the retained checkpoints or
   infer LinuxServer/S3 acceptance from the Apache matrix.
-- [ ] Record release-history/attribution review and ordinary-user source
+- [x] Record release-history/attribution review and ordinary-user source
   publication as separate gates. A local loopback source host is not the final
   immutable public destination.
-- [ ] Verify owned-resource absence, redact artifacts and retain private inputs
-  only under the recorded owner/retention policy. No broad Docker pruning.
+- [x] Verify owned-resource absence and retain private inputs under the recorded
+  owner/retention policy. Export only the allowlisted reconciliation summary;
+  raw artifacts remain private and are not publication-approved. No broad pruning.
+
+**Completed 2026-10-30:** [M4 results](fork-platform-m4.md) close local evidence
+reconciliation and cleanup. The unchecked LinuxServer qualification and external
+gates remain open; M4 did not run another fixture or publish sources.
 
 **Acceptance:** the report lists exact coverage, remaining gaps and release
 readiness without turning local tests into intended-host or human acceptance.
