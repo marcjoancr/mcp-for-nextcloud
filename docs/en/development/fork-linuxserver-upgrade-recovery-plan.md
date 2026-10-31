@@ -13,6 +13,13 @@ restoration/recovery. [Renewed L5](fork-linuxserver-l5-current-candidate.md) clo
 scoped local evidence, regression and retention acceptance; intended-host and
 external/human gates remain open.
 
+**New host-origin observation (2026-10-31):** the
+[read-only MinicoLab audit](fork-minicolab-update-integrity-audit.md) finds installed
+files declaring MCP 1.2.1. This plan's accepted 1.2.0 baseline and results remain
+unchanged. The [1.2.1 baseline and 1.2.2 intake](upstream-1.2.2-intake.md)
+records the exact published origin matching all 574 host files. A separate profile
+and upgrade/recovery run are still required for that installation.
+
 **Historical U5 campaign:** L0 inputs were renewed on 2026-10-27 for
 `940c3da3` and its separately verified source kit. L1 baseline bootstrap is now
 implemented and has passed native acceptance with cleanup. See the

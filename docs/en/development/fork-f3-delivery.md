@@ -3,6 +3,13 @@
 
 # F3: local delivery, update control and integrity
 
+Latest host observation: the [2026-10-31 read-only update/integrity audit](fork-minicolab-update-integrity-audit.md)
+finds installed MCP files declaring 1.2.1. Renewed L5 still qualifies the frozen
+1.2.0 origin only; update exclusion, native host integrity and the new upgrade
+journey remain unqualified. Local comparison with the published 1.2.1 package
+subsequently matched all 574 captured files. The [1.2.2 intake](upstream-1.2.2-intake.md)
+records both package pins and the next isolated tests. Earlier entries below retain their dated scope.
+
 Status: local source-offer acceptance on 2026-10-23, partial host inventory on
 2026-10-24, L5 closure and a reconstructed local candidate on 2026-10-29;
 **F3 remains open**. See the [current candidate record](fork-candidate-re2js.md)
@@ -1497,3 +1504,24 @@ This closes scoped local LinuxServer acceptance, not intended-host recovery, F3,
 source-history/publication, public HTTPS, refreshed Inspector, hosted ChatGPT or
 human review. No application/runner change, push, deployment, intended-server
 access or PR #14 modification occurred.
+
+
+## MinicoLab update and integrity audit (2026-10-31)
+
+The host inspection verified 501 installed files against upstream Git and 60
+dependency files against the frozen candidate. The subsequent comparison with
+the published 1.2.1 asset matched all 574 files in both host captures. Three
+Composer-generated files differed in a separate source rebuild. The published
+asset is the reviewed origin for the proposed fixture. [Host audit](fork-minicolab-update-integrity-audit.md) · [Package comparison and test plan](upstream-1.2.2-intake.md)
+
+The app and its parent are writable by the FPM service UID; no declared per-app
+update exclusion was found. Copied core can skip integrity verification for an
+unsigned non-shipped app while returning success. LinuxServer startup and Coolify
+metadata require explicit writer coverage; empty selected schedule tables do not
+prove absence of external jobs or backups. The report defines isolated tests for
+a real 1.2.1 origin, update exclusion, native integrity and coordinated recovery.
+
+F3, intended-host qualification, source-history/publication, HTTPS, Inspector,
+ChatGPT and human reviewers remain pending. No server configuration change, push,
+deployment or PR #14 action occurred. Previously accepted 1.2.0 evidence remains
+valid for its original baseline and must not be relabelled as 1.2.1 acceptance.
