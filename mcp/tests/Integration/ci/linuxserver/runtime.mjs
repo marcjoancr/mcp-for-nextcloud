@@ -16,10 +16,11 @@ import { bootstrap, validateBaseline } from './validation.mjs';
 export async function executeFixture({ options, profile, profileSha256, manifest }) {
   process.umask(0o077);
   const phase = options.phase;
-  const runId = `mcp-${phase.toLowerCase()}-${randomUUID()}`;
-  const root = path.resolve(here, `../../../../build/linuxserver-${phase.toLowerCase()}/runs`, runId);
+  const label = options.checkMount ? 'mount' : phase.toLowerCase();
+  const runId = `mcp-${label}-${randomUUID()}`;
+  const root = path.resolve(here, `../../../../build/linuxserver-${label}/runs`, runId);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
-  const result = { schemaVersion: 1, runId, phase, startedAt: new Date().toISOString(), scope: phase === 'L4' ? 'isolated-recovery' : phase === 'L3' ? 'isolated-upgrade' : phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
+  const result = { schemaVersion: 1, runId, phase, startedAt: new Date().toISOString(), scope: options.checkMount ? 'isolated-readonly-mount' : phase === 'L4' ? 'isolated-recovery' : phase === 'L3' ? 'isolated-upgrade' : phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
     profileSha256, baseline: profile.baseline, candidate: profile.candidate, upgradePerformed: false,
     checkpointsCreated: false, checks: [], cleanup: 'pending', pending: ['L2-L5', 'public-https', 'inspector', 'chatgpt', 'human-review'] };
   let secrets = {}, app, s3, postgres, interrupted = false, cleaning = false;
@@ -172,9 +173,12 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     context.retainCheckpoint = (name, trust) => { result.recoveryCheckpoints[name] = trust; result.checkpointsCreated = true; };
     if (phase !== 'L4') { await bootstrap(context); await validateBaseline(context); }
     await budget();
+    let recreation = 0;
     context.recreateApp = async () => sampling.mutate(async () => {
       await owner.removeContainer(app);
-      app = await create('app', profile.images.nextcloud.reference, appArgs(), 'app-recreated');
+      const args = appArgs();
+      if (options.checkMount) args.push('--mount', `type=bind,src=${root}/mount-source/mcp,dst=/config/www/nextcloud/apps/mcp,readonly`);
+      app = await create('app', profile.images.nextcloud.reference, args, `app-recreated-${++recreation}`);
       context.app = app;
       await startPausedApp(args => owner.checked(args), root, app);
     });
@@ -196,18 +200,24 @@ export async function executeFixture({ options, profile, profileSha256, manifest
         update: ids => { app = context.app = ids.app; postgres = context.postgres = ids.postgres; s3 = context.s3 = ids.s3; },
       });
       result.pending[0] = 'L4-L5';
-      result.recovery = await (await import('./l4.mjs')).executeL4(context, options, restoreTrust);
-      result.pending[0] = 'L5';
-      if (profile.baseline.version === '1.2.1') {
-        // Rehearse destructive store operations on a fresh copy of the verified candidate.
+      if (options.checkMount) {
         await context.restore(path.join(root, 'B1'), restoreTrust.B1);
-        result.protection = await (await import('./protection.mjs')).runProtection(context, options);
-        if (result.protection.passed !== true) throw new Error('Update protection checks did not pass');
+        result.pending[0] = 'production-qualification';
+        result.mount = await (await import('./readonly-mount.mjs')).checkMount(context, options);
+      } else {
+        result.recovery = await (await import('./l4.mjs')).executeL4(context, options, restoreTrust);
+        result.pending[0] = 'L5';
+        if (profile.baseline.version === '1.2.1') {
+          await context.restore(path.join(root, 'B1'), restoreTrust.B1);
+          result.protection = await (await import('./protection.mjs')).runProtection(context, options);
+          if (result.protection.passed !== true) throw new Error('Update protection checks did not pass');
+        }
       }
     }
     if (budgetFailure) throw budgetFailure;
     await budget();
     await record('aggregate-budget', { allocations: roles, peakMeasuredBytes: result.peakMeasuredBytes, diskBudgetGiB: profile.limits.diskBudgetGiB });
+    if (result.mount && !result.mount.protected) throw new Error('The service account can replace the loaded MCP app');
     result.status = 'passed';
   } catch (error) {
     failure = budgetFailure ?? error; result.status = 'failed'; result.failure = redact(failure.message);
