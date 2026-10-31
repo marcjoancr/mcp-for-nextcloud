@@ -90,6 +90,8 @@ private.
 
 ## What would close the blocker
 
+The [operator-owned path rehearsal](linuxserver-operator-paths.md) subsequently tested this boundary. The [production window handoff](minicolab-production-window.md) records its MinicoLab-specific replay.
+
 The next isolated design must give the operator exclusive control of both the
 path hierarchy used to find MCP and the effective configuration that chooses
 app roots. Repeat both substitution attempts and test ordinary signed app

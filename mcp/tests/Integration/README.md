@@ -196,3 +196,18 @@ composer --working-dir=mcp test:integration:linuxserver -- --phase L4 --inputs "
 
 L4 records recovery cases and protection checks independently. An unresolved
 update-control check makes the overall command exit nonzero. [Measured result](../../../docs/en/development/minicolab-121-rehearsal.md)
+
+For a B1 checkpoint from this 1.2.1 origin, `--check-mount` reproduces the
+single-directory bypass and `--check-operator-paths` qualifies the separate
+serving and maintenance roles. Both take the same profile, kit, inputs and two
+checkpoint trust pairs as L4. The modes are mutually exclusive. The first must
+report the substitution and exit nonzero. The operator trial must pass.
+[Mount bypass](../../../docs/en/development/linuxserver-readonly-mcp.md) · [Operator trial](../../../docs/en/development/linuxserver-operator-paths.md)
+
+Use `--host-startup-inputs /absolute/private/inputs` only with
+`--check-operator-paths` to replay the MinicoLab startup profile. Supply
+`hook.sh` and the two signed APK repository views as
+`{main,community}/x86_64/{APKINDEX.tar.gz,*.apk}`. The runner stages only
+verified bytes for the fixed hook, indexes and archives. Docker mounts the
+staged mirror read-only and the fixture retains its internal network.
+[Public package inventory](ci/linuxserver/alpine-ocr-packages.json) · [Qualification and release window](../../../docs/en/development/minicolab-production-window.md)

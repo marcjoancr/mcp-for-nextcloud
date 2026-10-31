@@ -1535,3 +1535,12 @@ devbox. Native MCP signature verification was skipped as expected for the
 unsigned fork. App runtime and parent directory permissions still allow the
 service account to replace the fork. Production writer control and the
 intended host's coordinated backup remain open. [Results and production decision](minicolab-121-rehearsal.md)
+
+## Prepared MinicoLab window (2026-10-31)
+
+The upgrade/recovery, single-mount bypass and operator-owned path trials are
+integrated locally. The selected 2.0.0 source kit remains tied to `efb27979`.
+The authorized read-only preflight reconfirmed the published 1.2.1 origin and
+captured the exact OCR startup input. The production backup and measured
+rollback reserve remain unconfirmed for Monday's 08:00 Madrid deadline.
+[Window decision and operator handoff](minicolab-production-window.md)

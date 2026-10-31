@@ -9,6 +9,7 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 
 | Task | Reference |
 | --- | --- |
+| Prepare the MinicoLab production window | [Decision, cutoff and rollback](minicolab-production-window.md), [OCR startup inputs](minicolab-startup-qualification.md) |
 | Assess the operator-owned app and config paths | [LinuxServer qualification](linuxserver-operator-paths.md) |
 | Assess the read-only mount for MCP | [LinuxServer mount trial](linuxserver-readonly-mcp.md) |
 | Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md), [development baseline](fork-development-baseline.md) |

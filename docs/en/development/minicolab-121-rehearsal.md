@@ -97,6 +97,8 @@ run. No recorded name, ID or ownership label remained in Docker.
 
 ## Production decision
 
+The subsequent [single-directory mount trial](linuxserver-readonly-mcp.md) reproduced two bypasses. The [operator profile](minicolab-production-window.md) closes that local writer finding and records the outstanding production gates.
+
 The next technical decision is who may replace the digest-pinned runtime and
 how to enforce that boundary. A focused follow-up can test a read-only mount
 for just the MCP runtime, backed by an operator-owned immutable artifact.

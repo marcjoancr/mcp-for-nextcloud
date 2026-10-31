@@ -79,6 +79,8 @@ five attempts and checked the global fixture label. None of the 56 containers,
 
 ## Production handoff
 
+The [MinicoLab window handoff](minicolab-production-window.md) records the subsequent read-only comparison, exact OCR hook replay, configuration checks and outstanding production backup decision.
+
 Before scheduling a change, define how the MinicoLab operator will prepare
 and replace the protected application tree, control the Docker/Coolify
 maintenance role, and restore the matching configuration, app, database and
