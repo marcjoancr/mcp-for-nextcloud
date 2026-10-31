@@ -8,7 +8,9 @@ finds installed MCP files declaring 1.2.1. Renewed L5 still qualifies the frozen
 1.2.0 origin only; update exclusion, native host integrity and the new upgrade
 journey remain unqualified. Local comparison with the published 1.2.1 package
 subsequently matched all 574 captured files. The [1.2.2 intake](upstream-1.2.2-intake.md)
-records both package pins and the next isolated tests. Earlier entries below retain their dated scope.
+records both package pins and the successful offline admission of the 1.2.1
+origin. The next isolated trial covers update exclusion and custom-app integrity.
+Earlier entries below retain their dated scope.
 
 Status: local source-offer acceptance on 2026-10-23, partial host inventory on
 2026-10-24, L5 closure and a reconstructed local candidate on 2026-10-29;

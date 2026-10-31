@@ -35,7 +35,17 @@
       "sourceCommit": "02526119b845ccc1d8399be002da3e30b5527df6",
       "version": "1.2.0",
       "archiveSha256": "dc7aff3427c527641440c3f553c4abe300ad96109079c7fa0ea37a0972d0e801",
-      "archiveBytes": 1280730
+      "archiveBytes": 1280730,
+      "inventorySha256": "a120cbe11cf0cb838d1f8a0cc37799459a0c15c9124f7e48d5c353eb624940bf",
+      "runtimeFileCount": 532
+    },
+    "upgrade-upstream-121": {
+      "sourceCommit": "3c61e928f3abdb37ad60b80ed207a5e243bf0ec4",
+      "version": "1.2.1",
+      "archiveSha256": "a3531836a0373df526908b5969370aac272e3561a07ae7c62e329cfc1358ef79",
+      "archiveBytes": 1332081,
+      "inventorySha256": "c41d95e09dc4854f3c260d7891eb2c33279812a8f97e09b7365da63c76c7ca20",
+      "runtimeFileCount": 574
     }
   }
 }

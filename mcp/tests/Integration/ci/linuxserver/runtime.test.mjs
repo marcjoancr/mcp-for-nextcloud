@@ -114,7 +114,7 @@ test('FIFO inputs are rejected before a blocking open', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-l1-fifo-'));
   try {
     assert.equal((await command('mkfifo', [path.join(root, 'input')])).code, 0);
-    const code = `import { checkedFile } from ${JSON.stringify(new URL('./inputs.mjs', import.meta.url).href)}; try { await checkedFile(process.argv[1], process.argv[2], '0'.repeat(64), 0); process.exitCode=2; } catch { console.log('rejected'); }`;
+    const code = `import { checkedFile } from ${JSON.stringify(new URL('../app-archive.mjs', import.meta.url).href)}; try { await checkedFile(process.argv[1], process.argv[2], '0'.repeat(64), 0); process.exitCode=2; } catch { console.log('rejected'); }`;
     const result = await command(process.execPath, ['--input-type=module', '-e', code, path.join(root, 'input'), path.join(root, 'out')], { timeout: 2000 });
     assert.equal(result.code, 0);
     assert.equal(result.out.trim(), 'rejected');

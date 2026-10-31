@@ -58,8 +58,9 @@ have their own pins. [Pinned inputs](upstream-1.2.2-intake.md#pinned-inputs)
 
 The frozen fork remains `efb27979b6a90122ce45a6a509e52390030f7ed9`, version 2.0.0,
 manifest SHA-256 `c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289`.
-No candidate or test-profile change was made. The current harness catalogs a
-1.2.0 upstream baseline, not 1.2.1; silently relabelling that cell is unacceptable.
+The audit used the existing 1.2.0 fixture as its comparison point. The subsequent
+1.2.1 profile has passed offline input admission. Native upgrade and recovery
+from the observed origin are pending.
 
 ## Update paths and integrity findings
 
@@ -121,7 +122,7 @@ not identify who performed the update or which mechanism was used.
 
 ## Necessary isolated tests and acceptance order
 
-The next batch admits the verified 1.2.1 archive as a distinct runner input.
+The verified 1.2.1 archive now passes offline admission as a distinct runner input.
 The test plan defines the positive input, wrong-origin controls, isolated update
 and integrity checks, and recovery to matching 1.2.1 and 2.0.0 checkpoints. Preserve the
 accepted 1.2.0 profile and its checkpoints for comparison. [Test order and acceptance criteria](upstream-1.2.2-intake.md#next-isolated-tests-in-order)

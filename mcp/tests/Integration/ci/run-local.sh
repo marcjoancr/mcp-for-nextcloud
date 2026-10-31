@@ -17,7 +17,7 @@ if [ "${1:-}" = --candidate-kit ]; then
         MCP_IT_BASELINE_PACKAGE=$2; MCP_IT_BASELINE_DIGEST=$3; shift 3
     fi
 fi
-plan=$(php "$CI_DIR/matrix.php" "$@")
+plan=$(MCP_IT_CANDIDATE_KIT="$MCP_IT_CANDIDATE_KIT" php "$CI_DIR/matrix.php" "$@")
 if [ -n "$MCP_IT_CANDIDATE_KIT" ]; then
     [ -z "${MCP_IT_QUALIFICATION_VERSION:-}" ] || { echo 'Candidate runs cannot override the app version' >&2; exit 2; }
     if [ -n "$MCP_IT_BASELINE_PACKAGE" ]; then
