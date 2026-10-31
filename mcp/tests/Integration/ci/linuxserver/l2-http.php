@@ -14,6 +14,16 @@ foreach (['Basic', 'Bearer'] as $auth) {
     assertion($list['status'] === 200 && isset($list['body']['result']['tools']), 'allowed-admission-' . $auth);
     $schema = array_column($list['body']['result']['tools'], 'inputSchema', 'name');
     $schema = array_map(static fn ($value) => $value['properties'] ?? [], $schema);
+    if (($fixture['baseline'] ?? null) === '1.2.1') {
+        assertion(!array_filter(array_keys($schema), static fn ($name) => str_starts_with($name, 'mail_')), 'optional-mail-tools-absent-' . $auth);
+        $baseline = $fixture['baseline121'] ?? throw new RuntimeException('Missing 1.2.1 baseline fixture');
+        $calendar = '/remote.php/dav/calendars/l2-owner/' . $baseline['taskCalendar'] . '/';
+        $children = callTool('tasks_list_tasks', ['calendar' => $calendar, 'parent' => $baseline['taskParent']['uid']], auth: $auth);
+        $child = $children['tasks'][0] ?? null;
+        assertion(is_array($child) && ($child['uid'] ?? null) === $baseline['taskChild']['uid']
+            && ($child['summary'] ?? null) === $baseline['taskChild']['summary']
+            && ($child['parent'] ?? null) === $baseline['taskParent']['uid'], 'baseline-subtask-readable-' . $auth);
+    }
     $denied = rpc('l2-denied', $auth, 'tools/list');
     assertion(in_array($denied['status'], [401, 403], true), 'denied-admission-' . $auth);
     $read = callTool('files_read', ['path' => '/L2/català-日本語.txt'], auth: $auth);

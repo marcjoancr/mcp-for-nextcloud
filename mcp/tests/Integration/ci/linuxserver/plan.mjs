@@ -46,8 +46,7 @@ try {
   if (manifest.sourceCommit !== profile.candidate.sourceCommit || manifest.version !== profile.candidate.version) throw new Error('Source kit identity does not match profile');
   const expected = ['BUILDING.md', `mcp-${manifest.version}.tar.gz`, 'runtime-dependencies.tar.gz', 'source.bundle'];
   if (JSON.stringify(Object.keys(manifest.files).sort()) !== JSON.stringify(expected.sort())) throw new Error('Source kit identity is incomplete');
-  // The 1.2.1 data-seeding and recovery probes need separate qualification.
-  const availablePhases = profile.baseline.version === '1.2.0' ? ['L1', 'L2', 'L3', 'L4'] : ['L1'];
+  const availablePhases = ['L1', 'L2', 'L3', 'L4'];
   if (options.checkBaseline) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mcp-baseline-check-'));
     try {
@@ -56,7 +55,6 @@ try {
         baseline: { ...baseline, sourceCommit: profile.baseline.sourceCommit }, candidate: profile.candidate }, null, 2));
     } finally { await fs.rm(root, { recursive: true, force: true }); }
   } else if (options.phase) {
-    if (!availablePhases.includes(options.phase)) throw new Error('Unsupported phase for the selected baseline');
     const { executeFixture } = await import('./runtime.mjs');
     await executeFixture({ options, profile, profileSha256, manifest });
   } else console.log(JSON.stringify({ schemaVersion: 1, validationScope: 'profile-and-source-kit', executionAvailable: true, availablePhases,

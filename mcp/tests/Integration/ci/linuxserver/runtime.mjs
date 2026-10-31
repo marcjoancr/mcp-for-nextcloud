@@ -88,7 +88,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     }
     if (phase === 'L3') await (await import('./l3-lifecycle.mjs')).prepareTestInput({ root }, options);
     await fs.mkdir(path.join(root, 'probes'), { mode: 0o755 });
-    for (const name of ['probe.php', 'health.php', ...(phase !== 'L1' ? ['l2-seed.php', 'l2-http.php', 'l2-s3.php', 's3-inventory.php', 'tool-response.php', 'http-client.php'] : []), ...(phase === 'L4' ? ['recovery-effects.php', 'l4-role.php', 'l4-state.php', 'l4-http.php', 'l4-s3.php', 'state-snapshot.php', 'state-value.php', 'l3-probe-support.php'] : []), ...(phase === 'L3' ? ['state-snapshot.php', 'l3-state.php', 'state-value.php', 'app-paths.php', 'l3-http.php', 'l3-test-bootstrap.php', 'l3-test-http.php', 'l3-tests.xml', 'TasksBoundaryTest.php', 'BackupBoundaryTest.php', 'DavUpgradeTest.php', 'l3-probe-support.php'] : [])]) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
+    for (const name of ['probe.php', 'health.php', ...(phase !== 'L1' ? ['l2-seed.php', 'l2-http.php', 'l2-s3.php', 's3-inventory.php', 'tool-response.php', 'http-client.php'] : []), ...(phase === 'L4' ? ['app-paths.php', 'recovery-effects.php', 'l4-role.php', 'l4-state.php', 'l4-http.php', 'l4-s3.php', 'state-snapshot.php', 'state-value.php', 'l3-probe-support.php'] : []), ...(phase === 'L3' ? ['state-snapshot.php', 'l3-state.php', 'state-value.php', 'app-paths.php', 'l3-http.php', 'l3-test-bootstrap.php', 'l3-test-http.php', 'l3-tests.xml', 'TasksBoundaryTest.php', 'BackupBoundaryTest.php', 'DavUpgradeTest.php', 'l3-probe-support.php'] : [])]) await fs.copyFile(path.join(here, name), path.join(root, 'probes', name));
     await fs.copyFile(path.resolve(here, '../../Support/ProbeCompletion.php'), path.join(root, 'probes/ProbeCompletion.php'));
     await fs.writeFile(path.join(root, 'probes/apps.json'), JSON.stringify(Object.fromEntries([['mcp', profile.baseline.version], ...profile.apps.map(app => [app.id, app.version])])));
     for (const name of await fs.readdir(path.join(root, 'probes'))) await fs.chmod(path.join(root, 'probes', name), 0o644);
@@ -121,9 +121,9 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       profile.images.seaweedfs.reference, 'server', '-dir=/data', '-master.dir=/data', '-ip=s3', '-ip.bind=0.0.0.0', '-filer', '-s3', '-s3.config=/etc/seaweedfs/s3.json',
       `-volume.max=${profile.objectStore.volumeCount}`, `-master.volumeSizeLimitMB=${profile.objectStore.volumeSizeLimitMiB}`, '-volume.preStopSeconds=1',
     ]);
-    const appArgs = ['--network-alias', 'nc.fixture.test', '--env-file', path.join(root, 'app.env'),
+    const appArgs = () => ['--network-alias', 'nc.fixture.test', '--env-file', path.join(root, 'app.env'),
       '-v', `${volumes.config}:/config`, '-v', `${volumes.data}:/data`, '-v', `${root}/source:/fixture-source:ro`, '-v', `${root}/probes:/fixture-probes:ro`];
-    app = await create('app', profile.images.nextcloud.reference, [...appArgs, ...(phase === 'L4' ? ['--entrypoint', '/bin/sleep'] : [])], 'app', phase === 'L4' ? ['infinity'] : []);
+    app = await create('app', profile.images.nextcloud.reference, [...appArgs(), ...(phase === 'L4' ? ['--entrypoint', '/bin/sleep'] : [])], 'app', phase === 'L4' ? ['infinity'] : []);
     await checked(['cp', `${root}/config/.`, `${app}:/config`]);
     await checked(['start', postgres, s3]);
     if (phase === 'L4') await checked(['start', app]); else await startPausedApp(checked, root, app);
@@ -174,7 +174,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     await budget();
     context.recreateApp = async () => sampling.mutate(async () => {
       await owner.removeContainer(app);
-      app = await create('app', profile.images.nextcloud.reference, appArgs, 'app-recreated');
+      app = await create('app', profile.images.nextcloud.reference, appArgs(), 'app-recreated');
       context.app = app;
       await startPausedApp(args => owner.checked(args), root, app);
     });
@@ -198,6 +198,12 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       result.pending[0] = 'L4-L5';
       result.recovery = await (await import('./l4.mjs')).executeL4(context, options, restoreTrust);
       result.pending[0] = 'L5';
+      if (profile.baseline.version === '1.2.1') {
+        // Rehearse destructive store operations on a fresh copy of the verified candidate.
+        await context.restore(path.join(root, 'B1'), restoreTrust.B1);
+        result.protection = await (await import('./protection.mjs')).runProtection(context, options);
+        if (result.protection.passed !== true) throw new Error('Update protection checks did not pass');
+      }
     }
     if (budgetFailure) throw budgetFailure;
     await budget();

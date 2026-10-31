@@ -59,8 +59,7 @@ have their own pins. [Pinned inputs](upstream-1.2.2-intake.md#pinned-inputs)
 The frozen fork remains `efb27979b6a90122ce45a6a509e52390030f7ed9`, version 2.0.0,
 manifest SHA-256 `c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289`.
 The audit used the existing 1.2.0 fixture as its comparison point. The subsequent
-1.2.1 profile has passed offline input admission. Native upgrade and recovery
-from the observed origin are pending.
+1.2.1 profile has passed offline input admission. See the [joint rehearsal](minicolab-121-rehearsal.md) for subsequent native upgrade, update-control and recovery results.
 
 ## Update paths and integrity findings
 
@@ -134,8 +133,7 @@ and S3 as one coordinated backup. Complete the writer inventory before accepting
 any exclusion policy for MinicoLab.
 
 The existing proposed policy is manual digest-bound fork updates plus a filtered
-catalog omitting `mcp`, while retaining normal updates for other apps. This remains
-an unapproved service design, not a deployed or tested solution. First compare it
+catalog omitting `mcp`, while retaining normal updates for other apps. The [joint rehearsal](minicolab-121-rehearsal.md) tests this service design in isolation. Production adoption requires an operational decision. First compare it
 with the host's available supported controls and operating cost. If no reliable
 exclusion can cover all writers, return the technical app-ID/migration decision
 to the owner; do not silently change identity or disable all app maintenance.

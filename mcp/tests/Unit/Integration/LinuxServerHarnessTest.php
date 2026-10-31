@@ -77,7 +77,7 @@ final class LinuxServerHarnessTest extends TestCase {
         self::assertDoesNotMatchRegularExpression('/' . preg_quote($this->directory, '/') . '/', $out . $err);
         self::assertSame(['bin', 'kit', 'profile.json'], array_values(array_diff(scandir($this->directory), ['.', '..'])));
     }
-    public function testPublished121ProfileLimitsExecutionToBaselineBootstrap(): void {
+    public function testPublished121ProfileSupportsUpgradeAndRequiresPinnedRecoveryInputs(): void {
         $this->profile = json_decode(file_get_contents($this->root() . '/tests/Integration/ci/linuxserver/profile-121.json'), true, 512, JSON_THROW_ON_ERROR);
         $this->profile['candidate']['manifestSha256'] = $this->digest;
         $args = $this->arguments();
@@ -85,14 +85,12 @@ final class LinuxServerHarnessTest extends TestCase {
         [$status, $out, $err] = $this->invoke($args);
         self::assertSame(0, $status, $err);
         $plan = json_decode($out, true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(['L1'], $plan['availablePhases']);
+        self::assertSame(['L1', 'L2', 'L3', 'L4'], $plan['availablePhases']);
         self::assertSame('1.2.1', $plan['profile']['baseline']['version']);
         array_shift($args);
-        foreach (['L2', 'L3'] as $phase) {
-            [$status, , $err] = $this->invoke(['--phase', $phase, '--inputs', $this->directory, ...$args]);
-            self::assertNotSame(0, $status);
-            self::assertStringContainsString('Unsupported phase for the selected baseline', $err);
-        }
+        [$status, , $err] = $this->invoke(['--phase', 'L4', '--inputs', $this->directory, ...$args]);
+        self::assertNotSame(0, $status);
+        self::assertStringContainsString('Usage:', $err);
     }
     public static function unsafeProfiles(): iterable {
         yield 'mutable image' => [['images', 'seaweedfs', 'reference'], 'chrislusf/seaweedfs:latest'];

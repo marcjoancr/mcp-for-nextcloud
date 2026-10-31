@@ -3,7 +3,7 @@
 
 # MinicoLab 1.2.1 upgrade origin and upstream 1.2.2 intake
 
-On 2026-10-31 the official 1.2.1 release asset matched **all 574 installed files** in both retained MinicoLab inventories. Use those published bytes as the origin of the next isolated upgrade to the frozen fork `efb27979b6a90122ce45a6a509e52390030f7ed9` (2.0.0). Upstream 1.2.2 is a separate compatibility and capability review. The host evidence comes from the [read-only audit](fork-minicolab-update-integrity-audit.md).
+On 2026-10-31 the official 1.2.1 release asset matched **all 574 installed files** in both retained MinicoLab inventories. The joint rehearsal uses those published bytes as the origin of the isolated upgrade to the frozen fork `efb27979b6a90122ce45a6a509e52390030f7ed9` (2.0.0). Upstream 1.2.2 is a separate compatibility and capability review. The host evidence comes from the [read-only audit](fork-minicolab-update-integrity-audit.md).
 
 ## Pinned inputs
 
@@ -53,11 +53,11 @@ For each proposed port, exercise a pre-existing grant document, a fresh account,
 
 For step 1, run the positive Apache plan with the explicit candidate kit and published 1.2.1 baseline package. LinuxServer's existing `--plan` reads a profile and kit only. Check its declared baseline pins there, then independently hash and validate the supplied archive and complete inventory during input admission. Use the same admission check in the executable fixture path. Exercise the retained 1.2.0 archive, the published 1.2.2 archive, the local 571-match rebuild and a tampered 1.2.1 archive. Each must fail against the reviewed 1.2.1 pins before a container, volume or network is created. Include mismatched profile/commit and inventory cases, and check that the accepted 1.2.0 planning path still passes.
 
-The operational choice of update-control mechanism and the intended-host database, writer and backup evidence remain open. Public HTTPS, end-to-end Inspector, hosted ChatGPT and human security, operations/recovery, license/attribution, accessibility and language reviews remain pending. Step 1 has passed locally. Step 2 is the next isolated trial.
+The operational choice of update-control mechanism and the intended-host database, writer and backup evidence remain open. Public HTTPS, end-to-end Inspector, hosted ChatGPT and human security, operations/recovery, license/attribution, accessibility and language reviews remain pending. Step 1 passed locally. Steps 2 and 3 share one [isolated 1.2.1 rehearsal](minicolab-121-rehearsal.md). The rehearsal report records the production decision.
 
 ## Review evidence
 
-The private intake directory `mcp/build/f3-upstream-122-intake/` contains a 12-record index with SHA-256 `48c4ebbf8da0090ccb3aa511ed178004d9bfba634e3b91378882826f09357dc8`. The documentation review rechecked both public tag commits and release asset metadata, rehashed the retained archives and compared their contents with the pinned Git trees. Both host snapshots matched the published 1.2.1 file inventory. The rebuilt archive retained the three documented differences. The host audit's separate 46-record index was also verified. Native upgrade and recovery acceptance is pending for this origin.
+The private intake directory `mcp/build/f3-upstream-122-intake/` contains a 12-record index with SHA-256 `48c4ebbf8da0090ccb3aa511ed178004d9bfba634e3b91378882826f09357dc8`. The documentation review rechecked both public tag commits and release asset metadata, rehashed the retained archives and compared their contents with the pinned Git trees. Both host snapshots matched the published 1.2.1 file inventory. The rebuilt archive retained the three documented differences. The host audit's separate 46-record index was also verified. At intake, the published files were the only qualified input. The subsequent rehearsal records native results for this origin.
 
 ## Step 1 results
 
@@ -83,8 +83,7 @@ tripwires remained untouched. Exact invocations and results are retained in
 An initial attempt exposed Composer's global `--profile` option adding performance
 counters to JSON output. The successful repeat used `--fixture-profile` through
 the Composer entry point. The original shell option still selects the same file.
-The implementation review added a regression test for a valid archive with a wrong inventory pin in Apache. After sharing the inventory check, all 58 selected Node controls and 70 PHP integration-harness tests (486 assertions) passed. The 1.2.1 bootstrap has not been run. Update exclusion, instance integrity,
-upgrade and coordinated recovery still require their respective native trials.
+The implementation review added a regression test for a valid archive with a wrong inventory pin in Apache. After sharing the inventory check, all 58 selected Node controls and 70 PHP integration-harness tests (486 assertions) passed. At step 1, the 1.2.1 bootstrap, update exclusion, instance integrity, upgrade and coordinated recovery had yet to run.
 F3, public HTTPS, end-to-end Inspector, hosted ChatGPT and human review remain open.
 
 The full devbox `check` passed both static analysis scopes, 8,708 PHP tests

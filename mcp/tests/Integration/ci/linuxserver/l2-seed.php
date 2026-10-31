@@ -12,7 +12,13 @@ $completion = new \OCA\Mcp\Tests\Integration\Support\ProbeCompletion();
 define('OC_CONSOLE', true);
 require '/app/www/public/lib/base.php';
 Server::get(\OCP\App\IAppManager::class)->loadApp('mcp');
-if (posix_geteuid() !== 1000 || Server::get(\OCP\IConfig::class)->getAppValue('mcp', 'installed_version') !== '1.2.0') throw new RuntimeException('L2 requires the pinned baseline as abc');
+if (posix_geteuid() !== 1000) throw new RuntimeException('L2 requires the pinned baseline as abc');
+$apps = json_decode(file_get_contents('/fixture-probes/apps.json'), true, 512, JSON_THROW_ON_ERROR);
+$baselineVersion = $apps['mcp'] ?? throw new RuntimeException('Pinned app fixture has no MCP baseline');
+if (!in_array($baselineVersion, ['1.2.0', '1.2.1'], true)
+    || Server::get(\OCP\IConfig::class)->getAppValue('mcp', 'installed_version') !== $baselineVersion) {
+    throw new RuntimeException('L2 requires the exact pinned baseline as abc');
+}
 $private = '/tmp/l2-private.json';
 $mode = $argv[1] ?? '';
 $stage = $mode;
@@ -23,7 +29,7 @@ $state = Server::get(PolicyStateMapper::class);
 $config = Server::get(\OCP\IConfig::class);
 $root = Server::get(\OCP\Files\IRootFolder::class);
 if ($mode === 'seed') {
-    $out = ['schemaVersion' => 1, 'baseline' => '1.2.0', 'users' => [], 'files' => [], 'dav' => []];
+    $out = ['schemaVersion' => 1, 'baseline' => $baselineVersion, 'users' => [], 'files' => [], 'dav' => []];
     $policy->setGlobalEnabled(true);
     foreach (['l2-owner', 'l2-reader', 'l2-denied'] as $uid) {
         $stage = 'create-user-' . $uid;
@@ -77,6 +83,28 @@ if ($mode === 'seed') {
         $cal->createCalendarObject($id, 'fixture.ics', $body);
         $stored = $cal->getCalendarObject($id, 'fixture.ics');
         $out['dav'][$type] = ['id' => $id, 'uri' => 'fixture.ics', 'sha256' => hash('sha256', $stored['calendardata'])];
+    }
+    if ($baselineVersion === '1.2.1') {
+        $out['baseline121'] = [
+            'backupSettings' => ['version' => 1, 'folder' => 'Case Archive', 'reserved' => ['MCP backups', 'Case Archive'], 'copies' => true],
+            'taskCalendar' => 'l2-121-hierarchy',
+            'taskParent' => ['uid' => 'l2-121-parent', 'summary' => '1.2.1 baseline parent', 'uri' => 'parent.ics'],
+            'taskChild' => ['uid' => 'l2-121-child', 'summary' => '1.2.1 baseline child', 'uri' => 'child.ics'],
+        ];
+        $config->setAppValue('mcp', 'backup_settings', json_encode($out['baseline121']['backupSettings'], JSON_THROW_ON_ERROR));
+        $stage = '121-task-hierarchy';
+        $calendarId = (int)$cal->createCalendar('principals/users/l2-owner', $out['baseline121']['taskCalendar'], [
+            '{DAV:}displayname' => '1.2.1 baseline task hierarchy',
+            '{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set' => new \Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet(['VTODO']),
+        ]);
+        $out['baseline121']['taskCalendarId'] = $calendarId;
+        $parent = $out['baseline121']['taskParent'];
+        $child = $out['baseline121']['taskChild'];
+        $task = static fn (array $item, string $relation = ''): string => "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//L2 1.2.1//EN\r\nBEGIN:VTODO\r\nUID:{$item['uid']}\r\nSUMMARY:{$item['summary']}\r\nDTSTAMP:20261029T100000Z\r\n" . $relation . "END:VTODO\r\nEND:VCALENDAR\r\n";
+        $cal->createCalendarObject($calendarId, $parent['uri'], $task($parent));
+        $cal->createCalendarObject($calendarId, $child['uri'], $task($child, 'RELATED-TO;RELTYPE=PARENT:' . $parent['uid'] . "\r\n"));
+        $out['baseline121']['taskParent']['sha256'] = hash('sha256', $cal->getCalendarObject($calendarId, $parent['uri'])['calendardata']);
+        $out['baseline121']['taskChild']['sha256'] = hash('sha256', $cal->getCalendarObject($calendarId, $child['uri'])['calendardata']);
     }
     $dav = Server::get(\OCA\DAV\CardDAV\CardDavBackend::class);
     $id = (int)$dav->createAddressBook('principals/users/l2-owner', 'l2-contacts', ['{DAV:}displayname' => 'L2 contacts']);

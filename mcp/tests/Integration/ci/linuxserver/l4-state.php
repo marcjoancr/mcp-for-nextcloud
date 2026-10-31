@@ -15,10 +15,16 @@ require '/app/www/public/lib/base.php';
 Server::get(\OCP\App\IAppManager::class)->loadApp('mcp');
 if (posix_geteuid() !== 1000) throw new RuntimeException('Fixture user required');
 $mode = $argv[1] ?? '';
+$baselineVersion = $argv[2] ?? '';
+$candidateVersion = $argv[3] ?? '';
+if (!preg_match('/^\d+\.\d+\.\d+$/D', $baselineVersion) || !preg_match('/^\d+\.\d+\.\d+$/D', $candidateVersion)
+    || $baselineVersion === $candidateVersion) throw new RuntimeException('Validated fixture versions required');
 try {
 $config = Server::get(IConfig::class); $version = $config->getAppValue('mcp', 'installed_version');
-if (!in_array($version, ['1.2.0', '2.0.0'], true)) throw new RuntimeException('Unexpected recovery version');
-$policyClass = $version === '2.0.0' ? \OCA\Mcp\Access\Grants\GrantPolicy::class : 'OCA\Mcp\Service\GrantPolicy';
+if (!in_array($version, [$baselineVersion, $candidateVersion], true)) throw new RuntimeException('Unexpected recovery version');
+$policyClass = class_exists(\OCA\Mcp\Access\Grants\GrantPolicy::class)
+    ? \OCA\Mcp\Access\Grants\GrantPolicy::class : 'OCA\Mcp\Service\GrantPolicy';
+if (!class_exists($policyClass)) throw new RuntimeException('Recovery policy class unavailable');
 $policy = Server::get($policyClass);
 $private = '/tmp/l4-private.json';
 $out = json_decode(file_get_contents($private), true, 512, JSON_THROW_ON_ERROR);
@@ -74,6 +80,29 @@ if ($mode === 'verify') {
         }
         $entry = $out['dav']['VCARD']; $row = Server::get(\OCA\DAV\CardDAV\CardDavBackend::class)->getCard($entry['id'], $entry['uri']);
         if (!$row || hash('sha256', $row['carddata']) !== $entry['sha256']) throw new RuntimeException('Restored contact differs');
+    }
+    if ($baselineVersion === '1.2.1') {
+        $backup = $actual['settings']['backup_settings'] ?? null;
+        $settings = json_decode((string)$backup, true, 16, JSON_THROW_ON_ERROR);
+        $expectedFolder = $version === $baselineVersion ? 'Case Archive' : 'L3 backups';
+        if (!is_array($settings) || ($settings['version'] ?? null) !== 1
+            || ($settings['folder'] ?? null) !== $expectedFolder || ($settings['copies'] ?? null) !== true
+            || !in_array('Case Archive', $settings['reserved'] ?? [], true)
+            || !in_array($expectedFolder, $settings['reserved'] ?? [], true)
+            || $config->getAppValue('mcp', 'backup_settings') !== $backup) {
+            throw new RuntimeException('Restored 1.2.1 backup policy origin state differs');
+        }
+        $calendars = array_values(array_filter($actual['tables']['calendars'] ?? [], static fn (array $row): bool => ($row['uri'] ?? null) === 'l2-121-hierarchy'));
+        if (count($calendars) !== 1) throw new RuntimeException('Restored 1.2.1 Tasks calendar missing');
+        $calendarId = $calendars[0]['id'] ?? null;
+        $tasks = array_values(array_filter($actual['tables']['calendarobjects'] ?? [], static fn (array $row): bool => (string)($row['calendarid'] ?? '') === (string)$calendarId));
+        $parent = array_filter($tasks, static fn (array $row): bool => str_contains((string)($row['calendardata'] ?? ''), "UID:l2-121-parent\r\n")
+            && str_contains((string)($row['calendardata'] ?? ''), "SUMMARY:1.2.1 baseline parent\r\n"));
+        $child = array_filter($tasks, static fn (array $row): bool => str_contains((string)($row['calendardata'] ?? ''), "UID:l2-121-child\r\n")
+            && str_contains((string)($row['calendardata'] ?? ''), "SUMMARY:1.2.1 baseline child\r\n")
+            && str_contains((string)($row['calendardata'] ?? ''), 'RELATED-TO;RELTYPE=PARENT:l2-121-parent'));
+        if (count($parent) !== 1 || count($child) !== 1) throw new RuntimeException('Restored 1.2.1 Tasks hierarchy origin state differs');
+        $details['originState'] = ['baseline' => $baselineVersion, 'backupPolicy' => 'restored', 'taskHierarchy' => 'parent and child restored'];
     }
     if (!$config->getSystemValueBool('maintenance') || !$policy->globalEnabled() || !$policy->connected('l2-owner')) throw new RuntimeException('Pre-cut recovery state not restored');
     $details += ['tables' => count($actual['tables']), 'files' => count($actual['files']), 'preRevocationState' => 'matched'];

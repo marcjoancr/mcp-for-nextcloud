@@ -172,6 +172,27 @@ a private archive copy, checks its size and SHA-256, extracts it and hashes the
 regular files. It compares both the measured inventory and the supplied inventory
 file with the reviewed digest. The command removes its temporary directory on
 success and failure. The executable fixture uses this same check before Docker
-preflight and uses the staged bytes for installation. The 1.2.1 profile exposes
-L1 bootstrap only. Data seeding, upgrade and recovery require the later 1.2.1
-probes. The 1.2.0 profile continues to expose L1–L4.
+preflight and uses the staged bytes for installation. For the 1.2.1 rehearsal, run L3 with this
+profile and its pinned inputs. L3 seeds the 1.2.1 data, captures B0, upgrades,
+recreates the app and captures B1. L4 takes
+the same profile and kit, plus the checkpoint directory and both generation
+and manifest digest pairs from that L3 run. It verifies the bindings before restoring.
+After completing the recovery cases, it exercises the update policy on a separate
+restore of B1 using the closed, disposable instance. Prepare the additional catalog
+inputs using [the offline input recipe](ci/linuxserver/protection-inputs.py).
+Keep the private checkpoints and synthetic credentials outside Git. From the same
+shell, with the five companion app archives and native test tools present:
+
+```sh
+python3 mcp/tests/Integration/ci/linuxserver/protection-inputs.py "$inputs"
+composer --working-dir=mcp test:integration:linuxserver -- --phase L3 --inputs "$inputs" \
+  --fixture-profile "$profile" --kit "$kit" --manifest-sha256 "$kit_sha"
+# Supply the trusted evidence directory, generations and hashes from this L3 result.
+composer --working-dir=mcp test:integration:linuxserver -- --phase L4 --inputs "$inputs" \
+  --fixture-profile "$profile" --kit "$kit" --manifest-sha256 "$kit_sha" \
+  --checkpoints "$l3_evidence" --b0-generation "$b0_generation" --b0-sha256 "$b0_sha" \
+  --b1-generation "$b1_generation" --b1-sha256 "$b1_sha"
+```
+
+L4 records recovery cases and protection checks independently. An unresolved
+update-control check makes the overall command exit nonzero. [Measured result](../../../docs/en/development/minicolab-121-rehearsal.md)

@@ -14,13 +14,48 @@ if (posix_geteuid() !== 1000) throw new RuntimeException('Fixture user required'
 $mode = $argv[1] ?? '';
 require '/fixture-probes/state-snapshot.php';
 
+function assert121Baseline(IConfig $config, array $fixture, string $mode): void {
+    if (($fixture['baseline'] ?? null) !== '1.2.1') return;
+    $seed = $fixture['baseline121'] ?? throw new RuntimeException('Missing 1.2.1 baseline expectations');
+    $settings = json_decode($config->getAppValue('mcp', 'backup_settings', ''), true, 16, JSON_THROW_ON_ERROR);
+    if ($mode === 'persist-after') {
+        if (($settings['folder'] ?? null) !== 'L3 backups' || ($settings['copies'] ?? null) !== true
+            || !in_array('MCP backups', $settings['reserved'] ?? [], true)
+            || !in_array($seed['backupSettings']['folder'], $settings['reserved'] ?? [], true)) {
+            throw new RuntimeException('1.2.1 backup policy or protected legacy name was lost during recreation');
+        }
+    } elseif ($settings !== $seed['backupSettings']) {
+        throw new RuntimeException('1.2.1 backup policy changed before the candidate backup configuration');
+    }
+    $backend = Server::get(\OCA\DAV\CalDAV\CalDavBackend::class);
+    $calendarId = $seed['taskCalendarId'];
+    $parent = $backend->getCalendarObject($calendarId, $seed['taskParent']['uri']);
+    $child = $backend->getCalendarObject($calendarId, $seed['taskChild']['uri']);
+    if (!$parent || !$child || !str_contains($parent['calendardata'], 'UID:' . $seed['taskParent']['uid'])
+        || !str_contains($parent['calendardata'], 'SUMMARY:' . $seed['taskParent']['summary'])
+        || !str_contains($child['calendardata'], 'UID:' . $seed['taskChild']['uid'])
+        || !str_contains($child['calendardata'], 'SUMMARY:' . $seed['taskChild']['summary'])
+        || !preg_match('/RELATED-TO(?:;[^:\\r\\n]*)?:' . preg_quote($seed['taskParent']['uid'], '/') . '(?:\\r?\\n)/', $child['calendardata'])) {
+        throw new RuntimeException('1.2.1 task hierarchy changed during upgrade or recreation');
+    }
+}
+
 try {
 $config = Server::get(IConfig::class); $version = $config->getAppValue('mcp', 'installed_version');
+$apps = json_decode(file_get_contents('/fixture-probes/apps.json'), true, 512, JSON_THROW_ON_ERROR);
+$baselineVersion = $apps['mcp'] ?? throw new RuntimeException('Pinned app fixture has no MCP baseline');
+if (in_array($mode, ['before', 'after', 'persist-after'], true)) {
+    $seedPath = $mode === 'persist-after' ? '/tmp/l3-private.json' : '/tmp/l2-private.json';
+    $seed = json_decode(file_get_contents($seedPath), true, 512, JSON_THROW_ON_ERROR);
+    if (($seed['baseline'] ?? null) !== $baselineVersion) throw new RuntimeException('Seeded baseline differs from pinned apps.json');
+}
 if ($mode === 'before') {
-    if ($version !== '1.2.0') throw new RuntimeException('Baseline required');
+    if ($version !== $baselineVersion) throw new RuntimeException('Installed baseline differs from pinned apps.json');
+    assert121Baseline($config, $seed, $mode);
     savePrivate('/tmp/l3-before.json', snapshot());
 } elseif (in_array($mode, ['after', 'persist-after'], true)) {
-    if ($version !== '2.0.0') throw new RuntimeException('Candidate required');
+    $candidate = json_decode(file_get_contents('/fixture-source/manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+    if ($version !== ($candidate['version'] ?? null)) throw new RuntimeException('Installed candidate differs from staged source manifest');
     $before = json_decode(file_get_contents($mode === 'after' ? '/tmp/l3-before.json' : '/tmp/l3-persist.json'), true, 512, JSON_THROW_ON_ERROR);
     if (realpath(Server::get(\OCP\App\IAppManager::class)->getAppPath('mcp')) !== '/config/www/nextcloud/apps/mcp') throw new RuntimeException('Unexpected installed app path');
     assertSingleMcpTree(\OC::$APPSROOTS, '/config/www/nextcloud/apps/mcp');
@@ -29,10 +64,30 @@ if ($mode === 'before') {
         $changed = array_keys(array_filter((array)$actual[$kind], fn ($value, $key) => ($before[$kind][$key] ?? null) !== $value, ARRAY_FILTER_USE_BOTH));
         throw new RuntimeException('Persisted ' . $kind . ' changed: ' . implode(',', $changed));
     }
+    assert121Baseline($config, $seed, $mode);
     if ($mode === 'after') {
         $policy = Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
         foreach (['l1-admin', 'l2-owner', 'l2-reader', 'l2-denied'] as $uid) if ($policy->granted($uid, 'mail', 'read')) throw new RuntimeException('Mail privilege expanded');
-        if (array_key_exists('backup_settings', $actual['settings']) || Server::get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class)->current() !== \OCA\Mcp\Access\BackupPolicy\BackupLocation::defaults()) throw new RuntimeException('Backup defaults changed');
+        if ($baselineVersion === '1.2.0'
+            && (array_key_exists('backup_settings', $actual['settings'])
+                || Server::get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class)->current() !== \OCA\Mcp\Access\BackupPolicy\BackupLocation::defaults())) {
+            throw new RuntimeException('Uncustomized 1.2.0 backup defaults changed');
+        }
+    }
+} elseif ($mode === 'suite-backup-save' || $mode === 'suite-backup-restore') {
+    $seed = json_decode(file_get_contents('/tmp/l2-private.json'), true, 512, JSON_THROW_ON_ERROR);
+    if ($baselineVersion !== '1.2.1' || $seed['baseline'] !== $baselineVersion) throw new RuntimeException('Wrong backup policy fixture');
+    $saved = '/tmp/l3-suite-backup.json';
+    if ($mode === 'suite-backup-save') {
+        assert121Baseline($config, $seed, $mode);
+        savePrivate($saved, ['value' => $config->getAppValue('mcp', 'backup_settings')]);
+        $config->deleteAppValue('mcp', 'backup_settings');
+        if (in_array('backup_settings', $config->getAppKeys('mcp'), true)) throw new RuntimeException('Regression suite needs a fresh backup policy');
+    } else {
+        $value = json_decode(file_get_contents($saved), true, 16, JSON_THROW_ON_ERROR)['value'];
+        $config->setAppValue('mcp', 'backup_settings', $value);
+        assert121Baseline($config, $seed, $mode);
+        if ($config->getAppValue('mcp', 'backup_settings') !== $value || !unlink($saved)) throw new RuntimeException('Could not restore pre-suite policy');
     }
 } elseif ($mode === 'fixtures') {
     $policy = Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);

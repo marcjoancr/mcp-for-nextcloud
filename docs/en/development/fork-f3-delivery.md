@@ -1527,3 +1527,11 @@ F3, intended-host qualification, source-history/publication, HTTPS, Inspector,
 ChatGPT and human reviewers remain pending. No server configuration change, push,
 deployment or PR #14 action occurred. Previously accepted 1.2.0 evidence remains
 valid for its original baseline and must not be relabelled as 1.2.1 acceptance.
+
+## MinicoLab 1.2.1 rehearsal (2026-10-31)
+
+The pinned upgrade, three coordinated recoveries and filtered store passed on
+devbox. Native MCP signature verification was skipped as expected for the
+unsigned fork. App runtime and parent directory permissions still allow the
+service account to replace the fork. Production writer control and the
+intended host's coordinated backup remain open. [Results and production decision](minicolab-121-rehearsal.md)
