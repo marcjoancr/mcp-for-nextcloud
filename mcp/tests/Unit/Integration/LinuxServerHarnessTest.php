@@ -124,7 +124,7 @@ final class LinuxServerHarnessTest extends TestCase {
         self::assertStringNotContainsString('do-not-print-this-value', $err);
     }
     public function testRejectsMissingInputsAndExecutionInsteadOfStartingAnything(): void {
-        foreach ([[], ['--plan'], ['--run'], [...$this->arguments(), '--container', 'existing'], [...$this->arguments(), '--plan'], ['--phase', 'L2'], ['--phase', 'L5'], ['--phase', 'L4', '--inputs', '/unused'], [...$this->arguments(), '--phase', 'L1'], ['--phase', 'L1']] as $args) {
+        foreach ([[], ['--plan'], ['--run'], [...$this->arguments(), '--container', 'existing'], [...$this->arguments(), '--plan'], ['--phase', 'L2'], ['--phase', 'L5'], ['--phase', 'L4', '--inputs', '/unused'], ['--check-operator-paths', '--inputs', '/unused', ...array_slice($this->arguments(), 1)], [...$this->arguments(), '--check-operator-paths'], [...$this->arguments(), '--phase', 'L1'], ['--phase', 'L1']] as $args) {
             [$status, $out, $err] = $this->invoke($args);
             self::assertNotSame(0, $status);
             self::assertSame('', $out);
