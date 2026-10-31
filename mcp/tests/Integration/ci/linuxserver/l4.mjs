@@ -15,7 +15,7 @@ const transfer = async (c, file, container, destination) => {
   if (container === c.app) await c.exec(c.app, ['chown', 'abc:abc', destination]);
 };
 async function native(c, mode) {
-  const output = await c.exec(c.app, [...nativePhp, '/fixture-probes/l4-state.php', mode]);
+  const output = await c.exec(c.app, [...nativePhp, '/fixture-probes/l4-state.php', mode, c.profile.baseline.version, c.profile.candidate.version]);
   const lines = output.split('\n').filter(line => line.startsWith('MCP_L4_STATE='));
   if (lines.length !== 1) throw new Error('L4 state probe incomplete');
   await c.record(`recovery-${mode}`, JSON.parse(lines[0].slice('MCP_L4_STATE='.length)));
@@ -37,7 +37,7 @@ async function http(c, mode, oracle) {
 async function failureBoundary(c, options, afterUpgrade) {
   await verifyKit(options.kit, options['manifest-sha256']);
   const stage = path.join(c.root, `failure-stage-${afterUpgrade ? 'upgraded' : 'replaced'}`);
-  const extracted = await command('python3', [path.join(here, 'extract.py'), path.join(c.root, 'source', 'mcp-2.0.0.tar.gz'), stage, 'mcp']);
+  const extracted = await command('python3', [path.join(here, 'extract.py'), path.join(c.root, 'source', `mcp-${c.profile.candidate.version}.tar.gz`), stage, 'mcp']);
   if (extracted.code) throw new Error('Failure boundary candidate extraction failed');
   await verifyInstalled(options.kit, options['manifest-sha256'], path.join(stage, 'mcp'));
   await c.checked(['cp', path.join(stage, 'mcp'), `${c.app}:/config/mcp-l4-candidate`]);
@@ -45,15 +45,15 @@ async function failureBoundary(c, options, afterUpgrade) {
   await c.exec(c.app, ['sh', '-c', 'test -f /config/mcp-l1-closed && test ! -e /config/mcp-l4-baseline && mv /config/www/nextcloud/apps/mcp /config/mcp-l4-baseline && mv /config/mcp-l4-candidate /config/www/nextcloud/apps/mcp']);
   if (afterUpgrade) {
     await occ(c, 'upgrade', '--no-interaction');
-    if ((await occ(c, 'config:app:get', 'mcp', 'installed_version')).trim() !== '2.0.0') throw new Error('Failure point did not reach completed upgrade');
+    if ((await occ(c, 'config:app:get', 'mcp', 'installed_version')).trim() !== c.profile.candidate.version) throw new Error('Failure point did not reach completed upgrade');
     c.markUpgrade();
   } else {
     const version = (await c.exec(c.postgres, ['psql', '-U', 'nextcloud', '-d', 'nextcloud', '-Atc', "SELECT configvalue FROM oc_appconfig WHERE appid='mcp' AND configkey='installed_version'"])).trim();
-    if (version !== '1.2.0') throw new Error('Replacement boundary database changed');
+    if (version !== c.profile.baseline.version) throw new Error('Replacement boundary database changed');
   }
   const gate = await c.rawExec(c.client, ['curl', '--silent', '--cacert', '/tmp/ca.crt', '--max-time', '5', '-o', '/dev/null', '-w', '%{http_code}', 'https://nc.fixture.test/status.php']);
   if (gate.code || gate.out !== '503') throw new Error('Failure boundary admitted HTTP');
-  await c.record('injected-upgrade-stop', { boundary: afterUpgrade ? 'after-occ-upgrade-before-reopening' : 'after-app-replacement', databaseVersion: afterUpgrade ? '2.0.0' : '1.2.0', appVersion: '2.0.0', http: 503, sqlMigrationInterruption: false });
+  await c.record('injected-upgrade-stop', { boundary: afterUpgrade ? 'after-occ-upgrade-before-reopening' : 'after-app-replacement', databaseVersion: afterUpgrade ? c.profile.candidate.version : c.profile.baseline.version, appVersion: c.profile.candidate.version, http: 503, sqlMigrationInterruption: false });
 }
 
 export async function executeL4(c, options, originals) {

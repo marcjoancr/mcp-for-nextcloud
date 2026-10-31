@@ -81,9 +81,16 @@ if ($mode === 'preserved') {
     $headers = ['requesttoken: ' . $token, 'Content-Type: application/json'];
     assertion(web('/index.php/settings/admin/mcp', session: $browser)['status'] === 200, 'real-admin-settings');
     $initial = json_decode(web('/index.php/apps/mcp/api/backup-settings', headers: $headers, session: $browser)['body'], true, 512, JSON_THROW_ON_ERROR);
+    if (($fixture['baseline'] ?? null) === '1.2.1') {
+        $baselineSettings = $fixture['baseline121']['backupSettings'];
+        assertion($initial['folder'] === $baselineSettings['folder'] && $initial['copies'] === $baselineSettings['copies']
+            && in_array($baselineSettings['folder'], $initial['reserved'], true), '1.2.1-backup-policy-visible-after-upgrade');
+    }
     $saved = web('/index.php/apps/mcp/api/backup-settings', 'PUT', $headers, json_encode(['expectedRevision' => $initial['revision'], 'folder' => 'L3 backups', 'copies' => true]), $browser);
     $config = json_decode($saved['body'], true, 512, JSON_THROW_ON_ERROR);
-    assertion($saved['status'] === 200 && $config['folder'] === 'L3 backups' && in_array('MCP backups', $config['reserved'], true), 'revisioned-backup-configured');
+    $reserved = ['MCP backups'];
+    if (($fixture['baseline'] ?? null) === '1.2.1') $reserved[] = $fixture['baseline121']['backupSettings']['folder'];
+    assertion($saved['status'] === 200 && $config['folder'] === 'L3 backups' && count(array_intersect($reserved, $config['reserved'])) === count($reserved), 'revisioned-backup-configured');
     $fixture['backupSettings'] = $config;
     schemaFor();
     $written = writeTool('files_edit', ['path' => '/L2/changed.txt', 'content' => 'L3 confirmed content']);

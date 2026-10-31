@@ -27,25 +27,64 @@ export async function restartClosed(c, recreate = false) {
   await c.exec(c.app, ['sh', '-c', emptyCronTablesCommand]);
   if (recreate) await c.record('recreated-writer-gate', { effectiveCronTables: 'empty before startup', cron: 'stopped', admission: 'closed' });
 }
+export async function assertInventoryNegatives(snapshot, kit, manifestHash) {
+  const manifest = await verifyInstalled(kit, manifestHash, snapshot);
+  const runtimeFiles = Object.keys(manifest.runtimeFiles).sort();
+  const rejectMutation = async (label, mutate, restore) => {
+    let error = null;
+    try {
+      await mutate();
+      try { await verifyInstalled(kit, manifestHash, snapshot); } catch (failure) { error = failure; }
+    } finally { await restore(); }
+    if (!error) throw new Error(`${label} installed snapshot was accepted`);
+    const restoredManifest = await verifyInstalled(kit, manifestHash, snapshot);
+    return { rejected: true, restored: true, restoredFiles: Object.keys(restoredManifest.runtimeFiles).length };
+  };
+
+  const modified = path.join(snapshot, 'appinfo/info.xml');
+  const original = await fs.readFile(modified);
+  const modifiedFile = await rejectMutation('modified-file',
+    () => fs.appendFile(modified, '\n<!-- intentional snapshot tamper -->\n'),
+    () => fs.writeFile(modified, original));
+
+  const missingRelative = runtimeFiles.find(file => file !== 'appinfo/info.xml') ?? runtimeFiles[0];
+  const missing = path.join(snapshot, missingRelative);
+  const missingBytes = await fs.readFile(missing);
+  const missingMode = (await fs.stat(missing)).mode & 0o777;
+  const missingFile = await rejectMutation('missing-file',
+    () => fs.rm(missing),
+    () => fs.writeFile(missing, missingBytes, { flag: 'wx', mode: missingMode }));
+
+  const extra = path.join(snapshot, '.mcp-identity-extra-file');
+  const extraFile = await rejectMutation('extra-file',
+    () => fs.writeFile(extra, 'unexpected regular file\n', { flag: 'wx', mode: 0o600 }),
+    () => fs.rm(extra));
+  return {
+    files: runtimeFiles.length,
+    byteCount: Object.values(manifest.runtimeFiles).reduce((sum, file) => sum + file.bytes, 0),
+    modifiedFile,
+    missingFile,
+    extraFile,
+  };
+}
 export async function identity(c, options, name) {
   const installed = path.join(c.root, name);
   await c.checked(['cp', `${c.app}:/config/www/nextcloud/apps/mcp`, installed]);
-  await verifyInstalled(options.kit, options['manifest-sha256'], installed);
-  const changed = path.join(installed, 'appinfo/info.xml');
-  const original = await fs.readFile(changed);
-  await fs.appendFile(changed, '\n<!-- intentional snapshot tamper -->\n');
-  let refused = false;
-  try { await verifyInstalled(options.kit, options['manifest-sha256'], installed); } catch { refused = true; }
-  await fs.writeFile(changed, original);
-  if (!refused) throw new Error('Changed installed snapshot was accepted');
-  await verifyInstalled(options.kit, options['manifest-sha256'], installed);
-  await fs.rm(installed, { recursive: true });
+  let checks;
+  try { checks = await assertInventoryNegatives(installed, options.kit, options['manifest-sha256']); }
+  finally { await fs.rm(installed, { recursive: true, force: true }); }
+  await c.record(`${name}-installed-snapshot-verified`, { files: checks.files, byteCount: checks.byteCount });
+  for (const [label, outcome] of [['modified-file', checks.modifiedFile], ['missing-file', checks.missingFile], ['extra-file', checks.extraFile]]) {
+    await c.record(`${name}-${label}-rejected`, { rejected: outcome.rejected });
+    await c.record(`${name}-${label}-restored`, { verified: outcome.restored, files: outcome.restoredFiles });
+  }
   const version = (await occ(c, 'config:app:get', 'mcp', 'installed_version')).trim();
-  if (version !== '2.0.0') throw new Error('Candidate version mismatch');
+  if (version !== c.profile.candidate.version) throw new Error('Candidate version mismatch');
   const native = await c.rawExec(c.app, [...nativePhp, '/app/www/public/occ', 'integrity:check-app', 'mcp']);
   // An unsigned fork has no publisher signature. This never waives a file mismatch.
   if (native.code !== 0 || !(native.out + native.err).includes('mcp: App signature not found, skipping app integrity check')) throw new Error('Unexpected native integrity result');
-  await c.record(name, { installedBytes: 'verified', changedSnapshotRejected: true, version, nativeIntegrity: { code: native.code, output: (native.out + native.err).trim() } });
+  await c.record(`${name}-native-integrity-skip`, { exitCode: native.code, output: (native.out + native.err).trim(), reason: 'unsigned fork has no publisher signature' });
+  await c.record(name, { installedBytes: 'verified', changedSnapshotRejected: true, modifiedFileRejected: true, missingFileRejected: true, extraFileRejected: true, version, nativeIntegrityExitCode: native.code });
 }
 export async function replace(c, options) {
   await verifyKit(options.kit, options['manifest-sha256']);

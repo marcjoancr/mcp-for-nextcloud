@@ -76,6 +76,7 @@ async function nativeSuite(c, options) {
   await c.exec(c.app, ['nginx', '-s', 'reload']);
   if (output.code) throw new Error(`Native candidate suite failed (${output.code}); see private native-tests.log`);
   await c.checked(['cp', `${c.app}:/tmp/l3-junit.xml`, path.join(c.root, 'native-junit.xml')]);
+  await fs.chmod(path.join(c.root, 'native-junit.xml'), 0o600);
   const parsed = await command('python3', ['-B', path.join(here, 'junit.py'), path.join(c.root, 'native-junit.xml')]);
   if (parsed.code) throw new Error('Native JUnit incomplete, failed or skipped');
   await c.record('native-candidate-suite', JSON.parse(parsed.out));
@@ -101,7 +102,11 @@ export async function executeL3(c, options) {
   await restartClosed(c); await open(c);
   await http(c, 'source', privateFile);
   await downloadKit(c, options, 'source-kit-download');
-  await nativeSuite(c, options);
+  // The frozen admin suite owns the default backup policy and deletes it in teardown.
+  const seededPolicy = c.profile.baseline.version === '1.2.1';
+  if (seededPolicy) await state(c, 'suite-backup-save');
+  try { await nativeSuite(c, options); }
+  finally { if (seededPolicy) await state(c, 'suite-backup-restore'); }
   await state(c, 'reset-visibility');
   await http(c, 'backup-configure', privateFile);
   for (const mode of ['permissions-denied', 'permissions-allowed']) {
@@ -121,8 +126,8 @@ export async function executeL3(c, options) {
   await identity(c, options, 'recreated-candidate');
   await c.checked(['cp', persisted, `${c.app}:/tmp/l3-persist.json`]);
   await c.exec(c.app, ['chown', 'abc:abc', '/tmp/l3-persist.json']);
-  await state(c, 'persist-after');
   await appPrivate(c, privateFile);
+  await state(c, 'persist-after');
   await open(c);
   await http(c, 'final', privateFile);
   await downloadKit(c, options, 'recreated-source-kit-download');
