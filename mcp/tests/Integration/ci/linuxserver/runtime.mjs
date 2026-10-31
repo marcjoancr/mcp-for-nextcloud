@@ -205,6 +205,8 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       result.pending[0] = 'L4-L5';
       if (options.checkOperatorPaths) {
         await context.restore(path.join(root, 'B1'), restoreTrust.B1);
+        const hostMounts = options['host-startup-inputs']
+          ? await (await import('./host-startup.mjs')).stageHostStartup(root, options['host-startup-inputs']) : [];
         let generation = 0;
         const replaceRole = async (service) => sampling.mutate(async () => {
           await close();
@@ -212,7 +214,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
           await owner.removeContainer(app);
           const args = [...appArgs(service), '-v', `${root}/operator-app:/app:ro`,
             '-v', `${root}/operator-gate:/operator-gate:ro`];
-          if (service) args.push('--tmpfs', '/config/log:rw,nosuid,nodev,noexec,size=64m');
+          if (service) args.push('--tmpfs', '/config/log:rw,nosuid,nodev,noexec,size=64m', ...hostMounts);
           else args.push('--entrypoint', '/bin/sleep');
           app = await create('app', profile.images.nextcloud.reference, args, `operator-${++generation}`, service ? [] : ['infinity']);
           context.app = app;

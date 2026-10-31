@@ -1,0 +1,728 @@
+{
+  "schemaVersion": 1,
+  "source": "https://dl-cdn.alpinelinux.org/alpine/v3.24/{main,community}/x86_64",
+  "mainIndexSha256": "e652eb0f9eaa4239512cee071c0149aaf4f153b5c54239e0f6ef800df1ff698a",
+  "communityIndexSha256": "baa48fec68b77366c6cfdbc70dacca3bf9714720c7d882c88c9d0ae22fe781de",
+  "packages": [
+    {
+      "name": "encodings",
+      "version": "1.1.0-r0",
+      "repository": "main",
+      "filename": "encodings-1.1.0-r0.apk",
+      "bytes": 588299,
+      "index_control_sha1": "767a747309e161473c67efbae5cf144ceb4c1865",
+      "sha256": "f7c0eb762638d0249b4fbbe07a8e4ed6aab8e86b74c239c40e47a36219777d52"
+    },
+    {
+      "name": "font-dejavu",
+      "version": "2.37-r6",
+      "repository": "main",
+      "filename": "font-dejavu-2.37-r6.apk",
+      "bytes": 5394038,
+      "index_control_sha1": "7955dda826362920d3dc96a3e3e0106a4492f01f",
+      "sha256": "6e7609e7a1aaed947afe4ddcc02bbdeec571dac5ff4ea1c04af9b8480b7b9dcf"
+    },
+    {
+      "name": "giflib",
+      "version": "5.2.2-r2",
+      "repository": "main",
+      "filename": "giflib-5.2.2-r2.apk",
+      "bytes": 15592,
+      "index_control_sha1": "40d3f5fe695324022ed02aad2ae871a0311916ac",
+      "sha256": "b9e569173af3a34a4756d9834fab7212863bd3b74f870ea9ed217caaf6faa695"
+    },
+    {
+      "name": "jbig2enc",
+      "version": "0.30-r0",
+      "repository": "community",
+      "filename": "jbig2enc-0.30-r0.apk",
+      "bytes": 55751,
+      "index_control_sha1": "fe8731b3f8175dd038021076503bdf5fdce579d8",
+      "sha256": "262036828a67c7b940d67f629a2ed9b1dbb04881782ec17996c4d2b9b0d4f4d0"
+    },
+    {
+      "name": "leptonica",
+      "version": "1.87.0-r0",
+      "repository": "community",
+      "filename": "leptonica-1.87.0-r0.apk",
+      "bytes": 1108364,
+      "index_control_sha1": "df34f0a5c322247e07d5288f43004af07fa0407d",
+      "sha256": "733d26a5e8860c24f6c0c8ec6fe97c630c35de9788b576b9ffa9cd0488e5d614"
+    },
+    {
+      "name": "libfontenc",
+      "version": "1.1.9-r0",
+      "repository": "main",
+      "filename": "libfontenc-1.1.9-r0.apk",
+      "bytes": 11598,
+      "index_control_sha1": "8178f288b66b5be36fa8cca23d39e8ccb899ca52",
+      "sha256": "ea7f6d097653572991da749ac0764c2568d8902a01eea4236e56b10b90a7b0e3"
+    },
+    {
+      "name": "libimagequant",
+      "version": "4.2.2-r0",
+      "repository": "community",
+      "filename": "libimagequant-4.2.2-r0.apk",
+      "bytes": 233065,
+      "index_control_sha1": "f6585f78ea88c9e20aec8fc764d279ead6a5c825",
+      "sha256": "70dd9326d1bb8f598e6b7fca9c8de70476ceb1133ab4144aaaba30a8dde2e0b8"
+    },
+    {
+      "name": "libxslt",
+      "version": "1.1.43-r3",
+      "repository": "main",
+      "filename": "libxslt-1.1.43-r3.apk",
+      "bytes": 129636,
+      "index_control_sha1": "a78a1c96aa4f4a763ab8d2eeb285734c0387eb31",
+      "sha256": "b8ea65dc36b982bba434e0c71a8cb39d16b49f80c2f80847c0f25f0cb356f38f"
+    },
+    {
+      "name": "mkfontscale",
+      "version": "1.2.4-r0",
+      "repository": "main",
+      "filename": "mkfontscale-1.2.4-r0.apk",
+      "bytes": 15490,
+      "index_control_sha1": "204aff7809f6bf1dc25229b6df32f8efb077c4ad",
+      "sha256": "2385a7aad3971fcad9d862cb90937e643e633b14bf4b91f8b8ce3040a1468d20"
+    },
+    {
+      "name": "mpdecimal",
+      "version": "4.0.1-r0",
+      "repository": "main",
+      "filename": "mpdecimal-4.0.1-r0.apk",
+      "bytes": 78803,
+      "index_control_sha1": "0c81ceb0e8b5966b3c30f557b58d9c6fe46f6ef6",
+      "sha256": "1278f374bbc8b4aad674244458cca5fc63e0780a921138eef400d5db64381a31"
+    },
+    {
+      "name": "ocrmypdf",
+      "version": "16.11.1-r2",
+      "repository": "community",
+      "filename": "ocrmypdf-16.11.1-r2.apk",
+      "bytes": 146141,
+      "index_control_sha1": "9a46a72ccc267d03dcb9a76c947c4c6db63bc2ae",
+      "sha256": "8e8783271651f8a0e43a427fc19f4b0e84ef73a501e34743a25fbab890ce9dd7"
+    },
+    {
+      "name": "ocrmypdf-pyc",
+      "version": "16.11.1-r2",
+      "repository": "community",
+      "filename": "ocrmypdf-pyc-16.11.1-r2.apk",
+      "bytes": 260566,
+      "index_control_sha1": "3893d0d6b7ba60edc5cba0b5a7ed222ed16b9a0e",
+      "sha256": "4039ccaeb8b59e5391a1676450cfae630ab87bb7de7aefb0fc7ca0ccf5aff63b"
+    },
+    {
+      "name": "pngquant",
+      "version": "3.0.3-r0",
+      "repository": "community",
+      "filename": "pngquant-3.0.3-r0.apk",
+      "bytes": 307122,
+      "index_control_sha1": "b4c6b624aef5a41ecd7e8fcda44f7a7ed587ee2e",
+      "sha256": "d0deb743761ec0cc1479c445d7f13d7b36b800ba224c7997b209452beea29f3c"
+    },
+    {
+      "name": "py3-attrs",
+      "version": "26.1.0-r0",
+      "repository": "main",
+      "filename": "py3-attrs-26.1.0-r0.apk",
+      "bytes": 59952,
+      "index_control_sha1": "0c4bb382dfb5a0cd93c491de27839a9d4b813084",
+      "sha256": "5097d43efc184e6f7c667d74806b2fa6d9d769f2f9c89a95a5d0bbe49cc10a3b"
+    },
+    {
+      "name": "py3-attrs-pyc",
+      "version": "26.1.0-r0",
+      "repository": "main",
+      "filename": "py3-attrs-pyc-26.1.0-r0.apk",
+      "bytes": 89934,
+      "index_control_sha1": "cba40cf055539aa74322c4ccc3004966af6fe6ac",
+      "sha256": "d1f7ca1b03696039271276b549e271ce566241aff0d307a3071bea9f37597b4c"
+    },
+    {
+      "name": "py3-cffi",
+      "version": "2.0.0-r0",
+      "repository": "main",
+      "filename": "py3-cffi-2.0.0-r0.apk",
+      "bytes": 168678,
+      "index_control_sha1": "a2362d364807d8beff93c42ade590f1b418bd02b",
+      "sha256": "125c7ee50bb9222b22e9ff57af487f3f52f68596e0f42d50dbad04a4e8b25b5f"
+    },
+    {
+      "name": "py3-cffi-pyc",
+      "version": "2.0.0-r0",
+      "repository": "main",
+      "filename": "py3-cffi-pyc-2.0.0-r0.apk",
+      "bytes": 178934,
+      "index_control_sha1": "2a82da1282a8b0e0902b049a6d2d857531e6b78e",
+      "sha256": "b773146083d6f172e1a5cbe62f4905d82d40ad56511d320a6a27a6e41458f5e7"
+    },
+    {
+      "name": "py3-charset-normalizer",
+      "version": "3.4.9-r0",
+      "repository": "main",
+      "filename": "py3-charset-normalizer-3.4.9-r0.apk",
+      "bytes": 62902,
+      "index_control_sha1": "f6b76424ed18445dbf57f4d15f82df5745dff5e8",
+      "sha256": "4a567523cd4f88d0c6cc84be1e81a55475045717f275eca48b8b66cf875b43a4"
+    },
+    {
+      "name": "py3-charset-normalizer-pyc",
+      "version": "3.4.9-r0",
+      "repository": "main",
+      "filename": "py3-charset-normalizer-pyc-3.4.9-r0.apk",
+      "bytes": 82455,
+      "index_control_sha1": "fa7ba5c55b0c1c1f2b7c5bca66ddb3b836f379de",
+      "sha256": "9d60cb0b5e508692a4a8ee3938cc0e31c4056d4f29f025e2b57f52dfdbeb2b08"
+    },
+    {
+      "name": "py3-cparser",
+      "version": "3.0-r1",
+      "repository": "main",
+      "filename": "py3-cparser-3.0-r1.apk",
+      "bytes": 45620,
+      "index_control_sha1": "e1bdd105717a43fcfa373eda4b698d846a2c31a5",
+      "sha256": "0c01743da256578b61b6c9a35c8a334afbd8564327ac7802ac328974cd574f5e"
+    },
+    {
+      "name": "py3-cparser-pyc",
+      "version": "3.0-r1",
+      "repository": "main",
+      "filename": "py3-cparser-pyc-3.0-r1.apk",
+      "bytes": 85961,
+      "index_control_sha1": "03fe4826664a1d1ea5c7467185476cbcad5e9b5c",
+      "sha256": "a458b6052ea8db3318d353437924ae5c63dc4c30716ad527974e7a9f59710eaf"
+    },
+    {
+      "name": "py3-cryptography",
+      "version": "47.0.0-r0",
+      "repository": "main",
+      "filename": "py3-cryptography-47.0.0-r0.apk",
+      "bytes": 1234907,
+      "index_control_sha1": "1351326441dc192980b2cf702e611e70c4716f66",
+      "sha256": "8b0f226a1336cdb8266c664828f72de4975e5407001154578346df51830428bd"
+    },
+    {
+      "name": "py3-cryptography-pyc",
+      "version": "47.0.0-r0",
+      "repository": "main",
+      "filename": "py3-cryptography-pyc-47.0.0-r0.apk",
+      "bytes": 209205,
+      "index_control_sha1": "8a6a549cced41ae0fe4e8d8bcc36761b982829ee",
+      "sha256": "551182745cbba259a6721b932740ec471e60e4e311c7f90c47eb171dce8460f2"
+    },
+    {
+      "name": "py3-deprecated",
+      "version": "1.3.1-r1",
+      "repository": "community",
+      "filename": "py3-deprecated-1.3.1-r1.apk",
+      "bytes": 10910,
+      "index_control_sha1": "f75163bad7c655fc43a108da28fff9d7aa2c2893",
+      "sha256": "2a0970689d083b1c49abb536ce1885d92672467119161e693426e43af37304be"
+    },
+    {
+      "name": "py3-deprecated-pyc",
+      "version": "1.3.1-r1",
+      "repository": "community",
+      "filename": "py3-deprecated-pyc-1.3.1-r1.apk",
+      "bytes": 11969,
+      "index_control_sha1": "d4eea536195bbb31293bb5e78ebcb2555cea0b6f",
+      "sha256": "74c2034d3569cb25141872e4c62edfaf183a44fa88c487c8f690e86f85d0709e"
+    },
+    {
+      "name": "py3-deprecation",
+      "version": "2.1.0-r8",
+      "repository": "community",
+      "filename": "py3-deprecation-2.1.0-r8.apk",
+      "bytes": 8159,
+      "index_control_sha1": "7208c5a26687c66166fa421c1ed368a7df605446",
+      "sha256": "c2251f5ef87863f4d6add4164f9c679ef03dd60b2c2d76ef8d707f066a9e4e08"
+    },
+    {
+      "name": "py3-deprecation-pyc",
+      "version": "2.1.0-r8",
+      "repository": "community",
+      "filename": "py3-deprecation-pyc-2.1.0-r8.apk",
+      "bytes": 6894,
+      "index_control_sha1": "93fb9b2bef8982d04f3c1a5538b3839bad6363fc",
+      "sha256": "c98f9f10f5c10d7b8152ccb6b7c71ab2ffe9bd52c5e4bc003a9ace230607b6b0"
+    },
+    {
+      "name": "py3-editables",
+      "version": "0.6-r0",
+      "repository": "main",
+      "filename": "py3-editables-0.6-r0.apk",
+      "bytes": 6543,
+      "index_control_sha1": "97ee6fa92acd985c4552478177c37e69a6ecccf5",
+      "sha256": "5a7957708a699767bbbbd7be025f36e9fd77b8eb552aa7a91b64e2b34106fe8a"
+    },
+    {
+      "name": "py3-editables-pyc",
+      "version": "0.6-r0",
+      "repository": "main",
+      "filename": "py3-editables-pyc-0.6-r0.apk",
+      "bytes": 7716,
+      "index_control_sha1": "c0d09e36c6193f531635285180e12c67db1e1c47",
+      "sha256": "8cc82f6ebebdc3259f036ae930d843cd92de2928848176c0c1dd9a1910bcfc92"
+    },
+    {
+      "name": "py3-hatch-vcs",
+      "version": "0.5.0-r1",
+      "repository": "main",
+      "filename": "py3-hatch-vcs-0.5.0-r1.apk",
+      "bytes": 8434,
+      "index_control_sha1": "e4a512279cee5aee13aff0035e44a7b145434a47",
+      "sha256": "3807abfebfa0ddb88fa80da55b3b1b4a8a96e058e43f565dbc09964eccac04f6"
+    },
+    {
+      "name": "py3-hatch-vcs-pyc",
+      "version": "0.5.0-r1",
+      "repository": "main",
+      "filename": "py3-hatch-vcs-pyc-0.5.0-r1.apk",
+      "bytes": 6606,
+      "index_control_sha1": "1fb9ace1bfd567d4c45d402fb70ff758d6be30a8",
+      "sha256": "93ca8e55968bd5dba3512786b55dbd7ec769563785e73f7cd90937b5bb82d9d4"
+    },
+    {
+      "name": "py3-hatchling",
+      "version": "1.29.0-r1",
+      "repository": "main",
+      "filename": "py3-hatchling-1.29.0-r1.apk",
+      "bytes": 63103,
+      "index_control_sha1": "5a8bb334914ccfbfdb37b06193a9ff114a3e941b",
+      "sha256": "3e9932ff5bdfb96fd95746160b610b1f2e9893eb4398e2ca05e9e3b808751933"
+    },
+    {
+      "name": "py3-hatchling-pyc",
+      "version": "1.29.0-r1",
+      "repository": "main",
+      "filename": "py3-hatchling-pyc-1.29.0-r1.apk",
+      "bytes": 150684,
+      "index_control_sha1": "eec826fe04208d49a96f6fb91afa7431ee5b415e",
+      "sha256": "be63e603ddffb1c7aaccc2fd4eef307055b1f150faa64037705f709a6aedee5e"
+    },
+    {
+      "name": "py3-img2pdf",
+      "version": "0.6.3-r1",
+      "repository": "community",
+      "filename": "py3-img2pdf-0.6.3-r1.apk",
+      "bytes": 50708,
+      "index_control_sha1": "41c57082c058d865fad7b1f7db1d56a87a46f132",
+      "sha256": "1f020b37fc268494b746dc8225535cfe53a11e00b27e00735e79942002da8079"
+    },
+    {
+      "name": "py3-img2pdf-pyc",
+      "version": "0.6.3-r1",
+      "repository": "community",
+      "filename": "py3-img2pdf-pyc-0.6.3-r1.apk",
+      "bytes": 72276,
+      "index_control_sha1": "166ca8bb3f106463743aff10d8b25e83705e3989",
+      "sha256": "66d8fa8bbb9baf6bac160274fa80c4e53ce78e13b0429830fdb1ee38088d7051"
+    },
+    {
+      "name": "py3-lxml",
+      "version": "6.1.1-r0",
+      "repository": "main",
+      "filename": "py3-lxml-6.1.1-r0.apk",
+      "bytes": 1414601,
+      "index_control_sha1": "d08e92f68e79f044dc905297a0ac16523493eade",
+      "sha256": "ffaf4b4dde63001ea214b75eca0e84459c9724ef1cbaa71dfae98d9385048c58"
+    },
+    {
+      "name": "py3-lxml-pyc",
+      "version": "6.1.1-r0",
+      "repository": "main",
+      "filename": "py3-lxml-pyc-6.1.1-r0.apk",
+      "bytes": 149220,
+      "index_control_sha1": "515c1592e4e94458a92d330e9c46046c0781ab0b",
+      "sha256": "60329c757f17d53cc57befd52c0794f2aeea2f6e975f99e52cf8f6cca4d72234"
+    },
+    {
+      "name": "py3-markdown-it-py",
+      "version": "3.0.0-r2",
+      "repository": "main",
+      "filename": "py3-markdown-it-py-3.0.0-r2.apk",
+      "bytes": 68259,
+      "index_control_sha1": "83e010b1b88f2810fcd38deb3cdbb6707b0d238a",
+      "sha256": "94ed5289be1c6e7d95381872529a07ea490ee3c4df1b3707192c5e4a2f43081c"
+    },
+    {
+      "name": "py3-markdown-it-py-pyc",
+      "version": "3.0.0-r2",
+      "repository": "main",
+      "filename": "py3-markdown-it-py-pyc-3.0.0-r2.apk",
+      "bytes": 114259,
+      "index_control_sha1": "d3fa25be4f7b65ce261842e70bde8366067d9c29",
+      "sha256": "316a94666c8dfd348d8c59abae86dcee0bce1fb9d042981c8b9ced1aedb7a6ff"
+    },
+    {
+      "name": "py3-mdurl",
+      "version": "0.1.2-r4",
+      "repository": "main",
+      "filename": "py3-mdurl-0.1.2-r4.apk",
+      "bytes": 10026,
+      "index_control_sha1": "353ba08d5c61eeb2f22654a06b6ca76b83a8b1d3",
+      "sha256": "5b0d71a675eb6a3b77872cb4d94e4771aaa9fa67f21ed36c4ab5e8e764e32437"
+    },
+    {
+      "name": "py3-mdurl-pyc",
+      "version": "0.1.2-r4",
+      "repository": "main",
+      "filename": "py3-mdurl-pyc-0.1.2-r4.apk",
+      "bytes": 10811,
+      "index_control_sha1": "227e6b4833fd20ec6959db3db4806752f0ea23a7",
+      "sha256": "d165cbf44f23de29d09ec7b13dbfb029b100030f6cf1d5f1e0393aa7914f66e5"
+    },
+    {
+      "name": "py3-packaging",
+      "version": "26.2-r0",
+      "repository": "main",
+      "filename": "py3-packaging-26.2-r0.apk",
+      "bytes": 94553,
+      "index_control_sha1": "699e301748dd5278757da0f4a3c19ebacbc05480",
+      "sha256": "5288199fb9c2ac47cae5c4acc15468664c8e9adea014635d93f49f7e68c9d21c"
+    },
+    {
+      "name": "py3-packaging-pyc",
+      "version": "26.2-r0",
+      "repository": "main",
+      "filename": "py3-packaging-pyc-26.2-r0.apk",
+      "bytes": 169963,
+      "index_control_sha1": "5c3860b436d2d8bab9c6503c99a143d712bf5a15",
+      "sha256": "bd6912dd75f39e0acee1904f8a23dbee42a099ef22e19326fb6f19b5e5afbc56"
+    },
+    {
+      "name": "py3-parsing",
+      "version": "3.3.2-r1",
+      "repository": "main",
+      "filename": "py3-parsing-3.3.2-r1.apk",
+      "bytes": 117462,
+      "index_control_sha1": "3992fd06e4a5b4f655d13a4ba59c1341ae243d44",
+      "sha256": "8e78c80984b9cc32f5ec86ec9f787fb5b3ac146ff5caf672fa654e8773e0d47c"
+    },
+    {
+      "name": "py3-parsing-pyc",
+      "version": "3.3.2-r1",
+      "repository": "main",
+      "filename": "py3-parsing-pyc-3.3.2-r1.apk",
+      "bytes": 225615,
+      "index_control_sha1": "57f2dea67d9e0963ed5b5d55098984d8de4fcb3d",
+      "sha256": "d43aac2f5d86d63d5b414e53b30156b053a68fa28d877f1d8def8d39f02efdb3"
+    },
+    {
+      "name": "py3-pathspec",
+      "version": "1.1.1-r0",
+      "repository": "main",
+      "filename": "py3-pathspec-1.1.1-r0.apk",
+      "bytes": 41462,
+      "index_control_sha1": "943ce43df1bb99886f0d4170402864c0ebaf85af",
+      "sha256": "fe39f81ab051e21424b05d8fd0ab8f48114cfc11bf2a85b698c2c62a7b733802"
+    },
+    {
+      "name": "py3-pathspec-pyc",
+      "version": "1.1.1-r0",
+      "repository": "main",
+      "filename": "py3-pathspec-pyc-1.1.1-r0.apk",
+      "bytes": 55327,
+      "index_control_sha1": "5dca74854c448dc6bf4f2acb5828597a704d6ac4",
+      "sha256": "f445ed1862b131768884b52b0d06327090244ebe87358eff0cb56d5a6e8e3a66"
+    },
+    {
+      "name": "py3-pdfminer",
+      "version": "20260107-r1",
+      "repository": "community",
+      "filename": "py3-pdfminer-20260107-r1.apk",
+      "bytes": 6544158,
+      "index_control_sha1": "16bb8197a40c0511d6793c9696c7f009ad36748a",
+      "sha256": "4ff10a6685b1b7c690ef388e083133a40ace3aef91402234ce94695219c6cb65"
+    },
+    {
+      "name": "py3-pdfminer-pyc",
+      "version": "20260107-r1",
+      "repository": "community",
+      "filename": "py3-pdfminer-pyc-20260107-r1.apk",
+      "bytes": 321436,
+      "index_control_sha1": "3434452ecdb7cab1abd3b172a8b875bf3cc43498",
+      "sha256": "301b5cac113504dc1bc2b4a04e1d7c2509bf96adbc8ac78c32fc250bae8ef8a7"
+    },
+    {
+      "name": "py3-pikepdf",
+      "version": "10.1.0-r1",
+      "repository": "community",
+      "filename": "py3-pikepdf-10.1.0-r1.apk",
+      "bytes": 718288,
+      "index_control_sha1": "21f4a2d451b79f948d92f605f4eddb913a1d5446",
+      "sha256": "0f470dd07c0f806b3dc11a7a3d2f31678d200ce3e75e8c5bd74d0f8b21f61ad1"
+    },
+    {
+      "name": "py3-pikepdf-pyc",
+      "version": "10.1.0-r1",
+      "repository": "community",
+      "filename": "py3-pikepdf-pyc-10.1.0-r1.apk",
+      "bytes": 175005,
+      "index_control_sha1": "8962b874ce47f8f94aab91e6795c6424406b9207",
+      "sha256": "787a3b567b6a384eb33ec20e189148e396da788bff17eb5483d9a152c5d84677"
+    },
+    {
+      "name": "py3-pillow",
+      "version": "12.2.0-r0",
+      "repository": "community",
+      "filename": "py3-pillow-12.2.0-r0.apk",
+      "bytes": 587793,
+      "index_control_sha1": "bdbaec2e7207b60571fa4f9f8bdd1fece2f3cb51",
+      "sha256": "009f412b5731e1c9beefac71e1e258406217b823661ba8c7d4f0878be531e1ad"
+    },
+    {
+      "name": "py3-pillow-pyc",
+      "version": "12.2.0-r0",
+      "repository": "community",
+      "filename": "py3-pillow-pyc-12.2.0-r0.apk",
+      "bytes": 623017,
+      "index_control_sha1": "e06c9fc3a86a614078aead0360b6c012a34d38f8",
+      "sha256": "72e842041fcef5c0a1f3a1426f40f49332f1dfe3b88067cf3e15c3c6ef105a70"
+    },
+    {
+      "name": "py3-pluggy",
+      "version": "1.6.0-r1",
+      "repository": "main",
+      "filename": "py3-pluggy-1.6.0-r1.apk",
+      "bytes": 19902,
+      "index_control_sha1": "d0cb67f04297510da6c69fa56618dbb3f4d5d5b0",
+      "sha256": "3243b0c124dc69a918306e7b4ab43b3cf9c2db7d6c4fa6ea8003fbd23f03fb9f"
+    },
+    {
+      "name": "py3-pluggy-pyc",
+      "version": "1.6.0-r1",
+      "repository": "main",
+      "filename": "py3-pluggy-pyc-1.6.0-r1.apk",
+      "bytes": 35528,
+      "index_control_sha1": "4362d8adbe2a5d5475f6b9320172ab0740a0c1e9",
+      "sha256": "153695d059bb13f8f9eef908b19ffe640e44e9fb621b213c55c79b5a8092f5ee"
+    },
+    {
+      "name": "py3-pygments",
+      "version": "2.20.0-r0",
+      "repository": "main",
+      "filename": "py3-pygments-2.20.0-r0.apk",
+      "bytes": 1094054,
+      "index_control_sha1": "ec25c8e10aed7f14e855cd2c7a7929cf39f55333",
+      "sha256": "eb068a279c736767bdcd7cb62f56d17f4f4f4e52803de0583557f4d27ef3ab56"
+    },
+    {
+      "name": "py3-pygments-pyc",
+      "version": "2.20.0-r0",
+      "repository": "main",
+      "filename": "py3-pygments-pyc-2.20.0-r0.apk",
+      "bytes": 1801944,
+      "index_control_sha1": "5cb9256e3748804bda35b5241953b3be8ff804f8",
+      "sha256": "61f3691250330fca4f16972a898647c4de6f2afd0205817114b399e8e8b2a48e"
+    },
+    {
+      "name": "py3-reportlab",
+      "version": "4.4.3-r1",
+      "repository": "community",
+      "filename": "py3-reportlab-4.4.3-r1.apk",
+      "bytes": 1878604,
+      "index_control_sha1": "10887a4dc6807742424fc8a6bfe0a2d711e5c5ea",
+      "sha256": "206d5c48026059dda5b90df191f484ac2b4122b2083741c47333c6b0ee52da01"
+    },
+    {
+      "name": "py3-reportlab-pyc",
+      "version": "4.4.3-r1",
+      "repository": "community",
+      "filename": "py3-reportlab-pyc-4.4.3-r1.apk",
+      "bytes": 1517108,
+      "index_control_sha1": "0c63d3c8b77a32ce6f1b36457f04300f338c3da2",
+      "sha256": "640d8cc1aaff6b8ce1b171a628598c3e88986115c154aa736dc46d5c7b4fef8f"
+    },
+    {
+      "name": "py3-rich",
+      "version": "15.0.0-r0",
+      "repository": "community",
+      "filename": "py3-rich-15.0.0-r0.apk",
+      "bytes": 239272,
+      "index_control_sha1": "f079fb523eda50a4b8e429c77032d95e8911ac7a",
+      "sha256": "2fe97b6b6981385d075c0144e9c5901fb1ccc616d7796e84de9026f683ef51d7"
+    },
+    {
+      "name": "py3-rich-pyc",
+      "version": "15.0.0-r0",
+      "repository": "community",
+      "filename": "py3-rich-pyc-15.0.0-r0.apk",
+      "bytes": 569736,
+      "index_control_sha1": "4f2371fb4dbe30621144cc8aef3c17b50d8f345a",
+      "sha256": "c88c1c34d65eb0595a0c06832346cfe2a2c74e848ccbeda970c1164a8ce76f5c"
+    },
+    {
+      "name": "py3-setuptools",
+      "version": "82.0.1-r1",
+      "repository": "main",
+      "filename": "py3-setuptools-82.0.1-r1.apk",
+      "bytes": 837725,
+      "index_control_sha1": "b1eca23bb54059ed95af34e9126384a8a944cc8e",
+      "sha256": "4ae3a2ed2da6c2885a37b20353c2b1a52ec9a58343a2d1135e420349bc66ffe4"
+    },
+    {
+      "name": "py3-setuptools-pyc",
+      "version": "82.0.1-r1",
+      "repository": "main",
+      "filename": "py3-setuptools-pyc-82.0.1-r1.apk",
+      "bytes": 1557258,
+      "index_control_sha1": "5d137e5986cb0262131fef9e8dfbf7ecaa0aeb6c",
+      "sha256": "d62729210ad51491270dd5587276dc1136a84e9f9858db9b4c5050c95e3c4952"
+    },
+    {
+      "name": "py3-setuptools_scm",
+      "version": "9.2.2-r1",
+      "repository": "main",
+      "filename": "py3-setuptools_scm-9.2.2-r1.apk",
+      "bytes": 52346,
+      "index_control_sha1": "db0da0d42fe7b7f2472e80f68f3b060fecff0a1a",
+      "sha256": "dc413e189ad1c930a25792cdaa2d38f08ec66bb452cce5471157cbaead898707"
+    },
+    {
+      "name": "py3-setuptools_scm-pyc",
+      "version": "9.2.2-r1",
+      "repository": "main",
+      "filename": "py3-setuptools_scm-pyc-9.2.2-r1.apk",
+      "bytes": 99925,
+      "index_control_sha1": "3370bbe67662fe460056a211cff9983538b2971d",
+      "sha256": "d62f009c75b4a0b762a8c9b5596363baf289f81109a01f81a225e3d3d4fe53d0"
+    },
+    {
+      "name": "py3-trove-classifiers",
+      "version": "2026.4.28.13-r0",
+      "repository": "main",
+      "filename": "py3-trove-classifiers-2026.4.28.13-r0.apk",
+      "bytes": 15325,
+      "index_control_sha1": "07e2763b5de8ec61a0e1a8328a483b9949c82dce",
+      "sha256": "db9d07bfb38cd2cfb3a4c2472ddc9936cd1ce6fa28a7e2583aff03cf2059dc4a"
+    },
+    {
+      "name": "py3-trove-classifiers-pyc",
+      "version": "2026.4.28.13-r0",
+      "repository": "main",
+      "filename": "py3-trove-classifiers-pyc-2026.4.28.13-r0.apk",
+      "bytes": 18184,
+      "index_control_sha1": "525020bc7977bab351432ae2194f0e46fbf7bc7b",
+      "sha256": "ee6b278491622fa4c242f745ae6b633e6d297b92e63a2a71f51abcb1793a442d"
+    },
+    {
+      "name": "py3-wrapt",
+      "version": "2.1.2-r0",
+      "repository": "community",
+      "filename": "py3-wrapt-2.1.2-r0.apk",
+      "bytes": 56710,
+      "index_control_sha1": "eb69311210a23d1777a3a41029e8ab94aed41201",
+      "sha256": "41e03d231178bb59cdfcb08f060c5b801cbd18a7883a47ccbe5d3a4ac52483a8"
+    },
+    {
+      "name": "py3-wrapt-pyc",
+      "version": "2.1.2-r0",
+      "repository": "community",
+      "filename": "py3-wrapt-pyc-2.1.2-r0.apk",
+      "bytes": 36206,
+      "index_control_sha1": "802afd090fdd29146168487a5de6e381ea3f75f9",
+      "sha256": "04031bb550f0cdc6e1ad0b8646c27336bf8722bf5813acba832204262a062e02"
+    },
+    {
+      "name": "pyc",
+      "version": "3.14.10-r1",
+      "repository": "main",
+      "filename": "pyc-3.14.10-r1.apk",
+      "bytes": 1269,
+      "index_control_sha1": "3a2a8a49d3e2aac03d33f9c9de19681dfbe38752",
+      "sha256": "8b1678559e6c29db978a923b611cd21a8bfda26d4814edefbb2d62a903bf7df8"
+    },
+    {
+      "name": "python3",
+      "version": "3.14.10-r1",
+      "repository": "main",
+      "filename": "python3-3.14.10-r1.apk",
+      "bytes": 8414398,
+      "index_control_sha1": "6bea883c4cb61452556c6b2170547df22f1ae753",
+      "sha256": "32ae9c446a79f965f942ae704c5121fa4744c5fee76ec86955fe0fc9a6e6c412"
+    },
+    {
+      "name": "python3-pyc",
+      "version": "3.14.10-r1",
+      "repository": "main",
+      "filename": "python3-pyc-3.14.10-r1.apk",
+      "bytes": 1316,
+      "index_control_sha1": "3e9e61f1431953976aa7cbcf7bdf4a722d3bf347",
+      "sha256": "bc63349707d5658ee2d852e415846246b8d71ece5007120b1d2aee85b4a2ad0a"
+    },
+    {
+      "name": "python3-pycache-pyc0",
+      "version": "3.14.10-r1",
+      "repository": "main",
+      "filename": "python3-pycache-pyc0-3.14.10-r1.apk",
+      "bytes": 4495572,
+      "index_control_sha1": "b8563915c3a5ab78086868b449ea814ea264a279",
+      "sha256": "19a814d76898adbf90ec0f33ff1fd85fb8454be8615f4993fba0b69b7b978926"
+    },
+    {
+      "name": "qpdf",
+      "version": "12.3.2-r0",
+      "repository": "community",
+      "filename": "qpdf-12.3.2-r0.apk",
+      "bytes": 8324,
+      "index_control_sha1": "1d14c7d60cb470877ca9a4eb9ea260563748721b",
+      "sha256": "5d41fe566a78fcd96f64ee4dbc32ea77a5465b20e77eae1ccc566deb0cbb378a"
+    },
+    {
+      "name": "qpdf-libs",
+      "version": "12.3.2-r0",
+      "repository": "community",
+      "filename": "qpdf-libs-12.3.2-r0.apk",
+      "bytes": 717019,
+      "index_control_sha1": "15ccd209215a7f41a394c6e2e05528713c459fab",
+      "sha256": "fedd8952f394b8138b50f64dc8e50b656a249391adaeca49a447c710ec36d970"
+    },
+    {
+      "name": "tesseract-ocr",
+      "version": "5.5.2-r0",
+      "repository": "community",
+      "filename": "tesseract-ocr-5.5.2-r0.apk",
+      "bytes": 1993444,
+      "index_control_sha1": "a53c85376fd6169d1a934cd2d9e6e1f6f17f9afa",
+      "sha256": "906383fa282dead1fd527f1a9fbffe2f89839689f62155a93eeeb17ef65aa0cf"
+    },
+    {
+      "name": "tesseract-ocr-data-eng",
+      "version": "5.5.2-r0",
+      "repository": "community",
+      "filename": "tesseract-ocr-data-eng-5.5.2-r0.apk",
+      "bytes": 10845910,
+      "index_control_sha1": "abdc7b44a981cbb8f6a00edacd2cfa6ce4c24722",
+      "sha256": "1095b7f4c7f0342c52e31636ac98605f271410d8e90ae81975223ef171346568"
+    },
+    {
+      "name": "tesseract-ocr-data-osd",
+      "version": "5.5.2-r0",
+      "repository": "community",
+      "filename": "tesseract-ocr-data-osd-5.5.2-r0.apk",
+      "bytes": 4277801,
+      "index_control_sha1": "d26424978432c21d59166f954e33825f1a61aa29",
+      "sha256": "04614b73ec50d769fa8d62ac75155aafea232e6add399aa8cfc855b0a4243599"
+    },
+    {
+      "name": "tesseract-ocr-data-spa",
+      "version": "5.5.2-r0",
+      "repository": "community",
+      "filename": "tesseract-ocr-data-spa-5.5.2-r0.apk",
+      "bytes": 8307602,
+      "index_control_sha1": "f76be15c2e19cadb02c5d5b42043af103991cb23",
+      "sha256": "09752acf5e90ed6f463fefa0c97a4859a4930debec276d1c1828ad0f4d1406e6"
+    },
+    {
+      "name": "unpaper",
+      "version": "7.0.0-r3",
+      "repository": "community",
+      "filename": "unpaper-7.0.0-r3.apk",
+      "bytes": 28181,
+      "index_control_sha1": "dd580842dd07a5eb4e7d3d033a4aea7623680dda",
+      "sha256": "5717c8a917c200328f54fa70bfcea728d3f2ad720b6c890b46ceeefe769c4420"
+    }
+  ]
+}
