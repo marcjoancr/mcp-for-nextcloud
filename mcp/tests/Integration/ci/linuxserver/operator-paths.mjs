@@ -15,7 +15,7 @@ const mcp = '/config/www/nextcloud/apps/mcp';
 const docRoot = '/app/www/public';
 const catalogPin = '7c8406804324fd3af69cd7a0c166c282ad0046d72b0fb762bbecb129b845ef17';
 const digest = data => createHash('sha256').update(data).digest('hex');
-const worker = (c, ...args) => c.checked(['exec', '--user', '1000:1000', c.app, 'php', ...args]);
+const worker = (c, ...args) => c.checked(['exec', '--user', '1000:1000', c.app, 'php', '-d', 'apc.enable_cli=1', ...args]);
 const workerOcc = (c, ...args) => worker(c, docRoot + '/occ', ...args);
 
 async function probe(c, mode) {
@@ -84,6 +84,9 @@ async function request(c, test) {
 export async function testOperatorPaths(c, options, replaceRole) {
   const script = path.join(c.root, 'probes/operator-paths.php');
   await fs.copyFile(path.join(here,'operator-paths.php'), script); await fs.chmod(script, 0o644);
+  const startupProbe = path.join(c.root, 'probes/startup-readiness.php');
+  await fs.copyFile(path.join(here,'startup-readiness.php'),startupProbe);
+  await fs.chmod(startupProbe,0o644);
   const writable = await probe(c, 'direct');
   const initial = await probe(c, 'paths');
   if (!Object.values(writable).every(v => v === true) || !initial.swapParent || !initial.injectConfig || !initial.openConfigForWrite) throw new Error('Writable control failed');
@@ -115,6 +118,7 @@ export async function testOperatorPaths(c, options, replaceRole) {
   await c.checked(['cp',path.join(here,'operator-http.php'),c.client+':/tmp/operator-http.php']);
   const base = await catalogServer(c, options.inputs);
 
+  let preparedHashes;
   async function maintenance(stage) {
     await replaceRole(false);
     const state = JSON.parse(await c.checked(['container','inspect',c.app]))[0];
@@ -122,6 +126,13 @@ export async function testOperatorPaths(c, options, replaceRole) {
     await c.record('maintenance-processes-' + stage, {entrypoint: state.Path, processes});
     if (state.Path !== '/bin/sleep' || !processes.includes('sleep') || processes.some(name => !['sleep','docker-init','tini'].includes(name))) {
       throw new Error('Unexpected process in the maintenance container');
+    }
+    if (stage === 'prepare' && options['host-startup-inputs']) {
+      // Configure caching and locking for the startup fixture.
+      for (const name of ['memcache.local','memcache.locking']) {
+        await workerOcc(c,'config:system:set',name,'--value','\\OC\\Memcache\\APCu');
+      }
+      await workerOcc(c,'config:system:set','filelocking.enabled','--type=boolean','--value=true');
     }
     const view = stage === 'prepare' ? 'install-old' : 'filtered-stable';
     await storeConfig(c, base, view, false);
@@ -137,6 +148,10 @@ export async function testOperatorPaths(c, options, replaceRole) {
     await inventory(c, options, stage);
     await storeConfig(c, base, 'filtered-stable', true);
     await clearStoreCache(c);
+    const prepared = JSON.parse(await worker(c,'/fixture-probes/startup-readiness.php'));
+    preparedHashes = prepared.hashes;
+    await c.record(stage + '-startup-inputs', prepared.predicates);
+    if (options['host-startup-inputs'] && !Object.values(prepared.predicates).every(value => value === true)) throw new Error('Unprepared LinuxServer startup inputs');
     await c.record('operator-' + stage, {notes: version, nativeSignature: 'verified', webAndCron: 'absent'});
   }
 
@@ -150,13 +165,32 @@ export async function testOperatorPaths(c, options, replaceRole) {
     await c.wait('sealed Nginx gate', async () => (await c.rawExec(c.client, ['curl','-sS','--max-time','3','--cacert','/tmp/ca.crt','-o','/dev/null','-w','%{http_code}','https://nc.fixture.test/status.php'])).out === '503');
     await c.exec(c.app, ['s6-rc','-d','change','svc-cron']);
     await c.exec(c.app, ['sh','-ec',emptyCronTablesCommand + ' && ! pgrep -x crond']);
-    const logResult = await command('docker',['logs','--tail','200',c.app]);
+    if (options['host-startup-inputs']) await (await import('./host-startup.mjs')).verifyHostStartup(c,label);
+    const logResult = await command('docker',['logs',c.app]);
     if (logResult.code !== 0) throw new Error('Could not inspect serving startup logs');
     const logs = logResult.out + logResult.err;
     const readOnlyMessages = logs.split('\n').filter(line => /read-only file system/i.test(line));
-    await c.record(label + '-startup', {examinedLines:200, readOnlyMessages:readOnlyMessages.length,
-      nginxSettings:readOnlyMessages.some(line => line.includes('/config/nginx/')),
-      nextcloudConfig:readOnlyMessages.some(line => line.includes('/config/www/nextcloud/config/'))});
+    // Record operation and target only. Docker's complete startup logs stay private.
+    const refusals = {};
+    for (const line of readOnlyMessages) {
+      const op = /^(find|cp|sed|touch|chmod):/.exec(line)?.[1] ?? 'other';
+      const target = line.includes('/config/www/nextcloud/config/config.php') ? 'config.php'
+        : line.includes('/config/nginx/') || line.includes("'/config/nginx'") ? 'nginx' : 'other';
+      const key = op + ' ' + target;
+      refusals[key] = (refusals[key] ?? 0) + 1;
+    }
+    const startup = JSON.parse(await c.exec(c.app,[...nativePhp,'/fixture-probes/startup-readiness.php']));
+    const unchanged = Object.keys(preparedHashes).length === Object.keys(startup.hashes).length
+      && Object.entries(preparedHashes).every(([file,sha]) => startup.hashes[file] === sha);
+    await c.exec(c.app,['nginx','-t']);
+    const status = JSON.parse(await occ(c,'status','--output=json'));
+    await c.record(label + '-startup', {examinedLines:logs.split('\n').length, readOnlyMessages:readOnlyMessages.length, refusals,
+      preparedFilesUnchanged:unchanged, checkedFiles:Object.keys(preparedHashes), effective:startup.predicates,
+      nginxConfigValid:true, needsDbUpgrade:status.needsDbUpgrade, maintenance:status.maintenance});
+    if (!unchanged || (options['host-startup-inputs'] && !Object.values(startup.predicates).every(value => value === true))
+      || status.needsDbUpgrade !== false || status.maintenance !== false || status.installed !== true) {
+      throw new Error('Startup configuration or database state changed');
+    }
     const direct = await probe(c,'direct');
     const paths = await probe(c,'paths');
     const loaded = await probe(c,'resolve');
@@ -192,5 +226,12 @@ export async function testOperatorPaths(c, options, replaceRole) {
   await maintenance('update');
   await service('service-after-update','6.1.0');
   await service('recreated-service','6.1.0');
+  // One normal scheduler invocation under the sealed service UID. The daemon remains paused.
+  const beforeCron = (await occ(c,'config:app:get','core','lastcron','--default-value=0')).trim();
+  await c.exec(c.app,[...nativePhp,docRoot + '/cron.php']);
+  const afterCron = (await occ(c,'config:app:get','core','lastcron','--default-value=0')).trim();
+  if (!/^\d+$/.test(afterCron) || Number(afterCron) <= Number(beforeCron)) throw new Error('Cron did not advance its completion timestamp');
+  await inventory(c,options,'after-cron');
+  await c.record('sealed-cron', {user:1000, completed:true, admission:'closed'});
   return {generations:3, signedNotesUpdate:'6.0.0 to 6.1.0', protected:true};
 }

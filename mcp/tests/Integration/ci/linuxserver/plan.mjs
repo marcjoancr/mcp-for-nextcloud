@@ -8,14 +8,14 @@ import { stageBaseline } from './inputs.mjs';
 import { readProfile } from './profile.mjs';
 import { verifyKit } from '../../../../scripts/release/integrity.mjs';
 
-const usage = 'Usage: (--plan | --check-baseline --inputs DIR | --check-mount --inputs DIR | --check-operator-paths --inputs DIR | --phase L1|L2|L3|L4 --inputs DIR) [--fixture-profile FILE] --kit DIR --manifest-sha256 TRUSTED_DIGEST (absolute paths required)';
+const usage = 'Usage: (--plan | --check-baseline --inputs DIR | --check-mount --inputs DIR | --check-operator-paths --inputs DIR | --phase L1|L2|L3|L4 --inputs DIR) [--fixture-profile FILE] [--host-startup-inputs DIR with --check-operator-paths] --kit DIR --manifest-sha256 TRUSTED_DIGEST (absolute paths required)';
 function argumentsForPlan(args) {
   const options = { profile: fileURLToPath(new URL('./profile.json', import.meta.url)) };
   const seen = new Set();
   for (let i = 0; i < args.length; i++) {
     // Composer consumes --profile globally and decorates JSON stdout. Keep the original shell spelling.
     const key = args[i] === '--fixture-profile' ? '--profile' : args[i];
-    if (seen.has(key) || !['--plan', '--check-baseline', '--check-mount', '--check-operator-paths', '--profile', '--kit', '--manifest-sha256', '--phase', '--inputs', '--checkpoints', '--b0-generation', '--b0-sha256', '--b1-generation', '--b1-sha256'].includes(key)) throw new Error(usage);
+    if (seen.has(key) || !['--plan', '--check-baseline', '--check-mount', '--check-operator-paths', '--host-startup-inputs', '--profile', '--kit', '--manifest-sha256', '--phase', '--inputs', '--checkpoints', '--b0-generation', '--b0-sha256', '--b1-generation', '--b1-sha256'].includes(key)) throw new Error(usage);
     seen.add(key);
     if (['--plan', '--check-baseline', '--check-mount', '--check-operator-paths'].includes(key)) continue;
     const value = args[++i];
@@ -27,6 +27,7 @@ function argumentsForPlan(args) {
   options.checkOperatorPaths = seen.has('--check-operator-paths');
   if (['--plan', '--check-baseline', '--check-mount', '--check-operator-paths', '--phase'].filter(key => seen.has(key)).length !== 1
     || (seen.has('--plan') ? seen.has('--inputs') : !options.inputs || !path.isAbsolute(options.inputs))
+    || (seen.has('--host-startup-inputs') && (!options.checkOperatorPaths || !path.isAbsolute(options['host-startup-inputs'])))
     || (seen.has('--phase') && !['L1', 'L2', 'L3', 'L4'].includes(options.phase))
     || !options.kit || !options['manifest-sha256']
     || !path.isAbsolute(options.kit) || !path.isAbsolute(options.profile)
