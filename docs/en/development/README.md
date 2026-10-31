@@ -9,6 +9,7 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 
 | Task | Reference |
 | --- | --- |
+| Assess the operator-owned app and config paths | [LinuxServer qualification](linuxserver-operator-paths.md) |
 | Assess the read-only mount for MCP | [LinuxServer mount trial](linuxserver-readonly-mcp.md) |
 | Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md), [development baseline](fork-development-baseline.md) |
 | Evaluate upstream 1.2.1 | [Release intake](upstream-1.2.1-intake.md), [path ledger](upstream-1.2.1-source-ledger.md), [U1 plan](upstream-1.2.1-u1-plan.md), [U1 results](upstream-1.2.1-u1-integration.md), [U2 plan](upstream-1.2.1-u2-plan.md), [U2 results](upstream-1.2.1-u2-integration.md), [U3 plan](upstream-1.2.1-u3-plan.md), [U3 results](upstream-1.2.1-u3-integration.md), [U4 plan](upstream-1.2.1-u4-plan.md), [U4 results](upstream-1.2.1-u4-integration.md), [U5 plan](upstream-1.2.1-u5-plan.md), [U5 reconciliation](upstream-1.2.1-u5-integration.md) |
