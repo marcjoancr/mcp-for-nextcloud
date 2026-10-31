@@ -151,10 +151,51 @@ test('a correctly hashed archive cannot impersonate another historical baseline'
 test('baseline inspection binds the reviewed commit, size and digest to the actual bytes', async t => {
   const { inspectBaseline } = await import(helper);
   const f = await fixture(t), file = path.join(f.kit, 'mcp-2.0.0.tar.gz');
-  const digest = await hashFile(file), expected = { sourceCommit: 'b'.repeat(40), archiveSha256: digest, archiveBytes: fs.statSync(file).size, version: '1.2.0' };
+  const digest = await hashFile(file), expected = { sourceCommit: 'b'.repeat(40), archiveSha256: digest, archiveBytes: fs.statSync(file).size, version: '1.1.2' };
   const result = await inspectBaseline(file, digest, expected);
   assert.equal(result.sourceCommit, expected.sourceCommit);
   assert.equal(result.sha256, digest);
   await assert.rejects(inspectBaseline(file, digest, { ...expected, archiveSha256: '0'.repeat(64) }), /reviewed baseline/);
   fs.appendFileSync(file, 'changed'); await assert.rejects(inspectBaseline(file, digest, expected), /integrity/);
+});
+
+test('the 1.2.1 upgrade fixture requires release inputs and rejects substitution before Docker', async t => {
+  const f = await fixture(t);
+  const cell = ['35', 'mariadb', 'upgrade-upstream-121'];
+  assert.notEqual(f.plan(...cell).status, 0);
+  const other = path.join(f.kit, 'mcp-2.0.0.tar.gz');
+  const result = f.plan('--candidate-kit', f.kit, f.digest, '--baseline-package', other, await hashFile(other), ...cell);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /reviewed baseline/);
+  assert.equal(fs.existsSync(f.marker), false);
+});
+
+test('Apache baseline admission rejects a wrong file inventory even when the archive digest matches', async t => {
+  const { inspectBaseline } = await import(helper);
+  const f = await fixture(t);
+  const file = path.join(f.kit, 'mcp-2.0.0.tar.gz');
+  const digest = await hashFile(file);
+  const expected = { sourceCommit: 'a'.repeat(40), version: '2.0.0', archiveBytes: fs.statSync(file).size,
+    archiveSha256: digest, inventorySha256: '0'.repeat(64), runtimeFileCount: Object.keys(await inventory(f.app)).length };
+  await assert.rejects(inspectBaseline(file, digest, expected), /inventory mismatch/);
+  assert.equal(fs.existsSync(f.marker), false);
+});
+
+test('incomplete catalog pins cannot downgrade a reviewed origin to archive-only admission', async t => {
+  const { inspectBaseline } = await import(helper);
+  const f = await fixture(t);
+  const file = path.join(f.kit, 'mcp-2.0.0.tar.gz'), digest = await hashFile(file);
+  for (const version of ['1.2.0', '1.2.1']) {
+    const pins = { version, sourceCommit: 'b'.repeat(40), archiveSha256: digest, archiveBytes: fs.statSync(file).size };
+    await assert.rejects(inspectBaseline(file, digest, pins), /inventory pins/);
+    await assert.rejects(inspectBaseline(file, digest, { ...pins, runtimeFileCount: 574 }), /inventory pins/);
+  }
+});
+
+test('an upgrade plan requires a baseline commit even when the matrix entry is missing', async t => {
+  const f = await fixture(t);
+  const plan = { mode: 'upgrade-upstream-121', baseline_commit: null };
+  const result = spawnSync(process.execPath, [helper.pathname, 'plan', f.kit, f.digest, JSON.stringify(plan)], { encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /baseline commit/);
 });

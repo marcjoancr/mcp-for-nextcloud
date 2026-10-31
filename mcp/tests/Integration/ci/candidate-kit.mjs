@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { stageBaselineArchive } from './app-archive.mjs';
 import { hashFile, inventory, verifyKit, verifyInstalled } from '../../../scripts/release/integrity.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -50,7 +51,8 @@ export async function inspectCandidate(kit, digest) {
     await verifyInstalled(kit, digest, app);
     command('php', [checkPackage, archive, path.join(app, 'templates'), path.join(app, 'lib')]);
     const runnerFiles = {};
-    for (const name of ['tests/Integration/ci/candidate-kit.mjs', 'tests/Integration/ci/run-local.sh',
+    for (const name of ['tests/Integration/ci/candidate-kit.mjs', 'tests/Integration/ci/app-archive.mjs', 'tests/Integration/ci/linuxserver/extract.py',
+      'tests/Integration/ci/linuxserver/command.mjs', 'tests/Integration/ci/matrix.php', 'tests/Integration/ci/run-local.sh',
       'tests/Integration/ci/harness.sh', 'scripts/release/accept.mjs', 'scripts/release/integrity.mjs', 'scripts/check_package.php',
       'tests/Integration/ci/matrix.json', 'tests/Integration/ci/baseline-packages.json']) {
       runnerFiles[name] = await hashFile(path.join(root, name));
@@ -98,8 +100,21 @@ export async function inspectBaseline(file, digest, expected) {
   absolute(file);
   if (!expected || !/^[a-f0-9]{40}$/.test(expected.sourceCommit ?? '') || digest !== expected.archiveSha256) throw new Error('Input does not match the reviewed baseline');
   const stat = fs.lstatSync(file);
-  if (!/^[a-f0-9]{64}$/.test(digest ?? '') || !stat.isFile() || stat.size !== expected.archiveBytes || await hashFile(file) !== digest) throw new Error('Baseline package integrity differs');
-  return { file, sha256: digest, sourceCommit: expected.sourceCommit, version: expected.version };
+  if (!/^[a-f0-9]{64}$/.test(digest ?? '') || !stat.isFile() || stat.size !== expected.archiveBytes) throw new Error('Baseline package integrity differs');
+  const record = { file, sha256: digest, sourceCommit: expected.sourceCommit, version: expected.version };
+  const requiresInventory = ['1.2.0', '1.2.1'].includes(expected.version);
+  if (requiresInventory || expected.inventorySha256 !== undefined || expected.runtimeFileCount !== undefined) {
+    if (!/^[a-f0-9]{64}$/.test(expected.inventorySha256 ?? '') || !Number.isSafeInteger(expected.runtimeFileCount) || expected.runtimeFileCount < 1) {
+      throw new Error('Incomplete baseline inventory pins');
+    }
+    const temporary = scratch();
+    try {
+      record.inventory = await stageBaselineArchive(temporary, file, expected);
+    } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+  } else if (await hashFile(file) !== digest) {
+    throw new Error('Baseline package integrity differs');
+  }
+  return record;
 }
 function reviewedBaseline(mode, commit) {
   const catalog = JSON.parse(fs.readFileSync(new URL('./baseline-packages.json', import.meta.url)));
@@ -113,10 +128,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (action === 'plan' && [0, 2].includes(extra.length)) {
       const plan = JSON.parse(target);
       plan.candidate = await inspectCandidate(kit, digest);
-      if (plan.baseline_commit) {
+      if (plan.mode !== 'fresh') {
+        if (!/^[a-f0-9]{40}$/.test(plan.baseline_commit ?? '')) throw new Error('Upgrade plan requires a reviewed baseline commit');
         if (extra.length !== 2) throw new Error('A reviewed --baseline-package PATH SHA256 is required for candidate upgrades');
         plan.baselinePackage = await inspectBaseline(...extra, reviewedBaseline(plan.mode, plan.baseline_commit));
-      } else if (extra.length) throw new Error('Fresh cells cannot consume a baseline package');
+      } else if (extra.length || plan.baseline_commit) throw new Error('Fresh cells cannot consume a baseline package');
       console.log(JSON.stringify(plan, null, 2));
     } else if (action === 'stage' && extra.length === 0) {
       console.log(JSON.stringify(await stageCandidate(kit, digest, target)));

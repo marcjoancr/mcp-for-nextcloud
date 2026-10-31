@@ -68,7 +68,7 @@ export async function bootstrap(c) {
   if (!state.installed || state.versionstring !== c.profile.nextcloudVersion || state.needsDbUpgrade) throw new Error('Nextcloud status mismatch');
   await c.record('nextcloud-status', state);
   await probe(c, 'context');
-  await c.record('baseline-installed', { mcp: '1.2.0', apps: c.profile.apps.map(({ id, version }) => ({ id, version })), candidateInstalled: false });
+  await c.record('baseline-installed', { mcp: c.profile.baseline.version, apps: c.profile.apps.map(({ id, version }) => ({ id, version })), candidateInstalled: false });
 }
 
 export async function validateBaseline(c) {

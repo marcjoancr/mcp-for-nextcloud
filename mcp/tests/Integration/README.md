@@ -139,3 +139,74 @@ Missing cached inputs fail rather than weakening engines or fetching with the ol
 runtime. Final candidate acceptance should use the reviewed retained baseline
 option above; historical reconstruction is not a claim that its old tooling is
 security-current. The private-TLS Inspector fixture is also still historical.
+
+## Verify the 1.2.1 upgrade fixture
+
+`upgrade-upstream-121` selects the published 1.2.1 archive on NC35/MariaDB.
+It requires `--candidate-kit` and `--baseline-package`. The default CI matrix
+continues to cover its 15 existing cells. The LinuxServer origin uses the
+separate [1.2.1 fixture profile](ci/linuxserver/profile-121.json).
+
+Run these commands from the repository root with the pinned Node runtime and the
+verified input directory. That directory contains `mcp-1.2.1.tar.gz` and
+`baseline-inventory.json` with the file sizes and SHA-256 values required by the profile. All paths below
+are absolute. Use `--fixture-profile` with Composer to keep stdout valid JSON.
+
+```sh
+kit=/absolute/path/to/efb27979b6a90122ce45a6a509e52390030f7ed9
+inputs=/absolute/path/to/verified-121-inputs
+profile="$PWD/mcp/tests/Integration/ci/linuxserver/profile-121.json"
+kit_sha=c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289
+archive_sha=a3531836a0373df526908b5969370aac272e3561a07ae7c62e329cfc1358ef79
+composer --working-dir=mcp test:integration -- --plan \
+  --candidate-kit "$kit" "$kit_sha" --baseline-package "$inputs/mcp-1.2.1.tar.gz" "$archive_sha" \
+  35 mariadb upgrade-upstream-121
+composer --working-dir=mcp test:integration:linuxserver -- --plan \
+  --fixture-profile "$profile" --kit "$kit" --manifest-sha256 "$kit_sha"
+composer --working-dir=mcp test:integration:linuxserver -- --check-baseline --inputs "$inputs" \
+  --fixture-profile "$profile" --kit "$kit" --manifest-sha256 "$kit_sha"
+```
+
+The LinuxServer plan binds the profile to the kit. `--check-baseline` then stages
+a private archive copy, checks its size and SHA-256, extracts it and hashes the
+regular files. It compares both the measured inventory and the supplied inventory
+file with the reviewed digest. The command removes its temporary directory on
+success and failure. The executable fixture uses this same check before Docker
+preflight and uses the staged bytes for installation. For the 1.2.1 rehearsal, run L3 with this
+profile and its pinned inputs. L3 seeds the 1.2.1 data, captures B0, upgrades,
+recreates the app and captures B1. L4 takes
+the same profile and kit, plus the checkpoint directory and both generation
+and manifest digest pairs from that L3 run. It verifies the bindings before restoring.
+After completing the recovery cases, it exercises the update policy on a separate
+restore of B1 using the closed, disposable instance. Prepare the additional catalog
+inputs using [the offline input recipe](ci/linuxserver/protection-inputs.py).
+Keep the private checkpoints and synthetic credentials outside Git. From the same
+shell, with the five companion app archives and native test tools present:
+
+```sh
+python3 mcp/tests/Integration/ci/linuxserver/protection-inputs.py "$inputs"
+composer --working-dir=mcp test:integration:linuxserver -- --phase L3 --inputs "$inputs" \
+  --fixture-profile "$profile" --kit "$kit" --manifest-sha256 "$kit_sha"
+# Supply the trusted evidence directory, generations and hashes from this L3 result.
+composer --working-dir=mcp test:integration:linuxserver -- --phase L4 --inputs "$inputs" \
+  --fixture-profile "$profile" --kit "$kit" --manifest-sha256 "$kit_sha" \
+  --checkpoints "$l3_evidence" --b0-generation "$b0_generation" --b0-sha256 "$b0_sha" \
+  --b1-generation "$b1_generation" --b1-sha256 "$b1_sha"
+```
+
+L4 records recovery cases and protection checks independently. An unresolved
+update-control check makes the overall command exit nonzero.
+
+For a B1 checkpoint from this 1.2.1 origin, `--check-mount` reproduces the
+single-directory bypass and `--check-operator-paths` qualifies the separate
+serving and maintenance roles. Both take the same profile, kit, inputs and two
+checkpoint trust pairs as L4. The modes are mutually exclusive. The first must
+report the substitution and exit nonzero. The operator trial must pass.
+
+Use `--host-startup-inputs /absolute/private/inputs` only with
+`--check-operator-paths` to test startup with the pinned OCR hook. Supply
+`hook.sh` and the two signed APK repository views as
+`{main,community}/x86_64/{APKINDEX.tar.gz,*.apk}`. The runner stages only
+verified bytes for the fixed hook, indexes and archives. Docker mounts the
+staged mirror read-only and the fixture retains its internal network.
+[OCR package inventory](ci/linuxserver/alpine-ocr-packages.json)

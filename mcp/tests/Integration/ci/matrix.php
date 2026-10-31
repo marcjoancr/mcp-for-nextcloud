@@ -13,6 +13,10 @@ foreach ($manifest['cells'] as $cell) {
     $modes = ['fresh', 'upgrade'];
     if ($cell['nc'] === '35' && $cell['db'] === 'mariadb') {
         $modes = [...$modes, 'upgrade-local', 'upgrade-upstream', 'upgrade-upstream-111', 'upgrade-upstream-112', 'upgrade-upstream-120'];
+        // This host comparison requires the published archive and a verified candidate kit.
+        if ($arguments === ['35', 'mariadb', 'upgrade-upstream-121'] && getenv('MCP_IT_CANDIDATE_KIT')) {
+            $modes[] = 'upgrade-upstream-121';
+        }
     }
     foreach ($modes as $mode) {
         $plans[] = $cell + ['mode' => $mode, 'baseline_commit' => $manifest['baselines'][$mode] ?? null,

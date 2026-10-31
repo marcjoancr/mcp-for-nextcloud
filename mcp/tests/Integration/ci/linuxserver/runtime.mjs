@@ -8,7 +8,7 @@ import { SamplingGate } from './sampling.mjs';
 import { measureVolume } from './budget.mjs';
 import { Resources } from './resources.mjs';
 import { allocations, assertDisk, assertImage, ownershipLabel, finalStatus, assertLocalDocker } from './safety.mjs';
-import { here, prepareInputs } from './inputs.mjs';
+import { here, stageAppsAndKit, stageBaseline } from './inputs.mjs';
 import { fixture, startPausedApp } from './fixture.mjs';
 import { fixtureSubnet } from './network.mjs';
 import { bootstrap, validateBaseline } from './validation.mjs';
@@ -62,13 +62,14 @@ export async function executeFixture({ options, profile, profileSha256, manifest
   let failure, monitor, monitoring = false, budgetFailure;
   try {
     for (const tool of ['python3', 'openssl']) if ((await command(tool, [tool === 'openssl' ? 'version' : '--version'])).code) throw new Error(`Missing ${tool}`);
+    const storage = await fs.statfs(root);
+    assertDisk(storage.bavail * storage.bsize, 0, profile.limits);
+    await stageBaseline(root, options.inputs, profile.baseline);
     const dockerContext = await command('docker', ['context', 'inspect']);
     if (dockerContext.code) throw new Error('Cannot inspect local Docker context');
     assertLocalDocker(process.env, JSON.parse(dockerContext.out)[0]?.Endpoints?.docker?.Host);
     const info = JSON.parse(await checked(['info', '--format', '{{json .}}']));
     if (info.OSType !== 'linux' || !['x86_64', 'amd64'].includes(info.Architecture)) throw new Error('Unsupported Docker host');
-    const storage = await fs.statfs(root);
-    assertDisk(storage.bavail * storage.bsize, 0, profile.limits);
     // Do not silently reuse or remove interrupted runs.
     for (const kind of ['container', 'network', 'volume']) {
       const leftovers = await checked([kind, 'ls', '-q', ...(kind === 'container' ? ['-a'] : []), '--filter', `label=${ownershipLabel}`]);
@@ -79,7 +80,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       assertImage(pin, row);
       await record(`image-${name}`, { id: row.Id, reference: pin.reference, platform: 'linux/amd64' });
     }
-    await prepareInputs(root, options, profile, manifest);
+    await stageAppsAndKit(root, options, profile, manifest);
     let restoreTrust;
     if (phase === 'L4') {
       restoreTrust = await (await import('./restore-inputs.mjs')).prepareRestoreInputs({ root, profile, profileSha256 }, options);

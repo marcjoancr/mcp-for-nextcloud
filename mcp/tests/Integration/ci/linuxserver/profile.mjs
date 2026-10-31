@@ -3,7 +3,12 @@
 import fs from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
+import reviewed from '../baseline-packages.json' with { type: 'json' };
 
+const origins = new Map([
+  ['linuxserver-nc35-upstream120', reviewed.packages['upgrade-upstream-120']],
+  ['linuxserver-nc35-upstream121', reviewed.packages['upgrade-upstream-121']],
+]);
 const sha256 = /^[a-f0-9]{64}$/;
 const sha1 = /^[a-f0-9]{40}$/;
 const version = /^\d+\.\d+\.\d+$/;
@@ -23,11 +28,9 @@ function bounds(value, target) {
 /** Fixed local qualification topology, with no endpoints, commands or existing resource selectors. */
 export function validateProfile(p) {
   fields(p, ['schemaVersion', 'id', 'platform', 'nextcloudVersion', 'baseline', 'candidate', 'images', 'apps', 'isolation', 'objectStore', 'sourceDelivery', 'limits']);
-  requireValue(p.schemaVersion === 1 && p.id === 'linuxserver-nc35-upstream120' && p.platform === 'linux/amd64' && p.nextcloudVersion === '35.0.2');
+  requireValue(p.schemaVersion === 1 && origins.has(p.id) && p.platform === 'linux/amd64' && p.nextcloudVersion === '35.0.2');
   fields(p.baseline, ['version', 'sourceCommit', 'archiveSha256', 'archiveBytes', 'inventorySha256', 'runtimeFileCount']);
-  requireValue(p.baseline.version === '1.2.0' && p.baseline.sourceCommit === '02526119b845ccc1d8399be002da3e30b5527df6');
-  digest(p.baseline.archiveSha256); digest(p.baseline.inventorySha256);
-  integer(p.baseline.archiveBytes, 1, 256 * 1024 * 1024); integer(p.baseline.runtimeFileCount, 1, 10000);
+  requireValue(Object.entries(p.baseline).every(([key, value]) => value === origins.get(p.id)[key]));
   fields(p.candidate, ['version', 'sourceCommit', 'manifestSha256']);
   requireValue(p.candidate.version === '2.0.0' && typeof p.candidate.sourceCommit === 'string' && sha1.test(p.candidate.sourceCommit));
   digest(p.candidate.manifestSha256);

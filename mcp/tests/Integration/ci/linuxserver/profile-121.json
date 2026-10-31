@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "id": "linuxserver-nc35-upstream121",
+  "platform": "linux/amd64",
+  "nextcloudVersion": "35.0.2",
+  "baseline": {
+    "version": "1.2.1",
+    "sourceCommit": "3c61e928f3abdb37ad60b80ed207a5e243bf0ec4",
+    "archiveSha256": "a3531836a0373df526908b5969370aac272e3561a07ae7c62e329cfc1358ef79",
+    "archiveBytes": 1332081,
+    "inventorySha256": "c41d95e09dc4854f3c260d7891eb2c33279812a8f97e09b7365da63c76c7ca20",
+    "runtimeFileCount": 574
+  },
+  "candidate": {
+    "version": "2.0.0",
+    "sourceCommit": "efb27979b6a90122ce45a6a509e52390030f7ed9",
+    "manifestSha256": "c59d4a2547b9ddc8685b6e54e12c647fccadd419264df00116d9184836ba3289"
+  },
+  "images": {
+    "nextcloud": {
+      "reference": "lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac",
+      "platformDigest": "sha256:27b2b4072c8de66b0d2909b98d9f8f18cd754880369325007aed6ee984b674d4"
+    },
+    "postgres": {
+      "reference": "postgres:16.15@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d",
+      "platformDigest": "sha256:75adc2a65806c96bc0e59030230bfe3f1c1b0d6d8f8181a8913e2b8b53bdc166"
+    },
+    "seaweedfs": {
+      "reference": "chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
+      "platformDigest": "sha256:aba492e2a4e4c90bff795745e8e660affa1f09e7650f5981bd7bccd1a06cd931"
+    }
+  },
+  "apps": [
+    {
+      "id": "calendar",
+      "version": "6.6.3",
+      "url": "https://github.com/nextcloud-releases/calendar/releases/download/v6.6.3/calendar-v6.6.3.tar.gz",
+      "sha256": "bda8f38c609b2182533887f67eacb543edf437066d0356912ac6324c94743080",
+      "bytes": 20906776,
+      "nextcloud": {
+        "min-version": "32",
+        "max-version": "35"
+      },
+      "php": {
+        "min-version": "8.1",
+        "max-version": "8.5"
+      }
+    },
+    {
+      "id": "contacts",
+      "version": "8.9.2",
+      "url": "https://github.com/nextcloud-releases/contacts/releases/download/v8.9.2/contacts-v8.9.2.tar.gz",
+      "sha256": "92f7c79c411273045ed6346f6988c05af673c3170a3adaba91a15066b8dce7c5",
+      "bytes": 6252660,
+      "nextcloud": {
+        "min-version": "33",
+        "max-version": "36"
+      },
+      "php": {
+        "min-version": "8.2",
+        "max-version": "8.5"
+      }
+    },
+    {
+      "id": "deck",
+      "version": "1.19.0",
+      "url": "https://github.com/nextcloud-releases/deck/releases/download/v1.19.0/deck-v1.19.0.tar.gz",
+      "sha256": "4946ae3e0f7939d8cdd6c3a72f35ccc92703d2c5a694586d65ce02d724d3eaa8",
+      "bytes": 21181958,
+      "nextcloud": {
+        "min-version": "35",
+        "max-version": "35"
+      },
+      "php": null
+    },
+    {
+      "id": "notes",
+      "version": "6.1.0",
+      "url": "https://github.com/nextcloud-releases/notes/releases/download/v6.1.0/notes-v6.1.0.tar.gz",
+      "sha256": "03c493f45cb17a5005a0dce91c4e59b294ef91d4520c3ef44a21d5e61e419526",
+      "bytes": 5253641,
+      "nextcloud": {
+        "min-version": "33",
+        "max-version": "36"
+      },
+      "php": {
+        "min-version": "8.2",
+        "max-version": "8.5"
+      }
+    },
+    {
+      "id": "spreed",
+      "version": "25.0.6",
+      "url": "https://github.com/nextcloud-releases/spreed/releases/download/v25.0.6/spreed-v25.0.6.tar.gz",
+      "sha256": "2b3e3eae42d9bf8ba8da2ab244d16347a3cfacbb8bff346bd99cf32cd6f9c65e",
+      "bytes": 54265379,
+      "nextcloud": {
+        "min-version": "35",
+        "max-version": "35"
+      },
+      "php": null
+    }
+  ],
+  "isolation": {
+    "internalNetwork": true,
+    "publishedPorts": [],
+    "productionInputs": false,
+    "resourceOwnership": "generated-per-run",
+    "runtimeEgress": false
+  },
+  "objectStore": {
+    "implementation": "seaweedfs",
+    "mode": "single-node",
+    "authentication": "required",
+    "versioning": false,
+    "export": "quiescent-s3-objects-and-metadata",
+    "persistence": "master-volume-filer",
+    "volumeSizeLimitMiB": 512,
+    "volumeCount": 4,
+    "filerStore": "leveldb2",
+    "volumeGrowthCount": 1
+  },
+  "sourceDelivery": {
+    "server": "nextcloud-nginx",
+    "scheme": "https",
+    "readOnly": true,
+    "requiresMcpAuthentication": false
+  },
+  "limits": {
+    "cpus": 4,
+    "memoryMiB": 8192,
+    "diskBudgetGiB": 30,
+    "minimumFreeGiB": 40,
+    "seedObjectMiB": 256,
+    "runSeconds": 3600,
+    "readinessSeconds": 300
+  }
+}
