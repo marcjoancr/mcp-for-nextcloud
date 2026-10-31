@@ -16,10 +16,11 @@ import { bootstrap, validateBaseline } from './validation.mjs';
 export async function executeFixture({ options, profile, profileSha256, manifest }) {
   process.umask(0o077);
   const phase = options.phase;
-  const runId = `mcp-${phase.toLowerCase()}-${randomUUID()}`;
-  const root = path.resolve(here, `../../../../build/linuxserver-${phase.toLowerCase()}/runs`, runId);
+  const label = options.checkOperatorPaths ? 'operator-paths' : phase.toLowerCase();
+  const runId = `mcp-${label}-${randomUUID()}`;
+  const root = path.resolve(here, `../../../../build/linuxserver-${label}/runs`, runId);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
-  const result = { schemaVersion: 1, runId, phase, startedAt: new Date().toISOString(), scope: phase === 'L4' ? 'isolated-recovery' : phase === 'L3' ? 'isolated-upgrade' : phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
+  const result = { schemaVersion: 1, runId, phase, startedAt: new Date().toISOString(), scope: options.checkOperatorPaths ? 'operator-owned-paths' : phase === 'L4' ? 'isolated-recovery' : phase === 'L3' ? 'isolated-upgrade' : phase === 'L2' ? 'baseline-checkpoint' : 'baseline-bootstrap', status: 'running',
     profileSha256, baseline: profile.baseline, candidate: profile.candidate, upgradePerformed: false,
     checkpointsCreated: false, checks: [], cleanup: 'pending', pending: ['L2-L5', 'public-https', 'inspector', 'chatgpt', 'human-review'] };
   let secrets = {}, app, s3, postgres, interrupted = false, cleaning = false;
@@ -56,7 +57,10 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     await fs.writeFile(path.join(root, 'result.json'), JSON.stringify(result, null, 2));
     console.error(`${phase}: ${name}`);
   };
-  const close = async () => { if (app) await checked(['cp', path.join(root, 'closed'), `${app}:/config/mcp-l1-closed`]); };
+  let operatorGate = false;
+  const close = async () => {
+    if (operatorGate) { await fs.rm(path.join(root, 'operator-gate/admit'), { force: true }); return; }
+    if (app) await checked(['cp', path.join(root, 'closed'), `${app}:/config/mcp-l1-closed`]); };
   const onSignal = () => { interrupted = true; abort.abort(); };
   process.on('SIGINT', onSignal); process.on('SIGTERM', onSignal);
   let failure, monitor, monitoring = false, budgetFailure;
@@ -121,9 +125,9 @@ export async function executeFixture({ options, profile, profileSha256, manifest
       profile.images.seaweedfs.reference, 'server', '-dir=/data', '-master.dir=/data', '-ip=s3', '-ip.bind=0.0.0.0', '-filer', '-s3', '-s3.config=/etc/seaweedfs/s3.json',
       `-volume.max=${profile.objectStore.volumeCount}`, `-master.volumeSizeLimitMB=${profile.objectStore.volumeSizeLimitMiB}`, '-volume.preStopSeconds=1',
     ]);
-    const appArgs = ['--network-alias', 'nc.fixture.test', '--env-file', path.join(root, 'app.env'),
-      '-v', `${volumes.config}:/config`, '-v', `${volumes.data}:/data`, '-v', `${root}/source:/fixture-source:ro`, '-v', `${root}/probes:/fixture-probes:ro`];
-    app = await create('app', profile.images.nextcloud.reference, [...appArgs, ...(phase === 'L4' ? ['--entrypoint', '/bin/sleep'] : [])], 'app', phase === 'L4' ? ['infinity'] : []);
+    const appArgs = (sealed = false) => ['--network-alias', 'nc.fixture.test', '--env-file', path.join(root, 'app.env'),
+      '-v', `${volumes.config}:/config${sealed ? ':ro' : ''}`, '-v', `${volumes.data}:/data`, '-v', `${root}/source:/fixture-source:ro`, '-v', `${root}/probes:/fixture-probes:ro`];
+    app = await create('app', profile.images.nextcloud.reference, [...appArgs(), ...(phase === 'L4' ? ['--entrypoint', '/bin/sleep'] : [])], 'app', phase === 'L4' ? ['infinity'] : []);
     await checked(['cp', `${root}/config/.`, `${app}:/config`]);
     await checked(['start', postgres, s3]);
     if (phase === 'L4') await checked(['start', app]); else await startPausedApp(checked, root, app);
@@ -174,7 +178,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     await budget();
     context.recreateApp = async () => sampling.mutate(async () => {
       await owner.removeContainer(app);
-      app = await create('app', profile.images.nextcloud.reference, appArgs, 'app-recreated');
+      app = await create('app', profile.images.nextcloud.reference, appArgs(), 'app-recreated');
       context.app = app;
       await startPausedApp(args => owner.checked(args), root, app);
     });
@@ -196,8 +200,28 @@ export async function executeFixture({ options, profile, profileSha256, manifest
         update: ids => { app = context.app = ids.app; postgres = context.postgres = ids.postgres; s3 = context.s3 = ids.s3; },
       });
       result.pending[0] = 'L4-L5';
-      result.recovery = await (await import('./l4.mjs')).executeL4(context, options, restoreTrust);
-      result.pending[0] = 'L5';
+      if (options.checkOperatorPaths) {
+        await context.restore(path.join(root, 'B1'), restoreTrust.B1);
+        let generation = 0;
+        const replaceRole = async (service) => sampling.mutate(async () => {
+          await close();
+          operatorGate = true;
+          await owner.removeContainer(app);
+          const args = [...appArgs(service), '-v', `${root}/operator-app:/app:ro`,
+            '-v', `${root}/operator-gate:/operator-gate:ro`];
+          if (service) args.push('--tmpfs', '/config/log:rw,nosuid,nodev,noexec,size=64m');
+          else args.push('--entrypoint', '/bin/sleep');
+          app = await create('app', profile.images.nextcloud.reference, args, `operator-${++generation}`, service ? [] : ['infinity']);
+          context.app = app;
+          if (service) await startPausedApp(args => owner.checked(args), root, app);
+          else await owner.checked(['start', app]);
+        });
+        result.operatorPaths = await (await import('./operator-paths.mjs')).testOperatorPaths(context, options, replaceRole);
+        result.pending[0] = 'intended-host-qualification';
+      } else {
+        result.recovery = await (await import('./l4.mjs')).executeL4(context, options, restoreTrust);
+        result.pending[0] = 'L5';
+      }
     }
     if (budgetFailure) throw budgetFailure;
     await budget();
@@ -228,7 +252,7 @@ export async function executeFixture({ options, profile, profileSha256, manifest
     catch (error) { result.cleanup = error.message; result.status = 'failed'; result.failure ??= error.message; failure ??= error; }
     // Retain verified checkpoints and separate private oracles, never a partial B1.
     if (result.cleanup === 'complete') {
-      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log', 'native-tests.log', 'native-junit.xml', ...Object.keys(result.recoveryCheckpoints ?? {}).flatMap(name => [name, `${name}-trust.json`]), ...(result.checkpointsCreated || result.inputCheckpoints ? ['B0', 'B0-trust.json', 'private', ...(result.upgradeCheckpoint || result.inputCheckpoints ? ['B1', 'B1-trust.json'] : [])] : [])].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
+      for (const name of await fs.readdir(root)) if (!['result.json', 'resources.json', 'diagnostics.log', 'native-tests.log', 'native-junit.xml', ...Object.keys(result.recoveryCheckpoints ?? {}).flatMap(name => [name, `${name}-trust.json`]), ...(!options.checkOperatorPaths && (result.checkpointsCreated || result.inputCheckpoints) ? ['B0', 'B0-trust.json', 'private', ...(result.upgradeCheckpoint || result.inputCheckpoints ? ['B1', 'B1-trust.json'] : [])] : [])].includes(name)) await fs.rm(path.join(root, name), { recursive: true, force: true });
     }
     result.status = finalStatus(Boolean(failure), interrupted, result.cleanup === 'complete');
     if (interrupted) { result.failure ??= `${phase} interrupted`; failure ??= new Error(`${phase} interrupted`); }
