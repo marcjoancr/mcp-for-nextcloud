@@ -9,6 +9,7 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 
 | Task | Reference |
 | --- | --- |
+| Assess the read-only mount for MCP | [LinuxServer mount trial](linuxserver-readonly-mcp.md) |
 | Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md), [development baseline](fork-development-baseline.md) |
 | Evaluate upstream 1.2.1 | [Release intake](upstream-1.2.1-intake.md), [path ledger](upstream-1.2.1-source-ledger.md), [U1 plan](upstream-1.2.1-u1-plan.md), [U1 results](upstream-1.2.1-u1-integration.md), [U2 plan](upstream-1.2.1-u2-plan.md), [U2 results](upstream-1.2.1-u2-integration.md), [U3 plan](upstream-1.2.1-u3-plan.md), [U3 results](upstream-1.2.1-u3-integration.md), [U4 plan](upstream-1.2.1-u4-plan.md), [U4 results](upstream-1.2.1-u4-integration.md), [U5 plan](upstream-1.2.1-u5-plan.md), [U5 reconciliation](upstream-1.2.1-u5-integration.md) |
 | Track F3 identity and release preparation | [F3 execution record](fork-f3-preparation.md), [source delivery and control evidence](fork-f3-delivery.md), [MinicoLab update/integrity audit](fork-minicolab-update-integrity-audit.md), [1.2.1 baseline and upstream 1.2.2 intake](upstream-1.2.2-intake.md), [1.2.1 production rehearsal](minicolab-121-rehearsal.md), [candidate after L5](fork-candidate-after-l5.md), [remediated candidate](fork-candidate-re2js.md) |
