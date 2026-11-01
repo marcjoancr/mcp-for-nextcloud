@@ -12,7 +12,9 @@ use OCA\Mcp\Access\Policy\Transactions\PolicyTransaction;
 use OCA\Mcp\Access\Policy\PolicyUnavailable;
 
 use OCA\Mcp\Db\GroupLifeMapper;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\Access\Grants\GrantPolicy;
+use OCA\Mcp\Access\Grants\ToolGrantResolution;
 use OCA\Mcp\Access\Policy\Resolution\EffectiveResult;
 use OCA\Mcp\Access\Policy\Resolution\EligibilityResolution;
 use OCA\Mcp\Access\Policy\Resolution\GrantResolution;
@@ -25,8 +27,9 @@ final class PolicyOperationContext {
 
     /**
      * @param array<string,array{present:bool,value?:mixed}> $raw
-     * @param list<array{groupId:string,grants:array,trusted:bool,state:?string,gen:?string}> $candidates
+     * @param list<array{groupId:string,grants:array,toolGrants?:array,trusted:bool,state:?string,gen:?string}> $candidates
      * @param array<string,bool> $apps
+     * @param array<string,string> $toolGrants explicit user tool decisions, including neutral markers
      */
     public function __construct(
         public readonly string $revision,
@@ -40,11 +43,12 @@ final class PolicyOperationContext {
         private bool $logsPermitted,
         private ?ScopeGuard $scope,
         private bool $grantsOnly = false,
+        private array $toolGrants = [],
     ) {}
 
     public function close(): void {
         $this->closed = true;
-        $this->raw = $this->candidates = $this->apps = [];
+        $this->raw = $this->candidates = $this->apps = $this->toolGrants = [];
         $this->scope = null;
     }
 
@@ -93,6 +97,23 @@ final class PolicyOperationContext {
     }
 
     public function eligible(): EligibilityResolution {
+        $legacy = $this->resolve(GrantPolicy::ELIGIBLE_KEY, '_system', 'eligible', false);
+        $hasGroupServiceDecision = false;
+        foreach ($this->candidates as $candidate) {
+            if (array_key_exists(ToolGrantsMapper::SERVICE, $candidate['toolGrants'] ?? [])) {
+                $hasGroupServiceDecision = true;
+                break;
+            }
+        }
+        if (!array_key_exists(ToolGrantsMapper::SERVICE, $this->toolGrants) && !$hasGroupServiceDecision) {
+            return new EligibilityResolution($legacy->allowed, $legacy->source, $legacy->groupIds, $legacy->rawState);
+        }
+        $result = $this->toolDecision(ToolGrantsMapper::SERVICE, '_system', 'eligible', false, $legacy);
+        return new EligibilityResolution($result->allowed, $result->source, $result->groupIds, $result->rawState);
+    }
+
+    /** Legacy eligibility resolution used only by the one-time compatibility snapshot. */
+    public function legacyEligible(): EligibilityResolution {
         $result = $this->resolve(GrantPolicy::ELIGIBLE_KEY, '_system', 'eligible', false);
         return new EligibilityResolution($result->allowed, $result->source, $result->groupIds, $result->rawState);
     }
@@ -102,7 +123,19 @@ final class PolicyOperationContext {
      * that restores absence, leaves (contracts §3.1, §4.1). Group sources and unknown candidates as in eligible().
      */
     public function inheritedEligibility(): EligibilityResolution {
-        $result = $this->resolve(GrantPolicy::ELIGIBLE_KEY, '_system', 'eligible', false, true);
+        $legacy = $this->resolve(GrantPolicy::ELIGIBLE_KEY, '_system', 'eligible', false, true);
+        $hasGroupServiceDecision = false;
+        foreach ($this->candidates as $candidate) {
+            if (array_key_exists(ToolGrantsMapper::SERVICE, $candidate['toolGrants'] ?? [])) {
+                $hasGroupServiceDecision = true;
+                break;
+            }
+        }
+        if (!array_key_exists(ToolGrantsMapper::SERVICE, $this->toolGrants) && !$hasGroupServiceDecision) {
+            return new EligibilityResolution($legacy->allowed, $legacy->source, $legacy->groupIds, $legacy->rawState);
+        }
+        $result = $this->toolDecision(ToolGrantsMapper::SERVICE, '_system', 'eligible', false, $legacy,
+            true, true, ToolGrantsMapper::NEUTRAL);
         return new EligibilityResolution($result->allowed, $result->source, $result->groupIds, $result->rawState);
     }
 
@@ -110,6 +143,83 @@ final class PolicyOperationContext {
         self::validate($module, $operation);
         return $this->resolve('grant_' . $module . '_' . $operation, $module, $operation,
             GrantPolicy::defaultGranted($module, $operation));
+    }
+
+    /** The effective tool gate, with user, group, legacy operation and default decisions in that order. */
+    public function toolGranted(string $toolName, string $module, string $operation): GrantResolution {
+        $this->check();
+        $hasGroupToolDecision = false;
+        foreach ($this->candidates as $candidate) {
+            if (array_key_exists($toolName, $candidate['toolGrants'] ?? [])) {
+                $hasGroupToolDecision = true;
+                break;
+            }
+        }
+        if (\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($toolName)
+            && !array_key_exists($toolName, $this->toolGrants) && !$hasGroupToolDecision) {
+            return $this->granted($module, $operation);
+        }
+        if (!\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($toolName)) {
+            return $this->toolDecision($toolName, $module, $operation, false,
+                new GrantResolution(false, 'default', [], ['present' => false]), false);
+        }
+        $legacy = $this->granted($module, $operation);
+        return $this->toolDecision($toolName, $module, $operation, GrantPolicy::defaultGranted($module, $operation), $legacy);
+    }
+
+    /** Resolve a proposed policy cell without persisting it, for admin previews and impact checks. */
+    public function projectedToolDecision(string $toolName, string $module, string $operation, bool $replaceUser,
+            ?string $userDecision, ?string $groupId = null, ?string $groupDecision = null, bool $replaceGroup = false): GrantResolution {
+        $this->check();
+        $service = $toolName === ToolGrantsMapper::SERVICE;
+        if ($service) {
+            $eligibility = $this->legacyEligible();
+            $legacy = new GrantResolution($eligibility->allowed, $eligibility->source, $eligibility->groupIds, $eligibility->rawState);
+        } else {
+            $legacy = $this->granted($module, $operation);
+        }
+        $legacySupported = $service || \OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($toolName);
+        $groupOverride = $groupId === null ? [] : [$groupId => $groupDecision];
+        if (!$replaceUser && !$replaceGroup && $legacySupported) {
+            return $this->toolGranted($toolName, $module, $operation);
+        }
+        if (!$legacySupported) {
+            $legacy = new GrantResolution(false, 'default', [], ['present' => false]);
+        }
+        return $this->toolDecision($toolName, $module, $operation, $service ? false : GrantPolicy::defaultGranted($module, $operation), $legacy,
+            $legacySupported, $replaceUser, $userDecision, $groupOverride);
+    }
+
+    private function toolDecision(string $toolName, string $module, string $operation, bool $default, GrantResolution $legacy,
+            bool $legacySupported = true, bool $replaceUser = false, ?string $userDecisionOverride = null,
+            array $groupOverrides = []): GrantResolution {
+        $groups = [];
+        foreach ($this->candidates as $candidate) {
+            $gid = $candidate['groupId'];
+            $groups[] = [
+                'decision' => array_key_exists($gid, $groupOverrides) ? $groupOverrides[$gid] : ($candidate['toolGrants'][$toolName] ?? null),
+                'legacyAllowed' => $legacySupported && in_array($operation, $candidate['grants'][$module] ?? [], true),
+                'groupId' => $candidate['groupId'],
+                'trusted' => (isset($groupOverrides[$gid]) && $groupOverrides[$gid] !== ToolGrantsMapper::NEUTRAL)
+                    || ($candidate['trusted'] && $candidate['state'] === GroupLifeMapper::ACTIVE),
+            ];
+        }
+        $userDecision = $replaceUser ? $userDecisionOverride : ($this->toolGrants[$toolName] ?? null);
+        $legacyUser = !$legacySupported ? null : ($legacy->source === 'individual_allow' ? true
+            : ($legacy->source === 'individual_deny' || $legacy->source === 'invalid' ? false : null));
+        if ($replaceUser && $userDecisionOverride === ToolGrantsMapper::NEUTRAL) {
+            $legacyUser = null;
+        }
+        $result = ToolGrantResolution::resolve($userDecision, $legacyUser, $groups,
+            $default);
+        return new GrantResolution($result['allowed'], $result['source'], $result['groupIds'],
+            $userDecision === null ? $legacy->rawState : ['present' => true, 'value' => $userDecision]);
+    }
+
+    /** Explicit assignment for one subject, with legacy module policy retained as its baseline. */
+    public function toolAssignment(string $toolName): ?string {
+        $this->check();
+        return $this->toolGrants[$toolName] ?? null;
     }
 
     /**
@@ -140,6 +250,24 @@ final class PolicyOperationContext {
         };
         return new EffectiveResult($gate === null ? true : (str_ends_with($gate, '_unknown') ? null : false),
             $gate === 'resource_scope' ? 'out_of_scope' : ($gate ?? 'allowed'), $grant, $gate, $scope);
+    }
+
+    /** Eligibility after removing only one group's legacy _system/eligible row, preserving its granular rules. */
+    public function withoutLegacyGroupEligibility(string $gid): EligibilityResolution {
+        $this->check();
+        $original = $this->candidates;
+        try {
+            foreach ($this->candidates as &$candidate) {
+                if ($candidate['groupId'] !== $gid) {
+                    continue;
+                }
+                unset($candidate['grants']['_system']);
+            }
+            unset($candidate);
+            return $this->eligible();
+        } finally {
+            $this->candidates = $original;
+        }
     }
 
     /** Same resolution without the override: admin counting only, not an access decision. */

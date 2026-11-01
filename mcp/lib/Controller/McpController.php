@@ -13,6 +13,8 @@ use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\L10n\UserL10n;
 use OCA\Mcp\OAuth\AccessTokenAuthenticator;
 use OCA\Mcp\OAuth\ResourceUrl;
+use OCA\Mcp\OAuth\ConnectionContext;
+use OCA\Mcp\OAuth\ConnectionToolsStore;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Mcp\Protocol\McpProtocol;
 use OCA\Mcp\OAuth\Revocation\CauseProcessor;
@@ -48,6 +50,8 @@ class McpController extends Controller {
         private UserL10n $l10n,
         private CauseProcessor $causes,
         private GuestRestrictions $guests,
+        private ?ConnectionContext $connection = null,
+        private ?ConnectionToolsStore $connectionTools = null,
     ) {
         parent::__construct($appName, $request);
     }
@@ -132,6 +136,9 @@ class McpController extends Controller {
             return $identity;
         }
         [$user, $sessionUser, $bearer] = $identity;
+        if (!$bearer) {
+            $this->connection?->set(ConnectionToolsStore::BASIC_PROFILE);
+        }
         return $this->policy->within($user->getUID(), function () use ($user, $sessionUser, $bearer, $handle): McpResponse {
             try {
                 if (!$this->policy->canConnect($user->getUID())) {
@@ -144,6 +151,10 @@ class McpController extends Controller {
                 // app password logs in after that boot and a Bearer token here, so they are set up for every request.
                 if (!$this->guests->apply($user)) {
                     return new McpResponse('', 403);
+                }
+                if ($this->connection !== null && $this->connectionTools !== null) {
+                    $selection = $this->connectionTools->get($user->getUID(), $this->connection->current());
+                    $this->connection->setSelection($selection['tools'] ?? null, $selection['variants'] ?? []);
                 }
                 // Both the Basic and the OAuth path end here with the authenticated user, whose account language wins.
                 Translator::use($this->l10n->forUser($user));
@@ -247,6 +258,7 @@ class McpController extends Controller {
      * the active user stays the token owner for whatever still runs in this request (logging, middlewares).
      */
     private function releaseSession(): void {
+        $this->connection?->clear();
         if ($this->boundUser === null) {
             return;
         }

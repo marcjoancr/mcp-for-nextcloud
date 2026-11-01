@@ -23,6 +23,7 @@ class RecheckMapper {
     public const TABLE = 'mcp_auth_recheck';
     public const REASON_ACCOUNT = 'account_delete';
     public const REASON_GROUP = 'group_removal';
+    public const REASON_GROUP_ADDITION = 'group_addition';
 
     public function __construct(private IDBConnection $db) {}
 
@@ -51,7 +52,7 @@ class RecheckMapper {
                 $key = $row['cause_key'] ?? null;
                 $expected = match ($reason) {
                     self::REASON_ACCOUNT => $groupId === null ? IdentityKey::accountCause() : null,
-                    self::REASON_GROUP => is_string($groupId) && $groupId !== '' ? IdentityKey::group($groupId) : null,
+                    self::REASON_GROUP, self::REASON_GROUP_ADDITION => is_string($groupId) && $groupId !== '' ? IdentityKey::group($groupId) : null,
                     default => null,
                 };
                 if ($expected === null || $key !== $expected || !self::validGen($row['gen'] ?? null)) {
@@ -115,8 +116,8 @@ class RecheckMapper {
      * inside a transaction, where PostgreSQL would abort it.
      *
      * @param string $uid Nextcloud user id
-     * @param string $reason REASON_ACCOUNT or REASON_GROUP
-     * @param string|null $gid the group for REASON_GROUP, null for REASON_ACCOUNT
+     * @param string $reason REASON_ACCOUNT, REASON_GROUP or REASON_GROUP_ADDITION
+     * @param string|null $gid the group for either group reason, null for REASON_ACCOUNT
      * @param string $gen 32 lowercase hex characters (128 random bits), new for each native operation
      * @param int $createdAt Unix time of the native operation
      * @return string the cause_key
@@ -128,7 +129,7 @@ class RecheckMapper {
     public function record(string $uid, string $reason, ?string $gid, string $gen, int $createdAt): string {
         $causeKey = match (true) {
             $reason === self::REASON_ACCOUNT && $gid === null => IdentityKey::accountCause(),
-            $reason === self::REASON_GROUP && $gid !== null => IdentityKey::group($gid),
+            in_array($reason, [self::REASON_GROUP, self::REASON_GROUP_ADDITION], true) && $gid !== null => IdentityKey::group($gid),
             default => throw new InvalidArgumentException('Invalid recheck cause'),
         };
         if (!self::validGen($gen) || $createdAt < 0) {
@@ -227,7 +228,7 @@ class RecheckMapper {
         $groupId = $row['group_id'] ?? null;
         $consistent = match ($row['reason'] ?? null) {
             self::REASON_ACCOUNT => $groupId === null && $causeKey === IdentityKey::accountCause(),
-            self::REASON_GROUP => is_string($groupId) && $groupId !== '' && IdentityKey::group($groupId) === $causeKey
+            self::REASON_GROUP, self::REASON_GROUP_ADDITION => is_string($groupId) && $groupId !== '' && IdentityKey::group($groupId) === $causeKey
                 && ($gid === null || $groupId === $gid),
             default => false,
         };

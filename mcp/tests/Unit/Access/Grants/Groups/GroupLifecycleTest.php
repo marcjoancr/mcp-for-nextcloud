@@ -77,6 +77,18 @@ final class GroupLifecycleTest extends TestCase {
         $this->assertFalse($this->lifecycle->deleted('staff', $pending), 'a repeated event is a no-op');
     }
 
+    public function testConfirmedGroupPurgeAlsoDeletesGranularToolPolicy(): void {
+        $gen = $this->policy('staff');
+        $this->toolPolicy('staff', 'notes_edit');
+        $this->toolPolicy('team', 'notes_edit');
+        $pending = bin2hex(random_bytes(16));
+        $this->life->markPendingDelete('staff', $gen, $pending);
+
+        $this->assertTrue($this->lifecycle->deleted('staff', $pending));
+        $this->assertSame([], $this->toolGrants->forPrincipals(\OCA\Mcp\Db\ToolGrantsMapper::GROUP, ['staff'])['staff']);
+        $this->assertSame(['notes_edit' => 'allow'], $this->toolGrants->forPrincipals(\OCA\Mcp\Db\ToolGrantsMapper::GROUP, ['team'])['team']);
+    }
+
     /** T6: a late GroupDeletedEvent with the old gen never removes a policy saved since (the save got a new gen). */
     public function testALateDeletedEventNeverRemovesAPolicySavedSince(): void {
         $gen = $this->policy('staff');

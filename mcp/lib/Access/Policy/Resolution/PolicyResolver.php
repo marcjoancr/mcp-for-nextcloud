@@ -26,9 +26,11 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\ResourceScopeMapper;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\Access\AppAvailability\AppEnablement;
 use OCA\Mcp\Access\Grants\GrantMatrix;
 use OCA\Mcp\Access\Grants\GrantPolicy;
+use OCA\Mcp\Access\Grants\ToolGrantResolution;
 use OCA\Mcp\Access\ResourceScope\ScopeGuard;
 use OCP\App\IAppManager;
 use OCP\Config\IUserConfig;
@@ -63,7 +65,213 @@ class PolicyResolver {
         private IAppManager $apps,
         private LogsRoleReader $logs,
         private ResourceScopeMapper $scopes,
+        private ?ToolGrantsMapper $toolGrants = null,
     ) {}
+
+    /** @return array{assigned:?string,effective:?bool,source:string,groupIds:list<string>} */
+    public function groupToolState(string $gid, string $toolName, string $module, string $operation): array {
+        return $this->groupToolStates($gid, [['toolName' => $toolName, 'module' => $module, 'operation' => $operation]])[$toolName];
+    }
+
+    /** Resolve a group's full visible tool catalog from one policy/lifecycle snapshot. */
+    public function groupToolStates(string $gid, array $tools): array {
+        for ($attempt = 0; $attempt < 2; ++$attempt) {
+            $this->writer->assertUsable();
+            $before = $this->state->state();
+            $legacy = $this->grants->forGroups([$gid])[0]['grants'];
+            $stored = $this->toolGrants?->forPrincipals(ToolGrantsMapper::GROUP, [$gid])[$gid] ?? [];
+            $life = $this->life->forGroups([$gid])[0] ?? null;
+            $trusted = $this->classifier->trusted($gid) && ($life['state'] ?? null) === GroupLifeMapper::ACTIVE;
+            $result = [];
+            foreach ($tools as $item) {
+                $toolName = $item['toolName'];
+                $module = $item['module'];
+                $operations = $item['grantAnyOf'] ?? [$item['operation']];
+                $new = $stored[$toolName] ?? null;
+                $resolved = null;
+                $assigned = $new;
+                if (!array_key_exists('grantAnyOf', $item)) {
+                    $operation = $item['operation'];
+                    $legacyAllowed = $module === '_system' && $operation === 'eligible'
+                        ? in_array('eligible', $legacy['_system'] ?? [], true)
+                        : in_array($operation, $legacy[$module] ?? [], true);
+                    $legacyResult = ToolGrantResolution::resolve(null, null, [[
+                        'decision' => $new, 'legacyAllowed' => $legacyAllowed, 'groupId' => $gid, 'trusted' => $trusted,
+                    ]], $module === '_system' ? false : GrantPolicy::defaultGranted($module, $operation));
+                    if ($assigned === null && $legacyAllowed && $trusted) {
+                        $assigned = ToolGrantsMapper::ALLOW;
+                    }
+                    $result[$toolName] = ['assigned' => $assigned, 'effective' => $legacyResult['allowed'],
+                        'source' => $legacyResult['source'], 'groupIds' => $legacyResult['groupIds']];
+                    continue;
+                }
+                foreach ($operations as $operation) {
+                    $legacyAllowed = $module === '_system' && $operation === 'eligible'
+                        ? in_array('eligible', $legacy['_system'] ?? [], true)
+                        : in_array($operation, $legacy[$module] ?? [], true);
+                    $tool = ToolGrantResolution::resolve(null, null, [[
+                        'decision' => $new,
+                        'legacyAllowed' => $legacyAllowed,
+                        'groupId' => $gid,
+                        'trusted' => $trusted,
+                    ]], $module === '_system' ? false : GrantPolicy::defaultGranted($module, $operation));
+                    $operationAllowed = $legacyAllowed || ($module !== '_system' && GrantPolicy::defaultGranted($module, $operation));
+                    $variant = self::concreteToolState(
+                        ['effective' => $tool['allowed'], 'source' => $tool['source'], 'groupIds' => $tool['groupIds']],
+                        ['effective' => $operationAllowed, 'source' => $legacyAllowed ? 'legacy_group' : 'default',
+                            'groupIds' => $legacyAllowed ? [$gid] : []], $gid);
+                    $resolved = self::anyToolState($resolved, $variant);
+                    if ($assigned === null && $legacyAllowed && $trusted) {
+                        $assigned = ToolGrantsMapper::ALLOW;
+                    }
+                }
+                $result[$toolName] = ['assigned' => $assigned, 'effective' => $resolved['effective'],
+                    'source' => $resolved['source'], 'groupIds' => $resolved['groupIds']];
+            }
+            $after = $this->state->state();
+            $this->writer->assertUsable();
+            if ($before['revision'] === $after['revision']) {
+                return $result;
+            }
+        }
+        throw new PolicyUnavailable('Policy changed while reading group tool policy');
+    }
+
+    /** Resolve a group's proposed decisions as they would be after its admin save. */
+    public function projectedGroupToolStates(string $gid, array $cells): array {
+        for ($attempt = 0; $attempt < 2; ++$attempt) {
+            $this->writer->assertUsable();
+            $before = $this->state->state();
+            $legacy = $this->grants->forGroups([$gid])[0]['grants'];
+            $stored = $this->toolGrants?->forPrincipals(ToolGrantsMapper::GROUP, [$gid])[$gid] ?? [];
+            $life = $this->life->forGroups([$gid])[0] ?? null;
+            $sourceTrusted = $this->classifier->trusted($gid);
+            $result = [];
+            foreach ($cells as $cell) {
+                $name = $cell['toolName'];
+                $module = $name === ToolGrantsMapper::SERVICE ? '_system' : $cell['module'];
+                $operations = $name === ToolGrantsMapper::SERVICE ? ['eligible'] : ($cell['grantAnyOf'] ?? [$cell['operation']]);
+                $decision = $cell['decision'];
+                $futureTrusted = $sourceTrusted && ($decision !== ToolGrantsMapper::NEUTRAL || ($life['state'] ?? null) === GroupLifeMapper::ACTIVE);
+                if (!array_key_exists('grantAnyOf', $cell)) {
+                    $operation = $module === '_system' ? 'eligible' : $cell['operation'];
+                    $legacyAllowed = $module === '_system' && $operation === 'eligible'
+                        ? in_array('eligible', $legacy['_system'] ?? [], true)
+                        : in_array($operation, $legacy[$module] ?? [], true);
+                    $legacyResult = ToolGrantResolution::resolve(null, null, [[
+                        'decision' => $decision, 'legacyAllowed' => $legacyAllowed, 'groupId' => $gid, 'trusted' => $futureTrusted,
+                    ]], $module === '_system' ? false : GrantPolicy::defaultGranted($module, $operation));
+                    $result[$name] = ['effective' => $legacyResult['allowed'], 'source' => $legacyResult['source'],
+                        'groupIds' => $legacyResult['groupIds']];
+                    continue;
+                }
+                $resolved = null;
+                foreach ($operations as $operation) {
+                    $legacyAllowed = $module === '_system' && $operation === 'eligible'
+                        ? in_array('eligible', $legacy['_system'] ?? [], true)
+                        : in_array($operation, $legacy[$module] ?? [], true);
+                    $tool = ToolGrantResolution::resolve(null, null, [[
+                        'decision' => $decision === ToolGrantsMapper::NEUTRAL ? null : $decision,
+                        'legacyAllowed' => $legacyAllowed,
+                        'groupId' => $gid,
+                        'trusted' => $futureTrusted,
+                    ]], $module === '_system' ? false : GrantPolicy::defaultGranted($module, $operation));
+                    $operationAllowed = $legacyAllowed || ($module !== '_system' && GrantPolicy::defaultGranted($module, $operation));
+                    $resolved = self::anyToolState($resolved, self::concreteToolState(
+                        ['effective' => $tool['allowed'], 'source' => $tool['source'], 'groupIds' => $tool['groupIds']],
+                        ['effective' => $operationAllowed, 'source' => $legacyAllowed ? 'legacy_group' : 'default',
+                            'groupIds' => $legacyAllowed ? [$gid] : []], $gid));
+                }
+                $result[$name] = ['effective' => $resolved['effective'], 'source' => $resolved['source'],
+                    'groupIds' => $resolved['groupIds']];
+            }
+            $after = $this->state->state();
+            $this->writer->assertUsable();
+            if ($before['revision'] === $after['revision']) {
+                return $result;
+            }
+        }
+        throw new PolicyUnavailable('Policy changed while projecting group tool policy');
+    }
+
+    /** Current tool states for a caller-bounded page of users, from grant-only snapshots. */
+    public function toolStatesForUsers(array $uids, array $cells): array {
+        $result = [];
+        foreach (array_chunk(array_values(array_unique($uids)), 100) as $chunk) {
+            $contexts = $this->beginManyGrants($chunk);
+            try {
+                foreach ($contexts as $uid => $context) {
+                    foreach ($cells as $cell) {
+                        $name = $cell['toolName'];
+                        if (!array_key_exists('grantAnyOf', $cell)) {
+                            if ($name === ToolGrantsMapper::SERVICE) {
+                                $grant = $context->eligible();
+                            } else {
+                                $grant = $context->toolGranted($name, $cell['module'], $cell['operation']);
+                            }
+                            $result[$uid][$name] = ['effective' => $grant->allowed, 'source' => $grant->source,
+                                'groupIds' => $grant->groupIds];
+                            continue;
+                        }
+                        $operations = $name === ToolGrantsMapper::SERVICE ? ['eligible'] : ($cell['grantAnyOf'] ?? [$cell['operation']]);
+                        $grant = null;
+                        foreach ($operations as $operation) {
+                            if ($name === ToolGrantsMapper::SERVICE) {
+                                $tool = $context->eligible();
+                                $operationAllowed = $tool->allowed;
+                            } else {
+                                $operationGrant = $context->granted($cell['module'], $operation);
+                                $tool = $context->toolGranted($name, $cell['module'], $operation);
+                                $operationAllowed = $operationGrant->allowed;
+                            }
+                            $operation = $name === ToolGrantsMapper::SERVICE ? $tool : $operationGrant;
+                            $grant = self::anyToolState($grant, self::concreteToolState(
+                                ['effective' => $tool->allowed, 'source' => $tool->source, 'groupIds' => $tool->groupIds],
+                                ['effective' => $operation->allowed, 'source' => $operation->source, 'groupIds' => $operation->groupIds]));
+                        }
+                        $result[$uid][$name] = $grant;
+                    }
+                }
+            } finally {
+                foreach ($contexts as $context) {
+                    $context->close();
+                }
+            }
+        }
+        return $result;
+    }
+
+    /** @return array{effective:?bool,source:string,groupIds:list<string>} */
+    private static function concreteToolState(array $tool, array $operation, ?string $gid = null): array {
+        $allowed = $tool['effective'] === false || $operation['effective'] === false ? false
+            : ($tool['effective'] === true && $operation['effective'] === true ? true : null);
+        $groups = [...$tool['groupIds'], ...$operation['groupIds'], ...($gid !== null && $allowed === true ? [$gid] : [])];
+        $groups = array_values(array_unique($groups));
+        sort($groups, SORT_STRING);
+        $source = $allowed === null ? 'unknown'
+            : ($allowed === false ? ($operation['effective'] === false ? $operation['source'] : $tool['source'])
+                : ($tool['source'] === 'default' ? $operation['source'] : $tool['source']));
+        return ['effective' => $allowed, 'source' => $source, 'groupIds' => $groups];
+    }
+
+    /** Three-valued any: any true variant wins; otherwise unknown wins over false. */
+    private static function anyToolState(?array $current, array $next): array {
+        if ($current === null || $next['effective'] === true) {
+            return $next;
+        }
+        if ($current['effective'] === true) {
+            return $current;
+        }
+        if ($current['effective'] === null && $next['effective'] === false) {
+            return $current;
+        }
+        if ($next['effective'] === null) {
+            return $next;
+        }
+        $groups = array_values(array_unique([...$current['groupIds'], ...$next['groupIds']]));
+        sort($groups, SORT_STRING);
+        return ['effective' => false, 'source' => $current['source'] === 'legacy_group' || $next['source'] === 'legacy_group' ? 'legacy_group' : 'default', 'groupIds' => $groups];
+    }
 
     /**
      * A bounded snapshot assembly: one repeat on concurrent revision change. No directory I/O under a mutex.
@@ -123,45 +331,40 @@ class PolicyResolver {
                 $this->writer->assertUsable();
                 $this->appConfig->clearCache(false);
                 $before = $this->state->state();
-                $eligible = [];
+                $candidates = [];
                 foreach ($this->userConfig->searchUsersByValueString(GrantPolicy::APP, GrantPolicy::ELIGIBLE_KEY, '1') as $uid) {
-                    $eligible[(string)$uid] = true;
+                    $candidates[(string)$uid] = true;
                 }
-                $gids = $this->grants->groupsGranting('_system', 'eligible');
-                $lifecycles = [];
-                foreach ($this->life->forGroups($gids) as $row) {
-                    $lifecycles[IdentityKey::group($row['groupId'])] = $row;
+                $groups = $this->grants->groupsGranting('_system', 'eligible');
+                if ($this->toolGrants !== null) {
+                    foreach ($this->toolGrants->principalsForTool(ToolGrantsMapper::USER, ToolGrantsMapper::SERVICE) as $uid) {
+                        $candidates[$uid] = true;
+                    }
+                    $groups = array_values(array_unique([...$groups,
+                        ...$this->toolGrants->principalsForTool(ToolGrantsMapper::GROUP, ToolGrantsMapper::SERVICE)]));
                 }
-                $members = $lost = [];
-                foreach ($gids as $gid) {
-                    $life = $lifecycles[IdentityKey::group($gid)] ?? null;
-                    $trusted = $this->classifier->trusted($gid);
-                    if (!$trusted && ($life['state'] ?? null) === GroupLifeMapper::ACTIVE) {
-                        $lost[] = ['groupId' => $gid, 'gen' => $life['gen']];
-                    }
-                    if (!$trusted || ($life['state'] ?? null) !== GroupLifeMapper::ACTIVE) {
-                        continue;
-                    }
+                foreach ($groups as $gid) {
                     foreach ($this->classifier->members($gid) as $uid) {
-                        if (!isset($eligible[$uid])) {
-                            $members[$uid] = true;
+                        $candidates[$uid] = true;
+                    }
+                }
+                $uids = [];
+                foreach (array_chunk(array_map('strval', array_keys($candidates)), 100) as $chunk) {
+                    foreach ($this->beginManyGrants($chunk) as $uid => $context) {
+                        try {
+                            if ($context->eligible()->allowed === true) {
+                                $uids[] = (string)$uid;
+                            }
+                        } finally {
+                            $context->close();
                         }
                     }
                 }
-                $this->trust->observe($lost);
-                foreach (array_chunk(array_map('strval', array_keys($members)), 500) as $chunk) {
-                    // Any individual value but '1' wins over the group: a Deny, or an invalid value.
-                    foreach ($this->config->getUserValueForUsers(GrantPolicy::APP, GrantPolicy::ELIGIBLE_KEY, $chunk) as $uid => $value) {
-                        unset($members[$uid]);
-                    }
-                }
-                $uids = array_map('strval', [...array_keys($eligible), ...array_keys($members)]);
-                $uids = array_values(array_unique($uids));
-                sort($uids, SORT_STRING);
                 $after = $this->state->state();
                 $this->writer->assertUsable();
                 if ($before['revision'] === $after['revision']) {
-                    return $uids;
+                    sort($uids, SORT_STRING);
+                    return array_values(array_unique($uids));
                 }
             }
             throw new PolicyUnavailable('Policy changed while listing eligible users');
@@ -202,17 +405,28 @@ class PolicyResolver {
                 foreach ($this->life->forGroups($all) as $row) {
                     $lifecycles[IdentityKey::group($row['groupId'])] = $row;
                 }
+                $legacyGroupRows = [];
                 foreach ($this->grants->forGroups($all) as $row) {
-                    if ($row['grants'] === []) {
+                    $legacyGroupRows[IdentityKey::group($row['groupId'])] = $row['grants'];
+                }
+                $groupToolGrants = $this->toolGrants?->forPrincipals(ToolGrantsMapper::GROUP, $all) ?? [];
+                $userToolGrants = $this->toolGrants?->forPrincipals(ToolGrantsMapper::USER, $uids) ?? [];
+                foreach ($all as $gid) {
+                    $key = IdentityKey::group($gid);
+                    $life = $lifecycles[$key] ?? null;
+                    // The gen lets a writer command compare, under its mutex, the lifecycle this read relied on.
+                    $hasPolicy = ($legacyGroupRows[$key] ?? []) !== [] || ($groupToolGrants[$gid] ?? []) !== [];
+                    if (!$hasPolicy) {
                         continue;
                     }
-                    $key = IdentityKey::group($row['groupId']);
-                    $life = $lifecycles[$key] ?? null;
-                    $trusted = $this->classifier->trusted($row['groupId']);
-                    // The gen lets a writer command compare, under its mutex, the lifecycle this read relied on.
-                    $groups[$key] = $row + ['trusted' => $trusted, 'state' => $life['state'] ?? null, 'gen' => $life['gen'] ?? null];
-                    if (!$trusted && ($life['state'] ?? null) === GroupLifeMapper::ACTIVE) {
-                        $lost[] = ['groupId' => $row['groupId'], 'gen' => $life['gen']];
+                    $trusted = $this->classifier->trusted($gid);
+                    if ($hasPolicy) {
+                        $groups[$key] = ['groupId' => $gid, 'grants' => $legacyGroupRows[$key] ?? [],
+                            'toolGrants' => $groupToolGrants[$gid] ?? [], 'trusted' => $trusted,
+                            'state' => $life['state'] ?? null, 'gen' => $life['gen'] ?? null];
+                    }
+                    if ($hasPolicy && !$trusted && ($life['state'] ?? null) === GroupLifeMapper::ACTIVE) {
+                        $lost[] = ['groupId' => $gid, 'gen' => $life['gen']];
                     }
                 }
                 if ($observe) {
@@ -247,15 +461,16 @@ class PolicyResolver {
                     // the snapshot was assembled repeats it instead of pairing new rows with old grants. A failed read
                     // is kept as unavailable for the scope modules only.
                     $scope = $grantsOnly ? null : ScopeGuard::read($this->scopes, $user === null ? null : $uid);
-                    $parts[$uid] = [$raw[$uid], $candidates, $user !== null && $user->isEnabled(), $enabled, $logs, $scope];
+                    $parts[$uid] = [$raw[$uid], $candidates, $user !== null && $user->isEnabled(), $enabled, $logs, $scope,
+                        $userToolGrants[$uid] ?? []];
                 }
                 $after = $this->state->state();
                 $this->writer->assertUsable();
                 if ($before['revision'] === $after['revision'] && $before['auth_epoch'] === $after['auth_epoch']) {
                     $contexts = [];
-                    foreach ($parts as $uid => [$userRaw, $candidates, $account, $enabled, $logs, $scope]) {
+                    foreach ($parts as $uid => [$userRaw, $candidates, $account, $enabled, $logs, $scope, $tools]) {
                         $contexts[$uid] = new PolicyOperationContext($after['revision'], $this->writer, $userRaw, $candidates,
-                            $account, $service, $enabled, $logs['available'], $logs['permitted'], $scope, $grantsOnly);
+                            $account, $service, $enabled, $logs['available'], $logs['permitted'], $scope, $grantsOnly, $tools);
                     }
                     return $contexts;
                 }

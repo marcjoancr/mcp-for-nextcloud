@@ -60,6 +60,7 @@ final class OAuthControllerFlowTest extends TestCase {
         $this->policy = $this->createMock(GrantPolicy::class);
         $this->policy->method('globalEnabled')->willReturnCallback(fn () => $this->serviceOn);
         $this->policy->method('eligible')->willReturnCallback(fn () => $this->eligible ?? throw new \OCA\Mcp\Access\Policy\PolicyUnavailable());
+        $this->policy->method('within')->willReturnCallback(fn (string $uid, \Closure $work) => $work());
         $this->tokens = $this->createMock(TokenService::class);
         $urls = $this->createMock(ResourceUrl::class);
         $urls->method('base')->willReturn(self::ISSUER . '/apps/mcp/');
@@ -99,10 +100,10 @@ final class OAuthControllerFlowTest extends TestCase {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
         // The connection and the code are one command of the token service; the controller never sets them apart.
-        $this->tokens->expects($this->once())->method('consent')->with($this->anything(), 'alice')->willReturn('CODE');
+        $this->tokens->expects($this->once())->method('consent')->with($this->anything(), 'alice', [], [])->willReturn('CODE');
         $this->policy->expects($this->never())->method('setConnected');
 
-        $response = $controller->consent($pending, 'allow');
+        $response = $controller->consent($pending, 'allow', [], 1);
 
         $this->assertInstanceOf(TemplateResponse::class, $response);
         parse_str((string)parse_url($response->getParams()['target'], PHP_URL_QUERY), $query);
@@ -117,13 +118,25 @@ final class OAuthControllerFlowTest extends TestCase {
         $this->assertStringNotContainsString('claude.ai', $response->getContentSecurityPolicy()->buildPolicy());
     }
 
+    public function testAllowingAnOldConsentFormWithoutSelectionMarkerIssuesNoCode(): void {
+        $controller = $this->controller();
+        $pending = $this->authorize($controller);
+        $this->tokens->expects($this->never())->method('consent');
+
+        $response = $controller->consent($pending, 'allow');
+
+        $this->assertInstanceOf(TemplateResponse::class, $response);
+        $this->assertNotNull($response->getParams()['error']);
+        $this->assertSame([], $this->stored);
+    }
+
     /** A storage failure of the policy writer is temporarily_unavailable for the client, never a 500 or a code. */
     public function testAPolicyStorageFailureIssuesNoCodeAndTellsTheClientToRetry(): void {
         $controller = $this->controller();
         $pending = $this->authorize($controller);
         $this->tokens->method('consent')->willThrowException(new \OCA\Mcp\Access\Policy\PolicyUnavailable());
 
-        $response = $controller->consent($pending, 'allow');
+        $response = $controller->consent($pending, 'allow', [], 1);
 
         $this->assertInstanceOf(TemplateResponse::class, $response);
         parse_str((string)parse_url($response->getParams()['target'], PHP_URL_QUERY), $query);
@@ -137,7 +150,7 @@ final class OAuthControllerFlowTest extends TestCase {
         $pending = $this->authorize($controller);
         $this->tokens->expects($this->once())->method('consent')->willReturn(null);
 
-        $response = $controller->consent($pending, 'allow');
+        $response = $controller->consent($pending, 'allow', [], 1);
 
         $this->assertInstanceOf(TemplateResponse::class, $response);
         $this->assertTrue($response->getParams()['blocked']);
@@ -191,7 +204,7 @@ final class OAuthControllerFlowTest extends TestCase {
         $pending = $this->authorize($controller);
         $this->tokens->expects($this->once())->method('consent')->willReturn('CODE');
 
-        $this->assertSame('oauth-redirect', $controller->consent($pending, 'allow')->getTemplateName());
+        $this->assertSame('oauth-redirect', $controller->consent($pending, 'allow', [], 1)->getTemplateName());
         $second = $controller->consent($pending, 'allow');
 
         $this->assertInstanceOf(TemplateResponse::class, $second);
@@ -219,7 +232,7 @@ final class OAuthControllerFlowTest extends TestCase {
             $this->tokens->expects($this->never())->method('consent');
             $this->policy->expects($this->never())->method('setConnected');
 
-            $response = $controller->consent($pending, 'allow');
+            $response = $controller->consent($pending, 'allow', [], 1);
 
             $this->assertInstanceOf(TemplateResponse::class, $response, $what);
             $this->assertTrue($response->getParams()['blocked'], $what);
@@ -235,7 +248,7 @@ final class OAuthControllerFlowTest extends TestCase {
         $pending = $this->authorize($controller);
         $this->eligible = null;
         $this->tokens->expects($this->never())->method('consent');
-        $response = $controller->consent($pending, 'allow');
+        $response = $controller->consent($pending, 'allow', [], 1);
         $this->assertInstanceOf(TemplateResponse::class, $response);
         parse_str((string)parse_url($response->getParams()['target'], PHP_URL_QUERY), $query);
         $this->assertSame('temporarily_unavailable', $query['error']);

@@ -33,7 +33,7 @@ final class GroupGrantsServiceTest extends TestCase {
 
     /** @var array<string, array{raw:array, candidates:list<array>}> holder => what a resolution reads for it */
     private array $holders = [];
-    /** @var list<array{string, list<string>}> resolutions asked: uid and the groups removed by overlay */
+    /** @var list<array{string, list<string>}> resolutions asked: uid and groups removed by overlay (legacy eligibility now uses one projected context) */
     private array $resolutions = [];
 
     private function service(?GroupSourceClassifier $classifier = null): GroupGrantsService {
@@ -121,7 +121,14 @@ final class GroupGrantsServiceTest extends TestCase {
     public function testANonMemberCostsOneResolutionAndAMemberTwo(): void {
         $this->holders = ['ana' => ['raw' => [], 'candidates' => [self::GROUP]], 'bob' => ['raw' => [], 'candidates' => []]];
         $this->assertSame(['ana'], $this->withdraw(['bob', 'ana'])['cuts']);
-        $this->assertSame([['bob', []], ['ana', []], ['ana', ['staff']]], $this->resolutions);
+        $this->assertSame([['bob', []], ['ana', []]], $this->resolutions);
+    }
+
+    public function testLegacyWithdrawalDoesNotCutWhenGranularServiceAllowRemainsOnTheGroup(): void {
+        $group = self::GROUP + ['toolGrants' => ['_service' => 'allow']];
+        $this->holders['ana'] = ['raw' => [], 'candidates' => [$group]];
+
+        self::assertSame([], $this->withdraw(['ana'])['cuts']);
     }
 
     public function testADirectoryFailureIsAFailureNeverAnEmptyGroup(): void {

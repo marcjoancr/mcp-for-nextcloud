@@ -33,7 +33,7 @@ class OAuthStore {
     public function __construct(private IDBConnection $db) {}
 
     /**
-     * @param array{code_hash:string,user_id:string,client_id:string,redirect_uri:string,code_challenge:string,resource:string,scope:string,expires_at:int,auth_global_epoch:string,auth_gen:string} $row
+     * @param array{code_hash:string,user_id:string,client_id:string,redirect_uri:string,code_challenge:string,resource:string,scope:string,expires_at:int,auth_global_epoch:string,auth_gen:string,tool_names?:?string,tool_variants?:?string} $row
      * @param int $now current time; expired codes are purged on insert
      */
     public function insertCode(array $row, int $now): void {
@@ -65,12 +65,18 @@ class OAuthStore {
     /**
      * @param array{user_id:string,client_id:string,resource:string,scope:string,access_hash:string,access_expires:int,refresh_hash:string,refresh_expires:int,created_at:int,auth_global_epoch:string,auth_gen:string} $row
      * @param int $now current time; grants whose refresh token expired are purged on insert
+     * @return int id of the new grant
      */
-    public function insertToken(array $row, int $now): void {
+    public function insertToken(array $row, int $now): int {
         $purge = $this->db->getQueryBuilder();
         $purge->delete(self::TOKENS)->where($purge->expr()->lt('refresh_expires', $purge->createNamedParameter($now, IQueryBuilder::PARAM_INT)))->executeStatement();
         $this->purgeSpent($now);
         $this->insert(self::TOKENS, $row);
+        $saved = $this->findOne(self::TOKENS, 'access_hash', $row['access_hash']);
+        if ($saved === null || !is_numeric($saved['id'] ?? null)) {
+            throw new \RuntimeException('Cannot read new OAuth grant');
+        }
+        return (int)$saved['id'];
     }
 
     /**

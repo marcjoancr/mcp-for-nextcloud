@@ -34,6 +34,27 @@ final class PromptCatalogTest extends TestCase {
         $this->catalog = new PromptCatalog();
     }
 
+    public function testCreatePromptOnlyOffersSelectedFileCreationMethod(): void {
+        $registry = $this->createStub(ToolRegistry::class);
+        $registry->method('allowsTool')->willReturnCallback(static fn (string $uid, string $name): bool => $name === 'files_create');
+        $catalog = new PromptCatalog($registry);
+        self::assertSame([PromptCatalog::CREATE_FILE], array_column($catalog->list($this->policy, 'alice'), 'name'));
+        $text = $catalog->get(PromptCatalog::CREATE_FILE, $this->policy, 'alice')['messages'][0]['content']['text'];
+        self::assertStringContainsString('files_create', $text);
+        self::assertStringNotContainsString('files_upload', $text);
+    }
+
+    public function testRestrictedCheckoutStillExplainsSingleUseEtagAndConflicts(): void {
+        $registry = $this->createStub(ToolRegistry::class);
+        $registry->method('allowsTool')->willReturnCallback(static fn (string $uid, string $name): bool => $name === 'files_checkout');
+        $catalog = new PromptCatalog($registry);
+        $text = $catalog->get(PromptCatalog::EDIT_LOCALLY, $this->policy, 'alice')['messages'][0]['content']['text'];
+        self::assertStringContainsString('ETag', $text);
+        self::assertStringContainsString('conflict (409)', $text);
+        self::assertStringNotContainsString('files_edit', $text);
+        self::assertStringNotContainsString('files_upload', $text);
+    }
+
     /**
      * @param GrantPolicy $policy the grants the protocol reads
      * @return McpProtocol a protocol with no tool modules, so only the prompts are exercised

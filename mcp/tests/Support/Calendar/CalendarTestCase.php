@@ -173,6 +173,8 @@ abstract class CalendarTestCase extends TestCase {
         $this->module = \OCA\Mcp\Tests\Support\Calendar\CalendarModuleFactory::create($listCalendars, $listEvents, $createEvent, $updateEvent, $moveEvent, $deleteEvent, $transferEvent, new \OCA\Mcp\Modules\Calendar\Execution\EventApproval($scheduling, $builder, $guard, $warnings, $zones), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
         $policy = $this->createMock(\OCA\Mcp\Access\Grants\GrantPolicy::class);
         $policy->method('granted')->willReturn(true);
+        $policy->method('toolGranted')->willReturn(true);
+        $policy->method('withinTool')->willReturnCallback(static fn ($uid, $tool, $module, $operation, $work) => $work());
         $policy->method('grantedAny')->willReturn(true);
         $apps = $this->createMock(\OCP\App\IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);

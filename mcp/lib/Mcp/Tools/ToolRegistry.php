@@ -78,6 +78,27 @@ class ToolRegistry {
      * @return list<array<string, mixed>> one entry per tool the user may call now, guide excluded
      */
     public function definitions(string $userId): array {
+        return $this->visibleDefinitions($userId, true);
+    }
+
+    /** All registered tools, including ones that cannot currently be selected. */
+    public function administrableDefinitions(): array {
+        $tools = [];
+        foreach ($this->modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                $tools[] = ToolPublication::present($definition)
+                    + (isset($definition['grantAllOf']) ? ['grantAllOf' => $definition['grantAllOf']] : []);
+            }
+        }
+        return $tools;
+    }
+
+    /** The administrative ceiling, before applying an individual connection's selection. */
+    public function permittedDefinitions(string $userId): array {
+        return $this->visibleDefinitions($userId, false);
+    }
+
+    private function visibleDefinitions(string $userId, bool $forConnection): array {
         $tools = [];
         foreach ($this->modules as $module) {
             if (!$this->availability->permits($module, $userId)) {
@@ -85,7 +106,8 @@ class ToolRegistry {
             }
             foreach ($module->definitions() as $definition) {
                 try {
-                    $allowed = $this->availability->allowed($definition, $userId);
+                    $allowed = $forConnection ? $this->availability->allowed($definition, $userId)
+                        : $this->availability->administrativelyAllowed($definition, $userId);
                 } catch (GrantUnknown) {
                     // Omit only this entry; a failed policy read still fails the request.
                     continue;
@@ -96,6 +118,32 @@ class ToolRegistry {
             }
         }
         return $tools;
+    }
+
+    /** Concrete admin-approved actions of a tool whose authorization depends on the arguments. */
+    public function permittedVariants(string $userId, string $name): array {
+        foreach ($this->modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                if ($definition['name'] === $name && isset($definition['grantAnyOf'])) {
+                    return $this->availability->permits($module, $userId) && $this->availability->administrativelyAllowed($definition, $userId)
+                        ? $this->availability->permittedVariants($definition, $userId) : [];
+                }
+            }
+        }
+        return [];
+    }
+
+    /** Explicit lookup for non-tool protocol routes that expose the same capability. */
+    public function allowsTool(string $userId, string $name): bool {
+        foreach ($this->modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                if ($definition['name'] === $name) {
+                    return $this->availability->permits($module, $userId)
+                        && $this->availability->allowed($definition, $userId);
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -122,7 +170,8 @@ class ToolRegistry {
                 if ($definition['name'] !== $name) {
                     continue;
                 }
-                return $this->executor->call($module, $definition, $arguments, $userId);
+                return $this->availability->withinTool($userId, $definition,
+                    fn () => $this->executor->call($module, $definition, $arguments, $userId));
             }
         }
         throw new UnknownToolException();

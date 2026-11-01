@@ -308,14 +308,14 @@ final class WriteGateContractTest extends TestCase {
         }
     }
 
-    public function testFictitiousWritingToolAddedToRegistryIsBlockedAutomatically(): void {
+    public function testCatalogWritingToolAddedToRegistryStillRequiresConfirmation(): void {
         $executed = false;
         $fakeModule = new class($executed) implements ToolModule {
             public function __construct(public bool &$executed) {}
 
             public function definitions(): array {
                 return [[
-                    'name' => 'fake_write_tool',
+                    'name' => 'files_create',
                     'description' => 'A fictitious write tool to test automatic gating',
                     'module' => 'files',
                     'operation' => 'create',
@@ -340,30 +340,30 @@ final class WriteGateContractTest extends TestCase {
 
         // 1. Check listed schema and annotations
         $listed = array_column($registry->list('alice'), null, 'name');
-        $this->assertArrayHasKey('fake_write_tool', $listed);
-        $tool = $listed['fake_write_tool'];
+        $this->assertArrayHasKey('files_create', $listed);
+        $tool = $listed['files_create'];
         $this->assertArrayHasKey('confirm', $tool['inputSchema']['properties']);
         $this->assertSame('boolean', $tool['inputSchema']['properties']['confirm']['type']);
         $this->assertNotContains('confirm', $tool['inputSchema']['required'] ?? []);
         $this->assertFalse($tool['annotations']['readOnlyHint']);
 
         // 2. Call without confirm: should NOT execute and should return plan
-        $result = $registry->call('fake_write_tool', ['item' => 'test-item'], 'alice');
+        $result = $registry->call('files_create', ['item' => 'test-item'], 'alice');
         $this->assertFalse($executed, 'Execution must not happen without confirm: true');
         $body = $result['structuredContent'];
         $this->assertTrue($body['requiresConfirmation']);
-        $this->assertSame('fake_write_tool', $body['tool']);
+        $this->assertSame('files_create', $body['tool']);
         $this->assertSame('test-item', $body['arguments']['item']);
         $this->assertSame(ConfirmationMessages::planNothingChanged(), $body['message']);
 
         // 3. Call with confirm: false: should NOT execute
-        $resultFalse = $registry->call('fake_write_tool', ['item' => 'test-item', 'confirm' => false], 'alice');
+        $resultFalse = $registry->call('files_create', ['item' => 'test-item', 'confirm' => false], 'alice');
         $this->assertFalse($executed, 'Execution must not happen with confirm: false');
         $bodyFalse = $resultFalse['structuredContent'];
         $this->assertTrue($bodyFalse['requiresConfirmation']);
 
         // 4. Call with confirm: true: should execute!
-        $resultConfirmed = $registry->call('fake_write_tool', ['item' => 'test-item', 'confirm' => true], 'alice');
+        $resultConfirmed = $registry->call('files_create', ['item' => 'test-item', 'confirm' => true], 'alice');
         $this->assertTrue($executed, 'Execution MUST happen with confirm: true');
         $bodyConfirmed = json_decode($resultConfirmed['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('test-item', $bodyConfirmed['created']);

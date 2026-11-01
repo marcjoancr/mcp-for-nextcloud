@@ -114,7 +114,13 @@ export function mountInspector({ root: pageRoot, request, t, n, events, policyCh
 		})
 		const head = el('tr', {}, [t('mcp', 'Operation'), t('mcp', 'Result'), t('mcp', 'First check that blocks'), t('mcp', 'Grant')].map((text) => el('th', { scope: 'col', textContent: text })))
 		const table = el('table', { className: 'mcp-inspector-table' }, [el('caption', { textContent: t('mcp', 'Effective access of {user}', { user: inspected }) }), el('thead', {}, [head]), el('tbody', {}, rows)])
-		access.replaceChildren(...renderVerdict(data.operations), renderModules(data.operations),
+		const toolPermissions = el('button', { type: 'button', textContent: t('mcp', 'View tool permissions') })
+		lifetime.on(toolPermissions, 'click', () => {
+			closeDrawer()
+			pageRoot.dispatchEvent(new CustomEvent('mcp-view-tool-permissions', { detail: { uid: inspected } }))
+		})
+		access.replaceChildren(el('p', { className: 'mcp-hint', textContent: t('mcp', 'Operation checks show the current checks. A passing operation does not by itself make a tool available.') }),
+			toolPermissions, ...renderVerdict(data.operations), renderModules(data.operations),
 			el('details', { className: 'mcp-inspector-all' }, [el('summary', { textContent: t('mcp', 'Every operation') }), table]))
 	}
 

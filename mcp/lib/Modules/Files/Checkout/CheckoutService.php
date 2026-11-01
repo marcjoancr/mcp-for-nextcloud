@@ -54,6 +54,7 @@ final class CheckoutService {
         private CheckoutTokenStore $store,
         private IAppManager $appManager,
         private IUserManager $userManager,
+        private ?\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext $connection = null,
     ) {}
 
     /**
@@ -77,6 +78,7 @@ final class CheckoutService {
             'etag' => (string)$file->getEtag(),
             'scope' => (string)$access['scope'],
             'shared_confirmed' => $confirmed ? 1 : 0,
+            'connection_id' => $this->connection?->current() ?? 0,
             'created_at' => $now,
         ];
         $this->store->insert($row + [
@@ -128,6 +130,7 @@ final class CheckoutService {
             'etag' => CheckoutToken::declaredSizeMarker($size),
             'scope' => (string)$access['scope'],
             'shared_confirmed' => $confirmed ? 1 : 0,
+            'connection_id' => $this->connection?->current() ?? 0,
             'created_at' => $now,
             'expires_at' => $now + self::UPLOAD_TTL,
         ], $now);

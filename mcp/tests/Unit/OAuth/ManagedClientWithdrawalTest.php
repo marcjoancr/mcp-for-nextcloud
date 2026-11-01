@@ -220,7 +220,7 @@ final class ManagedClientWithdrawalTest extends TestCase {
     #[DataProvider('decisionsProvider')]
     public function testAPendingConsentStillWorksWhileNothingWasWithdrawn(string $decision): void {
         $client = $this->addClient('QwenPaw', [self::URI_X]);
-        $response = $this->controller->consent($this->openConsent($client['clientId'], self::URI_X), $decision);
+        $response = $this->controller->consent($this->openConsent($client['clientId'], self::URI_X), $decision, [], 1);
         $this->assertInstanceOf(TemplateResponse::class, $response);
         $this->assertStringStartsWith(self::URI_X . '?', $response->getParams()['target']);
         $this->assertCount($decision === 'allow' ? 1 : 0, $this->store->codes);
@@ -232,7 +232,7 @@ final class ManagedClientWithdrawalTest extends TestCase {
         $client = $this->addClient('QwenPaw', [self::URI_X]);
         $pending = $this->openConsent($client['clientId'], self::URI_X);
         $this->edit($client['id'], ['redirectUris' => [self::URI_Y]]);
-        $response = $this->controller->consent($pending, $decision);
+        $response = $this->controller->consent($pending, $decision, [], 1);
         $this->assertInstanceOf(TemplateResponse::class, $response, 'a local error page, never a redirect to the withdrawn URI');
         $this->assertNotNull($response->getParams()['error']);
         $this->assertSame([], $this->store->codes);
@@ -261,7 +261,7 @@ final class ManagedClientWithdrawalTest extends TestCase {
             'URI removed and added back' => [$this->edit($client['id'], ['redirectUris' => [self::URI_Y]]),
                 $this->edit($client['id'], ['redirectUris' => [self::URI_Y, self::URI_X]])],
         };
-        $response = $this->controller->consent($pending, $decision);
+        $response = $this->controller->consent($pending, $decision, [], 1);
         $this->assertInstanceOf(TemplateResponse::class, $response);
         $this->assertNotNull($response->getParams()['error']);
         $this->assertSame([], $this->store->codes, 'a re-enabled client does not resurrect the authorization withdrawn');
@@ -274,7 +274,7 @@ final class ManagedClientWithdrawalTest extends TestCase {
         $pending = $this->openConsent($client['clientId'], self::URI_X);
         $this->table->db->dbal->update(\OCA\Mcp\Db\OAuthClientsMapper::TABLE, ['redirect_uris' => json_encode([self::URI_Y])],
             ['client_id' => $client['clientId']]);
-        $this->assertSame('consent', $this->controller->consent($pending, $decision)->getTemplateName());
+        $this->assertSame('consent', $this->controller->consent($pending, $decision, [], 1)->getTemplateName());
         $this->assertSame([], $this->store->codes);
     }
 
@@ -282,7 +282,7 @@ final class ManagedClientWithdrawalTest extends TestCase {
         $client = $this->addClient('QwenPaw', [self::URI_X]);
         $this->edit($client['id'], ['enabled' => false]);
         $this->edit($client['id'], ['enabled' => true]);
-        $response = $this->controller->consent($this->openConsent($client['clientId'], self::URI_X), 'allow');
+        $response = $this->controller->consent($this->openConsent($client['clientId'], self::URI_X), 'allow', [], 1);
         $this->assertInstanceOf(TemplateResponse::class, $response);
         $this->assertSame('oauth-redirect', $response->getTemplateName());
         $this->assertCount(1, $this->store->codes);
@@ -293,7 +293,7 @@ final class ManagedClientWithdrawalTest extends TestCase {
         $this->clients->update((string)$this->data->revision, null, true, null);
         $pending = $this->openConsent(NativeClient::CLIENT_ID, 'http://localhost:53421/oauth/callback');
         $this->clients->update((string)$this->data->revision, null, false, null);
-        $response = $this->controller->consent($pending, $decision);
+        $response = $this->controller->consent($pending, $decision, [], 1);
         $this->assertInstanceOf(TemplateResponse::class, $response);
         $this->assertArrayNotHasKey('target', $response->getParams());
         $this->assertSame([], $this->store->codes);
@@ -405,7 +405,7 @@ final class ManagedClientWithdrawalTest extends TestCase {
             'redirectUris' => [self::URI_X], 'gen' => 1]]);
         $this->data->app['mcp'][NativeClient::CONFIG_KEY] = '1';
 
-        $this->assertInstanceOf(TemplateResponse::class, $this->controller->consent($pending, 'allow'));
+        $this->assertInstanceOf(TemplateResponse::class, $this->controller->consent($pending, 'allow', [], 1));
         $this->assertRefused(fn () => $this->tokens->consent(new \OCA\Mcp\OAuth\AuthorizationRequest(
             new \OCA\Mcp\OAuth\ClientMetadata($client['clientId'], 'QwenPaw', [self::URI_X], '1'), self::URI_X, 'xyz', self::CHALLENGE,
             self::RESOURCE, 'mcp'), 'alice'), 'invalid_client');
@@ -424,12 +424,12 @@ final class ManagedClientWithdrawalTest extends TestCase {
         $pending = $this->openConsent(NativeClient::CLIENT_ID, 'http://localhost:53421/oauth/callback');
         $this->clients->update((string)$this->data->revision, null, false, null);
         $this->clients->update((string)$this->data->revision, null, true, null);
-        $this->assertSame('consent', $this->controller->consent($pending, $decision)->getTemplateName());
+        $this->assertSame('consent', $this->controller->consent($pending, $decision, [], 1)->getTemplateName());
         // The same decision is taken again under the mutex, from the table: a request of generation 1 issues nothing.
         $this->assertRefused(fn () => $this->tokens->consent(new \OCA\Mcp\OAuth\AuthorizationRequest(NativeClient::metadata('1'),
             'http://localhost:53421/oauth/callback', 'xyz', self::CHALLENGE, self::RESOURCE, 'mcp'), 'alice'), 'invalid_client');
         $this->assertSame([], $this->store->codes);
         $this->assertSame('oauth-redirect', $this->controller->consent($this->openConsent(NativeClient::CLIENT_ID,
-            'http://localhost:53421/oauth/callback'), 'allow')->getTemplateName(), 'a consent opened now works');
+            'http://localhost:53421/oauth/callback'), 'allow', [], 1)->getTemplateName(), 'a consent opened now works');
     }
 }

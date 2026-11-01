@@ -20,6 +20,10 @@ final class InMemoryOAuthStore extends OAuthStore {
     public array $tokens = [];
     public array $spent = [];
     public bool $loseRotationRace = false;
+    /** @var null|\Closure(int,array<string,mixed>):void test hook for mirroring token issuance into a real selection table */
+    public ?\Closure $onTokenInserted = null;
+    /** @var null|\Closure(int):void test hook for mirroring token revocation into SQL-backed selection checks */
+    public ?\Closure $onTokenDeleted = null;
     private int $nextId = 1;
 
     public function __construct() {}
@@ -60,7 +64,14 @@ final class InMemoryOAuthStore extends OAuthStore {
         return null;
     }
 
-    public function insertToken(array $row, int $now): void { $this->tokens[$this->nextId] = $row + ['id' => $this->nextId++]; }
+    public function insertToken(array $row, int $now): int {
+        $id = $this->nextId++;
+        $this->tokens[$id] = $row + ['id' => $id];
+        if ($this->onTokenInserted !== null) {
+            ($this->onTokenInserted)($id, $this->tokens[$id]);
+        }
+        return $id;
+    }
 
     public function findByAccess(string $accessHash): ?array { return $this->find('access_hash', $accessHash); }
 
@@ -105,6 +116,9 @@ final class InMemoryOAuthStore extends OAuthStore {
     public function deleteGrant(int $id, ?string $uid): bool {
         if (!isset($this->tokens[$id]) || ($uid !== null && $this->tokens[$id]['user_id'] !== $uid)) { return false; }
         $this->deleteToken($id);
+        if ($this->onTokenDeleted !== null) {
+            ($this->onTokenDeleted)($id);
+        }
         return true;
     }
 

@@ -60,6 +60,18 @@ final class GroupGrantCommandsTest extends TestCase {
         $this->lifecycleDatabase();
     }
 
+    public function testClearingLegacyGroupEligibilityKeepsLifecycleWhenGranularToolRulesRemain(): void {
+        $this->exists['staff'] = true;
+        $this->policy('staff');
+        $this->toolPolicy('staff', 'notes_edit');
+        $preview = $this->writer->groups->previewGroupGrants($this->revision(), 'root', 'staff', [], $this->admit());
+        $this->writer->groups->setGroupGrants($preview['revision'], 'root', 'staff', [], $preview['previewId'], $this->admit());
+
+        self::assertSame(GroupLifeMapper::ACTIVE, $this->life->get('staff')['state']);
+        self::assertSame(['notes_edit' => 'allow'], $this->toolGrants->forPrincipals(\OCA\Mcp\Db\ToolGrantsMapper::GROUP, ['staff'])['staff']);
+        self::assertSame([], $this->grants->forGroups(['staff'])[0]['grants']);
+    }
+
     private function admit(): \Closure {
         return function (array $command): array {
             $this->assertFalse($this->db->inTransaction(), 'no directory read under the mutex');

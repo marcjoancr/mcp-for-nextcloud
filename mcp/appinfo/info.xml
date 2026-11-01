@@ -9,7 +9,7 @@
     <description><![CDATA[
 Selected 1.2.1 capabilities: tasks gain subtasks: read, list and set a parent in the same calendar, with loops and nesting beyond 64 levels refused. In Data protection, configure one personal-root backup folder name (default MCP backups); previous names and content remain preserved and protected. Files pre-write copies are on by default and can be suspended only with native Versions available for the acting user; existing Versions prerequisites still apply and native versions are not guaranteed for every file/backend. Contact deletion always requires a verified backup. Optional Mail lists only the caller's accounts and cached folders/counters: no message reading, IMAP synchronization or changes; open Mail once for an empty cache.
 
-**Nextcloud MCP** is an independently maintained fork of MCP for Cloud by Sintax. Version 2.0.0 is a development candidate; release, client and host qualification remain pending. It is a native app that turns your Nextcloud into a Model Context Protocol (MCP) server. AI assistants work with your files, notes, calendars, contacts, tasks, Deck boards and Talk conversations through one URL on your own server: no extra service, no Docker, no copy of your data elsewhere.
+**Nextcloud MCP** is an independently maintained fork of MCP for Cloud by Sintax. Version 2.1.0 is a development candidate; release, client and host qualification remain pending. It is a native app that turns your Nextcloud into a Model Context Protocol (MCP) server. AI assistants work with your files, notes, calendars, contacts, tasks, Deck boards and Talk conversations through one URL on your own server: no extra service, no Docker, no copy of your data elsewhere.
 
 ## What the assistant can do
 
@@ -58,7 +58,7 @@ Nextcloud 33–35 and PHP 8.4 or later. Deck, Talk and Mail are optional: their 
     <description lang="pt-br"><![CDATA[
 Funcionalidades selecionadas da 1.2.1: tarefas ganham subtarefas: ler, listar e definir a tarefa principal na mesma agenda, recusando ciclos e aninhamento acima de 64 níveis. Em Proteção de dados, configure um nome de pasta de backup na raiz pessoal (padrão MCP backups); nomes anteriores e conteúdo continuam preservados e protegidos. Cópias prévias de Arquivos vêm ligadas e só podem ser suspensas com Versions nativo disponível para quem age; os pré-requisitos existentes continuam valendo e não há garantia de versão nativa para todo arquivo/backend. Excluir contato sempre exige backup verificado. Mail opcional lista só contas próprias e pastas/contadores em cache: sem ler mensagens, sincronizar IMAP ou alterar dados; abra Mail uma vez se o cache estiver vazio.
 
-**Nextcloud MCP** é um fork mantido de forma independente do MCP for Cloud da Sintax. A versão 2.0.0 é uma candidata em desenvolvimento; a validação da versão, dos clientes e do servidor permanece pendente. É um app nativo que transforma o seu Nextcloud em um servidor Model Context Protocol (MCP). Os assistentes de IA trabalham com os seus arquivos, notas, calendários, contatos, tarefas, quadros do Deck e conversas do Talk por um único endereço no seu próprio servidor: sem serviço extra, sem Docker, sem cópia dos seus dados em outro lugar.
+**Nextcloud MCP** é um fork mantido de forma independente do MCP for Cloud da Sintax. A versão 2.1.0 é uma candidata em desenvolvimento; a validação da versão, dos clientes e do servidor permanece pendente. É um app nativo que transforma o seu Nextcloud em um servidor Model Context Protocol (MCP). Os assistentes de IA trabalham com os seus arquivos, notas, calendários, contatos, tarefas, quadros do Deck e conversas do Talk por um único endereço no seu próprio servidor: sem serviço extra, sem Docker, sem cópia dos seus dados em outro lugar.
 
 ## O que o assistente pode fazer
 
@@ -107,7 +107,7 @@ Nextcloud 33–35 e PHP 8.4 ou superior. O Deck, o Talk e o Mail são opcionais:
     <description lang="es"><![CDATA[
 Funciones seleccionadas de 1.2.1: las tareas ganan subtareas: leer, listar y definir la tarea principal en el mismo calendario, rechazando ciclos y anidamientos de más de 64 niveles. En Protección de datos, configure un nombre de carpeta de copias en la raíz personal (predeterminado MCP backups); nombres anteriores y contenido se conservan y protegen. Las copias previas de Archivos vienen activadas y solo pueden suspenderse con Versions nativo disponible para quien actúa; siguen vigentes los requisitos existentes y no se garantiza una versión nativa para cada archivo/backend. Eliminar contactos siempre exige copia verificada. Mail opcional lista solo cuentas propias y carpetas/contadores en caché: sin leer mensajes, sincronizar IMAP ni cambiar datos; abra Mail una vez si la caché está vacía.
 
-**Nextcloud MCP** es un fork mantenido de forma independiente de MCP for Cloud de Sintax. La versión 2.0.0 es una candidata en desarrollo; la validación de la versión, los clientes y el servidor sigue pendiente. Es una aplicación nativa que convierte su Nextcloud en un servidor Model Context Protocol (MCP). Los asistentes de IA trabajan con sus archivos, notas, calendarios, contactos, tareas, tableros de Deck y conversaciones de Talk a través de una sola dirección en su propio servidor: sin servicio adicional, sin Docker, sin copia de sus datos en otro lugar.
+**Nextcloud MCP** es un fork mantenido de forma independiente de MCP for Cloud de Sintax. La versión 2.1.0 es una candidata en desarrollo; la validación de la versión, los clientes y el servidor sigue pendiente. Es una aplicación nativa que convierte su Nextcloud en un servidor Model Context Protocol (MCP). Los asistentes de IA trabajan con sus archivos, notas, calendarios, contactos, tareas, tableros de Deck y conversaciones de Talk a través de una sola dirección en su propio servidor: sin servicio adicional, sin Docker, sin copia de sus datos en otro lugar.
 
 ## Lo que el asistente puede hacer
 
@@ -154,13 +154,13 @@ Claude (claude.ai y Claude Desktop), ChatGPT y Gemini CLI inician sesión con OA
 Nextcloud 33–35 y PHP 8.4 o superior. Deck, Talk y Mail son opcionales: sus herramientas solo aparecen con la aplicación activa en una versión compatible.
     ]]></description>
     <description lang="de"><![CDATA[
-Nextcloud MCP ist ein unabhängig gepflegter Fork von Sintax MCP for Cloud. Version 2.0.0 ist ein Entwicklungskandidat; Freigabe, Server- und Clientprüfung stehen noch aus. Die App verbindet Claude, ChatGPT, Gemini CLI und andere KI-Clients über OAuth mit Dateien, Notes, Kalendern, Kontakten, Aufgaben, Deck und Talk unter den Berechtigungen der handelnden Person.
+Nextcloud MCP ist ein unabhängig gepflegter Fork von Sintax MCP for Cloud. Version 2.1.0 ist ein Entwicklungskandidat; Freigabe, Server- und Clientprüfung stehen noch aus. Die App verbindet Claude, ChatGPT, Gemini CLI und andere KI-Clients über OAuth mit Dateien, Notes, Kalendern, Kontakten, Aufgaben, Deck und Talk unter den Berechtigungen der handelnden Person.
 
 Ausgewählte Funktionen aus 1.2.1: Aufgaben erhalten Unteraufgaben: übergeordnete Aufgabe im selben Kalender lesen, auflisten und festlegen; Schleifen und Verschachtelungen tiefer als 64 Ebenen werden abgelehnt. Unter Datenschutz einen Sicherungsordner direkt in der persönlichen Wurzel konfigurieren (Standard MCP backups, auch .mcp-backups möglich). Frühere Namen und Inhalte bleiben erhalten und gegen MCP-Schreibzugriffe geschützt. Dateikopien vor dem Schreiben sind standardmäßig an und können nur bei verfügbarem nativem Versions für die handelnde Person ausgesetzt werden. Bestehende Versions-Voraussetzungen bleiben gültig; native Versionen sind nicht für jede Datei/jedes Backend garantiert. Kontakte löschen benötigt immer eine geprüfte Sicherung. Optionale Mail-Werkzeuge listen nur eigene Konten und zwischengespeicherte Ordner/Zähler, ohne Nachrichten zu lesen, IMAP zu synchronisieren oder Daten zu ändern. Mail-Zugriff ist zunächst gesperrt und benötigt eine ausdrückliche Leseberechtigung. Bei leerem Cache das Konto einmal in Mail öffnen.
 
 Nextcloud 33–35, PHP 8.4+. Mail, Deck und Talk sind optional. Der Administrator verwaltet Berechtigungen, Ausschluss-Tags und Ressourcenbereiche. Schreibvorgänge benötigen die jeweiligen Grants und Bestätigungen; Dateien werden vom MCP nicht gelöscht.
     ]]></description>
-    <version>2.0.0</version>
+    <version>2.1.0</version>
     <licence>AGPL-3.0-or-later</licence>
     <author mail="jhonatan@sintax.tech">Jhonatan Jaworski</author>
     <namespace>Mcp</namespace>

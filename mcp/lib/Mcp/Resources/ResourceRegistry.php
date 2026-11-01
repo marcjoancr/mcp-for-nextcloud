@@ -150,7 +150,7 @@ class ResourceRegistry {
      */
     public function hasFilesRead(string $userId): bool {
         try {
-            return $this->policy->granted($userId, 'files', 'read');
+            return $this->tools->allowsTool($userId, 'files_read');
         } catch (InvalidArgumentException) {
             return false;
         }
@@ -161,7 +161,7 @@ class ResourceRegistry {
      */
     public function hasNotesRead(string $userId): bool {
         try {
-            if (!$this->policy->granted($userId, 'notes', 'read')) {
+            if (!$this->tools->allowsTool($userId, 'notes_read')) {
                 return false;
             }
         } catch (InvalidArgumentException) {

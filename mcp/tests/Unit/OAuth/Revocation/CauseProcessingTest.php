@@ -196,6 +196,14 @@ final class CauseProcessingTest extends TestCase {
         $this->assertTrue($this->classifier->undated('alice'));
     }
 
+    public function testGroupAdditionCauseCutsEvenIfEligibilityWasRestoredBeforeTheRequest(): void {
+        $addition = ['causeKey' => IdentityKey::group('blocker'), 'reason' => RecheckMapper::REASON_GROUP_ADDITION,
+            'groupId' => 'blocker', 'gen' => self::gen('add'), 'createdAt' => '0'];
+        $this->accounts = ['alice' => true];
+        $this->eligibility = static fn (): bool => true;
+        self::assertSame([$addition['causeKey'] => true], $this->classifier->classify('alice', [$addition]));
+    }
+
     public function testAfterConsumesOnlyItsOwnCauseWithItsGenAndCutsOnce(): void {
         $old = $this->issue();
         $this->record(RecheckMapper::REASON_ACCOUNT, null, self::gen('acc'));

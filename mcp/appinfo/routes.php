@@ -47,6 +47,12 @@ return ['routes' => [
     // Two path segments, so a user id never collides with a numeric connection id.
     ['name' => 'connections#revokeUser', 'url' => '/api/connections/users/{uid}', 'verb' => 'DELETE'],
     ['name' => 'connections#destroy', 'url' => '/api/connections/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
+    ['name' => 'tool_permissions#origin', 'url' => '/settings/tool-permissions/origin', 'verb' => 'GET'],
+    ['name' => 'tool_permissions#subjects', 'url' => '/settings/tool-permissions/subjects', 'verb' => 'GET'],
+    ['name' => 'tool_permissions#index', 'url' => '/settings/tool-permissions', 'verb' => 'GET'],
+    ['name' => 'tool_permissions#update', 'url' => '/settings/tool-permissions', 'verb' => 'POST'],
+    ['name' => 'connection_permissions#index', 'url' => '/settings/my/connections/{id}/tools', 'verb' => 'GET', 'requirements' => ['id' => '\d+']],
+    ['name' => 'connection_permissions#update', 'url' => '/settings/my/connections/{id}/tools', 'verb' => 'PUT', 'requirements' => ['id' => '\d+']],
     ['name' => 'my_connections#index', 'url' => '/api/my/connections', 'verb' => 'GET'],
     ['name' => 'my_connections#destroy', 'url' => '/api/my/connections/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '\d+']],
     ['name' => 'file_write_policy#show', 'url' => '/api/file-write-policy', 'verb' => 'GET'],

@@ -22,6 +22,7 @@ import { mountLevelPopover } from './access/level-popover.js'
 import { mountGroups } from './groups/controller.js'
 import { mountInspector } from './inspection/controller.js'
 import { mountResourceScope } from './scope/controller.js'
+import { mountToolPermissions } from './tool-permissions.js'
 
 /** Compose independent settings; keep state and failure recovery in their owners. */
 export function mountAdmin({ root, ...dependencies }) {
@@ -30,19 +31,41 @@ export function mountAdmin({ root, ...dependencies }) {
     const picker = spec => createPicker({ ...spec, t: dependencies.t })
     const tabs = mountTabs({ root })
     const events = new EventTarget()
-    let matrix, overrides, exceptions, rowActions, levelPopover, resourceScope, inspector
+    let matrix, overrides, exceptions, rowActions, levelPopover, resourceScope, inspector, groupEditor
     const access = { ...dependencies, root, events, policyChannel,
         getMatrix: () => matrix, getOverrides: () => overrides, getExceptions: () => exceptions,
         getRowActions: () => rowActions, getLevelPopover: () => levelPopover,
         getResourceScope: () => resourceScope, getInspector: () => inspector }
-    matrix = mountMatrix({ ...access, root: root.querySelector('#mcp-block-matrix') })
-    overrides = mountOverrides(access)
-    exceptions = mountExceptions(access)
-    rowActions = mountRowActions(access)
-    levelPopover = mountLevelPopover(access)
     resourceScope = mountResourceScope(access)
     inspector = mountInspector(access)
-    const groups = mountGroups(access)
+    const advanced = root.querySelector('#mcp-tools-advanced')
+    let advancedOwners = []
+    let advancedReady = Promise.resolve()
+    function mountAdvanced() {
+        if (matrix) return advancedReady
+        matrix = mountMatrix({ ...access, root: root.querySelector('#mcp-block-matrix') })
+        overrides = mountOverrides(access)
+        exceptions = mountExceptions(access)
+        rowActions = mountRowActions(access)
+        levelPopover = mountLevelPopover(access)
+        groupEditor = mountGroups(access)
+        advancedOwners = [matrix, overrides, exceptions, rowActions, levelPopover, groupEditor]
+        advancedReady = Promise.all(advancedOwners.map(owner => owner.ready))
+        return advancedReady
+    }
+    const onAdvancedToggle = () => { if (advanced.open) mountAdvanced() }
+    const openAdvancedForDeepLink = () => {
+        if (!advanced) return
+        const [tab, query = ''] = window.location.hash.slice(1).split('?')
+        const params = new URLSearchParams(query)
+        if (tab !== 'access' || (params.get('view') !== 'operations' && !params.has('app'))) return
+        advanced.open = true
+        mountAdvanced()
+    }
+    advanced?.addEventListener('toggle', onAdvancedToggle)
+    window.addEventListener('hashchange', openAdvancedForDeepLink)
+    if (advanced?.open) mountAdvanced()
+    openAdvancedForDeepLink()
     const syncProtectionAlert = () => {
         const marker = root.querySelector('#mcp-tab-protection-alert')
         marker.hidden = !['mcp-tags-invalid-overview', 'mcp-file-policy-overview'].some(id => {
@@ -50,7 +73,8 @@ export function mountAdmin({ root, ...dependencies }) {
             return alert && !alert.hidden
         })
     }
-    const owners = [tabs, matrix, overrides, exceptions, rowActions, levelPopover, resourceScope, inspector, groups,
+    const owners = [tabs, resourceScope, inspector,
+        mountToolPermissions({ ...access, root, notifyError: dependencies.notifyError }),
         mountService(section('mcp-block-status')),
         mountCheckoutLimit(section('mcp-block-status')),
         mountEndpointCopy({ ...dependencies, root }),
@@ -60,7 +84,7 @@ export function mountAdmin({ root, ...dependencies }) {
         mountExcludedTags({ ...section('mcp-block-tags'), createPicker: picker, syncProtectionAlert,
             overviewAlert: root.querySelector('#mcp-tags-invalid-overview'),
             tabAlert: root.querySelector('#mcp-tab-protection-alert') }),
-        mountLogAccess({ ...section('mcp-block-logs'), createPicker: picker, reloadMatrix: matrix.reload }),
+        mountLogAccess({ ...section('mcp-block-logs'), createPicker: picker, reloadMatrix: () => matrix?.reload() }),
         mountLogPrivacy(section('mcp-block-logs-privacy')),
         mountConnections({ ...section('mcp-connections'), mode: 'admin', onCounts(result) {
             if (Number.isInteger(result?.counts?.connections)) {
@@ -68,5 +92,9 @@ export function mountAdmin({ root, ...dependencies }) {
             }
         } }),
     ]
-    return { ready: Promise.all(owners.map(owner => owner.ready)), destroy() { for (const owner of owners.slice().reverse()) owner.destroy() } }
+    return { ready: Promise.all(owners.map(owner => owner.ready)), destroy() {
+        advanced?.removeEventListener('toggle', onAdvancedToggle)
+        window.removeEventListener('hashchange', openAdvancedForDeepLink)
+        for (const owner of [...owners, ...advancedOwners].reverse()) owner.destroy()
+    } }
 }

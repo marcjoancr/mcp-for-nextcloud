@@ -32,6 +32,15 @@ function snapshot(IDBConnection $db, string $uid): array {
     }
     return $result;
 }
+function publishedTools(string $accessToken): array {
+    require_once __DIR__ . '/../Support/Http.php';
+    $response = \OCA\Mcp\Tests\Integration\Support\Http::request('POST', 'http://localhost/index.php/apps/mcp/',
+        ['Authorization: Bearer ' . $accessToken, 'Content-Type: application/json', 'Accept: application/json, text/event-stream'],
+        json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list', 'params' => (object)[]], JSON_THROW_ON_ERROR));
+    $tools = json_decode($response['body'], true)['result']['tools'] ?? null;
+    if ($response['status'] !== 200 || !is_array($tools)) throw new RuntimeException('The existing credential cannot list tools');
+    return array_column($tools, 'name');
+}
 if ($argv[1] !== 'verify') {
     // Exact pinned baseline owners, never loaded alongside the candidate classes.
     $fork = $argv[1] === 'seed-fork';
@@ -53,22 +62,30 @@ if ($argv[1] !== 'verify') {
     if (!is_string($code)) throw new RuntimeException('Baseline consent refused');
     $tokens = $service->exchangeCode(['code' => $code, 'code_verifier' => $verifier, 'client_id' => CustomClient::clientId($client['id']),
         'redirect_uri' => $client['redirectUris'][0], 'resource' => $resource]);
-    file_put_contents($path, json_encode(['snapshot' => snapshot($db, $uid), 'token' => $tokens['access_token'], 'resource' => $resource], JSON_THROW_ON_ERROR));
+    $visible = getenv('MCP_IT_MODE') === 'upgrade-permissions'
+        ? publishedTools($tokens['access_token'])
+        : null;
+    file_put_contents($path, json_encode(['tools' => $visible, 'snapshot' => snapshot($db, $uid), 'token' => $tokens['access_token'], 'resource' => $resource], JSON_THROW_ON_ERROR));
     chmod($path, 0600);
     echo "Seeded baseline policy, restricted scope, client and generation-qualified credential.\n";
 } else {
     $before = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-    if ($before['snapshot'] !== snapshot($db, $uid)) throw new RuntimeException('Baseline transition changed persistent state');
+    $after = snapshot($db, $uid);
+    // An additive schema migration records its own ID. Every baseline history row must still exist.
+    foreach ($before['snapshot']['migrations'] as $migration) {
+        if (!in_array($migration, $after['migrations'], true)) throw new RuntimeException('Lost baseline migration');
+    }
+    $after['migrations'] = $before['snapshot']['migrations'];
+    if ($before['snapshot'] !== $after) throw new RuntimeException('Baseline transition changed persistent state');
     $policy = Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
     $policy->within($uid, static function () use ($policy, $uid): void {
         if ($policy->scopeItems($uid, 'files') !== [] || $policy->granted($uid, 'notes', 'edit')) throw new RuntimeException('Replacement lost policy restrictions');
     });
-    // Public HTTP entry checks DI and the old credential in a fresh Apache worker after cache reset.
-    require_once __DIR__ . '/../Support/Http.php';
-    $reply = \OCA\Mcp\Tests\Integration\Support\Http::request('POST', 'http://localhost/index.php/apps/mcp/',
-        ['Authorization: Bearer ' . $before['token'], 'Content-Type: application/json', 'Accept: application/json, text/event-stream'],
-        json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list', 'params' => (object)[]], JSON_THROW_ON_ERROR));
-    if ($reply['status'] !== 200 || !isset(json_decode($reply['body'], true)['result'])) throw new RuntimeException('Replacement rejected the preserved credential');
+    $visible = publishedTools($before['token']);
+    if ($before['tools'] !== null && $before['tools'] !== $visible) {
+        throw new RuntimeException('Upgrade changed tool access. Lost: ' . implode(',', array_diff($before['tools'], $visible))
+            . '. Added: ' . implode(',', array_diff($visible, $before['tools'])));
+    }
     foreach (['admin', 'personal'] as $entry) {
         $file = '/var/www/html/custom_apps/mcp/js/' . $entry . '.js';
         if (!is_file($file) || filesize($file) === 0) throw new RuntimeException('Replacement asset missing');

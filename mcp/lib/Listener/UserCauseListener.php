@@ -12,7 +12,9 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\RecheckMapper;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\OAuth\OAuthStore;
+use OCA\Mcp\OAuth\ConnectionToolsStore;
 use OCA\Mcp\OAuth\Revocation\CauseProcessor;
 use OCA\Mcp\Access\Grants\Groups\GroupSourceClassifier;
 use OCA\Mcp\Access\Policy\Resolution\PolicyResolver;
@@ -21,6 +23,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\Group\Events\BeforeUserRemovedEvent;
+use OCP\Group\Events\BeforeUserAddedEvent;
+use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\IDBConnection;
 use OCP\IGroup;
@@ -69,6 +73,8 @@ class UserCauseListener implements IEventListener {
     private array $deleting = [];
     /** @var array<string, array{uid:string, gid:string, gen:string}> pair => the cause recorded by its Before */
     private array $removals = [];
+    /** @var array<string, array{uid:string, gid:string, gen:string}> pair => the cause recorded by an add's Before */
+    private array $additions = [];
     /** @var array<string, string|null> uid => R_b read by the Before of a deletion in this process; null when none could be */
     private array $scopeRevisions = [];
 
@@ -85,12 +91,17 @@ class UserCauseListener implements IEventListener {
         private LoggerInterface $logger,
         private PolicyStateMapper $state,
         private ScopeCleanup $scopeCleanup,
+        private ?ConnectionToolsStore $connectionTools = null,
     ) {}
 
     public function handle(Event $event): void {
         try {
             if ($event instanceof BeforeUserDeletedEvent) {
                 $this->beforeDelete($event->getUser());
+            } elseif ($event instanceof BeforeUserAddedEvent) {
+                $this->beforeAdd($event->getGroup(), $event->getUser());
+            } elseif ($event instanceof UserAddedEvent) {
+                $this->afterAdd($event->getGroup(), $event->getUser());
             } elseif ($event instanceof BeforeUserRemovedEvent) {
                 $this->beforeRemove($event->getGroup(), $event->getUser());
             } elseif ($event instanceof UserRemovedEvent) {
@@ -103,6 +114,41 @@ class UserCauseListener implements IEventListener {
                 $this->logger->warning('Recheck cause left to the reconciler', ['app' => 'mcp', 'exception' => $e]);
             } catch (Throwable) {
             }
+        }
+    }
+
+    /** A known true→false service transition on group entry must invalidate old credentials, even if membership is
+     * removed again before the next request. Inside a caller transaction, defer the final-state check as elsewhere. */
+    private function beforeAdd(IGroup $group, IUser $user): void {
+        $uid = $user->getUID();
+        if ($this->db->inTransaction()) {
+            $this->causes->deferUndated($uid);
+            return;
+        }
+        $gid = $group->getGID();
+        $pair = self::pair($uid, $gid);
+        $open = $this->additions[$pair]['gen'] ?? null;
+        if ($open !== null && $this->stillPending($uid, IdentityKey::group($gid), $open)) {
+            return;
+        }
+        unset($this->additions[$pair]);
+        if (!$this->additionRelevant($group, $user)) {
+            return;
+        }
+        $gen = bin2hex(random_bytes(16));
+        $this->rechecks->record($uid, RecheckMapper::REASON_GROUP_ADDITION, $gid, $gen, $this->time->getTime());
+        $this->additions[$pair] = ['uid' => $uid, 'gid' => $gid, 'gen' => $gen];
+    }
+
+    private function afterAdd(IGroup $group, IUser $user): void {
+        $pair = self::pair($user->getUID(), $group->getGID());
+        $captured = $this->additions[$pair] ?? null;
+        unset($this->additions[$pair]);
+        if (!$this->db->inTransaction()) {
+            $this->causes->flush();
+        }
+        if ($captured !== null) {
+            $this->causes->after($captured['uid'], IdentityKey::group($captured['gid']), $captured['gen']);
         }
     }
 
@@ -147,6 +193,14 @@ class UserCauseListener implements IEventListener {
             // issued since (issuance would have consumed the cause), so keeping the gen protects nothing less.
             return;
         }
+        // If processing the add's transition failed, do not replace its durable fact with a removal whose ordinary
+        // classifier would decide that eligibility has been restored. The old credential still crossed a loss.
+        foreach ($this->rechecks->causes($uid) as $cause) {
+            if ($cause['causeKey'] === IdentityKey::group($gid) && $cause['reason'] === RecheckMapper::REASON_GROUP_ADDITION) {
+                $this->removals[$pair] = ['uid' => $uid, 'gid' => $gid, 'gen' => $cause['gen']];
+                return;
+            }
+        }
         unset($this->removals[$pair]);
         if (!$this->removalRelevant($group, $user)) {
             return;
@@ -176,6 +230,18 @@ class UserCauseListener implements IEventListener {
         unset($this->deleting[$uid]);
         $revision = $this->scopeRevisions[$uid] ?? null;
         unset($this->scopeRevisions[$uid]);
+        // Only this process's paired Before/After can clear account-scoped preferences. A late After from an older
+        // account has no captured gen, and a cause already consumed by a concurrent recreation no longer matches.
+        if (is_string($gen) && $this->stillPending($uid, IdentityKey::accountCause(), $gen)) {
+            try {
+                $this->connectionTools?->deleteUserSelections($uid);
+            } catch (Throwable $e) {
+                try {
+                    $this->logger->warning('Connection tool selections for deleted account were kept; cleanup failed', ['app' => 'mcp', 'target' => $uid, 'exception' => $e]);
+                } catch (Throwable) {
+                }
+            }
+        }
         if (!$this->db->inTransaction()) {
             $this->causes->flush();
         }
@@ -230,7 +296,7 @@ class UserCauseListener implements IEventListener {
     /** U holds a code or grant row, or is not known to be ineligible. A failed read is relevant. */
     private function accountRelevant(string $uid): bool {
         try {
-            return $this->store->hasCredentials($uid) || $this->eligible($uid, []) !== false;
+            return $this->store->hasCredentials($uid) || ($this->connectionTools?->hasUserSelections($uid) ?? false) || $this->eligible($uid, []) !== false;
         } catch (Throwable) {
             return true;
         }
@@ -245,7 +311,20 @@ class UserCauseListener implements IEventListener {
         $gid = $group->getGID();
         try {
             $grants = $this->grants->forGroups([$gid])[0]['grants'] ?? [];
-            if (!in_array('eligible', $grants['_system'] ?? [], true)
+            $hasGranularAllow = false;
+            $context = $this->resolver->begin($user->getUID(), [], [], false);
+            try {
+                foreach ($context->candidates() as $candidate) {
+                    if ($candidate['groupId'] === $gid
+                        && ($candidate['toolGrants'][ToolGrantsMapper::SERVICE] ?? null) === ToolGrantsMapper::ALLOW) {
+                        $hasGranularAllow = true;
+                        break;
+                    }
+                }
+            } finally {
+                $context->close();
+            }
+            if (!in_array('eligible', $grants['_system'] ?? [], true) && !$hasGranularAllow
                 || ($this->life->get($gid)['state'] ?? null) !== GroupLifeMapper::ACTIVE
                 || !$this->classifier->trusted($gid)
                 || $group->inGroup($user) === false) {
@@ -256,6 +335,30 @@ class UserCauseListener implements IEventListener {
             return $this->eligible($user->getUID(), []) !== false && $this->eligibilityWithoutOwnValue($user->getUID(), [$gid]) !== true;
         } catch (Throwable) {
             return true;
+        }
+    }
+
+    /** G's active, trusted policy and the Before overlay cause a known true→false eligibility transition. */
+    private function additionRelevant(IGroup $group, IUser $user): bool {
+        $uid = $user->getUID();
+        $gid = $group->getGID();
+        try {
+            if ($group->inGroup($user) === true || ($this->life->get($gid)['state'] ?? null) !== GroupLifeMapper::ACTIVE
+                || !$this->classifier->trusted($gid)) {
+                return false;
+            }
+            if ($this->eligible($uid, []) !== true) {
+                return false;
+            }
+            $context = $this->resolver->begin($uid, [$gid], [], false);
+            try {
+                return $context->eligible()->allowed === false;
+            } finally {
+                $context->close();
+            }
+        } catch (Throwable) {
+            // An unknown projection is not a known loss. The request path remains fail-closed while it is unknown.
+            return false;
         }
     }
 

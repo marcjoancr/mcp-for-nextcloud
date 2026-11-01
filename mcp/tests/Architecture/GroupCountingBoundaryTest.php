@@ -74,9 +74,8 @@ final class GroupCountingBoundaryTest extends TestCase {
             sort($files);
         }
         unset($files);
-        // The two admin read models: the group statistics and the preview of a reset. Both count for an administrator and
-        // never decide access (the preview class repeats the notice).
-        $this->assertSame(['beginManyGrants' => ['Access/Grants/Groups/GroupDirectory.php', 'Access/Grants/OverridePreview.php'],
+        // The admin statistics, hypothetical grant projection and reset preview count for an administrator; none decide access.
+        $this->assertSame(['beginManyGrants' => ['Access/Grants/GrantPolicy.php', 'Access/Grants/Groups/GroupDirectory.php', 'Access/Grants/OverridePreview.php', 'Access/Policy/Resolution/PolicyResolver.php'],
             'inherited' => ['Access/Grants/Groups/GroupDirectory.php', 'Access/Grants/OverridePreview.php']],
             $callers, 'Grant-only references and dynamic methods must never escape the admin read models');
         foreach (['Access/Policy/Resolution/PolicyResolver.php', 'Access/Policy/Resolution/PolicyOperationContext.php', 'Access/Grants/OverridePreview.php'] as $file) {

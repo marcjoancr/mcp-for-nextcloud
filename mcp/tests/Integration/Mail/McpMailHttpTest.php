@@ -10,6 +10,8 @@ namespace OCA\Mcp\Tests\Integration\Mail;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Tests\Integration\Exclusion\ExclusionTestCase;
 use OCA\Mcp\Tests\Integration\Support\Http;
+use OCA\Mcp\Tests\Integration\Support\LoginFactory;
+use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCP\Server;
 
 /** Authenticated HTTP discovery and calls, with no Mail loadApp or actor in the requesting process. */
@@ -25,8 +27,9 @@ final class McpMailHttpTest extends ExclusionTestCase {
 		$own = $this->account(self::ALICE);
 		$foreign = $this->account(self::BOB);
 		$before = $this->cacheHash($own);
-		foreach (['basic', 'bearer'] as $kind) {
-			$credential = $this->login(self::ALICE, $kind);
+		// Select the newly approved Mail tools on fresh connections and retain both for the revocation check.
+		$clients = [];
+		foreach ([LoginFactory::basic(self::ALICE), LoginFactory::bearer(self::ALICE)] as $credential) {
 			$response = Http::request('POST', Http::BASE . '/index.php/apps/mcp/', [
 				'Authorization: ' . $credential->authorization(), 'Content-Type: application/json', 'Accept: application/json, text/event-stream',
 			], json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list'], JSON_THROW_ON_ERROR));
@@ -35,7 +38,8 @@ final class McpMailHttpTest extends ExclusionTestCase {
 			$names = array_column($body['result']['tools'], 'name');
 			self::assertContains('mail_list_accounts', $names);
 			self::assertContains('mail_list_mailboxes', $names);
-			$client = $this->mcp(self::ALICE, $kind);
+			$client = new McpClient($credential);
+			$clients[] = $client;
 			$accounts = $client->tool('mail_list_accounts');
 			self::assertTrue($accounts->ok(), $accounts->describe());
 			self::assertSame([$own], array_column($accounts->json()['accounts'], 'id'));
@@ -49,8 +53,8 @@ final class McpMailHttpTest extends ExclusionTestCase {
 		}
 		self::assertSame($before, $this->cacheHash($own), 'HTTP calls must leave cached account/folder state unchanged');
         $policy->setGrant(self::ALICE, 'mail', 'read', false);
-        foreach (['basic', 'bearer'] as $kind) {
-            self::assertFalse($this->mcp(self::ALICE, $kind)->tool('mail_list_accounts')->ok(), 'Revocation must affect existing credentials');
+        foreach ($clients as $client) {
+            self::assertFalse($client->tool('mail_list_accounts')->ok(), 'Revocation must affect existing credentials');
         }
 
 	}

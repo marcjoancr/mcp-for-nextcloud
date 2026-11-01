@@ -11,7 +11,7 @@
 
 ## Requisitos
 
-O Nextcloud MCP 2.0.0 usa o identificador `mcp` e substitui uma instalação existente do MCP for Cloud. A loja do Nextcloud distribui a aplicação original. Para instalar o fork, utilize o pacote compilado a partir da revisão verificada do código-fonte.
+O Nextcloud MCP 2.1.0 usa o identificador `mcp` e substitui uma instalação existente do MCP for Cloud. A loja do Nextcloud distribui a aplicação original. Para instalar o fork, utilize o pacote compilado a partir da revisão verificada do código-fonte.
 
 O ambiente de referência é Linux x86-64 com Apache. Utilize versões que recebam atualizações de segurança e as extensões PHP `zip`, `mbstring` e `dom`. O SQLite é utilizado em testes locais e ensaios de recuperação.
 
@@ -25,7 +25,7 @@ As ferramentas disponíveis dependem das aplicações do Nextcloud e das permiss
 
 ### Instalar através de SSH
 
-Verifique `mcp-2.0.0.tar.gz` e o kit de código-fonte correspondente com o hash de confiança do manifesto. Ensaie a atualização e a recuperação num ambiente equivalente ao do servidor e confirme que as atualizações automáticas preservam o fork. O comando `occ app:install mcp` instala o pacote original da loja.
+Verifique `mcp-2.1.0.tar.gz` e o kit de código-fonte correspondente com o hash de confiança do manifesto. Ensaie a atualização e a recuperação num ambiente equivalente ao do servidor e confirme que as atualizações automáticas preservam o fork. O comando `occ app:install mcp` instala o pacote original da loja.
 
 Antes da instalação, utilize o MCP Inspector para verificar o acesso HTTPS, a autorização e a revogação do cliente. Depois, confirme que um cliente consegue consultar o guia de ferramentas numa instância de teste descartável.
 

@@ -114,20 +114,22 @@ cmd_packages() {
         # Clone, never a linked worktree: the server's shared worktree registry is not modified.
         git clone --no-hardlinks --no-checkout "$REPO_ROOT" "$WORK/baseline"
         if ! git -C "$WORK/baseline" cat-file -e "$MCP_IT_BASELINE^{commit}"; then
-            if [ "$MCP_IT_MODE" = upgrade-local ]; then
+            if [ "$MCP_IT_MODE" = upgrade-local ] || [ "$MCP_IT_MODE" = upgrade-permissions ]; then
                 echo 'Fork baseline must be present in the candidate history' >&2; exit 1
             fi
             git -C "$WORK/baseline" fetch https://github.com/sintax-tech/mcp-for-nextcloud.git "$MCP_IT_BASELINE"
         fi
         git -C "$WORK/baseline" checkout --detach "$MCP_IT_BASELINE"
-        if [ "$MCP_IT_MODE" = upgrade-local ]; then
+        if [ "$MCP_IT_MODE" = upgrade-local ] || [ "$MCP_IT_MODE" = upgrade-permissions ]; then
             # Fetch only locked registry tarballs with the patched current runtime.
             # Historical installation/build then run offline with their own exact runtime.
             [ -n "${MCP_IT_BASELINE_NODE_BIN:-}" ] || { echo 'Set MCP_IT_BASELINE_NODE_BIN for the historical fork build' >&2; exit 1; }
             baseline_node=$("$MCP_IT_BASELINE_NODE_BIN/node" -p 'process.versions.node')
             [ "$baseline_node" = "$(cat "$WORK/baseline/mcp/.node-version")" ] || { echo 'Historical baseline runtime mismatch' >&2; exit 1; }
             php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); foreach ($p["packages"] as $entry) { if (!isset($entry["resolved"])) continue; $url=$entry["resolved"]; if (!str_starts_with($url,"https://registry.npmjs.org/")) throw new RuntimeException("Unapproved baseline registry"); echo $url, PHP_EOL; }' "$WORK/baseline/mcp/package-lock.json" > "$WORK/baseline-registry-urls"
-            while IFS= read -r url; do npm cache add "$url"; done < "$WORK/baseline-registry-urls"
+            if [ "$MCP_IT_MODE" = upgrade-local ]; then
+                while IFS= read -r url; do npm cache add "$url"; done < "$WORK/baseline-registry-urls"
+            fi
             (cd "$WORK/baseline/mcp" && PATH="$MCP_IT_BASELINE_NODE_BIN:$PATH" npm ci --offline --ignore-scripts)
         fi
         build_package "$WORK/baseline/mcp" "$WORK/mcp-baseline.tar.gz"
@@ -139,7 +141,7 @@ cmd_packages() {
 # a file, not a pipe, so a failing package.sh fails the step.
 build_package() {
     (cd "$1" && if [ "$1" = "$REPO_ROOT/mcp" ]; then composer package;
-        elif [ "$MCP_IT_MODE" = upgrade-local ]; then
+        elif [ "$MCP_IT_MODE" = upgrade-local ] || [ "$MCP_IT_MODE" = upgrade-permissions ]; then
             PATH="$MCP_IT_BASELINE_NODE_BIN:$PATH" npm_config_offline=true COMPOSER_DISABLE_NETWORK=1 composer package;
         else sh scripts/package.sh; fi) > "$WORK/package.out"
     cat "$WORK/package.out"
@@ -258,8 +260,15 @@ cmd_install_app() {
         if [ "$MCP_IT_MODE" = upgrade ]; then
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-credentials.php /tmp/mcp-it-legacy.json
             docker exec -u www-data -e MCP_IT_MODE="$MCP_IT_MODE" "$NC" php /mcp-it-src/mcp/tests/Integration/ci/legacy-policy.php seed /tmp/mcp-it-snapshot.json
-        elif [ "$MCP_IT_MODE" = upgrade-local ]; then
-            docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php seed-fork
+        elif [ "$MCP_IT_MODE" = upgrade-local ] || [ "$MCP_IT_MODE" = upgrade-permissions ]; then
+            if [ "$MCP_IT_MODE" = upgrade-permissions ]; then
+                # Apache booted before the baseline app was installed; reload its cached routes.
+                docker restart "$NC" >/dev/null
+                wait_for 'Nextcloud with baseline routes' 180 nextcloud_ready
+                docker exec -u www-data -e MCP_IT_MODE="$MCP_IT_MODE" "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php seed-fork
+            else
+                docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php seed-fork
+            fi
         else
             docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/replacement.php seed
         fi

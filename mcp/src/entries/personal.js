@@ -9,5 +9,5 @@ const root = document.getElementById('mcp-personal')
 if (root) {
     const host = createNextcloud()
     mountPersonalScope({ root, ...host, request: createRequest(host) })
-    mountConnections({ root: root.querySelector('#mcp-connections'), mode: 'personal', ...host, request: createRequest(host) })
+    mountConnections({ root: root.querySelector('#mcp-connections'), pageRoot: root, mode: 'personal', ...host, request: createRequest(host) })
 }

@@ -182,8 +182,8 @@ final class GroupDirectoryTest extends TestCase {
         $this->assertSame(1000, $counts['members']);
         $this->assertSame(1000, $counts['overrides']);
         $this->assertSame(['overrides' => 1000, 'different' => 0], $counts['permissions']['_system']['eligible']);
-        // Two reads for the group header, then two group/lifecycle SELECTs per block of 200. No scope SQL/member.
-        $this->assertSame(12, $database->queryCount);
+        // Header reads plus lifecycle, legacy group and granular group/user policy SELECTs per block of 200; no scope SQL/member.
+        $this->assertSame(22, $database->queryCount);
         $this->assertSame(5 * (array_sum(array_map('count', \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG)) + 2), $this->data->batchCalls);
         fwrite(STDERR, sprintf("T17 group 1000: %d app SELECTs, %d official config batch calls, %.3f ms (SQLite memory + directory/config doubles; state reads mocked)\n",
             $database->queryCount, $this->data->batchCalls, $ms));

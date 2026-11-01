@@ -431,8 +431,8 @@ final class McpControllerTest extends TestCase {
             public function __construct(private ?\Closure $inside) {}
             public function definitions(): array {
                 $schema = ['type' => 'object', 'additionalProperties' => false, 'properties' => new \stdClass()];
-                return [['name' => 'notes_probe', 'description' => 'x', 'module' => 'notes', 'operation' => 'read', 'inputSchema' => $schema],
-                    ['name' => 'notes_editor', 'description' => 'x', 'module' => 'notes', 'operation' => 'edit', 'inputSchema' => $schema]];
+                return [['name' => 'notes_read', 'description' => 'x', 'module' => 'notes', 'operation' => 'read', 'inputSchema' => $schema],
+                    ['name' => 'notes_edit', 'description' => 'x', 'module' => 'notes', 'operation' => 'edit', 'inputSchema' => $schema]];
             }
             public function call(string $name, array $arguments, string $userId): array {
                 if ($this->inside !== null) {
@@ -466,7 +466,7 @@ final class McpControllerTest extends TestCase {
     public function testGroupEligibilityAdmitsBasicAndAnUnknownOneAnswers503WithoutRevoking(): void {
         $this->groupEligibleAlice();
         $protocol = $this->groupProtocol();
-        $this->assertSame(200, $this->call($protocol, 'notes_probe')[0]);
+        $this->assertSame(200, $this->call($protocol, 'notes_read')[0]);
 
         InMemoryConfig::groupPolicy($this->config, 'team', ['_system' => ['eligible']], 'needs_confirm');
         $response = $this->controller('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', $protocol)->post();
@@ -477,7 +477,7 @@ final class McpControllerTest extends TestCase {
 
         // Another valid source keeps the access while "team" stays indeterminate.
         InMemoryConfig::groupPolicy($this->config, 'staff', ['_system' => ['eligible']]);
-        $this->assertSame(200, $this->call($protocol, 'notes_probe')[0]);
+        $this->assertSame(200, $this->call($protocol, 'notes_read')[0]);
     }
 
     /** T11/T14: a grant listed by tools/list is read again by tools/call, in the request of the call. */
@@ -485,9 +485,9 @@ final class McpControllerTest extends TestCase {
         $this->groupEligibleAlice();
         $protocol = $this->groupProtocol();
         $listed = $this->controller('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', $protocol)->post()->render();
-        $this->assertStringContainsString('notes_probe', $listed);
+        $this->assertStringContainsString('notes_read', $listed);
         $this->policy->setGrant('alice', 'notes', 'read', false);
-        [$status, $body] = $this->call($protocol, 'notes_probe');
+        [$status, $body] = $this->call($protocol, 'notes_read');
         $this->assertSame(200, $status);
         $this->assertStringContainsString('"error"', $body, 'the individual Deny of the next request wins over the group');
         $this->assertStringNotContainsString('\\"ok\\"', $body);
@@ -499,7 +499,7 @@ final class McpControllerTest extends TestCase {
         $protocol = $this->groupProtocol(function (): void {
             throw new \OCA\Mcp\Access\Policy\PolicyUnavailable('Policy resolution is unknown');
         });
-        $this->assertSame(503, $this->call($protocol, 'notes_probe')[0]);
+        $this->assertSame(503, $this->call($protocol, 'notes_read')[0]);
     }
 
     /**
@@ -513,9 +513,9 @@ final class McpControllerTest extends TestCase {
         $protocol = $this->groupProtocol();
         $response = $this->controller('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', $protocol)->post();
         $this->assertSame(200, $response->getStatus());
-        $this->assertStringContainsString('notes_probe', $response->render());
-        $this->assertStringNotContainsString('notes_editor', $response->render());
-        $call = $this->controller('{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"notes_editor","arguments":{"confirm":true}}}', $protocol)->post();
+        $this->assertStringContainsString('notes_read', $response->render());
+        $this->assertStringNotContainsString('notes_edit', $response->render());
+        $call = $this->controller('{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"notes_edit","arguments":{"confirm":true}}}', $protocol)->post();
         $this->assertSame(503, $call->getStatus());
         $this->assertSame('1', self::headers($call)['Retry-After']);
     }

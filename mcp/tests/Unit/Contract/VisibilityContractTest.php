@@ -204,6 +204,12 @@ final class VisibilityContractTest extends TestCase {
                 $args[] = $parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : ($name === 'string' ? 'mcp' : null);
                 continue;
             }
+            if ($name === \OCA\Mcp\Modules\Files\Contracts\FileConnectionContext::class) {
+                $context = new \OCA\Mcp\OAuth\ConnectionContext();
+                $context->setSelection(['files_share', 'files_unshare'], ['files_share' => ['share', 'link'], 'files_unshare' => ['share', 'link']]);
+                $args[] = $context;
+                continue;
+            }
             if ($name === VisibilityGuard::class || $name === \OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class) {
                 $args[] = $this->guard;
                 continue;

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { test as base, expect } from '@playwright/test'
 
+const testOrigin = `http://127.0.0.1:${process.env.MCP_JS_TEST_PORT || 18461}`
+
 export const user = (uid, changes = {}) => ({
     uid, displayName: uid, enabled: true, eligible: true, connected: false,
     appsEnabled: { files: true, logs: true },
@@ -44,6 +46,27 @@ export const test = base.extend({
         })
         function defaultResponse(method, path, query, body) {
             const advance = () => { state.revision = String(BigInt(state.revision) + 1n); return state.revision }
+            if (path === '/settings/tool-permissions/subjects' && method === 'GET') {
+                const kind = query.get('kind') || 'user'
+                const rows = kind === 'group' ? state.groups : state.users
+                const search = (query.get('search') || '').toLocaleLowerCase()
+                const subjects = rows.filter(row => `${row.uid || row.id} ${row.displayName || row.uid || row.id}`.toLocaleLowerCase().includes(search))
+                    .map(row => ({ id: row.uid || row.id, displayName: row.displayName || row.uid || row.id }))
+                return { subjects, page: Number(query.get('page') || 1), hasMore: false }
+            }
+            if (path === '/settings/tool-permissions' && method === 'GET') {
+                const kind = query.get('kind') || 'user'
+                const id = query.get('subject')
+                const userRow = state.users.find(row => row.uid === id)
+                const groups = kind === 'user' ? (userRow ? state.groups : []) : []
+                const tools = Object.entries(state.catalog).flatMap(([module, operations]) => operations.map(operation => ({
+                    name: `${module}_${operation}`, module, title: `${module} ${operation}`, description: '',
+                    state: 'inherit', effective: userRow?.grants?.[module]?.[operation] ?? true,
+                    origin: userRow?.grants?.[module]?.[operation] ? 'Default' : 'Individual assignment',
+                })))
+                return { kind, subject: id, revision: state.revision, groups, service: { state: 'inherit', effective: state.serviceEnabled, origin: 'Global service' }, tools }
+            }
+            if (path === '/settings/tool-permissions/origin' && method === 'GET') return { individual: { state: 'inherit', effective: true, origin: 'Default' }, groups: state.groups.map(group => ({ ...group, state: 'inherit', effective: true, origin: 'Default' })), revision: state.revision }
             if (path === '/api/grants/commands/preview' && method === 'POST') return { revision: state.revision, cells: body.commands.map(command => {
                 const row = state.users.find(user => user.uid === command.uid)
                 const before = command.module === null ? row.eligible : row.grants[command.module][command.operation]
@@ -135,11 +158,11 @@ export const test = base.extend({
         await page.route('**/*', async route => {
             const request = route.request()
             const url = new URL(request.url())
-            if (url.origin !== 'http://127.0.0.1:18461') {
+            if (url.origin !== testOrigin) {
                 errors.push('Unexpected external request: ' + url.origin)
                 return route.abort()
             }
-            if (!url.pathname.startsWith('/apps/mcp/api/')) return route.continue()
+            if (!url.pathname.startsWith('/apps/mcp/api/') && !url.pathname.startsWith('/apps/mcp/settings/')) return route.continue()
             const path = url.pathname.slice('/apps/mcp'.length)
             const method = request.method()
             const body = request.postDataJSON()
@@ -165,7 +188,15 @@ export const test = base.extend({
                 const response = await page.goto(path)
                 expect(response.status(), await response.text()).toBe(200)
                 await expect(page.locator('#mcp-connections-table')).toHaveAttribute('aria-busy', 'false')
-                if (path.startsWith('/admin')) await expect(page.locator('#mcp-matrix')).toHaveAttribute('aria-busy', 'false')
+                if (path.startsWith('/admin') && !path.includes('#mcp-tool-permissions')) {
+                    await page.locator('#mcp-tools-advanced').evaluate(details => {
+                        if (!details.open) {
+                            details.open = true
+                            details.dispatchEvent(new Event('toggle'))
+                        }
+                    })
+                    await expect(page.locator('#mcp-matrix')).toHaveAttribute('aria-busy', 'false')
+                }
             },
         })
         expect(errors, 'Uncaught browser errors or unexpected requests').toEqual([])

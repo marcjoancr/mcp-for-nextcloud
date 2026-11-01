@@ -26,7 +26,7 @@ use Throwable;
  * | account missing, disabled or not eligible | cuts |
  * | eligibility unknown (read failure, group of indeterminate policy) | nothing: PolicyUnavailable (503, no revocation) |
  * | group_removal, eligible even without that group | does not cut |
- * | eligible; account_delete, or group_removal without which the user would not be eligible | cuts (Q1, §6.2) |
+ * | eligible; account_delete, group_addition, or group_removal without which the user would not be eligible | cuts (Q1, §6.2) |
  *
  * A cause captured inside a caller's transaction has no stored row and no date; undated() classifies it instead, by
  * the exception to Q1 of §6.2.1: an eligible user is never cut.
@@ -50,6 +50,9 @@ class CauseClassifier {
         foreach ($causes as $cause) {
             $classified[$cause['causeKey']] = $lost || match ($cause['reason']) {
                 RecheckMapper::REASON_GROUP => !$this->eligible($uid, [(string)$cause['groupId']]),
+                // The Before captured a known true→false transition caused by joining this group. Keep that loss even
+                // if the user left again before their next request; otherwise an old credential becomes usable again.
+                RecheckMapper::REASON_GROUP_ADDITION => true,
                 // Q1: an account deletion the user survived is still revoked; nothing is granted.
                 default => true,
             };

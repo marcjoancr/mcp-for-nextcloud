@@ -13,6 +13,8 @@ use InvalidArgumentException;
 use OCA\Mcp\Access\Policy\Resolution\GrantUnknown;
 use OCA\Mcp\Access\Policy\Resolution\PolicyOperationContext;
 use OCA\Mcp\Access\Policy\Resolution\PolicyResolver;
+use OCA\Mcp\Access\Policy\Resolution\GrantResolution;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\Access\Policy\PolicyUnavailable;
 use OCA\Mcp\Access\Grants\Commands\GrantCommands;
 use OCA\Mcp\Access\Grants\Commands\ServiceCommands;
@@ -82,6 +84,8 @@ class GrantPolicy implements ScopeReader {
 
     /** @var array<string, PolicyOperationContext|null> snapshot of each open operation, by 'u' . uid; null until read */
     private array $operations = [];
+    /** @var list<array{uid:string,tool:string,module:string,operation:string}> active tool call contexts */
+    private array $toolContexts = [];
 
     public function __construct(
         private IConfig $config,
@@ -264,6 +268,11 @@ class GrantPolicy implements ScopeReader {
             && $context->connected() && self::known($context->eligible()->allowed));
     }
 
+    /** Legacy service eligibility used by the compatibility migration before new service rows are applied. */
+    public function legacyEligible(string $uid): bool {
+        return $this->read($uid, static fn (PolicyOperationContext $context): bool => self::known($context->legacyEligible()->allowed));
+    }
+
     /**
      * The eligibility decision a consent or an issuance acts on, for its writer command (contracts §3.1; F3 of the
      * review of ticket 07): always a fresh read, outside any open operation, that persists no observation, since it
@@ -299,11 +308,19 @@ class GrantPolicy implements ScopeReader {
      *     which the command renews under its mutex (LifecycleHolds::hold()); null when nothing does
      * @throws PolicyUnavailable when the inherited eligibility is unknown or cannot be read
      */
-    public function inheritance(string $uid): ?array {
+    public function inheritance(string $uid, ?string $toolName = null): ?array {
         $context = $this->resolver->begin($uid, [], [], false);
         try {
-            $eligibility = $context->inheritedEligibility();
-            return self::known($eligibility->allowed) ? $context->lifecycles($eligibility->groupIds) : null;
+            if ($toolName === null) {
+                $eligibility = $context->inheritedEligibility();
+                return self::known($eligibility->allowed) ? $context->lifecycles($eligibility->groupIds) : null;
+            }
+            if ($toolName !== ToolGrantsMapper::SERVICE) {
+                throw new InvalidArgumentException('Unknown service inheritance key');
+            }
+            $result = $context->projectedToolDecision(ToolGrantsMapper::SERVICE, '_system', 'eligible', true,
+                ToolGrantsMapper::NEUTRAL);
+            return self::known($result->allowed) ? $context->lifecycles($result->groupIds) : null;
         } finally {
             $context->close();
         }
@@ -320,7 +337,234 @@ class GrantPolicy implements ScopeReader {
      */
     public function granted(string $uid, string $module, string $operation): bool {
         self::grantKey($module, $operation);
+        $tool = $this->activeTool($uid, $module, $operation);
+        if ($tool !== null) {
+            return $this->read($uid, static function (PolicyOperationContext $context) use ($tool, $module, $operation): bool {
+                return self::known($context->toolGranted($tool['tool'], $module, $operation)->allowed);
+            });
+        }
         return $this->read($uid, static fn (PolicyOperationContext $context): bool => self::known($context->granted($module, $operation)->allowed));
+    }
+
+    /** Effective primary-tool permission, retaining the user's and trusted groups' legacy operation rules. */
+    public function toolGranted(string $uid, string $toolName, string $module, string $operation): bool {
+        return self::known($this->toolState($uid, $toolName, $module, $operation)['effective']);
+    }
+
+    /** @return array{assigned:?string,effective:?bool,source:string,groupIds:list<string>} */
+    public function toolState(string $uid, string $toolName, string $module, string $operation): array {
+        if (!ToolGrantsMapper::validToolName($toolName)) {
+            throw new InvalidArgumentException('Invalid tool name');
+        }
+        if ($toolName === ToolGrantsMapper::SERVICE) {
+            if ($module !== '_system' || $operation !== 'eligible') {
+                throw new InvalidArgumentException('Invalid service policy key');
+            }
+            return $this->read($uid, static function (PolicyOperationContext $context): array {
+                $result = $context->eligible();
+                $assigned = $context->toolAssignment(ToolGrantsMapper::SERVICE);
+                if ($assigned === null) {
+                    $assigned = match ($result->source) {
+                        'individual_allow', 'legacy_individual' => $result->allowed === true ? ToolGrantsMapper::ALLOW : ToolGrantsMapper::DENY,
+                        default => null,
+                    };
+                }
+                return ['assigned' => $assigned, 'effective' => $result->allowed,
+                    'source' => $result->source, 'groupIds' => $result->groupIds];
+            });
+        }
+        self::grantKey($module, $operation);
+        return $this->read($uid, static function (PolicyOperationContext $context) use ($toolName, $module, $operation): array {
+            $result = $context->toolGranted($toolName, $module, $operation);
+            $assigned = $context->toolAssignment($toolName);
+            if ($assigned === null) {
+                $assigned = match ($result->source) {
+                    'legacy_individual' => $result->allowed === true ? ToolGrantsMapper::ALLOW : ToolGrantsMapper::DENY,
+                    'legacy_group' => ToolGrantsMapper::ALLOW,
+                    default => null,
+                };
+            }
+            return ['assigned' => $assigned, 'effective' => $result->allowed,
+                'source' => $result->source, 'groupIds' => $result->groupIds];
+        });
+    }
+
+    /**
+     * Project tool cells for a page of users over one grant-only policy snapshot, optionally simulating one group's
+     * decision. Used by admin previews; it has no authorization side effects.
+     * @param list<string> $uids
+     * @param list<array{toolName:string,module:string,operation:string,decision:string,grantAnyOf?:list<string>}> $cells
+     * @return array<string,array<string,array{effective:?bool,source:string,groupIds:list<string>}>>
+     */
+    public function projectedToolStates(array $uids, array $cells, ?string $groupId = null): array {
+        $projected = [];
+        foreach (array_chunk(array_values(array_unique($uids)), 100) as $chunk) {
+            $contexts = $this->resolver->beginManyGrants($chunk);
+            try {
+                foreach ($contexts as $uid => $context) {
+                    foreach ($cells as $cell) {
+                        $service = $cell['toolName'] === ToolGrantsMapper::SERVICE;
+                        $module = $service ? '_system' : $cell['module'];
+                        if (!$service && !array_key_exists('grantAnyOf', $cell)) {
+                            $result = $context->projectedToolDecision($cell['toolName'], $module, $cell['operation'],
+                                $groupId === null, $groupId === null ? $cell['decision'] : null,
+                                $groupId, $groupId === null ? null : $cell['decision'], $groupId !== null);
+                            $projected[$uid][$cell['toolName']] = ['effective' => $result->allowed, 'source' => $result->source,
+                                'groupIds' => $result->groupIds];
+                            continue;
+                        }
+                        $operations = $service ? ['eligible'] : ($cell['grantAnyOf'] ?? [$cell['operation']]);
+                        $state = null;
+                        foreach ($operations as $operation) {
+                            $tool = $context->projectedToolDecision($cell['toolName'], $module, $operation,
+                                $groupId === null, $groupId === null ? $cell['decision'] : null,
+                                $groupId, $groupId === null ? null
+                                    : ($cell['decision'] === ToolGrantsMapper::NEUTRAL ? null : $cell['decision']), $groupId !== null);
+                            $operationGrant = $service ? $tool : $context->granted($module, $operation);
+                            $variant = [
+                                'effective' => $tool->allowed === false || $operationGrant->allowed === false ? false
+                                    : ($tool->allowed === true && $operationGrant->allowed === true ? true : null),
+                                'source' => $tool->allowed === false ? $tool->source
+                                    : ($operationGrant->allowed === false ? $operationGrant->source
+                                        : ($tool->source === 'default' ? $operationGrant->source : $tool->source)),
+                                'groupIds' => array_values(array_unique([...$tool->groupIds, ...$operationGrant->groupIds])),
+                            ];
+                            sort($variant['groupIds'], SORT_STRING);
+                            $state = self::anyProjectedToolState($state, $variant);
+                        }
+                        $projected[$uid][$cell['toolName']] = $state;
+                    }
+                }
+            } finally {
+                foreach ($contexts as $context) {
+                    $context->close();
+                }
+            }
+        }
+        return $projected;
+    }
+
+    /** Three-valued any over a tool's concrete alternatives. */
+    private static function anyProjectedToolState(?array $current, array $next): array {
+        if ($current === null || $next['effective'] === true) {
+            return $next;
+        }
+        if ($current['effective'] === true) {
+            return $current;
+        }
+        if ($current['effective'] === null && $next['effective'] === false) {
+            return $current;
+        }
+        if ($next['effective'] === null) {
+            return $next;
+        }
+        $groups = array_values(array_unique([...$current['groupIds'], ...$next['groupIds']]));
+        sort($groups, SORT_STRING);
+        return ['effective' => false, 'source' => 'default', 'groupIds' => $groups];
+    }
+
+    /** Project the group-level result for proposed cells after its save. */
+    public function projectedGroupToolStates(string $gid, array $cells): array {
+        return $this->resolver->projectedGroupToolStates($gid, $cells);
+    }
+
+    /** Read selected cell states for a page of users from bounded grant-only snapshots. */
+    public function toolStatesForUsers(array $uids, array $cells): array {
+        return $this->resolver->toolStatesForUsers($uids, $cells);
+    }
+
+    /** Capture active trusted group lifecycles on which projected per-user decisions rely. */
+    public function lifecyclesForUsers(array $required): array {
+        $result = [];
+        foreach (array_chunk(array_keys($required), 100) as $uids) {
+            $contexts = $this->resolver->beginManyGrants($uids);
+            try {
+                foreach ($contexts as $uid => $context) {
+                    $ids = $required[$uid] ?? [];
+                    if ($ids === []) {
+                        continue;
+                    }
+                    foreach ($context->lifecycles($ids) as $lifecycle) {
+                        $result[$lifecycle['groupId']] = $lifecycle;
+                    }
+                }
+            } finally {
+                foreach ($contexts as $context) {
+                    $context->close();
+                }
+            }
+        }
+        ksort($result, SORT_STRING);
+        return array_values($result);
+    }
+
+    /** Resolve a group's admin matrix in one backend/database snapshot instead of one query per tool.
+     * @param list<array{toolName:string,module:string,operation:string,grantAnyOf?:list<string>}> $tools
+     */
+    public function groupToolStates(string $gid, array $tools): array {
+        foreach ($tools as $item) {
+            if (!is_array($item) || !is_string($item['toolName'] ?? null) || !ToolGrantsMapper::validToolName($item['toolName'])
+                || !is_string($item['module'] ?? null) || !is_string($item['operation'] ?? null)
+                || (!(($item['module'] === '_system') && ($item['operation'] === 'eligible')) && !self::inCatalog($item['module'], $item['operation']))) {
+                throw new InvalidArgumentException('Invalid tool policy key');
+            }
+            self::validateToolVariants($item);
+        }
+        return $this->resolver->groupToolStates($gid, $tools);
+    }
+
+    /** Unified admin read for a user's or group's service/tool assignment and its resolved contribution. */
+    public function subjectToolState(string $kind, string $subject, string $toolName, string $module, string $operation): array {
+        if ($kind === ToolGrantsMapper::USER) {
+            return $this->toolState($subject, $toolName, $module, $operation);
+        }
+        if ($kind !== ToolGrantsMapper::GROUP || !ToolGrantsMapper::validToolName($toolName)) {
+            throw new InvalidArgumentException('Invalid tool policy subject');
+        }
+        if ($toolName === ToolGrantsMapper::SERVICE) {
+            $module = '_system';
+            $operation = 'eligible';
+        }
+        if (!($module === '_system' && $operation === 'eligible') && !self::inCatalog($module, $operation)) {
+            throw new InvalidArgumentException('Invalid tool policy key');
+        }
+        return $this->resolver->groupToolState($subject, $toolName, $module, $operation);
+    }
+
+    /** Validate optional concrete operation alternatives published by the real tool catalog. */
+    private static function validateToolVariants(array $item): void {
+        if (!array_key_exists('grantAnyOf', $item)) {
+            return;
+        }
+        $variants = $item['grantAnyOf'];
+        if (!is_array($variants) || !array_is_list($variants) || $variants === []) {
+            throw new InvalidArgumentException('Invalid tool operation alternatives');
+        }
+        $seen = [];
+        foreach ($variants as $operation) {
+            if (!is_string($operation) || !self::inCatalog($item['module'], $operation) || isset($seen[$operation])) {
+                throw new InvalidArgumentException('Invalid tool operation alternatives');
+            }
+            $seen[$operation] = true;
+        }
+    }
+
+    /** Runs a concrete MCP call with the primary tool's user override visible to its operation guards. */
+    public function withinTool(string $uid, string $toolName, string $module, string $operation, Closure $work): mixed {
+        self::grantKey($module, $operation);
+        $this->toolContexts[] = ['uid' => $uid, 'tool' => $toolName, 'module' => $module, 'operation' => $operation];
+        try {
+            return $work();
+        } finally {
+            array_pop($this->toolContexts);
+        }
+    }
+
+    /** @return array{uid:string,tool:string,module:string,operation:string}|null */
+    private function activeTool(string $uid, string $module, string $operation): ?array {
+        $tool = $this->toolContexts[array_key_last($this->toolContexts)] ?? null;
+        return $tool !== null && $tool['uid'] === $uid && $tool['module'] === $module && $tool['operation'] === $operation
+            ? $tool : null;
     }
 
     /**

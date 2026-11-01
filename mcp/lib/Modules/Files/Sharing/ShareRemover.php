@@ -179,7 +179,7 @@ final class ShareRemover {
         if (!$this->access->isRemovable($share, $uid)) {
             throw new ToolFailure(FileAccessMessages::notFound());
         }
-        $this->access->assertGranted($uid, $share->getShareType());
+        $this->access->assertGranted($uid, $share->getShareType(), 'files_unshare');
         return [$share, $node];
     }
 
@@ -196,7 +196,7 @@ final class ShareRemover {
      */
     private function byRecipient(Folder $userFolder, string $uid, string $path, string $with): array {
         $recipient = $this->recipients->resolve($with, 'with');
-        $this->access->assertGranted($uid, $recipient->shareType());
+        $this->access->assertGranted($uid, $recipient->shareType(), 'files_unshare');
         $node = $this->access->ownNode($userFolder, $uid, $path);
         $share = $this->access->findExisting($uid, $node, $recipient);
         if ($share === null || !$this->access->isRemovable($share, $uid)) {

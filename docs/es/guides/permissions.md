@@ -15,25 +15,23 @@ Abre **Administración → Nextcloud MCP**. Las cinco pestañas son **Resumen**,
 
 El servicio, la elegibilidad del usuario (**Puede conectarse**) y la conexión personal empiezan desactivados, también para administradores. Activa el servicio, permite al usuario conectarse y deja que este active su conexión en **Ajustes personales → Nextcloud MCP**. La autenticación por sí sola no concede acceso: deben permitir la solicitud la cuenta, el servicio, la elegibilidad, la conexión, la aplicación opcional, el permiso de operación y los permisos nativos de Nextcloud sobre el recurso.
 
-La lectura empieza permitida salvo para los registros del servidor. Las demás operaciones empiezan denegadas. Compartir archivos con personas/grupos (`files.share`) y crear enlaces públicos (`files.link`) son permisos independientes. Listar recursos compartidos es una operación de lectura.
+La lectura de las herramientas de 2.0.0 empieza permitida salvo para Correo y los registros del servidor. Las demás operaciones empiezan denegadas. Compartir archivos con personas/grupos (`files.share`) y crear enlaces públicos (`files.link`) son permisos independientes. Listar recursos compartidos es una operación de lectura.
 
 Resumen muestra el endpoint, la versión, el número de conexiones y el límite de subida de checkout. Este límite se edita en MiB y no puede superar `post_max_size` de PHP. Avanzado contiene los roles y la privacidad de registros y OCR. Protección de datos contiene las etiquetas de exclusión; consulta [protección de archivos](file-protection.md).
 
 ## Opciones individuales y herencia de grupos
 
-Acceso y permisos ofrece niveles por módulo y una vista **Operaciones** para los permisos individuales. La búsqueda usa nombre, ID o correo; el correo no se muestra. Los filtros de grupo y elegibilidad/conexión se aplican en el servidor, con 50 usuarios por página. Las cuentas deshabilitadas no se pueden editar, y las aplicaciones o roles de registros no disponibles siguen sin estar disponibles sin borrar las opciones guardadas.
+En **Administración → Nextcloud MCP → Acceso y permisos**, busca un usuario o grupo. La ficha muestra primero el estado del servicio y después los catálogos de herramientas. Abre un catálogo para consultar la asignación, el permiso efectivo y su origen. Revisa la vista previa antes de guardar.
 
-La resolución sigue este orden:
+**Permitir**, **Bloquear** y **Sin asignar** se aplican al servicio y a las herramientas. Si Ana tiene una decisión individual, esa decisión prevalece. Si está sin asignar, un bloqueo de cualquiera de sus grupos de confianza prevalece sobre el permiso de otro grupo. Si ningún grupo decide, se aplica el valor predeterminado. Si el servicio global está apagado o la cuenta deshabilitada, ninguna conexión puede usar MCP. Cada herramienta sigue sujeta a la disponibilidad de la aplicación, el rol, las operaciones requeridas y los permisos nativos sobre el recurso.
 
-1. Prevalece **Permitir** o **Denegar** explícito del individuo.
-2. Sin una opción individual, cualquier concesión de un grupo de confianza permite la operación.
-3. En otro caso se aplica el valor predeterminado. Los grupos conceden acceso; no lo deniegan ni lo restringen.
+La pertenencia a grupos procede de Nextcloud. Solo los grupos nativos de base de datos pueden conceder acceso. Si no se puede comprobar la política, la ficha indica que no está disponible. Los ajustes avanzados de operaciones conservan los permisos independientes de Archivos para compartir con personas o crear enlaces públicos.
 
-Solo pueden conceder permisos los grupos del backend de base de datos propio de Nextcloud. LDAP, SAML, otros backends de aplicaciones e identidades de backend ambiguas no pueden proporcionar herencia segura. Usa permisos individuales para sus usuarios. Un grupo recreado o incierto no recupera silenciosamente su autoridad anterior: el editor explica su estado y permite confirmar la política actual cuando corresponde.
+### Actualización desde 2.0.0
 
-En **Permisos de grupo**, selecciona un grupo, edita sus operaciones y previsualiza antes de guardar. Los recuentos de miembros y las estimaciones de cierre de sesión sirven para planificar, no son una decisión de autorización por miembro. Retirar **Puede conectarse** cierra las sesiones de quienes realmente pierden la elegibilidad. Procesar grupos grandes puede llevar tiempo; esta integración no promete nuevas garantías de rendimiento.
+Las 84 herramientas publicadas en 2.0.0 heredan los ajustes originales de usuario y grupo hasta que se edita una asignación. Una casilla de grupo que estaba desmarcada conserva el estado *Sin asignar*. Al devolver una herramienta individual a *Sin asignar*, se elimina también la excepción individual anterior para esa herramienta. La actualización contrasta el resultado del sistema antiguo con el nuevo antes de activar el cambio. Si hay diferencias o la política no se puede leer, se detiene.
 
-**Heredar** y las acciones de restablecer fila/selección eliminan las excepciones individuales. La vista previa identifica opciones individuales, grupos que conceden permisos, valores predeterminados y resultados desconocidos. Un grupo o política ilegible es **Desconocido**, nunca un permiso implícito ni un motivo para borrar credenciales. Las solicitudes que dependan de esa incertidumbre fallan temporalmente; las herramientas con autorización desconocida se omiten del descubrimiento mientras siguen disponibles las permitidas de forma independiente.
+Cada conexión existente recibe una selección limitada a sus operaciones anteriores. Una herramienta nueva requiere asignación y selección. Para recuperar el sistema, conserva juntas la copia de la aplicación anterior y la de la base de datos. Si ya se han cambiado permisos en el nuevo editor, la recuperación debe preservar esos cambios: la versión anterior no sabe aplicar las nuevas denegaciones.
 
 ## Guardar, conflictos y deshacer
 
@@ -50,6 +48,9 @@ Notes, Contacts, Deck y Talk no tienen restricción de recursos por módulo en 1
 El inspector, exclusivo de administradores, informa **Permitido**, **Bloqueado** o **Desconocido**, la comprobación que bloquea y el origen del permiso. Puede explicar una ruta excluida al administrador; los errores MCP mantienen denegaciones genéricas. Las consultas y cambios pueden generar mensajes de auditoría de nivel informativo sin nombres ni rutas de recursos. Dependen del nivel de registro del servidor y no garantizan una pista de auditoría.
 
 ## Clientes y ajustes personales
+
+En **Ajustes personales → Nextcloud MCP**, elige un cliente para gestionar sus herramientas. El mismo selector aparece al autorizar una nueva conexión OAuth. Cada cliente conserva su selección al renovar el token. Una retirada administrativa se aplica en la siguiente petición. Las contraseñas de aplicación y las sesiones comparten el perfil de acceso mediante Nextcloud. El ámbito de recursos sigue limitando las carpetas, calendarios y listas de tareas accesibles.
+
 
 Gestiona los hosts de clientes publicados, el cliente nativo y los clientes personalizados registrados en **Clientes y conexiones**; consulta [OAuth](../reference/oauth.md). Las API administrativas exigen administrador y protección CSRF de Nextcloud. Las API personales de conexión/ámbito obtienen la identidad de la sesión y solo muestran el estado de ese usuario. Las respuestas nunca contienen hashes de tokens.
 

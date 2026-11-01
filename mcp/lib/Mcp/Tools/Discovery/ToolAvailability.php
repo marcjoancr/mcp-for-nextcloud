@@ -9,6 +9,8 @@ namespace OCA\Mcp\Mcp\Tools\Discovery;
 
 use OCA\Mcp\Access\Guests\GuestRestrictions;
 use InvalidArgumentException;
+use OCA\Mcp\Access\Policy\Resolution\GrantUnknown;
+use OCA\Mcp\OAuth\ConnectionContext;
 use OCA\Mcp\Mcp\Tools\ToolModule;
 use OCA\Mcp\Mcp\Tools\RestrictedModule;
 use OCA\Mcp\Access\AppAvailability\AppEnablement;
@@ -20,6 +22,7 @@ final class ToolAvailability {
         private \OCP\App\IAppManager $appManager,
         private \OCP\IUserManager $userManager,
         private ?GuestRestrictions $guests = null,
+        private ?ConnectionContext $connection = null,
     ) {}
 
     /**
@@ -38,12 +41,21 @@ final class ToolAvailability {
      * under `link`). A tool listing alternatives must check the one each call needs itself, before planning and again
      * before writing; the registry only lets the call in.
      *
-     * @param array{module:string, operation:string, grantAnyOf?:list<string>, grantAllOf?:array<string,list<string>>, app?:string} $definition
+     * @param array{name:string, module:string, operation:string, grantAnyOf?:list<string>, grantAllOf?:array<string,list<string>>, app?:string} $definition
      */
     public function allowed(array $definition, string $userId): bool {
+        return ($this->connection === null || $this->connection->allows($definition['name']))
+            && $this->policyAllows($definition, $userId, true);
+    }
+
+    public function administrativelyAllowed(array $definition, string $userId): bool {
+        return $this->policyAllows($definition, $userId, false);
+    }
+
+    private function policyAllows(array $definition, string $userId, bool $forConnection): bool {
         try {
             // Three-valued "any of": a known Allow wins over an unknown alternative, whatever their order.
-            $granted = $this->policy->grantedAny($userId, $definition['module'], $definition['grantAnyOf'] ?? [$definition['operation']]);
+            $granted = $this->primaryGranted($definition, $userId, $forConnection);
             if (!$granted) { return false; }
             foreach ($definition['grantAllOf'] ?? [] as $module => $operations) {
                 foreach ($operations as $operation) {
@@ -66,5 +78,43 @@ final class ToolAvailability {
             return $user !== null && AppEnablement::forUser($this->appManager, $definition['app'], $user);
         }
         return true;
+    }
+
+    private function primaryGranted(array $definition, string $uid, bool $forConnection): bool {
+        $module = $definition['module'];
+        $name = $definition['name'];
+        if (!isset($definition['grantAnyOf'])) {
+            return $this->policy->toolGranted($uid, $name, $module, $definition['operation']);
+        }
+        return $this->permittedVariants($definition, $uid, $forConnection) !== [];
+    }
+
+    public function permittedVariants(array $definition, string $uid, bool $forConnection = false): array {
+        $module = $definition['module'];
+        $name = $definition['name'];
+        $permitted = [];
+        $unknown = null;
+        foreach ($definition['grantAnyOf'] ?? [] as $op) {
+            if ($forConnection && $this->connection !== null && !$this->connection->allowsVariant($name, $op)) {
+                continue;
+            }
+            try {
+                if ($this->policy->granted($uid, $module, $op) && $this->policy->toolGranted($uid, $name, $module, $op)) {
+                    $permitted[] = $op;
+                }
+            } catch (GrantUnknown $e) {
+                $unknown = $e;
+            }
+        }
+        if ($unknown !== null && $permitted === []) {
+            throw $unknown;
+        }
+        return $permitted;
+    }
+
+    /** Operation checks inside a tool share the same rules as discovery. Variant tools keep their argument-specific checks. */
+    public function withinTool(string $uid, array $definition, \Closure $work): mixed {
+        return isset($definition['grantAnyOf']) ? $work()
+            : $this->policy->withinTool($uid, $definition['name'], $definition['module'], $definition['operation'], $work);
     }
 }

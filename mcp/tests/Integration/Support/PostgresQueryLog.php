@@ -18,6 +18,8 @@ use RuntimeException;
  */
 final class PostgresQueryLog {
     private const LINE = '/ mcp-it\[(\d+)\] xid=\d+ ([A-Z]+):\s+(.*)$/';
+    /** @var array<string, int> byte offsets immediately before each marker statement */
+    private array $markerOffsets = [];
 
     public function __construct(private string $path) {}
 
@@ -52,6 +54,9 @@ final class PostgresQueryLog {
             throw new RuntimeException('Invalid marker label');
         }
         $marker = 'mcp-it-marker:' . bin2hex(random_bytes(8)) . ':' . $label;
+        clearstatcache(true, $this->path);
+        $offset = @filesize($this->path);
+        $this->markerOffsets[$marker] = $offset === false ? 0 : $offset;
         $connection->executeQuery("SELECT '" . $marker . "' AS mcp_it_marker")->closeCursor();
         return $marker;
     }
@@ -69,61 +74,59 @@ final class PostgresQueryLog {
      */
     public function statementsBetween(int $pid, string $begin, string $end, float $timeout = 10.0): array {
         $deadline = microtime(true) + $timeout;
-        while (true) {
-            $entries = array_values(array_filter($this->entries(), static fn (array $e): bool => $e['pid'] === $pid));
-            $from = $this->indexOf($entries, $begin);
-            $to = $this->indexOf($entries, $end);
-            if ($from !== null && $to !== null && $to > $from) {
-                return array_map(static fn (array $e): string => $e['text'], array_slice($entries, $from + 1, $to - $from - 1));
-            }
-            if (microtime(true) >= $deadline) {
-                throw new RuntimeException('Markers not captured in ' . $this->path . ' for backend ' . $pid);
-            }
-            usleep(100000);
-        }
-    }
-
-    /**
-     * @param list<array{pid: int, text: string}> $entries
-     * @param string $marker marker text
-     * @return int|null index of the statement carrying the marker
-     */
-    private function indexOf(array $entries, string $marker): ?int {
-        foreach ($entries as $index => $entry) {
-            if (str_contains($entry['text'], "'" . $marker . "'")) {
-                return $index;
-            }
-        }
-        return null;
-    }
-
-    /** @return list<array{pid: int, text: string}> statements and errors of all sessions, in log order */
-    private function entries(): array {
-        $lines = @file($this->path, FILE_IGNORE_NEW_LINES);
-        if ($lines === false) {
+        $log = @fopen($this->path, 'rb');
+        if ($log === false) {
             throw new RuntimeException('PostgreSQL statement log not readable: ' . $this->path);
         }
-        $entries = [];
-        $last = null;
-        foreach ($lines as $line) {
-            if (preg_match(self::LINE, $line, $m) === 1) {
-                $last = null;
-                $text = $m[3];
-                if ($m[2] === 'LOG' && preg_match('/^(?:statement|execute [^:]+): (.*)$/s', $text, $statement) === 1) {
-                    $text = $statement[1];
-                } elseif ($m[2] === 'ERROR') {
-                    $text = 'ERROR: ' . $text;
-                } else {
-                    // DETAIL (bound parameters), STATEMENT (repeats a failed statement) and server messages.
+        try {
+            $offset = $this->markerOffsets[$begin] ?? 0;
+            if (fseek($log, $offset) !== 0) {
+                throw new RuntimeException('Could not seek PostgreSQL statement log: ' . $this->path);
+            }
+            $capturing = false;
+            $entries = [];
+            $last = null;
+            while (true) {
+                $line = fgets($log);
+                if ($line === false) {
+                    if (microtime(true) >= $deadline) {
+                        throw new RuntimeException('Markers not captured in ' . $this->path . ' for backend ' . $pid);
+                    }
+                    // PostgreSQL's logging collector may flush the end marker after this read reaches EOF.
+                    fseek($log, 0, SEEK_CUR);
+                    usleep(100000);
                     continue;
                 }
-                $entries[] = ['pid' => (int)$m[1], 'text' => $text];
-                $last = array_key_last($entries);
-            } elseif ($last !== null && str_starts_with($line, "\t")) {
-                // Continuation line of a multi-line statement.
-                $entries[$last]['text'] .= "\n" . substr($line, 1);
+                if (preg_match(self::LINE, rtrim($line, "\r\n"), $m) === 1) {
+                    $last = null;
+                    if ((int)$m[1] !== $pid) {
+                        continue;
+                    }
+                    $text = $m[3];
+                    if ($m[2] === 'LOG' && preg_match('/^(?:statement|execute [^:]+): (.*)$/s', $text, $statement) === 1) {
+                        $text = $statement[1];
+                    } elseif ($m[2] === 'ERROR') {
+                        $text = 'ERROR: ' . $text;
+                    } else {
+                        // DETAIL (bound parameters), STATEMENT (repeats a failed statement) and server messages.
+                        continue;
+                    }
+                    if (!$capturing) {
+                        $capturing = str_contains($text, "'" . $begin . "'");
+                        continue;
+                    }
+                    if (str_contains($text, "'" . $end . "'")) {
+                        return $entries;
+                    }
+                    $entries[] = $text;
+                    $last = array_key_last($entries);
+                } elseif ($capturing && $last !== null && str_starts_with($line, "\t")) {
+                    // Continuation line of a multi-line statement in the requested session window.
+                    $entries[$last] .= "\n" . substr(rtrim($line, "\r\n"), 1);
+                }
             }
+        } finally {
+            fclose($log);
         }
-        return $entries;
     }
 }

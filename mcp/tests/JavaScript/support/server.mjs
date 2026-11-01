@@ -38,4 +38,4 @@ createServer((request, response) => {
     }
     response.writeHead(404)
     response.end('Unknown fixture route')
-}).listen(18461, '127.0.0.1')
+}).listen(Number(process.env.MCP_JS_TEST_PORT || 18461), '127.0.0.1')

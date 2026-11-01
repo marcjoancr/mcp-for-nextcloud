@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { test, expect } from '../support/app-fixture.js'
 
+const matrixCalls = calls => calls.filter(call => call.path === '/api/grants' && 'search' in call.query)
+
 test('matrix disposal removes debounce and header observation; remount has one query listener', async ({ page, app }) => {
     await page.goto('/admin?bare=1#access?view=operations')
+    await page.locator('#mcp-tools-advanced').evaluate(details => { details.open = true })
     await page.evaluate(async () => {
         const NativeObserver = window.ResizeObserver
         window.__observers = []
@@ -28,11 +31,11 @@ test('matrix disposal removes debounce and header observation; remount has one q
     await page.evaluate(() => { window.matrix.destroy(); window.matrix.destroy() })
     expect(await page.evaluate(() => window.__observers[0].disconnected)).toBe(true)
     await page.clock.runFor(400)
-    expect(app.calls.filter(call => call.path === '/api/grants')).toHaveLength(2)
+    expect(matrixCalls(app.calls)).toHaveLength(2)
     await page.evaluate(async () => { window.matrix = window.mountMatrixFixture(); await window.matrix.ready })
     await page.locator('#mcp-search').fill('alice')
     await page.clock.runFor(300)
-    await expect.poll(() => app.calls.filter(call => call.path === '/api/grants').length).toBe(4)
+    await expect.poll(() => matrixCalls(app.calls).length).toBe(4)
     await expect(page.locator('#mcp-matrix')).toHaveAttribute('aria-busy', 'false')
     const sticky = await page.locator('#mcp-matrix').evaluate(table => ({ height: table.tHead.rows[0].getBoundingClientRect().height, offset: parseFloat(table.tHead.rows[1].cells[0].style.top) }))
     expect(sticky.offset).toBe(sticky.height)
@@ -41,6 +44,7 @@ test('matrix disposal removes debounce and header observation; remount has one q
 for (const matrix of [true, false]) {
     test(`${matrix ? 'matrix' : 'connections'} remount keeps visible filters consistent with its fresh query`, async ({ page, app }) => {
         await page.goto('/admin?bare=1')
+        if (matrix) await page.locator('#mcp-tools-advanced').evaluate(details => { details.open = true })
         await page.evaluate(async matrix => {
             const { createNextcloud } = await import('/modules/platform/nextcloud.js')
             const { createRequest } = await import('/modules/platform/http.js')
