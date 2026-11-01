@@ -19,6 +19,7 @@ use OCA\Mcp\Access\Policy\DecimalCounter;
 
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -55,6 +56,7 @@ class GroupLifecycle {
         private GroupSourceClassifier $classifier,
         private LoggerInterface $logger,
         private IAppConfig $appConfig,
+        private ?ToolGrantsMapper $toolGrants = null,
     ) {}
 
     /**
@@ -196,6 +198,7 @@ class GroupLifecycle {
             return false;
         }
         $this->grants->deleteGroup($gid);
+        $this->toolGrants?->deletePrincipal(ToolGrantsMapper::GROUP, $gid);
         if (!$this->life->delete($gid, $gen)) {
             // Not reachable under the mutex; never commit the rows' delete without the lifecycle's.
             throw new SnapshotInvalidated();

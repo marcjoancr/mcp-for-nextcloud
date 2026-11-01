@@ -34,7 +34,7 @@ final class ToolRegistryTest extends TestCase {
     public ?\Throwable $throw = null;
     private LoggerInterface $logger;
 
-    /** @var list<string> the alternatives of s_share, in the order the definition lists them */
+    /** @var list<string> the alternatives of files_share, in the order the definition lists them */
     public array $editGrantAllOf = [];
     public array $shareAnyOf = ['share', 'link'];
     private InMemoryConfig $data;
@@ -53,19 +53,39 @@ final class ToolRegistryTest extends TestCase {
         return ['type' => 'object', 'properties' => ['n' => ['type' => 'integer', 'minimum' => 1, 'default' => 5]], 'additionalProperties' => false];
     }
 
-    private function registry(): ToolRegistry {
+    public function testConsentCatalogSeparatesAllToolsFromAdministrativelyAvailableTools(): void {
+        $registry = $this->registry();
+        self::assertContains('files_edit', array_column($registry->administrableDefinitions(), 'name'));
+        self::assertNotContains('files_edit', array_column($registry->permittedDefinitions('alice'), 'name'));
+        self::assertContains('files_read', array_column($registry->permittedDefinitions('alice'), 'name'));
+    }
+
+    public function testConnectionSelectionFiltersBothDiscoveryAndDirectCalls(): void {
+        $connection = new \OCA\Mcp\OAuth\ConnectionContext();
+        $registry = $this->registry($connection);
+        $connection->set(10);
+        $connection->setSelection(['files_read']);
+        self::assertSame(['mcp_guide', 'files_read'], array_column($registry->list('alice'), 'name'));
+        $connection->set(11);
+        $connection->setSelection(['notes_read']);
+        self::assertSame(['mcp_guide', 'notes_read'], array_column($registry->list('alice'), 'name'));
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Validation\UnknownToolException::class);
+        $registry->call('files_read', [], 'alice');
+    }
+
+    private function registry(?\OCA\Mcp\OAuth\ConnectionContext $connection = null): ToolRegistry {
         $test = $this;
         $module = new class($test) implements ToolModule {
             public function __construct(private ToolRegistryTest $test) {}
             public function definitions(): array {
                 return [
-                    ['name' => 'a_read', 'description' => 'r', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'read'],
-                    ['name' => 'a_edit', 'description' => 'e', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'edit'] + ($this->test->editGrantAllOf === [] ? [] : ['grantAllOf'=>$this->test->editGrantAllOf]),
-                    ['name' => 'n_read', 'description' => 'n', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'notes', 'operation' => 'read', 'app' => 'notes'],
-                    ['name' => 'c_read', 'description' => 'c', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'calendar', 'operation' => 'read', 'app' => 'calendar'],
-                    ['name' => 'd_read', 'description' => 'd', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'deck', 'operation' => 'read', 'app' => 'deck'],
-                    ['name' => 't_read', 'description' => 't', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'talk', 'operation' => 'read', 'app' => 'spreed'],
-                    ['name' => 's_share', 'description' => 's', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'share', 'grantAnyOf' => $this->test->shareAnyOf],
+                    ['name' => 'files_read', 'description' => 'r', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'read'],
+                    ['name' => 'files_edit', 'description' => 'e', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'edit'] + ($this->test->editGrantAllOf === [] ? [] : ['grantAllOf'=>$this->test->editGrantAllOf]),
+                    ['name' => 'notes_read', 'description' => 'n', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'notes', 'operation' => 'read', 'app' => 'notes'],
+                    ['name' => 'calendar_list_calendars', 'description' => 'c', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'calendar', 'operation' => 'read', 'app' => 'calendar'],
+                    ['name' => 'deck_list_boards', 'description' => 'd', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'deck', 'operation' => 'read', 'app' => 'deck'],
+                    ['name' => 'talk_list_conversations', 'description' => 't', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'talk', 'operation' => 'read', 'app' => 'spreed'],
+                    ['name' => 'files_share', 'description' => 's', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'share', 'grantAnyOf' => $this->test->shareAnyOf],
                 ];
             }
             public function call(string $name, array $arguments, string $userId): array {
@@ -94,7 +114,7 @@ final class ToolRegistryTest extends TestCase {
             $guests->method('allowsApp')->willReturnCallback(fn (string $uid, string $app): bool =>
                 $app === '' || !isset($this->guestApps[$uid]) || in_array($app, $this->guestApps[$uid], true));
         }
-        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users, $guests);
+        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users, $guests, $connection);
         return new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->logger));
     }
 
@@ -105,18 +125,18 @@ final class ToolRegistryTest extends TestCase {
         InMemoryConfig::groupPolicy($this->config, 'paused', ['deck'=>['edit']], 'needs_confirm');
         $registry = $this->registry();
         $names = array_column($registry->list('alice'), 'name');
-        self::assertNotContains('a_edit', $names);
-        self::assertContains('a_read', $names);
-        try { $registry->call('a_edit', ['confirm'=>true], 'alice'); self::fail('Unknown required grant admitted'); }
+        self::assertNotContains('files_edit', $names);
+        self::assertContains('files_read', $names);
+        try { $registry->call('files_edit', ['confirm'=>true], 'alice'); self::fail('Unknown required grant admitted'); }
         catch (GrantUnknown) { self::assertSame([], $this->calls); }
         $this->policy->setGrant('alice', 'deck', 'edit', true);
         $listed = $registry->list('alice');
-        self::assertContains('a_edit', array_column($listed, 'name'));
+        self::assertContains('files_edit', array_column($listed, 'name'));
         foreach ($listed as $definition) { self::assertArrayNotHasKey('grantAllOf', $definition); }
-        $registry->call('a_edit', ['confirm'=>true], 'alice');
-        self::assertSame('a_edit', $this->calls[0][0]);
+        $registry->call('files_edit', ['confirm'=>true], 'alice');
+        self::assertSame('files_edit', $this->calls[0][0]);
         $this->policy->setGrant('alice', 'deck', 'edit', false);
-        self::assertNotContains('a_edit', array_column($registry->list('alice'), 'name'));
+        self::assertNotContains('files_edit', array_column($registry->list('alice'), 'name'));
     }
 
     /** Every registered write gets the same readable envelope, regardless of module preview support. */
@@ -175,12 +195,12 @@ final class ToolRegistryTest extends TestCase {
             'warnings' => [['message' => 'It changed.']], 'message' => 'Show it again.']);
         $this->logger->expects($this->never())->method('error');
 
-        $result = $this->registry()->call('a_edit', ['confirm' => true], 'alice');
+        $result = $this->registry()->call('files_edit', ['confirm' => true], 'alice');
 
         self::assertArrayNotHasKey('isError', $result);
         self::assertSame('requiresConfirmation', array_key_first($result['structuredContent']));
         self::assertTrue($result['structuredContent']['requiresConfirmation'], 'o módulo não desliga a confirmação');
-        self::assertSame('a_edit', $result['structuredContent']['tool']);
+        self::assertSame('files_edit', $result['structuredContent']['tool']);
         self::assertSame('abc123', $result['structuredContent']['plan_state']);
         $text = $result['content'][0]['text'];
         self::assertStringContainsString('- It changed.', $text);
@@ -194,7 +214,7 @@ final class ToolRegistryTest extends TestCase {
         $module = new class($plan) implements ToolModule, \OCA\Mcp\Mcp\Confirmation\PreviewsWrites, \OCA\Mcp\Mcp\Confirmation\RendersPlans {
             public function __construct(private array $plan) {}
             public function definitions(): array {
-                return [['name' => 'fake_edit', 'description' => 'Edit', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'edit']];
+                return [['name' => 'files_edit', 'description' => 'Edit', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'edit']];
             }
             public function call(string $name, array $arguments, string $userId): array { throw new \LogicException('Must not execute'); }
             public function preview(string $name, array $arguments, string $userId): array { return $this->plan; }
@@ -202,8 +222,8 @@ final class ToolRegistryTest extends TestCase {
         };
         $this->policy->setGrant('alice', 'files', 'edit', true);
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $this->createMock(IAppManager::class), $this->createMock(IUserManager::class));
-        $result = (new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->logger)))->call('fake_edit', [], 'alice');
-        self::assertSame(['requiresConfirmation' => true, 'tool' => 'fake_edit', 'title' => 'Edit'] + $plan, $result['structuredContent']);
+        $result = (new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->logger)))->call('files_edit', [], 'alice');
+        self::assertSame(['requiresConfirmation' => true, 'tool' => 'files_edit', 'title' => 'Edit file'] + $plan, $result['structuredContent']);
         self::assertStringContainsString('Custom body', $result['content'][0]['text']);
         self::assertStringContainsString('*Review this.*', $result['content'][0]['text']);
     }
@@ -211,37 +231,37 @@ final class ToolRegistryTest extends TestCase {
     public function testListFollowsGrantsAndApps(): void {
         // The guide is a built-in of the registry, so it leads every list: it is how the model finds out
         // about the tools the grants left standing.
-        $this->assertSame(['mcp_guide', 'a_read', 'n_read'], array_column($this->registry()->list('alice'), 'name'));
+        $this->assertSame(['mcp_guide', 'files_read', 'notes_read'], array_column($this->registry()->list('alice'), 'name'));
         $this->policy->setGrant('alice', 'files', 'edit', true);
         $this->policy->setGrant('alice', 'files', 'read', false);
         $this->enabledApps = [];
-        $this->assertSame(['mcp_guide', 'a_edit'], array_column($this->registry()->list('alice'), 'name'));
-        $this->assertSame(['mcp_guide', 'a_read'], array_column($this->registry()->list('bob'), 'name'));
+        $this->assertSame(['mcp_guide', 'files_edit'], array_column($this->registry()->list('alice'), 'name'));
+        $this->assertSame(['mcp_guide', 'files_read'], array_column($this->registry()->list('bob'), 'name'));
     }
 
     /**
-     * A tool whose kind of write depends on its arguments (files_share: a person or a public link) is reachable with any
+     * A tool whose kind of write depends on its arguments (filefiles_share: a person or a public link) is reachable with any
      * of the operations it lists; the module then checks the one the call really needs.
      */
     public function testAToolWithAlternativeGrantsIsReachableWithAnyOfThem(): void {
         $names = fn (string $uid): array => array_column($this->registry()->list($uid), 'name');
-        $this->assertNotContains('s_share', $names('alice'), 'nenhuma das duas liberada');
-        $this->assertUnknown('s_share');
-        $this->assertUnknownWith('s_share', ['confirm' => true]);
+        $this->assertNotContains('files_share', $names('alice'), 'nenhuma das duas liberada');
+        $this->assertUnknown('files_share');
+        $this->assertUnknownWith('files_share', ['confirm' => true]);
         $this->assertSame([], $this->calls, 'sem nenhuma das duas, a chamada nem chega ao módulo');
 
         $this->policy->setGrant('alice', 'files', 'link', true);
-        $this->assertContains('s_share', $names('alice'));
-        $this->registry()->call('s_share', ['confirm' => true], 'alice');
-        $this->assertSame('s_share', $this->calls[0][0], 'só link: chama');
+        $this->assertContains('files_share', $names('alice'));
+        $this->registry()->call('files_share', ['confirm' => true], 'alice');
+        $this->assertSame('files_share', $this->calls[0][0], 'só link: chama');
 
         $this->policy->setGrant('alice', 'files', 'link', false);
         $this->policy->setGrant('alice', 'files', 'share', true);
-        $this->assertContains('s_share', $names('alice'));
-        $this->registry()->call('s_share', ['confirm' => true], 'alice');
-        $this->assertSame('s_share', $this->calls[1][0], 'só share: chama');
-        $this->assertSame('share', array_column($this->registry()->definitions('alice'), null, 'name')['s_share']['operation']);
-        $guide = $this->registry()->call('mcp_guide', ['tool' => 's_share'], 'alice')['content'][0]['text'];
+        $this->assertContains('files_share', $names('alice'));
+        $this->registry()->call('files_share', ['confirm' => true], 'alice');
+        $this->assertSame('files_share', $this->calls[1][0], 'só share: chama');
+        $this->assertSame('share', array_column($this->registry()->definitions('alice'), null, 'name')['files_share']['operation']);
+        $guide = $this->registry()->call('mcp_guide', ['tool' => 'files_share'], 'alice')['content'][0]['text'];
         $this->assertStringContainsString('Grant operation: `share` or `link`.', $guide);
     }
 
@@ -262,9 +282,9 @@ final class ToolRegistryTest extends TestCase {
         $this->data->groupBackends = [new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn (): array => ['paused' => ['alice']])];
         InMemoryConfig::groupPolicy($this->config, 'paused', ['files' => ['share']], 'needs_confirm');
         $this->policy->setGrant('alice', 'files', 'link', true);
-        $this->assertContains('s_share', array_column($this->registry()->list('alice'), 'name'));
-        $this->registry()->call('s_share', ['confirm' => true], 'alice');
-        $this->assertSame('s_share', $this->calls[0][0], 'the link Allow lets the call in; the module checks the concrete type');
+        $this->assertContains('files_share', array_column($this->registry()->list('alice'), 'name'));
+        $this->registry()->call('files_share', ['confirm' => true], 'alice');
+        $this->assertSame('files_share', $this->calls[0][0], 'the link Allow lets the call in; the module checks the concrete type');
         $this->assertTrue($this->policy->granted('alice', 'files', 'link'));
         try {
             $this->policy->granted('alice', 'files', 'share');
@@ -275,10 +295,10 @@ final class ToolRegistryTest extends TestCase {
         // Unknown and denied: the tool alone is left out of the listing (the others stay), and calling it is a 503.
         $this->policy->setGrant('alice', 'files', 'link', false);
         $names = array_column($this->registry()->list('alice'), 'name');
-        $this->assertNotContains('s_share', $names);
-        $this->assertContains('a_read', $names, 'a group in needs_confirm never empties the whole list');
+        $this->assertNotContains('files_share', $names);
+        $this->assertContains('files_read', $names, 'a group in needs_confirm never empties the whole list');
         try {
-            $this->registry()->call('s_share', ['confirm' => true], 'alice');
+            $this->registry()->call('files_share', ['confirm' => true], 'alice');
             $this->fail('A tool of unknown grant was called');
         } catch (GrantUnknown) {
         }
@@ -286,8 +306,8 @@ final class ToolRegistryTest extends TestCase {
 
         InMemoryConfig::groupPolicy($this->config, 'paused', ['files' => ['share']]);
         $this->policy->setGrant('alice', 'files', 'share', false);
-        $this->assertNotContains('s_share', array_column($this->registry()->list('alice'), 'name'), 'every alternative known and denied');
-        $this->assertUnknown('s_share');
+        $this->assertNotContains('files_share', array_column($this->registry()->list('alice'), 'name'), 'every alternative known and denied');
+        $this->assertUnknown('files_share');
     }
 
     /** A failed read of the policy is no unknown grant: the whole listing fails (503), nothing is silently left out. */
@@ -309,25 +329,25 @@ final class ToolRegistryTest extends TestCase {
 
     public function testListedDefinitionsCarryTitleAndAnnotations(): void {
         $listed = array_column($this->registry()->list('alice'), null, 'name');
-        // a_read/n_read are unmapped fixtures, so they must land on the humanized fallback, never on a raw name.
-        $this->assertSame('Read', $listed['a_read']['title']);
-        $this->assertSame(['title' => 'Read', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false], $listed['a_read']['annotations']);
-        $this->assertSame('Read', $listed['n_read']['annotations']['title']);
+        // Catalog-named fixtures without explicit titles use the humanized fallback.
+        $this->assertSame('Read file', $listed['files_read']['title']);
+        $this->assertSame(['title' => 'Read file', 'readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false], $listed['files_read']['annotations']);
+        $this->assertSame('Read note', $listed['notes_read']['annotations']['title']);
         $this->policy->setGrant('alice', 'files', 'edit', true);
-        $edit = array_column($this->registry()->list('alice'), null, 'name')['a_edit'];
-        $this->assertSame(['title' => 'Edit', 'readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'openWorldHint' => false], $edit['annotations']);
+        $edit = array_column($this->registry()->list('alice'), null, 'name')['files_edit'];
+        $this->assertSame(['title' => 'Edit file', 'readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'openWorldHint' => false], $edit['annotations']);
     }
 
     public function testCallRechecksGrantAndAppWithoutReachingTheHandler(): void {
-        foreach (['a_edit', 'c_read', 'd_read', 't_read', 'missing'] as $name) {
+        foreach (['files_edit', 'calendar_list_calendars', 'deck_list_boards', 'talk_list_conversations', 'missing'] as $name) {
             $this->assertUnknown($name);
         }
         $this->enabledApps = [];
-        foreach (['n_read', 'c_read', 'd_read', 't_read'] as $name) {
+        foreach (['notes_read', 'calendar_list_calendars', 'deck_list_boards', 'talk_list_conversations'] as $name) {
             $this->assertUnknown($name);
         }
         $this->policy->setGrant('alice', 'files', 'read', false);
-        $this->assertUnknown('a_read');
+        $this->assertUnknown('files_read');
         $this->assertSame([], $this->calls);
     }
 
@@ -492,9 +512,9 @@ final class ToolRegistryTest extends TestCase {
     public function testToolsStayHiddenForUsersOutsideAnAppAllowlist(): void {
         $this->userEnabledApps['alice'] = [];
 
-        $this->assertNotContains('n_read', array_column($this->registry()->list('alice'), 'name'));
-        $this->assertContains('n_read', array_column($this->registry()->list('bob'), 'name'));
-        $this->assertUnknown('n_read');
+        $this->assertNotContains('notes_read', array_column($this->registry()->list('alice'), 'name'));
+        $this->assertContains('notes_read', array_column($this->registry()->list('bob'), 'name'));
+        $this->assertUnknown('notes_read');
         $this->assertSame([], $this->calls);
     }
 
@@ -510,14 +530,14 @@ final class ToolRegistryTest extends TestCase {
             }
         }
         $this->guestApps = ['alice' => ['files', 'calendar']];
-        $this->assertSame(['mcp_guide', 'a_read', 'c_read'], array_column($this->registry()->list('alice'), 'name'));
-        $this->assertSame(['mcp_guide', 'a_read', 'n_read', 'c_read', 'd_read', 't_read'], array_column($this->registry()->list('bob'), 'name'));
-        foreach (['n_read', 'd_read', 't_read'] as $name) {
+        $this->assertSame(['mcp_guide', 'files_read', 'calendar_list_calendars'], array_column($this->registry()->list('alice'), 'name'));
+        $this->assertSame(['mcp_guide', 'files_read', 'notes_read', 'calendar_list_calendars', 'deck_list_boards', 'talk_list_conversations'], array_column($this->registry()->list('bob'), 'name'));
+        foreach (['notes_read', 'deck_list_boards', 'talk_list_conversations'] as $name) {
             $this->assertUnknown($name);
         }
         $this->assertSame([], $this->calls);
-        $this->registry()->call('c_read', [], 'alice');
-        $this->assertSame('c_read', $this->calls[0][0]);
+        $this->registry()->call('calendar_list_calendars', [], 'alice');
+        $this->assertSame('calendar_list_calendars', $this->calls[0][0]);
 
         // Only the app list of Guests: the files module of a guest whose list lacks it (impossible in Guests, which
         // always allows files) leaves too.
@@ -531,22 +551,22 @@ final class ToolRegistryTest extends TestCase {
         $this->appVersions = ['spreed' => '21.1.3', 'deck' => '1.15.0'];
 
         $names = array_column($this->registry()->list('alice'), 'name');
-        $this->assertNotContains('t_read', $names);
-        $this->assertContains('d_read', $names);
-        $this->assertUnknown('t_read');
+        $this->assertNotContains('talk_list_conversations', $names);
+        $this->assertContains('deck_list_boards', $names);
+        $this->assertUnknown('talk_list_conversations');
         $this->assertSame([], $this->calls);
 
         $this->appVersions['spreed'] = '21.1.4';
-        $this->assertContains('t_read', array_column($this->registry()->list('alice'), 'name'));
+        $this->assertContains('talk_list_conversations', array_column($this->registry()->list('alice'), 'name'));
     }
 
     public function testCallValidatesArgumentsAndAppliesDefaults(): void {
         $registry = $this->registry();
-        $this->assertSame('ok', $registry->call('a_read', [], 'alice')['content'][0]['text']);
-        $this->assertSame([['a_read', ['n' => 5], 'alice']], $this->calls);
+        $this->assertSame('ok', $registry->call('files_read', [], 'alice')['content'][0]['text']);
+        $this->assertSame([['files_read', ['n' => 5], 'alice']], $this->calls);
         foreach ([['n' => 0], ['n' => '5'], ['x' => 1], [1]] as $bad) {
             try {
-                $registry->call('a_read', $bad, 'alice');
+                $registry->call('files_read', $bad, 'alice');
                 $this->fail('accepted ' . json_encode($bad));
             } catch (\InvalidArgumentException) {
                 $this->addToAssertionCount(1);
@@ -557,12 +577,12 @@ final class ToolRegistryTest extends TestCase {
 
     public function testFailuresBecomeSafeToolErrors(): void {
         $this->throw = new ToolFailure(ToolFailure::NOT_FOUND);
-        $this->assertSame(['content' => [['type' => 'text', 'text' => ToolFailure::NOT_FOUND]], 'isError' => true], $this->registry()->call('a_read', [], 'alice'));
+        $this->assertSame(['content' => [['type' => 'text', 'text' => ToolFailure::NOT_FOUND]], 'isError' => true], $this->registry()->call('files_read', [], 'alice'));
 
         $this->throw = new \RuntimeException('/var/www/data/alice/secret.txt');
         $this->logger->expects($this->once())->method('error')->with('MCP tool failed', $this->callback(
             fn (array $context) => $context['exception_class'] === \RuntimeException::class && !str_contains(json_encode($context), 'secret')));
-        $result = $this->registry()->call('a_read', [], 'alice');
+        $result = $this->registry()->call('files_read', [], 'alice');
         $this->assertTrue($result['isError']);
         $this->assertSame('Unexpected error while accessing Nextcloud.', $result['content'][0]['text']);
     }
@@ -573,7 +593,7 @@ final class ToolRegistryTest extends TestCase {
         $this->logger->expects($this->once())->method('error')->willReturnCallback(function (string $message, array $context) use (&$logged): void {
             $logged = $context;
         });
-        $result = $this->registry()->call('a_read', [], 'alice');
+        $result = $this->registry()->call('files_read', [], 'alice');
         $this->assertSame('Error (code 0)', $logged['exception_message']);
         $this->assertSame(\Error::class, $logged['exception_class']);
         $this->assertStringNotContainsString('missing', $result['content'][0]['text']);
@@ -586,7 +606,7 @@ final class ToolRegistryTest extends TestCase {
         $this->logger->expects($this->once())->method('error')->willReturnCallback(function (string $message, array $context) use (&$logged): void {
             $logged = $context;
         });
-        $this->registry()->call('a_read', [], 'alice');
+        $this->registry()->call('files_read', [], 'alice');
         $this->assertSame('RuntimeException (code 5)', $logged['exception_message']);
         foreach (['Salary', 'Confidential', 'README', 'Docs'] as $part) {
             $this->assertStringNotContainsString($part, json_encode($logged));

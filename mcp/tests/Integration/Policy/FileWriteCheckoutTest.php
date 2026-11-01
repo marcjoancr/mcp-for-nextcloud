@@ -93,6 +93,21 @@ final class FileWriteCheckoutTest extends IntegrationTestCase {
 		return Http::request($method, $url, ['Content-Type: application/octet-stream'], $bytes)['status'];
 	}
 
+	/** A link cannot switch to the separately permitted Basic profile when its issuing OAuth client loses the tool. */
+	public function testUploadLinkRechecksSelectionOfIssuingOAuthConnection(): void {
+		$login = LoginFactory::bearer(Fixtures::ALICE);
+		$this->mcp = new McpClient($login);
+		$url = $this->link('files_upload', 'connection.txt');
+		$oauth = Server::get(\OCA\Mcp\OAuth\OAuthStore::class);
+		$row = $oauth->findByAccess(Server::get(TokenHasher::class)->hash(substr($login->authorization(), 7)));
+		$store = Server::get(\OCA\Mcp\OAuth\ConnectionToolsStore::class);
+		$selection = $store->get(Fixtures::ALICE, (int)$row['id']);
+		self::assertContains('files_upload', $selection['tools']);
+		$store->save(Fixtures::ALICE, (int)$row['id'], ['files_read'], $selection['revision']);
+		self::assertSame(403, $this->upload('PUT', $url, 'not authorized'));
+		self::assertFalse($this->folder->nodeExists('connection.txt'));
+	}
+
 	/** PUT/POST create and checkout links minted before allowlist activation refuse without effects or spend. */
 	public function testOldLinksAre403WithoutSpendAndOffStillAcceptsBinaryForPutAndPost(): void {
 		foreach (['PUT', 'POST'] as $method) {

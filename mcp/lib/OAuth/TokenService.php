@@ -49,6 +49,7 @@ class TokenService {
         private OAuthClientsMapper $clients,
         private PolicyTransaction $transaction,
         private LifecycleHolds $holds,
+        private ?ConnectionToolsStore $connectionTools = null,
     ) {}
 
     /**
@@ -65,16 +66,18 @@ class TokenService {
      * @throws PolicyUnavailable when the eligibility is unknown, the policy storage fails or keeps changing; nothing
      *     was issued
      */
-    public function consent(AuthorizationRequest $request, string $uid): ?string {
+    public function consent(AuthorizationRequest $request, string $uid, array $tools = [], array $variants = []): ?string {
+        $tools = self::normalizeTools($tools);
+        $variants = self::normalizeVariants($variants, $tools);
         $code = $this->hasher->generate('code');
         $allowed = $this->credentials->consent($uid, fn (): ?array => $this->gate->admission($uid, false),
-            function (string $generation, string $epoch) use ($request, $uid, $code): void {
+            function (string $generation, string $epoch) use ($request, $uid, $code, $tools, $variants): void {
             // Re-read client admission under the mutex shared with administrative withdrawal.
             if (!$this->clientAdmitted($request->client->clientId, $request->client->generation, $request->redirectUri)) {
                 throw new OAuthException('invalid_client', 'Unknown or not allowed client');
             }
             $now = $this->time->getTime();
-            $this->store->insertCode([
+            $codeRow = [
                 'code_hash' => $this->hasher->hash($code),
                 'user_id' => $uid,
                 'client_id' => $request->client->clientId,
@@ -85,7 +88,12 @@ class TokenService {
                 'expires_at' => $now + self::CODE_TTL,
                 'auth_global_epoch' => $epoch,
                 'auth_gen' => $generation,
-            ], $now);
+            ];
+            if ($this->connectionTools !== null) {
+                $codeRow['tool_names'] = json_encode($tools, JSON_THROW_ON_ERROR);
+                $codeRow['tool_variants'] = json_encode($variants, JSON_THROW_ON_ERROR);
+            }
+            $this->store->insertCode($codeRow, $now);
         }, $this->gate->causes());
         return $allowed ? $code : null;
     }
@@ -127,8 +135,14 @@ class TokenService {
                 $error = new OAuthException('invalid_grant', 'This client is disabled');
                 return;
             }
+            $tools = $this->connectionTools === null ? [] : (is_string($row['tool_names'] ?? null) ? json_decode($row['tool_names'], true) : null);
+            $variants = $this->connectionTools === null ? [] : (is_string($row['tool_variants'] ?? null) ? json_decode($row['tool_variants'], true) : null);
+            if (!is_array($tools) || !array_is_list($tools) || !is_array($variants) || array_is_list($variants) && $variants !== []) {
+                $error = new OAuthException('invalid_grant', 'Invalid authorization code');
+                return;
+            }
             $body = $this->issue($uid, (string)$row['client_id'], (string)$row['resource'], (string)$row['scope'],
-                (string)$row['auth_gen'], $state['auth_epoch']);
+                (string)$row['auth_gen'], $state['auth_epoch'], $tools, $variants);
         });
         if ($error !== null) {
             throw $error;
@@ -319,11 +333,11 @@ class TokenService {
      *
      * @return array<string,string|int>
      */
-    private function issue(string $uid, string $clientId, string $resource, string $scope, string $generation, string $epoch): array {
+    private function issue(string $uid, string $clientId, string $resource, string $scope, string $generation, string $epoch, array $tools, array $variants): array {
         $access = $this->hasher->generate('at');
         $refresh = $this->hasher->generate('rt');
         $now = $this->time->getTime();
-        $this->store->insertToken([
+        $grantId = $this->store->insertToken([
             'user_id' => $uid,
             'client_id' => $clientId,
             'resource' => $resource,
@@ -336,7 +350,43 @@ class TokenService {
             'auth_global_epoch' => $epoch,
             'auth_gen' => $generation,
         ], $now);
+        $this->connectionTools?->seed($uid, $grantId, $tools, $variants);
         return $this->body($access, $refresh, $scope);
+    }
+
+    /** @param list<string> $tools @return list<string> */
+    private static function normalizeTools(array $tools): array {
+        if (count($tools) > 1000) {
+            throw new \InvalidArgumentException('Too many connection tools');
+        }
+        foreach ($tools as $tool) {
+            if (!is_string($tool) || preg_match('/^[a-z][a-z0-9_]{0,127}$/D', $tool) !== 1) {
+                throw new \InvalidArgumentException('Invalid connection tool');
+            }
+        }
+        $tools = array_values(array_unique($tools));
+        sort($tools, SORT_STRING);
+        return $tools;
+    }
+
+    /** @param array<string,list<string>> $variants @param list<string> $tools @return array<string,list<string>> */
+    private static function normalizeVariants(array $variants, array $tools): array {
+        $selected = array_fill_keys($tools, true);
+        $normalized = [];
+        foreach ($variants as $tool => $operations) {
+            if (!is_string($tool) || !isset($selected[$tool]) || !is_array($operations) || !array_is_list($operations)) {
+                throw new \InvalidArgumentException('Invalid connection tool variants');
+            }
+            foreach ($operations as $operation) {
+                if (!is_string($operation) || preg_match('/^[a-z][a-z0-9_]{0,63}$/D', $operation) !== 1) {
+                    throw new \InvalidArgumentException('Invalid connection tool variants');
+                }
+            }
+            $normalized[$tool] = array_values(array_unique($operations));
+            sort($normalized[$tool], SORT_STRING);
+        }
+        ksort($normalized, SORT_STRING);
+        return $normalized;
     }
 
     /** @return array<string,string|int> */

@@ -45,10 +45,10 @@ final class ToolAvailabilityTest extends TestCase {
         $module = new FakeRestrictedModule();
         self::assertFalse($availability->permits($module, 'alice'));
         self::assertTrue($availability->permits($module, 'root'));
-        self::assertFalse($availability->allowed(['module' => 'logs', 'operation' => 'read', 'app' => 'notes'], 'root'));
+        self::assertFalse($availability->allowed(['name' => 'logs_list', 'module' => 'logs', 'operation' => 'read', 'app' => 'notes'], 'root'));
         $policy->setGrant('root', 'files', 'link', true);
-        self::assertTrue($availability->allowed(['module' => 'files', 'operation' => 'share', 'grantAnyOf' => ['share', 'link']], 'root'));
+        self::assertTrue($availability->allowed(['name' => 'files_share', 'module' => 'files', 'operation' => 'share', 'grantAnyOf' => ['share', 'link']], 'root'));
         $policy->setGrant('root', 'files', 'link', false);
-        self::assertFalse($availability->allowed(['module' => 'files', 'operation' => 'share', 'grantAnyOf' => ['share', 'link']], 'root'));
+        self::assertFalse($availability->allowed(['name' => 'files_share', 'module' => 'files', 'operation' => 'share', 'grantAnyOf' => ['share', 'link']], 'root'));
     }
 }

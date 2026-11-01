@@ -105,10 +105,14 @@ final class ConsentHttpTest extends OAuthAccountTestCase {
             ]));
             $this->assertSame(200, $page['status']);
             $fields = [];
-            foreach (['pending', 'requesttoken'] as $name) {
+            foreach (['pending', 'requesttoken', 'toolsSubmitted'] as $name) {
                 $fields[$name] = $this->field($page['body'], $name);
             }
-            $post = $fields + ['decision' => 'allow'];
+            $this->assertSame('1', $fields['toolsSubmitted']);
+            $consent = new \DOMDocument();
+            @$consent->loadHTML($page['body']);
+            $this->assertGreaterThan(0, (new \DOMXPath($consent))->query('//input[@name="tools[]" and @value="files_read"]')->length);
+            $post = $fields + ['decision' => 'allow', 'tools' => ['files_read']];
             $invalidCsrf = $this->browse('POST', $url, array_replace($post, ['requesttoken' => 'invalid']));
             $this->assertSame(412, $invalidCsrf['status'], 'the consent still requires a valid CSRF token');
             $response = $this->browse('POST', $url, $post);

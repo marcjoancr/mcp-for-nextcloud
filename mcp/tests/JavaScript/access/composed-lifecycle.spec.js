@@ -14,6 +14,7 @@ for (const reject of [false, true]) {
             window.mountAdminFixture = () => mountAdmin({ root: document.querySelector('#mcp-admin'), ...host, request: createRequest(host) })
             window.adminOwner = window.mountAdminFixture(); await window.adminOwner.ready
         })
+        await page.locator('#mcp-tools-advanced > summary').click()
         await page.locator('#mcp-scope-entry').click()
         await page.locator('#mcp-scope-user').fill('alice')
         await page.locator('#mcp-scope-form button').click()

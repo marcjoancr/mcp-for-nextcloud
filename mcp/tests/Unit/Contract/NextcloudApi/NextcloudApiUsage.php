@@ -45,6 +45,7 @@ final class NextcloudApiUsage {
      * {@see \OCA\Mcp\Platform\Dav\CalDav\EmbeddedCalDavDispatcher} detaches.
      */
     public const EXTRA_CLASSES = [
+        'OCP\\User\\Events\\BeforeUserCreatedEvent',
         'OCA\\Mail\\Account',
         'OCA\\Mail\\Db\\Mailbox',
         'OCA\\Circles\\Model\\Circle',

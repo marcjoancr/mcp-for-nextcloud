@@ -1,0 +1,103 @@
+<?php
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+declare(strict_types=1);
+
+namespace OCA\Mcp\Access\Grants;
+
+/** Immutable authorization contract of 2.0.0 (79c5971b). New tools require an explicit assignment. */
+final class LegacyToolCatalog {
+    public const DEFINITIONS = [
+        'calendar_create_event' => ['module' => 'calendar', 'operation' => 'create'],
+        'calendar_delete_event' => ['module' => 'calendar', 'operation' => 'delete'],
+        'calendar_list_calendars' => ['module' => 'calendar', 'operation' => 'read'],
+        'calendar_list_events' => ['module' => 'calendar', 'operation' => 'read'],
+        'calendar_move_event' => ['module' => 'calendar', 'operation' => 'move'],
+        'calendar_transfer_event' => ['module' => 'calendar', 'operation' => 'transfer'],
+        'calendar_update_event' => ['module' => 'calendar', 'operation' => 'edit'],
+        'contacts_create_contact' => ['module' => 'contacts', 'operation' => 'create'],
+        'contacts_delete_contact' => ['module' => 'contacts', 'operation' => 'delete'],
+        'contacts_edit_contact' => ['module' => 'contacts', 'operation' => 'edit'],
+        'contacts_list_addressbooks' => ['module' => 'contacts', 'operation' => 'read'],
+        'contacts_read_contact' => ['module' => 'contacts', 'operation' => 'read'],
+        'contacts_search_contacts' => ['module' => 'contacts', 'operation' => 'read'],
+        'deck_add_card_dependency' => ['module' => 'deck', 'operation' => 'edit'],
+        'deck_create_board' => ['module' => 'deck', 'operation' => 'create'],
+        'deck_create_card' => ['module' => 'deck', 'operation' => 'create'],
+        'deck_create_stack' => ['module' => 'deck', 'operation' => 'create'],
+        'deck_delete_board' => ['module' => 'deck', 'operation' => 'delete'],
+        'deck_delete_card' => ['module' => 'deck', 'operation' => 'delete'],
+        'deck_delete_stack' => ['module' => 'deck', 'operation' => 'delete'],
+        'deck_edit_card' => ['module' => 'deck', 'operation' => 'edit'],
+        'deck_edit_card_labels' => ['module' => 'deck', 'operation' => 'edit'],
+        'deck_followup_cards' => ['module' => 'deck', 'operation' => 'read'],
+        'deck_link_card_file' => ['module' => 'deck', 'operation' => 'edit', 'grantAllOf' => ['files' => ['read', 'share']]],
+        'deck_list_boards' => ['module' => 'deck', 'operation' => 'read'],
+        'deck_list_card_files' => ['module' => 'deck', 'operation' => 'read', 'grantAllOf' => ['files' => ['read']]],
+        'deck_list_cards' => ['module' => 'deck', 'operation' => 'read'],
+        'deck_list_labels' => ['module' => 'deck', 'operation' => 'read'],
+        'deck_list_stacks' => ['module' => 'deck', 'operation' => 'read'],
+        'deck_move_card' => ['module' => 'deck', 'operation' => 'move'],
+        'deck_read_card' => ['module' => 'deck', 'operation' => 'read'],
+        'deck_read_card_dependencies' => ['module' => 'deck', 'operation' => 'read'],
+        'deck_remove_card_dependency' => ['module' => 'deck', 'operation' => 'edit'],
+        'deck_unlink_card_file' => ['module' => 'deck', 'operation' => 'edit', 'grantAllOf' => ['files' => ['read']]],
+        'files_checkout' => ['module' => 'files', 'operation' => 'edit'],
+        'files_copy' => ['module' => 'files', 'operation' => 'create'],
+        'files_create' => ['module' => 'files', 'operation' => 'create'],
+        'files_edit' => ['module' => 'files', 'operation' => 'edit'],
+        'files_image_search' => ['module' => 'files', 'operation' => 'read'],
+        'files_image_view' => ['module' => 'files', 'operation' => 'read'],
+        'files_images_view' => ['module' => 'files', 'operation' => 'read'],
+        'files_list' => ['module' => 'files', 'operation' => 'read'],
+        'files_list_shares' => ['module' => 'files', 'operation' => 'read'],
+        'files_mkdir' => ['module' => 'files', 'operation' => 'create'],
+        'files_move' => ['module' => 'files', 'operation' => 'move'],
+        'files_move_batch' => ['module' => 'files', 'operation' => 'move'],
+        'files_read' => ['module' => 'files', 'operation' => 'read'],
+        'files_replace' => ['module' => 'files', 'operation' => 'edit'],
+        'files_search' => ['module' => 'files', 'operation' => 'read'],
+        'files_share' => ['module' => 'files', 'operation' => 'share', 'grantAnyOf' => ['share', 'link']],
+        'files_tree' => ['module' => 'files', 'operation' => 'read'],
+        'files_undo_batch' => ['module' => 'files', 'operation' => 'move'],
+        'files_unshare' => ['module' => 'files', 'operation' => 'share', 'grantAnyOf' => ['share', 'link']],
+        'files_upload' => ['module' => 'files', 'operation' => 'create'],
+        'files_version_read' => ['module' => 'files', 'operation' => 'read'],
+        'files_version_restore' => ['module' => 'files', 'operation' => 'restore'],
+        'files_versions_list' => ['module' => 'files', 'operation' => 'read'],
+        'logs_analyze' => ['module' => 'logs', 'operation' => 'read'],
+        'logs_list' => ['module' => 'logs', 'operation' => 'read'],
+        'mail_list_accounts' => ['module' => 'mail', 'operation' => 'read'],
+        'mail_list_mailboxes' => ['module' => 'mail', 'operation' => 'read'],
+        'notes_create' => ['module' => 'notes', 'operation' => 'create'],
+        'notes_delete' => ['module' => 'notes', 'operation' => 'delete'],
+        'notes_edit' => ['module' => 'notes', 'operation' => 'edit'],
+        'notes_list' => ['module' => 'notes', 'operation' => 'read'],
+        'notes_move' => ['module' => 'notes', 'operation' => 'move'],
+        'notes_read' => ['module' => 'notes', 'operation' => 'read'],
+        'notes_search' => ['module' => 'notes', 'operation' => 'read'],
+        'talk_attach_file' => ['module' => 'talk', 'operation' => 'attach'],
+        'talk_create_group' => ['module' => 'talk', 'operation' => 'create'],
+        'talk_list_conversations' => ['module' => 'talk', 'operation' => 'read'],
+        'talk_message_user' => ['module' => 'talk', 'operation' => 'reply'],
+        'talk_quote_file' => ['module' => 'talk', 'operation' => 'quote'],
+        'talk_read_messages' => ['module' => 'talk', 'operation' => 'read'],
+        'talk_reply' => ['module' => 'talk', 'operation' => 'reply'],
+        'talk_send_batch' => ['module' => 'talk', 'operation' => 'reply'],
+        'tasks_complete_task' => ['module' => 'tasks', 'operation' => 'edit'],
+        'tasks_create_task' => ['module' => 'tasks', 'operation' => 'create'],
+        'tasks_delete_task' => ['module' => 'tasks', 'operation' => 'delete'],
+        'tasks_edit_task' => ['module' => 'tasks', 'operation' => 'edit'],
+        'tasks_list_calendars' => ['module' => 'tasks', 'operation' => 'read'],
+        'tasks_list_tasks' => ['module' => 'tasks', 'operation' => 'read'],
+        'tasks_read_task' => ['module' => 'tasks', 'operation' => 'read'],
+        'users_search' => ['module' => 'people', 'operation' => 'read'],
+    ];
+
+    public static function contains(string $toolName): bool {
+        return isset(self::DEFINITIONS[$toolName]);
+    }
+}

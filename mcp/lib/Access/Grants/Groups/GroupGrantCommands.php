@@ -25,12 +25,13 @@ use OCA\Mcp\Db\AuthUsersMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\GroupGrantsMapper;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCA\Mcp\Access\Grants\Groups\GroupSourceUntrusted;
 
 final class GroupGrantCommands {
-    public function __construct(private PolicyTransaction $transaction, private GroupLifeMapper $life, private GroupGrantsMapper $groupGrants, private AuthUsersMapper $authUsers, private OAuthStore $oauth, private ITimeFactory $time, private PolicyEventsMapper $events, private CredentialCuts $cuts) {}
+    public function __construct(private PolicyTransaction $transaction, private GroupLifeMapper $life, private GroupGrantsMapper $groupGrants, private AuthUsersMapper $authUsers, private OAuthStore $oauth, private ITimeFactory $time, private PolicyEventsMapper $events, private CredentialCuts $cuts, private ?ToolGrantsMapper $toolGrants = null) {}
 
     public function previewGroupGrants(string $expectedRevision, string $actor, string $gid, mixed $grants, Closure $admit): array {
         return $this->groupCommand($expectedRevision, $actor, $gid, PolicyEventPayload::groupGrants($grants), null, $admit);
@@ -59,6 +60,7 @@ final class GroupGrantCommands {
             $now = $this->time->getTime();
             $life = self::life($this->life->get($gid));
             $current = $this->groupGrants->forGroups([$gid])[0]['grants'];
+            $currentTools = $this->toolGrants?->forPrincipals(ToolGrantsMapper::GROUP, [$gid])[$gid] ?? [];
             $withdraws = PolicyEventPayload::grantsEligibility($current) && !PolicyEventPayload::grantsEligibility($grants);
             $holders = $withdraws ? $this->holders($now, $observed['auth_epoch']) : [];
             $candidates = [];
@@ -76,13 +78,14 @@ final class GroupGrantCommands {
             if ($preview !== null && ($preview['memberHash'] !== $memberHash || !self::sameLife($preview['life'], $life))) {
                 throw new PolicyConflict();
             }
-            return ['now' => $now, 'life' => $life, 'current' => $current, 'withdraws' => $withdraws, 'holders' => $holders,
-                'admission' => $admission, 'memberHash' => $memberHash];
+            return ['now' => $now, 'life' => $life, 'current' => $current, 'currentTools' => $currentTools,
+                'withdraws' => $withdraws, 'holders' => $holders, 'admission' => $admission, 'memberHash' => $memberHash];
         }, function (array $snapshot, PolicyAttempt $attempt) use ($actor, $gid, $grants, $preview, &$outcome): bool {
             $current = $attempt->state();
             $outbox = $attempt->outbox();
             $stored = $this->life->get($gid);
-            if (!self::sameLife(self::life($stored), $snapshot['life']) || $this->groupGrants->forGroups([$gid])[0]['grants'] !== $snapshot['current']) {
+            if (!self::sameLife(self::life($stored), $snapshot['life']) || $this->groupGrants->forGroups([$gid])[0]['grants'] !== $snapshot['current']
+                || ($this->toolGrants?->forPrincipals(ToolGrantsMapper::GROUP, [$gid])[$gid] ?? []) !== $snapshot['currentTools']) {
                 throw new SnapshotInvalidated();
             }
             if ($snapshot['withdraws'] && $this->holders($snapshot['now'], $current['auth_epoch']) !== $snapshot['holders']) {
@@ -102,19 +105,20 @@ final class GroupGrantCommands {
                     'revokes' => count($snapshot['admission']['cuts'])];
                 return false;
             }
-            if ($grants === $snapshot['current'] && ($grants === [] ? $stored === null : $stored['state'] === GroupLifeMapper::ACTIVE)) {
+            if ($grants === $snapshot['current'] && ($grants === [] && $snapshot['currentTools'] === []
+                ? $stored === null : $stored !== null && $stored['state'] === GroupLifeMapper::ACTIVE)) {
                 $outcome = ['changed' => false, 'state' => $stored['state'] ?? null, 'revoked' => 0];
                 return false;
             }
             $revision = DecimalCounter::increment($current['revision']);
             $state = null;
             // Lifecycle first, conditioned on the gen read above; the rows follow only once it is held.
-            if ($grants === []) {
+            if ($grants === [] && $snapshot['currentTools'] === []) {
                 if ($stored !== null && !$this->life->delete($gid, $stored['gen'])) {
                     throw new SnapshotInvalidated();
                 }
             } else {
-                // policy_rev is the revision this commit writes, never the one before the CAS (ticket 07).
+                // Keep the lifecycle active while either legacy or granular group decisions remain.
                 $gen = bin2hex(random_bytes(16));
                 if ($stored === null) {
                     // Only the writer creates a lifecycle, and only under the mutex: no pre-event can race the insert.

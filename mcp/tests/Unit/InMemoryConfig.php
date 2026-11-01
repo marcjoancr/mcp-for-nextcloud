@@ -100,7 +100,8 @@ final class InMemoryConfig {
         $mock = fn (string $class) => (new \ReflectionMethod($test, 'createMock'))->invoke($test, $class);
         $groups = self::$groupDatabases[$config] = new SqliteDatabase($test, [
             new \OCA\Mcp\Migration\Version001100Date20261014000000(), new \OCA\Mcp\Migration\Version001100Date20261015010000(),
-            new \OCA\Mcp\Migration\Version001100Date20261015020000()]);
+            new \OCA\Mcp\Migration\Version001100Date20261015020000(),
+            new \OCA\Mcp\Migration\Version002100Date20261101000000()]);
         $users = $mock(\OCP\IUserManager::class);
         $users->method('get')->willReturnCallback(static function (string $uid) use ($data, $mock): ?\OCP\IUser {
             if ($data->userExists !== null && !($data->userExists)($uid)) {
@@ -135,7 +136,7 @@ final class InMemoryConfig {
             new \OCA\Mcp\Access\Grants\Groups\MembershipReader($manager), new \OCA\Mcp\Access\Grants\Groups\GroupSourceClassifier($manager),
             new \OCA\Mcp\Db\GroupGrantsMapper($db), $life,
             new \OCA\Mcp\Access\Grants\Groups\GroupTrustObserver($db, $writer, $life, new \Psr\Log\NullLogger()),
-            $mock(\OCP\App\IAppManager::class), $logs, new \OCA\Mcp\Db\ResourceScopeMapper($db));
+            $mock(\OCP\App\IAppManager::class), $logs, new \OCA\Mcp\Db\ResourceScopeMapper($db), new \OCA\Mcp\Db\ToolGrantsMapper($db));
     }
 
     /**
@@ -184,6 +185,15 @@ final class InMemoryConfig {
         $gen = bin2hex(random_bytes(16));
         $database->dbal->insert('mcp_group_life', ['group_key' => $key, 'group_id' => $gid, 'state' => $state, 'gen' => $gen, 'policy_rev' => 0]);
         return $gen;
+    }
+
+    /** Stores a granular decision in the SQLite policy DB as a fixture. */
+    public static function storeToolPolicy(IConfig $config, string $type, string $subject, string $toolName, string $decision): void {
+        $database = self::groupDatabase($config);
+        $key = hash('sha256', $type . "\0" . $subject);
+        $database->dbal->delete('mcp_tool_grants', ['principal_key' => $key, 'tool_name' => $toolName]);
+        $database->dbal->insert('mcp_tool_grants', ['principal_type' => $type, 'principal_key' => $key,
+            'principal_id' => $subject, 'tool_name' => $toolName, 'decision' => $decision]);
     }
 
     /**

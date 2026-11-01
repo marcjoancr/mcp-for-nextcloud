@@ -13,6 +13,7 @@ use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\PolicyStateSeeder;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\Db\RecheckMapper;
 use OCA\Mcp\Migration\Version000500Date20260930000000;
 use OCA\Mcp\Migration\Version000700Date20261001000000;
@@ -22,6 +23,7 @@ use OCA\Mcp\Migration\Version001002Date20261008000000;
 use OCA\Mcp\Migration\Version001100Date20261014000000;
 use OCA\Mcp\Migration\Version001100Date20261015000000;
 use OCA\Mcp\Migration\Version001100Date20261015010000;
+use OCA\Mcp\Migration\Version002100Date20261101000000;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCA\Mcp\Access\Grants\Groups\GroupLifecycle;
 use OCA\Mcp\Access\Grants\Groups\GroupSourceClassifier;
@@ -51,6 +53,7 @@ trait GroupLifecycleDatabase {
     private PolicyStateMapper $state;
     private GroupLifeMapper $life;
     private GroupGrantsMapper $grants;
+    private ToolGrantsMapper $toolGrants;
     private RecheckMapper $rechecks;
     private GroupLifecycle $lifecycle;
     private \OCA\Mcp\Tests\Unit\InMemoryAppConfig $apps;
@@ -67,7 +70,7 @@ trait GroupLifecycleDatabase {
         $this->database = new SqliteDatabase($this, [new Version000500Date20260930000000(), new Version000700Date20261001000000(),
             new Version000800Date20261002000000(), new Version000800Date20261002010000(), new Version001002Date20261008000000(),
             new Version001100Date20261014000000(), new Version001100Date20261015000000($this->createMock(IDBConnection::class)),
-            new Version001100Date20261015010000()]);
+            new Version001100Date20261015010000(), new Version002100Date20261101000000()]);
         $this->db = $this->database->connection();
         (new PolicyStateSeeder($this->db))->seed();
         $time = $this->createMock(ITimeFactory::class);
@@ -76,8 +79,9 @@ trait GroupLifecycleDatabase {
         $this->state = new PolicyStateMapper($this->db);
         $this->rechecks = new RecheckMapper($this->db);
         $this->configData = new InMemoryConfig();
+        $this->toolGrants = new ToolGrantsMapper($this->db);
         $this->writer = new PolicyServices(new PolicyTransaction($this->db, $this->state, $events, $this->createMock(IUserConfig::class), $this->createMock(IAppConfig::class), new PolicyEventProcessor($events, new OAuthStore($this->db), new NullLogger(), $time)),
-            $this->configData->mock($this), $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), $time, $this->state, $events, new AuthUsersMapper($this->db), $this->rechecks, new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), new \OCA\Mcp\OAuth\OAuthStore($this->db), new \OCA\Mcp\Db\ResourceScopeMapper($this->db));
+            $this->configData->mock($this), $this->createMock(IAppConfig::class), $this->createMock(IUserManager::class), $time, $this->state, $events, new AuthUsersMapper($this->db), $this->rechecks, new \OCA\Mcp\Db\GroupGrantsMapper($this->db), new \OCA\Mcp\Db\GroupLifeMapper($this->db), new \OCA\Mcp\OAuth\OAuthStore($this->db), new \OCA\Mcp\Db\ResourceScopeMapper($this->db), new \OCA\Mcp\Access\ResourceScope\ScopeActivation(), $this->toolGrants);
         $this->life = new GroupLifeMapper($this->db);
         $this->grants = new GroupGrantsMapper($this->db);
         $classifier = $this->createMock(GroupSourceClassifier::class);
@@ -91,7 +95,7 @@ trait GroupLifecycleDatabase {
         });
         $classifier->method('trusted')->willReturn(true);
         $this->apps = new \OCA\Mcp\Tests\Unit\InMemoryAppConfig();
-        $this->lifecycle = new GroupLifecycle($this->writer->transaction, $this->life, $this->grants, $classifier, new NullLogger(), $this->apps->worker($this));
+        $this->lifecycle = new GroupLifecycle($this->writer->transaction, $this->life, $this->grants, $classifier, new NullLogger(), $this->apps->worker($this), $this->toolGrants);
     }
 
     /**
@@ -120,6 +124,13 @@ trait GroupLifecycleDatabase {
             return true;
         });
         return $gen;
+    }
+
+    private function toolPolicy(string $gid, string $toolName = 'notes_edit'): void {
+        $this->writer->transaction->runInternal([], static fn () => null, function () use ($gid, $toolName): bool {
+            $this->toolGrants->set(ToolGrantsMapper::GROUP, $gid, $toolName, ToolGrantsMapper::ALLOW);
+            return true;
+        });
     }
 
     /** @return list<string> module/operation of the group's stored rows */

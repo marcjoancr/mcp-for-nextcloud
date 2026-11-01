@@ -50,6 +50,7 @@ final class CheckoutToken {
         public readonly bool $sharedConfirmed,
         public readonly int $expiresAt,
         public readonly bool $used,
+        public readonly ?int $connectionId = null,
     ) {}
 
     /**
@@ -81,6 +82,7 @@ final class CheckoutToken {
             (int)($row['shared_confirmed'] ?? 0) === 1,
             (int)$row['expires_at'],
             $row['used_at'] !== null,
+            isset($row['connection_id']) ? (int)$row['connection_id'] : null,
         );
     }
 }

@@ -34,6 +34,7 @@ final class CheckoutPolicy {
         private IUserManager $userManager,
         private FilesAccessGuard $visibilityGuard,
         private ?GuestRestrictions $guests = null,
+        private ?\OCA\Mcp\Modules\Files\Contracts\CheckoutSelection $selections = null,
     ) {}
 
     /** Keep all grant and resource checks of one authenticated link use in its owner's snapshot. */
@@ -86,7 +87,7 @@ final class CheckoutPolicy {
         if ($kind === CheckoutToken::KIND_CREATE) {
             $uid = $row->userId;
             $this->restrictGuestOwner($uid);
-            if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->policy->granted($uid, self::MODULE, self::OPERATION_CREATE)) {
+            if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->permitsTool($row, 'files_upload', self::OPERATION_CREATE)) {
                 throw new CheckoutFailure(Http::STATUS_FORBIDDEN, CheckoutMessages::checkoutRevoked());
             }
             $this->visibilityGuard->assertScopeReadable();
@@ -100,7 +101,7 @@ final class CheckoutPolicy {
         }
         $uid = $row->userId;
         $this->restrictGuestOwner($uid);
-        if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->policy->granted($uid, self::MODULE, self::OPERATION)) {
+        if (!$this->ownerUsable($uid) || !$this->policy->canConnect($uid) || !$this->permitsTool($row, 'files_checkout', self::OPERATION)) {
             throw new CheckoutFailure(Http::STATUS_FORBIDDEN, CheckoutMessages::checkoutRevoked());
         }
         $this->visibilityGuard->assertScopeReadable();
@@ -119,6 +120,18 @@ final class CheckoutPolicy {
             throw new CheckoutFailure(Http::STATUS_NOT_FOUND, CheckoutMessages::tokenInvalid());
         }
         return new ResolvedCheckout($row, $file);
+    }
+
+    private function permitsTool(CheckoutToken $row, string $name, string $operation): bool {
+        // Existing short-lived links have no issuing client on record.
+        if (!$this->policy->toolGranted($row->userId, $name, self::MODULE, $operation)) {
+            return false;
+        }
+        if ($this->selections === null) {
+            return true;
+        }
+        return $row->connectionId === null ? $this->selections->permitsLegacyCheckout($row->userId, $name)
+            : $this->selections->permits($row->userId, $row->connectionId, $name);
     }
 
     /**

@@ -48,6 +48,7 @@ final class ShareAccess {
         private GrantPolicy $policy,
         // Required on purpose (invariant 1): without it a hidden node would be listed and shareable.
         private FilesAccessGuard $visibilityGuard,
+        private ?\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext $connection = null,
     ) {}
 
     /**
@@ -220,8 +221,11 @@ final class ShareAccess {
      * @param int $shareType IShare::TYPE_* about to be created, changed or removed
      * @throws ToolFailure when the grant is missing or the type is not manageable
      */
-    public function assertGranted(string $uid, int $shareType): void {
-        if (!$this->policy->granted($uid, 'files', self::operationFor($shareType))) {
+    public function assertGranted(string $uid, int $shareType, string $tool = 'files_share'): void {
+        $operation = self::operationFor($shareType);
+        if (!$this->policy->granted($uid, 'files', $operation)
+            || !$this->policy->toolGranted($uid, $tool, 'files', $operation)
+            || ($this->connection !== null && !$this->connection->allowsVariant($tool, $operation))) {
             throw new ToolFailure(SharingMessages::shareNotGranted());
         }
     }

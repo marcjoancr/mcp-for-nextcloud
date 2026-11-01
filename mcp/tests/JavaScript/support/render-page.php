@@ -26,7 +26,7 @@ namespace {
         public function t(string $text, array $params = []): string { return $params === [] ? $text : vsprintf($text, $params); }
     };
     $_ = [
-        'endpoint' => 'http://127.0.0.1:18461/apps/mcp/mcp', 'serviceEnabled' => true,
+        'endpoint' => 'http://127.0.0.1:' . ((int)(getenv('MCP_JS_TEST_PORT') ?: 18461)) . '/apps/mcp/mcp', 'serviceEnabled' => true,
         'ocrActive' => false, 'ocrUrl' => 'https://apps.nextcloud.com/apps/workflow_ocr',
         'version' => 'test', 'eligibleUsers' => 2, 'connectedUsers' => 1, 'activeConnections' => 2,
         'unsupportedApps' => [], 'logsAvailable' => true, 'logType' => 'file',

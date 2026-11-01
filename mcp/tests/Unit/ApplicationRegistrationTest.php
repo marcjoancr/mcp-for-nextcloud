@@ -141,6 +141,7 @@ final class ApplicationRegistrationTest extends TestCase {
             'mcp', $request, $session, $this->createMock(\OCP\IURLGenerator::class), $policy, $protocol,
             $container->get(\OCA\Mcp\OAuth\ResourceUrl::class), $container->get(\OCA\Mcp\OAuth\AccessTokenAuthenticator::class), new \OCA\Mcp\L10n\UserL10n($factory), InMemoryConfig::noCauses($this), $container->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class),
         ])->getMock();
+        $container->get(\OCA\Mcp\OAuth\ConnectionContext::class)->setSelection(['files_read', 'logs_list', 'notes_list']);
         $raw = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
         $controller->method('readBody')->willReturnCallback(static function () use (&$raw): string { return $raw; });
         $response = $controller->post();
@@ -200,6 +201,7 @@ final class ApplicationRegistrationTest extends TestCase {
         });
         (new \ReflectionClass(Application::class))->newInstanceWithoutConstructor()->register($context);
         self::assertSame(\OCA\Mcp\OAuth\UserRevocationListener::class, $events[\OCP\User\Events\UserChangedEvent::class]);
+        self::assertSame(\OCA\Mcp\Listener\ConnectionToolsCreationListener::class, $events[\OCP\User\Events\BeforeUserCreatedEvent::class]);
         foreach ([\OCP\User\Events\BeforeUserDeletedEvent::class, \OCP\User\Events\UserDeletedEvent::class,
             \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class] as $event) {
             self::assertSame(\OCA\Mcp\Listener\UserCauseListener::class, $events[$event]);

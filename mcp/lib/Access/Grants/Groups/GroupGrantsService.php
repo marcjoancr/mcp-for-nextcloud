@@ -123,16 +123,10 @@ class GroupGrantsService {
         try {
             $candidates = $context->candidates();
             $now = $context->eligible()->allowed;
-        } finally {
-            $context->close();
-        }
-        if (!in_array($gid, array_column($candidates, 'groupId'), true) || $now === false) {
-            return false;
-        }
-        $context = $this->resolver->begin($uid, [], [$gid], false);
-        try {
-            $candidates = [...$candidates, ...$context->candidates()];
-            $without = $context->eligible()->allowed;
+            if (!in_array($gid, array_column($candidates, 'groupId'), true) || $now === false) {
+                return false;
+            }
+            $without = $context->withoutLegacyGroupEligibility($gid)->allowed;
         } finally {
             $context->close();
         }

@@ -32,6 +32,7 @@ class AccessTokenAuthenticator {
         private AuthUsersMapper $authUsers,
         private PolicyStateMapper $state,
         private OAuthClientsMapper $clients,
+        private ?ConnectionContext $connection = null,
     ) {}
 
     /** @return bool true when the header carries a token issued by this app */
@@ -46,6 +47,7 @@ class AccessTokenAuthenticator {
      * @throws PolicyUnavailable when the credential state cannot be read: the request fails, nothing is revoked
      */
     public function authenticate(string $authorization, string $resource): ?IUser {
+        $this->connection?->clear();
         if (!self::isOwnBearer($authorization)) {
             return null;
         }
@@ -74,6 +76,10 @@ class AccessTokenAuthenticator {
         } catch (Throwable $e) {
             throw new PolicyUnavailable('Cannot read the credential state', previous: $e);
         }
-        return $this->gate->owner($uid, $generations['issue_seq']);
+        $owner = $this->gate->owner($uid, $generations['issue_seq']);
+        if ($owner !== null) {
+            $this->connection?->set((int)$row['id']);
+        }
+        return $owner;
     }
 }

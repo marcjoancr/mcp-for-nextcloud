@@ -83,7 +83,12 @@ final class ResourceRegistryTest extends TestCase {
         $this->notesFolders = new \OCA\Mcp\Modules\Notes\Storage\NotesFolders($this->rootFolder, $this->config->mock($this));
 
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $this->appManager, $this->userManager);
-        $this->toolRegistry = new ToolRegistry([], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)));
+        $module = $this->createStub(\OCA\Mcp\Mcp\Tools\ToolModule::class);
+        $module->method('definitions')->willReturn([
+            \OCA\Mcp\Modules\Files\Tools\ReadFile::definition()->toArray(),
+            \OCA\Mcp\Modules\Notes\Tools\ReadNote::definition()->toArray(),
+        ]);
+        $this->toolRegistry = new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)));
         $this->registry = new ResourceRegistry($this->toolRegistry, $this->policy, $this->appManager, $this->userManager, new \OCA\Mcp\Modules\Files\Reading\NextcloudFileResourceReader($this->rootFolder, $this->visibilityGuard, $this->extractor), new \OCA\Mcp\Modules\Notes\Resources\NextcloudNoteResourceReader($this->notesFolders, new \OCA\Mcp\Modules\Notes\Storage\NoteLookup(), new \OCA\Mcp\Modules\Notes\Content\NoteContent(), $this->visibilityGuard), new ToolGuide([]));
     }
 

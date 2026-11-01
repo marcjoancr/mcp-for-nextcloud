@@ -115,6 +115,63 @@ final class GrantPolicyGroupsTest extends TestCase {
         $this->policy->granted('alice', 'notes', 'edit');
     }
 
+    public function testProjectedToolPreviewUsesInheritedUserRuleAndProposedGroupDecision(): void {
+        $this->groups = ['team' => ['alice']];
+        InMemoryConfig::groupPolicy($this->config, 'team', ['notes' => ['edit']]);
+        $this->alice(['grant_notes_edit' => '0'], '1');
+        $cells = [['toolName' => 'notes_edit', 'module' => 'notes', 'operation' => 'edit', 'decision' => 'neutral']];
+        self::assertSame(['effective' => true, 'source' => 'legacy_group', 'groupIds' => ['team']],
+            $this->policy->projectedToolStates(['alice'], $cells)['alice']['notes_edit']);
+
+        self::assertSame(['effective' => true, 'source' => 'group', 'groupIds' => ['team']],
+            $this->policy->projectedGroupToolStates('team', [['toolName' => 'notes_edit', 'module' => 'notes', 'operation' => 'edit', 'decision' => 'allow']])['notes_edit']);
+        self::assertSame(['effective' => false, 'source' => 'default', 'groupIds' => []],
+            $this->policy->projectedGroupToolStates('team', [['toolName' => 'notes_edit', 'module' => 'notes', 'operation' => 'edit', 'decision' => 'neutral']])['notes_edit']);
+    }
+
+    public function testVariantToolResolutionUsesAnAllowedConcreteLegacyOperation(): void {
+        $this->groups = ['team' => ['alice']];
+        InMemoryConfig::groupPolicy($this->config, 'team', ['files' => ['link']]);
+        $this->alice([], '1');
+        self::assertFalse($this->policy->granted('alice', 'files', 'share'));
+        self::assertTrue($this->policy->granted('alice', 'files', 'link'));
+        foreach (['files_share', 'files_unshare'] as $toolName) {
+            $cell = ['toolName' => $toolName, 'module' => 'files', 'operation' => 'share',
+                'grantAnyOf' => ['share', 'link'], 'decision' => 'neutral'];
+            self::assertSame(['effective' => true, 'source' => 'legacy_group', 'groupIds' => ['team']],
+                $this->policy->projectedToolStates(['alice'], [$cell])['alice'][$toolName]);
+            self::assertSame(['assigned' => 'allow', 'effective' => true, 'source' => 'legacy_group', 'groupIds' => ['team']],
+                $this->policy->groupToolStates('team', [$cell])[$toolName]);
+            self::assertSame(['effective' => true, 'source' => 'legacy_group', 'groupIds' => ['team']],
+                $this->policy->projectedGroupToolStates('team', [$cell])[$toolName]);
+        }
+    }
+
+    public function testEligibleUserCountsIncludeGranularGroupAllowsAndRespectUserServiceOverride(): void {
+        $this->groups = ['team' => ['alice', 'bob', 'carol']];
+        $this->alice([], '1');
+        InMemoryConfig::groupPolicy($this->config, 'team', []);
+        $this->data->user['bob'] = ['mcp' => ['eligible' => '1']];
+        $this->data->user['carol'] = ['mcp' => ['eligible' => '0']];
+        InMemoryConfig::storeToolPolicy($this->config, 'group', 'team', '_service', 'allow');
+        InMemoryConfig::storeToolPolicy($this->config, 'user', 'bob', '_service', 'deny');
+        InMemoryConfig::storeToolPolicy($this->config, 'user', 'carol', '_service', 'allow');
+
+        self::assertSame(['alice', 'carol'], $this->policy->flaggedUsers(GrantPolicy::ELIGIBLE_KEY));
+    }
+
+    public function testGranularGroupServiceDenyOverridesGroupAllowsForEligibilityTotals(): void {
+        $this->groups = ['team' => ['alice', 'bob'], 'blocked' => ['bob']];
+        $this->alice([], '1');
+        InMemoryConfig::groupPolicy($this->config, 'team', []);
+        InMemoryConfig::groupPolicy($this->config, 'blocked', []);
+        $this->data->user['bob'] = ['mcp' => []];
+        InMemoryConfig::storeToolPolicy($this->config, 'group', 'team', '_service', 'allow');
+        InMemoryConfig::storeToolPolicy($this->config, 'group', 'blocked', '_service', 'deny');
+
+        self::assertSame(['alice'], $this->policy->flaggedUsers(GrantPolicy::ELIGIBLE_KEY));
+    }
+
     public static function indeterminateStates(): iterable {
         yield ['needs_confirm'];
         yield ['pending_delete'];

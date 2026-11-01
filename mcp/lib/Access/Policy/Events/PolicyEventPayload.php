@@ -54,6 +54,7 @@ final class PolicyEventPayload {
     public const ACTION_SCOPE = 'scope.update';
     /** A group policy save (ticket 08); its audit carries one group change and no receipt. */
     public const ACTION_GROUP = 'group_grants';
+    public const ACTION_TOOL = 'tool_grants';
     /** Key of the group change an ACTION_GROUP audit carries. */
     public const GROUP_KEY = 'group_grants';
     /** The system pseudo-grant a group row may carry besides the CATALOG: eligibility. */
@@ -65,7 +66,7 @@ final class PolicyEventPayload {
     public const RECEIPT_ACTIONS = [...self::GRANT_ACTIONS, self::ACTION_SCOPE];
     /** Prefix of the user cell holding the resource scope of one module. */
     public const SCOPE_PREFIX = 'scope_';
-    public const ACTIONS = [...self::RECEIPT_ACTIONS, self::ACTION_UNDO, self::ACTION_SERVICE, self::ACTION_LOGS, self::ACTION_GROUP];
+    public const ACTIONS = [...self::RECEIPT_ACTIONS, self::ACTION_UNDO, self::ACTION_SERVICE, self::ACTION_LOGS, self::ACTION_GROUP, self::ACTION_TOOL];
     public const SCOPE_USER = 'user';
     public const SCOPE_GLOBAL = 'global';
     /** App-wide keys an audit change may name, with a null uid. */
@@ -114,6 +115,12 @@ final class PolicyEventPayload {
     public static function preview(string $actor, string $gid, string $revision, array $grants, string $memberHash, ?array $life): array {
         return self::validate(PolicyEventsMapper::KIND_PREVIEW, ['v' => self::VERSION, 'actor' => $actor, 'gid' => $gid,
             'revision' => $revision, 'grants' => $grants, 'memberHash' => $memberHash, 'life' => $life]);
+    }
+
+    /** @param list<array{toolName:string,module:string,operation:string,decision:string}> $cells */
+    public static function toolPreview(string $actor, string $kind, string $subject, string $revision, array $cells, ?string $memberHash, ?array $life, array $impact): array {
+        return self::validate(PolicyEventsMapper::KIND_PREVIEW, ['v' => self::VERSION, 'actor' => $actor, 'kind' => $kind,
+            'subject' => $subject, 'revision' => $revision, 'cells' => $cells, 'memberHash' => $memberHash, 'life' => $life, 'impact' => $impact]);
     }
 
     /**
@@ -250,11 +257,19 @@ final class PolicyEventPayload {
         foreach ($payload['changes'] as $change) {
             $group = is_array($change) && array_key_exists('gid', $change);
             // A group change belongs to a group save, alone; a group save carries nothing else.
-            if ($group !== ($action === self::ACTION_GROUP) || !($group ? self::validGroupChange($change) : self::validChange($change, $receipt))) {
+            $validChange = match ($action) {
+                self::ACTION_GROUP => $group && self::validGroupChange($change),
+                self::ACTION_TOOL => $group ? self::validGroupChange($change, 'tool_grants') : self::validChange($change, $receipt),
+                default => !$group && self::validChange($change, $receipt),
+            };
+            if (!$validChange) {
                 throw new UnexpectedValueException('Invalid policy event payload');
             }
         }
-        if ($action === self::ACTION_GROUP && count($payload['changes']) !== 1) {
+        if (($action === self::ACTION_GROUP && count($payload['changes']) !== 1)
+            || (in_array($action, [self::ACTION_GROUP, self::ACTION_TOOL], true)
+                && count(array_filter($payload['changes'], static fn (array $change): bool => array_key_exists('gid', $change))) > 0
+                && count($payload['changes']) !== 1)) {
             throw new UnexpectedValueException('Invalid policy event payload');
         }
         if ($receipt) {
@@ -282,6 +297,9 @@ final class PolicyEventPayload {
 
     /** @return bool whether $key is eligibility or a grant of the CATALOG */
     public static function validUserKey(string $key): bool {
+        if (preg_match('/^tool_[0-9a-f]{64}$/D', $key) === 1) {
+            return true;
+        }
         if ($key === GrantPolicy::ELIGIBLE_KEY) {
             return true;
         }
@@ -369,6 +387,22 @@ final class PolicyEventPayload {
     }
 
     private static function validatePreview(array $payload): array {
+        if (array_key_exists('kind', $payload)) {
+            $keys = array_keys($payload);
+            sort($keys);
+            $valid = $keys === ['actor', 'cells', 'impact', 'kind', 'life', 'memberHash', 'revision', 'subject', 'v']
+                && $payload['v'] === self::VERSION && is_string($payload['actor']) && self::validUid($payload['actor'])
+                && in_array($payload['kind'], ['user', 'group'], true)
+                && is_string($payload['subject']) && self::validUid($payload['subject'])
+                && is_string($payload['revision']) && self::canonical($payload['revision'])
+                && ($payload['memberHash'] === null || (is_string($payload['memberHash']) && preg_match('/^[0-9a-f]{64}$/D', $payload['memberHash']) === 1))
+                && ($payload['life'] === null || self::validLife($payload['life']))
+                && self::validToolCells($payload['cells']) && self::validToolImpact($payload['impact'] ?? null);
+            if (!$valid) {
+                throw new UnexpectedValueException('Invalid tool policy preview');
+            }
+            return $payload;
+        }
         $keys = array_keys($payload);
         sort($keys);
         $valid = $keys === ['actor', 'gid', 'grants', 'life', 'memberHash', 'revision', 'v'] && $payload['v'] === self::VERSION
@@ -388,6 +422,72 @@ final class PolicyEventPayload {
         return $payload;
     }
 
+    private static function validToolImpact(mixed $impact): bool {
+        if (!is_array($impact) || array_keys($impact) !== ['tools', 'affectedUsers', 'eligibilityLoss', 'summary']
+            || !is_array($impact['tools']) || !is_int($impact['affectedUsers']) || $impact['affectedUsers'] < 0
+            || !is_int($impact['eligibilityLoss']) || $impact['eligibilityLoss'] < 0 || !is_string($impact['summary'])) {
+            return false;
+        }
+        foreach ($impact['tools'] as $toolName => $state) {
+            if (!is_string($toolName) || !\OCA\Mcp\Db\ToolGrantsMapper::validToolName($toolName) || !is_array($state)
+                || array_keys($state) !== ['effective', 'source', 'groupIds']
+                || !(is_bool($state['effective']) || $state['effective'] === null) || !is_string($state['source'])
+                || !is_array($state['groupIds']) || !array_is_list($state['groupIds'])) {
+                return false;
+            }
+            foreach ($state['groupIds'] as $gid) {
+                if (!is_string($gid) || !self::validUid($gid)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static function validToolCells(mixed $cells): bool {
+        if (!is_array($cells) || !array_is_list($cells) || $cells === [] || count($cells) > PolicyLimits::MAX_CELLS) {
+            return false;
+        }
+        $seen = [];
+        foreach ($cells as $cell) {
+            if (!is_array($cell) || !in_array(array_keys($cell), [
+                ['toolName', 'module', 'operation', 'decision'],
+                ['toolName', 'module', 'operation', 'decision', 'grantAnyOf'],
+            ], true)
+                || !is_string($cell['toolName']) || !\OCA\Mcp\Db\ToolGrantsMapper::validToolName($cell['toolName'])
+                || !is_string($cell['module']) || !is_string($cell['operation'])
+                || !in_array($cell['decision'], ['allow', 'deny', 'neutral'], true)) {
+                return false;
+            }
+            $service = $cell['toolName'] === \OCA\Mcp\Db\ToolGrantsMapper::SERVICE
+                && $cell['module'] === self::SYSTEM_MODULE && $cell['operation'] === self::SYSTEM_ELIGIBLE;
+            if (!$service && !GrantPolicy::inCatalog($cell['module'], $cell['operation'])) {
+                return false;
+            }
+            if (array_key_exists('grantAnyOf', $cell)) {
+                if ($service || !is_array($cell['grantAnyOf']) || !array_is_list($cell['grantAnyOf']) || $cell['grantAnyOf'] === []) {
+                    return false;
+                }
+                $variants = $cell['grantAnyOf'];
+                foreach ($variants as $operation) {
+                    if (!is_string($operation) || !GrantPolicy::inCatalog($cell['module'], $operation)) {
+                        return false;
+                    }
+                }
+                $sorted = array_values(array_unique($variants));
+                sort($sorted, SORT_STRING);
+                if ($sorted !== $variants) {
+                    return false;
+                }
+            }
+            if (isset($seen[$cell['toolName']])) {
+                return false;
+            }
+            $seen[$cell['toolName']] = true;
+        }
+        return true;
+    }
+
     private static function validLife(mixed $life): bool {
         if (!is_array($life)) {
             return false;
@@ -398,11 +498,11 @@ final class PolicyEventPayload {
             && is_string($life['gen']) && preg_match('/^[0-9a-f]{32}$/D', $life['gen']) === 1;
     }
 
-    private static function validGroupChange(array $change): bool {
+    private static function validGroupChange(array $change, string $key = self::GROUP_KEY): bool {
         $keys = array_keys($change);
         sort($keys);
         $raw = static fn (mixed $value): bool => $value === null || is_string($value);
-        return $keys === ['after', 'before', 'gid', 'key'] && $change['key'] === self::GROUP_KEY
+        return $keys === ['after', 'before', 'gid', 'key'] && $change['key'] === $key
             && is_string($change['gid']) && self::validUid($change['gid'])
             && $raw($change['before']) && $raw($change['after']) && $change['before'] !== $change['after'];
     }

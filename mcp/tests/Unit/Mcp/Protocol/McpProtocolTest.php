@@ -136,7 +136,7 @@ final class McpProtocolTest extends TestCase {
     public function testArgumentErrorsReachTheClientNamingTheField(): void {
         $module = new class implements \OCA\Mcp\Mcp\Tools\ToolModule {
             public function definitions(): array {
-                return [['name' => 'exemplo', 'description' => 'x', 'module' => 'files', 'operation' => 'read',
+                return [['name' => 'files_read', 'description' => 'x', 'module' => 'files', 'operation' => 'read',
                     'inputSchema' => ['type' => 'object', 'additionalProperties' => false, 'properties' => [
                         'boardId' => ['type' => 'string'],
                         'moves' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 200, 'items' => [
@@ -158,7 +158,7 @@ final class McpProtocolTest extends TestCase {
         ];
         foreach ($casos as [$arguments, $esperado]) {
             $out = $this->callWith($module, ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
-                'params' => ['name' => 'exemplo', 'arguments' => $arguments]]);
+                'params' => ['name' => 'files_read', 'arguments' => $arguments]]);
             $this->assertSame($esperado, $out['body']['error']['message'], json_encode($arguments));
             $this->assertArrayHasKey('field', $out['body']['error']['data']);
             $this->assertArrayHasKey('rule', $out['body']['error']['data']);
@@ -186,7 +186,7 @@ final class McpProtocolTest extends TestCase {
     public function testInvalidDateHasStructuredDetails(): void {
         $module = new class implements \OCA\Mcp\Mcp\Tools\ToolModule {
             public function definitions(): array {
-                return [['name' => 'date_test', 'description' => 'x', 'module' => 'files', 'operation' => 'read',
+                return [['name' => 'files_read', 'description' => 'x', 'module' => 'files', 'operation' => 'read',
                     'inputSchema' => ['properties' => ['start' => ['type' => 'string']]]]];
             }
             public function call(string $name, array $arguments, string $userId): array {
@@ -195,7 +195,7 @@ final class McpProtocolTest extends TestCase {
             }
         };
         $out = $this->callWith($module, ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call',
-            'params' => ['name' => 'date_test', 'arguments' => ['start' => '2026-10-01T17:00:00']]]);
+            'params' => ['name' => 'files_read', 'arguments' => ['start' => '2026-10-01T17:00:00']]]);
         $this->assertSame(-32602, $out['body']['error']['code']);
         $this->assertSame('start', $out['body']['error']['data']['field']);
         $this->assertStringContainsString('Z or offset', $out['body']['error']['data']['rule']);
@@ -221,7 +221,7 @@ final class McpProtocolTest extends TestCase {
 
     /** A path that leaves the user's folder is an argument error like any other: field, fixed rule, no value. */
     public function testPathTraversalAnswersWithTheFieldAndAFixedRule(): void {
-        $out = $this->failing('ler', ['path' => '/../../etc/passwd'], static fn (array $a) => \OCA\Mcp\Platform\FileAccess\Paths\PathGuard::normalize($a['path']));
+        $out = $this->failing('files_read', ['path' => '/../../etc/passwd'], static fn (array $a) => \OCA\Mcp\Platform\FileAccess\Paths\PathGuard::normalize($a['path']));
         $this->assertSame(-32602, $out['body']['error']['code']);
         $this->assertSame('path', $out['body']['error']['data']['field']);
         $this->assertNotSame('', $out['body']['error']['data']['rule']);
@@ -232,7 +232,7 @@ final class McpProtocolTest extends TestCase {
 
     /** A control character in a path is the same kind of error, with the same answer. */
     public function testAControlCharacterInAPathAnswersTheSameWay(): void {
-        $out = $this->failing('ler', ['path' => "/a\0b"], static fn (array $a) => \OCA\Mcp\Platform\FileAccess\Paths\PathGuard::normalize($a['path']));
+        $out = $this->failing('files_read', ['path' => "/a\0b"], static fn (array $a) => \OCA\Mcp\Platform\FileAccess\Paths\PathGuard::normalize($a['path']));
         $this->assertSame('path', $out['body']['error']['data']['field']);
         $this->assertNotSame('', $out['body']['error']['data']['rule']);
     }
@@ -249,7 +249,7 @@ final class McpProtocolTest extends TestCase {
 
     /** The unknown-property answer always has a non-empty field, so a client can point at something. */
     public function testAnUnknownPropertyNeverAnswersWithAnEmptyField(): void {
-        $out = $this->failing('ler', ['bogus' => 1], static fn () => null);
+        $out = $this->failing('files_read', ['bogus' => 1], static fn () => null);
         $this->assertSame('arguments', $out['body']['error']['data']['field']);
         $this->assertSame('arguments: unknown property; use only declared arguments', $out['body']['error']['message']);
     }

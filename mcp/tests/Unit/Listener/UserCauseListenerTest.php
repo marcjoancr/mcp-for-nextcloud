@@ -11,6 +11,7 @@ use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\IdentityKey;
 use OCA\Mcp\Db\PolicyStateMapper;
 use OCA\Mcp\Db\RecheckMapper;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\Listener\UserCauseListener;
 use OCA\Mcp\Migration\Version001100Date20261014000000;
 use OCA\Mcp\Migration\Version001100Date20261015010000;
@@ -30,6 +31,8 @@ use OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore;
 use OCA\Mcp\Tests\Unit\SqliteDatabase;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Group\Events\BeforeUserRemovedEvent;
+use OCP\Group\Events\BeforeUserAddedEvent;
+use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\IDBConnection;
 use OCP\IGroup;
@@ -47,6 +50,7 @@ use PHPUnit\Framework\TestCase;
 final class UserCauseListenerTest extends TestCase {
     /** Whether the user also has an individual Allow of eligibility. */
     private bool $allow = false;
+    private bool $granularStaffAllow = false;
     private SqliteDatabase $database;
     private IDBConnection $db;
     private RecheckMapper $rechecks;
@@ -62,6 +66,7 @@ final class UserCauseListenerTest extends TestCase {
     private \Closure $eligibility;
     private bool $member = true;
     private bool $trusted = true;
+    private bool $blockingGroupOnAdd = false;
     private ?string $life = GroupLifeMapper::ACTIVE;
     /** The policy revision a Before reads as R_b. */
     private string $revision = '7';
@@ -118,6 +123,14 @@ final class UserCauseListenerTest extends TestCase {
                 null => [['groupId' => 'x', 'grants' => ['_system' => ['eligible']], 'trusted' => false, 'state' => 'active']],
                 false => [],
             };
+            if ($this->granularStaffAllow && !in_array('staff', $removed, true)) {
+                $candidates[] = ['groupId' => 'staff', 'grants' => [], 'toolGrants' => [ToolGrantsMapper::SERVICE => ToolGrantsMapper::ALLOW],
+                    'trusted' => true, 'state' => GroupLifeMapper::ACTIVE, 'gen' => str_repeat('c', 32)];
+            }
+            if ($this->blockingGroupOnAdd && in_array('blocker', $added, true)) {
+                $candidates[] = ['groupId' => 'blocker', 'grants' => [], 'toolGrants' => [ToolGrantsMapper::SERVICE => ToolGrantsMapper::DENY],
+                    'trusted' => true, 'state' => GroupLifeMapper::ACTIVE, 'gen' => str_repeat('d', 32)];
+            }
             return new PolicyOperationContext('0', $this->createMock(PolicyTransaction::class), $raw, $candidates, true, true, [], true, true,
                 \OCA\Mcp\Access\ResourceScope\ScopeGuard::read($this->createMock(\OCA\Mcp\Db\ResourceScopeMapper::class), null));
         });
@@ -271,6 +284,38 @@ final class UserCauseListenerTest extends TestCase {
         $this->database->dbal->executeStatement('DELETE FROM mcp_auth_recheck');
         $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
         $this->assertNotSame($gen, $this->rechecks->causes('alice')[0]['gen']);
+    }
+
+    public function testGranularGroupServiceAllowIsARelevantRemovalSource(): void {
+        $this->database->dbal->delete('mcp_group_grants', ['group_key' => IdentityKey::group('staff')]);
+        $this->granularStaffAllow = true;
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
+        self::assertSame(['group_removal:staff'], $this->causes());
+    }
+
+    public function testRemovingGranularAllowGroupDoesNotRecordWhenAnotherGroupStillGrants(): void {
+        $this->database->dbal->delete('mcp_group_grants', ['group_key' => IdentityKey::group('staff')]);
+        $this->granularStaffAllow = true;
+        $this->eligibility = static fn (): bool => true;
+        $listener = $this->listener();
+        $listener->handle(new BeforeUserRemovedEvent($this->group(), $this->user()));
+        self::assertSame([], $this->causes());
+    }
+
+    public function testJoiningBlockingGroupRecordsCauseThatSurvivesLeavingBeforeNextRequest(): void {
+        $this->blockingGroupOnAdd = true;
+        $this->member = false;
+        $listener = $this->listener();
+        $group = $this->group('blocker');
+        $listener->handle(new BeforeUserAddedEvent($group, $this->user()));
+        $listener->handle(new UserAddedEvent($group, $this->user()));
+        self::assertSame(['group_addition:blocker'], $this->causes());
+
+        // The cause still represents the captured loss when the user leaves before a bearer request can preflight it.
+        $this->member = true;
+        $listener->handle(new BeforeUserRemovedEvent($group, $this->user()));
+        self::assertSame(['group_addition:blocker'], $this->causes());
     }
 
     public function testRemovalsThatKeepEligibilityOrCannotGrantRecordNothing(): void {

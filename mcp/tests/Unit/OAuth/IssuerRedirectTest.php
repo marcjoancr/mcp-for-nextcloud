@@ -54,6 +54,7 @@ final class IssuerRedirectTest extends TestCase {
         $policy = $this->createMock(GrantPolicy::class);
         $policy->method('globalEnabled')->willReturn(true);
         $policy->method('eligible')->willReturn(true);
+        $policy->method('within')->willReturnCallback(fn (string $uid, \Closure $work) => $work());
         $tokens = $this->createMock(TokenService::class);
         $tokens->method('consent')->willReturn('CODE');
         $urls = $this->createMock(ResourceUrl::class);
@@ -151,7 +152,7 @@ final class IssuerRedirectTest extends TestCase {
         $page = $controller->authorize();
         $this->assertInstanceOf(TemplateResponse::class, $page);
         $pending = $page->getParams()['pending'];
-        $allow = $controller->consent($pending, 'allow');
+        $allow = $controller->consent($pending, 'allow', [], 1);
         $query = $this->query($allow->getParams()['target']);
         $this->assertSame(['x' => '1', 'code' => 'CODE', 'iss' => self::ISSUER, 'state' => 'st&te'], $query);
 

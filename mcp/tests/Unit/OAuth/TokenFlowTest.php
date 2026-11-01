@@ -16,6 +16,10 @@ use OCA\Mcp\OAuth\OAuthException;
 use OCA\Mcp\OAuth\TokenHasher;
 use OCA\Mcp\OAuth\TokenOwnerGate;
 use OCA\Mcp\OAuth\TokenService;
+use OCA\Mcp\OAuth\ConnectionToolsStore;
+use OCA\Mcp\Migration\Version000500Date20260930000000;
+use OCA\Mcp\Migration\Version001100Date20261015010000;
+use OCA\Mcp\Tests\Unit\SqliteDatabase;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -41,6 +45,8 @@ final class TokenFlowTest extends TestCase {
     private InMemoryConfig $appConfig;
     private ClientsTable $clients;
     private AccessTokenAuthenticator $authenticator;
+    private ConnectionToolsStore $connectionTools;
+    private SqliteDatabase $selectionDatabase;
     private bool $aliceEnabled = true;
     private bool $aliceExists = true;
 
@@ -52,6 +58,11 @@ final class TokenFlowTest extends TestCase {
         $this->policy->setGlobalEnabled(true);
         $this->policy->setEligible('alice', true);
         $this->policy->setConnected('alice', true);
+        $this->selectionDatabase = new SqliteDatabase($this, [
+            new Version000500Date20260930000000(),
+            new Version001100Date20261015010000(),
+            new \OCA\Mcp\Migration\Version002100Date20261101010000($this->createStub(\OCP\IDBConnection::class), $this->policy),
+        ]);
         $config = $this->createMock(IConfig::class);
         $config->method('getSystemValueString')->willReturn('instance-secret');
         $hasher = new TokenHasher($config);
@@ -66,8 +77,34 @@ final class TokenFlowTest extends TestCase {
         $gate = new TokenOwnerGate($users, $this->policy, $services->credentials, $this->createMock(IUserConfig::class),
             $this->createMock(IAppConfig::class), new NullLogger(), InMemoryConfig::noCauses($this));
         $this->clients = new ClientsTable($this);
+        $connection = $this->selectionDatabase->connection();
+        $this->connectionTools = new ConnectionToolsStore($connection, $time, $gate,
+            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::state($appConfigMock), $this->clients->mapper);
+        $this->store->onTokenInserted = function (int $id, array $row): void {
+            if (!isset($row['resource'])) {
+                return;
+            }
+            $this->selectionDatabase->dbal->insert('mcp_oauth_tokens', [
+                'id' => $id,
+                'user_id' => $row['user_id'],
+                'client_id' => $row['client_id'],
+                'resource' => $row['resource'],
+                'scope' => $row['scope'],
+                'access_hash' => $row['access_hash'],
+                'access_expires' => $row['access_expires'],
+                'refresh_hash' => $row['refresh_hash'],
+                'refresh_expires' => $row['refresh_expires'],
+                'created_at' => $row['created_at'],
+                'auth_global_epoch' => $row['auth_global_epoch'],
+                'auth_gen' => $row['auth_gen'],
+            ]);
+        };
+        $this->store->onTokenDeleted = function (int $id): void {
+            $this->selectionDatabase->dbal->delete('mcp_oauth_tokens', ['id' => $id]);
+        };
         $this->service = new TokenService($this->store, $hasher, $time, $gate, $services->credentials,
-            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::processor($appConfigMock), $this->clients->mapper, $services->transaction, $services->holds);
+            InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::processor($appConfigMock), $this->clients->mapper, $services->transaction, $services->holds,
+            $this->connectionTools);
         $this->authenticator = new AccessTokenAuthenticator($this->store, $hasher, $time, $gate,
             InMemoryConfig::authUsers($appConfigMock), InMemoryConfig::state($appConfigMock), $this->clients->mapper);
     }
@@ -76,6 +113,29 @@ final class TokenFlowTest extends TestCase {
         $request = new AuthorizationRequest(new ClientMetadata(self::CLIENT, 'Claude', [self::REDIRECT]),
             self::REDIRECT, 'xyz', self::CHALLENGE, self::RESOURCE, 'mcp');
         return $this->service->consent($request, 'alice');
+    }
+
+    public function testConnectionToolSelectionIsPersistedAcrossIssueAndRefreshAndHiddenAfterRevocation(): void {
+        $request = new AuthorizationRequest(new ClientMetadata(self::CLIENT, 'Claude', [self::REDIRECT]),
+            self::REDIRECT, 'xyz', self::CHALLENGE, self::RESOURCE, 'mcp');
+        $code = $this->service->consent($request, 'alice', ['files_share'], ['files_share' => ['share']]);
+        $tokens = $this->service->exchangeCode([
+            'code' => $code,
+            'code_verifier' => self::VERIFIER,
+            'client_id' => self::CLIENT,
+            'redirect_uri' => self::REDIRECT,
+            'resource' => self::RESOURCE,
+        ]);
+        $grantId = (int)array_key_first($this->store->tokens);
+        $this->assertSame(['files_share'], $this->connectionTools->get('alice', $grantId)['tools']);
+        $this->assertSame(['files_share' => ['share']], $this->connectionTools->get('alice', $grantId)['variants']);
+
+        $refreshed = $this->service->refresh(['refresh_token' => $tokens['refresh_token'], 'client_id' => self::CLIENT]);
+        $this->assertSame(['files_share' => ['share']], $this->connectionTools->get('alice', $grantId)['variants']);
+        $this->assertNotSame($tokens['refresh_token'], $refreshed['refresh_token']);
+
+        $this->assertTrue($this->service->revokeGrant($grantId, 'alice'));
+        $this->assertNull($this->connectionTools->get('alice', $grantId));
     }
 
     private function nativeCode(): string {

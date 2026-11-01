@@ -83,7 +83,20 @@ $canConnect = $_['connected'] || ($_['eligible'] === true && $_['global']);
     <div class="section mcp-block" id="mcp-personal-app-password">
         <h2><?= $l->t('App password') ?></h2>
         <p class="settings-hint mcp-hint"><?= $l->t('Create an individual app password in Nextcloud Settings → Security, then use it with your Nextcloud user ID in a client that supports HTTP Basic authentication and Streamable HTTP MCP 2025-06-18. This app never asks for your Nextcloud password.') ?></p>
+        <p class="settings-hint mcp-hint"><?= $l->t('This selection is shared by app-password and other connections that do not identify a separate OAuth client.') ?></p>
+        <button type="button" id="mcp-basic-tools-open"><?= $l->t('Manage available tools') ?></button>
     </div>
+    <dialog id="mcp-tool-selection-dialog" class="mcp-tool-selection-dialog" aria-labelledby="mcp-tool-selection-title">
+        <form method="dialog" class="mcp-tool-selection-close"><button type="submit"><?= $l->t('Close') ?></button></form>
+        <h2 id="mcp-tool-selection-title"><?= $l->t('Tools for this connection') ?></h2>
+        <p id="mcp-tool-selection-description" class="mcp-hint"></p>
+        <div id="mcp-tool-selection-status" role="status" aria-live="polite"></div>
+        <div id="mcp-tool-selection-list"></div>
+        <div class="mcp-tool-selection-actions">
+            <button type="button" id="mcp-tool-selection-cancel"><?= $l->t('Cancel') ?></button>
+            <button type="button" class="primary" id="mcp-tool-selection-save"><?= $l->t('Save selection') ?></button>
+        </div>
+    </dialog>
     <div class="section mcp-block" id="mcp-source-offer">
         <h2><?php p($l->t('Source code for this version')); ?></h2>
         <?php $sourceOffer = $_['sourceOffer'] ?? null; ?>

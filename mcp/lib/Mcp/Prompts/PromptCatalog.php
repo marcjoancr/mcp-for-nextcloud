@@ -11,6 +11,7 @@ use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Access\Policy\Resolution\GrantUnknown;
 use OCA\Mcp\Access\Policy\PolicyUnavailable;
 use OCA\Mcp\L10n\Translator;
+use OCA\Mcp\Mcp\Tools\ToolRegistry;
 
 /**
  * The MCP prompts this server offers, in the shape both protocol eras expect.
@@ -22,6 +23,31 @@ use OCA\Mcp\L10n\Translator;
  * need, and the edit prompt only names the creation tools to someone who may use them.
  */
 final class PromptCatalog {
+    public function __construct(private ?ToolRegistry $tools = null) {}
+
+    private function permits(GrantPolicy $policy, string $uid, string $operation): bool {
+        if ($this->tools === null) {
+            return $policy->granted($uid, self::MODULE, $operation);
+        }
+        if ($operation === self::OPERATION) {
+            return $this->tools->allowsTool($uid, 'files_checkout');
+        }
+        $unknown = null;
+        foreach (['files_create', 'files_upload'] as $tool) {
+            try {
+                if ($this->tools->allowsTool($uid, $tool)) {
+                    return true;
+                }
+            } catch (GrantUnknown $e) {
+                $unknown = $e;
+            }
+        }
+        if ($unknown !== null) {
+            throw $unknown;
+        }
+        return false;
+    }
+
     /** Name of the local editing prompt, as the client sees it. */
     public const EDIT_LOCALLY = 'edit_nextcloud_file_locally';
     /** Name of the new file prompt, as the client sees it. */
@@ -39,9 +65,9 @@ final class PromptCatalog {
      */
     public function list(GrantPolicy $policy, string $userId): array {
         // A prompt whose grant is unknown (GrantUnknown) is left out, alone; asking for it directly is a 503 (get()).
-        $granted = static function (string $operation) use ($policy, $userId): bool {
+        $granted = function (string $operation) use ($policy, $userId): bool {
             try {
-                return $policy->granted($userId, self::MODULE, $operation);
+                return $this->permits($policy, $userId, $operation);
             } catch (GrantUnknown) {
                 return false;
             }
@@ -81,13 +107,23 @@ final class PromptCatalog {
             self::CREATE_FILE => self::OPERATION_CREATE,
             default => null,
         };
-        if ($operation === null || !$policy->granted($userId, self::MODULE, $operation)) {
+        if ($operation === null || !$this->permits($policy, $userId, $operation)) {
             return null;
         }
-        $create = $name === self::EDIT_LOCALLY && $policy->granted($userId, self::MODULE, self::OPERATION_CREATE);
+        // Optional steps are described only when their tools are available. Keep the detailed checkout and
+        // upload instructions even when this connection does not permit any of the fallback tools.
+        $available = function (string $tool) use ($userId): bool {
+            try {
+                return $this->tools === null || $this->tools->allowsTool($userId, $tool);
+            } catch (GrantUnknown) {
+                return false;
+            }
+        };
+        $create = $name === self::EDIT_LOCALLY && ($this->tools === null
+            ? $this->permits($policy, $userId, self::OPERATION_CREATE) : $available('files_create') || $available('files_upload'));
         return $name === self::EDIT_LOCALLY
-            ? self::prompt(Translator::t('Local editing workflow for a Nextcloud file.'), self::editText($create))
-            : self::prompt(Translator::t('Workflow for creating a new Nextcloud file.'), self::createText());
+            ? self::prompt(Translator::t('Local editing workflow for a Nextcloud file.'), self::editText($create, $available))
+            : self::prompt(Translator::t('Workflow for creating a new Nextcloud file.'), self::createText($available));
     }
 
     /**
@@ -103,7 +139,7 @@ final class PromptCatalog {
      * @param bool $create whether the caller also holds files.create, and so may be told about the creation tools
      * @return string the checkout workflow handed to the model, in fixed English
      */
-    private static function editText(bool $create): string {
+    private static function editText(bool $create, \Closure $available): string {
         $lines = [
             'To edit a Nextcloud file without passing its content through the model, use the checkout workflow:',
             '',
@@ -115,10 +151,20 @@ final class PromptCatalog {
             '   The server validates the token and ETag, applies the administrator MCP backup setting, saves the file, and returns the new ETag.',
             '   If the file changed in the meantime, the response is a conflict (409) and nothing was written: re-read and repeat.',
             '',
-            'If you do not have a shell to download and upload the file, do not use checkout: apply the change with',
-            'files_replace (replaces a unique snippet and returns the diff) or with files_edit (full content).',
-            'files_edit and files_replace return the unified diff of before and after, truncated at 20,000 characters.',
-            '',
+        ];
+        if ($available('files_replace') && $available('files_edit')) {
+            array_push($lines,
+                'If you do not have a shell to download and upload the file, do not use checkout: apply the change with',
+                'files_replace (replaces a unique snippet and returns the diff) or with files_edit (full content).',
+                'files_edit and files_replace return the unified diff of before and after, truncated at 20,000 characters.',
+                '',
+            );
+        } elseif ($available('files_edit')) {
+            $lines[] = 'Without a shell, files_edit can replace the text in the file.';
+        } elseif ($available('files_replace')) {
+            $lines[] = 'Without a shell, files_replace can replace a unique snippet.';
+        }
+        array_push($lines,
             'Shared scope: any response with "requiresConfirmation": true means the file is outside your personal',
             'folder (shared, group folder, or external storage). In that case, DO NOT repeat the call immediately:',
             'show the received message to the user and ask if they wish to proceed. Then, confirm with confirm_shared: true.',
@@ -128,38 +174,46 @@ final class PromptCatalog {
             'If the upload returns a confirmation prompt or a conflict, run files_checkout again — passing',
             'confirm_shared: true if the user has already confirmed — instead of retrying the same link.',
             '',
-            'To revert, use files_versions_list and files_version_restore; restoring follows the same administrator MCP backup setting.',
-        ];
+        );
+        if ($available('files_versions_list') && $available('files_version_restore')) {
+            $lines[] = 'To revert, use files_versions_list and files_version_restore; restoring follows the same administrator MCP backup setting.';
+        }
         if ($create) {
             $lines[] = '';
             $lines[] = 'A NEW file is not a checkout: files_checkout only replaces a file that already exists.';
-            $lines = array_merge($lines, self::createLines());
+            $lines = array_merge($lines, self::createLines($available));
         }
         return implode("\n", $lines);
     }
 
     /** @return string the new file workflow handed to the model, in fixed English */
-    private static function createText(): string {
+    private static function createText(\Closure $available): string {
         return implode("\n", array_merge([
             'To create a NEW file in Nextcloud without passing its content through the model:',
             '',
-        ], self::createLines(), [
+        ], self::createLines($available), [
             '',
             'Shared scope: a response with "requiresConfirmation": true means the folder is outside your personal folder.',
             'Show the message to the user, ask if they wish to proceed, and only then repeat with confirm_shared: true.',
+        ], $available('files_checkout') ? [
             'To replace a file that already exists, files_checkout (download, edit, upload) is the tool, when it is granted.',
-        ]));
+        ] : []));
     }
 
     /** @return list<string> how files_upload and files_create are used, shared by both prompts */
-    private static function createLines(): array {
-        return [
+    private static function createLines(\Closure $available): array {
+        $lines = $available('files_upload') ? [
             'To create a new file you generated locally (docx, xlsx, pdf, image, any type), call files_upload with the full',
             'path, show the plan to the user and confirm it; it returns uploadUrl, a single-use link valid for a few minutes.',
             'Send the file with curl -sS -T /tmp/file -X PUT -H "Content-Type: application/octet-stream" "$UPLOAD_URL".',
             'Pass size (bytes of the local file) so an empty upload by mistake is refused and the link still works.',
-            'For a small text file (.md, .txt, .csv, .json, .html, .xml, .yaml) use files_create with the content inline.',
-            'These tools never overwrite a file with content, and the folder must already exist (create it with files_mkdir).',
-        ];
+        ] : [];
+        if ($available('files_create')) {
+            $lines[] = 'For a small text file (.md, .txt, .csv, .json, .html, .xml, .yaml) use files_create with the content inline.';
+        }
+        $lines[] = $available('files_mkdir')
+            ? 'These tools never overwrite a file with content, and the folder must already exist (create it with files_mkdir).'
+            : 'These tools never overwrite a file with content, and the folder must already exist.';
+        return $lines;
     }
 }

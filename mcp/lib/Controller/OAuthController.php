@@ -14,6 +14,7 @@ use OCA\Mcp\OAuth\OAuthException;
 use OCA\Mcp\OAuth\RedirectUriMatcher;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\OAuth\TokenService;
+use OCA\Mcp\Mcp\Tools\ToolRegistry;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Access\Policy\PolicyUnavailable;
 use OCP\AppFramework\Controller;
@@ -49,6 +50,7 @@ class OAuthController extends Controller {
         private TokenService $tokens,
         private GrantPolicy $policy,
         private ResourceUrl $urls,
+        private ?ToolRegistry $tools = null,
     ) {
         parent::__construct($appName, $request);
     }
@@ -79,6 +81,33 @@ class OAuthController extends Controller {
         if (!$allowed) {
             return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
         }
+        try {
+            [$definitions, $permittedVariants] = $this->policy->within($uid, function () use ($uid): array {
+                $definitions = $this->tools?->permittedDefinitions($uid) ?? [];
+                $variants = [];
+                foreach ($definitions as $definition) {
+                    if (isset($definition['grantAnyOf'])) {
+                        $variants[$definition['name']] = $this->tools?->permittedVariants($uid, (string)$definition['name']) ?? [];
+                    }
+                }
+                return [$definitions, $variants];
+            });
+        } catch (PolicyUnavailable) {
+            return $this->page(['unavailable' => true]);
+        }
+        $toolsCatalog = [];
+        $selectedTools = [];
+        $selectedVariants = [];
+        foreach ($definitions as $definition) {
+            $module = (string)($definition['module'] ?? '');
+            $variants = $permittedVariants[$definition['name']] ?? [];
+            $toolsCatalog[$module][] = [
+                'name' => $definition['name'],
+                'title' => $definition['title'] ?? $definition['name'],
+                'description' => $definition['description'],
+                'approvedVariants' => $variants,
+            ];
+        }
         $pendingId = bin2hex(random_bytes(16));
         $this->session->set(self::PENDING_KEY, [$pendingId => $authRequest->toArray()]);
         return $this->page([
@@ -90,6 +119,9 @@ class OAuthController extends Controller {
             'redirectHost' => (string)parse_url($authRequest->redirectUri, PHP_URL_HOST),
             'loopback' => RedirectUriMatcher::isLoopback($authRequest->redirectUri),
             'account' => $user->getDisplayName(),
+            'toolsCatalog' => $toolsCatalog,
+            'selectedTools' => $selectedTools,
+            'toolVariants' => $selectedVariants,
             'action' => $this->urlGenerator->linkToRoute('mcp.o_auth.consent'),
         ]);
     }
@@ -101,7 +133,8 @@ class OAuthController extends Controller {
      */
     #[NoAdminRequired]
     #[UseSession]
-    public function consent(string $pending = '', string $decision = ''): TemplateResponse {
+    public function consent(string $pending = '', string $decision = '', array $tools = [], int $toolsSubmitted = 0,
+        array $variants = [], array $variantTools = []): TemplateResponse {
         $stored = $this->session->get(self::PENDING_KEY);
         $this->session->remove(self::PENDING_KEY);
         if (!is_array($stored) || !is_array($stored[$pending] ?? null)) {
@@ -120,12 +153,77 @@ class OAuthController extends Controller {
         if ($decision !== 'allow') {
             return $this->clientNavigation($authRequest->redirectWith(['error' => 'access_denied'], $this->urls->issuer()));
         }
+        if ($toolsSubmitted !== 1) {
+            return $this->page(['error' => 'The tool selection expired. Start the connection again.']);
+        }
         try {
-            if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
+            [$eligible, $definitions, $allowedVariants] = $this->policy->within($uid, function () use ($uid): array {
+                if (!$this->policy->globalEnabled() || !$this->policy->eligible($uid)) {
+                    return [false, [], []];
+                }
+                $definitions = $this->tools?->permittedDefinitions($uid) ?? [];
+                $variants = [];
+                foreach ($definitions as $definition) {
+                    if (isset($definition['grantAnyOf'])) {
+                        $name = (string)$definition['name'];
+                        $variants[$name] = $this->tools?->permittedVariants($uid, $name) ?? [];
+                    }
+                }
+                return [true, $definitions, $variants];
+            });
+            if (!$eligible) {
                 return $this->page(['blocked' => true, 'client' => $authRequest->client->name]);
             }
+            $allowed = array_fill_keys(array_column($definitions, 'name'), true);
+            if ($toolsSubmitted === 1) {
+                if (!array_is_list($tools) || count($tools) > count($allowed)) {
+                    return $this->page(['error' => 'The tool selection is invalid. Start the connection again.']);
+                }
+                foreach ($tools as $tool) {
+                    if (!is_string($tool) || !isset($allowed[$tool])) {
+                        return $this->page(['error' => 'The tool selection is invalid. Start the connection again.']);
+                    }
+                }
+                $selectedTools = $tools;
+                $selected = array_fill_keys($selectedTools, true);
+                $selectedVariants = [];
+                foreach ($variants as $tool => $operations) {
+                    if (!is_string($tool) || !isset($allowed[$tool]) || !is_array($operations) || !array_is_list($operations)) {
+                        return $this->page(['error' => 'The tool selection is invalid. Start the connection again.']);
+                    }
+                    if (!isset($selected[$tool])) {
+                        continue;
+                    }
+                    foreach ($operations as $operation) {
+                        if (!is_string($operation) || !in_array($operation, $allowedVariants[$tool] ?? [], true)) {
+                            return $this->page(['error' => 'The tool selection is invalid. Start the connection again.']);
+                        }
+                    }
+                    $selectedVariants[$tool] = array_values(array_unique($operations));
+                }
+                if (!array_is_list($variantTools) || count($variantTools) > count($allowed)
+                    || count(array_filter($variantTools, 'is_string')) !== count($variantTools)) {
+                    return $this->page(['error' => 'The tool selection is invalid. Start the connection again.']);
+                }
+                foreach ($variantTools as $tool) {
+                    if (!isset($allowed[$tool])) {
+                        return $this->page(['error' => 'The tool selection is invalid. Start the connection again.']);
+                    }
+                    if (isset($selected[$tool]) && !array_key_exists($tool, $selectedVariants)) {
+                        $selectedVariants[$tool] = [];
+                    }
+                }
+                foreach ($selectedTools as $tool) {
+                    if (($allowedVariants[$tool] ?? []) !== [] && ($selectedVariants[$tool] ?? []) === []) {
+                        return $this->page(['error' => 'Choose at least one permitted action for each selected tool.']);
+                    }
+                }
+            } else {
+                $selectedTools = [];
+                $selectedVariants = [];
+            }
             // Connection and code in one command: a failure leaves the user neither connected nor with a code.
-            $code = $this->tokens->consent($authRequest, $uid);
+            $code = $this->tokens->consent($authRequest, $uid, $selectedTools, $selectedVariants);
         } catch (OAuthException) {
             // The client was withdrawn after the check above (decided under the mutex): nothing was written.
             return $this->page(['error' => 'The authorization request expired. Start the connection again.']);
@@ -177,6 +275,7 @@ class OAuthController extends Controller {
     private function page(array $params): TemplateResponse {
         $response = new TemplateResponse($this->appName, 'consent', $params + [
             'error' => null, 'blocked' => false, 'unavailable' => false, 'pending' => null,
+            'toolsCatalog' => [], 'selectedTools' => [], 'toolVariants' => [],
         ], TemplateResponse::RENDER_AS_GUEST);
         if ($params['unavailable'] ?? false) {
             $response->setStatus(503);

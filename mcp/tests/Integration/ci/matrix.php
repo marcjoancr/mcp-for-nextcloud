@@ -18,6 +18,9 @@ foreach ($manifest['cells'] as $cell) {
             $modes[] = 'upgrade-upstream-121';
         }
     }
+    if ($cell['nc'] === '35' && $cell['db'] === 'mariadb' && $arguments === ['35', 'mariadb', 'upgrade-permissions']) {
+        $modes[] = 'upgrade-permissions';
+    }
     foreach ($modes as $mode) {
         $plans[] = $cell + ['mode' => $mode, 'baseline_commit' => $manifest['baselines'][$mode] ?? null,
             'publishes_ports' => false, 'disposable' => true, 'mail' => $mail ? $mailPins : null];

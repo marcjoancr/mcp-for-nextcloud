@@ -90,10 +90,14 @@ class Application extends App implements IBootstrap {
             $c->get(\OCP\IAppConfig::class), $c->get(\OCA\Mcp\Access\Policy\Events\PolicyEventProcessor::class),
         ));
         $context->registerEventListener(\OCP\User\Events\UserChangedEvent::class, \OCA\Mcp\OAuth\UserRevocationListener::class);
+        // A reused UID starts without the previous account's connection-level tool choices, even if the old account's
+        // UserDeletedEvent was missed and the paired deletion listener therefore could not clear them safely.
+        $context->registerEventListener(\OCP\User\Events\BeforeUserCreatedEvent::class, \OCA\Mcp\Listener\ConnectionToolsCreationListener::class);
         // Recheck causes of account deletion and group removal (contracts §3.3.2); the deletion's cut comes from its
         // account cause, so a late UserDeletedEvent never cuts a consent made after the cause was consumed.
         foreach ([\OCP\User\Events\BeforeUserDeletedEvent::class, \OCP\User\Events\UserDeletedEvent::class,
-            \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class] as $event) {
+            \OCP\Group\Events\BeforeUserRemovedEvent::class, \OCP\Group\Events\UserRemovedEvent::class,
+            \OCP\Group\Events\BeforeUserAddedEvent::class, \OCP\Group\Events\UserAddedEvent::class] as $event) {
             $context->registerEventListener($event, \OCA\Mcp\Listener\UserCauseListener::class);
         }
         // The GID lifecycle (contracts §3.3.5): pending_delete, purge by gen and by the revision read at creation.
@@ -458,6 +462,7 @@ class Application extends App implements IBootstrap {
         ], static fn () => $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class)->assertScopeReadable()));
         $context->registerService(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability(
             $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class),
+            $c->get(\OCA\Mcp\OAuth\ConnectionContext::class),
         ));
         $context->registerService(\OCA\Mcp\Mcp\Tools\Execution\ToolExecutor::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor(
             $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class), $c->get(LoggerInterface::class),
@@ -529,6 +534,15 @@ class Application extends App implements IBootstrap {
         ]));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes($c->get(\OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister::class)));
+        $context->registerService(\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\OAuth\ConnectionContext::class));
+        $context->registerService(\OCA\Mcp\Modules\Files\Contracts\CheckoutSelection::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\OAuth\ConnectionToolsStore::class));
+        $context->registerService(\OCA\Mcp\OAuth\ConnectionContext::class, static fn () => new \OCA\Mcp\OAuth\ConnectionContext());
+        $context->registerService(\OCA\Mcp\OAuth\ConnectionToolsStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\OAuth\ConnectionToolsStore(
+            $c->get(\OCP\IDBConnection::class), $c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+            $c->get(\OCA\Mcp\OAuth\TokenOwnerGate::class), $c->get(\OCA\Mcp\Db\AuthUsersMapper::class),
+            $c->get(\OCA\Mcp\Db\PolicyStateMapper::class), $c->get(\OCA\Mcp\Db\OAuthClientsMapper::class),
+        ));
+        $context->registerService(PromptCatalog::class, static fn (ContainerInterface $c): PromptCatalog => new PromptCatalog($c->get(ToolRegistry::class)));
         $context->registerService(ResourceRegistry::class, static fn (ContainerInterface $c): ResourceRegistry => new ResourceRegistry($c->get(ToolRegistry::class), $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Modules\Files\Contracts\FileResourceReader::class), $c->get(\OCA\Mcp\Modules\Notes\Contracts\NoteResourceReader::class), $c->get(ToolRegistry::class)->guide(), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class)));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ServerIdentity($c->get(IAppManager::class), $c->get(\OCA\Mcp\Release\SourceOffer::class)));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\ToolRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ToolRequests($c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class), $c->get(ToolRegistry::class)));

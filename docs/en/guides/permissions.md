@@ -36,19 +36,17 @@ and installations without Guests retain their existing behavior.
 
 ## Individual choices and group inheritance
 
-Access and permissions provides module levels and an **Operations** view for individual permissions. Search uses name, ID or email; email is not displayed. Group and eligibility/connection filters run on the server, with 50 users per page. Disabled accounts cannot be edited, and unavailable applications or log roles remain unavailable without erasing saved choices.
+In **Administration → Nextcloud MCP → Access and permissions**, search for a user or group. The selected subject's service setting appears above the tool catalogs. Expand a catalog to inspect each tool's assignment, effective permission and source. Use the preview before saving a change.
 
-Resolution has this order:
+**Allow**, **Block** and **Unassigned** apply to both the service and tools. An individual's explicit decision wins. When it is unassigned, a block by a trusted group wins over group allowances. Without a group decision, the catalog default applies. Turning off the global service or disabling an account prevents every connection from using MCP. A tool still needs its optional application, role, operation prerequisites and native resource access.
 
-1. An individual's explicit **Allow** or **Deny** wins.
-2. Without an individual choice, any trusted group grant allows the operation.
-3. Otherwise the default applies. Groups grant access; they do not deny or narrow it.
+Group membership comes from Nextcloud. Only native database-backed groups can grant access. A failure to resolve a policy is reported as unavailable. Advanced operation permissions include the separate Files sharing and public-link controls. Changing one of those settings affects every tool that requires that operation.
 
-Only groups from Nextcloud's own database backend may grant. LDAP, SAML, other application backends and ambiguous backend identities cannot safely supply group inheritance. Give their users individual permissions instead. A recreated or uncertain group does not silently regain its old authority: the editor explains the state and offers confirmation of the current policy where applicable.
+### Upgrading from 2.0.0
 
-Use **Group grants** to select a group, edit its operations and preview before saving. Member counts and sign-out estimates are administrative planning information, not an authorization decision for each member. Removing **Can connect** signs out the members who actually lose eligibility. Large groups can take time to process; this integration does not claim a new performance guarantee.
+The upgrade preserves the original individual and group settings. The 84 tools shipped in 2.0.0 inherit these settings until an administrator changes an assignment. An old unchecked group operation stays unassigned. Resetting an individual tool to **Unassigned** also clears its inherited individual operation override for that tool. The migration verifies the old and new decisions before activation. An unexpected difference or an unreadable policy stops the upgrade.
 
-**Inherit** and the row/selection reset actions remove individual overrides. The preview identifies individual choices, granting groups, defaults and unknown results. An unreadable group or policy is **Unknown**, never an implicit allow or a reason to erase credentials. Requests that depend on that uncertainty fail temporarily; tools whose authorization is unknown are omitted from discovery while independently allowed tools remain available.
+Existing connections receive a selection limited to their previous operation permissions. Newly added tools require a new assignment and selection. Keep the pre-upgrade database and application backup together. After someone changes selections or blocks access in the new editor, recovery must retain those decisions. An older app cannot enforce them.
 
 ## Saving, conflicts and undo
 
@@ -65,6 +63,9 @@ Notes, Contacts, Deck and Talk have no module resource restriction in 1.1.0. Str
 The administrator-only inspector reports **Allowed**, **Blocked** or **Unknown**, the blocking check and the permission's source. It may explain an excluded path to the administrator; MCP errors retain generic refusals. Queries and changes can produce info-level audit messages without resource names or paths. These messages depend on the host log level and are not a guaranteed audit trail.
 
 ## Clients and personal settings
+
+Open **Personal settings → Nextcloud MCP** and choose a connected client to manage its tools. The same selector appears when authorizing a new OAuth connection. Select only what that client needs. Administrative withdrawals apply on the next request, including existing tokens. Refreshing an OAuth token retains that connection's selection. Basic authentication and session clients share the separately labeled Nextcloud profile. Resource scope continues to limit which folders, calendars and task lists the client can reach.
+
 
 Manage published client hosts, the native client and registered custom clients under **Clients and connections**; see [OAuth](../reference/oauth.md). Administrative APIs require an administrator and Nextcloud CSRF protection. Personal connection/scope APIs derive identity from the session and expose only that user's state. Responses never contain token hashes.
 

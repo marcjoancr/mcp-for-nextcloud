@@ -28,6 +28,7 @@ use OCA\Mcp\Db\PolicyEventsMapper;
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
 use OCA\Mcp\Db\ResourceScopeMapper;
+use OCA\Mcp\Db\ToolGrantsMapper;
 use OCA\Mcp\OAuth\OAuthStore;
 use OCP\IConfig;
 use OCP\IAppConfig;
@@ -51,6 +52,7 @@ final class PolicyServices {
         PolicyStateMapper $state, PolicyEventsMapper $events, AuthUsersMapper $authUsers,
         RecheckMapper $rechecks, GroupGrantsMapper $grants, GroupLifeMapper $life,
         OAuthStore $oauth, ResourceScopeMapper $scopes, ScopeActivation $activation = new ScopeActivation(),
+        ?ToolGrantsMapper $toolGrants = null,
     ) {
         $known = new PolicyUsers($users);
         $this->holds = new LifecycleHolds($life);
@@ -61,7 +63,7 @@ final class PolicyServices {
         $this->grants = new GrantCommands($transaction, $this->mutations, $inheritance, $known);
         $this->service = new ServiceCommands($transaction, $this->mutations);
         $this->credentials = new CredentialCommands($transaction, $authUsers, $rechecks, $config, $known, $this->mutations, $cuts, $this->holds);
-        $this->groups = new GroupGrantCommands($transaction, $life, $grants, $authUsers, $oauth, $time, $events, $cuts);
+        $this->groups = new GroupGrantCommands($transaction, $life, $grants, $authUsers, $oauth, $time, $events, $cuts, $toolGrants);
         $this->undo = new ReceiptUndo($transaction, new ReceiptStore($events, $time), $this->mutations, $inheritance, $known, $this->scopeMutations, $activation);
     }
 }
