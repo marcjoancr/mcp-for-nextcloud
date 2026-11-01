@@ -5,7 +5,7 @@
 
 Date: 2026-10-29. **The local storage/provider blocker is resolved with pinned
 Inspector 2.13.0 and a corrected, expanded 21-case qualification.** End-to-end
-Inspector, public HTTPS, hosted ChatGPT and human reviews remain pending. This
+Inspector, public HTTPS and hosted ChatGPT were pending at that checkpoint. Their subsequent MinicoLab results are in the [production record](minicolab-production-window.md). Human reviews remain pending. This
 work changes development acceptance tooling, not the Nextcloud MCP application,
 its immutable candidate kit, the production server or PR #14.
 

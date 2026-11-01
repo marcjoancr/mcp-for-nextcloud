@@ -2,131 +2,34 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
-<div align="center">
-
 # Nextcloud MCP
 
-Independent continuation of MCP for Cloud by Sintax, maintained in this fork.
-Not an official Nextcloud product or the upstream App Store package.
+**English** · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
-**A native Nextcloud app that turns your Nextcloud into an MCP server.**
-Let Claude and other MCP clients work with your files, notes, calendars, contacts, tasks, Deck boards, Talk conversations and cached Mail folders, subject to MCP policy, resource restrictions and each user's native Nextcloud permissions.
+[![CI](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml?query=branch%3Amain) · **Nextcloud 33–35** · **PHP 8.4+** · [AGPL-3.0-or-later](LICENSE)
 
-[![Tests](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml/badge.svg)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml)
-[![Nextcloud 33–35](https://img.shields.io/badge/Nextcloud-33--35-0082c9?logo=nextcloud&logoColor=white)](https://nextcloud.com)
-[![PHP 8.4+](https://img.shields.io/badge/PHP-8.4%2B-777bb4?logo=php&logoColor=white)](https://www.php.net)
-[![MCP](https://img.shields.io/badge/MCP-2025--06--18%20%7C%202026--07--28-111)](https://modelcontextprotocol.io)
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue)](#license)
+Connect an MCP client to your own Nextcloud. Search files, read notes, follow Talk conversations or manage tasks through one endpoint. Each request runs with the permissions of the signed-in user.
 
+**Try it:** In ChatGPT or Claude, ask “Which Talk conversations have unread messages?” The tool guide shows what your account can use. An administrator can limit both the available tools and the resources they can access.
 
-</div>
+Nextcloud MCP is an independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) by Sintax (Jhonatan Jaworski). Development takes place on [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
 
----
+**Version 2.0.0** runs on MinicoLab, where MCP Inspector and ChatGPT have both called the tool guide over HTTPS. The fork retains the app ID `mcp`. Installing the App Store edition selects the original project. Review the installation guide before replacing an existing instance.
 
-## Why
+## Start here
 
-One endpoint inside Nextcloud, with each user’s permissions. No Node, Docker or extra service is required at runtime.
+Server URL · `https://cloud.example.com/apps/mcp/`
 
-## Selected upstream integration (development)
+- [Install the fork](docs/en/installation.md)
+- [Connect a client](docs/en/guides/clients.md)
+- [Explore the tools](docs/en/reference/tools.md)
+- [Configure permissions](docs/en/guides/permissions.md)
 
-This branch adds Notes append/replace, Deck labels and visible file linking/unlinking,
-conditional NC34/35 Deck dependencies, precise Deck deadlines and an optional
-filename allowlist, alongside privacy and compatibility fixes. See the
-[tools](docs/en/reference/tools.md) and
-[configuration](docs/en/reference/configuration.md) guides for limits and defaults.
-The independent **Nextcloud MCP 2.0.0** development candidate retains app ID `mcp`;
-release and host qualification and human reviews remain pending. Native file linking
-requires explicit approval of its current and future audience and retains native
-sharing limitations. The intended LinuxServer/Nginx upgrade and recovery remain
-pending; disposable Apache results do not certify every client/platform combination.
-
-## What's new in 1.1.2
-
-Guests restrictions now apply to app-password and OAuth requests and to checkout links: allowed applications, hidden external storage and group-only sharing. Accounts that are not guests are unaffected; no database migration is added. See [release details](CHANGELOG.md#112).
-
-
-## What's new in 1.1.1
-
-Permission screens treat unreadable save replies as unconfirmed and reload stored permissions without repeating the write. No database migration is added. See [release details](CHANGELOG.md#111).
-
-## What's new in 1.1.0
-
-Group grants, per-user resource restrictions, access inspection, registered OAuth clients and stronger revocation. See the [changelog](CHANGELOG.md) and [permissions guide](docs/en/guides/permissions.md).
-
-## Features
-
-[Features](docs/en/reference/tools.md).
-
-## Contacts and tasks
-
-[Contacts and tasks](docs/en/reference/tools/contacts-tasks.md).
-
-## Requirements
-
-[Requirements](docs/en/installation.md).
-
-## Installation
-
-This independent fork is a development candidate, not the App Store release. Read the [installation requirements](docs/en/installation.md) and pending release gates before using a built artifact.
-
-[Installation](docs/en/installation.md).
-
-## Connecting a client
-
-[Connecting a client](docs/en/guides/clients.md).
-
-### Claude (claude.ai, Claude Desktop, Cowork and Claude Code — recommended)
-
-[Claude (claude.ai, Claude Desktop, Cowork and Claude Code — recommended)](docs/en/guides/clients.md).
-
-### ChatGPT
-
-[ChatGPT](docs/en/guides/clients.md).
-
-### Gemini CLI
-
-[Gemini CLI](docs/en/guides/clients.md).
-
-### Administrators: OAuth clients
-
-[Administrators: OAuth clients](docs/en/guides/clients.md).
-
-### Other MCP clients (app password)
-
-[Other MCP clients (app password)](docs/en/guides/clients.md).
-
-### Revoking access
-
-[Revoking access](docs/en/guides/clients.md).
-
-## Security
-
-[Security](docs/en/guides/permissions.md).
-
-### Excluded from MCP access
-
-[Excluded from MCP access](docs/en/guides/permissions.md).
+[Documentation](docs/en/README.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 ## Development
 
-[Development](docs/en/development/setup.md).
-
-## Selected 1.2.1 capabilities
-
-Configurable [backup policy](docs/en/reference/configuration.md#mcp-backup-copies),
-[Tasks hierarchy](docs/en/reference/tools/tasks.md) and optional
-[Mail account/folder reads](docs/en/reference/tools/mail.md) are integrated into
-the capability architecture. Mail requires an explicit read grant. See the
-[reconciliation and acceptance limits](docs/en/development/upstream-1.2.1-u5-integration.md);
-2.0.0 remains a development candidate.
-
-## Changelog
-
-[Changelog](CHANGELOG.md).
-
-## Roadmap
-
-- Native review of the Spanish translation
+Start a topic branch from `main` and send your pull request to this fork. The [architecture guide](docs/en/development/architecture-specification.md) explains how Files, Deck, Talk and the other modules own their tools and share the MCP transport.
 
 ## License
 
@@ -136,20 +39,11 @@ AGPL-3.0-or-later, with the additional section 7(b) attribution term in [NOTICE]
 
 The package includes Smalot PdfParser, Symfony Polyfill Mbstring and the Composer autoloader. See versions, licenses, copyright and development dependencies in [THIRD-PARTY-NOTICES.md](mcp/THIRD-PARTY-NOTICES.md).
 
-**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation (#10) and @Zegorax for administrator-registered OAuth clients (#8, #7), and @mturgeonferland for the original Tasks
+**Contributors.** Thanks to @NightDragon1 ([#5](https://github.com/sintax-tech/mcp-for-nextcloud/issues/5)) for the root visibility check and to @matt-ek ([#4](https://github.com/sintax-tech/mcp-for-nextcloud/issues/4)) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation ([#10](https://github.com/sintax-tech/mcp-for-nextcloud/issues/10)) and @Zegorax for administrator-registered OAuth clients ([#8](https://github.com/sintax-tech/mcp-for-nextcloud/issues/8), [#7](https://github.com/sintax-tech/mcp-for-nextcloud/issues/7)), and @mturgeonferland for the original Tasks
 subtask contribution ([#18](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18)).
 
 The upstream documentation also credits Sintax/Jhonatan Jaworski's contribution
 to [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). This historical
 credit is retained without implying that XERJ reviewed this fork.
 
-## About Sintax
-
-Developed by [Sintax](https://sintax.tech) · sintax.tech.
-
-- Website: https://sintax.tech
-- GitHub: https://github.com/sintax-tech
-- Contact: contato@sintax.tech
-- Other Nextcloud apps by Sintax: [MCP for Cloud](https://apps.nextcloud.com/apps/mcp) · [Audiolog](https://apps.nextcloud.com/apps/audiolog)
-
-English · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
+Developed by Sintax — https://sintax.tech

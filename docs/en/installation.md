@@ -6,48 +6,23 @@
 
 ## Requirements
 
-Nextcloud MCP **2.0.0** is an independent development candidate. It is not yet a
-qualified release and must not be deployed based on this document alone. It keeps
-app ID `mcp`, so it replaces the original application rather than installing beside
-it. The Nextcloud App Store package is the original MCP for Cloud, not this fork.
+Nextcloud MCP 2.0.0 uses app ID `mcp`. It replaces an existing installation of MCP for Cloud. The Nextcloud App Store distributes the original app. For the fork, use the package built from the reviewed source revision.
 
-The approved qualification targets are:
+The reference environment is Linux x86-64 with Apache. Use maintained patch versions and the PHP extensions `zip`, `mbstring` and `dom`. SQLite is used for local tests and recovery rehearsals.
 
-| Nextcloud | PHP | Database | Reference platform |
-| --- | --- | --- | --- |
-| 35 | 8.5 | MariaDB 10.11 or PostgreSQL 16 | Linux x86-64 / Apache |
-| 34 | 8.5 | MariaDB 10.11 | Linux x86-64 / Apache |
-| 33 | 8.4 | MariaDB 10.11 | Linux x86-64 / Apache |
+| Nextcloud | PHP | Database |
+| --- | --- | --- |
+| 35 | 8.5 | MariaDB 10.11 or PostgreSQL 16 |
+| 34 | 8.5 | MariaDB 10.11 |
+| 33 | 8.4 | MariaDB 10.11 |
 
-Use security-maintained patches. The final candidate and exact patches still need
-qualification; manifest bounds do not certify every combination. SQLite remains a
-local test/recovery target, not an initial production profile. NC 32 is excluded
-from this release's deployment scope; its historical tests do not prove an upgrade
-sequence from an NC 32 host. PHP needs `zip`, `mbstring` and `dom`.
-
-Optional apps provide only their own tools: Notes, Calendar, Contacts, Deck, Talk
-(`spreed`), Versions (`files_versions`, required for edits) and Deleted files
-(`files_trashbin`, required for deletes). Disabled or unsupported apps have hidden
-tools. Deck's three dependency tools additionally require the compatible NC34/35
-APIs described in [Deck](reference/tools/deck.md#conditional-native-dependencies).
+Tools depend on the corresponding Nextcloud apps and the account’s grants. Deck dependencies need compatible APIs on NC34/35. See the [tool catalog](reference/tools.md).
 
 ### Install via SSH
 
-The source build produces `mcp-2.0.0.tar.gz`. No production installation command is
-approved yet. Before installation, record the exact current server/app versions,
-qualify their in-place upgrade and coordinated restore, and prove that each
-routine update path preserves the fork. A higher version number does not stop a
-future App Store package replacing it. Do not use `occ app:install mcp` to install
-this fork or force-enable it on a platform outside its manifest bounds.
+Verify `mcp-2.0.0.tar.gz` and its matching source kit against a trusted manifest digest. Rehearse the upgrade and recovery on your server profile and make sure automated updates preserve the fork. The command `occ app:install mcp` selects the original store package.
 
-The controlled procedure must verify the candidate digest and corresponding
-source, enable maintenance mode, replace the app directory as a whole, run the
-native upgrade and verify migrations, policy, assets and existing connections
-before reopening traffic. It must also establish custom-app integrity behavior
-without disabling Nextcloud integrity checks globally. Those checks remain release
-gates; the actual host, public HTTPS, Inspector, ChatGPT and human review are still
-pending. Legacy migration IDs are retained. An installed upstream 1.2.0 to 2.0.0
-upgrade is not established merely by integrating its source changes.
+MinicoLab upgraded from 1.2.1 to 2.0.0 on Nextcloud 35.0.2 with LinuxServer/Nginx and PostgreSQL. Public HTTPS, MCP Inspector authorization and revocation, and a ChatGPT tool guide call were verified. Human reviews remain pending.
 
 ## Upgrade and recovery
 

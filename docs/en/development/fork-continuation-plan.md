@@ -7,22 +7,7 @@
 this fork. The branch names and approvals in the dated phase records describe
 the earlier transition. See the [development baseline record](fork-development-baseline.md).
 
-Status: F0, F1 and the selected F2 integration completed locally on 2026-10-23.
-The [execution record](upstream-1.2.0-integration.md) records the ordered batches,
-corrections, automated qualification and acceptance limits. The renewed review adds
-D06 native file linking under its [follow-up plan](deck-file-link-integration.md);
-implementation and local native qualification are complete.
-The user approved the development baseline, branch policy and ongoing
-maintenance accountability
-recorded below. The separate request to remove the local original
-repository remote has been carried out. On 2026-10-27 the user authorized
-publication and default-branch promotion of `fork/main`, recorded in the
-[development baseline record](fork-development-baseline.md). Releases and deployment
-remain unauthorized. F1 local branch creation and validation were already authorized.
-F3 decisions
-for public identity, initial version and platform scope are now confirmed as
-recorded in the [F3 execution record](fork-f3-preparation.md). Qualification,
-actual-host facts and human reviewer assignments remain pending.
+The fork grew from the capability architecture originally proposed upstream. The historical sections below record the baseline and the selected upstream ports. The [MinicoLab production record](minicolab-production-window.md) covers the deployment of 2.0.0. Security, operations and recovery, licensing, accessibility and language reviews remain pending.
 
 ## Purpose and baseline
 
@@ -32,11 +17,10 @@ English documentation. Code and comments remain English. User-facing documentati
 retains the existing translation provenance and human-review workflow.
 
 The starting candidate is commit
-`14a76df26817fb8a4540eb9c9d1d0043e3e87506` on
-`refactor/complete-upstream-pr`, incorporating upstream 1.1.2 at
+`14a76df26817fb8a4540eb9c9d1d0043e3e87506` from the former upstream proposal branch, incorporating upstream 1.1.2 at
 `27da5e107ca06d92b7af9b8a80ad9c77c12ba91e`.
 [PR #14](https://github.com/sintax-tech/mcp-for-nextcloud/pull/14)
-is the architectural proposal and historical qualification reference.
+was the architectural proposal. It closed without merging.
 On 2026-10-23, the maintainer
 [announced 1.2.0 and their intended capability reorganization for 1.3.0](https://github.com/sintax-tech/mcp-for-nextcloud/pull/14#issuecomment-6355529655).
 This is not evidence that our candidate contains 1.2.0 or that upstream accepted
@@ -207,7 +191,7 @@ assessment of section 13. Keep the source offer usable by its actual users.
 
 ## Execution phases and acceptance criteria
 
-Execute phases in order after the plan is approved. Each phase records its result
+The following phases describe the original October 2026 plan. The F0 and F1 branch names and PR conditions below applied during that campaign. Each phase records its result
 and unresolved issues before the next begins. Failures remain visible; do not
 weaken checks, add analysis suppressions or leave transitional architecture behind.
 

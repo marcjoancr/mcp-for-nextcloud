@@ -3,12 +3,7 @@
 
 # MinicoLab production window
 
-**Production is NO-GO.** The owner requires the service to be operational by
-**Monday, 2 November 2026, 08:00 Europe/Madrid (07:00 UTC)**. The owner confirmed
-that the coordinated production backup is pending confirmation. Its reference,
-coverage and measured restore time are missing. The owner handles operation and
-recovery. The authorization for this preparation covered devbox and a read-only
-SSH inspection of startup inputs. A production change needs a separate GO.
+**Outcome on 2026-11-01.** MinicoLab upgraded from 1.2.1 to 2.0.0 and reopened traffic on Nextcloud 35.0.2. The operator verified HTTPS, the Inspector OAuth flow and revocation, and a tool guide call from ChatGPT. The remaining sections preserve the pre-deployment plan and the gates that applied at that time. Human reviews remain pending.
 
 ## Candidate ready on devbox
 
@@ -19,11 +14,10 @@ The 1,415,469-byte runtime archive hashes to
 `e31aa5a9619b2a6181456d97b0af2da38569eae01079303ad7010b1b36d81297`.
 The complete delivery contains the manifest, runtime archive, locked runtime
 dependencies, `BUILDING.md` and `source.bundle`, including the reachable source
-history. The private handoff copy is under `mcp/build/preparation/production-kit/`
-in the `production-preparation` devbox worktree. The original is under
-`mcp/build/source/efb27979b6a90122ce45a6a509e52390030f7ed9/` in the
-`fork-continuation-plan` worktree. Both are outside Git. The sibling `mcp/build/preparation/host-startup-inputs/`
-holds the verified private hook and the pinned offline Alpine mirror. Stage
+history. The verified kit is retained outside Git under
+`mcp/build/source/efb27979b6a90122ce45a6a509e52390030f7ed9/` in the main devbox checkout.
+The separate preparation copy, private hook and pinned offline Alpine mirror
+were archived when the temporary worktrees were retired. Stage
 these separately from the source offer. Fixture config, database dumps,
 synthetic credentials and private run logs do not belong in either delivery.
 
@@ -148,8 +142,6 @@ from failures to run a test or clean up a fixture.
   service health before reopening 1.2.1. Restoring app files alone would leave
   the upgraded database and objects in place.
 
-Public HTTPS, refreshed end-to-end Inspector, hosted ChatGPT consent/discovery
-and human security, operations/recovery, licensing, accessibility and language
-reviews remain pending. Record scope-specific sign-offs separately. Using the
+At planning time, public HTTPS, Inspector, hosted ChatGPT and human reviews were pending. The outcome above records which checks were subsequently completed. Record scope-specific sign-offs separately. Using the
 fork from ChatGPT requires the real HTTPS/client path. No public endpoint,
 release, push or upstream PR change is part of this preparation.

@@ -3,13 +3,13 @@
 
 # Development guide
 
-MCP for Nextcloud is a native Nextcloud app. Start with [setup](setup.md), then
+Nextcloud MCP is developed on `main` in [this fork](https://github.com/marcjoancr/mcp-for-nextcloud). Target this repository for contributions. Start with [setup](setup.md), then
 run the commands in [testing](testing.md). Code, identifiers, comments and technical
 source documentation use English; user-facing messages use Nextcloud localization.
 
 | Task | Reference |
 | --- | --- |
-| Prepare the MinicoLab production window | [Decision, cutoff and rollback](minicolab-production-window.md), [OCR startup inputs](minicolab-startup-qualification.md) |
+| Review the completed MinicoLab deployment | [Decision, cutoff and rollback](minicolab-production-window.md), [OCR startup inputs](minicolab-startup-qualification.md) |
 | Assess the operator-owned app and config paths | [LinuxServer qualification](linuxserver-operator-paths.md) |
 | Assess the read-only mount for MCP | [LinuxServer mount trial](linuxserver-readonly-mcp.md) |
 | Continue the independent fork | [Fork continuation plan](fork-continuation-plan.md), [development baseline](fork-development-baseline.md) |
@@ -26,6 +26,8 @@ source documentation use English; user-facing messages use Nextcloud localizatio
 | Edit guides or translations | [Documentation](documentation.md), [translations](translations.md) |
 | Change filename write enforcement | [Filename write policy sink inventory](file-write-policy-sinks.md) |
 | Change file visibility rules | [Exclusion and folder exposure contract](contracts/exclusion-and-folder-exposure.md) |
+
+The dated integration and deployment records use the branch names, PR numbers and test status observed at the time. For current branch policy, see [Contributing](../../../CONTRIBUTING.md).
 
 Use [operational guides](../guides/README.md) for installation and administration.
 Keep test fixtures with their tests and preserve their attribution and source

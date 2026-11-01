@@ -4,8 +4,7 @@
 # F3: independent release preparation
 
 Status: partial local execution on 2026-10-23 from `5ff6672`. This record belongs
-to the [fork continuation plan](fork-continuation-plan.md). No release is published
-or deployed. At this initial stage, server facts and human reviewer assignments
+to the [fork continuation plan](fork-continuation-plan.md). At that checkpoint, no release had been published or deployed. The later [production record](minicolab-production-window.md) describes the MinicoLab deployment. At this initial stage, server facts and human reviewer assignments
 were pending. The later [host inventory](fork-f3-delivery.md#intended-host-read-only-inventory)
 records partial facts supplied on 2026-10-24; reviewers remain pending. Earlier
 evidence certifies only the revisions stated in its records.

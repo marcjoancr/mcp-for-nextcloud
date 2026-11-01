@@ -3,7 +3,9 @@
 
 # F3: local delivery, update control and integrity
 
-Latest host observation: the [2026-10-31 read-only update/integrity audit](fork-minicolab-update-integrity-audit.md)
+The entries below describe the pre-deployment qualification. For the outcome of the 2.0.0 upgrade and client checks, see the [production record](minicolab-production-window.md).
+
+At the time, the [2026-10-31 read-only update/integrity audit](fork-minicolab-update-integrity-audit.md)
 finds installed MCP files declaring 1.2.1. Renewed L5 still qualifies the frozen
 1.2.0 origin only; update exclusion, native host integrity and the new upgrade
 journey remain unqualified. Local comparison with the published 1.2.1 package

@@ -13,7 +13,7 @@ architecture baseline remains reachable through the history of `main`.
 On 2026-10-27 the owner authorized publishing `fork/main` and making it the fork's
 GitHub default branch, following the proposed consolidation of L0. This authorizes
 development-branch publication, not a release, deployment or changes to upstream
-PR #14. The original `main` and PR reference remain intact.
+PR #14. At that point the original `main` and PR reference were intact.
 
 ## Baseline and workflow
 
@@ -39,15 +39,15 @@ against actual CI contexts and available reviewers, not invented sign-offs.
 ## Verified publication
 
 The first publication reached `c2b61a2f5b788ae035f0a08d53109acb69a99817` on
-`origin/fork/main`. GitHub reports `fork/main` as the default and protected branch.
-The original `main` remains at `a1a7911cc72dcf2487d17e06e23edfa89b0ecf92`;
-`refactor/complete-upstream-pr` remains at
+`origin/fork/main`. GitHub reported `fork/main` as the protected default at that point.
+The original `main` then pointed to `a1a7911cc72dcf2487d17e06e23edfa89b0ecf92`;
+`refactor/complete-upstream-pr` then pointed to
 `14a76df26817fb8a4540eb9c9d1d0043e3e87506`. No branch was renamed or deleted,
 and PR #14 was not changed. This record's follow-up commit advances only `fork/main`.
 
-The external devbox project profile now uses `fork/main` as its worktree base;
+The October devbox project profile used `fork/main` as its worktree base;
 project identity was revalidated, and local `origin/HEAD` points to the same branch.
-The base checkout's old `main` is retained, so do not start development from it.
+The former base checkout retained the older `main` at that time.
 No harness files were placed in the repository.
 
 GitHub started Quality, Tests, Package and Native integration on the first push.
@@ -94,7 +94,7 @@ license or visual review, and does not establish that all history is suitable fo
 a release source bundle. No history was rewritten and no generated evidence or
 server credentials are included in this publication.
 
-## Pending qualification
+## Qualification pending at the October checkpoint
 
 - LinuxServer L1-L5: runtime isolation, 1.2.0 → 2.0.0 upgrade, complete restores,
   negative cases and cleanup. L0 has planning only; it has not run a fixture.
