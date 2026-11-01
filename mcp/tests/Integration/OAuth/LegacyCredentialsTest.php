@@ -86,7 +86,7 @@ final class LegacyCredentialsTest extends IntegrationTestCase {
                         . '"files_list","files_list_shares","files_read","files_search","files_tree","files_version_read",'
                         . '"files_versions_list","notes_list","notes_read","notes_search","talk_list_conversations",'
                         . '"talk_read_messages","tasks_list_calendars","tasks_list_tasks","tasks_read_task","users_search"]';
-                    $added['tool_variants'] = '{}';
+                    $added['tool_variants'] = '[]';
                 }
                 $this->assertSame($added, array_diff_key($now, $row), $table);
             }
