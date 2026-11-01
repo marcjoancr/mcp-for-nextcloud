@@ -27,14 +27,15 @@ final class ToolPermissionsHttpTest extends IntegrationTestCase {
         $suffix = bin2hex(random_bytes(5));
         $user = $users->createUser('mcp-perm-' . $suffix, bin2hex(random_bytes(24)));
         self::assertNotFalse($user);
-        $allow = $groups->createGroup('mcp-allow-' . $suffix);
+        $allow = $groups->createGroup((string)random_int(1000000000, 2000000000));
         $block = $groups->createGroup('mcp-block-' . $suffix);
         try {
             $allow->addUser($user);
             $block->addUser($user);
             $this->assign('group', $allow->getGID(), ['files_edit' => 'allow', '_service' => 'allow']);
-            $this->assign('group', $block->getGID(), ['files_edit' => 'deny', '_service' => 'deny']);
             $policy = \OCP\Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
+            self::assertContains($user->getUID(), $policy->flaggedUsers($policy::ELIGIBLE_KEY));
+            $this->assign('group', $block->getGID(), ['files_edit' => 'deny', '_service' => 'deny']);
             self::assertFalse($policy->eligible($user->getUID()));
             self::assertFalse($policy->toolGranted($user->getUID(), 'files_edit', 'files', 'edit'));
             $this->assign('user', $user->getUID(), ['files_edit' => 'allow', '_service' => 'allow']);
@@ -47,6 +48,45 @@ final class ToolPermissionsHttpTest extends IntegrationTestCase {
             $allow?->delete();
             $block?->delete();
             $user->delete();
+        }
+    }
+
+    public function testReusedUidCannotBeCreatedUntilPreviousToolAuthorityIsCleared(): void {
+        $users = \OCP\Server::get(\OCP\IUserManager::class);
+        $policy = \OCP\Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
+        $selections = \OCP\Server::get(\OCA\Mcp\OAuth\ConnectionToolsStore::class);
+        $uid = 'mcp-reused-' . bin2hex(random_bytes(5));
+        $password = bin2hex(random_bytes(24));
+        $previous = $users->createUser($uid, $password);
+        self::assertNotFalse($previous);
+        try {
+            $this->assign('user', $uid, ['_service' => 'allow', 'files_edit' => 'allow']);
+            self::assertTrue($previous->delete());
+            // The previous account's individual grants remain pending until this UID is created again.
+            $grants = \OCP\Server::get(\OCA\Mcp\Db\ToolGrantsMapper::class);
+            self::assertSame('allow', $grants->forPrincipals($grants::USER, [$uid])[$uid]['files_edit']);
+            // Model a missed deletion callback by leaving a Basic profile for the old UID.
+            $selections->save($uid, 0, ['files_edit'], '0');
+
+            $db = $this->official();
+            $db->beginTransaction();
+            try {
+                $users->createUser($uid, $password);
+                self::fail('Creating the replacement account must stop when the policy writer cannot run');
+            } catch (\OCA\Mcp\Access\Policy\PolicyUnavailable) {
+                self::assertFalse($users->userExists($uid));
+            } finally {
+                $db->rollBack();
+            }
+            self::assertTrue($selections->hasUserSelections($uid));
+
+            $replacement = $users->createUser($uid, $password);
+            self::assertNotFalse($replacement);
+            self::assertFalse($policy->eligible($uid));
+            self::assertFalse($policy->toolGranted($uid, 'files_edit', 'files', 'edit'));
+            self::assertFalse($selections->hasUserSelections($uid));
+        } finally {
+            $users->get($uid)?->delete();
         }
     }
 

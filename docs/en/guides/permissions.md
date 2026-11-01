@@ -42,6 +42,8 @@ In **Administration → Nextcloud MCP → Access and permissions**, search for a
 
 Group membership comes from Nextcloud. Only native database-backed groups can grant access. A failure to resolve a policy is reported as unavailable. Advanced operation permissions include the separate Files sharing and public-link controls. Changing one of those settings affects every tool that requires that operation.
 
+When Nextcloud creates an account, MCP clears any individual tool grants and connection selections left by an earlier account with the same user ID. If that transaction fails, account creation stops. Retry creation after the policy store is available.
+
 ### Upgrading from 2.0.0
 
 The upgrade preserves the original individual and group settings. The 84 tools shipped in 2.0.0 inherit these settings until an administrator changes an assignment. An old unchecked group operation stays unassigned. Resetting an individual tool to **Unassigned** also clears its inherited individual operation override for that tool. The migration verifies the old and new decisions before activation. An unexpected difference or an unreadable policy stops the upgrade.

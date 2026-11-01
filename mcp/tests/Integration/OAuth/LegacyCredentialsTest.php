@@ -73,9 +73,22 @@ final class LegacyCredentialsTest extends IntegrationTestCase {
             foreach ($before as $row) {
                 $now = $after[$row[$key]] ?? null;
                 $this->assertNotNull($now, "$table row {$row[$key]} was recreated or lost");
-                // Same columns, ids and hashes, plus the two generation columns at their migrated values.
+                // Same baseline columns, ids and hashes, plus the generation and migrated tool snapshot columns.
                 $this->assertSame($row, array_intersect_key($now, $row), $table);
-                $this->assertSame(['auth_global_epoch' => '0', 'auth_gen' => '1'], array_diff_key($now, $row), $table);
+                $added = ['auth_global_epoch' => '0', 'auth_gen' => '1'];
+                if ($table === 'mcp_oauth_codes') {
+                    // The legacy fixture user has no stored overrides. Pin its expected migrated grant snapshot so
+                    // this integration catches changes to the upgrade contract without reimplementing the migration.
+                    $added['tool_names'] = '["calendar_list_calendars","calendar_list_events","contacts_list_addressbooks",'
+                        . '"contacts_read_contact","contacts_search_contacts","deck_followup_cards","deck_list_boards",'
+                        . '"deck_list_card_files","deck_list_cards","deck_list_labels","deck_list_stacks","deck_read_card",'
+                        . '"deck_read_card_dependencies","files_image_search","files_image_view","files_images_view",'
+                        . '"files_list","files_list_shares","files_read","files_search","files_tree","files_version_read",'
+                        . '"files_versions_list","notes_list","notes_read","notes_search","talk_list_conversations",'
+                        . '"talk_read_messages","tasks_list_calendars","tasks_list_tasks","tasks_read_task","users_search"]';
+                    $added['tool_variants'] = '{}';
+                }
+                $this->assertSame($added, array_diff_key($now, $row), $table);
             }
         }
 

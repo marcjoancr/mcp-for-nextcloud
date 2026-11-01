@@ -45,11 +45,11 @@ final class SqliteDatabase {
     public function __construct(private TestCase $test, array $migrations) {
         $this->dbal = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
         $schema = new Schema();
-        $wrapper = $this->mock(ISchemaWrapper::class);
+        $wrapper = $this->stub(ISchemaWrapper::class);
         $wrapper->method('hasTable')->willReturnCallback(fn (string $name): bool => $schema->hasTable($name));
         $wrapper->method('createTable')->willReturnCallback(fn (string $name) => $schema->createTable($name));
         $wrapper->method('getTable')->willReturnCallback(fn (string $name) => $schema->getTable($name));
-        $output = $this->mock(IOutput::class);
+        $output = $this->stub(IOutput::class);
         foreach ($migrations as $migration) {
             $migration->changeSchema($output, fn () => $wrapper, []);
         }
@@ -60,7 +60,7 @@ final class SqliteDatabase {
 
     /** @return IDBConnection the connection a store is built with */
     public function connection(): IDBConnection {
-        $db = $this->mock(IDBConnection::class);
+        $db = $this->stub(IDBConnection::class);
         $db->method('getQueryBuilder')->willReturnCallback(fn (): IQueryBuilder => $this->builder());
         $db->method('beginTransaction')->willReturnCallback(fn () => $this->dbal->beginTransaction());
         $db->method('commit')->willReturnCallback(fn () => $this->dbal->commit());
@@ -81,7 +81,7 @@ final class SqliteDatabase {
     /** An OCP query builder whose calls are forwarded to a Doctrine one on the SQLite connection. */
     private function builder(): IQueryBuilder {
         $inner = $this->dbal->createQueryBuilder();
-        $qb = $this->mock(IQueryBuilder::class);
+        $qb = $this->stub(IQueryBuilder::class);
         $chain = static function (string $method) use ($qb, $inner): void {
             $qb->method($method)->willReturnCallback(function (...$args) use ($qb, $inner, $method): IQueryBuilder {
                 $args = array_map(self::sqlArgument(...), $args);
@@ -101,21 +101,21 @@ final class SqliteDatabase {
             return $qb;
         });
         $qb->method('func')->willReturnCallback(function () {
-            $functions = $this->mock(\OCP\DB\QueryBuilder\IFunctionBuilder::class);
+            $functions = $this->stub(\OCP\DB\QueryBuilder\IFunctionBuilder::class);
             $functions->method('count')->willReturnCallback(function ($count = '', $alias = '') {
-                $function = $this->mock(\OCP\DB\QueryBuilder\IQueryFunction::class);
+                $function = $this->stub(\OCP\DB\QueryBuilder\IQueryFunction::class);
                 $function->method('__toString')->willReturn('COUNT(' . ($count === '' ? '*' : (string)self::sqlArgument($count)) . ')' . ($alias === '' ? '' : ' AS ' . $alias));
                 return $function;
             });
             return $functions;
         });
         $qb->method('createNamedParameter')->willReturnCallback(function ($value, $type = IQueryBuilder::PARAM_STR, $placeHolder = null) use ($inner): IParameter {
-            $parameter = $this->mock(IParameter::class);
+            $parameter = $this->stub(IParameter::class);
             $parameter->method('__toString')->willReturn($inner->createNamedParameter($value, $type, $placeHolder));
             return $parameter;
         });
         $qb->method('createFunction')->willReturnCallback(function (string $expression) {
-            $function = $this->mock(\OCP\DB\QueryBuilder\IQueryFunction::class);
+            $function = $this->stub(\OCP\DB\QueryBuilder\IQueryFunction::class);
             $function->method('__toString')->willReturn($expression);
             return $function;
         });
@@ -145,7 +145,7 @@ final class SqliteDatabase {
     }
 
     private function expressions(QueryBuilder $inner): IExpressionBuilder {
-        $expr = $this->mock(IExpressionBuilder::class);
+        $expr = $this->stub(IExpressionBuilder::class);
         foreach (['eq', 'neq', 'lt', 'lte', 'gt', 'gte'] as $method) {
             $expr->method($method)->willReturnCallback(fn ($x, $y): string => $inner->expr()->{$method}(
                 (string)self::sqlArgument($x), (string)self::sqlArgument($y)));
@@ -176,7 +176,7 @@ final class SqliteDatabase {
 
     private function result(QueryBuilder $inner): IResult {
         $rows = $inner->executeQuery()->fetchAllAssociative();
-        $result = $this->mock(IResult::class);
+        $result = $this->stub(IResult::class);
         $result->method('fetch')->willReturnCallback(function () use (&$rows) {
             return $rows === [] ? false : array_shift($rows);
         });
@@ -188,7 +188,7 @@ final class SqliteDatabase {
         return $result;
     }
 
-    private function mock(string $interface): object {
-        return (new \ReflectionMethod($this->test, 'createMock'))->invoke($this->test, $interface);
+    private function stub(string $interface): object {
+        return (new \ReflectionMethod($this->test, 'createStub'))->invoke($this->test, $interface);
     }
 }

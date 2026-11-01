@@ -80,12 +80,12 @@ final class ToolGrantsMapper {
                     || $row['principal_key'] !== $this->key($type, $row['principal_id'])) {
                     throw new UnexpectedValueException('Invalid stored tool grant principal');
                 }
-                $ids[$row['principal_id']] = true;
+                $ids[$row['principal_key']] = $row['principal_id'];
             }
         } finally {
             $result->closeCursor();
         }
-        $ids = array_keys($ids);
+        $ids = array_values($ids);
         sort($ids, SORT_STRING);
         return $ids;
     }

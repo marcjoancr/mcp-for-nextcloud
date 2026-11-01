@@ -169,13 +169,23 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
     }
 
     public function testFrozenSharedContracts(): void {
-        foreach ($this->capture() as $name => $data) {
-            $expected = file_get_contents(dirname(__DIR__, 2).'/Support/Mcp/Compatibility/'.$name.'.json');
-            $actual = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
-            if ($expected !== $actual) {
-                self::fail($name . ' differs at ' . self::firstDifference(json_decode($expected), json_decode($actual)));
+        // This capture creates many short-lived SQLite query stubs whose callbacks form cycles. PHPUnit normally
+        // pauses PHP's automatic cycle collection and collects only between tests, too late for this one large test.
+        $garbageCollectionWasEnabled = gc_enabled();
+        gc_enable();
+        try {
+            foreach ($this->capture() as $name => $data) {
+                $expected = file_get_contents(dirname(__DIR__, 2).'/Support/Mcp/Compatibility/'.$name.'.json');
+                $actual = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
+                if ($expected !== $actual) {
+                    self::fail($name . ' differs at ' . self::firstDifference(json_decode($expected), json_decode($actual)));
+                }
+                self::assertSame($expected, $actual);
             }
-            self::assertSame($expected, $actual);
+        } finally {
+            if (!$garbageCollectionWasEnabled) {
+                gc_disable();
+            }
         }
     }
 
