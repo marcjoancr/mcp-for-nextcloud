@@ -3,29 +3,20 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/README.md -->
-<!-- translation-source-revision: c0f730d97a84cf61317486c67722af52cf30325e -->
+<!-- translation-source-revision: 1c9c678262c1113dbadc1839d428a58193851301 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../en/README.md).
+> **Revisão pendente:** esta tradução aguarda revisão humana. Consulte [English](../en/README.md).
 
 # Documentação em português (Brasil)
 
-[Guias de operação](guides/README.md)
+[English](../en/README.md) · [Español](../es/README.md) · [Català](../ca/README.md) · **Português (Brasil)** · [Português (Portugal)](../pt-PT/README.md)
 
-## Desenvolvimento (English)
+Conecte um cliente MCP ao seu Nextcloud. Busque arquivos, leia notas, acompanhe conversas no Talk ou gerencie tarefas por um único ponto de acesso. Cada solicitação respeita as permissões de quem iniciou a sessão.
 
-- [Setup (English)](../en/development/setup.md)
-- [Testing (English)](../en/development/testing.md)
-- [Static Analysis (English)](../en/development/static-analysis.md)
-- [Adding A Tool (English)](../en/development/adding-a-tool.md)
-- [Admin Javascript (English)](../en/development/admin-javascript.md)
-- [Architecture Specification (English)](../en/development/architecture-specification.md)
-- [Packaging (English)](../en/development/packaging.md)
-- [Documentation (English)](../en/development/documentation.md)
-- [Translations (English)](../en/development/translations.md)
+- [Instalar o fork](installation.md)
+- [Conectar um cliente](guides/clients.md)
+- [Explorar as ferramentas](reference/tools.md)
+- [Configurar as permissões](guides/permissions.md)
 
-[Guia de desenvolvimento (em inglês)](../en/development/README.md)
-
-[Guias de operação](guides/README.md).
-
-[English](../en/README.md) · [Español](../es/README.md) · [Català](../ca/README.md) · Português (Brasil) · [Português (Portugal)](../pt-PT/README.md)
+[Documentação](guides/README.md) · [Desenvolvimento (English)](../en/development/README.md)

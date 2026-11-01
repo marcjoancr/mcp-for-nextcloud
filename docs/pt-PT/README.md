@@ -2,29 +2,20 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/README.md -->
-<!-- translation-source-revision: c1836790061cd223b3d5c7bd51639ceb1c91c38f -->
+<!-- translation-source-revision: 1c9c678262c1113dbadc1839d428a58193851301 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../en/README.md).
 
 # Documentação em português (Portugal)
 
-[Guias de operação](guides/README.md)
+[English](../en/README.md) · [Español](../es/README.md) · [Català](../ca/README.md) · [Português (Brasil)](../pt-BR/README.md) · **Português (Portugal)**
 
-## Desenvolvimento (English)
+Ligue um cliente MCP ao seu Nextcloud. Pesquise ficheiros, leia notas, acompanhe conversas no Talk ou faça a gestão de tarefas através de um único ponto de acesso. Cada pedido respeita as permissões de quem iniciou sessão.
 
-- [Setup (English)](../en/development/setup.md)
-- [Testing (English)](../en/development/testing.md)
-- [Static Analysis (English)](../en/development/static-analysis.md)
-- [Adding A Tool (English)](../en/development/adding-a-tool.md)
-- [Administração Javascript (English)](../en/development/admin-javascript.md)
-- [Architecture Specification (English)](../en/development/architecture-specification.md)
-- [Packaging (English)](../en/development/packaging.md)
-- [Documentation (English)](../en/development/documentation.md)
-- [Translations (English)](../en/development/translations.md)
+- [Instalar o fork](installation.md)
+- [Ligar um cliente](guides/clients.md)
+- [Explorar as ferramentas](reference/tools.md)
+- [Configurar as permissões](guides/permissions.md)
 
-[Guia de desenvolvimento (em inglês)](../en/development/README.md)
-
-[Guias de operação](guides/README.md).
-
-[English](../en/README.md) · [Español](../es/README.md) · [Català](../ca/README.md) · [Português (Brasil)](../pt-BR/README.md) · Português (Portugal)
+[Documentação](guides/README.md) · [Desenvolvimento (English)](../en/development/README.md)

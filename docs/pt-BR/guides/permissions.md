@@ -10,11 +10,11 @@
 
 # Permissões e administração
 
-Abra **Administração → MCP for Cloud**. As cinco abas são **Visão geral**, **Acesso e permissões**, **Clientes e conexões**, **Proteção de dados** e **Avançado**. Os endereços (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) e a navegação pelo teclado abrem a seção correspondente.
+Abra **Administração → Nextcloud MCP**. As cinco abas são **Visão geral**, **Acesso e permissões**, **Clientes e conexões**, **Proteção de dados** e **Avançado**. Os endereços (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) e a navegação pelo teclado abrem a seção correspondente.
 
 ## Habilitar o acesso
 
-O serviço, a elegibilidade do usuário (**Pode conectar**) e a conexão pessoal começam desativados, inclusive para administradores. Ative o serviço, permita que o usuário se conecte e deixe que ele ative sua conexão em **Configurações pessoais → MCP for Cloud**. A autenticação sozinha não concede acesso: a conta, o serviço, a elegibilidade, a conexão, o aplicativo opcional, a permissão de operação e as permissões nativas do Nextcloud sobre o recurso devem permitir a solicitação.
+O serviço, a elegibilidade do usuário (**Pode conectar**) e a conexão pessoal começam desativados, inclusive para administradores. Ative o serviço, permita que o usuário se conecte e deixe que ele ative sua conexão em **Configurações pessoais → Nextcloud MCP**. A autenticação sozinha não concede acesso: a conta, o serviço, a elegibilidade, a conexão, o aplicativo opcional, a permissão de operação e as permissões nativas do Nextcloud sobre o recurso devem permitir a solicitação.
 
 A leitura começa permitida, exceto para os logs do servidor. As demais operações começam negadas. Compartilhar arquivos com pessoas/grupos (`files.share`) e criar links públicos (`files.link`) são permissões independentes. Listar compartilhamentos é uma operação de leitura.
 

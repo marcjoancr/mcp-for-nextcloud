@@ -15,7 +15,7 @@ Les metadades del recurs protegit són a `/apps/mcp/.well-known/oauth-protected-
 
 ## Clients publicats, natius i registrats
 
-Els administradors gestionen clients a **Administració → MCP for Cloud → Clients i connexions**. Desar exigeix administrador, protecció CSRF de Nextcloud i la revisió actual de la política.
+Els administradors gestionen clients a **Administració → Nextcloud MCP → Clients i connexions**. Desar exigeix administrador, protecció CSRF de Nextcloud i la revisió actual de la política.
 
 | Tipus de client | Identitat i regles de redirecció |
 | --- | --- |

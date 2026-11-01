@@ -15,7 +15,7 @@ Os metadados do recurso protegido ficam em `/apps/mcp/.well-known/oauth-protecte
 
 ## Clientes publicados, nativos e registados
 
-Administradores gerem clientes em **Administração → MCP for Cloud → Clientes e ligações**. Guardar exige administrador, proteção CSRF do Nextcloud e a revisão atual da política.
+Administradores gerem clientes em **Administração → Nextcloud MCP → Clientes e ligações**. Guardar exige administrador, proteção CSRF do Nextcloud e a revisão atual da política.
 
 | Tipo de cliente | Identidade e regras de redirecionamento |
 | --- | --- |

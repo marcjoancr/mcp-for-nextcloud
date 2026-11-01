@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/installation.md -->
-<!-- translation-source-revision: b399933ce2b824c7f278b9615b72d97555cd8e84 -->
+<!-- translation-source-revision: 1c9c678262c1113dbadc1839d428a58193851301 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../en/installation.md).
@@ -11,31 +11,23 @@
 
 ## Requisitos
 
-- Nextcloud **32 a 35**; cada versão foi validada pelos testes de contrato da API em relação à primeira compilação dessa versão principal, com as versões correspondentes do Deck e do Talk. No Nextcloud 32, Deck 1.16+ e Talk 22+; até ao Nextcloud 35, Deck 1.19 e Talk 25.
-- PHP **8.2+** com `zip`, `mbstring` e `dom`.
-- Aplicações opcionais, necessárias apenas para as respetivas ferramentas (que ficam ocultas enquanto a aplicação estiver desativada): Notes, Calendar, Contacts, Deck, Talk (`spreed`), Versions (`files_versions`, necessária para editar) e Deleted files (`files_trashbin`, necessária para eliminar).
-- Deck e Talk são opcionais: as respetivas ferramentas só aparecem quando a aplicação está ativa numa versão suportada. Uma versão anterior é considerada desativada; as ferramentas ficam ocultas e a página de administração indica qual versão permite voltar a usá-las.
+O Nextcloud MCP 2.0.0 usa o identificador `mcp` e substitui uma instalação existente do MCP for Cloud. A loja do Nextcloud distribui a aplicação original. Para instalar o fork, utilize o pacote compilado a partir da revisão verificada do código-fonte.
 
-A instalação normal é feita através da Nextcloud App Store: *Aplicações* → procure **MCP for Cloud** → **Transferir e ativar** (ou execute `occ app:install mcp`). O pacote da loja está assinado e é atualizado pelo atualizador de aplicações. A instalação por SSH indicada abaixo é uma alternativa para desenvolvimento ou para testar uma compilação local.
+O ambiente de referência é Linux x86-64 com Apache. Utilize versões que recebam atualizações de segurança e as extensões PHP `zip`, `mbstring` e `dom`. O SQLite é utilizado em testes locais e ensaios de recuperação.
+
+| Nextcloud | PHP | Base de dados |
+| --- | --- | --- |
+| 35 | 8.5 | MariaDB 10.11 ou PostgreSQL 16 |
+| 34 | 8.5 | MariaDB 10.11 |
+| 33 | 8.4 | MariaDB 10.11 |
+
+As ferramentas disponíveis dependem das aplicações do Nextcloud e das permissões da conta. As operações de dependência do Deck exigem APIs compatíveis no NC34/35. Consulte o [catálogo de ferramentas](reference/tools.md).
 
 ### Instalar através de SSH
 
-Substitua `<server>`, `<nextcloud>` (raiz da instalação), `<apps>` (diretório de aplicações com permissões de escrita, por exemplo `custom_apps` ou `apps`, conforme `apps_paths` em `config/config.php`) e `<www>` (utilizador do servidor Web, por exemplo `www-data`).
+Verifique `mcp-2.0.0.tar.gz` e o kit de código-fonte correspondente com o hash de confiança do manifesto. Ensaie a atualização e a recuperação num ambiente equivalente ao do servidor e confirme que as atualizações automáticas preservam o fork. O comando `occ app:install mcp` instala o pacote original da loja.
 
-```sh
-scp build/mcp-1.1.2.tar.gz <server>:/tmp/
-ssh <server>
-sudo tar -xzf /tmp/mcp-1.1.2.tar.gz -C <nextcloud>/<apps>/
-sudo chown -R <www>:<www> <nextcloud>/<apps>/mcp
-sudo -u <www> php <nextcloud>/occ app:enable mcp
-sudo -u <www> php <nextcloud>/occ app:list | grep -A1 mcp
-```
-
-No Docker, execute os comandos `occ` dentro do contentor como utilizador do servidor Web. Se o PHP utilizar OPcache com `validate_timestamps=0`, reinicie o PHP-FPM depois de copiar os ficheiros.
-
-Para atualizar uma compilação instalada por SSH: execute `occ app:disable mcp`, remova `<apps>/mcp`, extraia o novo pacote, execute `occ app:enable mcp` e, se o Nextcloud o pedir, `occ upgrade`. A pasta tem de ser substituída por inteiro para não deixar ficheiros antigos em `vendor/`. Para remover a aplicação, execute `occ app:remove mcp`.
-
-As migrações de 1.1.0 preservam os IDs originais e importam as configurações antigas de clientes nativos/personalizados para linhas autoritativas. Preferências e credenciais válidas de 1.0.8 sobrevivem à atualização. Os caminhos de validação incluem upstream 1.0.8 original, o 1.0.8 local migrado, a atualização de upstream 1.1.0 e 1.1.1 e a substituição de uma instalação upstream 1.1.2 já migrada. A substituição da mesma versão não força uma atualização nem repete migrações para repor a política.
+O MinicoLab atualizou da versão 1.2.1 para a 2.0.0 no Nextcloud 35.0.2 com LinuxServer/Nginx e PostgreSQL. Foram verificados o acesso por HTTPS público, a autorização e a revogação com o MCP Inspector e uma consulta ao guia de ferramentas através do ChatGPT. As revisões humanas continuam pendentes.
 
 ## Atualização e recuperação
 
