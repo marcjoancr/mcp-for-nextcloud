@@ -2,29 +2,20 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/README.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: fcf7286e2b2e0f3a680ff77549580eb696963c89 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../en/README.md).
 
 # Documentació en català
 
-[Guies operatives](guides/README.md)
+[English](../en/README.md) · [Español](../es/README.md) · **Català** · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)
 
-## Col·laboradors
+Connecta un client MCP al teu Nextcloud. Cerca fitxers, llegeix notes, segueix converses del Talk o gestiona tasques des d’un únic punt d’accés. Cada petició respecta els permisos de qui ha iniciat la sessió.
 
-- [Configuració (anglès)](../en/development/setup.md)
-- [Proves (anglès)](../en/development/testing.md)
-- [Anàlisi estàtica (anglès)](../en/development/static-analysis.md)
-- [Afegir una eina (anglès)](../en/development/adding-a-tool.md)
-- [JavaScript d'administració (anglès)](../en/development/admin-javascript.md)
-- [Especificació de l'arquitectura (anglès)](../en/development/architecture-specification.md)
-- [Creació del paquet (anglès)](../en/development/packaging.md)
-- [Documentació (anglès)](../en/development/documentation.md)
-- [Traduccions (anglès)](../en/development/translations.md)
+- [Instal·la el fork](installation.md)
+- [Connecta un client](guides/clients.md)
+- [Explora les eines](reference/tools.md)
+- [Configura els permisos](guides/permissions.md)
 
-[Guia de desenvolupament (en anglès)](../en/development/README.md)
-
-[Guies operatives](guides/README.md).
-
-[English](../en/README.md) · [Español](../es/README.md) · Català · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)
+[Documentació](guides/README.md) · [Desenvolupament (English)](../en/development/README.md)

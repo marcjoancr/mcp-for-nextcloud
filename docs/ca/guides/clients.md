@@ -26,7 +26,7 @@ Tots els clients fan servir el mateix URL, `https://cloud.example.com/apps/mcp/`
 3. Autenticació: **Inicia la sessió** (OAuth), client: **Identitat publicada de Claude** (CIMD). No calen capçaleres.
 4. **Connecta**: s'obrirà Nextcloud; inicia la sessió i prem **Permet**.
 
-`claude.ai` ja és als dominis de client permesos, de manera que no cal canviar res al servidor. Si l'administrador ha restringit la llista, Claude serà rebutjat amb `invalid_client` abans que s'obri la pàgina d'inici de sessió. Demana-li que torni a afegir `claude.ai` a *Configuració d'administració → MCP for Cloud → Clients OAuth → Dominis de client permesos*.
+`claude.ai` ja és als dominis de client permesos, de manera que no cal canviar res al servidor. Si l'administrador ha restringit la llista, Claude serà rebutjat amb `invalid_client` abans que s'obri la pàgina d'inici de sessió. Demana-li que torni a afegir `claude.ai` a *Configuració d'administració → Nextcloud MCP → Clients OAuth → Dominis de client permesos*.
 
 ### ChatGPT
 
@@ -40,7 +40,7 @@ Tots els clients fan servir el mateix URL, `https://cloud.example.com/apps/mcp/`
 
 Calen dos passos, un de l'administrador i un de l'usuari, sense necessitat d'accedir al terminal del servidor.
 
-**Administrador** — *Configuració d'administració → MCP for Cloud → Clients OAuth*:
+**Administrador** — *Configuració d'administració → Nextcloud MCP → Clients OAuth*:
 
 1. Marca **Permet els programes locals (client natiu)**. Està desactivat per defecte.
 2. La secció mostrarà el `client_id` que cal copiar — `nextcloud-mcp-native` — i els URI de redirecció que accepta.
@@ -67,7 +67,7 @@ Per què hi ha un client integrat: Gemini CLI no publica cap document d'identita
 
 ### Administradors: clients OAuth
 
-*Configuració d'administració → MCP for Cloud → Clients OAuth* decideix quins clients es poden connectar, sense cap ordre de terminal:
+*Configuració d'administració → Nextcloud MCP → Clients OAuth* decideix quins clients es poden connectar, sense cap ordre de terminal:
 
 - **Dominis de client permesos** — dominis dels documents d'identitat publicats que l'aplicació pot baixar; separats per comes. Per defecte: `claude.ai` i `chatgpt.com`. Només s'accepten noms de domini exactes: sense `https://`, port, camí, `*` i cal mantenir almenys un domini. El domini és el del URL que el client fa servir com a `client_id`. En desar se substitueix la llista sencera, i treure'n un domini rebutja el client de seguida, encara que el document estigui a la memòria cau.
 - **Permet els programes locals (client natiu)** — activa el client `nextcloud-mcp-native` descrit més amunt i mostra el `client_id` i els URI de redirecció acceptats per copiar.
@@ -78,7 +78,7 @@ Els controls de clients exigeixen administrador, protecció CSRF i revisió de p
 
 ### Altres clients MCP (contrasenya d'aplicació)
 
-Crea una contrasenya d'aplicació a *Configuració personal → Seguretat*, activa la connexió a *Configuració personal → MCP for Cloud* i configura el client amb l'URL anterior i autenticació HTTP Basic (`usuari:contrasenya-aplicació`). Comprovació ràpida:
+Crea una contrasenya d'aplicació a *Configuració personal → Seguretat*, activa la connexió a *Configuració personal → Nextcloud MCP* i configura el client amb l'URL anterior i autenticació HTTP Basic (`usuari:contrasenya-aplicació`). Comprovació ràpida:
 
 ```bash
 curl -u 'alice:APP-PASSWORD' \

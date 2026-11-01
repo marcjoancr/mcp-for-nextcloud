@@ -3,104 +3,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: fcf7286e2b2e0f3a680ff77549580eb696963c89 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](README.md).
+> **Revisão pendente:** esta tradução aguarda revisão humana. Consulte [English](README.md).
 
-# MCP for Cloud
+# Nextcloud MCP
 
-Aplicativo nativo do Nextcloud. Instale este pacote usando os [guias de operação](../docs/pt-BR/guides/README.md). Desenvolvimento: [repositório](https://github.com/sintax-tech/mcp-for-nextcloud).
+[English](README.md) · [Español](README.es.md) · [Català](README.ca.md) · **Português (Brasil)** · [Português (Portugal)](README.pt-PT.md)
 
-[English](README.md)
+Conecte um cliente MCP ao seu Nextcloud. Busque arquivos, leia notas, acompanhe conversas no Talk ou gerencie tarefas por um único ponto de acesso. Cada solicitação respeita as permissões de quem iniciou a sessão.
 
-## Contatos e Tarefas (0.8.0)
+O Nextcloud MCP é um fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). O desenvolvimento acontece em [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
 
-[Contatos e Tarefas (0.8.0)](../docs/pt-BR/reference/tools/contacts-tasks.md).
+A **versão 2.0.0** mantém o identificador `mcp`. A loja de aplicativos do Nextcloud distribui o projeto original. Consulte o guia de instalação antes de substituir uma instalação existente.
 
-## Ferramentas
+## Primeiros passos
 
-[Ferramentas](../docs/pt-BR/reference/tools.md).
+URL do servidor · `https://cloud.example.com/apps/mcp/`
 
-### Guia das ferramentas (`mcp_guide`)
-
-[Guia das ferramentas (`mcp_guide`)](../docs/pt-BR/reference/tools.md).
-
-### Deck: cartões, quadros e listas
-
-[Deck: cartões, quadros e listas](../docs/pt-BR/reference/tools/deck.md).
-
-### Diagnóstico opcional do Calendar (`occ mcp:calendar-selftest`)
-
-[Diagnóstico opcional do Calendar (`occ mcp:calendar-selftest`)](../docs/pt-BR/guides/troubleshooting.md).
-
-### Imagens (`files_image_view`, `files_images_view`, `files_image_search`)
-
-[Imagens (`files_image_view`, `files_images_view`, `files_image_search`)](../docs/pt-BR/reference/tools/files.md).
-
-## Recursos (MCP Resources)
-
-[Recursos (MCP Resources)](../docs/pt-BR/reference/resources.md).
-
-## Empacotamento
-
-Para compilar e contribuir, consulte o [repositório](https://github.com/sintax-tech/mcp-for-nextcloud). A instalação do pacote não requer Node nem Composer.
-
-### Regra do pacote: sem metadados do macOS
-
-As regras de compilação estão no [repositório (English)](https://github.com/sintax-tech/mcp-for-nextcloud).
-
-### Dependências de runtime
-
-Consulte [THIRD-PARTY-NOTICES.md (English)](THIRD-PARTY-NOTICES.md).
-
-## Instalar
-
-[Instalar](../docs/pt-BR/installation.md).
-
-### Instalar via SSH
-
-[Instalar via SSH](../docs/pt-BR/installation.md).
-
-## Log do servidor (1.0.2)
-
-[Log do servidor (1.0.2)](../docs/pt-BR/guides/server-logs.md).
-
-## Arquivo travado (1.0.5)
-
-[Arquivo travado (1.0.5)](../docs/pt-BR/guides/file-protection.md).
-
-## Etiquetas ocultas (1.0.6)
-
-[Etiquetas ocultas (1.0.6)](../docs/pt-BR/guides/file-protection.md).
-
-## Configurar
-
-[Configurar](../docs/pt-BR/guides/permissions.md).
-
-### Chaves de configuração
-
-[Chaves de configuração](../docs/pt-BR/reference/configuration.md).
-
-## Conectar pelo claude.ai (OAuth)
-
-[Conectar pelo claude.ai (OAuth)](../docs/pt-BR/reference/oauth.md).
-
-## Conectar pelo ChatGPT e pelo Gemini CLI (OAuth)
-
-[Conectar pelo ChatGPT e pelo Gemini CLI (OAuth)](../docs/pt-BR/reference/oauth.md).
-
-## Revogar
-
-[Revogar](../docs/pt-BR/guides/clients.md).
-
-## Teste manual após a instalação
-
-[Teste manual após a instalação](../docs/pt-BR/guides/troubleshooting.md).
-
-## Desenvolvimento
-
-Para compilar e contribuir, consulte o [repositório](https://github.com/sintax-tech/mcp-for-nextcloud). A instalação do pacote não requer Node nem Composer.
+- [Instalar o fork](../docs/pt-BR/installation.md)
+- [Conectar um cliente](../docs/pt-BR/guides/clients.md)
+- [Explorar as ferramentas](../docs/pt-BR/reference/tools.md)
+- [Configurar as permissões](../docs/pt-BR/guides/permissions.md)
 
 ## Licença
 
@@ -110,10 +35,11 @@ AGPL-3.0-or-later, com o termo adicional de atribuição da seção 7(b) no [NOT
 
 O pacote inclui Smalot PdfParser, Symfony Polyfill Mbstring e o autoloader do Composer. Consulte [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) para ver versões, direitos autorais, licenças e créditos de desenvolvimento separados.
 
-**Contribuidores.** Agradecimento a @NightDragon1 (#5) pela checagem de visibilidade da raiz e a @matt-ek (#4) pelo relato que motivou a auditoria das etiquetas ocultas. Agradecemos também a @matt-ek pela tradução alemã da interface (#10) e a @Zegorax pelos clientes OAuth registrados por administradores (#8, #7).
+**Contribuidores.** Agradecimento a @NightDragon1 ([#5](https://github.com/sintax-tech/mcp-for-nextcloud/issues/5)) pela checagem de visibilidade da raiz e a @matt-ek ([#4](https://github.com/sintax-tech/mcp-for-nextcloud/issues/4)) pelo relato que motivou a auditoria das etiquetas ocultas. Agradecemos também a @matt-ek pela tradução alemã da interface ([#10](https://github.com/sintax-tech/mcp-for-nextcloud/issues/10)) e a @Zegorax pelos clientes OAuth registrados por administradores ([#8](https://github.com/sintax-tech/mcp-for-nextcloud/issues/8), [#7](https://github.com/sintax-tech/mcp-for-nextcloud/issues/7)).
 
-## Sobre a Sintax
 
-Desenvolvido pela [Sintax](https://sintax.tech) · sintax.tech. Contato: contato@sintax.tech.
+Hierarquia de tarefas: [@mturgeonferland](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18).
 
-[English](README.md) · [Español](README.es.md) · [Català](README.ca.md) · Português (Brasil) · [Português (Portugal)](README.pt-PT.md)
+Sintax / Jhonatan Jaworski · [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw).
+
+Developed by Sintax — https://sintax.tech

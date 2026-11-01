@@ -9,11 +9,11 @@
 
 # Permisos i administració
 
-Obre **Administració → MCP for Cloud**. Les cinc pestanyes són **Resum**, **Accés i permisos**, **Clients i connexions**, **Protecció de dades** i **Avançat**. Les adreces (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) i la navegació amb teclat obren la secció corresponent.
+Obre **Administració → Nextcloud MCP**. Les cinc pestanyes són **Resum**, **Accés i permisos**, **Clients i connexions**, **Protecció de dades** i **Avançat**. Les adreces (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) i la navegació amb teclat obren la secció corresponent.
 
 ## Habilitar l'accés
 
-El servei, l'elegibilitat de l'usuari (**Pot connectar-se**) i la connexió personal comencen desactivats, també per als administradors. Activa el servei, permet que l'usuari es connecti i deixa que activi la connexió a **Configuració personal → MCP for Cloud**. L'autenticació per si sola no concedeix accés: el compte, el servei, l'elegibilitat, la connexió, l'aplicació opcional, el permís d'operació i els permisos natius de Nextcloud sobre el recurs han de permetre la petició.
+El servei, l'elegibilitat de l'usuari (**Pot connectar-se**) i la connexió personal comencen desactivats, també per als administradors. Activa el servei, permet que l'usuari es connecti i deixa que activi la connexió a **Configuració personal → Nextcloud MCP**. L'autenticació per si sola no concedeix accés: el compte, el servei, l'elegibilitat, la connexió, l'aplicació opcional, el permís d'operació i els permisos natius de Nextcloud sobre el recurs han de permetre la petició.
 
 La lectura comença permesa, excepte els registres del servidor. Les altres operacions comencen denegades. Compartir fitxers amb persones/grups (`files.share`) i crear enllaços públics (`files.link`) són permisos independents. Llistar comparticions és una operació de lectura.
 

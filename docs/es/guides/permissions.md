@@ -9,11 +9,11 @@
 
 # Permisos y administración
 
-Abre **Administración → MCP for Cloud**. Las cinco pestañas son **Resumen**, **Acceso y permisos**, **Clientes y conexiones**, **Protección de datos** y **Avanzado**. Sus direcciones (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) y la navegación por teclado abren la sección correspondiente.
+Abre **Administración → Nextcloud MCP**. Las cinco pestañas son **Resumen**, **Acceso y permisos**, **Clientes y conexiones**, **Protección de datos** y **Avanzado**. Sus direcciones (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) y la navegación por teclado abren la sección correspondiente.
 
 ## Habilitar el acceso
 
-El servicio, la elegibilidad del usuario (**Puede conectarse**) y la conexión personal empiezan desactivados, también para administradores. Activa el servicio, permite al usuario conectarse y deja que este active su conexión en **Ajustes personales → MCP for Cloud**. La autenticación por sí sola no concede acceso: deben permitir la solicitud la cuenta, el servicio, la elegibilidad, la conexión, la aplicación opcional, el permiso de operación y los permisos nativos de Nextcloud sobre el recurso.
+El servicio, la elegibilidad del usuario (**Puede conectarse**) y la conexión personal empiezan desactivados, también para administradores. Activa el servicio, permite al usuario conectarse y deja que este active su conexión en **Ajustes personales → Nextcloud MCP**. La autenticación por sí sola no concede acceso: deben permitir la solicitud la cuenta, el servicio, la elegibilidad, la conexión, la aplicación opcional, el permiso de operación y los permisos nativos de Nextcloud sobre el recurso.
 
 La lectura empieza permitida salvo para los registros del servidor. Las demás operaciones empiezan denegadas. Compartir archivos con personas/grupos (`files.share`) y crear enlaces públicos (`files.link`) son permisos independientes. Listar recursos compartidos es una operación de lectura.
 

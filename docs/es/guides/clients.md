@@ -26,7 +26,7 @@ Todos los clientes usan la misma URL, `https://cloud.example.com/apps/mcp/`, y s
 3. Autenticación: **Iniciar sesión** (OAuth), cliente: **Identidad publicada de Claude** (CIMD). No se necesitan encabezados.
 4. Pulsa **Conectar**: se abre Nextcloud; inicia sesión y pulsa **Permitir**.
 
-`claude.ai` está incluido de fábrica en los hosts de cliente permitidos, así que no hay que cambiar nada en el servidor. Si el administrador restringió la lista, Claude recibe `invalid_client` antes de que se abra la página de inicio de sesión. Pídele que vuelva a incluir `claude.ai` en *Ajustes de administración → MCP for Cloud → Clientes OAuth → Hosts de cliente permitidos*.
+`claude.ai` está incluido de fábrica en los hosts de cliente permitidos, así que no hay que cambiar nada en el servidor. Si el administrador restringió la lista, Claude recibe `invalid_client` antes de que se abra la página de inicio de sesión. Pídele que vuelva a incluir `claude.ai` en *Ajustes de administración → Nextcloud MCP → Clientes OAuth → Hosts de cliente permitidos*.
 
 ### ChatGPT
 
@@ -34,13 +34,13 @@ Todos los clientes usan la misma URL, `https://cloud.example.com/apps/mcp/`, y s
 2. Autenticación: **Iniciar sesión** (OAuth). ChatGPT se identifica mediante el documento de identidad de cliente publicado en `chatgpt.com`; la aplicación descarga ese documento para conocer los URI de redirección registrados. No se necesitan encabezados ni contraseña de aplicación.
 3. Pulsa **Conectar**: se abre Nextcloud; inicia sesión y pulsa **Permitir**.
 
-`chatgpt.com` está permitido de forma predeterminada, así que una instalación que nunca se haya configurado ya acepta ChatGPT. Si el administrador limitó la lista a otros hosts, ChatGPT recibe `invalid_client` antes de que se abra la página de inicio de sesión. Pídele que vuelva a añadir `chatgpt.com` en *Ajustes de administración → MCP for Cloud → Clientes OAuth → Hosts de cliente permitidos*.
+`chatgpt.com` está permitido de forma predeterminada, así que una instalación que nunca se haya configurado ya acepta ChatGPT. Si el administrador limitó la lista a otros hosts, ChatGPT recibe `invalid_client` antes de que se abra la página de inicio de sesión. Pídele que vuelva a añadir `chatgpt.com` en *Ajustes de administración → Nextcloud MCP → Clientes OAuth → Hosts de cliente permitidos*.
 
 ### Gemini CLI
 
 Son dos pasos, uno del administrador y otro del usuario; no se necesita acceder al terminal del servidor.
 
-**Administrador** — *Ajustes de administración → MCP for Cloud → Clientes OAuth*:
+**Administrador** — *Ajustes de administración → Nextcloud MCP → Clientes OAuth*:
 
 1. Marca **Permitir programas locales (cliente nativo)**. Está desactivado de forma predeterminada.
 2. La sección muestra entonces el `client_id` que hay que copiar —`nextcloud-mcp-native`— y los URI de redirección que acepta.
@@ -67,7 +67,7 @@ Son dos pasos, uno del administrador y otro del usuario; no se necesita acceder 
 
 ### Administradores: clientes OAuth
 
-La sección *Ajustes de administración → MCP for Cloud → Clientes OAuth* determina qué clientes pueden conectarse; no es necesario usar el terminal:
+La sección *Ajustes de administración → Nextcloud MCP → Clientes OAuth* determina qué clientes pueden conectarse; no es necesario usar el terminal:
 
 - **Hosts de cliente permitidos**: hosts cuyos documentos de identidad de cliente publicados puede descargar la aplicación, separados por comas; de forma predeterminada, `claude.ai` y `chatgpt.com`. Solo se permiten nombres de host exactos: sin `https://`, puerto, ruta ni `*`, y debe quedar al menos uno. El host es el que aparece en la URL que usa el cliente como su `client_id`. Al guardar se sustituye toda la lista; retirar un host rechaza ese cliente de inmediato, aunque su documento ya esté en caché.
 - **Permitir programas locales (cliente nativo)**: habilita el cliente `nextcloud-mcp-native` descrito arriba y muestra el `client_id` y los URI de redirección aceptados para copiarlos.
@@ -78,7 +78,7 @@ Los controles de clientes exigen administrador, protección CSRF y revisión de 
 
 ### Otros clientes MCP (contraseña de aplicación)
 
-Crea una contraseña de aplicación en *Ajustes personales → Seguridad*, habilita la conexión en *Ajustes personales → MCP for Cloud* y configura el cliente con la URL anterior y autenticación HTTP Basic (`usuario:contraseña-de-aplicación`). Comprobación rápida:
+Crea una contraseña de aplicación en *Ajustes personales → Seguridad*, habilita la conexión en *Ajustes personales → Nextcloud MCP* y configura el cliente con la URL anterior y autenticación HTTP Basic (`usuario:contraseña-de-aplicación`). Comprobación rápida:
 
 ```bash
 curl -u 'alice:APP-PASSWORD' \
