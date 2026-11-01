@@ -11,19 +11,14 @@ registration and the contracts that changes must preserve.
 
 ## Fork development workflow
 
-This fork develops its capability architecture on `fork/main`, the published
-GitHub default branch. Track its promotion
-in the [development baseline record](docs/en/development/fork-development-baseline.md).
-Base new topic branches on `fork/main`, not the older `main` or the frozen
-`refactor/complete-upstream-pr` reference. Verify the starting revision when using
-a worktree manager or task runner whose configured default may still be `main`.
+Use `main` as the base for topic branches. Open pull requests against
+`marcjoancr/mcp-for-nextcloud:main`. The fork maintains its own architecture
+and release schedule. Keep upstream attribution and review relevant upstream
+changes by URL before selecting them for the fork.
 
-The contribution destination is `marcjoancr/mcp-for-nextcloud`. Preserve original
-attribution, but do not open new PRs against the original repository or update
-PR #14 as part of fork development. The local `upstream` remote was removed;
-read-only upstream research and explicitly selected ports remain possible by URL.
-For GitHub CLI, check `gh repo set-default --view` before an authorized remote
-action; a fork relationship alone does not guarantee the correct default target.
+When using the GitHub CLI, run `gh repo set-default --view` to confirm the
+destination. See the [development baseline record](docs/en/development/fork-development-baseline.md)
+for the history of the default branch.
 
 Keep publication, default-branch changes and deployment explicitly authorized.
 The [fork continuation plan](docs/en/development/fork-continuation-plan.md) owns

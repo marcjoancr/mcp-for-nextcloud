@@ -3,6 +3,13 @@
 
 # Fork development baseline
 
+On 2026-11-01 the fork renamed its protected default branch from `fork/main`
+to `main`. New work starts on `main` in this repository. The former upstream
+proposal was closed without merging and its topic branch was retired. The
+architecture baseline remains reachable through the history of `main`.
+
+## October 2026 publication record
+
 On 2026-10-27 the owner authorized publishing `fork/main` and making it the fork's
 GitHub default branch, following the proposed consolidation of L0. This authorizes
 development-branch publication, not a release, deployment or changes to upstream
@@ -22,8 +29,7 @@ policy; [U3](upstream-1.2.1-u3-integration.md) adds Tasks hierarchy and
 records reconciliation, publication at `f2795c00`, exact-commit CI evidence and
 pending release gates. Later commits require their own checks.
 
-Create new topic branches from `fork/main` and contribute to this fork. Preserve
-ancestry and attribution. Native integration CI now watches pushes to `fork/main`;
+At publication, topic branches started from `fork/main`. Native integration CI watched pushes to that branch;
 the other workflows already cover branch pushes. No production workflow is added.
 Publication and default-branch promotion were verified through the GitHub API.
 Force pushes and deletion are disabled, including for administrators. Required-check

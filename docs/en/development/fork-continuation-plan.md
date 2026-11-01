@@ -3,6 +3,10 @@
 
 # Independent fork continuation plan
 
+**Current branch policy (2026-11-01).** Develop on `main` and submit changes to
+this fork. The branch names and approvals in the dated phase records describe
+the earlier transition. See the [development baseline record](fork-development-baseline.md).
+
 Status: F0, F1 and the selected F2 integration completed locally on 2026-10-23.
 The [execution record](upstream-1.2.0-integration.md) records the ordered batches,
 corrections, automated qualification and acceptance limits. The renewed review adds
@@ -71,22 +75,11 @@ Do not create compatibility wrappers merely to accommodate upstream file paths.
 
 | Reference | Proposed role | Rules |
 | --- | --- | --- |
-| `origin/refactor/complete-upstream-pr` | Existing PR #14 reference | Preserve its name and history; no fork-only development, force-push or automatic retargeting |
-| `fork/main` | Published fork integration and default branch | Created from the frozen candidate with the reviewed documentation; see the development baseline record for remote promotion and protection |
-| `feat/*`, `fix/*`, `docs/*`, `test/*` | Short-lived changes from `fork/main` | One reviewable objective, relevant checks and explicit compatibility impact |
+| `main` | Protected default branch | Develop and integrate changes here |
+| `feat/*`, `fix/*`, `docs/*`, `test/*` | Short-lived changes from `main` | One reviewable objective, relevant checks and explicit compatibility impact |
 | `fix/upstream-<release>-<topic>` | Selected upstream ports | Record original commit, behavior and validation; no automatic upstream merges |
 | `release/fork-<major>.<minor>` | Optional supported maintenance line | Create only if more than one release line is actually supported |
 | Original repository URLs and pinned commit IDs | Read-only source and advisory references | No configured `upstream` remote; no automatic merges or new PRs to the original repository |
-
-Keep the existing `main` unchanged during preparation. Switching the fork's default
-branch to `fork/main` is now authorized as an explicit repository administration
-action, tracked in the development baseline record. It must update contribution
-instructions, CI assumptions and branch protection
-without renaming or replacing the head of PR #14. Do not maintain two competing
-fork integration branches. The documentation branch `docs/fork-continuation-plan`
-is based on the frozen candidate; incorporate its reviewed documentation commit
-into `fork/main` during F1 so this plan and its index link are not lost. Never
-merge that fork-only documentation into the PR reference branch.
 
 Preserve ancestry: translation provenance and old-baseline integration tests refer
 to historical revisions. Do not squash the existing architecture into an unrelated
@@ -94,8 +87,6 @@ root or discard upstream commits. Freeze the candidate by its full SHA; a future
 annotated `fork-baseline-1.1.2` tag may make it easier to find, but creating or
 publishing that tag is outside this documentation task.
 
-Leave PR #14 open and unchanged as a reference unless its maintainer or the user
-chooses otherwise. Its eventual closure does not remove the fork baseline.
 The user has chosen to stop submitting PRs to the original repository. Do not
 re-add `upstream`, retarget the GitHub CLI default, or open another original-project
 PR without a new explicit request. This does not prohibit reading releases,
