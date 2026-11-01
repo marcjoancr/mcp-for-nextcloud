@@ -3,10 +3,13 @@
 
 # Source delivery and file integrity
 
-Use this workflow to prepare a **local, unpublished candidate** from a reviewed,
-committed revision. It complements [production packaging](packaging.md); it does
-not publish a release, install an app, sign a Nextcloud package or configure an
-updater. See [F3 delivery evidence and deployment gates](fork-f3-delivery.md).
+Use this workflow to prepare a local source/runtime kit from a reviewed,
+committed revision. By default, it is marked as an unpublished candidate. For a
+final release kit, pass `--release`; this marks the manifest `release-ready` and
+uses wording that remains accurate after publication. It does not publish a
+release, install an app, sign a Nextcloud package or configure an updater. See
+[production packaging](packaging.md) and [F3 delivery evidence and deployment
+gates](fork-f3-delivery.md).
 
 ## Build a frozen kit
 
@@ -14,14 +17,19 @@ Use the [development toolchain](setup.md), including Git and tar. From `mcp/`:
 
 ```sh
 composer package:source -- FULL_40_CHARACTER_COMMIT_SHA
+# For the final release kit, after the release commit is frozen:
+composer package:source -- FULL_40_CHARACTER_COMMIT_SHA --release
 ```
 
 Replace the placeholder with a full lowercase commit SHA from this repository.
-The command rejects branch names and abbreviated revisions. It executes build
-scripts from that commit, so only select a reviewed, trusted revision. Uncommitted
-changes do not enter the kit. It fetches that commit into a private local Git
-repository, bundles only its reachable history, installs locked npm dependencies
-with lifecycle scripts disabled, and runs the commit's canonical `composer package`.
+The command rejects branch names and abbreviated revisions. Omit `--release` for
+ordinary candidate preparation; the release option changes kit status and its
+`BUILDING.md` wording, but does not publish or sign anything. It executes build
+scripts from the selected commit, so only select a reviewed, trusted revision.
+Uncommitted changes do not enter the kit. It fetches that commit into a private
+local Git repository, bundles only its reachable history, installs locked npm
+dependencies with lifecycle scripts disabled, and runs the commit's canonical
+`composer package`.
 The frozen revision must include source-identity packaging support. Older kits
 remain historical evidence; they cannot enable the new runtime source offer.
 Packaging may download locked production Composer dependencies. Caches use their

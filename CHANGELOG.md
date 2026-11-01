@@ -4,13 +4,18 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
-### Nextcloud MCP 2.1.0 candidate
+## 2.1.1
+
+- Remove deployment records and private paths from the distributed documentation.
+- Add a release mode to the source-kit builder that identifies the kit prepared for publication.
+
+## 2.1.0
 
 - Administrators can allow, block or leave the service and individual tools unassigned for a person or native group. Individual assignments take precedence, and a group block wins over other group allowances.
 - Users choose tools for each OAuth connection at sign-in or in personal settings. App passwords and sessions have a shared profile. Sharing with people and creating public links retain separate consent.
 - The upgrade preserves the inherited operation settings of the 84 tools shipped in 2.0.0 and verifies access before activation. Existing OAuth grants and pending codes keep their previously approved tools. See the [permissions guide](docs/en/guides/permissions.md).
 
-### Nextcloud MCP 2.0.0 candidate
+## Nextcloud MCP 2.0.0 candidate
 
 - Adopt the independently maintained **Nextcloud MCP** display name and version
   **2.0.0**, retaining app ID `mcp`, existing routes, migration identities and

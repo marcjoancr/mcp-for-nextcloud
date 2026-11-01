@@ -10,11 +10,12 @@ import { verifyKit, verifyInstalled } from './integrity.mjs';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 try {
   const [command, ...args] = process.argv.slice(2);
-  const counts = { prepare: 1, verify: 2, installed: 3, test: 0 };
-  if (!Object.hasOwn(counts, command) || args.length !== counts[command]) {
-    throw new Error('Usage: prepare FULL_COMMIT | verify KIT TRUSTED_MANIFEST_SHA256 | installed KIT TRUSTED_MANIFEST_SHA256 APP_DIRECTORY | test');
-  }
-  if (command === 'prepare') console.log(JSON.stringify(await prepareKit(root, args[0]), null, 2));
+  const usage = 'Usage: prepare FULL_COMMIT [--release] | verify KIT TRUSTED_MANIFEST_SHA256 | installed KIT TRUSTED_MANIFEST_SHA256 APP_DIRECTORY | test';
+  const valid = command === 'prepare'
+    ? (args.length === 1 || (args.length === 2 && args[1] === '--release'))
+    : ({ verify: 2, installed: 3, test: 0 }[command] === args.length);
+  if (!valid) throw new Error(usage);
+  if (command === 'prepare') console.log(JSON.stringify(await prepareKit(root, args[0], { release: args[1] === '--release' }), null, 2));
   else if (command === 'verify' || command === 'installed') {
     const manifest = await (command === 'verify' ? verifyKit(...args) : verifyInstalled(...args));
     console.log(`Verified ${command}: ${manifest.sourceCommit} / ${manifest.version}`);

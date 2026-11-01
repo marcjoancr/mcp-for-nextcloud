@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { snapshotRepository } from '../../scripts/release/source.mjs';
+import { snapshotRepository, sourceKitStatus } from '../../scripts/release/source.mjs';
 import { hashFile, inventory, sealKit, verifyKit, verifyInstalled } from '../../scripts/release/integrity.mjs';
 
 function fixture(t) {
@@ -108,4 +108,19 @@ test('prototype-like filenames cannot disappear from an installed inventory', as
   const { kit, installed, digest } = await kitFixture(t);
   fs.writeFileSync(path.join(installed, '__proto__'), 'unexpected executable content');
   await assert.rejects(verifyInstalled(kit, digest, installed), /inventory/);
+});
+
+test('source kit status preserves candidate default and accepts release-ready manifests', async t => {
+  assert.equal(sourceKitStatus(), 'unpublished-candidate');
+  assert.equal(sourceKitStatus(true), 'release-ready');
+  assert.throws(() => sourceKitStatus('release'), /must be boolean/);
+  const { kit, installed } = await kitFixture(t);
+  const manifestFile = path.join(kit, 'manifest.json');
+  const candidate = JSON.parse(fs.readFileSync(manifestFile));
+  assert.equal(candidate.status, undefined); // Existing fixture manifests remain status-optional.
+  fs.rmSync(manifestFile);
+  const digest = await sealKit(kit, {
+    sourceCommit: 'b'.repeat(40), version: '2.1.1', status: 'release-ready', runtimeFiles: await inventory(installed),
+  });
+  assert.equal((await verifyKit(kit, digest)).status, 'release-ready');
 });

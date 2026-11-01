@@ -158,7 +158,7 @@
         "test:clients": "Run private TLS/Inspector acceptance against an explicitly selected retained fixture; requires three absolute paths. No public exposure.",
         "test:clients:unit": "Check the client acceptance runner safety boundaries without containers.",
         "test:clients:storage": "Check pinned Inspector encrypted storage across issuers in isolated processes; requires its absolute installation path. No containers or network.",
-        "package:source": "Build a local source/runtime kit from one reviewed full commit SHA; no publication.",
+        "package:source": "Build a local source/runtime kit from one reviewed full commit SHA; --release marks a release-ready kit but does not publish.",
         "verify:source": "Verify a kit against a separately trusted manifest SHA-256: -- KIT DIGEST.",
         "verify:installed": "Read-only exact installed-file verification: -- KIT DIGEST APP_DIRECTORY.",
         "test:release": "Run source delivery and integrity boundary tests; fixed scope, fails on empty discovery.",
