@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/installation.md -->
-<!-- translation-source-revision: 96439afac09110b786ad6853f79bb079552ae873 -->
+<!-- translation-source-revision: d1a2caedc111cdb2f129ae4874291896c43a25fe -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../en/installation.md).
@@ -11,7 +11,7 @@
 
 ## Requisitos
 
-Nextcloud MCP 2.1.0 usa el identificador `mcp` y sustituye cualquier instalación previa de MCP for Cloud. La tienda de Nextcloud distribuye la aplicación original. Para instalar el fork, usa el paquete compilado a partir de la revisión de código verificada.
+Nextcloud MCP 2.1.1 usa el identificador `mcp` y sustituye cualquier instalación previa de MCP for Cloud. La tienda de Nextcloud distribuye la aplicación original. Para instalar el fork, usa el paquete compilado a partir de la revisión de código verificada.
 
 El entorno de referencia es Linux x86-64 con Apache. Usa versiones con mantenimiento de seguridad y las extensiones PHP `zip`, `mbstring` y `dom`. SQLite se usa en pruebas locales y ensayos de recuperación.
 
@@ -25,7 +25,7 @@ Las herramientas disponibles dependen de las aplicaciones de Nextcloud y de los 
 
 ### Instalar por SSH
 
-Verifica `mcp-2.1.0.tar.gz` y el kit de fuentes correspondiente con el hash de confianza del manifiesto. Ensaya la actualización y la recuperación en un entorno como el de tu servidor y comprueba que las actualizaciones automáticas conservan el fork. El comando `occ app:install mcp` instala el paquete original de la tienda.
+Verifica `mcp-2.1.1.tar.gz` y el kit de fuentes correspondiente con el hash de confianza del manifiesto. Ensaya la actualización y la recuperación en un entorno como el de tu servidor y comprueba que las actualizaciones automáticas conservan el fork. El comando `occ app:install mcp` instala el paquete original de la tienda.
 
 Antes del despliegue, usa MCP Inspector para comprobar el acceso HTTPS, la autorización y revocación del cliente. Después, confirma que un cliente puede consultar la guía de herramientas en una instancia de prueba desechable.
 

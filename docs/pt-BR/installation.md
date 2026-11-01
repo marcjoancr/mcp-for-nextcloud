@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/installation.md -->
-<!-- translation-source-revision: 96439afac09110b786ad6853f79bb079552ae873 -->
+<!-- translation-source-revision: d1a2caedc111cdb2f129ae4874291896c43a25fe -->
 <!-- translation-review: pending -->
 
 > **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../en/installation.md).
@@ -12,7 +12,7 @@
 
 ## Requisitos
 
-O Nextcloud MCP 2.1.0 usa o identificador `mcp` e substitui uma instalação existente do MCP for Cloud. A loja do Nextcloud distribui o aplicativo original. Para instalar o fork, use o pacote gerado a partir da revisão verificada do código-fonte.
+O Nextcloud MCP 2.1.1 usa o identificador `mcp` e substitui uma instalação existente do MCP for Cloud. A loja do Nextcloud distribui o aplicativo original. Para instalar o fork, use o pacote gerado a partir da revisão verificada do código-fonte.
 
 O ambiente de referência é Linux x86-64 com Apache. Use versões que recebam atualizações de segurança e as extensões PHP `zip`, `mbstring` e `dom`. O SQLite é usado em testes locais e ensaios de recuperação.
 
@@ -26,7 +26,7 @@ As ferramentas disponíveis dependem dos aplicativos do Nextcloud e das permiss�
 
 ### Instalar via SSH
 
-Verifique `mcp-2.1.0.tar.gz` e o kit de código-fonte correspondente com o hash de confiança do manifesto. Teste a atualização e a recuperação em um ambiente equivalente ao do servidor e confirme que as atualizações automáticas preservam o fork. O comando `occ app:install mcp` instala o pacote original da loja.
+Verifique `mcp-2.1.1.tar.gz` e o kit de código-fonte correspondente com o hash de confiança do manifesto. Teste a atualização e a recuperação em um ambiente equivalente ao do servidor e confirme que as atualizações automáticas preservam o fork. O comando `occ app:install mcp` instala o pacote original da loja.
 
 Antes da implantação, use o MCP Inspector para verificar o acesso HTTPS, a autorização e a revogação do cliente. Depois, confirme que um cliente consegue consultar o guia de ferramentas em uma instância de teste descartável.
 

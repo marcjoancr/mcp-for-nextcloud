@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: 96439afac09110b786ad6853f79bb079552ae873 -->
+<!-- translation-source-revision: d1a2caedc111cdb2f129ae4874291896c43a25fe -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](README.md).
@@ -19,7 +19,7 @@ Connecta un client MCP al teu Nextcloud. Cerca fitxers, llegeix notes, segueix c
 
 Nextcloud MCP és un fork independent de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). El desenvolupament es fa a [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
 
-La **versió 2.1.0** conserva l’identificador `mcp`. La botiga d’aplicacions del Nextcloud distribueix el projecte original. Consulta la guia d’instal·lació abans de substituir una instal·lació existent.
+La **versió 2.1.1** conserva l’identificador `mcp`. La botiga d’aplicacions del Nextcloud distribueix el projecte original. Consulta la guia d’instal·lació abans de substituir una instal·lació existent.
 
 ## Primers passos
 
