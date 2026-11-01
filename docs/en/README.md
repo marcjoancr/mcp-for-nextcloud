@@ -4,22 +4,13 @@
 
 # English documentation
 
-[Operational guides](guides/README.md)
+**English** · [Español](../es/README.md) · [Català](../ca/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)
 
-## Contributors
+Connect an MCP client to your own Nextcloud. Search files, read notes, follow Talk conversations or manage tasks through one endpoint. Each request runs with the permissions of the signed-in user.
 
-- [Setup (English)](development/setup.md)
-- [Testing (English)](development/testing.md)
-- [Static Analysis (English)](development/static-analysis.md)
-- [Adding A Tool (English)](development/adding-a-tool.md)
-- [Admin Javascript (English)](development/admin-javascript.md)
-- [Architecture Specification (English)](development/architecture-specification.md)
-- [Packaging (English)](development/packaging.md)
-- [Documentation (English)](development/documentation.md)
-- [Translations (English)](development/translations.md)
+- [Install the fork](installation.md)
+- [Connect a client](guides/clients.md)
+- [Explore the tools](reference/tools.md)
+- [Configure permissions](guides/permissions.md)
 
-[Development guide (English)](development/README.md)
-
-[Operational guides](guides/README.md).
-
-English · [Español](../es/README.md) · [Català](../ca/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)
+[Documentation](guides/README.md) · [Development (English)](development/README.md)

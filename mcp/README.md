@@ -4,112 +4,22 @@
 
 # Nextcloud MCP
 
-Independent continuation of MCP for Cloud by Sintax, maintained in this fork.
-Not an official Nextcloud product or the upstream App Store package.
+**English** · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
-Native Nextcloud application. Before using this development candidate, read the [installation requirements and pending release gates](../docs/en/installation.md). Source builds and contributions: [source repository](https://github.com/marcjoancr/mcp-for-nextcloud).
+Connect an MCP client to your own Nextcloud. Search files, read notes, follow Talk conversations or manage tasks through one endpoint. Each request runs with the permissions of the signed-in user.
 
+Nextcloud MCP is an independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) by Sintax (Jhonatan Jaworski). Development takes place on [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
 
-## Selected upstream integration (development)
+**Version 2.0.0** retains the app ID `mcp`. The Nextcloud App Store provides the original project. Review the installation guide before replacing an existing instance.
 
-This branch adds Notes append/replace, Deck labels and visible file linking/unlinking,
-conditional NC34/35 Deck dependencies, precise Deck deadlines and an optional
-filename allowlist, alongside privacy and compatibility fixes. See the
-[tools](../docs/en/reference/tools.md) and
-[configuration](../docs/en/reference/configuration.md) guides for limits and defaults.
-The independent **Nextcloud MCP 2.0.0** development candidate retains app ID `mcp`;
-release and host qualification and human reviews remain pending. Native file linking
-requires explicit approval of its current and future audience and retains native
-sharing limitations. Source integration does not establish an upgrade from an
-installed upstream 1.2.0 or certify every client/platform combination.
+## Start here
 
-## Contacts and Tasks (0.8.0)
+Server URL · `https://cloud.example.com/apps/mcp/`
 
-[Contacts and Tasks (0.8.0)](../docs/en/reference/tools/contacts-tasks.md).
-
-## Tools
-
-[Tools](../docs/en/reference/tools.md).
-
-### Tool guide (`mcp_guide`)
-
-[Tool guide (`mcp_guide`)](../docs/en/reference/tools.md).
-
-### Deck: cards, boards and lists
-
-[Deck: cards, boards and lists](../docs/en/reference/tools/deck.md).
-
-### Optional Calendar diagnostics (`occ mcp:calendar-selftest`)
-
-[Optional Calendar diagnostics (`occ mcp:calendar-selftest`)](../docs/en/guides/troubleshooting.md).
-
-### Images (`files_image_view`, `files_images_view`, `files_image_search`)
-
-[Images (`files_image_view`, `files_images_view`, `files_image_search`)](../docs/en/reference/tools/files.md).
-
-## Resources (MCP Resources)
-
-[Resources (MCP Resources)](../docs/en/reference/resources.md).
-
-## Packaging
-
-For source builds and contribution guides, use the [source repository](https://github.com/marcjoancr/mcp-for-nextcloud). Runtime installation does not require Node or Composer.
-
-### Package rule: no macOS metadata
-
-Source build and archive rules are maintained in the [source repository](https://github.com/marcjoancr/mcp-for-nextcloud).
-
-### Runtime dependencies
-
-See [third-party notices](THIRD-PARTY-NOTICES.md) for bundled dependencies and their licenses.
-
-## Install
-
-[Install](../docs/en/installation.md).
-
-### Install via SSH
-
-[Install via SSH](../docs/en/installation.md).
-
-## Server log (1.0.2)
-
-[Server log (1.0.2)](../docs/en/guides/server-logs.md).
-
-## Locked file (1.0.5)
-
-[Locked file (1.0.5)](../docs/en/guides/file-protection.md).
-
-## Hidden tags (1.0.6)
-
-[Hidden tags (1.0.6)](../docs/en/guides/file-protection.md).
-
-## Configure
-
-[Configure](../docs/en/guides/permissions.md).
-
-### Configuration keys
-
-[Configuration keys](../docs/en/reference/configuration.md).
-
-## Connecting through claude.ai (OAuth)
-
-[Connecting through claude.ai (OAuth)](../docs/en/reference/oauth.md).
-
-## Connecting through ChatGPT and Gemini CLI (OAuth)
-
-[Connecting through ChatGPT and Gemini CLI (OAuth)](../docs/en/reference/oauth.md).
-
-## Revoking
-
-[Revoking](../docs/en/guides/clients.md).
-
-## Manual test after installation
-
-[Manual test after installation](../docs/en/guides/troubleshooting.md).
-
-## Development
-
-For source builds and contribution guides, use the [source repository](https://github.com/marcjoancr/mcp-for-nextcloud). Runtime installation does not require Node or Composer.
+- [Install the fork](../docs/en/installation.md)
+- [Connect a client](../docs/en/guides/clients.md)
+- [Explore the tools](../docs/en/reference/tools.md)
+- [Configure permissions](../docs/en/guides/permissions.md)
 
 ## License
 
@@ -119,14 +29,13 @@ AGPL-3.0-or-later, with the additional section 7(b) attribution term in [NOTICE]
 
 Smalot PdfParser, Symfony Polyfill Mbstring and the Composer autoloader are bundled. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for versions, copyright, licenses and separate development credits.
 
-**Contributors.** Thanks to @NightDragon1 (#5) for the root visibility check and to @matt-ek (#4) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation (#10) and @Zegorax for administrator-registered OAuth clients (#8, #7).
+**Contributors.** Thanks to @NightDragon1 ([#5](https://github.com/sintax-tech/mcp-for-nextcloud/issues/5)) for the root visibility check and to @matt-ek ([#4](https://github.com/sintax-tech/mcp-for-nextcloud/issues/4)) for the report behind the hidden-tags audit. Thanks also to @matt-ek for the German UI translation ([#10](https://github.com/sintax-tech/mcp-for-nextcloud/issues/10)) and @Zegorax for administrator-registered OAuth clients ([#8](https://github.com/sintax-tech/mcp-for-nextcloud/issues/8), [#7](https://github.com/sintax-tech/mcp-for-nextcloud/issues/7)).
 
 The upstream documentation also credits Sintax/Jhonatan Jaworski's contribution
 to [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). This historical
 credit is retained without implying that XERJ reviewed this fork.
 
-## About Sintax
 
-Developed by [Sintax](https://sintax.tech) · sintax.tech. Contact: contato@sintax.tech.
+Tasks hierarchy: [@mturgeonferland](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18).
 
-English · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
+Developed by Sintax — https://sintax.tech
