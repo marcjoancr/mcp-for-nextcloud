@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: fcf7286e2b2e0f3a680ff77549580eb696963c89 -->
+<!-- translation-source-revision: 96439afac09110b786ad6853f79bb079552ae873 -->
 <!-- translation-review: pending -->
 
 > **Revisão pendente:** esta tradução aguarda revisão humana. Consulte [English](README.md).
