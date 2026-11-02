@@ -85,20 +85,12 @@
     <div class="section mcp-block mcp-tool-permissions" id="mcp-tool-permissions" aria-labelledby="mcp-tools-heading">
         <h2 id="mcp-tools-heading"><?php p($l->t('Tools and access')); ?></h2>
         <fieldset id="mcp-tools-fields" class="mcp-tools-fields" aria-labelledby="mcp-tools-heading">
-            <button type="button" id="mcp-tools-add"><?php p($l->t('Add comparison column')); ?></button>
-            <div id="mcp-tools-picker" class="mcp-tools-directory">
-                <strong id="mcp-tools-picker-title" hidden></strong>
-                <label for="mcp-tools-subject-search"><?php p($l->t('Search groups or people')); ?></label>
-                <input type="search" id="mcp-tools-subject-search" aria-controls="mcp-tools-subject" maxlength="255" autocomplete="off">
-                <div id="mcp-tools-directory">
-                    <div class="mcp-tools-subject" id="mcp-tools-subject"></div>
-                    <div id="mcp-tools-pager" hidden>
-                        <button type="button" id="mcp-tools-subject-prev"><?php p($l->t('Previous')); ?></button>
-                        <span id="mcp-tools-subject-page" aria-live="polite"></span>
-                        <button type="button" id="mcp-tools-subject-next"><?php p($l->t('Next')); ?></button>
-                    </div>
-                </div>
-                <button type="button" id="mcp-tools-cancel-picker" hidden><?php p($l->t('Cancel')); ?></button>
+            <button type="button" id="mcp-tools-add" aria-haspopup="dialog" aria-expanded="false" aria-controls="mcp-tools-picker"><?php p($l->t('Choose a group or person')); ?></button>
+            <div id="mcp-tools-picker" class="mcp-tools-directory" popover="manual" tabindex="-1" role="dialog" aria-labelledby="mcp-tools-picker-title">
+                <strong id="mcp-tools-picker-title"><?php p($l->t('Choose a group or person')); ?></strong>
+                <input type="search" id="mcp-tools-subject-search" aria-label="<?php p($l->t('Search groups or people')); ?>" placeholder="<?php p($l->t('Search groups or people')); ?>" aria-controls="mcp-tools-subject" maxlength="255" autocomplete="off">
+                <div class="mcp-tools-subject" id="mcp-tools-subject"></div>
+                <button type="button" id="mcp-tools-cancel-picker"><?php p($l->t('Close')); ?></button>
             </div>
             <div id="mcp-tools-editor-status" role="status"></div>
             <div id="mcp-tools-editor-error" role="alert" hidden></div>
