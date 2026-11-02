@@ -4,6 +4,11 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.3.1
+
+- Open Access and permissions directly on the first group in the directory. Choose a group or a person from a searchable dropdown beside the column heading, or add a column to keep the current comparison. Browsing either list requires no typing.
+- On phones the picker opens on the side with room, and tapping the heading leaves the keyboard closed until search is selected. The fix changes only the administrative view and preserves grants and connection selections.
+
 ## 2.3.0
 
 - Compare tool permissions across groups and people in one matrix. Each column has an independent selector. Group columns show assignments, and person columns show effective access, its source and individual exceptions.
