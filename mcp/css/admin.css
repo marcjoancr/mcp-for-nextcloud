@@ -1602,38 +1602,40 @@ body[data-themes*="dark"] #mcp-admin {
 #mcp-admin .mcp-comparison { min-width: 0; max-width: 100%; }
 #mcp-admin .mcp-compare-mobile-picker { display: none; align-items: center; gap: 8px; margin-block: 8px; font-weight: 600; }
 #mcp-admin .mcp-compare-mobile-picker select { min-width: 0; flex: 1 1 auto; }
-#mcp-admin .mcp-compare-table-wrap { max-width: 100%; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--border-radius, 8px); }
-#mcp-admin .mcp-compare-table { width: 100%; min-width: 42rem; border-collapse: separate; border-spacing: 0; }
-#mcp-admin .mcp-compare-table caption { white-space: normal; padding: 8px; text-align: start; color: var(--color-text-maxcontrast); }
+#mcp-admin .mcp-compare-table-wrap { max-width: 100%; max-height: 70vh; max-height: 70dvh; overflow: auto; border: 1px solid var(--color-border); border-radius: var(--border-radius, 8px); }
+#mcp-admin .mcp-compare-table { width: 100%; min-width: calc(13rem + var(--mcp-subject-count) * 10rem); table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+#mcp-admin .mcp-compare-tool-track { width: clamp(13rem, 30%, 21rem); }
 #mcp-admin .mcp-compare-table th,
-#mcp-admin .mcp-compare-table td { padding: 8px; vertical-align: top; border-bottom: 1px solid var(--color-border); }
-#mcp-admin .mcp-compare-table thead th { position: sticky; top: 0; z-index: 2; background: var(--color-main-background); text-align: start; }
+#mcp-admin .mcp-compare-table td { padding: 8px; vertical-align: middle; border-bottom: 1px solid var(--color-border); }
+#mcp-admin .mcp-compare-table :is(th, td)[data-column-key] { border-inline-start: 1px solid var(--color-border); }
+#mcp-admin .mcp-compare-table thead th { position: sticky; top: 0; z-index: 2; vertical-align: top; background: var(--color-main-background); text-align: start; border-bottom-color: var(--color-border-maxcontrast, var(--color-border)); }
 #mcp-admin .mcp-compare-table .mcp-compare-name-heading,
-#mcp-admin .mcp-compare-table .mcp-compare-tool { position: sticky; inset-inline-start: 0; z-index: 1; min-width: 12rem; max-width: 19rem; background: var(--color-main-background); text-align: start; }
-#mcp-admin .mcp-compare-table .mcp-compare-name-heading { z-index: 3; }
-#mcp-admin .mcp-compare-identity { min-width: 13rem; max-width: 21rem; }
-#mcp-admin .mcp-compare-kind { display: block; color: var(--color-text-maxcontrast); font-size: .85em; }
-#mcp-admin .mcp-compare-pick { display: block; max-width: 100%; overflow-wrap: anywhere; text-align: start; font-weight: 700; }
+#mcp-admin .mcp-compare-table .mcp-compare-tool { position: sticky; inset-inline-start: 0; z-index: 1; background: var(--color-main-background); text-align: start; }
+#mcp-admin .mcp-compare-table .mcp-compare-name-heading { z-index: 3; vertical-align: middle; }
+#mcp-admin .mcp-compare-heading { position: relative; }
+#mcp-admin .mcp-compare-heading:has(.mcp-compare-menu) .mcp-compare-pick { width: calc(100% - 32px); }
+#mcp-admin .mcp-compare-pick { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; width: 100%; margin: 0; padding: 4px 6px; border: 0; background: transparent; color: var(--color-main-text); text-align: start; white-space: normal; }
+#mcp-admin .mcp-compare-kind { grid-column: 1 / -1; color: var(--color-text-maxcontrast); font-size: .85em; font-weight: 400; }
+#mcp-admin .mcp-compare-label { overflow-wrap: anywhere; }
+#mcp-admin .mcp-compare-pick::after { content: ''; width: .4em; height: .4em; margin-inline: 7px 2px; border-inline-end: 1.5px solid; border-block-end: 1.5px solid; transform: rotate(45deg); }
 #mcp-admin .mcp-compare-header-service-block { display: block; margin-block-start: 4px; color: var(--color-error-text, var(--color-error)); font-weight: 700; }
-#mcp-admin .mcp-compare-person-menu { position: relative; margin-block-start: 4px; }
-#mcp-admin .mcp-compare-person-menu > summary { cursor: pointer; color: var(--color-text-maxcontrast); }
-#mcp-admin .mcp-compare-person-actions { display: grid; gap: 4px; position: absolute; inset-inline-start: 0; z-index: 5; min-width: 12rem; padding: 6px; border: 1px solid var(--color-border); border-radius: var(--border-radius, 8px); background: var(--color-main-background); box-shadow: 0 2px 8px var(--color-box-shadow); }
-#mcp-admin .mcp-compare-person-actions button { text-align: start; }
-#mcp-admin .mcp-compare-remove { float: inline-end; min-width: 32px; min-height: 32px; }
+#mcp-admin .mcp-compare-menu > summary { position: absolute; inset-block-start: 0; inset-inline-end: 0; display: grid; place-items: center; width: 30px; min-height: 40px; cursor: pointer; border-radius: var(--border-radius); list-style: none; color: var(--color-main-text); }
+#mcp-admin .mcp-compare-menu > summary::-webkit-details-marker { display: none; }
+#mcp-admin .mcp-compare-menu > summary:hover,
+#mcp-admin .mcp-compare-pick:hover { background: var(--color-background-hover); }
+#mcp-admin .mcp-compare-actions { display: grid; gap: 4px; padding-block-start: 6px; }
+#mcp-admin .mcp-compare-actions button { margin: 0; white-space: normal; text-align: start; }
 #mcp-admin .mcp-compare-service-row th,
 #mcp-admin .mcp-compare-service-row td { background: var(--color-background-dark, var(--color-background-hover)); border-bottom: 2px solid var(--color-border); }
 #mcp-admin .mcp-compare-service-row .mcp-compare-tool { z-index: 2; }
 #mcp-admin .mcp-compare-tool, #mcp-admin .mcp-compare-identity { white-space: normal; overflow-wrap: anywhere; }
 #mcp-admin .mcp-compare-tool-name { display: block; }
 #mcp-admin .mcp-compare-description { display: block; margin-block-start: 4px; color: var(--color-text-maxcontrast); font-size: .9em; font-weight: 400; }
-#mcp-admin .mcp-compare-cell { min-width: 10rem; }
-#mcp-admin .mcp-compare-value { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 7px; width: 100%; min-height: 42px; padding: 6px 8px; border: 1px solid var(--color-border); background: var(--color-main-background); color: var(--color-main-text); text-align: start; white-space: normal; }
+#mcp-admin .mcp-compare-cell { min-width: 0; }
+#mcp-admin .mcp-compare-value { display: grid; align-content: center; grid-template-columns: auto minmax(0, 1fr); gap: 2px 7px; width: 100%; min-height: 42px; padding: 6px 8px; margin: 0; border: 0; background: transparent; color: var(--color-main-text); text-align: start; white-space: normal; }
 #mcp-admin .mcp-compare-mark { grid-row: span 2; align-self: start; font-weight: 700; }
 #mcp-admin .mcp-compare-word { font-weight: 700; }
 #mcp-admin .mcp-compare-value:hover { background: var(--color-background-hover); }
-#mcp-admin .mcp-compare-value:is(.mcp-compare-allowed, .mcp-compare-blocked) { border-inline-start-width: 3px; }
-#mcp-admin .mcp-compare-value.mcp-compare-allowed { border-inline-start-color: var(--color-success-text, var(--color-success)); }
-#mcp-admin .mcp-compare-value.mcp-compare-blocked { border-inline-start-color: var(--color-error-text, var(--color-error)); }
 #mcp-admin .mcp-compare-origin,
 #mcp-admin .mcp-compare-exception,
 #mcp-admin .mcp-compare-service-block { grid-column: 2; overflow-wrap: anywhere; font-size: .88em; }
@@ -1655,13 +1657,15 @@ body[data-themes*="dark"] #mcp-admin {
 #mcp-admin .mcp-compare-catalog-toggle:hover { background: var(--color-background-dark, var(--color-background-hover)); }
 #mcp-admin .mcp-compare-count { margin-inline-start: auto; color: var(--color-text-maxcontrast); font-size: .9em; font-weight: 400; }
 #mcp-admin .mcp-compare-empty { padding: 16px; color: var(--color-text-maxcontrast); }
+#mcp-admin .mcp-compare-table summary:focus-visible,
 #mcp-admin .mcp-compare-table button:focus-visible,
 #mcp-admin .mcp-compare-mobile-picker select:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
 
 @media (max-width: 760px) {
 	#mcp-admin .mcp-compare-mobile-picker { display: flex; }
+	#mcp-admin .mcp-compare-table-wrap { max-height: none; overflow: visible; }
 	#mcp-admin .mcp-compare-table { min-width: 0; table-layout: fixed; }
-	#mcp-admin .mcp-compare-table .mcp-compare-name-heading { width: 44%; min-width: 0; }
+	#mcp-admin .mcp-compare-tool-track { width: 44%; }
 	#mcp-admin .mcp-compare-table th[data-column-key]:not([data-mobile-active="true"]),
 	#mcp-admin .mcp-compare-table td[data-column-key]:not([data-mobile-active="true"]) { display: none; }
 	#mcp-admin .mcp-compare-table .mcp-compare-tool { position: static; min-width: 0; }

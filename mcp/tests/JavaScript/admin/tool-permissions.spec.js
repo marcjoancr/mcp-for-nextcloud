@@ -92,6 +92,30 @@ test('replace any header with a group or person without changing the other colum
     expect(writes(app)).toEqual([])
 })
 
+test('group and person columns line up with their values and keep removal in the matching header', async ({page,app}) => {
+    await open(page,app)
+    await select(page,'Groups','staff','Staff · staff')
+    await add(page,'Groups','external','External · external')
+    await add(page,'People','alice','Alice · alice')
+    await page.locator('#mcp-tools-filter').fill('Edit file')
+    const widths = []
+    for (const key of ['1','2','3']) {
+        const header = page.locator('th.mcp-compare-identity[data-column-key="' + key + '"]')
+        const box = await header.boundingBox()
+        const row = await cell(page,key,'files_edit').locator('..').boundingBox()
+        expect(Math.abs(row.x - box.x)).toBeLessThanOrEqual(1)
+        expect(Math.abs(row.width - box.width)).toBeLessThanOrEqual(1)
+        widths.push(box.width)
+    }
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1)
+    const header = page.locator('.mcp-compare-identity').filter({hasText:'External'})
+    await header.locator('summary').click()
+    await header.getByRole('button',{name:'Remove External'}).click()
+    await expect(page.locator('.mcp-compare-identity')).toHaveCount(2)
+    await expect(cell(page,'3','files_edit')).toContainText('External')
+    expect(writes(app)).toEqual([])
+})
+
 test('an individual cell explains contributing groups and can compare only those groups', async ({page,app})=>{
     await open(page,app); await select(page,'People','alice','Alice · alice')
     await page.locator('#mcp-tools-filter').fill('Edit file')
@@ -154,6 +178,13 @@ test('phone switches between mixed columns; person block wins and missing apps a
     const mobileGrid = page.locator('.mcp-compare-table-wrap')
     expect(await mobileGrid.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
     await expect(cell(page,'1','files_read')).toBeHidden()
+    await page.locator('.mcp-compare-catalog-row').first().evaluate(el => el.scrollIntoView({ block: 'start' }))
+    const currentHeader = mobileGrid.locator('th.mcp-compare-identity')
+    await expect(currentHeader).toContainText('Bob')
+    await expect.poll(() => currentHeader.evaluate(th => {
+        const { x, y, width, height } = th.getBoundingClientRect()
+        return th.contains(document.elementFromPoint(x + width / 2, y + height / 2))
+    })).toBe(true)
     await cell(page,'2','files_read').click()
     await expect(page.locator('#mcp-tools-detail')).toContainText('Read file')
     await page.locator('#mcp-tools-detail').getByRole('button', { name: 'Close', exact: true }).click()

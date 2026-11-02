@@ -1569,7 +1569,6 @@ OC.L10N.register(
     "Permission comparison" : "Comparação de permissões",
     "Permission comparison for selected groups and people" : "Comparação de permissões dos grupos e pessoas selecionados",
     "Person" : "Pessoa",
-    "Person actions" : "Ações da pessoa",
     "Related operation rules" : "Regras de operações relacionadas",
     "Reload permissions" : "Recarregar permissões",
     "Remove rule" : "Remover regra",

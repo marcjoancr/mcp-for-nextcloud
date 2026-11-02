@@ -105,30 +105,31 @@ export function renderComparison(host, {
 	}
 	function header(column) {
 		const cell = el('th', { scope: 'col', className: 'mcp-compare-identity' })
-		const pick = el('button', { type: 'button', className: 'mcp-compare-pick', textContent: column.label, 'data-focus-action': 'pick' })
+		const pick = el('button', { type: 'button', className: 'mcp-compare-pick', 'data-focus-action': 'pick', 'data-column-key': column.key }, [
+			el('span', { className: 'mcp-compare-kind', textContent: column.kind === 'group' ? t('mcp', 'Group') : t('mcp', 'Person') }),
+			el('strong', { className: 'mcp-compare-label', textContent: column.label }),
+		])
 		pick.setAttribute('aria-label', t('mcp', 'Choose comparison for {name}', { name: column.label }))
 		pick.addEventListener('click', () => onPick(column.key))
-		pick.dataset.columnKey = column.key
 		cell.dataset.columnKey = column.key
-		cell.append(el('span', { className: 'mcp-compare-kind', textContent: column.kind === 'group' ? t('mcp', 'Group') : t('mcp', 'Person') }), pick)
+		const bar = el('div', { className: 'mcp-compare-heading' }, [pick])
+		cell.append(bar)
+		if (column.kind === 'user' || columns.length > 1) {
+			const details = el('details', { className: 'mcp-compare-menu' })
+			const label = t('mcp', 'Actions for {name}', { name: column.label })
+			details.append(el('summary', { 'aria-label': label, title: label, 'data-focus-action': 'actions', 'data-column-key': column.key }, [el('span', { 'aria-hidden': 'true', textContent: '…' })]))
+			const actions = el('div', { className: 'mcp-compare-actions' })
+			if (column.kind === 'user') {
+				actions.append(makeAction(t('mcp', 'View groups'), () => onPersonGroups(column.key), !column.snapshot))
+				actions.append(makeAction(t('mcp', 'Inspect access'), () => onInspect(column.key), !column.snapshot))
+				actions.append(makeAction(t('mcp', 'Open Files scope'), () => onScope(column.key), !column.snapshot))
+			}
+			if (columns.length > 1) actions.append(makeAction(t('mcp', 'Remove {name}', { name: column.label }), () => onRemove(column.key)))
+			details.append(actions)
+			bar.append(details)
+		}
 		if (!column.snapshot) cell.append(el('span', { className: 'mcp-compare-load-error', role: 'status', textContent: t('mcp', 'Could not load this entry’s permissions.') }))
 		if (column.kind === 'user' && column.snapshot?.service?.effective === false) cell.append(el('span', { className: 'mcp-compare-header-service-block', textContent: t('mcp', 'MCP service is blocked') }))
-		if (column.kind === 'user') {
-			const details = el('details', { className: 'mcp-compare-person-menu' })
-			details.append(el('summary', { textContent: t('mcp', 'Person actions'), 'aria-label': t('mcp', 'Actions for {name}', { name: column.label }), 'data-focus-action': 'person-actions', 'data-column-key': column.key }))
-			const actions = el('div', { className: 'mcp-compare-person-actions' })
-			actions.append(makeAction(t('mcp', 'View groups'), () => onPersonGroups(column.key), !column.snapshot))
-			actions.append(makeAction(t('mcp', 'Inspect access'), () => onInspect(column.key), !column.snapshot))
-			actions.append(makeAction(t('mcp', 'Open Files scope'), () => onScope(column.key), !column.snapshot))
-			details.append(actions)
-			cell.append(details)
-		}
-		if (columns.length > 1) {
-			const remove = el('button', { type: 'button', className: 'mcp-compare-remove', textContent: t('mcp', 'Remove'), 'data-focus-action': 'remove', 'data-column-key': column.key })
-			remove.setAttribute('aria-label', t('mcp', 'Remove {name}', { name: column.label }))
-			remove.addEventListener('click', () => onRemove(column.key))
-			cell.append(remove)
-		}
 		return cell
 	}
 	function resultCell(column, name, tool) {
@@ -252,13 +253,16 @@ export function renderComparison(host, {
 	}
 	const wrap = el('div', { className: 'mcp-compare-table-wrap', role: 'region', 'aria-label': t('mcp', 'Permission comparison'), tabIndex: 0 })
 	const table = el('table', { className: 'mcp-compare-table' })
-	const caption = el('caption', { textContent: t('mcp', 'Permission comparison for selected groups and people') })
+	const caption = el('caption', { className: 'mcp-sr-only', textContent: t('mcp', 'Permission comparison for selected groups and people') })
 	const thead = el('thead')
 	const headerRow = el('tr')
 	headerRow.append(el('th', { scope: 'col', className: 'mcp-compare-name-heading', textContent: t('mcp', 'Tool') }))
 	for (const column of shownColumns) headerRow.append(header(column))
 	thead.append(headerRow)
-	table.append(caption, thead)
+	table.style.setProperty('--mcp-subject-count', String(shownColumns.length))
+	const tracks = el('colgroup', {}, [el('col', { className: 'mcp-compare-tool-track' })])
+	for (const column of shownColumns) tracks.append(el('col', { 'data-column-key': column.key }))
+	table.append(caption, tracks, thead)
 	const serviceBody = el('tbody')
 	serviceBody.append(serviceRow())
 	table.append(serviceBody)
