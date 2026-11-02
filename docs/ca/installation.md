@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/installation.md -->
-<!-- translation-source-revision: d1a2caedc111cdb2f129ae4874291896c43a25fe -->
+<!-- translation-source-revision: b93ec95263f3db1d7b208b7cb3c17cef2e1f3f20 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../en/installation.md).
@@ -11,7 +11,7 @@
 
 ## Requisits
 
-Nextcloud MCP 2.1.1 fa servir l’identificador `mcp` i substitueix qualsevol instal·lació prèvia de MCP for Cloud. La botiga del Nextcloud distribueix l’aplicació original. Per instal·lar el fork, fes servir el paquet compilat a partir de la revisió de codi verificada.
+Nextcloud MCP 2.2.0 fa servir l’identificador `mcp` i substitueix qualsevol instal·lació prèvia de MCP for Cloud. La botiga del Nextcloud distribueix l’aplicació original. Per instal·lar el fork, fes servir el paquet compilat a partir de la revisió de codi verificada.
 
 L’entorn de referència és Linux x86-64 amb Apache. Fes servir versions amb manteniment de seguretat i les extensions PHP `zip`, `mbstring` i `dom`. SQLite es fa servir en proves locals i assajos de recuperació.
 
@@ -25,7 +25,7 @@ Les eines disponibles depenen de les aplicacions del Nextcloud i dels permisos d
 
 ### Instal·lar per SSH
 
-Verifica `mcp-2.1.1.tar.gz` i el kit de codi font corresponent amb el resum de confiança del manifest. Assaja l’actualització i la recuperació en un entorn com el del teu servidor i comprova que les actualitzacions automàtiques conserven el fork. L’ordre `occ app:install mcp` instal·la el paquet original de la botiga.
+Verifica `mcp-2.2.0.tar.gz` i el kit de codi font corresponent amb el resum de confiança del manifest. Assaja l’actualització i la recuperació en un entorn com el del teu servidor i comprova que les actualitzacions automàtiques conserven el fork. L’ordre `occ app:install mcp` instal·la el paquet original de la botiga.
 
 Abans del desplegament, fes servir MCP Inspector per comprovar l’accés HTTPS, l’autorització i la revocació del client. Després, comprova que un client pot llegir la guia d’eines en una instància de prova d’un sol ús.
 
