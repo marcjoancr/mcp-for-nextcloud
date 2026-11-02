@@ -4,6 +4,11 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.3.3
+
+- The tool catalog and direct calls require both the user's permissions for the connection and the apps installed and enabled for that user. An enabled setting left behind by a removed app no longer exposes its tools.
+- Sharing tools require `files_sharing`. Editing, replacing and checking out existing files require `files_versions`. Ordinary file reads remain available when either optional app is disabled.
+
 ## 2.3.2
 
 - Edit a tool or service rule in its matrix cell. Open the information button for its description, related operations and contributing groups. Bulk editing applies a decision to checked tools and columns, with a review before saving.
