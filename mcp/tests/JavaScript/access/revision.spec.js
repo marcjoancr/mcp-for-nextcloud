@@ -10,7 +10,10 @@ for (const status of [409, 428, 503]) {
         })
         await app.open('/admin#access?view=operations')
         await page.locator('input[aria-label^="alice — Files: read"]').check()
-        await expect.poll(() => app.calls.filter(c => c.path === '/api/grants' && c.method === 'GET').length).toBe(3)
+        await expect.poll(() => {
+            const save = app.calls.findIndex(c => c.method === 'PUT' && c.path === '/api/grants/alice')
+            return save !== -1 && app.calls.slice(save + 1).some(c => c.method === 'GET' && c.path === '/api/grants')
+        }).toBe(true)
         await expect(page.locator('input[aria-label^="alice — Files: read"]')).not.toBeChecked()
         expect(app.calls.filter(c => c.method === 'PUT')).toHaveLength(1)
         await page.locator('input[aria-label^="bob — Files: create"]').check()

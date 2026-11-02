@@ -12,6 +12,12 @@ The service, user eligibility (**Can connect**) and personal connection start of
 
 Reading starts allowed except for server logs and Mail. Mail requires an explicit individual or group read grant, including after an upgrade. Other operations start denied. Files sharing with people/groups (`files.share`) and public links (`files.link`) are independent permissions. Listing shares is a read operation.
 
+At connection time, MCP lists the tools permitted for the user and selected for that connection.
+Each tool also requires its module's app and any additional app it uses to be installed and enabled for that user.
+For example, listing, creating and removing file shares require `files_sharing`. Editing, replacing and checking out
+an existing file require `files_versions`. Ordinary file reads work with either app disabled. The server checks the
+same requirements again on a direct call.
+
 The Overview shows the endpoint, app version, connection counts and checkout upload limit. The checkout limit is edited in MiB and cannot exceed PHP's `post_max_size`. Advanced contains server-log roles/privacy and OCR. Data protection contains the exclusion tags; see [file protection](file-protection.md).
 
 ## Guests app restrictions

@@ -442,8 +442,11 @@ final class McpControllerTest extends TestCase {
             }
         };
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy,
-            $this->createMock(\OCP\App\IAppManager::class), $this->createMock(\OCP\IUserManager::class));
+        $apps = $this->createMock(\OCP\App\IAppManager::class);
+        $apps->method('isEnabledForUser')->willReturn(true);
+        $users = $this->createMock(\OCP\IUserManager::class);
+        $users->method('get')->willReturn($this->createMock(\OCP\IUser::class));
+        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->policy, $apps, $users);
         $registry = new \OCA\Mcp\Mcp\Tools\ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $logger));
         return new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $registry),
             new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Prompts\PromptCatalog(), $this->policy),

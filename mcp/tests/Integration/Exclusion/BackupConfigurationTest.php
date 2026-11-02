@@ -138,12 +138,14 @@ final class BackupConfigurationTest extends ExclusionTestCase {
 	public function testDisablingVersionsDoesNotEnablePreviouslyForbiddenWrites(): void {
 		$this->configure('.mcp-backups', false);
 		$this->makeFile('home', 'a.txt', 'unchanged');
+		$client = $this->mcp();
 		$apps = Server::get(IAppManager::class);
 		try {
 			$apps->disableApp('files_versions');
 			self::assertTrue(Server::get(BackupCopies::class)->required(self::ALICE));
-			$edit = $this->mcp()->write('files_edit', ['path' => $this->path('home', 'a.txt'), 'content' => 'must not write']);
-			self::assertTrue($edit->isError(), $edit->describe());
+			$edit = $client->write('files_edit', ['path' => $this->path('home', 'a.txt'), 'content' => 'must not write']);
+			self::assertSame(-32602, $edit->body['error']['code'] ?? null, $edit->describe());
+			self::assertSame('Unknown tool', $edit->body['error']['message'] ?? null);
 			self::assertSame('unchanged', $this->node(self::ALICE, $this->path('home', 'a.txt'))->getContent());
 		} finally {
 			$apps->enableApp('files_versions');

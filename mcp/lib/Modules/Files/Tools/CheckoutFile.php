@@ -28,6 +28,7 @@ final class CheckoutFile implements WriteTool {
             name: 'files_checkout',
             module: 'files',
             operation: 'edit',
+            app: 'files_versions',
             description: CheckoutMessages::checkoutTool(),
             inputSchema: self::schema(['path' => $path, 'etag' => $etag, 'confirm_shared' => $confirmShared], ['path']),
         );

@@ -27,6 +27,7 @@ final class ReplaceText implements WriteTool {
             name: 'files_replace',
             module: 'files',
             operation: 'edit',
+            app: 'files_versions',
             description: EditingMessages::replaceTool(),
             inputSchema: self::schema([
                     'path' => $path,

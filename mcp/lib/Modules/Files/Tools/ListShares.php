@@ -27,6 +27,7 @@ final class ListShares implements Tool {
         return new ToolDefinition(
             name: 'files_list_shares',
             module: 'files',
+            app: 'files_sharing',
             operation: 'read',
             description: SharingMessages::listSharesTool(),
             inputSchema: self::schema([

@@ -227,7 +227,7 @@ final class GuestRestrictionsTest extends IntegrationTestCase {
      * and the file keeps its bytes. The links of alice, who is no guest, keep working.
      */
     public function testTakingThisAppOffTheGuestsListStopsTheGuestsEarlierCheckoutLinks(): void {
-        $this->guests(['usewhitelist' => 'yes', 'whitelist' => 'files_sharing,activity,mcp']);
+        $this->guests(['usewhitelist' => 'yes', 'whitelist' => 'files_versions,files_sharing,activity,mcp']);
         $links = [];
         foreach (['basic', 'bearer'] as $kind) {
             $path = '/guest-checkout-' . $kind . '-' . bin2hex(random_bytes(3)) . '.txt';
@@ -238,7 +238,7 @@ final class GuestRestrictionsTest extends IntegrationTestCase {
         $this->dav(Fixtures::ALICE)->put($alicePath, 'original');
         $alice = $this->checkout(new McpClient(self::$logins['alice'] ??= LoginFactory::basic(Fixtures::ALICE)), $alicePath);
 
-        $this->guests(['whitelist' => 'files_sharing,activity']);
+        $this->guests(['whitelist' => 'files_versions,files_sharing,activity']);
         $seen = [];
         foreach ($links as $kind => [$path, [$download, $upload]]) {
             $got = Http::request('GET', $download);
@@ -261,7 +261,7 @@ final class GuestRestrictionsTest extends IntegrationTestCase {
 
     /** External storage hidden after the link was issued: the link no longer reaches a file on it. */
     public function testExternalStorageHiddenAfterTheCheckoutIsOutOfReachOfTheLink(): void {
-        $this->guests(['usewhitelist' => 'yes', 'whitelist' => 'files_sharing,activity,mcp', 'allow_external_storage' => 'yes']);
+        $this->guests(['usewhitelist' => 'yes', 'whitelist' => 'files_versions,files_sharing,activity,mcp', 'allow_external_storage' => 'yes']);
         $out = self::occ('files_external:create', '--output=json', '/' . self::MOUNT, 'local', 'null::null', '-c', 'datadir=/mcp-it-ext');
         $this->mountId = (int)trim((string)end($out));
         self::occ('files_external:applicable', (string)$this->mountId, '--add-user=' . self::GUEST);

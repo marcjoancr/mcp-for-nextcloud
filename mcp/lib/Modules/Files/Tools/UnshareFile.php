@@ -27,6 +27,7 @@ final class UnshareFile implements WriteTool {
         return new ToolDefinition(
             name: 'files_unshare',
             module: 'files',
+            app: 'files_sharing',
             operation: 'share',
             grantAnyOf: ['share', 'link'],
             destructiveHint: true,

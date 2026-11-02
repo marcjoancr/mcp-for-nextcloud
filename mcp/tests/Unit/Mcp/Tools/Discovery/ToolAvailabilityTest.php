@@ -12,22 +12,26 @@ use PHPUnit\Framework\TestCase;
 final class ToolAvailabilityTest extends TestCase {
     public function testEveryCardFileToolRequiresItsCrossModuleGrants(): void {
         $policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
-        $availability = new ToolAvailability($policy, $this->createMock(\OCP\App\IAppManager::class), $this->createMock(\OCP\IUserManager::class));
+        $apps = $this->createMock(\OCP\App\IAppManager::class);
+        $apps->method('isEnabledForUser')->willReturn(true);
+        $users = $this->createMock(\OCP\IUserManager::class);
+        $users->method('get')->willReturn($this->createMock(\OCP\IUser::class));
+        $availability = new ToolAvailability($policy, $apps, $users);
         $policy->setGrant('alice', 'deck', 'read', true);
         $policy->setGrant('alice', 'deck', 'edit', true);
         $policy->setGrant('alice', 'files', 'read', false);
         $policy->setGrant('alice', 'files', 'share', false);
         $definitions = \OCA\Mcp\Modules\Deck\DeckToolCatalog::definitions();
         foreach (['deck_list_card_files', 'deck_unlink_card_file', 'deck_link_card_file'] as $name) {
-            $definition = $definitions[$name]; unset($definition['app']);
+            $definition = $definitions[$name];
             self::assertFalse($availability->allowed($definition, 'alice'), $name . ' must not advertise without Files READ');
         }
         $policy->setGrant('alice', 'files', 'read', true);
         foreach (['deck_list_card_files', 'deck_unlink_card_file'] as $name) {
-            $definition = $definitions[$name]; unset($definition['app']);
+            $definition = $definitions[$name];
             self::assertTrue($availability->allowed($definition, 'alice'));
         }
-        $definition = $definitions['deck_link_card_file']; unset($definition['app']);
+        $definition = $definitions['deck_link_card_file'];
         self::assertFalse($availability->allowed($definition, 'alice'));
         $policy->setGrant('alice', 'files', 'share', true);
         self::assertTrue($availability->allowed($definition, 'alice'));

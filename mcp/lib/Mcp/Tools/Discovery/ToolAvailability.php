@@ -7,8 +7,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Mcp\Tools\Discovery;
 
+use OCA\Mcp\Access\Grants\GrantMatrix;
 use OCA\Mcp\Access\Guests\GuestRestrictions;
 use InvalidArgumentException;
+use OCP\App\AppPathNotFoundException;
 use OCP\IUser;
 use OCA\Mcp\Access\Policy\Resolution\GrantUnknown;
 use OCA\Mcp\OAuth\ConnectionContext;
@@ -36,10 +38,38 @@ final class ToolAvailability {
         return !$module instanceof RestrictedModule || $module->permits($userId);
     }
 
+    /** App IDs required by the module and tool, including those checked against a guest's allowlist.
+     * @param array{module:string, app?:string} $definition
+     * @return list<string>
+     */
+    public static function requiredApps(array $definition): array {
+        $module = $definition['module'];
+        $moduleApp = GrantMatrix::MODULE_APPS[$module] ?? $module;
+        $apps = $moduleApp === '' ? [] : [$moduleApp];
+        $toolApp = $definition['app'] ?? '';
+        if ($toolApp !== '' && $toolApp !== $moduleApp) {
+            $apps[] = $toolApp;
+        }
+        return $apps;
+    }
+
     /** Group administration uses instance availability; user administration and MCP use that user's enabled apps. */
     public function appEnabled(string $appId, ?IUser $user): bool {
-        return $user === null ? AppEnablement::forAnyone($this->appManager, $appId)
-            : AppEnablement::forUser($this->appManager, $appId, $user);
+        if ($appId === 'files') {
+            return true; // Core Files is always enabled.
+        }
+        try {
+            $enabled = $user === null ? AppEnablement::forAnyone($this->appManager, $appId)
+                : AppEnablement::forUser($this->appManager, $appId, $user);
+            if (!$enabled) {
+                return false;
+            }
+            // Enabled settings can outlive the installed app files.
+            $this->appManager->getAppPath($appId);
+            return true;
+        } catch (AppPathNotFoundException) {
+            return false;
+        }
     }
 
     /**
@@ -72,17 +102,18 @@ final class ToolAvailability {
         } catch (InvalidArgumentException) {
             return false;
         }
-        if (!$granted) {
-            return false;
-        }
-        if ($this->guests !== null && (!$this->guests->allowsApp($userId, \OCA\Mcp\Access\Grants\GrantMatrix::MODULE_APPS[$definition['module']] ?? '')
-            || !$this->guests->allowsApp($userId, $definition['app'] ?? ''))) {
-            return false;
-        }
-        if (isset($definition['app'])) {
-            $user = $this->userManager->get($userId);
-            // An optional app in a version older than MCP supports counts as off (AppEnablement::MINIMUM_VERSIONS).
-            return $user !== null && $this->appEnabled($definition['app'], $user);
+        $user = null;
+        foreach (self::requiredApps($definition) as $app) {
+            if ($this->guests !== null && !$this->guests->allowsApp($userId, $app)) {
+                return false;
+            }
+            if ($app === 'files') {
+                continue;
+            }
+            $user ??= $this->userManager->get($userId);
+            if ($user === null || !$this->appEnabled($app, $user)) {
+                return false;
+            }
         }
         return true;
     }

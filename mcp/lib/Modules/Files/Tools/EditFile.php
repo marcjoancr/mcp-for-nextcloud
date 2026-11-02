@@ -24,6 +24,7 @@ final class EditFile implements WriteTool {
             name: 'files_edit',
             module: 'files',
             operation: 'edit',
+            app: 'files_versions',
             description: EditingMessages::editTool(),
             inputSchema: [
             'type' => 'object',

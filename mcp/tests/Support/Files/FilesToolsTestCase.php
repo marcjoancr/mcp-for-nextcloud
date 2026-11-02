@@ -165,7 +165,7 @@ abstract class FilesToolsTestCase extends TestCase {
     /** Nextcloud's file name rules, as a default install applies them. */
     protected FakeFilenameValidator $filenames;
     /** @var list<string> apps enabled for alice; a test can empty it to simulate files_versions being off */
-    protected array $enabled = ['files_versions'];
+    protected array $enabled = ['files_versions', 'files_sharing'];
 
     /** Root lookup follows the current tree when a scenario rebuilds its fixtures. */
     protected function visibilityRoot(): \OCP\Files\IRootFolder {

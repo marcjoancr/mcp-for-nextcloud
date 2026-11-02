@@ -30,6 +30,7 @@ final class ShareFile implements WriteTool {
         return new ToolDefinition(
             name: 'files_share',
             module: 'files',
+            app: 'files_sharing',
             operation: 'share',
             grantAnyOf: ['share', 'link'],
             destructiveHint: true,

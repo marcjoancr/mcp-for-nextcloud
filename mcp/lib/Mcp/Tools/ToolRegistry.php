@@ -88,9 +88,10 @@ class ToolRegistry {
         $enabled = [];
         foreach ($this->modules as $module) {
             foreach ($module->definitions() as $definition) {
-                $app = $definition['app'] ?? null;
-                if ($app !== null && !($enabled[$app] ??= $this->availability->appEnabled($app, $user))) {
-                    continue;
+                foreach (ToolAvailability::requiredApps($definition) as $app) {
+                    if (!($enabled[$app] ??= $this->availability->appEnabled($app, $user))) {
+                        continue 2;
+                    }
                 }
                 $tools[] = ToolPublication::present($definition)
                     + (isset($definition['grantAllOf']) ? ['grantAllOf' => $definition['grantAllOf']] : []);
