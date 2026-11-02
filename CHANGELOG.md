@@ -4,6 +4,12 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.2.0
+
+- The permissions page opens with groups. Search for a person to see their effective service and tool access, which rules they inherit and how to create or remove an individual exception.
+- Tool selectors and MCP discovery follow app availability. Tasks requires the Tasks app and DAV to be enabled for the user.
+- Disabling an app preserves its grants and connection selections. After re-enabling it, an existing OAuth connection can use its previously approved tools without new consent. Saving an outdated selection returns a conflict so it cannot silently remove tools.
+
 ## 2.1.1
 
 - Remove deployment records and private paths from the distributed documentation.
