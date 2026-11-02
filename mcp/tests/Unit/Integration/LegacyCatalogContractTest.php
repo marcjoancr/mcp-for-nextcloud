@@ -11,9 +11,9 @@ use PHPUnit\Framework\TestCase;
 
 /** A legacy comparison cannot hide changed grants when a new capability is added. */
 final class LegacyCatalogContractTest extends TestCase {
-    public function testOnlyTheExplicitMailReadAdditionIsAccepted(): void {
+    public function testOnlyTheExplicitMailAndFormsAdditionsAreAccepted(): void {
         $baseline = ['files' => ['read', 'edit'], 'logs' => ['read']];
-        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$baseline, 'mail' => ['read']]));
+        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$baseline, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read']]));
         foreach ([$baseline, ['files' => ['read'], 'logs' => ['read'], 'mail' => ['read']],
             [...$baseline, 'mail' => ['read', 'write']], [...$baseline, 'unknown' => ['read']],
             ['mail' => ['read']]] as $current) {
@@ -28,7 +28,8 @@ final class LegacyCatalogContractTest extends TestCase {
         $legacy = ['1' => ['globalEnabled' => true, 'users' => ['alice' => ['grants' => ['files' => ['read' => false]]]],
             'matrix' => ['alice' => ['eligible' => true, 'connected' => false, 'grants' => ['files' => ['read' => false]]]]]];
         $branch = $legacy;
-        $branch['1']['matrix']['alice']['grants']['mail'] = ['read' => false];
+        $branch['1']['matrix']['alice']['grants']['mail'] = ['read' => false, 'search' => false, 'read_message' => false];
+        $branch['1']['matrix']['alice']['grants']['forms'] = ['read' => false];
         self::assertSame($legacy, LegacyCatalogContract::answers($branch));
         self::assertArrayHasKey('mail', $branch['1']['matrix']['alice']['grants'], 'The input must not be modified');
         $branch['1']['matrix']['alice']['grants']['files']['read'] = true;

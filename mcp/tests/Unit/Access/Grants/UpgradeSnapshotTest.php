@@ -51,7 +51,7 @@ final class UpgradeSnapshotTest extends TestCase {
                     foreach (GrantPolicy::CATALOG as $module => $operations) {
                         foreach ($operations as $operation) {
                             // Mail did not exist in 1.0.8: its new read permission must stay denied.
-                            $default = $operation === 'read' && !in_array($module, ['logs', 'mail'], true) ? '1' : '0';
+                            $default = $operation === 'read' && !in_array($module, ['logs', 'mail', 'forms'], true) ? '1' : '0';
                             $legacy = ($values["grant_{$module}_{$operation}"] ?? $default) === '1';
                             $this->assertSame($legacy, $policy->granted($uid, $module, $operation), "$uid $module/$operation");
                             $this->assertSame($legacy, $matrix[$uid]['grants'][$module][$operation], "$uid $module/$operation (matrix)");

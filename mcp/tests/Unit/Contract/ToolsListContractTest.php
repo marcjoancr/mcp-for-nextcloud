@@ -33,6 +33,9 @@ final class ToolsListContractTest extends TestCase {
 
     /** Builds a concrete app class with real app collaborators and mocks for everything else. */
     private function build(string $class): object {
+        if ($class === \OCA\Mcp\Modules\Forms\FormsModule::class) {
+            return \OCA\Mcp\Modules\Forms\FormsModule::withReader($this->createStub(\OCA\Mcp\Modules\Forms\FormsReader::class));
+        }
         if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
             return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
         }
@@ -156,6 +159,7 @@ final class ToolsListContractTest extends TestCase {
         }
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn($optionalAppsEnabled);
+        $apps->method('getAppVersion')->willReturnCallback(static fn (string $id): string => ['mail' => '5.12.5', 'forms' => '5.4.1'][$id] ?? '');
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturn($this->createMock(IUser::class));
         $modules = array_map(fn (string $class) => $this->build($class), Application::MODULES);
@@ -335,6 +339,30 @@ final class ToolsListContractTest extends TestCase {
      * The title map is the source of truth for the display layer; the humanized fallback only keeps a
      * new tool from breaking at runtime, so a missing entry must fail here instead.
      */
+    public function testSensitiveReadGrantsPublishOnlyTheirOwnTools(): void {
+        foreach ([
+            ['mail', 'read', ['mail_list_accounts', 'mail_list_mailboxes']],
+            ['mail', 'search', ['mail_search_messages']],
+            ['mail', 'read_message', ['mail_read_message']],
+            ['forms', 'read', ['forms_list', 'forms_read']],
+        ] as [$module, $operation, $expected]) {
+            $response = $this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
+                \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, '{}', true,
+                static fn (string $m, string $op): bool => $m === $module && $op === $operation);
+            $tools = json_decode($response, false, 512, JSON_THROW_ON_ERROR)->result->tools;
+            $names = [];
+            foreach ($tools as $tool) {
+                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_')) {
+                    continue;
+                }
+                $names[] = $tool->name;
+                self::assertTrue($tool->annotations->readOnlyHint);
+                self::assertObjectNotHasProperty('confirm', $tool->inputSchema->properties);
+            }
+            self::assertEqualsCanonicalizing($expected, $names);
+        }
+    }
+
     public function testEveryRegisteredToolIsInTheTitleMap(): void {
         $tools = json_decode($this->toolsListJson(), false, 512, JSON_THROW_ON_ERROR)->result->tools;
         $missing = [];

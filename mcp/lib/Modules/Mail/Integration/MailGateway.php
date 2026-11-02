@@ -62,7 +62,7 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 * @return object|null the OCA\Mail\Account; null when it does not exist, belongs to somebody else or is delegated
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
-	private function ownedAccount(string $userId, int $accountId): ?object {
+	public function ownedAccount(string $userId, int $accountId): ?object {
 		$exception = MailServices::CLIENT_EXCEPTION_CLASS;
 		try {
 			$account = $this->services->accountService($userId)->find($userId, $accountId);

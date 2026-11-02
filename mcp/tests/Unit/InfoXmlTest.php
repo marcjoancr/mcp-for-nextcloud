@@ -112,10 +112,10 @@ final class InfoXmlTest extends TestCase {
     /** Public descriptions must not promise mandatory Files copies after the configurable policy port. */
     public function testSelected121CapabilitiesAndCopyLimitsAppearInEveryStoreLocale(): void {
         $required = [
-            'en' => ['64', 'previous names', 'Contact deletion always requires a verified backup', 'no message reading', 'native versions are not guaranteed'],
-            'pt-br' => ['64', 'nomes anteriores', 'Excluir contato sempre exige backup verificado', 'sem ler mensagens', 'não há garantia de versão nativa'],
-            'es' => ['64', 'nombres anteriores', 'Eliminar contactos siempre exige copia verificada', 'sin leer mensajes', 'no se garantiza una versión nativa'],
-            'de' => ['64', 'Frühere Namen', 'Kontakte löschen benötigt immer eine geprüfte Sicherung', 'ohne Nachrichten zu lesen', 'nicht für jede Datei'],
+            'en' => ['64', 'previous names', 'Contact deletion always requires a verified backup', 'mail.read_message', 'native versions are not guaranteed'],
+            'pt-br' => ['64', 'nomes anteriores', 'Excluir contato sempre exige backup verificado', 'mail.read_message', 'não há garantia de versão nativa'],
+            'es' => ['64', 'nombres anteriores', 'Eliminar contactos siempre exige copia verificada', 'mail.read_message', 'no se garantiza una versión nativa'],
+            'de' => ['64', 'Frühere Namen', 'Kontakte löschen benötigt immer eine geprüfte Sicherung', 'mail.read_message', 'nicht für jede Datei'],
         ];
         $descriptions = $this->localized('description');
         foreach ($required as $locale => $phrases) {

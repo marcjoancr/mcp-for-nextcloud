@@ -28,6 +28,8 @@ pin() { php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_O
 IMAP_IMAGE=$(pin imap_image)
 MAIL_TAG=v$(pin mail_version)
 MAIL_SHA=$(pin mail_sha256)
+FORMS_TAG=v$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p["forms_version"];' "$HERE/forms-pins.json")
+FORMS_SHA=$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p["forms_sha256"];' "$HERE/forms-pins.json")
 IMAP_PORT=31143
 # Public fixture-only password, never reused outside the disposable network.
 IMAP_PASSWORD=mcp-it-imap-password
@@ -117,6 +119,19 @@ install_mail() {
 	echo "Mail $actual enabled"
 }
 
+# install_forms: the Forms release pinned for NC35, checked before it is enabled.
+install_forms() {
+	archive="$TOOLS_DIR/forms.tar.gz"
+	curl -fsSL -o "$archive" "https://github.com/nextcloud-releases/forms/releases/download/$FORMS_TAG/forms-$FORMS_TAG.tar.gz"
+	echo "$FORMS_SHA  $archive" | sha256_check
+	chmod 0644 "$archive"
+	docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/forms.tar.gz -C /var/www/html/custom_apps
+	occ app:enable forms
+	actual=$(occ config:app:get forms installed_version)
+	[ "$actual" = "${FORMS_TAG#v}" ] || { echo "Unexpected installed Forms $actual" >&2; return 1; }
+	echo "Forms $actual enabled"
+}
+
 # create_account <uid> <imap user>: one account through the Mail app's occ command, synchronized once; prints its id.
 create_account() {
 	created=$(occ mail:account:create-imap "$1" "Mail of $2" "$2@example.com" "$IMAP" "$IMAP_PORT" none "$2" "$IMAP_PASSWORD" \
@@ -133,6 +148,7 @@ create_account() {
 cmd_provision() {
 	start_imap
 	install_mail
+	install_forms
 	# The IMAP server has a private address on the run's network; Nextcloud refuses local remote hosts by default.
 	occ config:system:set allow_local_remote_servers --value=true --type=boolean
 	alice=$(create_account mcp-it-alice alice)

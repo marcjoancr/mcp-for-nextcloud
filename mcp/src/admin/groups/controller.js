@@ -63,10 +63,10 @@ export function mountGroups({ root: pageRoot, request, t, n, events, policyChann
 	const count = (value) => value === null || value === undefined ? unknown() : String(value)
 	const untrusted = () => t('mcp', 'This group comes from a source that cannot guarantee group identity (for example LDAP). Grant MCP access to its members individually.')
 	function moduleName(module) {
-		return { files: t('mcp', 'Files'), notes: t('mcp', 'Notes'), deck: t('mcp', 'Deck'), calendar: t('mcp', 'Calendar'), contacts: t('mcp', 'Contacts'), tasks: t('mcp', 'Tasks'), talk: t('mcp', 'Talk'), people: t('mcp', 'People'), logs: t('mcp', 'Server log') }[module] || module
+		return { files: t('mcp', 'Files'), notes: t('mcp', 'Notes'), deck: t('mcp', 'Deck'), calendar: t('mcp', 'Calendar'), contacts: t('mcp', 'Contacts'), tasks: t('mcp', 'Tasks'), talk: t('mcp', 'Talk'), people: t('mcp', 'People'), logs: t('mcp', 'Server log'), mail: t('mcp', 'Mail'), forms: t('mcp', 'Forms') }[module] || module
 	}
 	function operationName(operation) {
-		return { read: t('mcp', 'read'), edit: t('mcp', 'edit'), create: t('mcp', 'create'), move: t('mcp', 'move'), delete: t('mcp', 'delete'), transfer: t('mcp', 'transfer'), reply: t('mcp', 'reply'), attach: t('mcp', 'attach'), quote: t('mcp', 'quote'), share: t('mcp', 'share'), link: t('mcp', 'link'), restore: t('mcp', 'restore') }[operation] || operation
+		return { read: t('mcp', 'read'), edit: t('mcp', 'edit'), create: t('mcp', 'create'), move: t('mcp', 'move'), delete: t('mcp', 'delete'), transfer: t('mcp', 'transfer'), reply: t('mcp', 'reply'), attach: t('mcp', 'attach'), quote: t('mcp', 'quote'), share: t('mcp', 'share'), link: t('mcp', 'link'), restore: t('mcp', 'restore'), search: t('mcp', 'search mail headers'), read_message: t('mcp', 'read mail content') }[operation] || operation
 	}
 	function grantKeys(grants) {
 		return Object.entries(grants).flatMap(([module, operations]) => operations.map((operation) => module + ':' + operation)).sort()
@@ -132,7 +132,7 @@ export function mountGroups({ root: pageRoot, request, t, n, events, policyChann
 	/** What a member gets without any grant: GrantPolicy::defaultGranted(), reading except the server log. */
 	function defaultLevel(module) {
 		const operations = current.catalog[module]
-		return Levels.levelOf(module, operations, Object.fromEntries(operations.map((operation) => [operation, operation === 'read' && module !== 'logs'])))
+		return Levels.levelOf(module, operations, Object.fromEntries(operations.map((operation) => [operation, operation === 'read' && !['logs', 'mail', 'forms'].includes(module)])))
 	}
 	/** For a group the lowest level is "Not granted": the members keep what they have from elsewhere. */
 	function levelName(level) {

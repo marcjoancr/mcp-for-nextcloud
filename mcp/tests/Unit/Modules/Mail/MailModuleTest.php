@@ -28,26 +28,29 @@ use Psr\Log\LoggerInterface;
  */
 final class MailModuleTest extends TestCase {
 	/** The tools of the module, in tools/list order. */
-	private const TOOLS = ['mail_list_accounts', 'mail_list_mailboxes'];
+	private const TOOLS = ['mail_list_accounts', 'mail_list_mailboxes', 'mail_search_messages', 'mail_read_message'];
 
 	/**
 	 * Both tools read, carry the Mail app id and never ask for confirm.
 	 *
 	 * @return void
 	 */
-	public function testTheModulePublishesTwoReadToolsOfTheMailApp(): void {
+	public function testTheModulePublishesAccountAndMessageToolsWithSeparateOperations(): void {
 		$definitions = $this->module()->definitions();
 
 		$this->assertSame(self::TOOLS, array_column($definitions, 'name'));
-		foreach ($definitions as $definition) {
+		foreach ($definitions as $i => $definition) {
 			$this->assertSame('mail', $definition['module']);
-			$this->assertSame('read', $definition['operation']);
+			$this->assertSame($i < 2 ? 'read' : ($i === 2 ? 'search' : 'read_message'), $definition['operation']);
 			$this->assertSame('mail', $definition['app']);
 			$this->assertFalse(WriteGate::isWrite($definition), $definition['name']);
 			$this->assertArrayNotHasKey('confirm', (array)$definition['inputSchema']['properties']);
 			$this->assertFalse($definition['inputSchema']['additionalProperties']);
 		}
 		$this->assertSame(['account_id'], $definitions[1]['inputSchema']['required']);
+		$this->assertSame('search', $definitions[2]['operation']);
+		$this->assertSame('read_message', $definitions[3]['operation']);
+		self::assertArrayNotHasKey('body', $definitions[2]['inputSchema']['properties']);
 		$this->assertFalse(is_subclass_of(MailModule::class, PreviewsWrites::class));
 	}
 
@@ -57,13 +60,19 @@ final class MailModuleTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheCatalogOffersOnlyReadingMail(): void {
-		$this->assertSame(['read'], GrantPolicy::CATALOG['mail']);
+		$this->assertSame(['read', 'search', 'read_message'], GrantPolicy::CATALOG['mail']);
 		$this->assertContains('mail', GrantPolicy::DENIED_READS);
 		$policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
 		$this->assertFalse($policy->granted('alice', 'mail', 'read'));
         $this->assertTrue($policy->granted('alice', 'files', 'read'));
         $policy->setGrant('alice', 'mail', 'read', true);
         $this->assertTrue($policy->granted('alice', 'mail', 'read'));
+		$this->assertFalse($policy->granted('alice', 'mail', 'search'));
+		$this->assertFalse($policy->granted('alice', 'mail', 'read_message'));
+		$policy->setGrant('alice', 'mail', 'search', true);
+		$policy->setGrant('alice', 'mail', 'read_message', true);
+		$this->assertTrue($policy->granted('alice', 'mail', 'search'));
+		$this->assertTrue($policy->granted('alice', 'mail', 'read_message'));
         $this->assertFalse($policy->granted('bob', 'mail', 'read'));
 	}
 
@@ -101,6 +110,20 @@ final class MailModuleTest extends TestCase {
 		$this->registry(false, '5.12.5')->call('mail_list_accounts', [], 'alice');
 	}
 
+	public function testTheLegacyMailReadGrantDoesNotExposeMessageSearchOrRead(): void {
+		$registry = $this->registry(true, '5.12.5', false);
+		$names = array_column($registry->definitions('alice'), 'name');
+		$this->assertSame(['mail_list_accounts', 'mail_list_mailboxes'], array_values(array_intersect($names, self::TOOLS)));
+		foreach ([['mail_search_messages', []], ['mail_read_message', ['message_id' => 1]]] as [$tool, $arguments]) {
+			try {
+				$registry->call($tool, $arguments, 'alice');
+				$this->fail("The ungranted tool $tool was callable");
+			} catch (\OCA\Mcp\Mcp\Tools\Validation\UnknownToolException) {
+				$this->addToAssertionCount(1);
+			}
+		}
+	}
+
 	/**
 	 * Names of the Mail tools the registry lists for alice.
 	 *
@@ -119,7 +142,7 @@ final class MailModuleTest extends TestCase {
 	 * @param string $version installed Mail version
 	 * @return ToolRegistry the registry
 	 */
-	private function registry(bool $enabled, string $version): ToolRegistry {
+	private function registry(bool $enabled, string $version, bool $messageGrants = true): ToolRegistry {
 		$policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
 		$apps = $this->createMock(IAppManager::class);
 		$apps->method('isEnabledForUser')->willReturnCallback(static fn (string $app): bool => $app === 'mail' && $enabled);
@@ -127,22 +150,28 @@ final class MailModuleTest extends TestCase {
 		$users = $this->createMock(IUserManager::class);
 		$users->method('get')->willReturn($this->createMock(IUser::class));
 		$policy->setGrant('alice', 'mail', 'read', true);
+		if ($messageGrants) {
+			$policy->setGrant('alice', 'mail', 'search', true);
+			$policy->setGrant('alice', 'mail', 'read_message', true);
+		}
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $apps, $users);
         return new ToolRegistry([$this->module()], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)));
 	}
     private function module(): MailModule {
         $reader = new MailGateway(new FakeMailApp());
         $rows = new \OCA\Mcp\Modules\Mail\Presentation\MailRows();
-        return new MailModule([
+		return new MailModule([
             'mail_list_accounts' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts(new \OCA\Mcp\Modules\Mail\Accounts\AccountLister($reader, $rows)),
             'mail_list_mailboxes' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes(new \OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister($reader, $rows)),
+			'mail_search_messages' => static fn () => throw new \LogicException('Not called in this test'),
+			'mail_read_message' => static fn () => throw new \LogicException('Not called in this test'),
         ]);
     }
 
     public function testMetadataDoesNotResolveOptionalServices(): void {
         $factory = static fn () => throw new \LogicException('Unexpected resolution');
-        $module = new MailModule(['mail_list_accounts' => $factory, 'mail_list_mailboxes' => $factory]);
-        self::assertCount(2, $module->definitions());
+		$module = new MailModule(['mail_list_accounts' => $factory, 'mail_list_mailboxes' => $factory, 'mail_search_messages' => $factory, 'mail_read_message' => $factory]);
+		self::assertCount(4, $module->definitions());
         self::assertNotEmpty($module->guideNotes());
     }
 }

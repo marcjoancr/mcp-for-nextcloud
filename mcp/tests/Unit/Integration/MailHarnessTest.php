@@ -27,6 +27,8 @@ final class MailHarnessTest extends TestCase {
             self::assertSame('5.12.5', $plan['mail']['mail_version']);
             self::assertMatchesRegularExpression('/@sha256:[a-f0-9]{64}$/', $plan['mail']['imap_image']);
             self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $plan['mail']['mail_sha256']);
+            self::assertSame('5.4.1', $plan['forms']['forms_version']);
+            self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $plan['forms']['forms_sha256']);
         }
         [$status, $out] = $this->runCommand(['sh', $script, '--plan', '35', 'mariadb', 'fresh']);
         self::assertSame(0, $status);

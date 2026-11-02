@@ -60,6 +60,7 @@ class Application extends App implements IBootstrap {
         \OCA\Mcp\Modules\People\PeopleModule::class,
         \OCA\Mcp\Modules\Logs\LogsModule::class,
         \OCA\Mcp\Modules\Mail\MailModule::class,
+        \OCA\Mcp\Modules\Forms\FormsModule::class,
     ];
 
     public function __construct() {
@@ -525,12 +526,27 @@ class Application extends App implements IBootstrap {
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\People\Tools\SearchUsers => new \OCA\Mcp\Modules\People\Tools\SearchUsers(
                 $c->get(\OCA\Mcp\Modules\People\Search\PeopleSearch::class),
             ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\FormsNativeReader(
+            $c->get(IAppManager::class), $c->get(IUserManager::class),
+            static fn (string $class) => $c->get($class), static fn () => $c->get(IUserSession::class)->getUser()?->getUID(),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader($c->get(\OCA\Mcp\Modules\Forms\FormsReader::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(
             $c->get(IAppManager::class), static fn (string $class) => $c->get($class), $c->get(IUserManager::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class));
+        foreach ([\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class, \OCA\Mcp\Modules\Mail\Tools\ReadMessage::class] as $tool) {
+            $context->registerService($tool, static fn (ContainerInterface $c) => new $tool(
+                $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),
+                $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
+                $c->get(UserTimezone::class),
+                $c->get(\OCA\Mcp\Modules\Mail\Presentation\Link\MailLinks::class),
+            ));
+        }
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
+            'mail_search_messages' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class),
+            'mail_read_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadMessage::class),
         ]));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes($c->get(\OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister::class)));

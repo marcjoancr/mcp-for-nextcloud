@@ -486,6 +486,7 @@
         "TalkModule",
         "PeopleModule",
         "LogsModule",
-        "MailModule"
+        "MailModule",
+        "FormsModule"
     ]
 }

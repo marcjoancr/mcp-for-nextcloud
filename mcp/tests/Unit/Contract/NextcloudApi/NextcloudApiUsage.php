@@ -62,6 +62,17 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['ownerId'],
+        'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['user'],
+        'OCA\\Forms\\Service\\FormsService::getPermissions' => ['form'],
+        'OCA\\Forms\\Service\\FormsService::getFormIfAllowed' => ['formId', 'permissions'],
+        'OCA\\Forms\\Service\\FormsService::getForm' => ['form'],
+        'OCA\\Mail\\Db\\MessageMapper::findIdsByQuery' => ['mailbox', 'query', 'sortOrder', 'limit', 'uids'],
+        'OCA\\Mail\\Db\\MessageMapper::findByIds' => ['userId', 'ids', 'sortOrder'],
+        'OCA\\Mail\\Service\\MailManager::getMessage' => ['uid', 'id'],
+        'OCA\\Mail\\Service\\MailManager::getMailbox' => ['uid', 'id'],
+        'OCA\\Mail\\Service\\MailManager::getImapMessage' => ['client', 'account', 'mailbox', 'uid', 'loadBody'],
+        'OCA\\Mail\\IMAP\\IMAPClientFactory::getClient' => ['account'],
         'OCA\\Mail\\Service\\AccountService::findByUserId' => ['currentUserId'],
         'OCA\\Mail\\Service\\AccountService::find' => ['userId', 'id'],
         'OCA\\Mail\\Db\\MailboxMapper::findAll' => ['account'],
@@ -179,6 +190,10 @@ final class NextcloudApiUsage {
      * @var array<string, array<string, string>> "Class::method" => parameter => why its default is right
      */
     public const REVIEWED_TRAILING = [
+        'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['queryTerm' => 'No title filter for listing owned forms'],
+        'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['filterShown' => 'List only forms visible in the native sidebar'],
+        'OCA\\Mail\\Db\\MessageMapper::findByIds' => ['orderBy' => 'Default sent date ordering of cached messages'],
+        'OCA\\Mail\\IMAP\\IMAPClientFactory::getClient' => ['useCache' => 'Use the account client with native cache settings'],
         'OCP\\IGroup::count' => ['search' => '"": estimate the entire group; false/zero/subcounts do not replace post-load limits'],
         'OCA\\Deck\\Db\\AclMapper::findAll' => [
             'limit' => 'null: complete authorized board ACLs, bounded after loading',
@@ -320,6 +335,11 @@ final class NextcloudApiUsage {
      * @var array<string, array{missing: list<string>, fallback: string, by: string, elsewhere?: array<string, string>}>
      */
     public const VERSION_GATED = [
+        'OCA\\Mail\\Service\\Search\\SearchQuery::setThreaded' => [
+            'missing' => ['31', '32'],
+            'fallback' => 'OCA\\Mail\\Db\\MessageMapper::findIdsByQuery',
+            'by' => \OCA\Mcp\Modules\Mail\Search\MailSearchCriteria::class,
+        ],
         'OCA\\Deck\\Db\\CardMapper::findDependenciesForCards' => [
             'missing' => ['31', '32', '33'],
             'fallback' => 'OCA\\Deck\\Db\\Card::getId',
@@ -388,6 +408,8 @@ final class NextcloudApiUsage {
      * @var array<string, string> "Class::method" => the call it really is
      */
     public const NAME_CLASHES = [
+        'OCA\\Deck\\Db\\StackMapper::findByIds' => 'Mail MessageMapper::findByIds, in Modules/Mail/Integration/MailMessageGateway',
+        'OCA\\Talk\\Service\\RoomService::setHasAttachments' => 'Mail SearchQuery::setHasAttachments, in Modules/Mail/Search/MailSearchCriteria',
         'OCA\\Deck\\Service\\PermissionService::getUserId' => 'OCA\\Circles\\Model\\Member::getUserId, in Modules/Deck/Recipients/DeckRecipientDirectory',
         'OCP\\Files\\Node::getLastActivity' => 'OCA\\Talk\\Room::getLastActivity, in Modules/Talk/Reading/ConversationReader',
         'OCP\\Files\\File::getLastActivity' => 'OCA\\Talk\\Room::getLastActivity, in Modules/Talk/Reading/ConversationReader',

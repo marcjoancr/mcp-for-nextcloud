@@ -28,7 +28,7 @@ final class ApplicationRegistrationTest extends TestCase {
         $container = $this->createMock(ContainerInterface::class);
         $get = function (string $id) use (&$get, &$built, $factories, &$container): object {
             if (isset($built[$id])) { return $built[$id]; }
-            self::assertFalse(preg_match('/^OCA\\\\(?:Deck|Talk|DAV|Notes)\\\\/', $id) === 1, 'Optional app resolved eagerly: '.$id);
+            self::assertFalse(preg_match('/^OCA\\\\(?:Deck|Talk|DAV|Notes|Forms|Mail)\\\\/', $id) === 1, 'Optional app resolved eagerly: '.$id);
             if (isset($factories[$id])) { return $built[$id] = $factories[$id]($container); }
             if (!str_starts_with($id, 'OCA\\Mcp\\') || interface_exists($id)) { return $built[$id] = $this->createMock($id); }
             $class = new \ReflectionClass($id);

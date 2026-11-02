@@ -10,7 +10,7 @@ Open **Administration → Nextcloud MCP**. The five tabs are **Overview**, **Acc
 
 The service, user eligibility (**Can connect**) and personal connection start off, including for administrators. Enable the service, allow the user to connect, then let that user connect in **Personal settings → Nextcloud MCP**. Authentication alone never grants access: the account, service, eligibility, connection, optional app, operation permission and native Nextcloud resource permissions must all allow the request.
 
-Reading starts allowed except for server logs and Mail. Mail requires an explicit individual or group read grant, including after an upgrade. Other operations start denied. Files sharing with people/groups (`files.share`) and public links (`files.link`) are independent permissions. Listing shares is a read operation.
+Reading starts allowed except for server logs, Mail and Forms. The grants `mail.read` (accounts and folders), `mail.search` (cached message headers), `mail.read_message` (message content) and `forms.read` (form structure) are independent and start denied, including after an upgrade. Other operations start denied. Files sharing with people/groups (`files.share`) and public links (`files.link`) are independent permissions. Listing shares is a read operation.
 
 At connection time, MCP lists the tools permitted for the user and selected for that connection.
 Each tool also requires its module's app and any additional app it uses to be installed and enabled for that user.

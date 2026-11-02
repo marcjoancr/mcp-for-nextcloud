@@ -13,7 +13,7 @@ use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 /**
  * The one place where "this tool changes something" is decided.
  *
- * A definition whose operation is not `read` is a write, whatever the module says: the registry adds
+ * A definition whose operation is outside the read-only list is a write, whatever the module says: the registry adds
  * the `confirm` property to the published schema and refuses to run the call without it. The refusal is
  * a normal result carrying the plan, not an error, because the model is expected to read it, show it
  * to the user and ask.
@@ -26,8 +26,8 @@ use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 final class WriteGate {
     /** Argument every writing tool accepts, and the only thing that lets it run. */
     public const CONFIRM = 'confirm';
-    /** The one operation that does not change anything. */
-    private const READ_OPERATION = 'read';
+    /** Sensitive Mail reads use separate grant keys. */
+    private const READ_OPERATIONS = ['read', 'search', 'read_message'];
 
     private function __construct() {
     }
@@ -37,7 +37,7 @@ final class WriteGate {
      * @return bool whether this tool may change data
      */
     public static function isWrite(array $definition): bool {
-        return ($definition['operation'] ?? self::READ_OPERATION) !== self::READ_OPERATION;
+        return !in_array($definition['operation'] ?? 'read', self::READ_OPERATIONS, true);
     }
 
     /**

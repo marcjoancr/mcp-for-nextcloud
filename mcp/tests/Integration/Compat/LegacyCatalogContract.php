@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Integration\Compat;
 
-/** Keeps the complete legacy operation matrix, explicitly allowing only the reviewed Mail read addition. */
+/** Keeps the complete legacy operation matrix, explicitly allowing only the reviewed Mail and Forms additions. */
 final class LegacyCatalogContract {
 	/**
 	 * @param array<string, list<string>> $baseline catalog actually read from the released 1.0.8 code
@@ -17,8 +17,8 @@ final class LegacyCatalogContract {
 	 * @throws \UnexpectedValueException on removal, changed operations or an unrecognized addition
 	 */
 	public static function baseline(array $baseline, array $current): array {
-		if (isset($baseline['mail']) || $current !== [...$baseline, 'mail' => ['read']]) {
-			throw new \UnexpectedValueException('Legacy catalog changed beyond the explicit mail.read addition');
+		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$baseline, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read']]) {
+			throw new \UnexpectedValueException('Legacy catalog changed beyond the Mail and Forms read permissions');
 		}
 		return $baseline;
 	}
@@ -31,10 +31,11 @@ final class LegacyCatalogContract {
 	public static function answers(array $answers): array {
 		foreach ($answers as &$state) {
 			foreach ($state['matrix'] as &$row) {
-				if (($row['grants']['mail'] ?? null) !== ['read' => false]) {
-					throw new \UnexpectedValueException('Unexpected mail.read default in the legacy matrix');
+				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false]
+                    || ($row['grants']['forms'] ?? null) !== ['read' => false]) {
+					throw new \UnexpectedValueException('Unexpected Mail or Forms default in the legacy matrix');
 				}
-				unset($row['grants']['mail']);
+				unset($row['grants']['mail'], $row['grants']['forms']);
 			}
 			unset($row);
 		}

@@ -58,7 +58,8 @@ class GrantPolicy implements ScopeReader {
         'talk' => ['read', 'reply', 'attach', 'quote', 'create'],
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
-        'mail' => ['read'],
+        'mail' => ['read', 'search', 'read_message'],
+        'forms' => ['read'],
     ];
 
     /**
@@ -66,7 +67,7 @@ class GrantPolicy implements ScopeReader {
      * user, so nobody may read it by omission. Mail is a new sensitive capability: upgrading must not grant it.
      * Administrators explicitly grant these reads to individuals or trusted groups.
      */
-    public const DENIED_READS = ['logs', 'mail'];
+    public const DENIED_READS = ['logs', 'mail', 'forms'];
 
     /** App id under which every value of this policy is stored. */
     public const APP = 'mcp';

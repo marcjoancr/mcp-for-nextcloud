@@ -87,3 +87,8 @@ raw catalog. Existing published tools/protocol/results are unchanged because the
 historical fixture has no known Mail version; focused Mail publication/native tests
 exercise enabled, explicitly granted Mail. People/Logs captures append only
 `MailModule` to Application's module order. No complete capture was regenerated.
+
+The Forms and Mail read extension adds `forms_list`, `forms_read`, `mail_search_messages`
+and `mail_read_message` to the raw catalogs. The People and Logs module-order captures
+also include Forms. The historical fixture reports unknown optional-app versions.
+Separate protocol tests cover the published schemas under each grant.

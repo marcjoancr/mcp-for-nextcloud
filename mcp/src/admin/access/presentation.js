@@ -14,11 +14,14 @@ export function createPresentation({ t }) {
 			people: t('mcp', 'People'),
 			logs: t('mcp', 'Server log'),
 			mail: t('mcp', 'Mail'),
+			forms: t('mcp', 'Forms'),
 		}
 	}
 	function operationLabels() {
 		return {
 			read: t('mcp', 'read'),
+			search: t('mcp', 'search mail headers'),
+			read_message: t('mcp', 'read mail content'),
 			edit: t('mcp', 'edit'),
 			create: t('mcp', 'create'),
 			move: t('mcp', 'move'),
@@ -33,6 +36,8 @@ export function createPresentation({ t }) {
 		}
 	}
 	function operationHint(module, operation) {
+		if (module === 'mail' && operation === 'read') return t('mcp', 'List own mail accounts and cached folders')
+		if (module === 'forms' && operation === 'read') return t('mcp', 'Read accessible forms, questions and options')
 		if (module === 'talk' && operation === 'create') {
 			return t('mcp', 'Open new conversations, which invites people')
 		}
@@ -47,6 +52,8 @@ export function createPresentation({ t }) {
 		}
 		const hints = {
 			read: t('mcp', 'List, search and read'),
+			search: t('mcp', 'Search cached message headers in own mailboxes'),
+			read_message: t('mcp', 'Read mail content without marking the message as read'),
 			edit: t('mcp', 'Change existing items'),
 			create: t('mcp', 'Create new items'),
 			move: t('mcp', 'Move or rename items'),

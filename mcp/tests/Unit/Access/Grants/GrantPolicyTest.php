@@ -66,10 +66,21 @@ final class GrantPolicyTest extends TestCase {
         $this->assertFalse($this->policy->canConnect('alice'));
     }
 
+    public function testLegacyMailDiscoveryDoesNotGrantMessageOrFormAccess(): void {
+        $this->policy->setGrant('alice', 'mail', 'read', true);
+        foreach ([['mail', 'search'], ['mail', 'read_message'], ['forms', 'read']] as [$module, $operation]) {
+            $this->assertFalse($this->policy->granted('alice', $module, $operation));
+            $this->policy->setGrant('alice', $module, $operation, true);
+            $this->assertTrue($this->policy->granted('alice', $module, $operation));
+            $this->assertFalse($this->policy->granted('bob', $module, $operation));
+            $this->policy->setGrant('alice', $module, $operation, false);
+        }
+    }
+
     public function testReadStartsAllowedAndWriteStartsDenied(): void {
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
-                $expected = $operation === 'read' && !in_array($module, ['logs', 'mail'], true);
+                $expected = $operation === 'read' && !in_array($module, ['logs', 'mail', 'forms'], true);
                 $this->assertSame($expected, $this->policy->granted('alice', $module, $operation), "$module.$operation");
                 $this->assertSame($expected, GrantPolicy::defaultGranted($module, $operation), "$module.$operation");
             }

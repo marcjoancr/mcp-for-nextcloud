@@ -25,7 +25,8 @@ const TIERS = {
 	talk: [['read'], ['reply', 'attach', 'quote'], ['create']],
 	people: [['read']],
 	logs: [['read']],
-	mail: [['read']],
+	mail: [['read'], ['search', 'read_message']],
+	forms: [['read']],
 }
 
 /** Names of the tiers by how many a module has. */

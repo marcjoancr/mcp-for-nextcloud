@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Mcp\Tools\Discovery;
 
 use OCA\Mcp\L10n\Translator;
+use OCA\Mcp\Mcp\Confirmation\WriteGate;
 
 /**
  * How tools are shown to the model and to the person reading the conversation.
@@ -32,8 +33,6 @@ final class ToolPresentation {
         . "messaging), if the user did not give the account ID, look the person up with the \"Search people\" tool and confirm "
         . "with the user when more than one account matches. Never invent an ID.";
 
-    /** Operations that only read; every other operation may change data. */
-    private const READ_OPERATION = 'read';
     /**
      * Operations a user cannot take back from the client: the ones that replace or remove what exists, and the
      * ones that publish a message under their own name in a room full of other people. Replying, sharing a file
@@ -155,7 +154,10 @@ final class ToolPresentation {
             'talk_create_group' => Translator::t('Create group in Talk'),
             // People
             'users_search' => Translator::t('Search people'),
-            // Logs
+            'forms_list' => Translator::t('List forms'),
+            'forms_read' => Translator::t('Read form questions and options'),
+            'mail_search_messages' => Translator::t('Search mail messages'),
+            'mail_read_message' => Translator::t('Read mail message'),
             'mail_list_accounts' => Translator::t('List mail accounts'),
             'mail_list_mailboxes' => Translator::t('List mail folders'),
             'logs_list' => Translator::t('Read server log'),
@@ -175,7 +177,7 @@ final class ToolPresentation {
      * @return array{title: string, readOnlyHint: bool, destructiveHint: bool, idempotentHint: bool, openWorldHint: bool}
      */
     public static function annotations(string $name, string $operation, bool $destructiveHint = false): array {
-        $readOnly = $operation === self::READ_OPERATION;
+        $readOnly = !WriteGate::isWrite(['operation' => $operation]);
         return [
             'title' => self::title($name),
             'readOnlyHint' => $readOnly,
@@ -202,6 +204,7 @@ final class ToolPresentation {
             'talk' => Translator::t('Talk'),
             'people' => Translator::t('People'),
             'mail' => Translator::t('Mail'),
+            'forms' => Translator::t('Forms'),
             'logs' => Translator::t('Server log'),
             default => ucfirst($module),
         };

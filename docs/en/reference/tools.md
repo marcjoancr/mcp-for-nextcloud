@@ -4,9 +4,9 @@
 
 # Tools
 
-The module catalogs contain at most **84 module tools**, plus `mcp_status` and
-`mcp_guide` (86 total). Three Deck dependency tools are conditional on compatible
-NC34/35 native APIs, leaving at most 81 module tools (83 total) without them.
+The module catalogs contain at most **88 module tools**, plus `mcp_status` and
+`mcp_guide` (90 total). Three Deck dependency tools are conditional on compatible
+NC34/35 native APIs, leaving at most 85 module tools (87 total) without them.
 App availability and each account's access further reduce these counts.
 
 Each tool only appears in `tools/list` and can only be called when the user has the grant for the operation and the required app is enabled for them. Grant and app are checked again on every call. Everything runs as the authenticated user, through their own Nextcloud folder, and the Nextcloud permissions and shares keep applying.
@@ -16,7 +16,7 @@ Each tool only appears in `tools/list` and can only be called when the user has 
 `mcp_guide` (title **Tool guide**) describes the tools to the model itself, so it does not have to guess what each one does:
 
 - **no argument** — one line per module with the tool titles, only for the modules available **to that user** (the same grant and app filter as `tools/list`: a disabled module or one without a grant does not appear);
-- **with `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`) — each tool of the module: description, whether it reads or writes, parameters with type, whether required, description, `enum` and limits, and the confirmations it requires;
+- **with `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`, `forms`) — each tool of the module: description, whether it reads or writes, parameters with type, whether required, description, `enum` and limits, and the confirmations it requires;
 - **with `tool`** — a single tool, with the module it belongs to.
 
 The guide is written in English; the model relays it in the user’s language.
@@ -27,7 +27,7 @@ A module or tool the user cannot see is refused with a message that lists what t
 
 Plus:
 
-- **Conversational confirmation before every write (`confirm: true`)**: any tool that changes data (`operation != 'read'`) only executes when called with `confirm: true`. Without it, the server returns the plan (`requiresConfirmation: true`) and makes no changes. The assistant must present the plan to the user and only repeat the call with `confirm: true` after explicit approval. No approval state or tokens are kept on the server.
+- **Conversational confirmation before every write (`confirm: true`)**: any tool that changes data only executes when called with `confirm: true`. Without it, the server returns the plan (`requiresConfirmation: true`) and makes no changes. The assistant must present the plan to the user and only repeat the call with `confirm: true` after explicit approval. No approval state or tokens are kept on the server.
 - **OCR through Workflow OCR**: when the Workflow OCR app is installed, scanned PDFs gain a text layer that `files_read` reads normally. Without it, a PDF or image with no text comes back with `text_layer: false` and a notice, and the admin page shows the OCR status with a link to install it. Nothing is blocked.
 - **Friendly tool titles** in the client ("Search files", "List calendars") and MCP annotations (`readOnlyHint`, `destructiveHint`) so clients can ask before risky actions.
 - **Safety confirmations** for resources that belong to someone else: shared folders, team folders, other people's Deck boards and calendars. The server refuses the first call and returns a ready-made message, and the assistant must ask the user before repeating it with `confirm_shared: true`. *(Deck and Calendar since 0.6.6; Files and Notes since 0.7.0)*
@@ -45,6 +45,7 @@ Plus:
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
 - [Mail](tools/mail.md)
+- **Forms** — `forms_list` lists accessible forms. `forms_read` reads a form’s questions and options. Requires Forms 5.3.0 or later and the separate `forms.read` grant. Neither tool exposes submissions. Use the returned offsets to retrieve subsequent questions and options. Text fields longer than 1 KiB carry a truncation flag.
 
 `mcp_status` provides diagnostics without reading user data. Server identity in
 protocol, tool, prompt and resource metadata reports the installed app version

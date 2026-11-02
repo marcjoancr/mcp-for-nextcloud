@@ -8,12 +8,12 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Mail;
 
 use OCA\Mcp\Mcp\Tools\Tool;
-use OCA\Mcp\Modules\Mail\Tools\{ListAccounts, ListMailboxes};
+use OCA\Mcp\Modules\Mail\Tools\{ListAccounts, ListMailboxes, ReadMessage, SearchMessages};
 
 final class MailToolCatalog {
     /** @return list<class-string<Tool>> */
     public static function classes(): array {
-        return [ListAccounts::class, ListMailboxes::class];
+		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class];
     }
 
     /**
@@ -27,8 +27,8 @@ final class MailToolCatalog {
                 throw new \LogicException('Catalog entries must implement Tool');
             }
             $definition = $class::definition();
-            if ($definition->operation !== 'read') {
-                throw new \LogicException('Mail tools must be read-only');
+			if (!in_array($definition->operation, ['read', 'search', 'read_message'], true)) {
+				throw new \LogicException('Mail tools must use a read-only operation');
             }
             if (isset($result[$definition->name])) {
                 throw new \LogicException('Duplicate tool: ' . $definition->name);

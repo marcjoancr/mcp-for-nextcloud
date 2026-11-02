@@ -21,6 +21,6 @@ final class OldestCoveredRelease {
 	 * @return string|null the release, or null when the fixture covers no release of the app
 	 */
 	public static function of(array $sources, array $fixture, string $app): ?string {
-		return $sources[$app] ?? $fixture['mailSources'][$app]['version'] ?? null;
+		return $sources[$app] ?? $fixture['mailSources'][$app]['version'] ?? $fixture['formsSources'][$app]['version'] ?? null;
 	}
 }
