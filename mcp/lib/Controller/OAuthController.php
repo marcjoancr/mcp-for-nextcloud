@@ -14,6 +14,7 @@ use OCA\Mcp\OAuth\OAuthException;
 use OCA\Mcp\OAuth\RedirectUriMatcher;
 use OCA\Mcp\OAuth\ResourceUrl;
 use OCA\Mcp\OAuth\TokenService;
+use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 use OCA\Mcp\Mcp\Tools\ToolRegistry;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Access\Policy\PolicyUnavailable;
@@ -95,11 +96,17 @@ class OAuthController extends Controller {
         } catch (PolicyUnavailable) {
             return $this->page(['unavailable' => true]);
         }
+        return $this->consentPage($authRequest, $user->getDisplayName(), $definitions, $permittedVariants);
+    }
+
+    /** Each rendered form gets a new single-use handle, including a corrected selection. */
+    private function consentPage(AuthorizationRequest $authRequest, string $account, array $definitions,
+        array $permittedVariants, array $selectedTools = [], array $selectedVariants = [], ?string $missingAction = null): TemplateResponse {
         $toolsCatalog = [];
-        $selectedTools = [];
-        $selectedVariants = [];
+        $catalogTitles = [];
         foreach ($definitions as $definition) {
             $module = (string)($definition['module'] ?? '');
+            $catalogTitles[$module] ??= ToolPresentation::moduleTitle($module);
             $variants = $permittedVariants[$definition['name']] ?? [];
             $toolsCatalog[$module][] = [
                 'name' => $definition['name'],
@@ -118,7 +125,9 @@ class OAuthController extends Controller {
             'nativeClient' => $authRequest->client->clientId === NativeClient::CLIENT_ID,
             'redirectHost' => (string)parse_url($authRequest->redirectUri, PHP_URL_HOST),
             'loopback' => RedirectUriMatcher::isLoopback($authRequest->redirectUri),
-            'account' => $user->getDisplayName(),
+            'account' => $account,
+            'catalogTitles' => $catalogTitles,
+            'missingAction' => $missingAction,
             'toolsCatalog' => $toolsCatalog,
             'selectedTools' => $selectedTools,
             'toolVariants' => $selectedVariants,
@@ -215,7 +224,8 @@ class OAuthController extends Controller {
                 }
                 foreach ($selectedTools as $tool) {
                     if (($allowedVariants[$tool] ?? []) !== [] && ($selectedVariants[$tool] ?? []) === []) {
-                        return $this->page(['error' => 'Choose at least one permitted action for each selected tool.']);
+                        return $this->consentPage($authRequest, $this->userSession->getUser()->getDisplayName(),
+                            $definitions, $allowedVariants, $selectedTools, $selectedVariants, $tool);
                     }
                 }
             } else {
@@ -280,6 +290,10 @@ class OAuthController extends Controller {
         if ($params['unavailable'] ?? false) {
             $response->setStatus(503);
             $response->addHeader('Retry-After', '1');
+        } elseif (isset($params['error'])) {
+            $response->setStatus(400);
+        } elseif (isset($params['missingAction'])) {
+            $response->setStatus(422);
         }
         return $response;
     }

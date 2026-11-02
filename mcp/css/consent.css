@@ -1,0 +1,48 @@
+/* SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+.mcp-consent {
+    box-sizing: border-box;
+    width: min(36rem, calc(100vw - 24px));
+    max-width: 560px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    margin: 0 auto;
+    padding: 24px;
+    border-radius: var(--border-radius-large, 12px);
+    background: var(--color-main-background);
+    color: var(--color-main-text);
+    text-align: start;
+}
+.mcp-consent h2 { margin: 0 0 12px; font-size: 20px; }
+.mcp-consent p { margin: 8px 0; }
+.mcp-consent .mcp-hosts { color: var(--color-text-maxcontrast); font-size: 14px; }
+.mcp-consent .mcp-warning { color: var(--color-warning-text, var(--color-warning)); }
+.mcp-consent .mcp-error { color: var(--color-error-text, var(--color-error)); }
+.mcp-consent .mcp-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    position: sticky;
+    bottom: 0;
+    margin-top: 20px;
+    padding-block: 8px;
+    background: var(--color-main-background);
+}
+.mcp-consent button.primary { background: var(--color-primary-element); color: var(--color-primary-element-text); }
+.mcp-consent-tools { margin-block: 18px; }
+.mcp-consent-catalog { border-top: 1px solid var(--color-border); }
+.mcp-consent-catalog > summary { padding-block: 12px; font-weight: 700; cursor: pointer; }
+.mcp-consent-tool { display: flex; align-items: flex-start; gap: 10px; padding: 10px 4px; border-top: 1px solid var(--color-border); }
+.mcp-consent-description { margin: 0 0 8px 24px; color: var(--color-text-maxcontrast); }
+.mcp-consent-description summary { cursor: pointer; }
+.mcp-consent-variants { margin: 4px 0 8px 30px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--border-radius); }
+.mcp-consent-variants legend { padding-inline: 4px; color: var(--color-text-maxcontrast); font-size: 13px; }
+.mcp-consent-variants label { display: inline-flex; align-items: center; gap: 8px; margin: 4px 16px 4px 0; }
+@media (max-width: 600px) { .mcp-consent { max-height: calc(100vh - 16px); padding: 16px; } }
+.mcp-consent [hidden] { display: none; }
+.mcp-consent-toolbar { display: grid; gap: 6px; margin-block: 12px; }
+.mcp-consent-count { font-weight: 600; }
+.mcp-consent-choices { display: flex; gap: 6px; flex-wrap: wrap; }
+.mcp-consent-catalog-count { margin-inline-start: 8px; color: var(--color-text-maxcontrast); font-weight: normal; }
+.mcp-consent-entry { overflow-wrap: anywhere; }
+.mcp-consent-tool input { flex-shrink: 0; }

@@ -12,7 +12,7 @@ createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1')
     const path = url.pathname
     if (path === '/health') return response.end('ok')
-    if (path === '/admin' || path === '/personal') {
+    if (['/admin', '/personal', '/consent'].includes(path)) {
         const render = spawnSync('php', [app + 'tests/JavaScript/support/render-page.php', path.slice(1)], { encoding: 'utf8' })
         if (render.error || render.status !== 0) {
             response.writeHead(500)

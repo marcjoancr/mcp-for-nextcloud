@@ -39,7 +39,7 @@ final class OAuthControllerFlowTest extends TestCase {
     /** @var array<string,mixed> */
     private array $params = [];
 
-    private function controller(): OAuthController {
+    private function controller(?\OCA\Mcp\Mcp\Tools\ToolRegistry $tools = null): OAuthController {
         $request = $this->createMock(IRequest::class);
         $request->method('getParams')->willReturnCallback(fn () => $this->params);
         $user = $this->createMock(IUser::class);
@@ -67,7 +67,7 @@ final class OAuthControllerFlowTest extends TestCase {
         $urls->method('issuer')->willReturn(self::ISSUER);
         $generator = $this->createMock(IURLGenerator::class);
         $generator->method('linkToRoute')->willReturn('/consent');
-        return new OAuthController('mcp', $request, $users, $session, $generator, new AuthorizationValidator($resolver), $this->tokens, $this->policy, $urls);
+        return new OAuthController('mcp', $request, $users, $session, $generator, new AuthorizationValidator($resolver), $this->tokens, $this->policy, $urls, $tools);
     }
 
     public function testUnavailableClientAuthorityNeverOffersConsent(): void {
@@ -116,6 +116,46 @@ final class OAuthControllerFlowTest extends TestCase {
         $this->assertSame('no-store', $this->headers($response)['Cache-Control']);
         $this->assertSame('no-referrer', $this->headers($response)['Referrer-Policy']);
         $this->assertStringNotContainsString('claude.ai', $response->getContentSecurityPolicy()->buildPolicy());
+    }
+
+    public function testMissingSharingActionCanBeCorrectedWithoutLosingOtherSelections(): void {
+        $tools = $this->createMock(\OCA\Mcp\Mcp\Tools\ToolRegistry::class);
+        $tools->method('permittedDefinitions')->willReturn([
+            ['name' => 'files_read', 'module' => 'files', 'description' => 'Read a file'],
+            ['name' => 'files_share', 'module' => 'files', 'description' => 'Share a file', 'grantAnyOf' => ['share', 'link']],
+        ]);
+        $tools->method('permittedVariants')->willReturn(['share']);
+        $controller = $this->controller($tools);
+        $pending = $this->authorize($controller);
+        $selected = ['files_read', 'files_share'];
+        $this->tokens->expects($this->once())->method('consent')->with($this->anything(), 'alice', $selected, ['files_share' => ['share']])->willReturn('CODE');
+        $response = $controller->consent($pending, 'allow', $selected, 1, [], ['files_share']);
+        $this->assertSame(422, $response->getStatus());
+        $retry = $response->getParams();
+        $this->assertSame($selected, $retry['selectedTools']);
+        $this->assertSame('files_share', $retry['missingAction']);
+        $this->assertNotSame($pending, $retry['pending']);
+        $this->assertArrayNotHasKey($pending, $this->stored);
+        $success = $controller->consent($retry['pending'], 'allow', $selected, 1, ['files_share' => ['share']], ['files_share']);
+        $this->assertSame('oauth-redirect', $success->getTemplateName());
+        $this->assertSame([], $this->stored);
+    }
+
+    public function testCorrectingASelectionCannotGrantAnActionWithdrawnSinceTheFormWasShown(): void {
+        $variants = ['share', 'link'];
+        $tools = $this->createMock(\OCA\Mcp\Mcp\Tools\ToolRegistry::class);
+        $tools->method('permittedDefinitions')->willReturn([
+            ['name' => 'files_share', 'module' => 'files', 'description' => 'Share a file', 'grantAnyOf' => ['share', 'link']],
+        ]);
+        $tools->method('permittedVariants')->willReturnCallback(static function () use (&$variants): array { return $variants; });
+        $controller = $this->controller($tools);
+        $this->tokens->expects($this->never())->method('consent');
+        $retry = $controller->consent($this->authorize($controller), 'allow', ['files_share'], 1);
+        $variants = ['share'];
+        $response = $controller->consent($retry->getParams()['pending'], 'allow', ['files_share'], 1, ['files_share' => ['link']]);
+        $this->assertSame(400, $response->getStatus());
+        $this->assertNull($response->getParams()['pending']);
+        $this->assertSame([], $this->stored);
     }
 
     public function testAllowingAnOldConsentFormWithoutSelectionMarkerIssuesNoCode(): void {
@@ -206,6 +246,7 @@ final class OAuthControllerFlowTest extends TestCase {
 
         $this->assertSame('oauth-redirect', $controller->consent($pending, 'allow', [], 1)->getTemplateName());
         $second = $controller->consent($pending, 'allow');
+        $this->assertSame(400, $second->getStatus());
 
         $this->assertInstanceOf(TemplateResponse::class, $second);
         $this->assertNotNull($second->getParams()['error']);

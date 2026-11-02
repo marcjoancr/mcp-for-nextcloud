@@ -4,6 +4,10 @@ import { createNextcloud } from '../platform/nextcloud.js'
 import { createRequest } from '../platform/http.js'
 import { mountPersonalScope } from '../settings/resource-scope.js'
 import { mountConnections } from '../settings/connections.js'
+import { mountConsent } from '../settings/consent.js'
+
+const consent = document.querySelector('.mcp-consent form')
+if (consent) mountConsent(consent)
 
 const root = document.getElementById('mcp-personal')
 if (root) {

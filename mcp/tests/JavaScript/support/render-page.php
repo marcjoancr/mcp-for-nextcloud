@@ -18,8 +18,8 @@ namespace {
     function p(mixed $text): void { echo htmlspecialchars((string)$text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
     function print_unescaped(mixed $text): void { echo (string)$text; }
     $page = $argv[1] ?? '';
-    if (!in_array($page, ['admin', 'personal'], true)) {
-        fwrite(STDERR, "Expected admin or personal fixture.\n");
+    if (!in_array($page, ['admin', 'personal', 'consent'], true)) {
+        fwrite(STDERR, "Unknown page fixture.\n");
         exit(1);
     }
     $l = new class {
@@ -33,6 +33,18 @@ namespace {
         'global' => true, 'eligible' => true, 'connected' => true,
         'action' => '/apps/mcp/settings/personal', 'token' => 'synthetic-request-token',
     ];
+    if ($page === 'consent') {
+        $tool = static fn (string $name, array $actions = []): array => [
+            'name' => $name, 'title' => $name, 'description' => 'Example tool', 'approvedVariants' => $actions,
+        ];
+        $_ = ['pending' => 'local-pending', 'requesttoken' => 'synthetic-request-token', 'error' => null,
+            'unavailable' => false, 'blocked' => false, 'client' => 'Example client', 'account' => 'Test user',
+            'nativeClient' => false, 'customClient' => false, 'loopback' => false,
+            'clientHost' => 'example.org', 'redirectHost' => 'example.org', 'action' => '/consent',
+            'toolsCatalog' => ['files' => [$tool('files_read'), $tool('files_share', ['share'])], 'notes' => [$tool('notes_read')]],
+            'catalogTitles' => ['files' => 'Files', 'notes' => 'Notes'],
+        ];
+    }
     ob_start();
     require dirname(__DIR__, 3) . '/templates/' . $page . '.php';
     $body = ob_get_clean();
