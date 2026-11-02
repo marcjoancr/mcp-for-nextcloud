@@ -12,7 +12,7 @@
 | Módulo | Herramientas | Dependencia |
 |---|---|---|
 | Contactos | `contacts_list_addressbooks`, `contacts_search_contacts`, `contacts_read_contact`, `contacts_create_contact`, `contacts_edit_contact`, `contacts_delete_contact` | aplicación Contacts habilitada; CardDAV del núcleo |
-| Tareas | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | DAV del núcleo; no requiere la aplicación Tasks ni Calendar |
+| Tareas | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | la app Tasks habilitada y el servicio DAV del núcleo |
 
 Los catálogos de Contacts son propios o compartidos y filtran explícitamente cualquier principal del sistema. Las lecturas usan adaptadores diferidos del backend nativo, después del filtro de acceso; las escrituras pasan por Sabre del núcleo (un dispatcher CardDAV independiente y el `EmbeddedDavDispatcher` existente para VTODO). La sesión debe corresponder al actor y el principal se fija al ejecutar. Las consultas a colecciones Calendar usan VEVENT de forma predeterminada; Tasks selecciona VTODO.
 

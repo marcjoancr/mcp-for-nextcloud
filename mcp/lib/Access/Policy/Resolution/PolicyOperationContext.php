@@ -58,6 +58,11 @@ final class PolicyOperationContext {
         return $this->scope ?? throw new PolicyUnavailable('Policy operation is closed');
     }
 
+    public function appAvailable(string $module): bool {
+        $this->check();
+        return $this->apps[$module] ?? false;
+    }
+
     /** Candidates retain untrusted/non-active policies for diagnosis, independently of granting sources. */
     public function candidates(): array {
         $this->check();
@@ -238,7 +243,7 @@ final class PolicyOperationContext {
             $eligibility->allowed === null => 'eligibility_unknown',
             !$eligibility->allowed => 'eligibility',
             !$this->connected() => 'connection',
-            !$this->apps[$module] => 'app',
+            !$this->appAvailable($module) => 'app',
             $module === 'logs' && !$this->logsAvailable => 'logs_available',
             $module === 'logs' && !$this->logsPermitted => 'logs_role',
             $grant->allowed === null => 'grant_unknown',

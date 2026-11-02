@@ -365,7 +365,7 @@ class GrantPolicy implements ScopeReader {
                 $assigned = $context->toolAssignment(ToolGrantsMapper::SERVICE);
                 if ($assigned === null) {
                     $assigned = match ($result->source) {
-                        'individual_allow', 'legacy_individual' => $result->allowed === true ? ToolGrantsMapper::ALLOW : ToolGrantsMapper::DENY,
+                        'individual_allow', 'individual_deny', 'legacy_individual' => $result->allowed === true ? ToolGrantsMapper::ALLOW : ToolGrantsMapper::DENY,
                         default => null,
                     };
                 }
@@ -379,8 +379,7 @@ class GrantPolicy implements ScopeReader {
             $assigned = $context->toolAssignment($toolName);
             if ($assigned === null) {
                 $assigned = match ($result->source) {
-                    'legacy_individual' => $result->allowed === true ? ToolGrantsMapper::ALLOW : ToolGrantsMapper::DENY,
-                    'legacy_group' => ToolGrantsMapper::ALLOW,
+                    'individual_allow', 'individual_deny', 'legacy_individual' => $result->allowed === true ? ToolGrantsMapper::ALLOW : ToolGrantsMapper::DENY,
                     default => null,
                 };
             }

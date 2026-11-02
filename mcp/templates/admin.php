@@ -84,60 +84,49 @@
     <div role="tabpanel" id="mcp-panel-access" aria-labelledby="mcp-tab-access" class="mcp-tab-panel" tabindex="0">
     <div class="section mcp-block mcp-tool-permissions" id="mcp-tool-permissions" aria-labelledby="mcp-tools-heading">
         <h2 id="mcp-tools-heading"><?php p($l->t('Tools and access')); ?></h2>
-        <p class="mcp-hint"><?php p($l->t('Choose a person or group, then set access to the MCP service and each tool. An individual assignment takes priority over group assignments.')); ?></p>
-        <button type="button" id="mcp-tools-global-service"><?php p($l->t('Manage global service')); ?></button>
-        <div class="mcp-tool-toolbar">
-            <div class="mcp-tool-subject-kind" role="group" aria-label="<?php p($l->t('Choose people or groups')); ?>">
-                <button type="button" id="mcp-tools-kind-user" aria-pressed="true"><?php p($l->t('People')); ?></button>
-                <button type="button" id="mcp-tools-kind-group" aria-pressed="false"><?php p($l->t('Groups')); ?></button>
+        <fieldset id="mcp-tools-fields" class="mcp-tools-fields" aria-labelledby="mcp-tools-heading">
+            <label for="mcp-tools-subject-search"><?php p($l->t('Search groups or people')); ?></label>
+            <input type="search" id="mcp-tools-subject-search" aria-controls="mcp-tools-subject" maxlength="255" autocomplete="off">
+            <div class="mcp-tools-directory" id="mcp-tools-directory">
+                <div class="mcp-tools-subject" id="mcp-tools-subject"></div>
+                <div id="mcp-tools-pager" hidden>
+                    <button type="button" id="mcp-tools-subject-prev"><?php p($l->t('Previous')); ?></button>
+                    <span id="mcp-tools-subject-page" aria-live="polite"></span>
+                    <button type="button" id="mcp-tools-subject-next"><?php p($l->t('Next')); ?></button>
+                </div>
             </div>
-            <label for="mcp-tools-subject-search" class="mcp-sr-only"><?php p($l->t('Search by name or ID')); ?></label>
-            <input type="search" id="mcp-tools-subject-search" placeholder="<?php p($l->t('Search by name or ID')); ?>">
-            <label for="mcp-tools-subject"><?php p($l->t('Person or group')); ?></label>
-            <select id="mcp-tools-subject" aria-describedby="mcp-tools-subject-help"></select>
-            <span class="mcp-tools-subject-pager">
-                <button type="button" id="mcp-tools-subject-prev" disabled><?php p($l->t('Previous')); ?></button>
-                <span id="mcp-tools-subject-page" aria-live="polite"></span>
-                <button type="button" id="mcp-tools-subject-next" disabled><?php p($l->t('Next')); ?></button>
-            </span>
-            <span id="mcp-tools-subject-help" class="mcp-hint"><?php p($l->t('Select an entry to review its service access and tool permissions.')); ?></span>
-        </div>
-        <div id="mcp-tools-editor-status" role="status" aria-live="polite"></div>
-        <div id="mcp-tools-editor-error" role="alert" hidden></div>
-        <div id="mcp-tools-editor" hidden>
-            <div id="mcp-tools-person-actions" class="mcp-tools-person-actions" hidden>
-                <button type="button" id="mcp-tools-open-scope"><?php p($l->t('Manage resource scope')); ?></button>
-                <button type="button" id="mcp-tools-open-inspector"><?php p($l->t('Inspect effective access')); ?></button>
-            </div>
-            <div class="mcp-tools-memberships">
-                <h3><?php p($l->t('Groups')); ?></h3>
-                <p id="mcp-tools-membership-list" class="mcp-hint"></p>
-            </div>
-            <section class="mcp-tools-service" aria-labelledby="mcp-tools-service-heading">
-                <div><h3 id="mcp-tools-service-heading"><?php p($l->t('MCP service')); ?></h3>
-                    <p id="mcp-tools-service-origin" class="mcp-hint"></p>
-                    <p class="mcp-hint"><?php p($l->t('When the global service is disabled, tool assignments do not enable MCP access.')); ?></p></div>
-                <label for="mcp-tools-service-state"><?php p($l->t('Assignment')); ?></label>
-                <select id="mcp-tools-service-state">
-                    <option value="inherit"><?php p($l->t('Not assigned')); ?></option>
-                    <option value="allow"><?php p($l->t('Allow')); ?></option>
-                    <option value="deny"><?php p($l->t('Block')); ?></option>
-                </select>
-                <strong id="mcp-tools-service-result"></strong>
-            </section>
-            <div class="mcp-tools-catalog-toolbar">
+            <div id="mcp-tools-editor-status" role="status"></div>
+            <div id="mcp-tools-editor-error" role="alert" hidden></div>
+            <div class="mcp-tools-editor" id="mcp-tools-editor" hidden>
+                <h3 class="mcp-tools-selected" id="mcp-tools-selected" tabindex="-1"></h3>
+                <div class="mcp-tools-membership-list mcp-hint" id="mcp-tools-membership-list"></div>
+                <section class="mcp-tools-service" aria-labelledby="mcp-tools-service-heading">
+                    <div><h4 id="mcp-tools-service-heading"><?php p($l->t('MCP service')); ?></h4>
+                        <strong id="mcp-tools-service-result"></strong>
+                        <span class="mcp-tools-service-origin" id="mcp-tools-service-origin"></span>
+                    </div>
+                    <div id="mcp-tools-service-controls"></div>
+                </section>
+                <div class="mcp-tools-exceptions" id="mcp-tools-exceptions" hidden></div>
                 <label for="mcp-tools-filter"><?php p($l->t('Find a tool')); ?></label>
-                <input type="search" id="mcp-tools-filter" placeholder="<?php p($l->t('Search tools')); ?>">
-                <label><input type="checkbox" id="mcp-tools-only-exceptions"> <?php p($l->t('Only assigned tools')); ?></label>
-                <label><input type="checkbox" id="mcp-tools-only-blocked"> <?php p($l->t('Only blocked tools')); ?></label>
+                <input type="search" id="mcp-tools-filter" aria-controls="mcp-tools-catalogs">
+                <div id="mcp-tools-catalogs"></div>
+                <div class="mcp-tools-savebar" id="mcp-tools-savebar" hidden>
+                    <ul class="mcp-tools-changes" id="mcp-tools-changes"></ul>
+                    <span class="mcp-tools-save-status" id="mcp-tools-save-status" role="status"></span>
+                    <button type="button" id="mcp-tools-discard"><?php p($l->t('Discard changes')); ?></button>
+                    <button type="button" id="mcp-tools-save" class="primary"><?php p($l->t('Review changes')); ?></button>
+                </div>
+                <details class="mcp-tool-more">
+                    <summary><?php p($l->t('More options')); ?></summary>
+                    <button type="button" id="mcp-tools-global-service"><?php p($l->t('Manage global service')); ?></button>
+                    <span id="mcp-tools-person-actions">
+                        <button type="button" id="mcp-tools-open-scope"><?php p($l->t('Manage resource scope')); ?></button>
+                        <button type="button" id="mcp-tools-open-inspector"><?php p($l->t('Inspect effective access')); ?></button>
+                    </span>
+                </details>
             </div>
-            <div id="mcp-tools-catalogs"></div>
-            <div class="mcp-tools-savebar">
-                <span id="mcp-tools-save-status" class="mcp-tools-save-status" role="status" aria-live="polite"></span>
-                <button type="button" id="mcp-tools-discard" disabled><?php p($l->t('Discard changes')); ?></button>
-                <button type="button" id="mcp-tools-save" class="primary" disabled><?php p($l->t('Review and save')); ?></button>
-            </div>
-        </div>
+        </fieldset>
     </div>
     <details class="section mcp-block mcp-tools-advanced" id="mcp-tools-advanced">
         <summary><?php p($l->t('Advanced operation permissions')); ?></summary>
@@ -298,10 +287,7 @@
             <p id="mcp-inspector-path-result" aria-live="polite"></p>
             <form id="mcp-inspector-calendar-form" class="mcp-inspector-form">
                 <label for="mcp-inspector-calendar-module"><?php p($l->t('Module')); ?></label>
-                <select id="mcp-inspector-calendar-module">
-                    <option value="calendar"><?php p($l->t('Calendar')); ?></option>
-                    <option value="tasks"><?php p($l->t('Tasks')); ?></option>
-                </select>
+                <select id="mcp-inspector-calendar-module"></select>
                 <label for="mcp-inspector-calendar"><?php p($l->t('Calendar or task list')); ?></label>
                 <select id="mcp-inspector-calendar"></select>
                 <label for="mcp-inspector-calendar-operation"><?php p($l->t('Operation')); ?></label>

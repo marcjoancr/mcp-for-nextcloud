@@ -1622,70 +1622,45 @@ body[data-themes*="dark"] #mcp-admin {
 .mcp-tool-variants label { display: inline-flex; align-items: center; gap: 7px; }
 .mcp-tool-selection-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--color-border); }
 
-.mcp-tool-permissions .mcp-tool-toolbar,
-.mcp-tool-permissions .mcp-tools-catalog-toolbar,
-.mcp-tool-permissions .mcp-tools-savebar {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 8px 12px;
+.mcp-tool-permissions { max-inline-size: 56rem; }
+.mcp-tools-fields { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+.mcp-tools-fields > label, .mcp-tools-editor > label { display: block; font-weight: 600; }
+.mcp-tools-fields input[type="search"] { width: min(100%, 32rem); }
+.mcp-tools-directory { max-width: 32rem; }
+.mcp-tools-subject { display: grid; max-height: 17rem; overflow-y: auto; }
+.mcp-tools-subject [role="group"] { display: grid; }
+.mcp-tools-subject h3 { margin: 12px 0 4px; }
+.mcp-tools-subject button {
+    text-align: start; margin: 0; padding: 8px; overflow-wrap: anywhere;
+    background: transparent; border: 0; border-bottom: 1px solid var(--color-border);
 }
-
-.mcp-tool-permissions .mcp-tool-subject-kind {
-	display: inline-flex;
-	gap: 4px;
+.mcp-tools-subject button:hover, .mcp-tools-subject button:focus-visible { background: var(--color-background-hover); }
+.mcp-tools-selected { margin: 16px 0 0; overflow-wrap: anywhere; }
+.mcp-tools-membership-list { margin: 2px 0; overflow-wrap: anywhere; }
+.mcp-tools-service, .mcp-tool-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px 16px; padding-block: 12px; border-top: 1px solid var(--color-border);
 }
-
-.mcp-tool-permissions .mcp-tool-subject-kind button[aria-pressed="true"] {
-	font-weight: 700;
-	outline: 2px solid var(--color-primary-element);
-	outline-offset: 1px;
+.mcp-tools-service { margin: 12px 0; border-bottom: 1px solid var(--color-border); }
+.mcp-tools-service h4, .mcp-tools-exceptions h4 { margin: 0 0 4px; }
+.mcp-tools-service-origin { display: block; color: var(--color-text-maxcontrast); overflow-wrap: anywhere; }
+.mcp-tool-controls, .mcp-exception-list { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.mcp-tools-exceptions { margin-bottom: 16px; }
+.mcp-exception-list { max-height: 9rem; overflow-y: auto; }
+.mcp-tool-catalog { border-bottom: 1px solid var(--color-border); }
+.mcp-tool-catalog > summary, .mcp-tool-more > summary { padding: 12px 0; cursor: pointer; }
+.mcp-tool-catalog > summary span { margin-inline-start: 12px; }
+.mcp-tool-copy { display: grid; gap: 3px; overflow-wrap: anywhere; min-width: 0; }
+.mcp-tool-origin summary { cursor: pointer; font-size: .9em; color: var(--color-text-maxcontrast); }
+.mcp-tool-more { margin-block: 16px; }
+.mcp-tools-savebar:not([hidden]) { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.mcp-tools-savebar {
+    position: sticky; bottom: 0; z-index: 1; background: var(--color-main-background);
+    margin: 12px 0; padding: 10px 0; border-block: 1px solid var(--color-border);
 }
-
-.mcp-tool-permissions .mcp-tools-service {
-	display: grid;
-	grid-template-columns: minmax(14em, 1fr) minmax(9em, auto) minmax(9em, auto);
-	align-items: center;
-	gap: 8px 16px;
-	margin-block: 18px;
-	padding-block: 14px;
-	border-block: 1px solid var(--color-border);
-}
-
-.mcp-tool-permissions .mcp-tools-service h3 { margin: 0; }
-.mcp-tool-permissions .mcp-tools-service p { margin: 4px 0 0; }
-.mcp-tool-permissions .mcp-tools-memberships { padding-block: 10px; }
-.mcp-tool-permissions .mcp-tools-person-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 8px; }
-.mcp-tool-permissions .mcp-tools-person-actions[hidden] { display: none; }
-.mcp-tool-permissions .mcp-tools-memberships h3 { margin: 0 0 4px; font-size: 1em; }
-.mcp-tool-permissions .mcp-tools-memberships p { margin: 0; }
-.mcp-tool-permissions .mcp-tools-subject-pager { display: inline-flex; align-items: center; gap: 8px; }
-.mcp-tool-permissions .mcp-tools-catalog-toolbar { margin-block: 12px; }
-.mcp-tool-permissions .mcp-tools-catalog-toolbar input[type="search"] { flex: 1 1 14em; }
-.mcp-tool-permissions .mcp-tool-catalog { border-top: 1px solid var(--color-border); }
-.mcp-tool-permissions .mcp-tool-catalog summary { padding-block: 12px; font-weight: 700; cursor: pointer; }
-.mcp-tool-permissions .mcp-tool-list { display: grid; }
-.mcp-tool-permissions .mcp-tool-row {
-	display: grid;
-	grid-template-columns: minmax(12em, 1fr) minmax(9em, 13em) minmax(7em, 10em);
-	align-items: center;
-	gap: 10px 16px;
-	padding: 12px 8px;
-	border-top: 1px solid var(--color-border);
-}
-.mcp-tool-permissions .mcp-tool-copy { display: grid; gap: 3px; min-width: 0; }
-.mcp-tool-permissions .mcp-tool-copy strong { overflow-wrap: anywhere; }
-.mcp-tool-permissions .mcp-tool-result { font-weight: 600; }
-.mcp-tool-permissions .mcp-tools-savebar { position: sticky; bottom: 0; justify-content: flex-end; margin-top: 16px; padding-block: 12px; border-top: 1px solid var(--color-border); background: var(--color-main-background); }
-.mcp-tool-permissions .mcp-tools-save-status { flex: 1 1 16em; }
-.mcp-tool-permissions .mcp-tools-advanced { margin-top: 24px; border-top: 1px solid var(--color-border); }
-.mcp-tool-permissions .mcp-tools-advanced > summary { padding-block: 14px; font-weight: 700; cursor: pointer; }
-.mcp-tool-permissions .mcp-tools-advanced > .mcp-hint { max-width: 72em; }
-
+.mcp-tools-changes { width: 100%; max-height: min(20vh, 9rem); overflow-y: auto; margin: 0; padding-inline-start: 1.5em; }
+.mcp-tools-save-status { flex: 1 1 14rem; }
 @media (max-width: 760px) {
-	.mcp-tool-permissions .mcp-tools-service { grid-template-columns: minmax(0, 1fr) minmax(8em, 1fr); }
-	.mcp-tool-permissions .mcp-tools-service > div:first-child { grid-column: 1 / -1; }
-	.mcp-tool-permissions .mcp-tool-row { grid-template-columns: minmax(0, 1fr) minmax(8em, 11em); }
-	.mcp-tool-permissions .mcp-tool-result { grid-column: 1 / -1; }
-	.mcp-tool-permissions .mcp-tool-toolbar > * { flex: 1 1 100%; }
+    .mcp-tools-service, .mcp-tool-row { align-items: flex-start; flex-direction: column; }
+    .mcp-tool-catalog > summary span { display: block; margin-inline-start: 1.25em; }
 }

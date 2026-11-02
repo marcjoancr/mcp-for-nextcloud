@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Access\Grants\Groups;
 
 use OCA\Mcp\Access\Grants\GrantPolicy;
+use OCA\Mcp\Access\Grants\GrantMatrix;
 
 use OCA\Mcp\Db\GroupGrantsMapper;
 use OCA\Mcp\Db\GroupLifeMapper;
@@ -39,6 +40,7 @@ class GroupDirectory {
         private GroupSourceClassifier $classifier,
         private PolicyResolver $resolver,
         private PolicyStateMapper $state,
+        private GrantMatrix $matrix,
     ) {}
 
     /** Filters of the list: every group, the groups with a stored grant, and the groups that cannot grant. */
@@ -125,7 +127,7 @@ class GroupDirectory {
     public function detail(string $gid): array {
         return $this->read(function () use ($gid): array {
             $policy = $this->states([$gid])[IdentityKey::group($gid)];
-            $policy['catalog'] = ['_system' => ['eligible']] + GrantPolicy::CATALOG;
+            $policy['catalog'] = ['_system' => ['eligible']] + array_intersect_key(GrantPolicy::CATALOG, array_filter($this->matrix->appsEnabled()));
             $counts = ['members' => null, 'overrides' => null, 'permissions' => null];
             try {
                 $group = $this->groups->get($gid);

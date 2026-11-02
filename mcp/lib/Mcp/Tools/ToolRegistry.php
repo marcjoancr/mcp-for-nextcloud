@@ -24,6 +24,7 @@ use OCA\Mcp\Mcp\Confirmation\PlanState;
 use OCA\Mcp\Mcp\Tools\Results\ToolResult;
 
 use InvalidArgumentException;
+use OCP\IUser;
 use OCA\Mcp\Access\Policy\Resolution\GrantUnknown;
 
 /** Ordered tool discovery and first-match dispatch through shared availability and execution. */
@@ -81,16 +82,37 @@ class ToolRegistry {
         return $this->visibleDefinitions($userId, true);
     }
 
-    /** All registered tools, including ones that cannot currently be selected. */
-    public function administrableDefinitions(): array {
+    /** Selectable definitions, before applying the subject's MCP grants. */
+    public function administrableDefinitions(?IUser $user = null): array {
         $tools = [];
-        foreach ($this->modules as $module) {
-            foreach ($module->definitions() as $definition) {
-                $tools[] = ToolPublication::present($definition)
-                    + (isset($definition['grantAllOf']) ? ['grantAllOf' => $definition['grantAllOf']] : []);
-            }
+        foreach ($this->definitionsByApp($user, true) as $definition) {
+            $tools[] = ToolPublication::present($definition)
+                + (isset($definition['grantAllOf']) ? ['grantAllOf' => $definition['grantAllOf']] : []);
         }
         return $tools;
+    }
+
+    /** Retain existing selections hidden by an unavailable app when editing another tool. */
+    public function hiddenSelections(IUser $user, array $selected): array {
+        if ($selected === []) {
+            return [];
+        }
+        $hidden = array_column(iterator_to_array($this->definitionsByApp($user, false)), 'name');
+        return array_values(array_intersect($selected, $hidden));
+    }
+
+    /** Check each app once per catalog read; a subsequent request sees newly enabled or disabled apps. */
+    private function definitionsByApp(?IUser $user, bool $available): \Generator {
+        $enabled = [];
+        foreach ($this->modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                $app = $definition['app'] ?? null;
+                $enabledHere = $app === null || ($enabled[$app] ??= $this->availability->appEnabled($app, $user));
+                if ($enabledHere === $available) {
+                    yield $definition;
+                }
+            }
+        }
     }
 
     /** The administrative ceiling, before applying an individual connection's selection. */

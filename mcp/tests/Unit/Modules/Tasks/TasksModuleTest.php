@@ -27,12 +27,12 @@ use PHPUnit\Framework\TestCase;
 final class TasksModuleTest extends \OCA\Mcp\Tests\Support\Tasks\TasksTestCase {
 
 
-    public function testOnlyVtodoCalendarsAreListedAndTasksAppIsNotRequired(): void {
+    public function testOnlyVtodoCalendarsAreListedAndEveryToolRequiresTasks(): void {
         $items = $this->json($this->module->call('tasks_list_calendars', [], 'alice'));
         self::assertCount(1, $items);
         self::assertSame(self::PATH, $items[0]['path']);
         foreach ($this->module->definitions() as $definition) {
-            self::assertSame('dav', $definition['app']);
+            self::assertSame('tasks', $definition['app']);
         }
     }
 

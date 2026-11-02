@@ -72,7 +72,7 @@ final class TasksModule implements \OCA\Mcp\Mcp\Tools\ToolModule, \OCA\Mcp\Mcp\C
     public function guideNotes(): array
     {
         return [
-            'Task calendars support VTODO. These tools use core CalDAV and work even without the ' . 'Tasks app; list task calendars before addressing a task by UID.',
+            'Task calendars support VTODO. These tools require the Tasks app and core CalDAV. List task calendars before addressing a task by UID.',
             'Undated tasks are included. Completed tasks are hidden by default in listings. ' . 'Recurring tasks can be read; changing recurring tasks or tasks with participants is ' . 'refused to protect their series and scheduling.',
             'Task categories are free text, as in the Tasks app. On create and edit, a categories list ' . 'replaces all existing categories, [] clears them and omitting the field preserves them. ' . 'tasks_list_tasks can filter by one category, ignoring case.',
             'Subtasks link to their parent by UID (RELATED-TO), as in the Tasks app, and every task returns '

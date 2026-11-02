@@ -37,7 +37,7 @@ final class CompleteTask implements \OCA\Mcp\Mcp\Tools\WriteTool
                     'uid',
                 ],
             ],
-            app: 'dav'
+            app: 'tasks'
         );
     }
     public function execute(array $arguments, \OCA\Mcp\Mcp\Tools\ToolContext $context): array

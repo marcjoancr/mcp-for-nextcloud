@@ -24,7 +24,7 @@ final class ListCalendars implements \OCA\Mcp\Mcp\Tools\Tool
                 'properties' => (object) [],
                 'additionalProperties' => false,
             ],
-            app: 'dav'
+            app: 'tasks'
         );
     }
     public function execute(array $arguments, \OCA\Mcp\Mcp\Tools\ToolContext $context): array

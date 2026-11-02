@@ -12,7 +12,7 @@
 | Mòdul | Eines | Dependència |
 |---|---|---|
 | Contactes | `contacts_list_addressbooks`, `contacts_search_contacts`, `contacts_read_contact`, `contacts_create_contact`, `contacts_edit_contact`, `contacts_delete_contact` | aplicació Contacts activada; CardDAV del nucli |
-| Tasques | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | DAV del nucli; no requereix l'aplicació Tasks ni Calendar |
+| Tasques | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | l’aplicació Tasks habilitada i el servei DAV del nucli |
 
 Els catàlegs de Contactes són propis o compartits i filtren explícitament qualsevol principal de sistema. Les lectures fan servir adaptadors mandrosos del dorsal natiu, després del filtre d'accés; les escriptures passen pel Sabre del nucli (un dispatcher CardDAV separat i l'`EmbeddedDavDispatcher` existent per a VTODO). La sessió ha de coincidir amb qui fa l'acció, i el principal queda fixat en executar-la. Les consultes de col·leccions de Calendar fan servir VEVENT per defecte; Tasks selecciona VTODO.
 

@@ -7,7 +7,7 @@
 | Module | Tools | Dependency |
 |---|---|---|
 | Contacts | `contacts_list_addressbooks`, `contacts_search_contacts`, `contacts_read_contact`, `contacts_create_contact`, `contacts_edit_contact`, `contacts_delete_contact` | Contacts app enabled; core CardDAV |
-| Tasks | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | core DAV; does not require the Tasks or Calendar app |
+| Tasks | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | the enabled Tasks app and core DAV |
 
 The Contacts catalogs are own/shared, explicitly filtering any system principal. Reads use lazy adapters of the native backend, after the access filter; writes go through the core's Sabre (a separate CardDAV dispatcher and the existing `EmbeddedDavDispatcher` for VTODO). The session must match the actor and the principal is fixed at execution. Calendar collection queries default to VEVENT; Tasks selects VTODO.
 

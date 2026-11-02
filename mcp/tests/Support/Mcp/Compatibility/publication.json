@@ -13,7 +13,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -1663,7 +1663,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -1724,7 +1724,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -1761,7 +1761,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "deck_list_boards",
@@ -2326,7 +2326,7 @@
                             "title": "Tasks",
                             "count": 3,
                             "notes": [
-                                "Task calendars support VTODO. These tools use core CalDAV and work even without the Tasks app; list task calendars before addressing a task by UID.",
+                                "Task calendars support VTODO. These tools require the Tasks app and core CalDAV. List task calendars before addressing a task by UID.",
                                 "Undated tasks are included. Completed tasks are hidden by default in listings. Recurring tasks can be read; changing recurring tasks or tasks with participants is refused to protect their series and scheduling.",
                                 "Task categories are free text, as in the Tasks app. On create and edit, a categories list replaces all existing categories, [] clears them and omitting the field preserves them. tasks_list_tasks can filter by one category, ignoring case.",
                                 "Subtasks link to their parent by UID (RELATED-TO), as in the Tasks app, and every task returns its parent UID or null. On create and edit, parent sets it, null makes the task top-level and omitting it preserves it; the parent must be a visible task of the same calendar and cannot be the task or one of its subtasks, and no task may end up deeper than 64 levels, the moved subtasks included. tasks_list_tasks with parent lists the direct subtasks. Deleting or completing a parent does not change its subtasks. The hierarchy is checked on the state read when the plan is built and again at confirmation; confirmed MCP writes that set a parent in one calendar run one at a time (they are refused when the file locking of the server is disabled), but other clients can still change related tasks at the same moment, and an answer with a warning says that the parent chain then loops.",
@@ -2526,7 +2526,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -2586,7 +2586,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -8354,7 +8354,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -8415,7 +8415,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -8452,7 +8452,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_create_task",
@@ -8547,7 +8547,7 @@
                     },
                     "module": "tasks",
                     "operation": "create",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_edit_task",
@@ -8654,7 +8654,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_complete_task",
@@ -8705,7 +8705,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_delete_task",
@@ -8756,7 +8756,7 @@
                     },
                     "module": "tasks",
                     "operation": "delete",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "deck_list_boards",
@@ -10667,7 +10667,7 @@
                             "title": "Tasks",
                             "count": 7,
                             "notes": [
-                                "Task calendars support VTODO. These tools use core CalDAV and work even without the Tasks app; list task calendars before addressing a task by UID.",
+                                "Task calendars support VTODO. These tools require the Tasks app and core CalDAV. List task calendars before addressing a task by UID.",
                                 "Undated tasks are included. Completed tasks are hidden by default in listings. Recurring tasks can be read; changing recurring tasks or tasks with participants is refused to protect their series and scheduling.",
                                 "Task categories are free text, as in the Tasks app. On create and edit, a categories list replaces all existing categories, [] clears them and omitting the field preserves them. tasks_list_tasks can filter by one category, ignoring case.",
                                 "Subtasks link to their parent by UID (RELATED-TO), as in the Tasks app, and every task returns its parent UID or null. On create and edit, parent sets it, null makes the task top-level and omitting it preserves it; the parent must be a visible task of the same calendar and cannot be the task or one of its subtasks, and no task may end up deeper than 64 levels, the moved subtasks included. tasks_list_tasks with parent lists the direct subtasks. Deleting or completing a parent does not change its subtasks. The hierarchy is checked on the state read when the plan is built and again at confirmation; confirmed MCP writes that set a parent in one calendar run one at a time (they are refused when the file locking of the server is disabled), but other clients can still change related tasks at the same moment, and an answer with a warning says that the parent chain then loops.",
@@ -11134,7 +11134,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -13096,7 +13096,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -13149,7 +13149,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -13178,7 +13178,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_create_task",
@@ -13261,7 +13261,7 @@
                     },
                     "module": "tasks",
                     "operation": "create",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_edit_task",
@@ -13356,7 +13356,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_complete_task",
@@ -13395,7 +13395,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_delete_task",
@@ -13434,7 +13434,7 @@
                     },
                     "module": "tasks",
                     "operation": "delete",
-                    "app": "dav"
+                    "app": "tasks"
                 }
             ],
             [
@@ -14652,7 +14652,7 @@
                                         "type": "string",
                                         "minLength": 1,
                                         "maxLength": 64,
-                                        "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                        "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                                     },
                                     "tool": {
                                         "type": "string",
@@ -18358,7 +18358,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -20008,7 +20008,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -20069,7 +20069,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -20106,7 +20106,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "deck_list_boards",
@@ -20671,7 +20671,7 @@
                             "title": "Tarefas",
                             "count": 3,
                             "notes": [
-                                "Task calendars support VTODO. These tools use core CalDAV and work even without the Tasks app; list task calendars before addressing a task by UID.",
+                                "Task calendars support VTODO. These tools require the Tasks app and core CalDAV. List task calendars before addressing a task by UID.",
                                 "Undated tasks are included. Completed tasks are hidden by default in listings. Recurring tasks can be read; changing recurring tasks or tasks with participants is refused to protect their series and scheduling.",
                                 "Task categories are free text, as in the Tasks app. On create and edit, a categories list replaces all existing categories, [] clears them and omitting the field preserves them. tasks_list_tasks can filter by one category, ignoring case.",
                                 "Subtasks link to their parent by UID (RELATED-TO), as in the Tasks app, and every task returns its parent UID or null. On create and edit, parent sets it, null makes the task top-level and omitting it preserves it; the parent must be a visible task of the same calendar and cannot be the task or one of its subtasks, and no task may end up deeper than 64 levels, the moved subtasks included. tasks_list_tasks with parent lists the direct subtasks. Deleting or completing a parent does not change its subtasks. The hierarchy is checked on the state read when the plan is built and again at confirmation; confirmed MCP writes that set a parent in one calendar run one at a time (they are refused when the file locking of the server is disabled), but other clients can still change related tasks at the same moment, and an answer with a warning says that the parent chain then loops.",
@@ -20871,7 +20871,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -20931,7 +20931,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -26699,7 +26699,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -26760,7 +26760,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -26797,7 +26797,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_create_task",
@@ -26892,7 +26892,7 @@
                     },
                     "module": "tasks",
                     "operation": "create",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_edit_task",
@@ -26999,7 +26999,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_complete_task",
@@ -27050,7 +27050,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_delete_task",
@@ -27101,7 +27101,7 @@
                     },
                     "module": "tasks",
                     "operation": "delete",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "deck_list_boards",
@@ -29012,7 +29012,7 @@
                             "title": "Tarefas",
                             "count": 7,
                             "notes": [
-                                "Task calendars support VTODO. These tools use core CalDAV and work even without the Tasks app; list task calendars before addressing a task by UID.",
+                                "Task calendars support VTODO. These tools require the Tasks app and core CalDAV. List task calendars before addressing a task by UID.",
                                 "Undated tasks are included. Completed tasks are hidden by default in listings. Recurring tasks can be read; changing recurring tasks or tasks with participants is refused to protect their series and scheduling.",
                                 "Task categories are free text, as in the Tasks app. On create and edit, a categories list replaces all existing categories, [] clears them and omitting the field preserves them. tasks_list_tasks can filter by one category, ignoring case.",
                                 "Subtasks link to their parent by UID (RELATED-TO), as in the Tasks app, and every task returns its parent UID or null. On create and edit, parent sets it, null makes the task top-level and omitting it preserves it; the parent must be a visible task of the same calendar and cannot be the task or one of its subtasks, and no task may end up deeper than 64 levels, the moved subtasks included. tasks_list_tasks with parent lists the direct subtasks. Deleting or completing a parent does not change its subtasks. The hierarchy is checked on the state read when the plan is built and again at confirmation; confirmed MCP writes that set a parent in one calendar run one at a time (they are refused when the file locking of the server is disabled), but other clients can still change related tasks at the same moment, and an answer with a warning says that the parent chain then loops.",
@@ -29479,7 +29479,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -31441,7 +31441,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -31494,7 +31494,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -31523,7 +31523,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_create_task",
@@ -31606,7 +31606,7 @@
                     },
                     "module": "tasks",
                     "operation": "create",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_edit_task",
@@ -31701,7 +31701,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_complete_task",
@@ -31740,7 +31740,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_delete_task",
@@ -31779,7 +31779,7 @@
                     },
                     "module": "tasks",
                     "operation": "delete",
-                    "app": "dav"
+                    "app": "tasks"
                 }
             ],
             [
@@ -32997,7 +32997,7 @@
                                         "type": "string",
                                         "minLength": 1,
                                         "maxLength": 64,
-                                        "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                        "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                                     },
                                     "tool": {
                                         "type": "string",
@@ -36703,7 +36703,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -38353,7 +38353,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -38414,7 +38414,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -38451,7 +38451,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "deck_list_boards",
@@ -39016,7 +39016,7 @@
                             "title": "Tareas",
                             "count": 3,
                             "notes": [
-                                "Task calendars support VTODO. These tools use core CalDAV and work even without the Tasks app; list task calendars before addressing a task by UID.",
+                                "Task calendars support VTODO. These tools require the Tasks app and core CalDAV. List task calendars before addressing a task by UID.",
                                 "Undated tasks are included. Completed tasks are hidden by default in listings. Recurring tasks can be read; changing recurring tasks or tasks with participants is refused to protect their series and scheduling.",
                                 "Task categories are free text, as in the Tasks app. On create and edit, a categories list replaces all existing categories, [] clears them and omitting the field preserves them. tasks_list_tasks can filter by one category, ignoring case.",
                                 "Subtasks link to their parent by UID (RELATED-TO), as in the Tasks app, and every task returns its parent UID or null. On create and edit, parent sets it, null makes the task top-level and omitting it preserves it; the parent must be a visible task of the same calendar and cannot be the task or one of its subtasks, and no task may end up deeper than 64 levels, the moved subtasks included. tasks_list_tasks with parent lists the direct subtasks. Deleting or completing a parent does not change its subtasks. The hierarchy is checked on the state read when the plan is built and again at confirmation; confirmed MCP writes that set a parent in one calendar run one at a time (they are refused when the file locking of the server is disabled), but other clients can still change related tasks at the same moment, and an answer with a warning says that the parent chain then loops.",
@@ -39216,7 +39216,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -39276,7 +39276,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -45044,7 +45044,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -45105,7 +45105,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -45142,7 +45142,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_create_task",
@@ -45237,7 +45237,7 @@
                     },
                     "module": "tasks",
                     "operation": "create",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_edit_task",
@@ -45344,7 +45344,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_complete_task",
@@ -45395,7 +45395,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_delete_task",
@@ -45446,7 +45446,7 @@
                     },
                     "module": "tasks",
                     "operation": "delete",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "deck_list_boards",
@@ -47357,7 +47357,7 @@
                             "title": "Tareas",
                             "count": 7,
                             "notes": [
-                                "Task calendars support VTODO. These tools use core CalDAV and work even without the Tasks app; list task calendars before addressing a task by UID.",
+                                "Task calendars support VTODO. These tools require the Tasks app and core CalDAV. List task calendars before addressing a task by UID.",
                                 "Undated tasks are included. Completed tasks are hidden by default in listings. Recurring tasks can be read; changing recurring tasks or tasks with participants is refused to protect their series and scheduling.",
                                 "Task categories are free text, as in the Tasks app. On create and edit, a categories list replaces all existing categories, [] clears them and omitting the field preserves them. tasks_list_tasks can filter by one category, ignoring case.",
                                 "Subtasks link to their parent by UID (RELATED-TO), as in the Tasks app, and every task returns its parent UID or null. On create and edit, parent sets it, null makes the task top-level and omitting it preserves it; the parent must be a visible task of the same calendar and cannot be the task or one of its subtasks, and no task may end up deeper than 64 levels, the moved subtasks included. tasks_list_tasks with parent lists the direct subtasks. Deleting or completing a parent does not change its subtasks. The hierarchy is checked on the state read when the plan is built and again at confirmation; confirmed MCP writes that set a parent in one calendar run one at a time (they are refused when the file locking of the server is disabled), but other clients can still change related tasks at the same moment, and an answer with a warning says that the parent chain then loops.",
@@ -47824,7 +47824,7 @@
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 64,
-                                "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                             },
                             "tool": {
                                 "type": "string",
@@ -49786,7 +49786,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_list_tasks",
@@ -49839,7 +49839,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_read_task",
@@ -49868,7 +49868,7 @@
                     },
                     "module": "tasks",
                     "operation": "read",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_create_task",
@@ -49951,7 +49951,7 @@
                     },
                     "module": "tasks",
                     "operation": "create",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_edit_task",
@@ -50046,7 +50046,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_complete_task",
@@ -50085,7 +50085,7 @@
                     },
                     "module": "tasks",
                     "operation": "edit",
-                    "app": "dav"
+                    "app": "tasks"
                 },
                 {
                     "name": "tasks_delete_task",
@@ -50124,7 +50124,7 @@
                     },
                     "module": "tasks",
                     "operation": "delete",
-                    "app": "dav"
+                    "app": "tasks"
                 }
             ],
             [
@@ -51342,7 +51342,7 @@
                                         "type": "string",
                                         "minLength": 1,
                                         "maxLength": 64,
-                                        "description": "Module to detail, as named in the list: files, notes, calendar, contacts, tasks, deck, talk, people, logs. Only the modules available to this user are accepted."
+                                        "description": "Module to detail. Call the guide without arguments to see the modules available to this user."
                                     },
                                     "tool": {
                                         "type": "string",

@@ -12,6 +12,13 @@ async function inspect(page, app) {
     await page.locator('#mcp-inspector-user').fill('alice')
     await page.locator('#mcp-inspector-form button').click()
 }
+test('an unavailable calendar app cannot be selected in the inspector', async ({ page, app }) => {
+    app.on('GET', '/api/inspector/access', () => ({ body: { revision: '0', operations: [row()], calendarModules: [] } }))
+    await inspect(page, app)
+    await expect(page.locator('#mcp-inspector-resources')).toBeVisible()
+    await expect(page.locator('#mcp-inspector-calendar-module option')).toHaveCount(0)
+    expect(app.calls.some(call => call.path.endsWith('/candidates'))).toBe(false)
+})
 for (const [gate, text] of [[null, 'can use the MCP tools'], ['service', 'service is switched off'], ['connection', 'personal settings'], ['eligibility_unknown', 'cannot be confirmed'], ['grant', 'nothing is granted'], ['resource_scope_unknown', 'cannot be confirmed']]) {
     test(`effective access explains ${gate} without inventing access`, async ({ page, app }) => {
         fixture(app, [row({ allowed: gate === null ? true : gate.endsWith('unknown') ? null : false, blockingGate: gate })])

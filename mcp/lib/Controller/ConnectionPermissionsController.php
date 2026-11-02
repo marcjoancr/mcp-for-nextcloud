@@ -50,7 +50,7 @@ class ConnectionPermissionsController extends Controller {
             $available = array_column($permitted, null, 'name');
             $selected = array_fill_keys($selection['tools'], true);
             $rows = [];
-            foreach ($this->tools->administrableDefinitions() as $tool) {
+            foreach ($this->tools->administrableDefinitions($user) as $tool) {
                 $name = $tool['name'];
                 $approvedVariants = $available[$name]['approvedVariants'] ?? [];
                 $variants = array_values(array_intersect($selection['variants'][$name] ?? [], $approvedVariants));
@@ -94,7 +94,7 @@ class ConnectionPermissionsController extends Controller {
             if ($current === null) {
                 return new JSONResponse(['error' => 'Not found'], 404);
             }
-            $this->transaction->runAdmin($parts[1], [$uid], function () use ($uid, $names, $variants, $current): array {
+            $this->transaction->runAdmin($parts[1], [$uid], function () use ($user, $uid, $names, $variants, $current): array {
                 $available = $this->policy->within($uid, fn () => array_column($this->approvedTools($uid), null, 'name'));
                 if (array_diff($names, array_keys($available)) !== [] || array_diff(array_keys($variants), $names) !== []) {
                     throw new \InvalidArgumentException('Tool unavailable');
@@ -113,9 +113,10 @@ class ConnectionPermissionsController extends Controller {
                     }
                     $chosen[$name] = $operations;
                 }
-                return $chosen;
-            }, function (array $chosen) use ($uid, $id, $names, $parts): bool {
-                $this->selections->save($uid, $id, $names, $parts[2], $chosen);
+                $hidden = $this->tools->hiddenSelections($user, $current['tools']);
+                return ['tools' => array_merge($names, $hidden), 'variants' => $chosen];
+            }, function (array $selection) use ($uid, $id, $parts): bool {
+                $this->selections->save($uid, $id, $selection['tools'], $parts[2], $selection['variants']);
                 // The selection has its own CAS revision. No administrative rule changed.
                 return false;
             });

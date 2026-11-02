@@ -63,7 +63,18 @@ final class GroupDirectoryTest extends TestCase {
         $this->manager->method('search')->with('')->willReturnCallback(fn () => array_map($group, array_map('strval', array_keys($this->native + $this->ldap))));
         $this->manager->method('get')->willReturnCallback(fn (string $gid) => isset($this->native[$gid]) || isset($this->ldap[$gid]) ? $group($gid) : null);
         $classifier = new GroupSourceClassifier($this->manager);
-        $this->directory = new GroupDirectory($this->manager, $db, $grants, $life, $classifier, $resolver, InMemoryConfig::state($this->config));
+        $matrix = $this->createMock(\OCA\Mcp\Access\Grants\GrantMatrix::class);
+        $matrix->method('appsEnabled')->willReturn(['notes' => true, 'deck' => false]);
+        $this->directory = new GroupDirectory($this->manager, $db, $grants, $life, $classifier, $resolver, InMemoryConfig::state($this->config), $matrix);
+    }
+
+    public function testAdvancedGroupEditorOnlyOffersAvailableAppOperations(): void {
+        $this->native['team'] = [];
+        InMemoryConfig::groupPolicy($this->config, 'team', ['deck' => ['read']]);
+        $detail = $this->directory->detail('team');
+        self::assertArrayHasKey('notes', $detail['catalog']);
+        self::assertArrayNotHasKey('deck', $detail['catalog']);
+        self::assertSame(['read'], $detail['grants']['deck']);
     }
 
     public function testFiftyGroupPageUsesBatchSqlAndOneClassificationPerGroup(): void {

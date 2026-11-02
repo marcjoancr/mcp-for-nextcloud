@@ -21,7 +21,7 @@ an app password or OAuth token. A guest whose allowed-app list excludes MCP is
 refused. MCP returns HTTP 403; Guests may reject an app-password login earlier
 in Nextcloud (its rejection is surfaced as HTTP 500 on Nextcloud 35). Tools, Notes resources and Talk references for disallowed
 apps are hidden or refused; file-version tools also require Guests to allow
-`files_versions`. Files and Tasks use the always-allowed `files` and `dav` apps.
+`files_versions`. Files uses the always-allowed `files` app. Tasks requires the `tasks` app on the guest’s allowlist and uses `dav` for storage.
 
 Hidden external storage remains inaccessible, including Nextcloud 35 mounts
 resolved directly by path. Structured file references in Talk and Tasks, including
@@ -36,7 +36,9 @@ and installations without Guests retain their existing behavior.
 
 ## Individual choices and group inheritance
 
-In **Administration → Nextcloud MCP → Access and permissions**, search for a user or group. The selected subject's service setting appears above the tool catalogs. Expand a catalog to inspect each tool's assignment, effective permission and source. Use the preview before saving a change.
+In **Administration → Nextcloud MCP → Access and permissions**, choose a group to set its service and tool rules. Search by name to find a person or group. On a person's card, check the service status and its source first. Individual exceptions appear above the catalogs. Expand a catalog or search for a tool to see its effective access and why. Choose **Create exception** to set an individual rule, or **Use inherited rule** to remove it. Review the proposed changes and their impact before saving.
+
+Only tools from installed, enabled and compatible apps appear. A person sees the apps enabled for their account. Disabling an app hides its tools from MCP and the settings screens. Existing permissions and connection selections become available again when the app is re-enabled.
 
 **Allow**, **Block** and **Unassigned** apply to both the service and tools. An individual's explicit decision wins. When it is unassigned, a block by a trusted group wins over group allowances. Without a group decision, the catalog default applies. Turning off the global service or disabling an account prevents every connection from using MCP. A tool still needs its optional application, role, operation prerequisites and native resource access.
 

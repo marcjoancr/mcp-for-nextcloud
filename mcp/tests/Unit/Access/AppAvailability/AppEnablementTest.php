@@ -48,6 +48,16 @@ final class AppEnablementTest extends TestCase {
         $this->assertTrue(AppEnablement::forUser($this->apps(['spreed' => '23.0.11'], ['spreed']), 'spreed', $user));
     }
 
+    public function testTasksNeedsBothTheTasksAppAndDav(): void {
+        $user = $this->createMock(IUser::class);
+        foreach ([[], ['dav'], ['tasks'], ['tasks', 'dav']] as $enabled) {
+            $apps = $this->apps([], $enabled);
+            $expected = count($enabled) === 2;
+            self::assertSame($expected, AppEnablement::forUser($apps, 'tasks', $user), implode(',', $enabled));
+            self::assertSame($expected, AppEnablement::forAnyone($apps, 'tasks'), implode(',', $enabled));
+        }
+    }
+
     public function testADisabledAppStaysOffWhateverItsVersion(): void {
         $user = $this->createMock(IUser::class);
         $apps = $this->apps(['spreed' => '23.0.0'], []);

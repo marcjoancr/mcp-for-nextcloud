@@ -43,6 +43,22 @@ final class GrantPolicyGroupsTest extends TestCase {
         $this->data->app = $service === null ? [] : ['mcp' => ['service_enabled' => $service]];
     }
 
+    public function testUserCardDistinguishesExistingIndividualRulesFromGroupAccess(): void {
+        $this->groups = ['team' => ['alice']];
+        InMemoryConfig::groupPolicy($this->config, 'team', ['notes' => ['edit']]);
+        $this->alice(['eligible' => '0'], '1');
+        $inherited = $this->policy->toolState('alice', 'notes_edit', 'notes', 'edit');
+        self::assertNull($inherited['assigned']);
+        self::assertTrue($inherited['effective']);
+        self::assertSame(['team'], $inherited['groupIds']);
+        self::assertSame('deny', $this->policy->toolState('alice', '_service', '_system', 'eligible')['assigned']);
+
+        $this->alice(['grant_notes_edit' => '0'], '1');
+        $exception = $this->policy->toolState('alice', 'notes_edit', 'notes', 'edit');
+        self::assertSame('deny', $exception['assigned']);
+        self::assertFalse($exception['effective']);
+    }
+
     public static function legacyCases(): iterable {
         foreach ([null, '0', '1', 'yes'] as $eligible) {
             foreach ([null, '0', '1'] as $connected) {

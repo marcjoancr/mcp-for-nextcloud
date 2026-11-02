@@ -26,6 +26,18 @@ async function open(page, app) {
 }
 const writes = app => app.calls.filter(call => call.method === 'PUT' && call.path.startsWith('/api/scope/'))
 
+test('unavailable apps have no resource scope tab or personal scope entry', async ({ page, app }) => {
+    scopes(app)
+    app.on('GET', '/api/scope/alice/tasks', () => ({ body: { module: 'tasks', available: false } }))
+    await open(page, app)
+    await expect(page.locator('#mcp-scope-tab-calendar')).toBeVisible()
+    await expect(page.locator('#mcp-scope-tab-tasks')).toHaveCount(0)
+    app.on('GET', '/api/my/scope', () => ({ body: { modules: { files: { mode: 'unrestricted', items: [] } } } }))
+    await app.open('/personal')
+    await expect(page.locator('#mcp-my-scope-list li')).toHaveCount(1)
+    await expect(page.locator('#mcp-my-scope-list')).toContainText('Files')
+})
+
 test('scope drafts stay local until save; selections are plain text and save offers a server receipt', async ({ page, app }) => {
     scopes(app)
     await open(page, app)

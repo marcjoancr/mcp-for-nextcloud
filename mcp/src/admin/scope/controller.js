@@ -123,17 +123,18 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 		try {
 			const loaded = await Promise.all(MODULES.map((module) => api('GET', scopePath(module))))
 			if (mine !== seq) return
-			loaded.forEach((data) => {
+			loaded.filter(data => data.available !== false).forEach((data) => {
 				modules[data.module] = {
 					uid: target, generation: mine, module: data.module, active: data.active, limit: data.limit, revision: data.revision,
 					mode: data.mode, savedMode: data.mode, items: [...data.items], savedItems: [...data.items],
 					search: '', parents: [], results: null, page: 1, undo: null, saving: false, stale: false,
 				}
 			})
-			MODULES.forEach((module) => container.append(renderModule(modules[module])))
+			if (!modules[currentTab]) currentTab = 'files'
+			Object.values(modules).forEach(state => container.append(renderModule(state)))
 			renderTabs()
 			say(t('mcp', 'Resource scope of {user}.', { user: uid }, undefined, { escape: false }))
-			const heading = find('mcp-scope-heading-' + (focusModule || MODULES[0]))
+			const heading = find('mcp-scope-heading-' + currentTab)
 			if (focusModule && heading) {
 				heading.scrollIntoView?.({ block: 'start' })
 				heading.focus?.()
@@ -154,6 +155,12 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
         if (!isCurrent(state)) return
 		const data = await api('GET', scopePath(state.module, '', state.uid))
         if (!isCurrent(state)) return
+		if (data.available === false) {
+			delete modules[state.module]
+			find('mcp-scope-module-' + state.module)?.remove()
+			selectTab(currentTab === state.module ? 'files' : currentTab, false)
+			return
+		}
 		Object.assign(state, { active: data.active, revision: data.revision, stale: false,
 			mode: data.mode, savedMode: data.mode, items: [...data.items], savedItems: [...data.items] })
 		rerender(state)

@@ -353,7 +353,8 @@ unpack_release_app() {
     tag=$3
     sha=$4
     archive="$TOOLS_DIR/$app.tar.gz"
-    curl -fsSL -o "$archive" "https://github.com/nextcloud-releases/$repo/releases/download/$tag/$app-$tag.tar.gz"
+    url=${5:-"https://github.com/nextcloud-releases/$repo/releases/download/$tag/$app-$tag.tar.gz"}
+    curl -fsSL -o "$archive" "$url"
     echo "$sha  $archive" | sha256_check
     chmod 0644 "$archive"
     docker exec -u www-data "$NC" tar -xzf "/mcp-it-tools/$app.tar.gz" -C /var/www/html/custom_apps
@@ -467,7 +468,7 @@ cmd_provision() {
     log="$ARTIFACTS/provision.log"
     : > "$log"
     : > "$WORK/provision-failures"
-    for part in groupfolders files_external talk notes calendar contacts deck guests; do
+    for part in groupfolders files_external talk notes calendar contacts tasks deck guests; do
         echo "=== provisioning $part" | tee -a "$log"
         case "$part" in
             groupfolders) step=provision_groupfolders ;;
@@ -476,6 +477,7 @@ cmd_provision() {
             notes) step="install_release_app notes notes $NOTES_TAG $NOTES_SHA" ;;
             calendar) step="install_release_app calendar calendar $CAL_TAG $CAL_SHA" ;;
             contacts) step=provision_contacts ;;
+            tasks) step="install_release_app tasks tasks v0.18.1 0c988d50531c9bfa246e6c31f3f95369adde1629ba70d15194915ab56e24687b https://github.com/nextcloud/tasks/releases/download/v0.18.1/tasks.tar.gz" ;;
             deck) step=provision_deck ;;
             # Unpacked only: Guests/GuestRestrictionsTest enables it for its own scenarios, since it adds a user and a
             # group backend every other test would see.
