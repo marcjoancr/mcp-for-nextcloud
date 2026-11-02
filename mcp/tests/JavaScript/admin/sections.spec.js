@@ -87,14 +87,13 @@ test('failed log group save and reload expose the fallback without restoring sta
     await expect(page.locator('#mcp-logs-groups .mcp-picker-box')).toHaveAttribute('hidden')
 })
 
-test('privacy load failure disables the switch; details remain keyboard operable', async ({ page, app }) => {
+test('privacy load failure disables the switch; native details remain keyboard operable', async ({ page, app }) => {
     app.on('GET', '/api/logs-privacy', () => ({ status: 500 }))
     await app.open('/admin#advanced')
     await expect(page.locator('#mcp-logs-hide-file-names')).toBeDisabled()
-    await expect(page.locator('#mcp-logs-privacy-detail')).toBeHidden()
-    await page.locator('#mcp-logs-privacy-more').press('Enter')
-    await expect(page.locator('#mcp-logs-privacy-detail')).toBeVisible()
-    await expect(page.locator('#mcp-logs-privacy-more')).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.locator('#mcp-logs-privacy-detail')).not.toHaveAttribute('open', '')
+    await page.locator('#mcp-logs-privacy-detail summary').press('Enter')
+    await expect(page.locator('#mcp-logs-privacy-detail')).toHaveAttribute('open', '')
 })
 
 test('privacy and service mutations roll back and admin fallback alerts remain visible', async ({ page, app }) => {
@@ -170,6 +169,7 @@ test('service/privacy accept authoritative responses and checkout failure reenab
     await expect(page.locator('#mcp-service-status')).toHaveText('Saved')
     expect(app.calls.find(call => call.path === '/api/service').body).toEqual({ enabled: false, expectedRevision: '0' })
     app.on('PUT', '/api/checkout-limit', () => ({ status: 400 }))
+    await page.locator('#mcp-checkout-limit').fill('7')
     await page.locator('#mcp-checkout-limit-save').click()
     await expect(page.locator('#mcp-checkout-limit-status')).toHaveText('Not saved')
     await expect(page.locator('#mcp-checkout-limit-save')).toBeEnabled()
@@ -209,4 +209,23 @@ test('picker locks in-flight saves, gives unique IDs and preserves keyboard remo
     release()
     await expect(search).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Remove Staff' })).toHaveCount(0)
+})
+
+
+test('overview retries a failed limit read before accepting edits', async ({ page, app }) => {
+    let reads = 0
+    app.on('GET', '/api/checkout-limit', ({ state }) => ++reads === 1 ? { status: 503 } : { body: state.limit })
+    await app.open('/admin#overview')
+    const input = page.locator('#mcp-checkout-limit')
+    const save = page.locator('#mcp-checkout-limit-save')
+    await expect(input).toBeDisabled()
+    await expect(save).toBeDisabled()
+    await page.locator('#mcp-checkout-limit-retry').click()
+    await expect(input).toBeFocused()
+    await expect(save).toBeDisabled()
+    await input.fill('2')
+    await expect(save).toBeEnabled()
+    await save.click()
+    await expect(save).toBeDisabled()
+    await expect(page.locator('#mcp-checkout-limit-status')).toHaveText('Saved')
 })

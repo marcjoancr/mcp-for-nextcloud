@@ -4,7 +4,7 @@
 
 # Permissions and administration
 
-Open **Administration → Nextcloud MCP**. The five tabs are **Overview**, **Access and permissions**, **Clients and connections**, **Data protection** and **Advanced**. Their addresses (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) and keyboard navigation open the corresponding section.
+Open **Administration → Nextcloud MCP**. The five tabs are **Overview**, **Access and permissions**, **Clients and connections**, **Data protection** and **Advanced**. Their addresses (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) and keyboard navigation open the corresponding section. On narrow screens, use the Sections selector to switch between the same five views. Clients and connections opens with the active connections list. On phones, each connection has its own labeled rows and actions.
 
 ## Enable access
 
@@ -38,7 +38,7 @@ and installations without Guests retain their existing behavior.
 
 In **Administration → Nextcloud MCP → Access and permissions**, the matrix opens with the first group in the directory. Click its column heading to choose a different group or a person from the dropdown. Both lists are available before you type. Use **Add comparison column** to keep the current column and compare another entry. A group shows its assigned rules. A person shows effective access, its source and any individual exceptions. The service row stays at the top. Open a catalog, search for a tool or filter to differences or personal exceptions.
 
-Select a cell to inspect a rule, stage a change or return a person to inheritance. Use **Edit multiple rules** to stage a decision for selected tools and columns. Review each column’s impact and save it before reviewing the next one, since a group change can affect a person in another column.
+Choose **Allow**, **Block**, or the neutral option directly in a cell. **Not assigned** clears a group rule. **Inherit** clears a personal exception. The information button beside the selector opens the tool description and its related rules beneath that row. For a person, it also shows the groups behind the decision. To change several assignments together, turn on **Edit multiple rules**, check the tools and target columns, then choose the rule once. Your edits stay pending until you review and save them. Review each column’s impact and save it before reviewing the next one, since a group change can affect a person in another column.
 
 Only tools from installed, enabled and compatible apps appear. A person sees the apps enabled for their account. Disabling an app hides its tools from MCP and the settings screens. Existing permissions and connection selections become available again when the app is re-enabled.
 

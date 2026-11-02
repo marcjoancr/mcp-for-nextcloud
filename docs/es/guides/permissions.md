@@ -9,7 +9,7 @@
 
 # Permisos y administración
 
-Abre **Administración → Nextcloud MCP**. Las cinco pestañas son **Resumen**, **Acceso y permisos**, **Clientes y conexiones**, **Protección de datos** y **Avanzado**. Sus direcciones (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) y la navegación por teclado abren la sección correspondiente.
+Abre **Administración → Nextcloud MCP**. Las cinco pestañas son **Vista general**, **Acceso y permisos**, **Clientes y conexiones**, **Protección de datos** y **Avanzado**. Sus direcciones (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) y la navegación por teclado abren la sección correspondiente. En pantallas estrechas, usa el selector Secciones para cambiar entre las cinco vistas. Clientes y conexiones muestra primero la lista de conexiones activas. En el móvil, cada conexión reúne sus datos y acciones.
 
 ## Habilitar el acceso
 
@@ -17,13 +17,13 @@ El servicio, la elegibilidad del usuario (**Puede conectarse**) y la conexión p
 
 La lectura de las herramientas de 2.0.0 empieza permitida salvo para Correo y los registros del servidor. Las demás operaciones empiezan denegadas. Compartir archivos con personas/grupos (`files.share`) y crear enlaces públicos (`files.link`) son permisos independientes. Listar recursos compartidos es una operación de lectura.
 
-Resumen muestra el endpoint, la versión, el número de conexiones y el límite de subida de checkout. Este límite se edita en MiB y no puede superar `post_max_size` de PHP. Avanzado contiene los roles y la privacidad de registros y OCR. Protección de datos contiene las etiquetas de exclusión; consulta [protección de archivos](file-protection.md).
+Vista general muestra el endpoint, la versión, el número de conexiones y el límite de subida de checkout. Este límite se edita en MiB y no puede superar `post_max_size` de PHP. Avanzado contiene los roles y la privacidad de registros y OCR. Protección de datos contiene las etiquetas de exclusión; consulta [protección de archivos](file-protection.md).
 
 ## Opciones individuales y herencia de grupos
 
 En **Administración → Nextcloud MCP → Acceso y permisos**, la matriz se abre con el primer grupo del directorio. Pulsa su cabecera para elegir otro grupo o una persona en el desplegable. Ambas listas están disponibles sin escribir. Usa **Añadir columna de comparación** para conservar la columna actual y comparar otra entrada. La columna de un grupo muestra sus reglas asignadas. La de una persona muestra su acceso efectivo, su origen y sus excepciones individuales. El servicio permanece en la primera fila. Abre un catálogo, busca una herramienta o filtra por diferencias o excepciones personales.
 
-Selecciona una celda para consultar una regla, preparar un cambio o volver a heredar los permisos. Usa **Editar varias reglas** para preparar una decisión para las herramientas y columnas seleccionadas. Revisa y guarda cada columna antes de pasar a la siguiente, ya que un cambio de grupo puede afectar a una persona en otra columna.
+Elige **Permitir**, **Bloquear** o la opción neutra directamente en la celda. **Sin asignar** quita la regla del grupo. **Heredar** quita la excepción personal. El botón de información junto al selector despliega la descripción de la herramienta y sus reglas relacionadas debajo de la fila. Para una persona, también muestra qué grupos explican su acceso. Para cambiar varias reglas a la vez, activa **Editar varias reglas**, marca las herramientas y las columnas de destino y elige el valor una sola vez. Los cambios quedan pendientes hasta que los revises y guardes. Revisa y guarda cada columna antes de pasar a la siguiente, ya que un cambio de grupo puede afectar a una persona en otra columna.
 
 Solo aparecen herramientas de apps instaladas, habilitadas y compatibles. Cada persona ve las apps habilitadas para su cuenta. Desactivar una app oculta sus herramientas en MCP y en los ajustes. Al volver a habilitarla, se recuperan los permisos y las selecciones de conexión existentes.
 

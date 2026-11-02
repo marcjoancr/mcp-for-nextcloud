@@ -50,8 +50,12 @@ test('without JavaScript every section and the privacy explanation remain readab
         await expect(page.locator('#mcp-backup-save')).toBeDisabled()
         await expect(page.locator('#mcp-file-write-policy')).toBeVisible()
         await expect(page.locator('#mcp-file-policy-save')).toBeDisabled()
+        await expect(page.locator('#mcp-file-policy-allowlist-fields')).toBeVisible()
+        await expect(page.locator('.mcp-privacy-consequence')).toBeVisible()
         await expect(page.locator('.mcp-tab-bar')).toBeHidden()
-        await expect(page.locator('#mcp-logs-privacy-detail')).toBeVisible()
+        const details = page.locator('#mcp-logs-privacy-detail')
+        await details.locator('summary').click()
+        await expect(details.locator('.mcp-reference-content')).toBeVisible()
     } finally { await context.close() }
 })
 
@@ -64,4 +68,24 @@ test('unknown app is replaced without adding history or an API filter', async ({
     await page.locator('#mcp-app').selectOption('files')
     await expect(page.locator('#mcp-matrix [data-module=logs]:visible')).toHaveCount(0)
     expect(matrixCalls()).toHaveLength(before)
+})
+
+test('phone section selector follows history, deep links and protection alerts', async ({ page, app }) => {
+    await page.setViewportSize({ width: 390, height: 812 })
+    app.state.tags.invalid = true
+    await app.open('/admin#mcp-block-tags')
+    const select = page.getByRole('combobox', { name: 'Sections', exact: true })
+    await expect(select).toHaveValue('protection')
+    await expect(select.locator('option:checked')).toContainText('action needed')
+    await expect(page.locator('.mcp-tab-bar')).toBeHidden()
+    for (const area of ['overview','clients','advanced','access']) {
+        await select.selectOption(area)
+        await expect(page.locator('#mcp-panel-' + area)).toBeVisible()
+        await expect(page).toHaveURL(new RegExp('#' + area + '$'))
+    }
+    await page.goBack()
+    await expect(select).toHaveValue('advanced')
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await expect(select).toBeHidden()
+    await expect(page.getByRole('tab', { name: 'Advanced' })).toHaveAttribute('aria-selected','true')
 })

@@ -54,7 +54,7 @@ $canConnect = $_['connected'] || ($_['eligible'] === true && $_['global']);
         <h2><?= $l->t('Your connected clients') ?></h2>
         <p class="settings-hint mcp-hint"><?= $l->t('MCP clients you signed in with OAuth. Revoking signs a client out at once; you can sign in again later.') ?></p>
         <div class="mcp-toolbar">
-            <span class="mcp-pager">
+            <span class="mcp-pager" hidden>
                 <button type="button" id="mcp-connections-prev"><?= $l->t('Previous') ?></button>
                 <span id="mcp-connections-page-info"></span>
                 <button type="button" id="mcp-connections-next"><?= $l->t('Next') ?></button>

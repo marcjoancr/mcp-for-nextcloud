@@ -18,6 +18,7 @@ export function mountConnections({ root, pageRoot = root, mode, request, t, noti
 	const prevButton = root.querySelector('#mcp-connections-prev')
 	const nextButton = root.querySelector('#mcp-connections-next')
 	const pageInfo = root.querySelector('#mcp-connections-page-info')
+	const pager = root.querySelector('.mcp-pager')
 	const status = root.querySelector('#mcp-connections-status')
 	const toolsDialog = pageRoot.querySelector('#mcp-tool-selection-dialog')
 	const toolsList = pageRoot.querySelector('#mcp-tool-selection-list')
@@ -249,6 +250,7 @@ export function mountConnections({ root, pageRoot = root, mode, request, t, noti
 	/** Renders the rows and the pager from state.data. */
 	function render() {
 		const data = state.data
+		const labels = [...table.tHead.rows[0].cells].map(header => header.textContent.trim())
 		const rows = data.connections.map((connection) => {
 			const cells = []
 			if (admin) {
@@ -289,6 +291,7 @@ export function mountConnections({ root, pageRoot = root, mode, request, t, noti
 				actions.append(' ', all)
 			}
 			cells.push(actions)
+			cells.forEach((cell, index) => { cell.dataset.label = labels[index] || '' })
 			return el('tr', {}, cells)
 		})
 		if (rows.length === 0) {
@@ -301,6 +304,7 @@ export function mountConnections({ root, pageRoot = root, mode, request, t, noti
 		prevButton.disabled = data.page <= 1
 		nextButton.disabled = !data.hasMore
 		pageInfo.textContent = t('mcp', 'Page {page}', { page: data.page })
+		pager.hidden = !data.hasMore && data.page <= 1
 	}
 
 	/** @param {object} connection row from the API */

@@ -31,6 +31,7 @@ export function policyView(root, t) {
         render({ busy, uncertain }) {
             form.setAttribute('aria-busy', String(busy))
             mode.disabled = busy
+            get('allowlist-fields').hidden = mode.value !== 'allowlist'
             list.disabled = busy || mode.value !== 'allowlist'
             extensionless.disabled = busy || mode.value !== 'allowlist'
             get('save').disabled = busy || uncertain

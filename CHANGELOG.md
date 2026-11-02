@@ -4,6 +4,13 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.3.2
+
+- Edit a tool or service rule in its matrix cell. Open the information button for its description, related operations and contributing groups. Bulk editing applies a decision to checked tools and columns, with a review before saving.
+- OAuth consent starts with no data tools selected. Select or clear tools globally or by catalog, choose allowed actions such as sharing with people or creating public links, and correct incomplete selections without starting over.
+- On phones, switch settings sections with a native selector and manage connections without horizontal scrolling. The overview brings the service switch and endpoint together, and protection settings show advanced fields when needed.
+- Existing OAuth grants, Basic profiles and per-connection tool selections carry forward under the app ID `mcp`.
+
 ## 2.3.1
 
 - Open Access and permissions directly on the first group in the directory. Choose a group or a person from a searchable dropdown beside the column heading, or add a column to keep the current comparison. Browsing either list requires no typing.

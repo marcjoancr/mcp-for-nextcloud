@@ -8,6 +8,8 @@ The protected-resource metadata is at `/apps/mcp/.well-known/oauth-protected-res
 
 `oauth/authorize` provides browser consent; `oauth/token` exchanges authorization codes with PKCE S256 and rotates refresh tokens. Access tokens last one hour and refresh tokens 30 days. The database stores credential hashes, not their plaintext values. This is public-client authentication (`none`); a client ID is an identifier, not a secret or a permission grant.
 
+When connecting a client, the consent screen starts with no data tools selected. Expand a catalog to choose individual tools and actions, or select and clear tools across one catalog or all catalogs. Selecting all includes all actions your administrator permits. You can also allow a connection with zero data tools. Your choices apply only to this connection.
+
 ## Published, native and registered clients
 
 Administrators manage clients under **Administration → Nextcloud MCP → Clients and connections**. Saves require an administrator, Nextcloud CSRF protection and the current policy revision.

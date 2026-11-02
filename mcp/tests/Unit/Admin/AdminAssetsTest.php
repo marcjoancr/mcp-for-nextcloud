@@ -91,17 +91,18 @@ final class AdminAssetsTest extends TestCase {
     }
 
     /**
-     * The OAuth clients block opens the Clients and connections tab (before the Active connections
-     * block), and each string of the section is translated.
+     * The Active connections block leads the Clients and connections tab, followed by translated OAuth setup.
      */
     public function testOauthClientsSectionIsPlacedAndTranslated(): void {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
+        $connections = strpos($template, 'id="mcp-connections"');
         $start = strpos($template, 'id="mcp-block-oauth"');
-        $end = strpos($template, 'id="mcp-connections"');
+        $this->assertIsInt($connections, 'the Active connections block');
         $this->assertIsInt($start, 'the OAuth clients block');
-        $this->assertIsInt($end, 'the active connections block');
-        $this->assertTrue($start < $end, 'the OAuth clients block opens the Clients and connections tab');
+        $this->assertTrue($connections < $start, 'active connections lead the Clients and connections tab');
+        $end = strpos($template, 'id="mcp-panel-protection"', $start);
+        $this->assertIsInt($end, 'the end of the Clients and connections panel');
         foreach (['mcp-oauth-hosts', 'mcp-oauth-hosts-status', 'mcp-native-client', 'mcp-native-client-status', 'mcp-native-client-details'] as $id) {
             $this->assertSame(1, substr_count($template, 'id="' . $id . '"'), $id);
         }
@@ -160,7 +161,7 @@ final class AdminAssetsTest extends TestCase {
             'role="tablist"',
             'id="mcp-panel-overview"', 'id="mcp-block-status"',
             'id="mcp-panel-access"', 'id="mcp-block-matrix"',
-            'id="mcp-panel-clients"', 'id="mcp-block-oauth"', 'id="mcp-connections"',
+            'id="mcp-panel-clients"', 'id="mcp-connections"', 'id="mcp-block-oauth"',
             'id="mcp-panel-protection"', 'id="mcp-block-tags"',
             'id="mcp-panel-advanced"', 'id="mcp-block-logs"', 'id="mcp-block-logs-privacy"', 'id="mcp-block-ocr"',
             'class="mcp-attribution"',
@@ -176,8 +177,8 @@ final class AdminAssetsTest extends TestCase {
     public function testAdminPageHasNineInlineSectionsAndTwoDrawers(): void {
         $template = (string)file_get_contents(dirname(__DIR__, 3) . '/templates/admin.php');
         preg_match_all('/<div class="section mcp-block(?: mcp-matrix-block)?" id="([^"]+)"[^>]*>\s*<h2><\?php p\(\$l->t\(\'([^\']+)\'\)\); \?><\/h2>/', $template, $blocks);
-        $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-block-oauth', 'mcp-connections', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
-        $this->assertSame(['Status', 'Group grants', 'Permissions', 'OAuth clients', 'Active connections', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
+        $this->assertSame(['mcp-block-status', 'mcp-group-editor', 'mcp-block-matrix', 'mcp-connections', 'mcp-block-oauth', 'mcp-block-tags', 'mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'], $blocks[1]);
+        $this->assertSame(['Status', 'Group grants', 'Permissions', 'Active connections', 'OAuth clients', 'Excluded from MCP access', 'Server log', 'Log privacy', 'OCR'], $blocks[2]);
         foreach (['mcp-scope' => 'Resource scope', 'mcp-inspector' => 'Access inspector'] as $id => $heading) {
             $this->assertStringContainsString('class="section mcp-block mcp-drawer" id="' . $id . '"', $template);
             $this->assertStringContainsString("t('" . $heading . "')", $template);
@@ -249,8 +250,18 @@ final class AdminAssetsTest extends TestCase {
         $css = (string)file_get_contents($app . '/css/admin.css');
         $this->assertStringContainsString('@media (max-width: 768px)', $css);
         $narrow = substr($css, (int)strpos($css, '@media (max-width: 768px)'));
-        $this->assertStringNotContainsString('#', preg_replace('/#mcp-admin/', '', $narrow), 'only theme variables and no fixed colors');
-        $this->assertStringContainsString('overflow-x: auto', $narrow);
+        $this->assertSame(0, preg_match('/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\\b/', $narrow), 'only theme variables and no fixed hex colors');
+        $connectionsCss = substr($css, (int)strpos($css, '/* Connection rows retain table semantics'));
+        $this->assertStringContainsString('table-layout: fixed;', $connectionsCss);
+        $this->assertStringContainsString('.mcp-settings .mcp-connections-table [data-label] > *', $connectionsCss);
+        $this->assertStringContainsString('overflow: visible;', $connectionsCss);
+        $connectionsJs = (string)file_get_contents($app . '/src/settings/connections.js');
+        $this->assertStringContainsString('cell.dataset.label = labels[index]', $connectionsJs);
+        foreach (['admin.php', 'personal.php'] as $name) {
+            $template = (string)file_get_contents($app . '/templates/' . $name);
+            $this->assertMatchesRegularExpression('/<table[^>]*id="mcp-connections-table"[^>]*>.*?<thead>.*?<\/thead>.*?<tbody>/s', $template, $name . ' keeps translated table headers for mobile row labels');
+        }
+        $this->assertStringContainsString('#mcp-admin .mcp-pager[hidden]', $css, 'the hidden pager rule must outrank the admin pager display rule');
     }
 
     /** The checkout limit field repeats the controller's ceiling in its max attribute; the two must not drift apart. */
@@ -285,16 +296,15 @@ final class AdminAssetsTest extends TestCase {
 
 
     /**
-     * Log privacy keeps its native checkbox, id and saving; the "Learn more" button ships
-     * hidden and the detail ships visible, so without JavaScript nothing of the page is lost.
+     * Log privacy keeps its native checkbox and visible consequences; native details work without JavaScript.
      */
     public function testLogPrivacyHasItsOwnBlockWithAWiredSwitchAndLearnMore(): void {
         $app = dirname(__DIR__, 3);
         $template = (string)file_get_contents($app . '/templates/admin.php');
         $this->assertSame(1, substr_count($template, 'id="mcp-block-logs-privacy"'));
         $this->assertSame(1, substr_count($template, 'class="checkbox" id="mcp-logs-hide-file-names"'), 'the native Nextcloud checkbox');
-        $this->assertSame(1, preg_match('/<button type="button" class="mcp-learn-more" id="mcp-logs-privacy-more" aria-expanded="false" aria-controls="mcp-logs-privacy-detail" hidden>/', $template));
-        $this->assertSame(1, substr_count($template, 'id="mcp-logs-privacy-detail" class="mcp-learn-more-box"'), 'the detail ships visible for the no-JS page');
+        $this->assertSame(1, substr_count($template, '<details id="mcp-logs-privacy-detail" class="mcp-reference-details">'));
+        $this->assertSame(1, substr_count($template, 'Turn it off to show them; exclusion tags then do not apply to server logs.'), 'the privacy consequence stays visible without expanding details');
         $this->assertSame(1, substr_count($template, 'class="mcp-picker-summary mcp-hint" id="mcp-logs-summary"'));
 
     }
@@ -319,7 +329,7 @@ final class AdminAssetsTest extends TestCase {
         $blocks = [
             'mcp-panel-overview' => ['mcp-block-status'],
             'mcp-panel-access' => ['mcp-block-matrix'],
-            'mcp-panel-clients' => ['mcp-block-oauth', 'mcp-connections'],
+            'mcp-panel-clients' => ['mcp-connections', 'mcp-block-oauth'],
             'mcp-panel-protection' => ['mcp-block-tags'],
             'mcp-panel-advanced' => ['mcp-block-logs', 'mcp-block-logs-privacy', 'mcp-block-ocr'],
         ];

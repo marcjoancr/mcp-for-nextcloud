@@ -3,22 +3,41 @@
 import { createPresentation } from './access/presentation.js'
 
 /** A cell can explain many inherited decisions without repeating them throughout the grid. */
-export function mountComparisonDetail({ panel, api, t, button, stage, compare, closeFocus, operations }) {
+export function mountComparisonDetail({ panel, api, t, button, compare, closeFocus, operations }) {
     const labels = createPresentation({ t })
-    let sequence = 0
+    const home = panel.parentNode, next = panel.nextSibling
+    let inlineRow, owner, sequence = 0
     const text = (tag, copy) => Object.assign(document.createElement(tag), { textContent: copy })
     function clear() {
         ++sequence
         panel.hidden = true
         panel.replaceChildren()
+        if (inlineRow) {
+            home.insertBefore(panel, next)
+            inlineRow.remove()
+            owner.setAttribute('aria-expanded', 'false')
+            inlineRow = owner = null
+        }
     }
-    function start(column, name, title) {
+    function start(column, name, title, trigger) {
         clear()
+        if (trigger) {
+            owner = trigger
+            const tr = trigger.closest('tr')
+            inlineRow = document.createElement('tr')
+            const cell = inlineRow.insertCell()
+            cell.colSpan = tr.cells.length
+            tr.after(inlineRow)
+            cell.append(panel)
+            trigger.setAttribute('aria-expanded', 'true')
+        }
         panel.hidden = false
-        panel.append(text('h3', title + ' · ' + column.label), button(t('mcp', 'Close'), () => {
+        const header = document.createElement('header')
+        header.append(text('h3', title + ' · ' + column.label), button(t('mcp', 'Close'), () => {
             clear()
             closeFocus(column.key, name)
         }))
+        panel.append(header)
         panel.focus()
     }
     function groupChoices(groups, host) {
@@ -56,32 +75,15 @@ export function mountComparisonDetail({ panel, api, t, button, stage, compare, c
         start(column, null, t('mcp', 'Compare with groups'))
         groupChoices(column.snapshot.groups, panel)
     }
-    async function cell(column, name) {
+    async function cell(column, name, trigger) {
         const item = name === '_service' ? column.snapshot.service : column.snapshot.tools.find(row => row.name === name)
         if (!item) return
         const title = item.title || t('mcp', 'MCP service')
-        start(column, name, title)
+        if (trigger === owner) { clear(); trigger.focus(); return }
+        start(column, name, title, trigger)
         const generation = sequence
-        if (item.description) panel.append(text('p', item.description))
-        const select = document.createElement('select')
-        const label = text('label', t('mcp', 'Assignment for {tool}', { tool: title }))
-        for (const [value, string] of [['inherit', column.kind === 'group' ? t('mcp', 'No rule') : t('mcp', 'Inherit')], ['allow', t('mcp', 'Allow')], ['deny', t('mcp', 'Block')]]) {
-            select.append(new Option(string, value))
-        }
-        select.value = column.draft[name] ?? item.state
-        label.append(' ', select)
-        panel.append(label, button(t('mcp', 'Stage rule'), () => {
-            stage(column, name, select.value)
-            clear()
-            closeFocus(column.key, name)
-        }))
-        if (column.kind === 'user' && (column.draft[name] ?? item.state) !== 'inherit') {
-            panel.append(button(t('mcp', 'Use inherited rule'), () => {
-                stage(column, name, 'inherit')
-                clear()
-                closeFocus(column.key, name)
-            }))
-        }
+        const description = name === '_service' ? t('mcp', 'Controls whether MCP is available at all.') : item.description
+        if (description) panel.append(text('p', description))
         if (name !== '_service') {
             const related = document.createElement('details')
             related.append(text('summary', t('mcp', 'Related operation rules')))
@@ -113,8 +115,8 @@ export function mountComparisonDetail({ panel, api, t, button, stage, compare, c
             if (assigned.length) groupChoices(assigned, info)
             else info.append(text('p', t('mcp', 'No group rule applies.')))
         } catch {
-            if (generation === sequence) info.replaceChildren(text('p', t('mcp', 'Could not load group decisions. Try again.')), button(t('mcp', 'Retry'), () => cell(column, name)))
+            if (generation === sequence) info.replaceChildren(text('p', t('mcp', 'Could not load group decisions. Try again.')), button(t('mcp', 'Retry'), () => { clear(); cell(column, name, trigger) }))
         }
     }
-    return { cell, groups, clear }
+    return { cell, groups, clear, closeInline() { if (inlineRow) clear() } }
 }

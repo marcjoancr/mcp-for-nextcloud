@@ -13,6 +13,8 @@ Los metadatos del recurso protegido están en `/apps/mcp/.well-known/oauth-prote
 
 `oauth/authorize` ofrece consentimiento en el navegador; `oauth/token` intercambia códigos de autorización con PKCE S256 y rota tokens de renovación. Los tokens de acceso duran una hora y los de renovación, 30 días. La base de datos almacena hashes de credenciales, no sus valores en claro. Es autenticación de cliente público (`none`); un ID de cliente es un identificador, no un secreto ni una concesión de permisos.
 
+Al conectar un cliente, la pantalla de consentimiento empieza sin herramientas de datos seleccionadas. Abre un catálogo para elegir herramientas y acciones concretas. También puedes seleccionar o deseleccionar un catálogo o toda la lista. Seleccionar todas incluye las acciones permitidas por el administrador. Puedes autorizar una conexión sin herramientas de datos. La selección solo se aplica a esa conexión.
+
 ## Clientes publicados, nativos y registrados
 
 Los administradores gestionan clientes en **Administración → Nextcloud MCP → Clientes y conexiones**. Guardar exige administrador, protección CSRF de Nextcloud y la revisión de política actual.

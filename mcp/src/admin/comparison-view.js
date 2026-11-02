@@ -3,11 +3,24 @@
 
 import { createPresentation } from './access/presentation.js'
 
-/** Render a read-only, side-by-side comparison of selected group and person policies. */
+/** The selector represents the assignment, independently of the effective decision. */
+export function ruleSelector(t, kind, label, value) {
+	const select = document.createElement('select')
+	select.setAttribute('aria-label', label)
+	if (value === '') select.add(new Option(t('mcp', 'Choose a rule'), ''))
+	const neutral = kind === 'group' ? t('mcp', 'Not assigned') : kind === 'user' ? t('mcp', 'Inherit') : t('mcp', 'Remove rule')
+	select.add(new Option(neutral, 'inherit'))
+	select.add(new Option(t('mcp', 'Allow'), 'allow'))
+	select.add(new Option(t('mcp', 'Block'), 'deny'))
+	select.value = value
+	return select
+}
+
+/** Render selected group and person assignments alongside their saved decisions. */
 export function renderComparison(host, {
 	columns = [], query = '', differences = false, exceptions = false, expanded = new Set(),
 	rowsSelected = new Set(), activeColumn = null, bulkMode = false, compact = false, t,
-	onCell = () => {}, onRow = () => {}, onExpand = () => {}, onMobileColumn = () => {},
+	onCell = () => {}, onRule = () => {}, onRow = () => {}, onExpand = () => {}, onMobileColumn = () => {},
 	onPick = () => {}, onPersonGroups = () => {}, onInspect = () => {}, onScope = () => {}, onRemove = () => {},
 }) {
 	const el = (tag, props = {}, children = []) => {
@@ -135,52 +148,51 @@ export function renderComparison(host, {
 		if (column.kind === 'user' && column.snapshot?.service?.effective === false) cell.append(el('span', { className: 'mcp-compare-header-service-block', textContent: t('mcp', 'MCP service is blocked') }))
 		return cell
 	}
-	function resultCell(column, name, tool) {
-		const row = snapshotTool(column, name)
+	function resultCell(column, name, title) {
+		const service = name === '_service'
+		const item = service ? column.snapshot?.service : snapshotTool(column, name)
 		const cell = el('td', { className: 'mcp-compare-cell', 'data-column-key': column.key, 'data-tool': name })
-		if (!column.snapshot) {
+		if (!item) {
 			cell.classList.add('mcp-compare-unavailable')
 			cell.setAttribute('aria-disabled', 'true')
-			cell.append(el('span', { textContent: t('mcp', 'Could not load this entry’s permissions.') }))
-			return cell
-		}
-		if (!row) {
-			cell.classList.add('mcp-compare-unavailable')
-			cell.setAttribute('aria-disabled', 'true')
-			cell.append(el('span', { className: 'mcp-compare-mark' }, [icon('unavailable')]), el('span', { textContent: t('mcp', 'Unavailable') }))
+			cell.append(column.snapshot ? t('mcp', 'Unavailable') : t('mcp', 'Could not load this entry’s permissions.'))
 			return cell
 		}
 		const pending = draftValue(column, name)
-		const result = effective(row, column)
-		const blockedByService = column.kind === 'user' && column.snapshot?.service?.effective === false
-		const groupState = column.kind === 'group' ? row.state || 'inherit' : null
-		const groupDecision = groupState === 'allow' ? true : groupState === 'deny' ? false : null
-		const displayDecision = column.kind === 'group' ? groupDecision : result
-		const displayText = column.kind === 'group' ? stateText(groupState, column.kind) : resultText(result)
-		const neutral = column.kind === 'group' && groupState === 'inherit'
-		const className = neutral ? 'mcp-compare-neutral' : displayDecision === true ? 'mcp-compare-allowed' : displayDecision === false ? 'mcp-compare-blocked' : 'mcp-compare-unknown'
-		const control = el('button', { type: 'button', className: 'mcp-compare-value ' + className })
-		control.dataset.columnKey = column.key
-		control.dataset.tool = name
-		control.setAttribute('aria-label', column.kind === 'group'
-			? t('mcp', '{tool}: {result}', { tool: tool.title || name, result: displayText })
-			: t('mcp', '{tool}: {result}; {origin}', { tool: tool.title || name, result: displayText, origin: provenance(row, column) }))
-		control.append(el('span', { className: 'mcp-compare-mark' }, [icon(neutral ? 'neutral' : displayDecision)]))
-		control.append(el('span', { className: 'mcp-compare-word', textContent: displayText }))
-		if (column.kind === 'user') control.append(el('span', { className: 'mcp-compare-origin', textContent: provenance(row, column) }))
-		else if (row.effective === null) control.append(el('span', { className: 'mcp-compare-origin', textContent: t('mcp', 'Could not be checked') }))
-		if (column.kind === 'user' && explicitException(row)) control.append(el('span', { className: 'mcp-compare-exception', textContent: t('mcp', 'Individual exception') }))
-		if (blockedByService) control.append(el('span', { className: 'mcp-compare-service-block', textContent: t('mcp', 'Service blocked') }))
-		control.addEventListener('click', () => onCell(column.key, name))
-		cell.append(control)
-		if (pending !== undefined && pending !== row.state) {
-			cell.append(el('span', { className: 'mcp-compare-pending', textContent: t('mcp', 'Pending: {state}', { state: stateText(pending, column.kind) }) }))
-		}
+		const args = { tool: title, name: column.label }
+		const select = ruleSelector(t, column.kind, t('mcp', 'Rule for {tool} · {name}', args), pending ?? item.state)
+		select.dataset.assignment = select.value
+		select.dataset.focusAction = 'rule'
+		select.dataset.tool = name
+		select.dataset.columnKey = column.key
+		select.addEventListener('change', () => onRule(column.key, name, select.value))
+		const label = t('mcp', 'Details for {tool} · {name}', args)
+		const info = el('button', {
+			type: 'button', className: 'mcp-rule-info', title: label, 'aria-label': label,
+			'aria-expanded': 'false', 'aria-controls': 'mcp-tools-detail',
+			'data-focus-action': 'info', 'data-column-key': column.key, 'data-tool': name,
+		}, [el('span', { 'aria-hidden': 'true', textContent: 'ⓘ' })])
+		info.addEventListener('click', () => onCell(column.key, name, info))
+		cell.append(el('div', { className: 'mcp-rule-controls' }, [select, info]))
+
+		const person = column.kind === 'user'
+		const decision = person ? effective(item, column) : item.state === 'allow' ? true : item.state === 'deny' ? false : 'neutral'
+		const style = decision === 'neutral' ? 'neutral' : decision === true ? 'allowed' : decision === false ? 'blocked' : 'unknown'
+		const summary = el('div', { className: 'mcp-compare-value mcp-compare-' + style })
+		summary.append(el('span', { className: 'mcp-compare-mark' }, [icon(decision)]))
+		summary.append(el('span', { className: 'mcp-compare-word', textContent: person ? resultText(decision) : stateText(item.state, column.kind) }))
+		if (person) summary.append(el('span', { className: 'mcp-compare-origin', textContent: provenance(item, column) }))
+		else if (item.effective === null) summary.append(el('span', { className: 'mcp-compare-origin', textContent: t('mcp', 'Could not be checked') }))
+		if (person && !service && explicitException(item)) summary.append(el('span', { className: 'mcp-compare-exception', textContent: t('mcp', 'Individual exception') }))
+		if (person && !service && column.snapshot.service.effective === false) summary.append(el('span', { className: 'mcp-compare-service-block', textContent: t('mcp', 'Service blocked') }))
+		if (person || item.effective === null) cell.append(summary)
+		if (pending !== undefined && pending !== item.state) cell.append(el('span', { className: 'mcp-compare-pending', textContent: t('mcp', 'Pending: {state}', { state: stateText(pending, column.kind) }) }))
 		return cell
 	}
 	function serviceRow() {
 		const row = el('tr', { className: 'mcp-compare-service-row' })
-		const heading = el('th', { scope: 'row', className: 'mcp-compare-tool' }, [el('strong', { textContent: t('mcp', 'MCP service') }), el('span', { className: 'mcp-compare-description', textContent: t('mcp', 'Controls whether MCP is available at all.') })])
+		const title = t('mcp', 'MCP service')
+		const heading = el('th', { scope: 'row', className: 'mcp-compare-tool' }, [el('strong', { textContent: title })])
 		if (bulkMode) {
 			const checkbox = el('input', { type: 'checkbox', checked: rowsSelected.has('_service') })
 			checkbox.dataset.focusAction = 'row-select'
@@ -190,34 +202,7 @@ export function renderComparison(host, {
 			heading.prepend(checkbox)
 		}
 		row.append(heading)
-		for (const column of shownColumns) {
-			const service = column.snapshot?.service || null
-			const cell = el('td', { className: 'mcp-compare-cell', 'data-column-key': column.key, 'data-tool': '_service' })
-			if (!column.snapshot) {
-				cell.classList.add('mcp-compare-unavailable')
-				cell.setAttribute('aria-disabled', 'true')
-				cell.append(el('span', { textContent: t('mcp', 'Could not load this entry’s permissions.') }))
-				row.append(cell)
-				continue
-			}
-			const value = service?.effective ?? null
-			const groupState = column.kind === 'group' ? service?.state || 'inherit' : null
-			const decision = column.kind === 'group' ? groupState === 'allow' ? true : groupState === 'deny' ? false : null : value
-			const neutral = column.kind === 'group' && groupState === 'inherit'
-			const displayText = column.kind === 'group' ? stateText(groupState, column.kind) : resultText(value)
-			const control = el('button', { type: 'button', className: 'mcp-compare-value ' + (neutral ? 'mcp-compare-neutral' : decision === true ? 'mcp-compare-allowed' : decision === false ? 'mcp-compare-blocked' : 'mcp-compare-unknown') })
-			control.dataset.columnKey = column.key
-			control.dataset.tool = '_service'
-			control.setAttribute('aria-label', t('mcp', 'MCP service: {result}', { result: displayText }))
-			control.append(el('span', { className: 'mcp-compare-mark' }, [icon(neutral ? 'neutral' : decision)]), el('span', { className: 'mcp-compare-word', textContent: displayText }))
-			if (service && column.kind === 'user') control.append(el('span', { className: 'mcp-compare-origin', textContent: provenance(service, column) }))
-			else if (value === null) control.append(el('span', { className: 'mcp-compare-origin', textContent: t('mcp', 'Could not be checked') }))
-			control.addEventListener('click', () => onCell(column.key, '_service'))
-			cell.append(control)
-			const pending = draftValue(column, '_service')
-			if (pending !== undefined && pending !== service?.state) cell.append(el('span', { className: 'mcp-compare-pending', textContent: t('mcp', 'Pending: {state}', { state: stateText(pending, column.kind) }) }))
-			row.append(cell)
-		}
+		for (const column of shownColumns) row.append(resultCell(column, '_service', title))
 		return row
 	}
 	function toolRow(tool) {
@@ -233,7 +218,7 @@ export function renderComparison(host, {
 		}
 		name.append(el('span', { className: 'mcp-compare-tool-name', textContent: tool.title || tool.name }))
 		row.append(name)
-		for (const column of shownColumns) row.append(resultCell(column, tool.name, tool))
+		for (const column of shownColumns) row.append(resultCell(column, tool.name, tool.title || tool.name))
 		return row
 	}
 
@@ -314,8 +299,7 @@ export function renderComparison(host, {
 	if (oldFocus) {
 		const candidates = [...host.querySelectorAll('button, input, select, summary, .mcp-compare-table-wrap')]
 		const target = candidates.find(node => {
-			if (oldFocus.action === 'row-select') return node.dataset.focusAction === 'row-select' && node.dataset.tool === oldFocus.tool
-			if (oldFocus.action && node.dataset.focusAction === oldFocus.action) return !oldFocus.columnKey || node.dataset.columnKey === oldFocus.columnKey
+			if (oldFocus.action) return node.dataset.focusAction === oldFocus.action && (!oldFocus.tool || node.dataset.tool === oldFocus.tool) && (!oldFocus.columnKey || node.dataset.columnKey === oldFocus.columnKey)
 			if (oldFocus.module) return node.dataset.module === oldFocus.module
 			if (oldFocus.columnKey) return node.dataset.columnKey === oldFocus.columnKey && (!oldFocus.tool || node.dataset.tool === oldFocus.tool)
 			return false
