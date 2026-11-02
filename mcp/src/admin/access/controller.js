@@ -30,8 +30,8 @@ export function mountMatrix({ root, request, t, n, notifyError, policyChannel, e
         const pending = { revision: policy.revision }
         loading = pending
         view.setLoading(true)
-        const { search, group, filter, page } = filters.values
-        const query = new URLSearchParams({ search, group, filter, page: String(page) })
+        const { exactUid, search, group, filter, page } = filters.values
+        const query = new URLSearchParams(exactUid ? { uid: exactUid } : { search, group, filter, page: String(page) })
         try {
             const fresh = await api('GET', '/api/grants?' + query)
             if (!policy.accept(ticket, fresh.revision)) return
@@ -79,7 +79,7 @@ export function mountMatrix({ root, request, t, n, notifyError, policyChannel, e
     scope.on(events, 'mcp-scope-saved', reload)
     scope.use(policyChannel?.follow((from, to) => scope.timeout(() => { if (data?.revision !== to && loading?.revision !== to) reload() }, 0)) || (() => {}))
     const ready = reload()
-    return { ready, reload, data: getData, api, policyError, notifyError,
+    return { ready, reload, showUser: filters.showUser, data: getData, api, policyError, notifyError,
         labels: () => ({ modules: presentation.moduleLabels(), operations: presentation.operationLabels() }),
         levelLabels: presentation.levelLabels, bulk: bulk.apply,
         isBusy: () => saving || bulk.busy || policy.revision === null,

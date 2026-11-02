@@ -36,13 +36,15 @@ and installations without Guests retain their existing behavior.
 
 ## Individual choices and group inheritance
 
-In **Administration → Nextcloud MCP → Access and permissions**, choose a group to set its service and tool rules. Search by name to find a person or group. On a person's card, check the service status and its source first. Individual exceptions appear above the catalogs. Expand a catalog or search for a tool to see its effective access and why. Choose **Create exception** to set an individual rule, or **Use inherited rule** to remove it. Review the proposed changes and their impact before saving.
+In **Administration → Nextcloud MCP → Access and permissions**, choose a group. Use **Add comparison column** to compare it with another group or a person. Each column heading has its own selector. A group shows its assigned rules. A person shows effective access, its source and any individual exceptions. The service row stays at the top. Open a catalog, search for a tool or filter to differences or personal exceptions.
+
+Select a cell to inspect a rule, stage a change or return a person to inheritance. Use **Edit multiple rules** to stage a decision for selected tools and columns. Review each column’s impact and save it before reviewing the next one, since a group change can affect a person in another column.
 
 Only tools from installed, enabled and compatible apps appear. A person sees the apps enabled for their account. Disabling an app hides its tools from MCP and the settings screens. Existing permissions and connection selections become available again when the app is re-enabled.
 
 **Allow**, **Block** and **Unassigned** apply to both the service and tools. An individual's explicit decision wins. When it is unassigned, a block by a trusted group wins over group allowances. Without a group decision, the catalog default applies. Turning off the global service or disabling an account prevents every connection from using MCP. A tool still needs its optional application, role, operation prerequisites and native resource access.
 
-Group membership comes from Nextcloud. Only native database-backed groups can grant access. A failure to resolve a policy is reported as unavailable. Advanced operation permissions include the separate Files sharing and public-link controls. Changing one of those settings affects every tool that requires that operation.
+Group membership comes from Nextcloud. Only native database-backed groups can grant access. A failure to resolve a policy is reported as unavailable. From a tool cell, open **Related operation rules** for controls such as sharing with people or creating public links. Changing one of those settings affects every tool that requires that operation.
 
 When Nextcloud creates an account, MCP clears any individual tool grants and connection selections left by an earlier account with the same user ID. If that transaction fails, account creation stops. Retry creation after the policy store is available.
 

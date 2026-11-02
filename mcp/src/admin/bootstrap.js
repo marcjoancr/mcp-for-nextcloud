@@ -53,12 +53,51 @@ export function mountAdmin({ root, ...dependencies }) {
         advancedReady = Promise.all(advancedOwners.map(owner => owner.ready))
         return advancedReady
     }
-    const onAdvancedToggle = () => { if (advanced.open) mountAdvanced() }
+    let contextTicket = 0, operationOpener = null
+    async function openOperations(column, module, operation) {
+        const ticket = ++contextTicket
+        operationOpener = root.ownerDocument.activeElement
+        advanced.open = true
+        const query = new URLSearchParams({ view: 'operations', app: module })
+        window.location.hash = 'access?' + query
+        await mountAdvanced()
+        if (ticket !== contextTicket || !advanced.open) return
+        const userBlock = root.querySelector('#mcp-block-matrix')
+        const groupBlock = root.querySelector('#mcp-group-editor')
+        userBlock.hidden = column.kind === 'group'
+        groupBlock.hidden = column.kind !== 'group'
+        if (column.kind === 'group') {
+            await groupEditor.open(column.id, false, false, column.label, { module, operation })
+            return
+        }
+        await matrix.showUser(column.id)
+        if (ticket !== contextTicket || !advanced.open) return
+        userBlock.scrollIntoView({ block: 'start' })
+        userBlock.querySelector('h2')?.setAttribute('tabindex', '-1')
+        userBlock.querySelector('h2')?.focus({ preventScroll: true })
+    }
+    const onAdvancedToggle = () => {
+        if (advanced.open) mountAdvanced()
+        else {
+            ++contextTicket
+            root.querySelector('#mcp-block-matrix').hidden = false
+            root.querySelector('#mcp-group-editor').hidden = false
+            if (operationOpener) {
+                if (window.location.hash.startsWith('#access?')) window.location.hash = 'access'
+                const target = operationOpener.isConnected ? operationOpener : root.querySelector('#mcp-tools-add')
+                target.focus()
+                operationOpener = null
+            }
+        }
+    }
     const openAdvancedForDeepLink = () => {
         if (!advanced) return
         const [tab, query = ''] = window.location.hash.slice(1).split('?')
         const params = new URLSearchParams(query)
-        if (tab !== 'access' || (params.get('view') !== 'operations' && !params.has('app'))) return
+        if (tab !== 'access' || (params.get('view') !== 'operations' && !params.has('app'))) {
+            if (operationOpener && ['access', 'mcp-tool-permissions'].includes(tab)) advanced.open = false
+            return
+        }
         advanced.open = true
         mountAdvanced()
     }
@@ -74,7 +113,7 @@ export function mountAdmin({ root, ...dependencies }) {
         })
     }
     const owners = [tabs, resourceScope, inspector,
-        mountToolPermissions({ ...access, root, notifyError: dependencies.notifyError }),
+        mountToolPermissions({ ...access, root, openOperations }),
         mountService(section('mcp-block-status')),
         mountCheckoutLimit(section('mcp-block-status')),
         mountEndpointCopy({ ...dependencies, root }),
@@ -93,6 +132,7 @@ export function mountAdmin({ root, ...dependencies }) {
         } }),
     ]
     return { ready: Promise.all(owners.map(owner => owner.ready)), destroy() {
+        ++contextTicket
         advanced?.removeEventListener('toggle', onAdvancedToggle)
         window.removeEventListener('hashchange', openAdvancedForDeepLink)
         for (const owner of [...owners, ...advancedOwners].reverse()) owner.destroy()

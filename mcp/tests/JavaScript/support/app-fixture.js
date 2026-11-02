@@ -93,7 +93,7 @@ export const test = base.extend({
                 receipts.delete(body.receiptId)
                 return { revision: advance(), changed: 1 }
             }
-            if (path === '/api/grants' && method === 'GET') return { revision: state.revision, serviceEnabled: state.serviceEnabled, users: state.users, catalog: state.catalog, groups: state.groups, page: Number(query.get('page')), pageSize: 50, total: state.total, hasMore: state.hasMore }
+            if (path === '/api/grants' && method === 'GET') return { revision: state.revision, serviceEnabled: state.serviceEnabled, users: query.has('uid') ? state.users.filter(row => row.uid === query.get('uid')) : state.users, catalog: state.catalog, groups: state.groups, page: Number(query.get('page') || 1), pageSize: 50, total: state.total, hasMore: state.hasMore }
             if (path === '/api/grants/bulk' && method === 'POST') {
                 for (const row of state.users.filter(row => body.uids.includes(row.uid))) {
                     if (body.module === null) row.eligible = body.granted

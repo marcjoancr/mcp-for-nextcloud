@@ -69,6 +69,16 @@ class GrantMatrix {
             $group === '' => $this->allUsers($search, $offset),
             default => $this->groupUsers($group, $search, $offset),
         };
+        return $this->renderPage($users, $page, $total);
+    }
+
+    /** Operation details opened from a comparison column belong to exactly one Nextcloud identity. */
+    public function forUser(IUser $user): array {
+        return $this->renderPage([$user], 1, 1);
+    }
+
+    /** @param list<IUser> $users */
+    private function renderPage(array $users, int $page, ?int $total): array {
         $hasMore = count($users) > self::PAGE_SIZE;
         $users = array_slice($users, 0, self::PAGE_SIZE);
         $appsEnabled = $this->appsEnabled();

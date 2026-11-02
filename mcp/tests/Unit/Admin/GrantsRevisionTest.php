@@ -35,6 +35,14 @@ final class GrantsRevisionTest extends TestCase {
         }
     }
 
+    public function testContextualOperationsReadOnlyTheSelectedAccount(): void {
+        $this->fx->addUser('ana2', 'Ana 2');
+        $page = $this->controller()->index(uid: 'ana')->getData();
+        self::assertSame(['ana'], array_column($page['users'], 'uid'));
+        self::assertSame(1, $page['total']);
+        self::assertSame([], $this->fx->searches);
+    }
+
     /** A request with this body; expectedRevision is the current one unless the body names it (null omits it). */
     private function controller(array $body = [], string $admin = 'root'): GrantsController {
         if (!array_key_exists('expectedRevision', $body)) {

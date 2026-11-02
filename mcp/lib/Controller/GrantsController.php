@@ -86,11 +86,12 @@ class GrantsController extends Controller {
      * @param string $filter '' for every user, 'eligible' or 'connected' (see GrantMatrix::FILTERS)
      * @return JSONResponse one matrix page (see GrantMatrix::page) plus the policy revision it was built from, or 400
      */
-    public function index(string $search = '', string $group = '', int $page = 1, string $filter = ''): JSONResponse {
-        return $this->guard(function () use ($search, $group, $page, $filter): array {
+    public function index(string $search = '', string $group = '', int $page = 1, string $filter = '', string $uid = ''): JSONResponse {
+        return $this->guard(function () use ($search, $group, $page, $filter, $uid): array {
             // Read before the page: a write in between makes the next save a conflict, never a stale accept.
             $revision = $this->revision();
-            return $this->matrix->page($search, $group, $page, $filter) + ['revision' => $revision];
+            $result = $uid === '' ? $this->matrix->page($search, $group, $page, $filter) : $this->matrix->forUser($this->user($uid));
+            return $result + ['revision' => $revision];
         });
     }
 
