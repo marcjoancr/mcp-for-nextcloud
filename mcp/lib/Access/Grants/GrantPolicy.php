@@ -47,7 +47,7 @@ class GrantPolicy implements ScopeReader {
         // other, and removing a share asks for the operation of its type. Listing shares stays a 'read'.
         'files' => ['read', 'edit', 'create', 'move', 'restore', 'share', 'link'],
         'notes' => ['read', 'create', 'edit', 'move', 'delete'],
-        'deck' => ['read', 'create', 'edit', 'move', 'delete'],
+        'deck' => ['read', 'create', 'edit', 'move', 'delete', 'read_comments', 'comment'],
         'contacts' => ['read', 'create', 'edit', 'delete'],
         'tasks' => ['read', 'create', 'edit', 'delete'],
         'calendar' => ['read', 'create', 'edit', 'move', 'delete', 'transfer'],

@@ -62,6 +62,9 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Deck\\Service\\CommentService::list' => ['cardId', 'limit', 'offset'],
+        'OCA\\Deck\\Service\\CommentService::create' => ['cardId', 'message'],
+        'OCA\\Mail\\Service\\MailManager::getThread' => ['account', 'threadRootId'],
         'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['ownerId'],
         'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['user'],
         'OCA\\Forms\\Service\\FormsService::getPermissions' => ['form'],
@@ -192,6 +195,7 @@ final class NextcloudApiUsage {
      * @var array<string, array<string, string>> "Class::method" => parameter => why its default is right
      */
     public const REVIEWED_TRAILING = [
+        'OCA\\Deck\\Service\\CommentService::create' => ['replyTo' => 'The native default posts a top-level comment on the requested card'],
         'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['queryTerm' => 'No title filter for listing owned forms'],
         'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['filterShown' => 'List only forms visible in the native sidebar'],
         'OCA\\Mail\\Db\\MessageMapper::findByIds' => ['orderBy' => 'Default sent date ordering of cached messages'],
@@ -315,6 +319,8 @@ final class NextcloudApiUsage {
      * @var array<string, array<string, string>> "Class::method" => parameter => how the app handles each type
      */
     public const REVIEWED_TYPE_CHANGES = [
+        'OCA\\Deck\\Service\\CommentService::list' => ['cardId' => 'Deck 1.15/1.16 require a string id; later releases require an integer'],
+        'OCA\\Deck\\Service\\CommentService::create' => ['replyTo' => 'Deck changed the optional parent from string to integer. MCP omits it in both versions.'],
         'OCA\\Deck\\Service\\CardService::update' => [
             'color' => '?string in Deck 1.18, ?OptionalNullableValue in 1.19: CardUpdateArguments::fieldsAfterDone() reads the type and wraps the colour when asked',
         ],
@@ -410,6 +416,11 @@ final class NextcloudApiUsage {
      * @var array<string, string> "Class::method" => the call it really is
      */
     public const NAME_CLASHES = [
+        'OCP\\Files\\File::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\Folder::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\FileInfo::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\IRootFolder::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\Node::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
         'OCA\\Deck\\Db\\StackMapper::findByIds' => 'Mail MessageMapper::findByIds, in Modules/Mail/Integration/MailMessageGateway',
         'OCA\\Talk\\Service\\RoomService::setHasAttachments' => 'Mail SearchQuery::setHasAttachments, in Modules/Mail/Search/MailSearchCriteria',
         'OCA\\Deck\\Service\\PermissionService::getUserId' => 'OCA\\Circles\\Model\\Member::getUserId, in Modules/Deck/Recipients/DeckRecipientDirectory',

@@ -88,7 +88,7 @@ class MailBodyPreflight {
 			throw new ToolFailure(MailMessages::messageChanged());
 		}
 		if ($size > self::MAX_MESSAGE_BYTES) {
-			throw new ToolFailure(MailMessages::bodyTooLarge($size, self::MAX_MESSAGE_BYTES));
+			throw new MailBodyTooLargeException($size);
 		}
 		return $size;
 	}

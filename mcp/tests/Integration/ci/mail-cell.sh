@@ -74,6 +74,18 @@ save() {
 	message "sender@example.com" "$3" | docker exec -i "$IMAP" doveadm save -u "$1" -m "$2"
 }
 
+# save_thread_message <user> <subject> <message-id> <body> [in-reply-to] [references]: linked thread fixtures,
+# including the same Message-ID in two separate accounts to prove that account ownership is part of the scope.
+save_thread_message() {
+	user=$1 subject=$2 message_id=$3 body=$4 in_reply_to=${5:-} references=${6:-}
+	{
+		printf 'From: sender@example.com\r\nTo: mcp-it@example.com\r\nSubject: %s\r\nDate: Sat, 24 Oct 2026 10:00:00 +0000\r\nMessage-ID: <%s>\r\n' "$subject" "$message_id"
+		[ -z "$in_reply_to" ] || printf 'In-Reply-To: <%s>\r\n' "$in_reply_to"
+		[ -z "$references" ] || printf 'References: <%s>\r\n' "$references"
+		printf '\r\n%s\r\n' "$body"
+	} | docker exec -i "$IMAP" doveadm save -u "$user" -m INBOX
+}
+
 # start_imap: the IMAP server of this run, seeded with the folders and messages the tests expect.
 # alice: INBOX (3 messages, the first seen, the second flagged), Sent (1 seen), Archive (1), Projects, Projects/2026.
 # bob: INBOX (1 message); bob's account is the one alice must never reach.
@@ -92,12 +104,12 @@ start_imap() {
 		sleep 2
 	done
 	docker exec "$IMAP" doveadm mailbox create -u alice Sent Archive Projects Projects/2026
-	save alice INBOX "Seen message"
-	save alice INBOX "Flagged message"
+	save_thread_message alice "Seen message" "shared-thread-root@mcp-it.example" "Body of Seen message."
+	save_thread_message alice "Flagged message" "alice-thread-reply@mcp-it.example" "Body of Flagged message." "shared-thread-root@mcp-it.example" "shared-thread-root@mcp-it.example"
 	save alice INBOX "Unread message"
 	save alice Sent "Sent message"
 	save alice Archive "Archived message"
-	save bob INBOX "Message of bob"
+	save_thread_message bob "Message of bob" "shared-thread-root@mcp-it.example" "Body of Message of bob."
 	docker exec "$IMAP" doveadm flags add -u alice '\Seen' mailbox INBOX uid 1
 	docker exec "$IMAP" doveadm flags add -u alice '\Flagged' mailbox INBOX uid 2
 	docker exec "$IMAP" doveadm flags add -u alice '\Seen' mailbox Sent uid 1

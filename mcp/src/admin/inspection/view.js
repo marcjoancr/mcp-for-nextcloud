@@ -8,7 +8,7 @@ export function createInspectionView({ t, el, getUser, getKinds }) {
 		return { files: t('mcp', 'Files'), notes: t('mcp', 'Notes'), deck: t('mcp', 'Deck'), calendar: t('mcp', 'Calendar'), contacts: t('mcp', 'Contacts'), tasks: t('mcp', 'Tasks'), talk: t('mcp', 'Talk'), people: t('mcp', 'People'), logs: t('mcp', 'Server log'), mail: t('mcp', 'Mail'), forms: t('mcp', 'Forms') }[module] || module
 	}
 	function operationName(operation) {
-		return { read: t('mcp', 'read'), edit: t('mcp', 'edit'), create: t('mcp', 'create'), move: t('mcp', 'move'), delete: t('mcp', 'delete'), transfer: t('mcp', 'transfer'), reply: t('mcp', 'reply'), attach: t('mcp', 'attach'), quote: t('mcp', 'quote'), share: t('mcp', 'share'), link: t('mcp', 'link'), restore: t('mcp', 'restore'), search: t('mcp', 'search mail headers'), read_message: t('mcp', 'read mail content') }[operation] || operation
+		return { read: t('mcp', 'read'), edit: t('mcp', 'edit'), create: t('mcp', 'create'), move: t('mcp', 'move'), delete: t('mcp', 'delete'), transfer: t('mcp', 'transfer'), reply: t('mcp', 'reply'), attach: t('mcp', 'attach'), quote: t('mcp', 'quote'), share: t('mcp', 'share'), link: t('mcp', 'link'), restore: t('mcp', 'restore'), search: t('mcp', 'search mail headers'), read_message: t('mcp', 'read mail content'), read_comments: t('mcp', 'read card comments'), comment: t('mcp', 'post card comments') }[operation] || operation
 	}
 	/** The first check that blocks, by the code of the effective access (EffectiveResult::blockingGate). */
 	function gateText(gate) {

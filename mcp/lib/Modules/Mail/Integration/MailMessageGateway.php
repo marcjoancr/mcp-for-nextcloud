@@ -79,6 +79,31 @@ class MailMessageGateway {
 	}
 
 	/**
+	 * Cached messages in one account thread, newest first as Mail's MailManager returns them.
+	 *
+	 * @param string $userId authenticated user UID, for the enablement check
+	 * @param object $account Mail account already verified as owned by the user
+	 * @param string $threadRootId Mail's thread root Message-ID
+	 * @return list<object> Mail message rows; only headers and cached metadata
+	 * @throws MailUnavailableException when Mail is not available for the user
+	 */
+	public function thread(string $userId, object $account, string $threadRootId): array {
+		return array_values($this->services->mailManager($userId)->getThread($account, $threadRootId));
+	}
+
+	/**
+	 * Cached mailbox ids belonging to this already-owned account.
+	 *
+	 * @param string $userId authenticated user UID
+	 * @param object $account Mail account already verified as owned by the user
+	 * @return list<int> mailbox ids from Mail's account-scoped mailbox mapper
+	 */
+	public function mailboxIds(string $userId, object $account): array {
+		return array_map(static fn (object $mailbox): int => (int)$mailbox->getId(),
+			$this->services->mailboxMapper($userId)->findAll($account));
+	}
+
+	/**
 	 * One cached message of the user's own accounts.
 	 *
 	 * @param string $userId authenticated user UID

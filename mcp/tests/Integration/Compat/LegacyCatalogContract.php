@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Integration\Compat;
 
-/** Keeps the complete legacy operation matrix, explicitly allowing only the reviewed Mail and Forms additions. */
+/** Keeps the legacy matrix intact except for the explicitly reviewed Deck, Mail and Forms grants. */
 final class LegacyCatalogContract {
 	/**
 	 * @param array<string, list<string>> $baseline catalog actually read from the released 1.0.8 code
@@ -17,8 +17,10 @@ final class LegacyCatalogContract {
 	 * @throws \UnexpectedValueException on removal, changed operations or an unrecognized addition
 	 */
 	public static function baseline(array $baseline, array $current): array {
-		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$baseline, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read']]) {
-			throw new \UnexpectedValueException('Legacy catalog changed beyond the Mail and Forms read permissions');
+		$expected = $baseline;
+		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment'];
+		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read']]) {
+			throw new \UnexpectedValueException('Unexpected change to legacy permissions');
 		}
 		return $baseline;
 	}
@@ -32,10 +34,12 @@ final class LegacyCatalogContract {
 		foreach ($answers as &$state) {
 			foreach ($state['matrix'] as &$row) {
 				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false]
-                    || ($row['grants']['forms'] ?? null) !== ['read' => false]) {
-					throw new \UnexpectedValueException('Unexpected Mail or Forms default in the legacy matrix');
+					|| ($row['grants']['forms'] ?? null) !== ['read' => false]
+					|| ($row['grants']['deck']['read_comments'] ?? null) !== false
+					|| ($row['grants']['deck']['comment'] ?? null) !== false) {
+					throw new \UnexpectedValueException('Unexpected default in the legacy matrix');
 				}
-				unset($row['grants']['mail'], $row['grants']['forms']);
+				unset($row['grants']['mail'], $row['grants']['forms'], $row['grants']['deck']['read_comments'], $row['grants']['deck']['comment']);
 			}
 			unset($row);
 		}

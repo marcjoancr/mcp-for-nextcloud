@@ -14,6 +14,9 @@ is not a promise that every Mail/server version combination is supported.
 | `mail_list_mailboxes` | Lists cached folders of an owned `account_id`: ID, path, last path segment, delimiter, special role, unread/total counts and selectable state. |
 | `mail_search_messages` | Searches cached headers in the caller’s own mailboxes. Requires `mail.search`. |
 | `mail_read_message` | Reads one owned message as bounded text. Requires `mail.read_message`. |
+| `mail_read_thread` | Starting from a visible `message_id`, reads a page of messages from that thread in the same owned account. Requires `mail.read_message` and preserves unread flags. |
+
+Thread pages are ordered newest first. Pass the same seed `message_id` and the returned `next_before_message_id` as `before_message_id` for older messages. The default page size is 5 and the maximum is 10. Each body returns at most 8,000 characters. A visible message over the server-reported 1 MiB size limit returns `bodyStatus: too_large` and the other messages can still be read. Threads with more than 500 cached messages are refused. A message without a thread root is read on its own.
 
 Folders are ordered with inbox first, then case-insensitive path and ID. Pagination
 uses `limit` (default 200, maximum 500), `offset`, `hasMore` and `nextOffset`.

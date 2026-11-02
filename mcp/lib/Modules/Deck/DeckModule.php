@@ -16,6 +16,7 @@ use OCA\Mcp\Modules\Deck\Presentation\DeckGuide;
 use OCA\Mcp\Modules\Deck\Presentation\DeckPlanRenderer;
 use OCA\Mcp\Mcp\Confirmation\PreviewsWrites;
 use OCA\Mcp\Mcp\Confirmation\RendersPlans;
+use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use OCA\Mcp\Mcp\Guide\ToolGuideNotes;
 use OCA\Mcp\Mcp\Tools\ToolModule;
 
@@ -62,7 +63,7 @@ final class DeckModule implements ToolModule, PreviewsWrites, RendersPlans, Tool
         array $arguments,
         string $userId,
     ): array {
-        if (!isset($this->factories[$name]) || DeckToolCatalog::definitions()[$name]['operation'] === 'read') {
+        if (!isset($this->factories[$name]) || !WriteGate::isWrite(DeckToolCatalog::definitions()[$name])) {
             throw new \InvalidArgumentException(ErrorMessages::errorUnknownTool());
         }
         $this->assertAvailable($name, $userId);
@@ -105,7 +106,7 @@ final class DeckModule implements ToolModule, PreviewsWrites, RendersPlans, Tool
             throw new \LogicException('Deck factory resolved a different tool');
         }
         $definition = DeckToolCatalog::definitions()[$name];
-        if ($definition['operation'] !== 'read' && !$tool instanceof WriteTool) {
+        if (WriteGate::isWrite($definition) && !$tool instanceof WriteTool) {
             throw new \LogicException('Writing tools must implement WriteTool');
         }
         return $tool;

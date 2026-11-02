@@ -23,7 +23,7 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
  * its body is read ({@see \OCA\Mcp\Modules\Mail\MailBodyPreflight}) and the body is read by the Mail app with BODY.PEEK,
  * so the message stays unread if it was. Attachments are listed by name, type and size; their content is not read.
  */
-final class ReadMessageHandler {
+class ReadMessageHandler {
 	/** MCP tool name this handler serves. */
 	public const TOOL = 'mail_read_message';
 
@@ -61,6 +61,18 @@ final class ReadMessageHandler {
 	 */
 	public function handle(array $arguments, string $userId): array {
 		$found = $this->locator->locate($userId, (int)$arguments['message_id']);
+		return $this->answer->message($this->readRow($userId, $found, (int)($arguments['max_chars'] ?? self::DEFAULT_MAX_CHARS)));
+	}
+
+	/**
+	 * Reads one already-authorized message into the same body-bearing row used by mail_read_message.
+	 *
+	 * @param string $userId authenticated user UID
+	 * @param array{message:object, mailbox:object, account:object} $found fresh locator result for this user
+	 * @param int $maxChars maximum body characters to return
+	 * @return array<string, mixed> message summary and bounded body data
+	 */
+	public function readRow(string $userId, array $found, int $maxChars = self::DEFAULT_MAX_CHARS): array {
 		$account = $found['account'];
 		$message = $found['message'];
 		$imap = $this->reader->read($userId, $account, $found['mailbox'], $message);
@@ -69,14 +81,14 @@ final class ReadMessageHandler {
 			? (string)$imap->getHtmlBody((int)$message->getId()) : null;
 		$attachments = array_values(is_array($imap->getAttachments()) ? $imap->getAttachments() : []);
 		$row = $this->rows->summary($message, (int)$account->getId());
-		return $this->answer->message($row + [
+		return $row + [
 			'bcc' => $this->rows->addresses($message->getBcc()),
 			'replyTo' => $this->rows->addresses($imap->getReplyTo()),
 			'messageId' => MailRows::text((string)($message->getMessageId() ?? '')),
 			'inReplyTo' => MailRows::text((string)($message->getInReplyTo() ?? '')),
 			'encrypted' => (bool)$imap->isEncrypted(),
 			'signed' => (bool)$imap->isSigned(),
-			'body' => MailBodyText::from($plain, $html, (int)($arguments['max_chars'] ?? self::DEFAULT_MAX_CHARS)),
+			'body' => MailBodyText::from($plain, $html, $maxChars),
 			'attachmentCount' => count($attachments),
 			'attachments' => array_map(static fn (array $attachment): array => [
 				'id' => MailRows::text((string)($attachment['id'] ?? '')),
@@ -84,6 +96,20 @@ final class ReadMessageHandler {
 				'mimeType' => MailRows::text((string)($attachment['mime'] ?? '')),
 				'size' => isset($attachment['size']) ? (int)$attachment['size'] : null,
 			], array_slice($attachments, 0, self::MAX_ATTACHMENTS)),
-		]);
+		];
+	}
+
+	/**
+	 * A visible cached message whose body was intentionally not fetched because it exceeded the fixed IMAP budget.
+	 *
+	 * @param array{message:object, mailbox:object, account:object} $found freshly authorized message
+	 * @return array<string, mixed> headers and an explicit body status, with no body or attachment content
+	 */
+	public function unavailableRow(array $found): array {
+		$message = $found['message'];
+		return $this->rows->summary($message, (int)$found['account']->getId()) + [
+			'body' => null,
+			'bodyStatus' => 'too_large',
+		];
 	}
 }

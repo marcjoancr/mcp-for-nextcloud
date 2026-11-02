@@ -77,6 +77,17 @@ final class GrantPolicyTest extends TestCase {
         }
     }
 
+    public function testExistingDeckGrantsDoNotEnableCommentAccess(): void {
+        $this->policy->setGrant('alice', 'deck', 'edit', true);
+        self::assertTrue($this->policy->granted('alice', 'deck', 'read'));
+        self::assertFalse($this->policy->granted('alice', 'deck', 'read_comments'));
+        self::assertFalse($this->policy->granted('alice', 'deck', 'comment'));
+        $this->policy->setGrant('alice', 'deck', 'comment', true);
+        self::assertTrue($this->policy->granted('alice', 'deck', 'comment'));
+        self::assertFalse($this->policy->granted('alice', 'deck', 'read_comments'));
+        self::assertFalse($this->policy->granted('bob', 'deck', 'comment'));
+    }
+
     public function testReadStartsAllowedAndWriteStartsDenied(): void {
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {

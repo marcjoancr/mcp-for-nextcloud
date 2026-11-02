@@ -8,12 +8,12 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Mail;
 
 use OCA\Mcp\Mcp\Tools\Tool;
-use OCA\Mcp\Modules\Mail\Tools\{ListAccounts, ListMailboxes, ReadMessage, SearchMessages};
+use OCA\Mcp\Modules\Mail\Tools\{ListAccounts, ListMailboxes, ReadMessage, ReadThread, SearchMessages};
 
 final class MailToolCatalog {
     /** @return list<class-string<Tool>> */
     public static function classes(): array {
-		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class];
+		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class, ReadThread::class];
     }
 
     /**

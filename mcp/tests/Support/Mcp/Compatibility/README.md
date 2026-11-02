@@ -95,3 +95,8 @@ Separate protocol tests cover the published schemas under each grant.
 The Deck and Talk extension updates the published descriptions and optional inputs
 for `deck_edit_card` and `talk_read_messages`. The Talk module fixture also shows
 the history cursor in the tool guide. The shared result examples remain unchanged.
+
+Mail thread reading adds one raw catalog entry. Deck comment reading and posting
+add two definitions to the raw and published Deck catalogs and update the guide
+count. The historical fixture has no known Mail version. The Mail tool is covered
+separately by grant and native protocol tests.

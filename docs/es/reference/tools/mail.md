@@ -20,6 +20,9 @@ garantiza la compatibilidad de todas las combinaciones de Mail y servidor.
 | `mail_list_mailboxes` | Lista las carpetas en caché de un `account_id` propio: ID, ruta, último segmento, delimitador, función especial, contadores de mensajes no leídos y totales, y estado seleccionable. |
 | `mail_search_messages` | Busca cabeceras en caché en los buzones propios con el permiso `mail.search`. |
 | `mail_read_message` | Lee un mensaje propio como texto con el permiso `mail.read_message`. Conserva el estado de no leído. |
+| `mail_read_thread` | Lee una página del hilo de un `message_id` visible, limitada a la misma cuenta propia y con `mail.read_message`. Conserva el estado de no leído. |
+
+Las páginas del hilo van del mensaje más reciente al más antiguo. Para retroceder, conserva el `message_id` inicial y pasa el `next_before_message_id` recibido como `before_message_id`. Se devuelven 5 mensajes por defecto y hasta 10 por página, con hasta 8.000 caracteres por cuerpo. Si el servidor indica que un mensaje supera 1 MiB, aparece con `bodyStatus: too_large` y se continúa con los demás. El límite por hilo es de 500 mensajes en caché. Un mensaje sin raíz de hilo se lee por separado.
 
 Las carpetas se ordenan con la bandeja de entrada primero, después por ruta sin
 distinguir mayúsculas y por ID. La paginación usa `limit` (200 por defecto, máximo

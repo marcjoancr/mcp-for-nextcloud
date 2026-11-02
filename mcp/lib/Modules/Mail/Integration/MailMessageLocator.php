@@ -15,7 +15,7 @@ use OCA\Mcp\Modules\Mail\Presentation\MailMessages;
  * call. A message of another user, of a delegated account, of a folder that is gone, or one that does not exist all
  * answer the same "not found", so the answer never tells which ids exist.
  */
-final class MailMessageLocator {
+class MailMessageLocator {
 	/**
 	 * Receives the two Mail boundaries.
 	 *

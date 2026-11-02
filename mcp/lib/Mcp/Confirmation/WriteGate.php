@@ -26,8 +26,8 @@ use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 final class WriteGate {
     /** Argument every writing tool accepts, and the only thing that lets it run. */
     public const CONFIRM = 'confirm';
-    /** Sensitive Mail reads use separate grant keys. */
-    private const READ_OPERATIONS = ['read', 'search', 'read_message'];
+    /** Sensitive reads use separate grant keys. */
+    private const READ_OPERATIONS = ['read', 'search', 'read_message', 'read_comments'];
 
     private function __construct() {
     }

@@ -252,6 +252,8 @@ final class DeckPlanRendererTest extends TestCase {
                 'deck_edit_card' => $this->module->preview('deck_edit_card', ['cardId' => 7, 'title' => 'Tarefa Nova'], 'alice'),
                 'deck_move_card' => $this->module->preview('deck_move_card', ['cardId' => 7, 'stackId' => 11], 'alice'),
                 'deck_delete_card' => $this->module->preview('deck_delete_card', ['cardId' => 7], 'alice'),
+                'deck_add_comment' => $this->module->preview('deck_add_comment', ['cardId' => 7, 'message' => 'Exact comment'], 'alice'),
+                'deck_add_comment' => $this->module->preview('deck_add_comment', ['cardId' => 7, 'message' => "Exact `text`\nsecond line"], 'alice'),
             ] + $this->structurePlans() + $this->capabilityPlans(),
         );
     }
@@ -358,6 +360,7 @@ final class DeckPlanRendererTest extends TestCase {
                 'deck_edit_card' => $this->assigneePlan(),
                 'deck_move_card' => $this->module->preview('deck_move_card', ['cardId' => 7, 'stackId' => 11], 'alice'),
                 'deck_delete_card' => $this->module->preview('deck_delete_card', ['cardId' => 7], 'alice'),
+                'deck_add_comment' => $this->module->preview('deck_add_comment', ['cardId' => 7, 'message' => 'Exact comment'], 'alice'),
             ] + $this->structurePlans() + $this->capabilityPlans(),
         );
     }

@@ -30,6 +30,7 @@ class DeckPlanRenderer {
                 'deck_edit_card' => CardPlanRenderer::renderEdit($plan, $zone),
                 'deck_move_card' => CardPlanRenderer::renderMove($plan),
                 'deck_delete_card' => CardPlanRenderer::renderDelete($plan),
+                'deck_add_comment' => $this->renderComment($plan),
                 'deck_create_board' => StructurePlanRenderer::renderCreateBoard($plan, $zone),
                 'deck_create_stack' => StructurePlanRenderer::renderCreateStack($plan),
                 'deck_delete_stack' => StructurePlanRenderer::renderDeleteStack($plan),
@@ -40,6 +41,14 @@ class DeckPlanRenderer {
             return null;
         }
     }
+
+	private function renderComment(array $plan): string {
+		return Translator::t('Add this comment to %s in %s.', [\OCA\Mcp\Mcp\Confirmation\PlanText::em($plan['card']['title']), \OCA\Mcp\Mcp\Confirmation\PlanText::em($plan['board']['name'])])
+			. "\n\n" . Translator::t('Exact comment: %s', [\OCA\Mcp\Mcp\Confirmation\PlanText::quoted((string)$plan['commentText'])])
+			. (($plan['board']['shared'] ?? false) ? "\n\n" . \OCA\Mcp\Modules\Deck\Execution\WriteMessages::sharedCommentNotice() : '')
+			. "\n\n" . Translator::t('Board audience is checked again before posting; individual members are not listed.')
+			. "\n\n" . Translator::t('The final check and native append are not atomic; a concurrent change may occur.');
+	}
 	private function renderUnlinkFile(array $plan): string {
 		return Translator::t('Unlink %s from Deck card %s.', [\OCA\Mcp\Mcp\Confirmation\PlanText::em($plan['file']['name']), \OCA\Mcp\Mcp\Confirmation\PlanText::em($plan['card']['title'])])
 			. "\n\n" . Translator::t('Association created by: %s', [\OCA\Mcp\Mcp\Confirmation\PlanText::inline($plan['createdBy'])])

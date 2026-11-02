@@ -18,7 +18,7 @@
 const TIERS = {
 	files: [['read'], ['edit', 'create', 'move', 'restore'], ['share', 'link']],
 	notes: [['read'], ['create', 'edit', 'move'], ['delete']],
-	deck: [['read'], ['create', 'edit', 'move'], ['delete']],
+	deck: [['read'], ['create', 'edit', 'move'], ['delete', 'read_comments', 'comment']],
 	calendar: [['read'], ['create', 'edit', 'move'], ['delete', 'transfer']],
 	contacts: [['read'], ['create', 'edit'], ['delete']],
 	tasks: [['read'], ['create', 'edit'], ['delete']],

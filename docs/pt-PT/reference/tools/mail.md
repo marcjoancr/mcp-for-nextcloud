@@ -26,6 +26,8 @@ em cache. Os contadores desconhecidos permanecem `null`. Sem pastas em cache,
 devolve uma página vazia e uma nota para abrir o Mail e sincronizar aí. Os dados
 podem estar desatualizados: estas ferramentas nunca atualizam a cache.
 
+`mail_read_thread` lê uma conversa da mesma conta a partir de um `message_id` visível com `mail.read_message`, sem marcar as mensagens como lidas.
+
 A pesquisa `mail_search_messages` requer `mail.search` e usa cabeçalhos em cache. Para ler uma mensagem própria, `mail_read_message` requer `mail.read_message` e preserva o estado de não lida. Ambas as permissões começam negadas. As respostas excluem credenciais
 e configurações do servidor. Os ID desconhecidos, de terceiros ou delegados recebem
 a mesma recusa. Os nomes e endereços são valores JSON não fiáveis: os controlos e

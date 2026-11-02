@@ -65,19 +65,20 @@ final class MailMessageAnswer {
 	 * The messages of a thread.
 	 *
 	 * @param int $messageId the message the thread was asked for
-	 * @param int $total messages of the thread in the cache
 	 * @param list<array<string, mixed>> $rows the rows returned, newest first
+	 * @param bool $hasMore whether an older page exists
+	 * @param int|null $nextBeforeMessageId cursor for the next older page
 	 * @return array{content:list<array{type:string, text:string}>} MCP result
 	 */
-	public function thread(int $messageId, int $total, array $rows): array {
+	public function thread(int $messageId, array $rows, bool $hasMore, ?int $nextBeforeMessageId): array {
 		return ToolResult::json([
 			'untrustedMailData' => true,
 			'notice' => MailMessages::UNTRUSTED_NOTICE,
 			'messageId' => $messageId,
 			'messages' => $rows,
 			'count' => count($rows),
-			'threadSize' => $total,
-			'truncated' => count($rows) < $total,
+			'hasMore' => $hasMore,
+			'next_before_message_id' => $nextBeforeMessageId,
 		]);
 	}
 }

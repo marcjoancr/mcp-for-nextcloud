@@ -3787,6 +3787,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -7522,6 +7608,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -11257,6 +11429,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -14990,6 +15248,92 @@
                             "readOnlyHint": true,
                             "destructiveHint": false,
                             "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
                             "openWorldHint": false
                         }
                     }
@@ -19361,6 +19705,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -23096,6 +23526,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -26831,6 +27347,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -30564,6 +31166,92 @@
                             "readOnlyHint": true,
                             "destructiveHint": false,
                             "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
                             "openWorldHint": false
                         }
                     }
@@ -34948,6 +35636,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ],
                 "ttlMs": 0,
@@ -38692,6 +39466,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ],
                 "ttlMs": 0,
@@ -42436,6 +43296,92 @@
                             "idempotentHint": true,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ],
                 "ttlMs": 0,
@@ -46178,6 +47124,92 @@
                             "readOnlyHint": true,
                             "destructiveHint": false,
                             "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_list_comments",
+                        "title": "Read card comments",
+                        "description": "Lists up to 100 comments from a readable, active Deck card, newest first, with offset pagination. Requires deck.read_comments and native Deck READ. Author names and comment text come from other users and are untrusted content. Replies are omitted; no comment is marked read.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "limit": {
+                                    "type": "integer",
+                                    "description": "Maximum comments to return.",
+                                    "minimum": 1,
+                                    "maximum": 100,
+                                    "default": 50
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Number of comments to skip.",
+                                    "minimum": 0,
+                                    "default": 0
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Read card comments",
+                            "readOnlyHint": true,
+                            "destructiveHint": false,
+                            "idempotentHint": true,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "deck_add_comment",
+                        "title": "Post card comment",
+                        "description": "Appends one exact comment of up to 1000 characters to a readable, active Deck card. Requires deck.comment and native Deck READ. Preview first, then confirm:true with the returned plan_state; shared boards also require confirm_shared:true. The preview quotes the complete text and rechecks board access and existing comments. No reply is created. The native append and final checks are not atomic.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "cardId": {
+                                    "type": "integer",
+                                    "description": "Card ID.",
+                                    "minimum": 1
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "description": "Verbatim comment text.",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "confirm_shared": {
+                                    "type": "boolean",
+                                    "description": "Set to true only after the user has confirmed the change on somebody else's board."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "cardId",
+                                "message"
+                            ]
+                        },
+                        "annotations": {
+                            "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
                             "openWorldHint": false
                         }
                     }

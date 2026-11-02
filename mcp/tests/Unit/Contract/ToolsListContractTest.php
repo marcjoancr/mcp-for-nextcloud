@@ -339,11 +339,13 @@ final class ToolsListContractTest extends TestCase {
      * The title map is the source of truth for the display layer; the humanized fallback only keeps a
      * new tool from breaking at runtime, so a missing entry must fail here instead.
      */
-    public function testSensitiveReadGrantsPublishOnlyTheirOwnTools(): void {
+    public function testSensitiveGrantsPublishOnlyTheirOwnTools(): void {
         foreach ([
             ['mail', 'read', ['mail_list_accounts', 'mail_list_mailboxes']],
             ['mail', 'search', ['mail_search_messages']],
-            ['mail', 'read_message', ['mail_read_message']],
+            ['mail', 'read_message', ['mail_read_message', 'mail_read_thread']],
+            ['deck', 'read_comments', ['deck_list_comments']],
+            ['deck', 'comment', ['deck_add_comment']],
             ['forms', 'read', ['forms_list', 'forms_read']],
         ] as [$module, $operation, $expected]) {
             $response = $this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
@@ -352,12 +354,12 @@ final class ToolsListContractTest extends TestCase {
             $tools = json_decode($response, false, 512, JSON_THROW_ON_ERROR)->result->tools;
             $names = [];
             foreach ($tools as $tool) {
-                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_')) {
+                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_') && !str_starts_with($tool->name, 'deck_')) {
                     continue;
                 }
                 $names[] = $tool->name;
-                self::assertTrue($tool->annotations->readOnlyHint);
-                self::assertObjectNotHasProperty('confirm', $tool->inputSchema->properties);
+                self::assertSame($operation !== 'comment', $tool->annotations->readOnlyHint);
+                self::assertSame($operation === 'comment', property_exists($tool->inputSchema->properties, 'confirm'));
             }
             self::assertEqualsCanonicalizing($expected, $names);
         }
