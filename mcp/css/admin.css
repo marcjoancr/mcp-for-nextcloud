@@ -1679,12 +1679,50 @@ body[data-themes*="dark"] #mcp-admin {
 #mcp-admin .mcp-compare-service-row .mcp-compare-tool { z-index: 2; }
 #mcp-admin .mcp-compare-tool, #mcp-admin .mcp-compare-identity { white-space: normal; overflow-wrap: anywhere; }
 #mcp-admin .mcp-compare-tool-name { display: block; }
-#mcp-admin .mcp-compare-description { display: block; margin-block-start: 4px; color: var(--color-text-maxcontrast); font-size: .9em; font-weight: 400; }
 #mcp-admin .mcp-compare-cell { min-width: 0; }
-#mcp-admin .mcp-compare-value { display: grid; align-content: center; grid-template-columns: auto minmax(0, 1fr); gap: 2px 7px; width: 100%; min-height: 42px; padding: 6px 8px; margin: 0; border: 0; background: transparent; color: var(--color-main-text); text-align: start; white-space: normal; }
+#mcp-admin .mcp-rule-controls {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+#mcp-admin .mcp-rule-controls select {
+	min-width: 0;
+	width: 100%;
+	max-width: 14rem;
+	margin: 0;
+}
+#mcp-admin .mcp-rule-controls select[data-assignment="allow"] {
+	border-inline-start: 3px solid var(--color-success-text, var(--color-success));
+}
+#mcp-admin .mcp-rule-controls select[data-assignment="deny"] {
+	border-inline-start: 3px solid var(--color-error-text, var(--color-error));
+}
+#mcp-admin .mcp-rule-info {
+	flex: none;
+	width: 32px;
+	min-width: 32px;
+	min-height: 32px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--color-text-maxcontrast);
+	font-size: 1.15em;
+}
+#mcp-admin .mcp-rule-info:hover,
+#mcp-admin .mcp-rule-info[aria-expanded="true"] {
+	background: var(--color-background-hover);
+	color: var(--color-main-text);
+}
+#mcp-admin .mcp-compare-value {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 2px 6px;
+	margin-block-start: 4px;
+	text-align: start;
+}
 #mcp-admin .mcp-compare-mark { grid-row: span 2; align-self: start; font-weight: 700; }
 #mcp-admin .mcp-compare-word { font-weight: 700; }
-#mcp-admin .mcp-compare-value:hover { background: var(--color-background-hover); }
 #mcp-admin .mcp-compare-origin,
 #mcp-admin .mcp-compare-exception,
 #mcp-admin .mcp-compare-service-block { grid-column: 2; overflow-wrap: anywhere; font-size: .88em; }
@@ -1708,6 +1746,7 @@ body[data-themes*="dark"] #mcp-admin {
 #mcp-admin .mcp-compare-empty { padding: 16px; color: var(--color-text-maxcontrast); }
 #mcp-admin .mcp-compare-table summary:focus-visible,
 #mcp-admin .mcp-compare-table button:focus-visible,
+#mcp-admin .mcp-compare-table select:focus-visible,
 #mcp-admin .mcp-compare-mobile-picker select:focus-visible { outline: 2px solid var(--color-primary-element); outline-offset: 2px; }
 
 @media (max-width: 760px) {
@@ -1755,7 +1794,36 @@ body[data-themes*="dark"] #mcp-admin {
 .mcp-tabs-on .mcp-tools-advanced:not([open]) { display: none; }
 .mcp-comparison-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block: 12px; }
 .mcp-comparison-toolbar label, .mcp-comparison-detail label { display: inline-flex; align-items: center; gap: 4px; }
-.mcp-comparison-detail { padding: 12px; margin-block: 12px; border: 1px solid var(--color-border); }
+#mcp-tools-bulk[aria-pressed="true"] {
+	background-color: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text, var(--color-main-text));
+}
+#mcp-tools-bulk-editor {
+	padding: 10px 12px;
+	margin-block-end: 10px;
+	border-block: 1px solid var(--color-border);
+}
+#mcp-tools-bulk-editor p { margin: 4px 0; }
+#mcp-tools-bulk-editor fieldset { border: 0; padding: 0; min-width: 0; }
+#mcp-admin .mcp-comparison-detail {
+	padding: 12px;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	text-align: start;
+}
+#mcp-admin .mcp-comparison-detail header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+#mcp-admin .mcp-comparison-detail h3 { margin: 0; }
+#mcp-admin .mcp-comparison-detail button {
+	max-width: 100%;
+	white-space: normal;
+}
+#mcp-admin .mcp-comparison-detail fieldset { min-width: 0; }
 .mcp-comparison-detail fieldset label, .mcp-tools-fields fieldset label { margin-inline-end: 12px; }
 .mcp-tools-fields { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
 .mcp-tools-fields input[type="search"] { width: min(100%, 32rem); }

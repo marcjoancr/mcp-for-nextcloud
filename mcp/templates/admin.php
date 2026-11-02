@@ -87,7 +87,7 @@
                     <input type="search" id="mcp-tools-filter" aria-controls="mcp-tools-grid">
                     <label><input type="checkbox" id="mcp-tools-differences"> <?php p($l->t('Only differences')); ?></label>
                     <label><input type="checkbox" id="mcp-tools-exceptions"> <?php p($l->t('Only personal exceptions')); ?></label>
-                    <button type="button" id="mcp-tools-bulk" aria-pressed="false"><?php p($l->t('Edit multiple rules')); ?></button>
+                    <button type="button" id="mcp-tools-bulk" aria-controls="mcp-tools-bulk-editor" aria-pressed="false"><?php p($l->t('Edit multiple rules')); ?></button>
                 </div>
                 <div id="mcp-tools-bulk-editor" hidden></div>
                 <div id="mcp-tools-grid"></div>

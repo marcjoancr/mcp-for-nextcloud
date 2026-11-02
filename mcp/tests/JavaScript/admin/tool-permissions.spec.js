@@ -27,7 +27,7 @@ function fixture(app) {
         const entries = [['files_read','Read file'], ['files_edit','Edit file'], ['files_upload','Upload file']]
         if (kind === 'group') entries.push(['notes_read','Read note'])
         return { kind, subject: id, groups: kind === 'user' ? groups : [], revision: String(revision), service: row(kind,id,'_service'),
-            tools: entries.map(([name,title]) => ({ name,title,module:name.split('_')[0],operation:name.split('_')[1], ...row(kind,id,name) })) }
+            tools: entries.map(([name,title]) => ({ name,title,description:'Description of ' + title,module:name.split('_')[0],operation:name.split('_')[1], ...row(kind,id,name) })) }
     }
     app.on('GET', path + '/subjects', ({ query }) => {
         const entries = Object.entries(query.get('kind') === 'group' ? groupNames : people).filter(kv => kv.join(' ').toLowerCase().includes(query.get('search').toLowerCase()))
@@ -56,7 +56,7 @@ function fixture(app) {
     })
     return { bump: () => revision++, loseConfirmation: () => { loseConfirmation = true } }
 }
-const cell = (page, key, name) => page.locator('button[data-column-key="' + key + '"][data-tool="' + name + '"]')
+const cell = (page, key, name) => page.locator('td[data-column-key="' + key + '"][data-tool="' + name + '"]')
 const picker = page => page.locator('#mcp-tools-subject-search')
 const writes = app => app.calls.filter(c => c.path === path && c.method === 'POST')
 async function select(page, kind, search, label) {
@@ -82,7 +82,7 @@ test('replace any header with a group or person without changing the other colum
     await select(page,'Groups','staff','Staff · staff')
     await add(page,'People','alice','Alice · alice')
     await page.locator('#mcp-tools-filter').fill('Edit file')
-    await expect(cell(page,'1','files_edit')).toContainText('Allow')
+    await expect(cell(page,'1','files_edit').getByRole('combobox')).toHaveValue('allow')
     await expect(cell(page,'2','files_edit')).toContainText('External')
     await page.getByRole('button',{name:'Choose comparison for Staff'}).click()
     await select(page,'People','staff','Sam · staff')
@@ -102,7 +102,7 @@ test('group and person columns line up with their values and keep removal in the
     for (const key of ['1','2','3']) {
         const header = page.locator('th.mcp-compare-identity[data-column-key="' + key + '"]')
         const box = await header.boundingBox()
-        const row = await cell(page,key,'files_edit').locator('..').boundingBox()
+        const row = await cell(page,key,'files_edit').boundingBox()
         expect(Math.abs(row.x - box.x)).toBeLessThanOrEqual(1)
         expect(Math.abs(row.width - box.width)).toBeLessThanOrEqual(1)
         widths.push(box.width)
@@ -119,13 +119,16 @@ test('group and person columns line up with their values and keep removal in the
 test('an individual cell explains contributing groups and can compare only those groups', async ({page,app})=>{
     await open(page,app); await select(page,'People','alice','Alice · alice')
     await page.locator('#mcp-tools-filter').fill('Edit file')
-    await cell(page,'1','files_edit').click()
+    await cell(page,'1','files_edit').getByRole('button').click()
     const detail=page.locator('#mcp-tools-detail')
+    await expect(detail).toContainText('Description of Edit file')
+    await expect(detail.getByRole('combobox')).toHaveCount(0)
+    await expect(detail.locator('xpath=ancestor::tr/preceding-sibling::tr[1]')).toHaveAttribute('data-tool','files_edit')
     await expect(detail).toContainText('Staff · Allowed')
     await expect(detail).toContainText('External · Blocked')
     await detail.getByRole('checkbox',{name:'External'}).check()
     await detail.getByRole('button',{name:'Compare selected groups'}).click()
-    await expect(cell(page,'2','files_edit')).toContainText('Block')
+    await expect(cell(page,'2','files_edit').getByRole('combobox')).toHaveValue('deny')
     expect(writes(app)).toEqual([])
 })
 
@@ -136,8 +139,13 @@ test('remove a personal exception only after reviewing the inherited result', as
     await expect(cell(page,'1','files_read')).toHaveCount(0)
     const upload=cell(page,'1','files_upload')
     await expect(upload).toContainText('Individual exception')
-    await upload.click()
-    await page.getByRole('button',{name:'Use inherited rule'}).click()
+    await upload.getByRole('combobox').selectOption('inherit')
+    await upload.getByRole('combobox').focus()
+    await upload.getByRole('combobox').selectOption('allow')
+    await expect(page.locator('#mcp-tools-savebar')).toBeHidden()
+    await upload.getByRole('combobox').selectOption('inherit')
+    await expect(upload.getByRole('combobox')).toBeFocused()
+    await expect(upload.getByRole('combobox')).toHaveValue('inherit')
     await expect(upload).toContainText('Allowed')
     expect(writes(app)).toEqual([])
     await page.getByRole('button',{name:'Review changes'}).click()
@@ -155,9 +163,10 @@ test('bulk changes target only checked rows and columns and use a fresh receipt 
     await page.getByRole('button',{name:'Edit multiple rules'}).click()
     await page.getByRole('checkbox',{name:'Select Read file'}).check()
     const bulk=page.locator('#mcp-tools-bulk-editor')
+    await expect(bulk.getByRole('combobox')).toBeDisabled()
     await bulk.getByLabel('Group · Staff').check()
     await bulk.getByLabel('Person · Alice').check()
-    await bulk.getByRole('button',{name:'Block',exact:true}).click()
+    await bulk.getByRole('combobox').selectOption('deny')
     expect(writes(app)).toEqual([])
     await page.getByRole('button',{name:'Review changes'}).click()
     await page.getByRole('button',{name:'Save rules for Staff'}).click()
@@ -167,6 +176,36 @@ test('bulk changes target only checked rows and columns and use a fresh receipt 
     await page.getByRole('button',{name:'Save rules for Alice'}).click()
     await expect(page.locator('#mcp-tools-savebar')).toBeHidden()
     expect(writes(app).map(c=>[c.body.kind,c.body.revision,c.body.preview])).toEqual([['group','0',true],['group','0',false],['user','1',true],['user','1',false]])
+})
+
+test('service and bulk rule selectors skip unavailable tools and discard without writes', async ({page,app}) => {
+    await open(page,app)
+    await select(page,'Groups','staff','Staff · staff')
+    await add(page,'People','bob','Bob · bob')
+    const service = cell(page,'2','_service')
+    await expect(service.getByRole('combobox')).toHaveValue('deny')
+    await service.getByRole('button').click()
+    await expect(page.locator('#mcp-tools-detail')).toContainText('Controls whether MCP is available')
+    await service.getByRole('combobox').selectOption('inherit')
+    await expect(service.locator('.mcp-compare-word')).toHaveText('Blocked')
+    await expect(page.locator('#mcp-tools-detail')).toBeHidden()
+    await page.locator('#mcp-tools-discard').click()
+    await expect(service.getByRole('combobox')).toHaveValue('deny')
+
+    await page.locator('#mcp-tools-filter').fill('Read note')
+    await page.locator('#mcp-tools-bulk').click()
+    await page.getByRole('checkbox', { name:'Select Read note' }).check()
+    const bulk = page.locator('#mcp-tools-bulk-editor')
+    await bulk.getByLabel('Person · Bob').check()
+    await expect(bulk.getByRole('combobox')).toBeDisabled()
+    await expect(cell(page,'2','notes_read').getByRole('combobox')).toHaveCount(0)
+    await bulk.getByLabel('Group · Staff').check()
+    await expect(bulk).toContainText('Selected rules: 1')
+    await bulk.getByRole('combobox').selectOption('deny')
+    await expect(page.locator('#mcp-tools-changes li')).toHaveCount(1)
+    await expect(page.locator('#mcp-tools-changes')).toContainText('Staff')
+    await page.locator('#mcp-tools-discard').click()
+    expect(writes(app)).toEqual([])
 })
 
 test('phone switches between mixed columns; person block wins and missing apps are not editable', async ({page,app})=>{
@@ -185,7 +224,7 @@ test('phone switches between mixed columns; person block wins and missing apps a
         const { x, y, width, height } = th.getBoundingClientRect()
         return th.contains(document.elementFromPoint(x + width / 2, y + height / 2))
     })).toBe(true)
-    await cell(page,'2','files_read').click()
+    await cell(page,'2','files_read').getByRole('button').click()
     await expect(page.locator('#mcp-tools-detail')).toContainText('Read file')
     await page.locator('#mcp-tools-detail').getByRole('button', { name: 'Close', exact: true }).click()
     await page.locator('.mcp-compare-mobile-column').selectOption('1')
@@ -202,7 +241,7 @@ test('differences compare the displayed decisions and keep normal plus operation
     await page.locator('#mcp-tools-filter').fill('file')
     await expect(cell(page,'1','files_read')).toHaveCount(0)
     await expect(cell(page,'2','files_edit')).toBeVisible()
-    await cell(page,'2','files_edit').click()
+    await cell(page,'2','files_edit').getByRole('button').click()
     await page.locator('#mcp-tools-detail summary').click()
     await page.getByRole('button',{name:'Edit Files operations: edit'}).click()
     await expect(page.locator('#mcp-tools-advanced')).toHaveAttribute('open','')
@@ -221,9 +260,7 @@ for (const conflict of [true, false]) {
         // Nextcloud group and user IDs occupy independent namespaces.
         await add(page, 'People', 'staff', 'Sam · staff')
         await page.locator('#mcp-tools-filter').fill('Read file')
-        await cell(page, '1', 'files_read').click()
-        await page.locator('#mcp-tools-detail select').selectOption('deny')
-        await page.getByRole('button', { name: 'Stage rule' }).click()
+        await cell(page, '1', 'files_read').getByRole('combobox').selectOption('deny')
         await page.getByRole('button', { name: 'Review changes' }).click()
         if (conflict) state.bump()
         else state.loseConfirmation()
@@ -234,10 +271,11 @@ for (const conflict of [true, false]) {
         ])
         if (conflict) {
             await expect(page.getByRole('button', { name: 'Review changes' })).toBeVisible()
-            await expect(cell(page, '1', 'files_read')).toContainText('Allow')
+            await expect(cell(page, '1', 'files_read').getByRole('combobox')).toHaveValue('deny')
+            await expect(cell(page, '1', 'files_read')).toContainText('Pending: Block')
         } else {
             await expect(page.locator('#mcp-tools-savebar')).toBeHidden()
-            await expect(cell(page, '1', 'files_read')).toContainText('Block')
+            await expect(cell(page, '1', 'files_read').getByRole('combobox')).toHaveValue('deny')
             await expect(cell(page, '2', 'files_read')).toContainText('Blocked')
         }
     })
@@ -252,7 +290,7 @@ test('a group operation link opens its own catalog and focuses an operation', as
     } }))
     await select(page, 'Groups', 'staff', 'Staff · staff')
     await page.locator('#mcp-tools-filter').fill('Edit file')
-    await cell(page, '1', 'files_edit').click()
+    await cell(page, '1', 'files_edit').getByRole('button').click()
     await page.locator('#mcp-tools-detail summary').click()
     await page.getByRole('button', { name: 'Edit Files operations: edit' }).click()
     await expect(page.locator('#mcp-group-detail h3')).toHaveText('Staff')

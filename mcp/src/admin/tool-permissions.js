@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createScope } from '../platform/lifecycle.js'
 import { mountPermissionDirectory } from './permission-directory.js'
-import { renderComparison } from './comparison-view.js'
+import { renderComparison, ruleSelector } from './comparison-view.js'
 import { mountComparisonDetail } from './comparison-detail.js'
 import { mountComparisonChanges } from './comparison-changes.js'
 
@@ -169,13 +169,16 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
             announcing = true
             try { policyChannel?.announce(from, to) } finally { announcing = false }
         }, alive: () => !scope.disposed })
-    const detail = mountComparisonDetail({ panel: field('detail'), t, button, stage(c, name, value) { stage(c, name, value); render() },
+    const detail = mountComparisonDetail({ panel: field('detail'), t, button,
         api, compare: compareGroups, closeFocus: focusCell, operations: openOperations })
     function drawBulk() {
         const box = field('bulk-editor')
         box.hidden = !bulkMode
         box.replaceChildren()
         if (!bulkMode) return
+        const hint = document.createElement('p')
+        hint.textContent = t('mcp', 'Select tools in the matrix and choose which columns to change.')
+        box.append(hint)
         const targetList = document.createElement('fieldset')
         const legend = document.createElement('legend')
         legend.textContent = t('mcp', 'Apply to columns')
@@ -195,19 +198,21 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
         box.append(targetList)
         const cells = columns.filter(c => targets.has(c.key)).flatMap(c => [...rowsSelected].filter(name => getRow(c, name)).map(name => [c, name]))
         const count = document.createElement('p')
-        count.textContent = t('mcp', '{count} selected rules', { count: cells.length })
+        count.textContent = t('mcp', 'Selected rules: {count}', { count: cells.length })
         box.append(count)
-        for (const [value, label] of [['allow', t('mcp', 'Allow')], ['deny', t('mcp', 'Block')], ['inherit', t('mcp', 'Remove rule')]]) {
-            const action = button(label, () => {
-                for (const [c, name] of cells) stage(c, name, value)
-                render()
-                field('save').focus()
-            })
-            action.disabled = !cells.length
-            box.append(action)
-        }
+        const kinds = new Set(cells.map(([c]) => c.kind))
+        const picker = ruleSelector(t, kinds.size === 1 ? [...kinds][0] : '', t('mcp', 'Rule for selected tools'), '')
+        picker.disabled = !cells.length
+        picker.addEventListener('change', () => {
+            if (!picker.value) return
+            for (const [c, name] of cells) stage(c, name, picker.value)
+            render()
+            box.querySelector('select').focus()
+        })
+        box.append(picker)
     }
     function render() {
+        detail.closeInline()
         closePicker()
         field('add').textContent = columns.length ? t('mcp', 'Add comparison column') : t('mcp', 'Choose a group or person')
         field('editor').hidden = !columns.length
@@ -217,7 +222,8 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
         renderComparison(field('grid'), {
             columns, query: field('filter').value, differences: !field('differences').disabled && field('differences').checked,
             exceptions: !field('exceptions').disabled && field('exceptions').checked, expanded, rowsSelected, activeColumn, bulkMode, compact: narrowScreen.matches, t,
-            onPick: openPicker, onRemove: remove, onCell: (key, name) => detail.cell(byKey(key), name),
+            onPick: openPicker, onRemove: remove, onCell: (key, name, trigger) => detail.cell(byKey(key), name, trigger),
+            onRule(key, name, value) { stage(byKey(key), name, value); render() },
             onRow(name, selected) { if (selected) rowsSelected.add(name); else rowsSelected.delete(name); render() },
             onExpand(module) { if (expanded.has(module)) expanded.delete(module); else expanded.add(module); render() },
             onMobileColumn(key) { activeColumn = key; detail.clear(); render() },
