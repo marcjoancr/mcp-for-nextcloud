@@ -267,9 +267,14 @@ final class ToolPermissionsHttpTest extends IntegrationTestCase {
                 self::assertSame(400, $tampered['status'], $tampered['body']);
                 $reply = $this->request($uid, 'PUT', $path, ['revision' => $profile['revision'], 'tools' => ['files_read']]);
                 self::assertSame(200, $reply['status'], $reply['body']);
+                $hiddenRevision = json_decode($reply['body'], true, flags: JSON_THROW_ON_ERROR)['revision'];
             } finally {
                 $apps->enableApp('tasks');
             }
+            // This form was rendered without Tasks. Saving it after reactivation must not deselect Tasks.
+            $stale = $this->request($uid, 'PUT', $path, ['revision' => $hiddenRevision, 'tools' => ['files_read']]);
+            self::assertSame(409, $stale['status']);
+
             $reply = $this->request($uid, 'GET', $path);
             self::assertSame(200, $reply['status'], $reply['body']);
             $rows = array_column(json_decode($reply['body'], true, flags: JSON_THROW_ON_ERROR)['tools'], null, 'name');

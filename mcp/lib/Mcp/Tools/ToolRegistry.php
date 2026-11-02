@@ -85,34 +85,18 @@ class ToolRegistry {
     /** Selectable definitions, before applying the subject's MCP grants. */
     public function administrableDefinitions(?IUser $user = null): array {
         $tools = [];
-        foreach ($this->definitionsByApp($user, true) as $definition) {
-            $tools[] = ToolPublication::present($definition)
-                + (isset($definition['grantAllOf']) ? ['grantAllOf' => $definition['grantAllOf']] : []);
-        }
-        return $tools;
-    }
-
-    /** Retain existing selections hidden by an unavailable app when editing another tool. */
-    public function hiddenSelections(IUser $user, array $selected): array {
-        if ($selected === []) {
-            return [];
-        }
-        $hidden = array_column(iterator_to_array($this->definitionsByApp($user, false)), 'name');
-        return array_values(array_intersect($selected, $hidden));
-    }
-
-    /** Check each app once per catalog read; a subsequent request sees newly enabled or disabled apps. */
-    private function definitionsByApp(?IUser $user, bool $available): \Generator {
         $enabled = [];
         foreach ($this->modules as $module) {
             foreach ($module->definitions() as $definition) {
                 $app = $definition['app'] ?? null;
-                $enabledHere = $app === null || ($enabled[$app] ??= $this->availability->appEnabled($app, $user));
-                if ($enabledHere === $available) {
-                    yield $definition;
+                if ($app !== null && !($enabled[$app] ??= $this->availability->appEnabled($app, $user))) {
+                    continue;
                 }
+                $tools[] = ToolPublication::present($definition)
+                    + (isset($definition['grantAllOf']) ? ['grantAllOf' => $definition['grantAllOf']] : []);
             }
         }
+        return $tools;
     }
 
     /** The administrative ceiling, before applying an individual connection's selection. */
