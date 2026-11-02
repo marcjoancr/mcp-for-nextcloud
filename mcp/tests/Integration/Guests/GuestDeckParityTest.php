@@ -84,7 +84,7 @@ final class GuestDeckParityTest extends IntegrationTestCase {
         $this->scenario->run(function () use ($config, $policy, &$f): void {
             $config->setAppValue('mcp', 'hidden_system_tags', '[]');
             $policy->setGrant(self::GUEST, 'deck', 'edit', true);
-            $this->guests(['usewhitelist' => 'yes', 'whitelist' => 'mcp,deck',
+            $this->guests(['usewhitelist' => 'yes', 'whitelist' => 'mcp,deck,files_versions',
                 'allow_external_storage' => 'yes', 'hide_users' => 'no']);
             $out = self::occ('files_external:create', '--output=json', '/' . self::MOUNT, 'local', 'null::null', '-c', 'datadir=/mcp-it-ext');
             $this->mountId = (int)trim((string)end($out));
