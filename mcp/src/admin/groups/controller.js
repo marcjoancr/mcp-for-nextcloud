@@ -92,7 +92,7 @@ export function mountGroups({ root: pageRoot, request, t, n, events, policyChann
     const directory = createGroupDirectory({ lifetime, t, n, find, el, api, moduleName, say, retry, open, getCurrent: () => current, getShownName: () => shownName })
     const { drawList, setListOpen } = directory
 
-	async function open(gid, preserve = false, keepMessage = false, displayName = null) {
+	async function open(gid, preserve = false, keepMessage = false, displayName = null, operationTarget = null) {
 		if (busy || (!preserve && !discardDraft())) return
 		if (displayName !== null) shownName = displayName
 		const seq = ++detailSeq
@@ -107,11 +107,12 @@ export function mountGroups({ root: pageRoot, request, t, n, events, policyChann
 			if (!keepMessage) say('')
 			drawList()
 			setListOpen(false)
-			render('heading')
+			if (operationTarget) advanced = true
+			render(operationTarget ? 'op:' + operationTarget.module + ':' + operationTarget.operation : 'heading')
 		} catch (e) {
 		    if (lifetime.disposed) return
 			if (seq !== detailSeq) return
-			detail.replaceChildren(retry(() => open(gid, preserve)))
+			detail.replaceChildren(retry(() => open(gid, preserve, keepMessage, displayName, operationTarget)))
 			say(t('mcp', 'Could not read the group policy. Your draft is kept. Retry.'), true)
 		}
 	}
@@ -176,6 +177,7 @@ export function mountGroups({ root: pageRoot, request, t, n, events, policyChann
 			say(t('mcp', 'The matrix cannot show only the members of {group}: its group filter does not list this group.', { group: name }, undefined, RAW))
 			return
 		}
+		find('mcp-block-matrix').hidden = false
 		select.value = gid
 		select.dispatchEvent(new Event('change'))
 		exceptionsOnly?.click()
@@ -355,5 +357,5 @@ export function mountGroups({ root: pageRoot, request, t, n, events, policyChann
 
 	const ready = directory.ready
 
-    return { ready, destroy() { lifetime.destroy(); directory.clear(); detail.replaceChildren() } }
+    return { ready, open, destroy() { lifetime.destroy(); directory.clear(); detail.replaceChildren() } }
 }

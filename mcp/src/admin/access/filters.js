@@ -116,16 +116,18 @@ export function mountMatrixFilters({ root, t, getData, moduleLabels, reload, onP
 	})
 	scope.on(window, 'hashchange', readAppFromHash)
 	readAppFromHash()
-	let searchTimer = null
+	let searchTimer = null, exactUid = ''
 	scope.on(searchInput, 'input', () => {
 		scope.clearTimeout(searchTimer)
 		searchTimer = scope.timeout(() => {
+			exactUid = ''
 			state.search = searchInput.value.trim()
 			state.page = 1
 			reload()
 		}, 300)
 	})
 	scope.on(groupSelect, 'change', () => {
+		exactUid = ''
 		state.group = groupSelect.value
 		state.page = 1
 		reload()
@@ -133,6 +135,7 @@ export function mountMatrixFilters({ root, t, getData, moduleLabels, reload, onP
 	// The matrix opens on the users who can connect; "Everyone" stays one choice away.
 	filterSelect.value = state.filter
 	scope.on(filterSelect, 'change', () => {
+		exactUid = ''
 		state.filter = filterSelect.value
 		state.page = 1
 		reload()
@@ -153,5 +156,13 @@ export function mountMatrixFilters({ root, t, getData, moduleLabels, reload, onP
         scope.on(button, 'click', () => { if (state.view !== view) setView(view) })
     }
 
-	return { get values() { return { search: state.search, group: state.group, filter: state.filter, page: state.page, app: state.app, view: state.view } }, setView, renderOptions() { renderGroups(); renderApps() }, destroy: scope.destroy }
+	function showUser(uid) {
+		scope.clearTimeout(searchTimer)
+		exactUid = uid
+		Object.assign(state, { search: uid, filter: '', group: '', page: 1 })
+		searchInput.value = uid
+		groupSelect.value = filterSelect.value = ''
+		return reload()
+	}
+	return { showUser, get values() { return { exactUid, search: state.search, group: state.group, filter: state.filter, page: state.page, app: state.app, view: state.view } }, setView, renderOptions() { renderGroups(); renderApps() }, destroy: scope.destroy }
 }

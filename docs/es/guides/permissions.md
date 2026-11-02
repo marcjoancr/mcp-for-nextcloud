@@ -21,13 +21,15 @@ Resumen muestra el endpoint, la versión, el número de conexiones y el límite 
 
 ## Opciones individuales y herencia de grupos
 
-En **Administración → Nextcloud MCP → Acceso y permisos**, elige un grupo para configurar sus reglas de servicio y herramientas. Usa el buscador para encontrar un grupo o una persona. La ficha de la persona muestra primero el estado del servicio y su origen. Las excepciones individuales aparecen encima de los catálogos. Abre un catálogo o busca una herramienta para ver su acceso efectivo y el motivo. Usa **Crear excepción** para asignar una regla individual o **Volver a heredar** para retirarla. Revisa los cambios y su impacto antes de guardarlos.
+En **Administración → Nextcloud MCP → Acceso y permisos**, elige un grupo. Usa **Añadir columna de comparación** para compararlo con otro grupo o con una persona. Cada cabecera tiene su propio selector. La columna de un grupo muestra sus reglas asignadas. La de una persona muestra su acceso efectivo, su origen y sus excepciones individuales. El servicio permanece en la primera fila. Abre un catálogo, busca una herramienta o filtra por diferencias o excepciones personales.
+
+Selecciona una celda para consultar una regla, preparar un cambio o volver a heredar los permisos. Usa **Editar varias reglas** para preparar una decisión para las herramientas y columnas seleccionadas. Revisa y guarda cada columna antes de pasar a la siguiente, ya que un cambio de grupo puede afectar a una persona en otra columna.
 
 Solo aparecen herramientas de apps instaladas, habilitadas y compatibles. Cada persona ve las apps habilitadas para su cuenta. Desactivar una app oculta sus herramientas en MCP y en los ajustes. Al volver a habilitarla, se recuperan los permisos y las selecciones de conexión existentes.
 
 **Permitir**, **Bloquear** y **Sin asignar** se aplican al servicio y a las herramientas. Si Ana tiene una decisión individual, esa decisión prevalece. Si está sin asignar, un bloqueo de cualquiera de sus grupos de confianza prevalece sobre el permiso de otro grupo. Si ningún grupo decide, se aplica el valor predeterminado. Si el servicio global está apagado o la cuenta deshabilitada, ninguna conexión puede usar MCP. Cada herramienta sigue sujeta a la disponibilidad de la aplicación, el rol, las operaciones requeridas y los permisos nativos sobre el recurso.
 
-La pertenencia a grupos procede de Nextcloud. Solo los grupos nativos de base de datos pueden conceder acceso. Si no se puede comprobar la política, la ficha indica que no está disponible. Los ajustes avanzados de operaciones conservan los permisos independientes de Archivos para compartir con personas o crear enlaces públicos.
+La pertenencia a grupos procede de Nextcloud. Solo los grupos nativos de base de datos pueden conceder acceso. Si no se puede comprobar la política, la ficha indica que no está disponible. Desde una celda, abre **Reglas de operaciones relacionadas** para acceder a permisos como compartir con personas o crear enlaces públicos.
 
 ### Actualización desde 2.0.0
 

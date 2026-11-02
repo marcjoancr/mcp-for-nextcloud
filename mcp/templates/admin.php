@@ -85,52 +85,48 @@
     <div class="section mcp-block mcp-tool-permissions" id="mcp-tool-permissions" aria-labelledby="mcp-tools-heading">
         <h2 id="mcp-tools-heading"><?php p($l->t('Tools and access')); ?></h2>
         <fieldset id="mcp-tools-fields" class="mcp-tools-fields" aria-labelledby="mcp-tools-heading">
-            <label for="mcp-tools-subject-search"><?php p($l->t('Search groups or people')); ?></label>
-            <input type="search" id="mcp-tools-subject-search" aria-controls="mcp-tools-subject" maxlength="255" autocomplete="off">
-            <div class="mcp-tools-directory" id="mcp-tools-directory">
-                <div class="mcp-tools-subject" id="mcp-tools-subject"></div>
-                <div id="mcp-tools-pager" hidden>
-                    <button type="button" id="mcp-tools-subject-prev"><?php p($l->t('Previous')); ?></button>
-                    <span id="mcp-tools-subject-page" aria-live="polite"></span>
-                    <button type="button" id="mcp-tools-subject-next"><?php p($l->t('Next')); ?></button>
+            <button type="button" id="mcp-tools-add"><?php p($l->t('Add comparison column')); ?></button>
+            <div id="mcp-tools-picker" class="mcp-tools-directory">
+                <strong id="mcp-tools-picker-title" hidden></strong>
+                <label for="mcp-tools-subject-search"><?php p($l->t('Search groups or people')); ?></label>
+                <input type="search" id="mcp-tools-subject-search" aria-controls="mcp-tools-subject" maxlength="255" autocomplete="off">
+                <div id="mcp-tools-directory">
+                    <div class="mcp-tools-subject" id="mcp-tools-subject"></div>
+                    <div id="mcp-tools-pager" hidden>
+                        <button type="button" id="mcp-tools-subject-prev"><?php p($l->t('Previous')); ?></button>
+                        <span id="mcp-tools-subject-page" aria-live="polite"></span>
+                        <button type="button" id="mcp-tools-subject-next"><?php p($l->t('Next')); ?></button>
+                    </div>
                 </div>
+                <button type="button" id="mcp-tools-cancel-picker" hidden><?php p($l->t('Cancel')); ?></button>
             </div>
             <div id="mcp-tools-editor-status" role="status"></div>
             <div id="mcp-tools-editor-error" role="alert" hidden></div>
-            <div class="mcp-tools-editor" id="mcp-tools-editor" hidden>
-                <h3 class="mcp-tools-selected" id="mcp-tools-selected" tabindex="-1"></h3>
-                <div class="mcp-tools-membership-list mcp-hint" id="mcp-tools-membership-list"></div>
-                <section class="mcp-tools-service" aria-labelledby="mcp-tools-service-heading">
-                    <div><h4 id="mcp-tools-service-heading"><?php p($l->t('MCP service')); ?></h4>
-                        <strong id="mcp-tools-service-result"></strong>
-                        <span class="mcp-tools-service-origin" id="mcp-tools-service-origin"></span>
-                    </div>
-                    <div id="mcp-tools-service-controls"></div>
-                </section>
-                <div class="mcp-tools-exceptions" id="mcp-tools-exceptions" hidden></div>
-                <label for="mcp-tools-filter"><?php p($l->t('Find a tool')); ?></label>
-                <input type="search" id="mcp-tools-filter" aria-controls="mcp-tools-catalogs">
-                <div id="mcp-tools-catalogs"></div>
-                <div class="mcp-tools-savebar" id="mcp-tools-savebar" hidden>
+            <div id="mcp-tools-editor" hidden>
+                <div class="mcp-comparison-toolbar">
+                    <label for="mcp-tools-filter"><?php p($l->t('Find a tool')); ?></label>
+                    <input type="search" id="mcp-tools-filter" aria-controls="mcp-tools-grid">
+                    <label><input type="checkbox" id="mcp-tools-differences"> <?php p($l->t('Only differences')); ?></label>
+                    <label><input type="checkbox" id="mcp-tools-exceptions"> <?php p($l->t('Only personal exceptions')); ?></label>
+                    <button type="button" id="mcp-tools-bulk" aria-pressed="false"><?php p($l->t('Edit multiple rules')); ?></button>
+                </div>
+                <div id="mcp-tools-bulk-editor" hidden></div>
+                <div id="mcp-tools-grid"></div>
+                <section id="mcp-tools-detail" class="mcp-comparison-detail" tabindex="-1" hidden></section>
+                <div id="mcp-tools-savebar" class="mcp-tools-savebar" hidden>
                     <ul class="mcp-tools-changes" id="mcp-tools-changes"></ul>
-                    <span class="mcp-tools-save-status" id="mcp-tools-save-status" role="status"></span>
+                    <span id="mcp-tools-save-status" class="mcp-tools-save-status" role="status"></span>
                     <button type="button" id="mcp-tools-discard"><?php p($l->t('Discard changes')); ?></button>
                     <button type="button" id="mcp-tools-save" class="primary"><?php p($l->t('Review changes')); ?></button>
                 </div>
-                <details class="mcp-tool-more">
-                    <summary><?php p($l->t('More options')); ?></summary>
-                    <button type="button" id="mcp-tools-global-service"><?php p($l->t('Manage global service')); ?></button>
-                    <span id="mcp-tools-person-actions">
-                        <button type="button" id="mcp-tools-open-scope"><?php p($l->t('Manage resource scope')); ?></button>
-                        <button type="button" id="mcp-tools-open-inspector"><?php p($l->t('Inspect effective access')); ?></button>
-                    </span>
-                </details>
+                <button type="button" id="mcp-tools-reload"><?php p($l->t('Reload permissions')); ?></button>
+                <button type="button" id="mcp-tools-global-service"><?php p($l->t('Manage global service')); ?></button>
             </div>
         </fieldset>
     </div>
     <details class="section mcp-block mcp-tools-advanced" id="mcp-tools-advanced">
-        <summary><?php p($l->t('Advanced operation permissions')); ?></summary>
-        <p class="mcp-hint"><?php p($l->t('Operation-level compatibility rules cover sharing variants, cross-catalog requirements, resource scopes and access inspection. Use these for advanced cases. Tool assignments above remain the primary controls.')); ?></p>
+        <summary><?php p($l->t('Operation rules')); ?></summary>
+        <p class="mcp-hint"><?php p($l->t('These rules control operations shared by multiple tools. Changing a rule here can affect more than one tool.')); ?></p>
     <div class="section mcp-block" id="mcp-group-editor">
         <h2><?php p($l->t('Group grants')); ?></h2>
         <details class="mcp-group-rules">

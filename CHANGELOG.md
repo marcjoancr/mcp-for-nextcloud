@@ -4,6 +4,12 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.3.0
+
+- Compare tool permissions across groups and people in one matrix. Each column has an independent selector. Group columns show assignments, and person columns show effective access, its source and individual exceptions.
+- Filter to differences or individual exceptions. Stage changes to multiple rules, then review the impact and save each column. Shared operation rules remain accessible from the relevant tool.
+- On phones, select one comparison column and keep its heading in view while scrolling. Existing grants, connection selections and credentials carry forward without a data migration.
+
 ## 2.2.0
 
 - The permissions page opens with groups. Search for a person to see their effective service and tool access, which rules they inherit and how to create or remove an individual exception.

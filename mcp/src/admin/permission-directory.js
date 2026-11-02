@@ -68,5 +68,11 @@ export function mountPermissionDirectory({ host, scope, api, t, choose }) {
     scope.on(search, 'focus', () => { if (panel.hidden) load() })
     scope.on(previous, 'click', () => { page--; load() })
     scope.on(next, 'click', () => { page++; load() })
-    return { ready: load(), close() { ++seq; page = 1; scope.clearTimeout(timer); panel.hidden = true } }
+    return { ready: load(), open() {
+        search.value = ''
+        page = 1
+        scope.clearTimeout(timer)
+        load()
+        search.focus()
+    }, close() { ++seq; page = 1; scope.clearTimeout(timer); panel.hidden = true } }
 }

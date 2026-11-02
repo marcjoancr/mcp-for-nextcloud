@@ -174,7 +174,8 @@ class ToolPermissionsController extends Controller {
                     $row['groupIds'] = [];
                     $row['origin'] = Translator::t('Application, role or required operation unavailable');
                 }
-                $rows[] = $row + ['requiresOperations' => $definition['grantAnyOf'] ?? []]
+                $rows[] = $row + ['operation' => $definition['operation'], 'requiresOperations' => $definition['grantAnyOf'] ?? [],
+                    'requiredModules' => $definition['grantAllOf'] ?? []]
                     + array_intersect_key($definition, array_flip(['name', 'module', 'title', 'description']));
             }
             return ['service' => $service, 'tools' => $rows];

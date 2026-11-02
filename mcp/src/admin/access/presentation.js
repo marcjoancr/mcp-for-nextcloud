@@ -23,6 +23,7 @@ export function createPresentation({ t }) {
 			create: t('mcp', 'create'),
 			move: t('mcp', 'move'),
 			delete: t('mcp', 'delete'),
+			restore: t('mcp', 'restore'),
 			transfer: t('mcp', 'transfer'),
 			reply: t('mcp', 'reply'),
 			attach: t('mcp', 'attach'),
