@@ -1,6 +1,7 @@
 { "translations": {
     "{tool}: {result}" : "{tool}: {result}",
     "{kind}: {name}" : "{kind}: {name}",
+    "Choose a group or person" : "Gruppe oder Person auswählen",
     "Search groups or people" : "Gruppen oder Personen suchen",
     "No matching entries." : "Keine passenden Einträge.",
     "Discard unsaved permission changes?" : "Ungespeicherte Berechtigungsänderungen verwerfen?",
@@ -1570,7 +1571,6 @@
     "Related operation rules" : "Zugehörige Operationsregeln",
     "Reload permissions" : "Berechtigungen neu laden",
     "Remove rule" : "Regel entfernen",
-    "Replace {name}" : "{name} ersetzen",
     "Review and save each column in turn. Its impact may change after another column is saved." : "Prüfe und speichere jede Spalte einzeln. Das Ergebnis kann sich ändern, wenn eine andere Spalte gespeichert wird.",
     "Save rules for {name}" : "Regeln für {name} speichern",
     "Saved rules for {name}." : "Regeln für {name} gespeichert.",

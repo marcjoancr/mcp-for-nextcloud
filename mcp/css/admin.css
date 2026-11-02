@@ -1709,16 +1709,25 @@ body[data-themes*="dark"] #mcp-admin {
 .mcp-comparison-detail { padding: 12px; margin-block: 12px; border: 1px solid var(--color-border); }
 .mcp-comparison-detail fieldset label, .mcp-tools-fields fieldset label { margin-inline-end: 12px; }
 .mcp-tools-fields { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
-.mcp-tools-directory > label { display: block; font-weight: 600; }
 .mcp-tools-fields input[type="search"] { width: min(100%, 32rem); }
-.mcp-tools-directory { max-width: 32rem; }
-.mcp-tools-subject { display: grid; max-height: 17rem; overflow-y: auto; }
-.mcp-tools-subject [role="group"] { display: grid; }
-.mcp-tools-subject h3 { margin: 12px 0 4px; }
-.mcp-tools-subject button {
-    text-align: start; margin: 0; padding: 8px; overflow-wrap: anywhere;
-    background: transparent; border: 0; border-bottom: 1px solid var(--color-border);
+#mcp-admin .mcp-tools-directory {
+    position: fixed; inset: auto; margin: 0; padding: 12px;
+    width: min(21rem, calc(100vw - 16px)); box-sizing: border-box; overflow: auto;
+    border: 1px solid var(--color-border-maxcontrast, var(--color-border));
+    border-radius: var(--border-radius-element, 8px); background: var(--color-main-background);
+    color: var(--color-main-text); box-shadow: 0 4px 18px var(--color-box-shadow);
 }
+#mcp-admin .mcp-tools-directory:popover-open { display: flex; flex-direction: column; gap: 6px; }
+#mcp-admin .mcp-tools-directory input { flex: none; width: 100%; margin: 0; }
+#mcp-admin .mcp-tools-directory > button { align-self: end; }
+.mcp-tools-subject { overflow-y: auto; overscroll-behavior: contain; max-height: 18rem; }
+.mcp-tools-subject [role="group"] > div { display: grid; }
+.mcp-tools-subject h3 { margin: 8px 0 2px; color: var(--color-text-maxcontrast); font-size: .9em; }
+.mcp-tools-subject button[data-entry] {
+    text-align: start; margin: 0; padding: 6px 8px; font-weight: 400; white-space: normal; overflow-wrap: anywhere;
+    color: var(--color-main-text); background: transparent; border: 0;
+}
+.mcp-tools-subject button[aria-current="true"] { font-weight: bold; background: var(--color-background-hover); }
 .mcp-tools-subject button:hover, .mcp-tools-subject button:focus-visible { background: var(--color-background-hover); }
 .mcp-tools-savebar:not([hidden]) { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .mcp-tools-savebar {

@@ -157,7 +157,7 @@ Ausgewählte Funktionen aus 1.2.1: Aufgaben erhalten Unteraufgaben: übergeordne
 
 Nextcloud 33–35, PHP 8.4+. Mail, Deck und Talk sind optional. Der Administrator verwaltet Berechtigungen, Ausschluss-Tags und Ressourcenbereiche. Schreibvorgänge benötigen die jeweiligen Grants und Bestätigungen; Dateien werden vom MCP nicht gelöscht.
     ]]></description>
-    <version>2.3.0</version>
+    <version>2.3.1</version>
     <licence>AGPL-3.0-or-later</licence>
     <author mail="jhonatan@sintax.tech">Jhonatan Jaworski</author>
     <namespace>Mcp</namespace>

@@ -21,7 +21,7 @@ Resumen muestra el endpoint, la versión, el número de conexiones y el límite 
 
 ## Opciones individuales y herencia de grupos
 
-En **Administración → Nextcloud MCP → Acceso y permisos**, elige un grupo. Usa **Añadir columna de comparación** para compararlo con otro grupo o con una persona. Cada cabecera tiene su propio selector. La columna de un grupo muestra sus reglas asignadas. La de una persona muestra su acceso efectivo, su origen y sus excepciones individuales. El servicio permanece en la primera fila. Abre un catálogo, busca una herramienta o filtra por diferencias o excepciones personales.
+En **Administración → Nextcloud MCP → Acceso y permisos**, la matriz se abre con el primer grupo del directorio. Pulsa su cabecera para elegir otro grupo o una persona en el desplegable. Ambas listas están disponibles sin escribir. Usa **Añadir columna de comparación** para conservar la columna actual y comparar otra entrada. La columna de un grupo muestra sus reglas asignadas. La de una persona muestra su acceso efectivo, su origen y sus excepciones individuales. El servicio permanece en la primera fila. Abre un catálogo, busca una herramienta o filtra por diferencias o excepciones personales.
 
 Selecciona una celda para consultar una regla, preparar un cambio o volver a heredar los permisos. Usa **Editar varias reglas** para preparar una decisión para las herramientas y columnas seleccionadas. Revisa y guarda cada columna antes de pasar a la siguiente, ya que un cambio de grupo puede afectar a una persona en otra columna.
 

@@ -3,6 +3,7 @@ OC.L10N.register(
     {
     "{tool}: {result}" : "{tool}: {result}",
     "{kind}: {name}" : "{kind}: {name}",
+    "Choose a group or person" : "Elegir un grupo o una persona",
     "Search groups or people" : "Buscar grupos o personas",
     "No matching entries." : "No hay coincidencias.",
     "Discard unsaved permission changes?" : "¿Descartar los cambios de permisos sin guardar?",
@@ -1572,7 +1573,6 @@ OC.L10N.register(
     "Related operation rules" : "Reglas de operaciones relacionadas",
     "Reload permissions" : "Recargar permisos",
     "Remove rule" : "Eliminar regla",
-    "Replace {name}" : "Sustituir a {name}",
     "Review and save each column in turn. Its impact may change after another column is saved." : "Revisa y guarda cada columna por separado. El resultado puede cambiar al guardar otra columna.",
     "Save rules for {name}" : "Guardar reglas de {name}",
     "Saved rules for {name}." : "Se han guardado las reglas de {name}.",

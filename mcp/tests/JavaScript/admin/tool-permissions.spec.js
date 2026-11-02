@@ -67,9 +67,9 @@ async function select(page, kind, search, label) {
 async function open(page,app) {
     const state = fixture(app)
     await app.open('/admin#mcp-tool-permissions')
-    await expect(page.locator('#mcp-tools-editor')).toBeHidden()
-    await expect(page.locator('#mcp-tools-subject').getByRole('group',{name:'Groups'})).toBeVisible()
-    expect(app.calls.some(c=>c.path===path)).toBe(false)
+    await expect(page.locator('#mcp-tools-editor')).toBeVisible()
+    await expect(page.locator('#mcp-tools-picker')).toBeHidden()
+    await page.getByRole('button', { name: 'Choose comparison for Staff' }).click()
     return state
 }
 async function add(page,kind,search,label) {
@@ -258,5 +258,102 @@ test('a group operation link opens its own catalog and focuses an operation', as
     await expect(page.locator('#mcp-group-detail h3')).toHaveText('Staff')
     await expect(page.locator('#mcp-group-detail input[value="edit"]')).toBeFocused()
     await expect(page.locator('#mcp-block-matrix')).toBeHidden()
+    expect(writes(app)).toEqual([])
+})
+
+test('a header opens beside its column and a person can be selected without searching', async ({ page, app }) => {
+    fixture(app)
+    await app.open('/admin#mcp-tool-permissions')
+    const header = page.getByRole('button', { name: 'Choose comparison for Staff' })
+    await expect(header).toBeVisible()
+    await header.focus()
+    await page.keyboard.press('Enter')
+    const popup = page.getByRole('dialog', { name: 'Choose a group or person' })
+    await expect(popup.getByRole('searchbox')).toBeFocused()
+    await expect(popup.getByRole('group', { name: 'Groups' })).toBeVisible()
+    const people = popup.getByRole('group', { name: 'People' })
+    await expect(people.getByRole('button', { name: 'Alice · alice' })).toBeVisible()
+    const anchor = await header.boundingBox(), box = await popup.boundingBox()
+    expect(Math.min(Math.abs(box.y - anchor.y - anchor.height), Math.abs(box.y + box.height - anchor.y))).toBeLessThan(8)
+    await page.keyboard.press('ArrowDown')
+    await expect(popup.getByRole('button', { name: 'Staff · staff' })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(header).toBeFocused()
+    await expect(header).toHaveAttribute('aria-expanded', 'false')
+    await header.click()
+    await expect(popup).toBeVisible()
+    await header.click()
+    await expect(popup).toBeHidden()
+    await header.click()
+    await people.getByRole('button', { name: 'Alice · alice' }).click()
+    await expect(page.getByRole('button', { name: 'Choose comparison for Alice' })).toBeFocused()
+    expect(writes(app)).toEqual([])
+})
+
+test('a late initial directory response cannot replace an explicit choice', async ({page,app}) => {
+    fixture(app)
+    let finish
+    let first = true
+    app.on('GET', path + '/subjects', ({ query }) => {
+        if (first) {
+            first = false
+            return new Promise(resolve => { finish = () => resolve({ body: { subjects: [{id:'staff',displayName:'Staff'}] } }) })
+        }
+        return {body:{subjects: query.get('kind') === 'user' ? [{id:'alice',displayName:'Alice'}] : [],hasMore:false}}
+    })
+    await app.open('/admin#mcp-tool-permissions')
+    await expect.poll(() => !!finish).toBe(true)
+    await page.getByRole('button', {name:'Choose a group or person'}).click()
+    await page.getByRole('dialog').getByRole('button', {name:'Alice · alice'}).click()
+    finish()
+    await expect(page.getByRole('button', {name:'Choose comparison for Alice'})).toBeVisible()
+    expect(app.calls.filter(c=>c.path===path && c.query.subject==='staff')).toEqual([])
+})
+
+test('on a phone the header picker fits the viewport and tapping outside closes it', async ({page,app}) => {
+    await page.setViewportSize({width:375,height:812})
+    await open(page,app)
+    const box=await page.getByRole('dialog').boundingBox()
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x+box.width).toBeLessThanOrEqual(375)
+    await page.locator('#mcp-tools-add').click()
+    await expect(page.getByRole('dialog',{name:'Choose a group or person'})).toBeVisible()
+    await page.locator('#mcp-tools-heading').click()
+    await expect(page.getByRole('dialog')).toBeHidden()
+})
+
+test('a directory without groups starts with a person and does not require a search', async ({ page, app }) => {
+    fixture(app)
+    app.on('GET', path + '/subjects', ({ query }) => ({body: {
+        subjects: query.get('kind') === 'group' ? [] : [{ id:'alice', displayName:'Alice' }],
+        hasMore:false,
+    }}))
+    await app.open('/admin#mcp-tool-permissions')
+    await expect(page.getByRole('button', { name:'Choose comparison for Alice' })).toBeVisible()
+    expect(writes(app)).toEqual([])
+})
+
+test('both lists can expand independently and only an explicit choice loads another column', async ({page,app}) => {
+    fixture(app)
+    app.on('GET', path + '/subjects', ({query}) => {
+        const kind = query.get('kind')
+        const pageNo = Number(query.get('page'))
+        const size = pageNo === 1 ? 5 : 1
+        return {body:{subjects:Array.from({length:size}, (_, i) => {
+            const id = kind + '-' + pageNo + '-' + i
+            return {id,displayName:id}
+        }),hasMore:pageNo === 1}}
+    })
+    await app.open('/admin#mcp-tool-permissions')
+    await page.getByRole('button',{name:'Choose comparison for group-1-0'}).click()
+    const groups = page.getByRole('dialog').getByRole('group',{name:'Groups'})
+    const people = page.getByRole('dialog').getByRole('group',{name:'People'})
+    await people.getByRole('button',{name:'Show more'}).click()
+    await expect(people.getByRole('button',{name:'user-1-4'})).toBeFocused()
+    await people.getByRole('button',{name:'Show more'}).click()
+    await expect(people.getByRole('button',{name:'user-2-0'})).toBeFocused()
+    await expect(groups.getByRole('button',{name:'group-1-4'})).toHaveCount(0)
+    await people.getByRole('button',{name:'user-2-0'}).click()
+    await expect(page.getByRole('button',{name:'Choose comparison for user-2-0'})).toBeVisible()
     expect(writes(app)).toEqual([])
 })

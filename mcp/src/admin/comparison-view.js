@@ -110,7 +110,10 @@ export function renderComparison(host, {
 			el('strong', { className: 'mcp-compare-label', textContent: column.label }),
 		])
 		pick.setAttribute('aria-label', t('mcp', 'Choose comparison for {name}', { name: column.label }))
-		pick.addEventListener('click', () => onPick(column.key))
+		pick.setAttribute('aria-haspopup', 'dialog')
+		pick.setAttribute('aria-controls', 'mcp-tools-picker')
+		pick.setAttribute('aria-expanded', 'false')
+		pick.addEventListener('click', () => onPick(column.key, pick))
 		cell.dataset.columnKey = column.key
 		const bar = el('div', { className: 'mcp-compare-heading' }, [pick])
 		cell.append(bar)

@@ -47,35 +47,42 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
         const control = [...field('grid').querySelectorAll(selector)].find(el => el.tagName === 'BUTTON' && el.dataset.columnKey === key && (!name || el.dataset.tool === name))
         ;(control || field('add')).focus({ preventScroll: true })
     }
+    let started = false, autoSelect = true
     function closePicker() {
         directory.close()
-        field('picker').hidden = true
         replacing = null
     }
-    function openPicker(key = null) {
+    function openPicker(key = null, owner = field('add')) {
         if (busy) return
+        autoSelect = false
         detail.clear()
         replacing = key
-        field('picker').hidden = false
-        field('picker-title').hidden = !columns.length
-        field('picker-title').textContent = key ? t('mcp', 'Replace {name}', { name: byKey(key).label }) : t('mcp', 'Add comparison column')
-        field('cancel-picker').hidden = !columns.length
-        directory.open()
+        const current = byKey(key)
+        directory.open(owner, current)
+    }
+    function column(kind, id, label, snapshot, key = String(++serial)) {
+        return { key, kind, id, label, snapshot, draft: {}, base: {} }
     }
     async function choose(kind, id, label) {
-        if (busy) return
+        if (busy || scope.disposed) return
+        autoSelect = false
+        const previous = byKey(replacing)
         const existing = columns.find(c => c.kind === kind && c.id === id)
         if (existing) {
+            if (previous && previous !== existing) {
+                const from = columns.indexOf(previous), to = columns.indexOf(existing)
+                columns[from] = existing
+                columns[to] = previous
+            }
             activeColumn = existing.key
             closePicker(); render(); focusCell(existing.key)
             return
         }
-        const previous = byKey(replacing)
         if (previous && Object.keys(previous.draft).length && !window.confirm(t('mcp', 'Discard unsaved permission changes?'))) return
         lock(true)
         try {
             const snapshot = await read(kind, id)
-            const c = { key: previous?.key || String(++serial), kind, id, label, snapshot, draft: {}, base: {} }
+            const c = column(kind, id, label, snapshot, previous?.key)
             if (previous) columns.splice(columns.indexOf(previous), 1, c)
             else columns.push(c)
             targets.delete(c.key)
@@ -88,7 +95,7 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
         } catch {
             if (!scope.disposed) report(t('mcp', 'Could not load this entry’s permissions. Try again.'), true)
         } finally {
-            if (!scope.disposed) { lock(false); if (field('picker').hidden) focusCell(activeColumn) }
+            if (!scope.disposed) { lock(false); if (!field('picker').matches(':popover-open')) focusCell(activeColumn) }
         }
     }
     function remove(key) {
@@ -107,10 +114,8 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
             const missing = groups.filter(g => !columns.some(c => c.kind === 'group' && c.id === g.id))
             const added = []
             for (let i = 0; i < missing.length; i += 3) {
-                const groupColumns = await Promise.all(missing.slice(i, i + 3).map(async g => ({
-                    key: String(++serial), kind: 'group', id: g.id, label: g.displayName || g.id,
-                    draft: {}, base: {}, snapshot: await read('group', g.id),
-                })))
+                const groupColumns = await Promise.all(missing.slice(i, i + 3).map(async g =>
+                    column('group', g.id, g.displayName || g.id, await read('group', g.id))))
                 added.push(...groupColumns)
             }
             columns.push(...added)
@@ -203,6 +208,8 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
         }
     }
     function render() {
+        closePicker()
+        field('add').textContent = columns.length ? t('mcp', 'Add comparison column') : t('mcp', 'Choose a group or person')
         field('editor').hidden = !columns.length
         field('differences').disabled = columns.length < 2
         field('exceptions').disabled = !columns.some(c => c.kind === 'user')
@@ -223,7 +230,6 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
     scope.on(narrowScreen, 'change', () => { detail.clear(); render() })
     const directory = mountPermissionDirectory({ host, api, scope, t, choose })
     scope.on(field('add'), 'click', () => openPicker())
-    scope.on(field('cancel-picker'), 'click', () => { const key = replacing || activeColumn; closePicker(); focusCell(key) })
     for (const [id, event] of [['filter','input'], ['differences','change'], ['exceptions','change']]) {
         scope.on(field(id), event, () => { rowsSelected.clear(); detail.clear(); render() })
     }
@@ -256,15 +262,44 @@ export function mountToolPermissions({ root, request, t: translate, getResourceS
     }
     scope.use(() => {
         detail.clear()
+        field('add').textContent = t('mcp', 'Choose a group or person')
         field('grid').replaceChildren()
         field('subject').replaceChildren()
         field('fields').disabled = false
         field('editor').hidden = true
-        field('picker').hidden = false
-        field('picker-title').hidden = field('cancel-picker').hidden = true
         field('editor-status').textContent = field('editor-error').textContent = ''
         field('filter').value = field('subject-search').value = ''
         field('differences').checked = field('exceptions').checked = false
     })
-    return { ready: directory.ready, destroy: scope.destroy }
+    // Defer the first group lookup until Access is actually visible. An explicit
+    // choice (including the access inspector) wins over a late initial response.
+    const accessPanel = host.closest('[role="tabpanel"]')
+    async function start() {
+        if (started || accessPanel?.hidden) return
+        started = true
+        try {
+            for (const kind of ['group', 'user']) {
+                const { subjects } = await directory.list(kind, '', 1)
+                if (!autoSelect || scope.disposed) return
+                if (subjects.length) {
+                    const { id, displayName } = subjects[0]
+                    const snapshot = await read(kind, id)
+                    if (!autoSelect || scope.disposed) return
+                    const c = column(kind, id, displayName || id, snapshot)
+                    columns.push(c)
+                    activeColumn = c.key
+                    render()
+                    return
+                }
+            }
+        } catch {
+            if (autoSelect && !scope.disposed) report(t('mcp', 'Could not load people or groups. Try again.'), true)
+        }
+    }
+    if (accessPanel) {
+        const observer = new MutationObserver(() => { if (accessPanel.hidden) closePicker(); else start() })
+        observer.observe(accessPanel, { attributes: true, attributeFilter: ['hidden'] })
+        scope.use(() => observer.disconnect())
+    }
+    return { ready: start(), destroy: scope.destroy }
 }

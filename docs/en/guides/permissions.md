@@ -36,7 +36,7 @@ and installations without Guests retain their existing behavior.
 
 ## Individual choices and group inheritance
 
-In **Administration → Nextcloud MCP → Access and permissions**, choose a group. Use **Add comparison column** to compare it with another group or a person. Each column heading has its own selector. A group shows its assigned rules. A person shows effective access, its source and any individual exceptions. The service row stays at the top. Open a catalog, search for a tool or filter to differences or personal exceptions.
+In **Administration → Nextcloud MCP → Access and permissions**, the matrix opens with the first group in the directory. Click its column heading to choose a different group or a person from the dropdown. Both lists are available before you type. Use **Add comparison column** to keep the current column and compare another entry. A group shows its assigned rules. A person shows effective access, its source and any individual exceptions. The service row stays at the top. Open a catalog, search for a tool or filter to differences or personal exceptions.
 
 Select a cell to inspect a rule, stage a change or return a person to inheritance. Use **Edit multiple rules** to stage a decision for selected tools and columns. Review each column’s impact and save it before reviewing the next one, since a group change can affect a person in another column.
 
