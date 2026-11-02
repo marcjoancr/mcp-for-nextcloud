@@ -65,7 +65,7 @@ class ToolPermissionsController extends Controller {
             if ($user === null) {
                 throw new \OutOfBoundsException();
             }
-            $definitions = array_column($this->tools->administrableDefinitions(), null, 'name');
+            $definitions = array_column($this->tools->administrableDefinitions($user), null, 'name');
             $definitions['_service'] = ['module' => '_system', 'operation' => 'eligible'];
             if (!isset($definitions[$tool])) {
                 throw new InvalidArgumentException();
@@ -100,11 +100,14 @@ class ToolPermissionsController extends Controller {
             if ($before['revision'] !== $revision) {
                 throw new PolicyConflict();
             }
-            $catalog = array_column($this->tools->administrableDefinitions(), null, 'name');
+            $user = $kind === 'user' ? $this->users->get($subject) : null;
+            $catalog = array_column($this->tools->administrableDefinitions($user), null, 'name');
             $catalog['_service'] = ['module' => '_system', 'operation' => 'eligible'];
+            $visible = array_fill_keys(array_column($before['tools'], 'name'), true);
+            $visible['_service'] = true;
             $cells = [];
             foreach ($changes as $name => $decision) {
-                if (!isset($catalog[$name]) || !in_array($decision, ['allow', 'deny', 'inherit'], true)) {
+                if (!isset($visible[$name], $catalog[$name]) || !in_array($decision, ['allow', 'deny', 'inherit'], true)) {
                     throw new InvalidArgumentException();
                 }
                 $cells[] = $this->catalogCell(['name' => $name] + $catalog[$name])
@@ -148,7 +151,7 @@ class ToolPermissionsController extends Controller {
         $groups = $user === null ? [] : array_map(static fn ($g) => ['id' => $g->getGID(), 'displayName' => $g->getDisplayName()],
             array_values($this->groups->getUserGroups($user)));
         $describe = function () use ($kind, $subject, $user): array {
-            $catalog = $this->tools->administrableDefinitions();
+            $catalog = $this->tools->administrableDefinitions($user);
             $groupStates = [];
             if ($user === null) {
                 $cells = array_map($this->catalogCell(...), $catalog);
@@ -158,6 +161,7 @@ class ToolPermissionsController extends Controller {
             $service = $this->row($groupStates['_service'] ?? $this->policy->subjectToolState($kind, $subject, '_service', '_system', 'eligible'));
             if (!$this->policy->globalEnabled() || ($user !== null && !$user->isEnabled())) {
                 $service['effective'] = false;
+                $service['groupIds'] = [];
                 $service['origin'] = !$this->policy->globalEnabled() ? Translator::t('Service disabled globally') : Translator::t('Account disabled');
             }
             $rows = [];
@@ -167,6 +171,7 @@ class ToolPermissionsController extends Controller {
                 $row = $this->row($raw);
                 if ($user !== null && $row['effective'] === true && !isset($available[$definition['name']])) {
                     $row['effective'] = false;
+                    $row['groupIds'] = [];
                     $row['origin'] = Translator::t('Application, role or required operation unavailable');
                 }
                 $rows[] = $row + ['requiresOperations' => $definition['grantAnyOf'] ?? []]
@@ -215,7 +220,7 @@ class ToolPermissionsController extends Controller {
             default => $state['source'],
         };
         return ['state' => match ($state['assigned']) { true, 'allow' => 'allow', false, 'deny' => 'deny', null, 'neutral' => 'inherit' },
-            'effective' => $state['effective'], 'origin' => $origin . ($ids === [] ? '' : ' · ' . implode(', ', $ids)), 'groupIds' => $ids];
+            'effective' => $state['effective'], 'source' => $state['source'], 'origin' => $origin . ($ids === [] ? '' : ' · ' . implode(', ', $ids)), 'groupIds' => $ids];
     }
 
     private function admin(\Closure $callback): JSONResponse {

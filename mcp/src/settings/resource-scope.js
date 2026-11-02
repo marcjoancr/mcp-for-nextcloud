@@ -37,7 +37,7 @@ export function mountPersonalScope({ root, request, t }) {
 		status.textContent = t('mcp', 'Loading…')
 		try {
 			const data = await api('GET', '/api/my/scope')
-			list.replaceChildren(...['files', 'calendar', 'tasks'].map((module) => el('li', { textContent: line(module, data.modules[module]) })))
+			list.replaceChildren(...['files', 'calendar', 'tasks'].filter(module => module in data.modules).map((module) => el('li', { textContent: line(module, data.modules[module]) })))
 			status.textContent = ''
 		} catch (error) {
             if (lifetime.disposed) return

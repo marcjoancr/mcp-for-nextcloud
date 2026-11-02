@@ -60,6 +60,30 @@ final class ToolRegistryTest extends TestCase {
         self::assertContains('files_read', array_column($registry->permittedDefinitions('alice'), 'name'));
     }
 
+    public function testPermissionCatalogAndMcpFollowAppAvailabilityWithoutChangingGrants(): void {
+        $registry = $this->registry();
+        $alice = $this->createMock(IUser::class);
+        $alice->method('getUID')->willReturn('alice');
+        $this->enabledApps = ['notes', 'deck'];
+        $this->appVersions['deck'] = '1.0.0';
+        $this->userEnabledApps['alice'] = [];
+        $names = array_column($registry->administrableDefinitions(), 'name');
+        self::assertContains('notes_read', $names);
+        self::assertNotContains('deck_list_boards', $names);
+        self::assertNotContains('talk_list_conversations', $names);
+        self::assertNotContains('notes_read', array_column($registry->administrableDefinitions($alice), 'name'));
+        self::assertNotContains('notes_read', array_column($registry->list('alice'), 'name'));
+        try {
+            $registry->call('notes_read', [], 'alice');
+            self::fail('A known tool name cannot bypass app availability');
+        } catch (\OCA\Mcp\Mcp\Tools\Validation\UnknownToolException) {
+            self::assertSame([], $this->calls);
+        }
+        $this->userEnabledApps['alice'] = ['notes'];
+        self::assertContains('notes_read', array_column($registry->administrableDefinitions($alice), 'name'));
+        self::assertContains('notes_read', array_column($registry->list('alice'), 'name'));
+    }
+
     public function testConnectionSelectionFiltersBothDiscoveryAndDirectCalls(): void {
         $connection = new \OCA\Mcp\OAuth\ConnectionContext();
         $registry = $this->registry($connection);
@@ -97,6 +121,7 @@ final class ToolRegistryTest extends TestCase {
             }
         };
         $apps = $this->createMock(IAppManager::class);
+        $apps->method('isEnabledForAnyone')->willReturnCallback(fn (string $app): bool => in_array($app, $this->enabledApps, true));
         $apps->method('isEnabledForUser')->willReturnCallback(fn (string $app, IUser $user) =>
             isset($this->userEnabledApps[$user->getUID()])
                 ? in_array($app, $this->userEnabledApps[$user->getUID()], true)

@@ -35,7 +35,10 @@ final class AppEnablement {
      * @return bool whether the app is enabled for the user in a version MCP supports
      */
     public static function forUser(object $apps, string $appId, ?IUser $user): bool {
-        return $apps->isEnabledForUser($appId, $user) && self::supported($apps, $appId);
+        // Tasks provides the user-facing app and DAV provides its VTODO storage.
+        return $apps->isEnabledForUser($appId, $user)
+            && ($appId !== 'tasks' || $apps->isEnabledForUser('dav', $user))
+            && self::supported($apps, $appId);
     }
 
     /**
@@ -44,7 +47,9 @@ final class AppEnablement {
      * @return bool whether the app is enabled for at least one user, in a version MCP supports
      */
     public static function forAnyone(object $apps, string $appId): bool {
-        return self::enabledForAnyone($apps, $appId) && self::supported($apps, $appId);
+        return self::enabledForAnyone($apps, $appId)
+            && ($appId !== 'tasks' || self::enabledForAnyone($apps, 'dav'))
+            && self::supported($apps, $appId);
     }
 
     /**

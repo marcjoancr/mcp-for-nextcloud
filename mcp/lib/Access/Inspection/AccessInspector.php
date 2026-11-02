@@ -58,7 +58,7 @@ class AccessInspector {
      * blocks. A restriction by resource narrows resources only and never blocks an operation here.
      *
      * @param string $uid the inspected user
-     * @return array{revision:string, operations:list<array{module:string, operation:string, allowed:?bool, reasonCode:string, blockingGate:?string, grant:array{allowed:?bool, source:string, groupIds:list<string>}, scope:array{mode:string, count:?int}}>}
+     * @return array{revision:string, calendarModules:list<string>, operations:list<array{module:string, operation:string, allowed:?bool, reasonCode:string, blockingGate:?string, grant:array{allowed:?bool, source:string, groupIds:list<string>}, scope:array{mode:string, count:?int}}>}
      * @throws PolicyUnavailable when the policy cannot be read
      */
     public function effective(string $uid): array {
@@ -79,7 +79,8 @@ class AccessInspector {
                     ];
                 }
             }
-            return ['revision' => $context->revision, 'operations' => $operations];
+            return ['revision' => $context->revision, 'operations' => $operations,
+                'calendarModules' => array_values(array_filter(['calendar', 'tasks'], $context->appAvailable(...)))];
         });
     }
 

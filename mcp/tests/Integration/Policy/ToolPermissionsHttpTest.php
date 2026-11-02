@@ -15,7 +15,8 @@ use OCA\Mcp\Tests\Integration\Support\LoginFactory;
 /** End-to-end contracts for the two settings surfaces, including the middleware and the saved revision. */
 final class ToolPermissionsHttpTest extends IntegrationTestCase {
     private function request(string $user, string $method, string $path, ?array $body = null): array {
-        return Http::request($method, Http::BASE . '/index.php/apps/mcp/settings/' . $path, [
+        $route = str_starts_with($path, 'api/') ? $path : 'settings/' . $path;
+        return Http::request($method, Http::BASE . '/index.php/apps/mcp/' . $route, [
             'Authorization: ' . LoginFactory::basic($user, false)->authorization(), 'OCS-APIRequest: true',
             'Content-Type: application/json', 'Accept: application/json',
         ], $body === null ? null : json_encode($body, JSON_THROW_ON_ERROR));
@@ -205,6 +206,81 @@ final class ToolPermissionsHttpTest extends IntegrationTestCase {
             foreach ([$first, $second] as $login) {
                 $this->assertRevoked($login);
             }
+        } finally {
+            $user->delete();
+            $policy->setGlobalEnabled($global);
+        }
+    }
+
+    public function testDisablingAnAppHidesItsToolsAndPreservesTheConnectionSelection(): void {
+        $uid = 'mcp-hidden-' . bin2hex(random_bytes(5));
+        $user = \OCP\Server::get(\OCP\IUserManager::class)->createUser($uid, bin2hex(random_bytes(24)));
+        $apps = \OCP\Server::get(\OCP\App\IAppManager::class);
+        $detail = 'tool-permissions?' . http_build_query(['kind' => 'user', 'subject' => $uid]);
+        $policy = \OCP\Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
+        $global = $policy->globalEnabled();
+        try {
+            $policy->setGlobalEnabled(true);
+            $policy->setEligible($uid, true);
+            $policy->setConnected($uid, true);
+            $this->assign('user', $uid, ['tasks_list_calendars' => 'allow', 'files_read' => 'allow']);
+            $login = LoginFactory::bearer($uid);
+            $mcp = new \OCA\Mcp\Tests\Integration\Support\McpClient($login);
+            $token = \OCP\Server::get(\OCA\Mcp\OAuth\OAuthStore::class)->findByAccess(
+                \OCP\Server::get(\OCA\Mcp\OAuth\TokenHasher::class)->hash(substr($login->authorization(), 7)));
+            $path = 'my/connections/' . $token['id'] . '/tools';
+            self::assertTrue($mcp->tool('tasks_list_calendars')->ok());
+            $apps->disableApp('tasks');
+            try {
+                self::assertTrue($apps->isEnabledForUser('dav', $user));
+                self::assertSame('Unknown tool', $mcp->tool('tasks_list_calendars')->body['error']['message']);
+                $guide = $mcp->tool('mcp_guide');
+                self::assertTrue($guide->ok());
+                self::assertNotContains('tasks', array_column($guide->structured()['modules'], 'module'));
+                $scope = $this->request($uid, 'GET', 'api/my/scope');
+                self::assertSame(200, $scope['status'], $scope['body']);
+                self::assertArrayNotHasKey('tasks', json_decode($scope['body'], true)['modules']);
+                $scope = $this->request('admin', 'GET', 'api/scope/' . $uid . '/tasks');
+                self::assertSame(200, $scope['status'], $scope['body']);
+                self::assertSame(['module' => 'tasks', 'available' => false], json_decode($scope['body'], true));
+                $inspection = $this->request('admin', 'GET', 'api/inspector/access?uid=' . $uid);
+                self::assertSame(200, $inspection['status'], $inspection['body']);
+                self::assertNotContains('tasks', json_decode($inspection['body'], true)['calendarModules']);
+                $group = $this->request('admin', 'GET', 'tool-permissions?kind=group&subject=mcp-it-staff');
+                self::assertSame(200, $group['status'], $group['body']);
+                self::assertNotContains('tasks_list_calendars', array_column(json_decode($group['body'], true)['tools'], 'name'));
+                $reply = $this->request('admin', 'GET', $detail);
+                self::assertSame(200, $reply['status'], $reply['body']);
+                $admin = json_decode($reply['body'], true, flags: JSON_THROW_ON_ERROR);
+                self::assertNotContains('tasks_list_calendars', array_column($admin['tools'], 'name'));
+                $tampered = $this->request('admin', 'POST', 'tool-permissions', [
+                    'kind' => 'user', 'subject' => $uid, 'revision' => $admin['revision'],
+                    'changes' => ['tasks_list_calendars' => 'deny'], 'preview' => true,
+                ]);
+                self::assertSame(400, $tampered['status'], $tampered['body']);
+
+                $reply = $this->request($uid, 'GET', $path);
+                self::assertSame(200, $reply['status'], $reply['body']);
+                $profile = json_decode($reply['body'], true, flags: JSON_THROW_ON_ERROR);
+                self::assertNotContains('tasks_list_calendars', array_column($profile['tools'], 'name'));
+                $tampered = $this->request($uid, 'PUT', $path, ['revision' => $profile['revision'], 'tools' => ['tasks_list_calendars']]);
+                self::assertSame(400, $tampered['status'], $tampered['body']);
+                $reply = $this->request($uid, 'PUT', $path, ['revision' => $profile['revision'], 'tools' => ['files_read']]);
+                self::assertSame(200, $reply['status'], $reply['body']);
+                $hiddenRevision = json_decode($reply['body'], true, flags: JSON_THROW_ON_ERROR)['revision'];
+            } finally {
+                $apps->enableApp('tasks');
+            }
+            // This form was rendered without Tasks. Saving it after reactivation must not deselect Tasks.
+            $stale = $this->request($uid, 'PUT', $path, ['revision' => $hiddenRevision, 'tools' => ['files_read']]);
+            self::assertSame(409, $stale['status']);
+
+            $reply = $this->request($uid, 'GET', $path);
+            self::assertSame(200, $reply['status'], $reply['body']);
+            $rows = array_column(json_decode($reply['body'], true, flags: JSON_THROW_ON_ERROR)['tools'], null, 'name');
+            self::assertTrue($rows['tasks_list_calendars']['selected']);
+            self::assertTrue($rows['files_read']['selected']);
+            self::assertTrue($mcp->tool('tasks_list_calendars')->ok());
         } finally {
             $user->delete();
             $policy->setGlobalEnabled($global);

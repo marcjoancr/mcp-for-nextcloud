@@ -34,7 +34,7 @@ final class GuestRestrictionsTest extends IntegrationTestCase {
     private const GUEST = 'mcp-it-guest';
     private const MOUNT = 'mcp-it-guest-ext';
     /** Modules of an app Guests does not always allow, with that app (GrantMatrix::MODULE_APPS). */
-    private const OTHER_APPS = ['calendar' => 'calendar', 'notes' => 'notes', 'talk' => 'spreed', 'deck' => 'deck', 'contacts' => 'contacts'];
+    private const OTHER_APPS = ['calendar' => 'calendar', 'notes' => 'notes', 'talk' => 'spreed', 'deck' => 'deck', 'contacts' => 'contacts', 'tasks' => 'tasks'];
 
     private static bool $enabledHere = false;
     /** @var array<string, Credential> */
@@ -73,7 +73,7 @@ final class GuestRestrictionsTest extends IntegrationTestCase {
         $policy->setEligible(Fixtures::ALICE, true);
         $policy->setConnected(Fixtures::ALICE, true);
         $policy->setGrant(Fixtures::ALICE, 'files', 'edit', true);
-        foreach (self::OTHER_APPS + ['tasks' => 'dav'] as $module => $app) {
+        foreach (self::OTHER_APPS as $module => $app) {
             $policy->setGrant(self::GUEST, $module, 'read', true);
         }
     }
@@ -182,8 +182,8 @@ final class GuestRestrictionsTest extends IntegrationTestCase {
 
     /**
      * With only this app on the Guests list, a guest gets no tool of a module whose app is not on it, on both logins;
-     * the call is refused as an unknown tool and the notes template is gone. Files (and tasks, over dav) stay: Guests
-     * always allows those apps.
+     * the call is refused as an unknown tool and the notes template is gone. Files stays available because Guests
+     * always allows the Files app.
      */
     public function testWithOnlyThisAppOnTheGuestsListNoModuleOfAnotherAppIsReachable(): void {
         $this->guests(['usewhitelist' => 'yes', 'whitelist' => 'mcp']);

@@ -50,7 +50,7 @@ class ConnectionPermissionsController extends Controller {
             $available = array_column($permitted, null, 'name');
             $selected = array_fill_keys($selection['tools'], true);
             $rows = [];
-            foreach ($this->tools->administrableDefinitions() as $tool) {
+            foreach ($this->tools->administrableDefinitions($user) as $tool) {
                 $name = $tool['name'];
                 $approvedVariants = $available[$name]['approvedVariants'] ?? [];
                 $variants = array_values(array_intersect($selection['variants'][$name] ?? [], $approvedVariants));
@@ -64,7 +64,8 @@ class ConnectionPermissionsController extends Controller {
             if ($this->state->state()['revision'] !== $revision) {
                 throw new PolicyConflict();
             }
-            return new JSONResponse(['revision' => $revision . ':' . $selection['revision'], 'tools' => $rows]);
+            $viewRevision = $revision . ':' . $selection['revision'] . ':' . self::catalogHash(array_column($rows, 'name'));
+            return new JSONResponse(['revision' => $viewRevision, 'tools' => $rows]);
         } catch (PolicyConflict) {
             return new JSONResponse(['error' => 'Reload permissions'], 409);
         } catch (PolicyUnavailable) {
@@ -83,7 +84,7 @@ class ConnectionPermissionsController extends Controller {
         $names = $this->request->getParam('tools');
         $variants = $this->request->getParam('variants', []);
         $revision = $this->request->getParam('revision');
-        if (!is_string($revision) || !preg_match('/^([0-9]{1,20}):([0-9]{1,20})$/D', $revision, $parts)
+        if (!is_string($revision) || !preg_match('/^([0-9]{1,20}):([0-9]{1,20})(?::([0-9a-f]{64}))?$/D', $revision, $parts)
             || !is_array($names) || !array_is_list($names) || count($names) > 1000
             || count(array_filter($names, 'is_string')) !== count($names) || !is_array($variants) || count($variants) > 1000) {
             return new JSONResponse(['error' => 'Invalid selection'], 400);
@@ -94,7 +95,12 @@ class ConnectionPermissionsController extends Controller {
             if ($current === null) {
                 return new JSONResponse(['error' => 'Not found'], 404);
             }
-            $this->transaction->runAdmin($parts[1], [$uid], function () use ($uid, $names, $variants, $current): array {
+            $this->transaction->runAdmin($parts[1], [$uid], function () use ($user, $uid, $names, $variants, $current, $parts): array {
+                $catalogNames = array_column($this->tools->administrableDefinitions($user), 'name');
+                // A form from before an app change (or before catalog hashes) must reload before replacing its selection.
+                if (($parts[3] ?? '') !== self::catalogHash($catalogNames)) {
+                    throw new PolicyConflict();
+                }
                 $available = $this->policy->within($uid, fn () => array_column($this->approvedTools($uid), null, 'name'));
                 if (array_diff($names, array_keys($available)) !== [] || array_diff(array_keys($variants), $names) !== []) {
                     throw new \InvalidArgumentException('Tool unavailable');
@@ -113,9 +119,10 @@ class ConnectionPermissionsController extends Controller {
                     }
                     $chosen[$name] = $operations;
                 }
-                return $chosen;
-            }, function (array $chosen) use ($uid, $id, $names, $parts): bool {
-                $this->selections->save($uid, $id, $names, $parts[2], $chosen);
+                $hidden = array_diff($current['tools'], $catalogNames);
+                return ['tools' => array_merge($names, $hidden), 'variants' => $chosen];
+            }, function (array $selection) use ($uid, $id, $parts): bool {
+                $this->selections->save($uid, $id, $selection['tools'], $parts[2], $selection['variants']);
                 // The selection has its own CAS revision. No administrative rule changed.
                 return false;
             });
@@ -129,6 +136,11 @@ class ConnectionPermissionsController extends Controller {
         } catch (PolicyUnavailable) {
             return new JSONResponse(['error' => 'Unavailable'], 503);
         }
+    }
+
+    private static function catalogHash(array $names): string {
+        sort($names, SORT_STRING);
+        return hash('sha256', implode("\n", $names));
     }
 
     private function approvedTools(string $uid): array {

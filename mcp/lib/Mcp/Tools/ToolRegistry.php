@@ -24,6 +24,7 @@ use OCA\Mcp\Mcp\Confirmation\PlanState;
 use OCA\Mcp\Mcp\Tools\Results\ToolResult;
 
 use InvalidArgumentException;
+use OCP\IUser;
 use OCA\Mcp\Access\Policy\Resolution\GrantUnknown;
 
 /** Ordered tool discovery and first-match dispatch through shared availability and execution. */
@@ -81,11 +82,16 @@ class ToolRegistry {
         return $this->visibleDefinitions($userId, true);
     }
 
-    /** All registered tools, including ones that cannot currently be selected. */
-    public function administrableDefinitions(): array {
+    /** Selectable definitions, before applying the subject's MCP grants. */
+    public function administrableDefinitions(?IUser $user = null): array {
         $tools = [];
+        $enabled = [];
         foreach ($this->modules as $module) {
             foreach ($module->definitions() as $definition) {
+                $app = $definition['app'] ?? null;
+                if ($app !== null && !($enabled[$app] ??= $this->availability->appEnabled($app, $user))) {
+                    continue;
+                }
                 $tools[] = ToolPublication::present($definition)
                     + (isset($definition['grantAllOf']) ? ['grantAllOf' => $definition['grantAllOf']] : []);
             }

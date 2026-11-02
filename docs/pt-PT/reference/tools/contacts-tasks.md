@@ -12,7 +12,7 @@
 | Módulo | Tools | Dependência |
 |---|---|---|
 | Contactos | `contacts_list_addressbooks`, `contacts_search_contacts`, `contacts_read_contact`, `contacts_create_contact`, `contacts_edit_contact`, `contacts_delete_contact` | app Contactos ativado; core CardDAV |
-| Tarefas | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | core DAV; não exige app Tarefas ou Calendário |
+| Tarefas | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | a aplicação Tarefas ativada e o DAV do núcleo |
 
 Os catálogos de Contactos são próprios/partilhados, filtrando explicitamente qualquer principal de sistema. Leituras usam adapters lazy do backend nativo, depois do filtro de acesso; escritas passam pelo Sabre do core (dispatcher CardDAV separado e o `EmbeddedDavDispatcher` existente para VTODO). A sessão precisa corresponder ao ator e o principal é fixado na execução. As consultas de calendário usam VEVENT como padrão; Tarefas seleciona VTODO.
 

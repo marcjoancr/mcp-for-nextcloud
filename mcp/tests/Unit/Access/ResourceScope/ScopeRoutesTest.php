@@ -24,6 +24,13 @@ final class ScopeRoutesTest extends TestCase {
     private ScopeFixture $fx;
     /** @var list<array{string, array<string, mixed>}> */
     private array $logged = [];
+    private array $enabled = ['tasks', 'dav', 'calendar'];
+
+    private function apps(): \OCP\App\IAppManager {
+        $apps = $this->createMock(\OCP\App\IAppManager::class);
+        $apps->method('isEnabledForUser')->willReturnCallback(fn (string $app) => in_array($app, $this->enabled, true));
+        return $apps;
+    }
 
     protected function setUp(): void {
         $this->fx = new ScopeFixture($this);
@@ -45,7 +52,7 @@ final class ScopeRoutesTest extends TestCase {
         $time->method('getTime')->willReturn(1760000123);
         return new ScopeController('mcp', $request, $reads ?? $this->fx->scopes, $resources ?? $this->fx->enumerator(), $this->fx->commands($open, $resources), $this->fx->state,
             new ScopeActivation(['files' => $open, 'calendar' => $open, 'tasks' => $open]),
-            $this->fx->userManager(), $session, $logger, $time);
+            $this->fx->userManager(), $session, $logger, $time, $this->apps());
     }
 
     private static function body(JSONResponse $response): array {
@@ -225,7 +232,20 @@ final class ScopeRoutesTest extends TestCase {
     private function personal(?string $session = 'alice'): MyScopeController {
         $userSession = $this->createMock(IUserSession::class);
         $userSession->method('getUser')->willReturn($session === null ? null : $this->fx->user($session));
-        return new MyScopeController('mcp', $this->createMock(IRequest::class), $this->fx->scopes, $this->fx->enumerator(), $userSession);
+        return new MyScopeController('mcp', $this->createMock(IRequest::class), $this->fx->scopes, $this->fx->enumerator(), $userSession, $this->apps());
+    }
+
+    public function testDisablingTasksHidesItsScopeWithoutDeletingIt(): void {
+        $this->fx->commands()->setResourceScope($this->fx->revision(), 'root', 'alice', 'tasks', []);
+        $before = $this->fx->snapshot();
+        $this->enabled = ['dav'];
+        self::assertSame(['module' => 'tasks', 'available' => false], self::body($this->controller()->show('alice', 'tasks')));
+        self::assertSame(404, $this->controller()->update('alice', 'tasks')->getStatus());
+        self::assertSame(404, $this->controller()->candidates('alice', 'tasks')->getStatus());
+        self::assertArrayNotHasKey('tasks', self::body($this->personal()->index())['modules']);
+        self::assertSame($before, $this->fx->snapshot());
+        $this->enabled[] = 'tasks';
+        self::assertSame('restricted', self::body($this->personal()->index())['modules']['tasks']['mode']);
     }
 
     public function testThePersonalReadShowsOnlyTheOwnScopeWithoutTheExclusion(): void {

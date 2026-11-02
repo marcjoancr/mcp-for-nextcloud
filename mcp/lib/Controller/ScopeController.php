@@ -20,6 +20,8 @@ use OCA\Mcp\Access\ResourceScope\ScopeItemsInaccessible;
 use OCA\Mcp\Access\ResourceScope\ScopeTooLarge;
 use OCA\Mcp\Access\ResourceScope\NativeResourceEnumerator;
 use OCA\Mcp\Access\ResourceScope\ScopeActivation;
+use OCA\Mcp\Access\AppAvailability\AppEnablement;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -62,6 +64,7 @@ class ScopeController extends Controller {
         private IUserSession $session,
         private LoggerInterface $logger,
         private ITimeFactory $time,
+        private IAppManager $apps,
     ) {
         parent::__construct($appName, $request);
     }
@@ -73,7 +76,6 @@ class ScopeController extends Controller {
      */
     public function show(string $uid, string $module): JSONResponse {
         return $this->guard('scope.show', $uid, $module, function () use ($uid, $module): array {
-            $this->target($uid, $module);
             // Read before the scope: a write in between makes the next save a conflict, never a stale accept.
             $revision = $this->revision();
             $scope = $this->readScope($uid, $module);
@@ -99,7 +101,6 @@ class ScopeController extends Controller {
      */
     public function candidates(string $uid, string $module, string $search = '', int $page = 1, string $parent = ''): JSONResponse {
         return $this->guard('scope.candidates', $uid, $module, function () use ($uid, $module, $search, $page, $parent): array {
-            $this->target($uid, $module);
             return $this->resources->candidates($uid, $module, $search, $page, $parent === '' ? null : $parent);
         }, static fn (array $body): array => ['page' => $body['page'], 'count' => count($body['items'])]);
     }
@@ -111,7 +112,6 @@ class ScopeController extends Controller {
      */
     public function update(string $uid, string $module): JSONResponse {
         return $this->guard('scope.update', $uid, $module, function () use ($uid, $module): array|JSONResponse {
-            $this->target($uid, $module);
             $items = $this->items();
             $expected = $this->expectedRevision();
             try {
@@ -143,6 +143,12 @@ class ScopeController extends Controller {
      */
     private function guard(string $action, string $uid, string $module, callable $body, callable $counted, ?callable $state = null): JSONResponse {
         try {
+            if (!$this->available($uid, $module)) {
+                $this->audit($action, $uid, $module, 'unavailable', []);
+                return $action === 'scope.show'
+                    ? new JSONResponse(['module' => $module, 'available' => false])
+                    : new JSONResponse(['error' => 'AppUnavailable'], Http::STATUS_NOT_FOUND);
+            }
             $result = $body();
             if ($result instanceof JSONResponse) {
                 $uncertain = $result->getStatus() === Http::STATUS_SERVICE_UNAVAILABLE;
@@ -230,10 +236,11 @@ class ScopeController extends Controller {
     }
 
     /** @throws InvalidArgumentException for an unknown user or module */
-    private function target(string $uid, string $module): void {
-        if (!in_array($module, ResourceScopeMapper::MODULES, true) || $uid === '' || $this->userManager->get($uid) === null) {
+    private function available(string $uid, string $module): bool {
+        if (!in_array($module, ResourceScopeMapper::MODULES, true) || $uid === '' || ($user = $this->userManager->get($uid)) === null) {
             throw new InvalidArgumentException('Invalid request');
         }
+        return $module === 'files' || AppEnablement::forUser($this->apps, $module, $user);
     }
 
     private static function unavailable(PolicyUnavailable $e): JSONResponse {

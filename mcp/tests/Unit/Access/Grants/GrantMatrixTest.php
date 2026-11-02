@@ -38,9 +38,11 @@ final class GrantMatrixTest extends TestCase {
         }
     }
 
-    public function testContactsAndCoreTasksColumnsAreOffByDefault(): void {
+    public function testTasksColumnsRequireTheTasksAppAndKeepWriteGrantsOffByDefault(): void {
         $this->fx->enabledApps[] = 'contacts';
         $this->fx->enabledApps[] = 'dav';
+        self::assertArrayNotHasKey('tasks', $this->fx->matrix()->page('', '', 1)['catalog']);
+        $this->fx->enabledApps[] = 'tasks';
         $page=$this->fx->matrix()->page('', '', 1);
         foreach (['contacts','tasks'] as $module) {
             self::assertSame(['read','create','edit','delete'], $page['catalog'][$module]);

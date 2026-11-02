@@ -9,6 +9,7 @@ namespace OCA\Mcp\Mcp\Tools\Discovery;
 
 use OCA\Mcp\Access\Guests\GuestRestrictions;
 use InvalidArgumentException;
+use OCP\IUser;
 use OCA\Mcp\Access\Policy\Resolution\GrantUnknown;
 use OCA\Mcp\OAuth\ConnectionContext;
 use OCA\Mcp\Mcp\Tools\ToolModule;
@@ -33,6 +34,12 @@ final class ToolAvailability {
      */
     public function permits(ToolModule $module, string $userId): bool {
         return !$module instanceof RestrictedModule || $module->permits($userId);
+    }
+
+    /** Group administration uses instance availability; user administration and MCP use that user's enabled apps. */
+    public function appEnabled(string $appId, ?IUser $user): bool {
+        return $user === null ? AppEnablement::forAnyone($this->appManager, $appId)
+            : AppEnablement::forUser($this->appManager, $appId, $user);
     }
 
     /**
@@ -75,7 +82,7 @@ final class ToolAvailability {
         if (isset($definition['app'])) {
             $user = $this->userManager->get($userId);
             // An optional app in a version older than MCP supports counts as off (AppEnablement::MINIMUM_VERSIONS).
-            return $user !== null && AppEnablement::forUser($this->appManager, $definition['app'], $user);
+            return $user !== null && $this->appEnabled($definition['app'], $user);
         }
         return true;
     }

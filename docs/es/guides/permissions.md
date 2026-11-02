@@ -21,7 +21,9 @@ Resumen muestra el endpoint, la versión, el número de conexiones y el límite 
 
 ## Opciones individuales y herencia de grupos
 
-En **Administración → Nextcloud MCP → Acceso y permisos**, busca un usuario o grupo. La ficha muestra primero el estado del servicio y después los catálogos de herramientas. Abre un catálogo para consultar la asignación, el permiso efectivo y su origen. Revisa la vista previa antes de guardar.
+En **Administración → Nextcloud MCP → Acceso y permisos**, elige un grupo para configurar sus reglas de servicio y herramientas. Usa el buscador para encontrar un grupo o una persona. La ficha de la persona muestra primero el estado del servicio y su origen. Las excepciones individuales aparecen encima de los catálogos. Abre un catálogo o busca una herramienta para ver su acceso efectivo y el motivo. Usa **Crear excepción** para asignar una regla individual o **Volver a heredar** para retirarla. Revisa los cambios y su impacto antes de guardarlos.
+
+Solo aparecen herramientas de apps instaladas, habilitadas y compatibles. Cada persona ve las apps habilitadas para su cuenta. Desactivar una app oculta sus herramientas en MCP y en los ajustes. Al volver a habilitarla, se recuperan los permisos y las selecciones de conexión existentes.
 
 **Permitir**, **Bloquear** y **Sin asignar** se aplican al servicio y a las herramientas. Si Ana tiene una decisión individual, esa decisión prevalece. Si está sin asignar, un bloqueo de cualquiera de sus grupos de confianza prevalece sobre el permiso de otro grupo. Si ningún grupo decide, se aplica el valor predeterminado. Si el servicio global está apagado o la cuenta deshabilitada, ninguna conexión puede usar MCP. Cada herramienta sigue sujeta a la disponibilidad de la aplicación, el rol, las operaciones requeridas y los permisos nativos sobre el recurso.
 

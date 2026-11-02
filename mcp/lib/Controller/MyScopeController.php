@@ -9,6 +9,8 @@ namespace OCA\Mcp\Controller;
 
 use OCA\Mcp\Db\ResourceScopeMapper;
 use OCA\Mcp\Access\ResourceScope\NativeResourceEnumerator;
+use OCA\Mcp\Access\AppAvailability\AppEnablement;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -30,6 +32,7 @@ class MyScopeController extends Controller {
         private ResourceScopeMapper $scopes,
         private NativeResourceEnumerator $resources,
         private IUserSession $userSession,
+        private IAppManager $apps,
     ) {
         parent::__construct($appName, $request);
     }
@@ -53,6 +56,9 @@ class MyScopeController extends Controller {
             $saved = $this->scopes->forUser($own);
             $modules = [];
             foreach (ResourceScopeMapper::MODULES as $module) {
+                if ($module !== 'files' && !AppEnablement::forUser($this->apps, $module, $user)) {
+                    continue;
+                }
                 $scope = $saved[$module] ?? null;
                 $modules[$module] = $scope === null ? ['mode' => 'unrestricted', 'items' => []] : [
                     'mode' => 'restricted',

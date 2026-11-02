@@ -143,7 +143,10 @@ export function mountInspector({ root: pageRoot, request, t, n, events, policyCh
 			resources.hidden = false
 			pathResult.textContent = ''
 			calendarResult.textContent = ''
-			await loadCalendars()
+			const available = data.calendarModules || ['calendar', 'tasks']
+			calendarModule.replaceChildren(...available.map(module => el('option', { value: module, textContent: moduleName(module) })))
+			calendarForm.hidden = !available.length
+			if (available.length) await loadCalendars()
             if (lifetime.disposed || mine !== seq) return
 			say(t('mcp', 'Access of {user} as the tools see it now.', { user: uid }))
 		} catch (error) {

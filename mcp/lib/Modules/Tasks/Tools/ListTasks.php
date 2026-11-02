@@ -37,7 +37,7 @@ final class ListTasks implements \OCA\Mcp\Mcp\Tools\Tool
                 'additionalProperties' => false,
                 'required' => ['calendar'],
             ],
-            app: 'dav'
+            app: 'tasks'
         );
     }
     public function execute(array $arguments, \OCA\Mcp\Mcp\Tools\ToolContext $context): array
