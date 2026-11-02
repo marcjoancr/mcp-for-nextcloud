@@ -120,8 +120,11 @@ final class FilesModuleTest extends TestCase {
             array_keys($defs));
         $this->assertSame(['read', 'read', 'read', 'create', 'create', 'move', 'move', 'move', 'read', 'edit',
             'edit', 'edit', 'read', 'read', 'restore', 'read', 'read', 'read', 'read', 'share', 'share', 'create', 'create'], array_column($defs, 'operation'));
-        $this->assertSame(['files_versions', 'files_versions', 'files_versions'],
-            array_values(array_filter(array_column($defs, 'app', 'name'))));
+        $this->assertSame([
+            'files_edit' => 'files_versions', 'files_replace' => 'files_versions', 'files_checkout' => 'files_versions',
+            'files_versions_list' => 'files_versions', 'files_version_read' => 'files_versions', 'files_version_restore' => 'files_versions',
+            'files_list_shares' => 'files_sharing', 'files_share' => 'files_sharing', 'files_unshare' => 'files_sharing',
+        ], array_column($defs, 'app', 'name'));
         $this->assertArrayNotHasKey('app', $defs['files_tree'], 'a árvore só depende de arquivos, que sempre existem');
         $this->assertSame(['path', 'old', 'new'], $defs['files_replace']['inputSchema']['required']);
         $this->assertSame(['path', 'version'], $defs['files_version_restore']['inputSchema']['required']);

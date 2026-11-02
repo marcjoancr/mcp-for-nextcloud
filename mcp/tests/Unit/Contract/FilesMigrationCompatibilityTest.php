@@ -32,7 +32,7 @@ final class FilesMigrationCompatibilityTest extends FilesToolsTestCase {
         foreach (GrantPolicy::CATALOG['files'] as $operation) {
             $this->sharePolicy->setGrant('alice', 'files', $operation, in_array($mode, ['all', 'noApps'], true) || $mode === $operation);
         }
-        $this->enabled = $mode === 'noApps' ? [] : ['files_versions'];
+        $this->enabled = $mode === 'noApps' ? [] : ['files_versions', 'files_sharing'];
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($this->sharePolicy, $this->apps, $this->users);
         $registry = new ToolRegistry([$this->module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)));
         $actual = array_values(array_filter($registry->list('alice'), static fn(array $t): bool => str_starts_with($t['name'], 'files_')));

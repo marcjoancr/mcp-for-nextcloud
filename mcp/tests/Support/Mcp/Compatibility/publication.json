@@ -1390,7 +1390,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "read"
+                    "operation": "read",
+                    "app": "files_sharing"
                 },
                 {
                     "name": "notes_list",
@@ -6677,7 +6678,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_replace",
@@ -6729,7 +6731,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_checkout",
@@ -6769,7 +6772,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_versions_list",
@@ -7047,7 +7051,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "read"
+                    "operation": "read",
+                    "app": "files_sharing"
                 },
                 {
                     "name": "files_share",
@@ -7115,6 +7120,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -7165,6 +7171,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -11330,6 +11337,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -11380,6 +11388,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -11728,6 +11737,7 @@
                     "name": "files_edit",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
                     "inputSchema": {
                         "type": "object",
@@ -11761,6 +11771,7 @@
                     "name": "files_replace",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and applies the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
                     "inputSchema": {
                         "type": "object",
@@ -11801,6 +11812,7 @@
                     "name": "files_checkout",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload follows the same administrator backup setting as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
                     "inputSchema": {
                         "type": "object",
@@ -12023,6 +12035,7 @@
                     "name": "files_list_shares",
                     "module": "files",
                     "operation": "read",
+                    "app": "files_sharing",
                     "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
@@ -12047,6 +12060,7 @@
                     "name": "files_share",
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -12107,6 +12121,7 @@
                     "name": "files_unshare",
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -19735,7 +19750,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "read"
+                    "operation": "read",
+                    "app": "files_sharing"
                 },
                 {
                     "name": "notes_list",
@@ -25022,7 +25038,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_replace",
@@ -25074,7 +25091,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_checkout",
@@ -25114,7 +25132,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_versions_list",
@@ -25392,7 +25411,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "read"
+                    "operation": "read",
+                    "app": "files_sharing"
                 },
                 {
                     "name": "files_share",
@@ -25460,6 +25480,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -25510,6 +25531,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -29675,6 +29697,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -29725,6 +29748,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -30073,6 +30097,7 @@
                     "name": "files_edit",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
                     "inputSchema": {
                         "type": "object",
@@ -30106,6 +30131,7 @@
                     "name": "files_replace",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and applies the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
                     "inputSchema": {
                         "type": "object",
@@ -30146,6 +30172,7 @@
                     "name": "files_checkout",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload follows the same administrator backup setting as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
                     "inputSchema": {
                         "type": "object",
@@ -30368,6 +30395,7 @@
                     "name": "files_list_shares",
                     "module": "files",
                     "operation": "read",
+                    "app": "files_sharing",
                     "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
@@ -30392,6 +30420,7 @@
                     "name": "files_share",
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -30452,6 +30481,7 @@
                     "name": "files_unshare",
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -38080,7 +38110,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "read"
+                    "operation": "read",
+                    "app": "files_sharing"
                 },
                 {
                     "name": "notes_list",
@@ -43367,7 +43398,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_replace",
@@ -43419,7 +43451,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_checkout",
@@ -43459,7 +43492,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "edit"
+                    "operation": "edit",
+                    "app": "files_versions"
                 },
                 {
                     "name": "files_versions_list",
@@ -43737,7 +43771,8 @@
                         "openWorldHint": false
                     },
                     "module": "files",
-                    "operation": "read"
+                    "operation": "read",
+                    "app": "files_sharing"
                 },
                 {
                     "name": "files_share",
@@ -43805,6 +43840,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -43855,6 +43891,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -48020,6 +48057,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -48070,6 +48108,7 @@
                     },
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -48418,6 +48457,7 @@
                     "name": "files_edit",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Replace the content of an existing text file and return the diff. Before writing, requires active versioning. MCP copies follow the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared. Never creates, moves, or deletes files.",
                     "inputSchema": {
                         "type": "object",
@@ -48451,6 +48491,7 @@
                     "name": "files_replace",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Replace a unique snippet of an existing text file and return the diff. The specified snippet must appear exactly once. Before writing, requires active versioning and applies the administrator backup setting. If the file is outside your personal folder, only write after asking the user and retrying the call with confirm_shared.",
                     "inputSchema": {
                         "type": "object",
@@ -48491,6 +48532,7 @@
                     "name": "files_checkout",
                     "module": "files",
                     "operation": "edit",
+                    "app": "files_versions",
                     "description": "Provide temporary download and upload links to edit any file type (document, spreadsheet, PDF, image) with local tools (curl) without passing content through the model, up to the upload limit. Upload raw bytes with curl -T /tmp/file -X PUT -H \"Content-Type: application/octet-stream\" \"$UPLOAD_URL\". A text file can also be edited directly with files_edit or files_replace. Links are valid for 5 to 15 minutes, single-use, and bound to you, the file, and current ETag: if the file changes before upload, nothing is written. Upload follows the same administrator backup setting as files_edit. If the file is outside your personal folder, only issue links after asking the user and retrying with confirm_shared.",
                     "inputSchema": {
                         "type": "object",
@@ -48713,6 +48755,7 @@
                     "name": "files_list_shares",
                     "module": "files",
                     "operation": "read",
+                    "app": "files_sharing",
                     "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
@@ -48737,6 +48780,7 @@
                     "name": "files_share",
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"
@@ -48797,6 +48841,7 @@
                     "name": "files_unshare",
                     "module": "files",
                     "operation": "share",
+                    "app": "files_sharing",
                     "grantAnyOf": [
                         "share",
                         "link"

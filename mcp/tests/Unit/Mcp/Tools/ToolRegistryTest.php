@@ -30,6 +30,7 @@ final class ToolRegistryTest extends TestCase {
     private array $userEnabledApps = [];
     /** @var array<string, string> installed version per app id; an app left out answers '' (unknown) */
     private array $appVersions = [];
+    private array $missingApps = [];
     public array $calls = [];
     public ?\Throwable $throw = null;
     private LoggerInterface $logger;
@@ -84,6 +85,26 @@ final class ToolRegistryTest extends TestCase {
         self::assertContains('notes_read', array_column($registry->list('alice'), 'name'));
     }
 
+    public function testNewOptionalModuleRequiresItsAppEvenWithoutAnExplicitMapping(): void {
+        $registry = $this->registry();
+        self::assertNotContains('tables_list', array_column($registry->administrableDefinitions(), 'name'));
+        $this->enabledApps[] = 'tables';
+        self::assertContains('tables_list', array_column($registry->administrableDefinitions(), 'name'));
+        // The synthetic module has no MCP grant. Enabling its app alone cannot publish it to a connection.
+        self::assertNotContains('tables_list', array_column($registry->list('alice'), 'name'));
+    }
+
+    public function testMissingAppFilesOverrideAnEnabledSetting(): void {
+        $this->missingApps = ['notes'];
+        $registry = $this->registry();
+        self::assertNotContains('notes_read', array_column($registry->administrableDefinitions(), 'name'));
+        self::assertNotContains('notes_read', array_column($registry->list('alice'), 'name'));
+        self::assertTrue($registry->call('mcp_guide', ['tool' => 'notes_read'], 'alice')['isError']);
+        self::assertContains('files_read', array_column($registry->list('alice'), 'name'));
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Validation\UnknownToolException::class);
+        $registry->call('notes_read', [], 'alice');
+    }
+
     public function testConnectionSelectionFiltersBothDiscoveryAndDirectCalls(): void {
         $connection = new \OCA\Mcp\OAuth\ConnectionContext();
         $registry = $this->registry($connection);
@@ -103,9 +124,10 @@ final class ToolRegistryTest extends TestCase {
             public function __construct(private ToolRegistryTest $test) {}
             public function definitions(): array {
                 return [
+                    ['name' => 'tables_list', 'description' => 'test only', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'tables', 'operation' => 'read'],
                     ['name' => 'files_read', 'description' => 'r', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'read'],
                     ['name' => 'files_edit', 'description' => 'e', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'files', 'operation' => 'edit'] + ($this->test->editGrantAllOf === [] ? [] : ['grantAllOf'=>$this->test->editGrantAllOf]),
-                    ['name' => 'notes_read', 'description' => 'n', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'notes', 'operation' => 'read', 'app' => 'notes'],
+                    ['name' => 'notes_read', 'description' => 'n', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'notes', 'operation' => 'read'],
                     ['name' => 'calendar_list_calendars', 'description' => 'c', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'calendar', 'operation' => 'read', 'app' => 'calendar'],
                     ['name' => 'deck_list_boards', 'description' => 'd', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'deck', 'operation' => 'read', 'app' => 'deck'],
                     ['name' => 'talk_list_conversations', 'description' => 't', 'inputSchema' => ToolRegistryTest::schema(), 'module' => 'talk', 'operation' => 'read', 'app' => 'spreed'],
@@ -121,6 +143,8 @@ final class ToolRegistryTest extends TestCase {
             }
         };
         $apps = $this->createMock(IAppManager::class);
+        $apps->method('getAppPath')->willReturnCallback(fn (string $app): string =>
+            in_array($app, $this->missingApps, true) ? throw new \OCP\App\AppPathNotFoundException() : '/apps/' . $app);
         $apps->method('isEnabledForAnyone')->willReturnCallback(fn (string $app): bool => in_array($app, $this->enabledApps, true));
         $apps->method('isEnabledForUser')->willReturnCallback(fn (string $app, IUser $user) =>
             isset($this->userEnabledApps[$user->getUID()])
