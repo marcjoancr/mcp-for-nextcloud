@@ -41,7 +41,7 @@ class CardEditing {
      * The payload is the updated card. When `assign` or `unassign` were sent it also reports `assigned`,
      * `unassigned` and `failed` (uid and a safe reason); a failure in the middle leaves what was already done.
      *
-     * @param array<string, mixed> $arguments Requires `cardId`; accepts the editable fields, `assign`, `unassign` and `lastModified`.
+     * @param array<string, mixed> $arguments Requires `cardId`; accepts the editable fields, `completed`, `assign`, `unassign` and `lastModified`.
      * @param string $userId UID of the authenticated caller.
      * @return array<string, mixed> Operation payload; the tool adds the MCP result envelope.
      * @throws InvalidArgumentException When nothing editable is present, a date is invalid or an assignee is refused, mapped to -32602.
@@ -51,7 +51,8 @@ class CardEditing {
         $given = array_intersect_key($arguments, array_flip(self::EDITABLE_FIELDS));
         $changes = AssignmentChanges::fromArguments($arguments);
         $editsAssignees = $changes['assign'] !== [] || $changes['unassign'] !== [];
-        if ($given === [] && !$editsAssignees) {
+        $editsCompletion = array_key_exists('completed', $arguments);
+        if ($given === [] && !$editsAssignees && !$editsCompletion) {
             throw new InvalidArgumentException(ErrorMessages::errorNoFieldToEdit());
         }
         // Owned by somebody else and not confirmed yet: answer with the shared-resource payload
@@ -69,19 +70,29 @@ class CardEditing {
         $title = array_key_exists('title', $given) ? CardInput::requireTitle((string) $given['title']) : (string) $card->getTitle();
         $description = array_key_exists('description', $given) ? CardInput::requireDescription((string) $given['description']) : (string) $card->getDescription();
         $duedate = array_key_exists('duedate', $given) ? CardInput::duedate($given['duedate'], $this->zones?->forUser($userId)) : $this->currentDuedate($card->getDuedate());
+        $done = $card->getDone();
+        if ($editsCompletion) {
+            $done = $arguments['completed']
+                ? ($done instanceof \DateTimeInterface ? $done : new \DateTime())
+                : null;
+        }
         $resolved = AssignmentChanges::resolve($changes['assign'], $changes['unassign'], AssignedUsers::assignedUids($card));
         if ($resolved['add'] !== []) {
             $this->assignments->validateAssignees($userId, (int) $card->getStackId(), $resolved['add']);
         }
+        $completionChanged = !self::sameDone($card->getDone(), $done);
         $warnings = [];
-        if ($given === []) {
+        $boardArchived = $editsCompletion && $given === [] && !$editsAssignees && !$completionChanged
+            ? ($card->getArchived() || $this->ownership->cardBoardIsArchived($userId, (int) $card->getId()))
+            : false;
+        if ($given === [] && !$completionChanged && !$boardArchived) {
             $updated = $card;
         } else {
             $updated = $this->writes->afterWrite(
                 'deck_edit_card',
                 'deck_read_card',
-                fn() => $this->writer->updateCard($userId, $card, $title, $description, $duedate),
-                fn() => $this->savedEdit($userId, $card, $title, $description, $duedate),
+                fn() => $this->writer->updateCard($userId, $card, $title, $description, $duedate, $done),
+                fn() => $this->savedEdit($userId, $card, $title, $description, $duedate, $done),
                 $warnings,
             );
             // The update answer does not always carry the assignments; the ones read above still stand.
@@ -115,10 +126,23 @@ class CardEditing {
         string $title,
         string $description,
         ?string $duedate,
+        ?\DateTimeInterface $done,
     ): ?Card {
         $card = $this->state->cardState($userId, (int) $before->getId());
-        $saved = (string) $card->getTitle() === $title && self::withoutAstral((string) $card->getDescription()) === self::withoutAstral($description) && CardDueDate::same($card->getDuedate(), $duedate, $this->zones?->forUser($userId) ?? new \DateTimeZone(date_default_timezone_get())) && (int) $card->getLastModified() !== (int) $before->getLastModified();
+        $completionChanged = !self::sameDone($before->getDone(), $done);
+        $saved = (string) $card->getTitle() === $title
+            && self::withoutAstral((string) $card->getDescription()) === self::withoutAstral($description)
+            && CardDueDate::same($card->getDuedate(), $duedate, $this->zones?->forUser($userId) ?? new \DateTimeZone(date_default_timezone_get()))
+            && self::sameDone($card->getDone(), $done)
+            && ((int) $card->getLastModified() !== (int) $before->getLastModified() || $completionChanged);
         return $saved ? $card : null;
+    }
+
+    private static function sameDone(mixed $actual, ?\DateTimeInterface $expected): bool {
+        if ($actual === null || $expected === null) {
+            return $actual === $expected;
+        }
+        return $actual instanceof \DateTimeInterface && $actual->getTimestamp() === $expected->getTimestamp();
     }
 
     /**

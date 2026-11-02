@@ -14,7 +14,7 @@ class ToolMessages {
     public const TOOL_LIST_CARDS_DESCRIPTION = 'Lists the active cards of a Deck list (stack), paginated.';
     public const TOOL_READ_CARD_DESCRIPTION = 'Reads a Deck card with its description, dates and counters.';
     public const TOOL_CREATE_CARD_DESCRIPTION = 'Creates a Deck card at the end of a list (stack), owned by you. Optional assignees are account IDs with access to the board; use users_search to resolve IDs. If assignment fails after creation, the created card is returned with a warning.';
-    public const TOOL_EDIT_CARD_DESCRIPTION = 'Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone.';
+    public const TOOL_EDIT_CARD_DESCRIPTION = 'Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone.';
     public const TOOL_MOVE_CARD_DESCRIPTION = 'Moves a Deck card to another list (stack), including one on another board. Without order, the card goes to the end.';
     public const TOOL_DELETE_CARD_DESCRIPTION = 'Deletes a Deck card the same way the web interface does: the deletion can be undone in Deck.';
     public const TOOL_FOLLOWUP_CARDS_DESCRIPTION = 'Lists the cards of the boards you can manage (owner or manage permission), grouped by assignee, with a direct link to each card. By default it returns only overdue cards; the scan covers at most 100 visible boards.';
@@ -35,6 +35,7 @@ class ToolMessages {
     public const PARAM_TITLE = 'Card title.';
     public const PARAM_DESCRIPTION = 'Card description, in plain text.';
     public const PARAM_DUEDATE = \OCA\Mcp\Modules\Deck\Cards\CardDueDateMessages::INPUT_DESCRIPTION;
+    public const PARAM_COMPLETED = 'Whether the card is complete; omission keeps its current completion state.';
     public const PARAM_LIMIT = 'Maximum number of cards to return.';
     public const PARAM_OFFSET = 'Number of cards to skip, for pagination.';
     public const PARAM_ORDER = 'Position of the card in the list, from 0 to 99999.';

@@ -81,6 +81,7 @@ final class NextcloudApiUsage {
         'OCA\\Mail\\Account::getEmail' => [],
         'OCA\\Mail\\Account::getUserId' => [],
         'OCA\\Deck\\Db\\BoardMapper::find' => ['id','withLabels','withAcl','allowDeleted'],
+        'OCA\\Deck\\Service\\BoardService::isArchived' => ['mapper', 'id'],
         'OCA\\Deck\\Db\\BoardMapper::flushCache' => ['boardId','userId'],
         'OCP\\IGroup::count' => [],
         // BoardRecipientResolver authorizes the source before DeckRecipientDirectory reads complete native ACLs/readers.
@@ -116,6 +117,7 @@ final class NextcloudApiUsage {
         'OCA\\Talk\\Chat\\ChatManager::sendMessage' => ['chat', 'participant', 'actorType', 'actorId', 'message', 'creationDateTime', 'replyTo'],
         'OCA\\Talk\\Chat\\ChatManager::addSystemMessage' => ['chat', 'participant', 'actorType', 'actorId', 'message', 'creationDateTime', 'sendNotifications'],
         'OCA\\Talk\\Chat\\ChatManager::getParentComment' => ['chat', 'parentId'],
+        'OCA\\Talk\\Chat\\ChatManager::getComment' => ['chat', 'messageId'],
         'OCA\\Talk\\Chat\\ChatManager::getHistory' => ['chat', 'offset', 'limit', 'includeLastKnown'],
         'OCA\\Talk\\Service\\RoomService::createConversation' => ['type', 'name', 'owner'],
         'OCA\\Talk\\Service\\RoomService::createOneToOneConversation' => ['actor', 'targetUser'],

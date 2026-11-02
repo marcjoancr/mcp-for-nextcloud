@@ -92,3 +92,6 @@ The Forms and Mail read extension adds `forms_list`, `forms_read`, `mail_search_
 and `mail_read_message` to the raw catalogs. The People and Logs module-order captures
 also include Forms. The historical fixture reports unknown optional-app versions.
 Separate protocol tests cover the published schemas under each grant.
+The Deck and Talk extension updates the published descriptions and optional inputs
+for `deck_edit_card` and `talk_read_messages`. The Talk module fixture also shows
+the history cursor in the tool guide. The shared result examples remain unchanged.

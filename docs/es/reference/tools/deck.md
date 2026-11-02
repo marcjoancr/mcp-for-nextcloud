@@ -30,6 +30,10 @@ Después de un error de Deck, todas las escrituras vuelven a leer el estado real
 
 La regla de eliminar «solo si está vacío» no es atómica: Deck no consulta `deleted_at` de la lista al crear una tarjeta. Por tanto, una tarjeta creada por otra solicitud justo después del segundo recuento puede ir a la papelera junto con la lista o el tablero, desde donde se puede recuperar. Esto figura en la descripción de la herramienta y en el gateway.
 
+## Completar y reabrir tarjetas
+
+En `deck_edit_card`, usa `completed: true` para completar una tarjeta y `completed: false` para reabrirla. Omite el campo para conservar el estado actual. Repetir la operación de completar conserva la fecha de finalización original. La tarjeta permanece en su lista, incluso si el tablero tiene una lista de tarjetas completadas. Se aplican `deck.edit`, los permisos del tablero y la vista previa y confirmación habituales.
+
 Consulta la guía `mcp_guide` activa para obtener el esquema y las operaciones disponibles como referencia definitiva.
 
 [Guías operativas](../../guides/README.md).

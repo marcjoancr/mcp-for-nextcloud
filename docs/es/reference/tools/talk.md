@@ -13,6 +13,10 @@
 | --- | --- | --- |
 | **Talk** | conversaciones y mensajes (nunca marca nada como leído) | responder (con la opción de citar un mensaje o enlazar una tarjeta de Deck o un evento del calendario visible para el usuario), enviar un mensaje directo a un usuario, un lote de mensajes, compartir o citar un archivo y crear una conversación de grupo (permiso independiente, desactivado de forma predeterminada). **No se envía nada antes de que el usuario lo apruebe: una llamada sin `confirm: true` solo devuelve el plan (destinatario, texto final, adjuntos y elementos que se crearían o compartirían) y no ejecuta ninguna acción; con `confirm: true`, vuelve a comprobar los permisos y envía. El servidor no conserva ningún ID de aprobación, token ni registro.** |
 
+## Leer mensajes anteriores
+
+`talk_read_messages` devuelve primero la página más reciente. Dentro de cada página, los mensajes van del más antiguo al más reciente. Para retroceder, pasa el `next_before_message_id` recibido como `before_message_id` con el mismo `conversation_token`. La página excluye el mensaje del cursor. Un cursor nulo indica que se ha alcanzado el principio del historial disponible. Cada página vuelve a comprobar el acceso y conserva los mensajes no leídos y las notificaciones.
+
 Consulta la guía `mcp_guide` activa para obtener el esquema y las operaciones disponibles como referencia definitiva.
 
 [Guías operativas](../../guides/README.md).

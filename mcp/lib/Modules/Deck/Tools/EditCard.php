@@ -39,6 +39,7 @@ class EditCard implements WriteTool {
                     'title' => DeckSchema::string(ToolMessages::PARAM_TITLE, 1, 255),
                     'description' => DeckSchema::string(ToolMessages::PARAM_DESCRIPTION, 0),
                     'duedate' => DeckSchema::nullableString(ToolMessages::PARAM_DUEDATE),
+                    'completed' => ['type' => 'boolean', 'description' => ToolMessages::PARAM_COMPLETED],
                     'assign' => DeckSchema::accountList(ToolMessages::PARAM_ASSIGN),
                     'unassign' => DeckSchema::accountList(ToolMessages::PARAM_UNASSIGN),
                     'lastModified' => DeckSchema::integer(ToolMessages::PARAM_LAST_MODIFIED, 0),

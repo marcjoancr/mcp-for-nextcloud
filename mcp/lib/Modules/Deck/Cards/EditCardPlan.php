@@ -27,7 +27,7 @@ class EditCardPlan {
     }
 
     /**
-     * @param array{cardId: int, title?: string, description?: string, duedate?: string|null, assign?: list<string>, unassign?: list<string>, lastModified?: int} $arguments
+     * @param array{cardId: int, title?: string, description?: string, duedate?: string|null, completed?: bool, assign?: list<string>, unassign?: list<string>, lastModified?: int} $arguments
      * @param string $userId UID of the authenticated caller.
      * @return array<string, mixed>
      */
@@ -35,7 +35,8 @@ class EditCardPlan {
         $given = array_intersect_key($arguments, array_flip(['title', 'description', 'duedate']));
         $changes = AssignmentChanges::fromArguments($arguments);
         $editsAssignees = $changes['assign'] !== [] || $changes['unassign'] !== [];
-        if ($given === [] && !$editsAssignees) {
+        $editsCompletion = array_key_exists('completed', $arguments);
+        if ($given === [] && !$editsAssignees && !$editsCompletion) {
             throw new InvalidArgumentException(ErrorMessages::errorNoFieldToEdit());
         }
         $card = $this->cards->findCard($userId, (int) $arguments['cardId']);
@@ -48,11 +49,12 @@ class EditCardPlan {
             'description' => array_key_exists('description', $given) ? CardInput::requireDescription((string) $given['description']) : $before['description'],
             // Absent keeps the date as it is; an explicit null clears it, exactly as the write reads it.
             'duedate' => array_key_exists('duedate', $given) ? CardDate::day(CardInput::duedate($given['duedate'], $zone), $zone) : $before['duedate'],
+            'completed' => $editsCompletion ? $arguments['completed'] : $before['completed'],
         ];
         $assignees = $editsAssignees ? $this->assignmentPlan->build($userId, $card, $changes) : null;
         $board = $this->ownership->cardOwnership($userId, (int) $arguments['cardId']);
         $changed = array_values(array_filter(
-            ['title', 'description', 'duedate'],
+            ['title', 'description', 'duedate', 'completed'],
             static fn(string $field): bool => $before[$field] !== $after[$field],
         ));
         if ($assignees !== null && ($assignees['added'] !== [] || $assignees['removed'] !== [])) {

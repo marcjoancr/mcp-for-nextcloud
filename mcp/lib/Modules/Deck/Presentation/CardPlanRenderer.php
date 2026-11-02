@@ -89,6 +89,10 @@ class CardPlanRenderer {
                 $beforeDue = !empty($before['duedate']) ? PlanText::formatDate((string) $before['duedate'], $zone) : Translator::t('(no due date)');
                 $afterDue = !empty($after['duedate']) ? PlanText::formatDate((string) $after['duedate'], $zone) : Translator::t('(no due date)');
                 $lines[] = Translator::t('- Due date: %s → %s', [$beforeDue, $afterDue]);
+            } elseif ($field === 'completed' && (array_key_exists('completed', $before) || array_key_exists('completed', $after))) {
+                $beforeStatus = !empty($before['completed']) ? Translator::t('complete') : Translator::t('open');
+                $afterStatus = !empty($after['completed']) ? Translator::t('complete') : Translator::t('open');
+                $lines[] = Translator::t('- Completion: %s → %s', [$beforeStatus, $afterStatus]);
             }
         }
         array_push($lines, ...self::assigneeLines($plan['assignees'] ?? null));

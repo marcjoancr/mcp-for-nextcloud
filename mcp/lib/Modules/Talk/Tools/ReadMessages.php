@@ -40,6 +40,11 @@ class ReadMessages implements Tool
                         'maximum' => ConversationReader::MAX_MESSAGES,
                         'default' => ConversationReader::DEFAULT_MESSAGES,
                     ],
+                    'before_message_id' => [
+                        'type' => 'integer',
+                        'minimum' => 1,
+                        'description' => 'Return messages older than this ID, exclusive; use next_before_message_id from the previous page.',
+                    ],
                 ],
                 'required' => ['conversation_token'],
                 'additionalProperties' => false,
@@ -52,14 +57,15 @@ class ReadMessages implements Tool
     {
         return $this->results->run(
             self::NAME,
-            fn(): array => [
-                'messages' => ($this->read)(
+            function () use ($arguments, $context): array {
+                return ($this->read)(
                     $context->userId,
                     (string) ($arguments['conversation_token'] ??
                         throw new \InvalidArgumentException(ConversationMessages::invalidToken())),
                     (int) ($arguments['limit'] ?? ConversationReader::DEFAULT_MESSAGES),
-                ),
-            ],
+                    isset($arguments['before_message_id']) ? (int) $arguments['before_message_id'] : null,
+                );
+            },
         );
     }
 }

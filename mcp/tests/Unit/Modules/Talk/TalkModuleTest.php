@@ -252,9 +252,9 @@ class TalkModuleTest extends TestCase
         $this->resolver->expects($this->never())->method('resolveForReading');
         $this->reader
             ->expects($this->once())
-            ->method('readMessages')
-            ->with('alice', 'abcd', ConversationReader::DEFAULT_MESSAGES)
-            ->willReturn([['id' => '42']]);
+            ->method('readMessagePage')
+            ->with('alice', 'abcd', ConversationReader::DEFAULT_MESSAGES, null)
+            ->willReturn(['messages' => [['id' => '42']], 'next_before_message_id' => null]);
 
         $result = $this->module->call(
             \OCA\Mcp\Modules\Talk\Tools\ReadMessages::NAME,
@@ -262,12 +262,39 @@ class TalkModuleTest extends TestCase
             'alice',
         );
 
-        $this->assertSame(['messages' => [['id' => '42']]], $this->payloadOf($result));
+        $this->assertSame(['messages' => [['id' => '42']], 'next_before_message_id' => null], $this->payloadOf($result));
+    }
+
+    public function testReadingForwardsTheExclusiveCursorAndReturnsTheNextOne(): void
+    {
+        $this->reader->expects($this->once())
+            ->method('readMessagePage')
+            ->willReturnCallback(function (string $userId, string $token, int $limit, ?int $beforeMessageId): array {
+                $this->assertSame(['alice', 'abcd', 10, 20], [$userId, $token, $limit, $beforeMessageId]);
+                return ['messages' => [['id' => '8']], 'next_before_message_id' => 7];
+            });
+
+        $result = $this->module->call(
+            \OCA\Mcp\Modules\Talk\Tools\ReadMessages::NAME,
+            ['conversation_token' => 'abcd', 'limit' => 10, 'before_message_id' => 20],
+            'alice',
+        );
+
+        $this->assertSame(['messages' => [['id' => '8']], 'next_before_message_id' => 7], $this->payloadOf($result));
+    }
+
+    public function testReadMessagesSchemaAcceptsAnOptionalPositiveCursor(): void
+    {
+        $schema = \OCA\Mcp\Modules\Talk\Tools\ReadMessages::definition()->inputSchema;
+
+        $this->assertSame(1, $schema['properties']['before_message_id']['minimum']);
+        $this->assertNotContains('before_message_id', $schema['required'] ?? []);
+        $this->assertFalse($schema['additionalProperties']);
     }
 
     public function testReadingForwardsTheRequestedLimit(): void
     {
-        $this->reader->expects($this->once())->method('readMessages')->with('alice', 'abcd', 10);
+        $this->reader->expects($this->once())->method('readMessagePage')->with('alice', 'abcd', 10, null);
 
         $this->module->call(
             \OCA\Mcp\Modules\Talk\Tools\ReadMessages::NAME,

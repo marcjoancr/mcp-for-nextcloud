@@ -37,7 +37,7 @@ final class TalkModuleFixtures
             }
             if ($class === ReadMessages::class) {
                 return new ReadMessages(
-                    $get(ConversationReader::class)->readMessages(...),
+                    $get(ConversationReader::class)->readMessagePage(...),
                     $services[ResultBoundary::class],
                 );
             }

@@ -131,7 +131,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Talk\Execution\ResultBoundary::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Talk\Tools\ReadMessages::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\Tools\ReadMessages(
-            $c->get(\OCA\Mcp\Modules\Talk\Reading\ConversationReader::class)->readMessages(...),
+            $c->get(\OCA\Mcp\Modules\Talk\Reading\ConversationReader::class)->readMessagePage(...),
             $c->get(\OCA\Mcp\Modules\Talk\Execution\ResultBoundary::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Talk\Integration\TalkAvailability::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\Integration\TalkAvailability(

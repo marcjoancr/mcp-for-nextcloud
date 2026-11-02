@@ -70,7 +70,7 @@ final class DeckServiceWriterTest extends TestCase {
         $card = $this->card(['id' => 7, 'duedate' => new \DateTime('2026-10-01 18:30:00', new \DateTimeZone('UTC'))]);
         $this->recordSetUserId();
         $this->services[CardService::class]->expects(self::once())->method('update')->with(7, 'Card', 10, 'note', 'alice', '', 0, '2026-10-01T18:30:00Z')->willReturn($card);
-        $capabilities->writer->updateCard('alice', $card, 'Card', '', '2026-10-01T18:30:00+00:00');
+        $capabilities->writer->updateCard('alice', $card, 'Card', '', '2026-10-01T18:30:00+00:00', $card->getDone());
     }
 
     public function testUpdateCardPreservesEveryFieldTheCallerDidNotChange(): void {
@@ -101,7 +101,28 @@ final class DeckServiceWriterTest extends TestCase {
                 return $done instanceof OptionalNullableValue && $done->getValue()?->format('Y-m-d H:i:s') === '2026-01-02 10:00:00';
             }),
         )->willReturn($card);
-        self::assertSame($card, $this->capabilities->writer->updateCard('alice', $card, 'Fechar', 'Novo texto', null));
+        self::assertSame($card, $this->capabilities->writer->updateCard('alice', $card, 'Fechar', 'Novo texto', null, $card->getDone()));
+    }
+
+    public function testUpdateCardWritesCompletionTimestampWithoutChangingStackOrOrder(): void {
+        $card = $this->card(['id' => 7, 'stackId' => 10, 'order' => 3, 'done' => null]);
+        $done = new \DateTime('2026-06-01 12:34:56', new \DateTimeZone('UTC'));
+        $this->recordSetUserId();
+        $this->services[CardService::class]->expects(self::once())->method('update')->with(
+            7, 'Card', 10, 'note', 'alice', '', 3, null, null, null,
+            self::callback(static fn(mixed $actual): bool => $actual instanceof OptionalNullableValue && $actual->getValue() === $done),
+        )->willReturn($card);
+        $this->capabilities->writer->updateCard('alice', $card, 'Card', '', null, $done);
+    }
+
+    public function testUpdateCardReopensBySendingExplicitNullDoneValue(): void {
+        $card = $this->card(['id' => 7, 'done' => new \DateTime('2026-06-01 12:34:56', new \DateTimeZone('UTC'))]);
+        $this->recordSetUserId();
+        $this->services[CardService::class]->expects(self::once())->method('update')->with(
+            7, 'Card', 10, 'note', 'alice', '', 0, null, null, null,
+            self::callback(static fn(mixed $actual): bool => $actual instanceof OptionalNullableValue && $actual->getValue() === null),
+        )->willReturn($card);
+        $this->capabilities->writer->updateCard('alice', $card, 'Card', '', null, null);
     }
 
     /**
@@ -141,6 +162,7 @@ final class DeckServiceWriterTest extends TestCase {
             'Fechar',
             'Novo texto',
             null,
+            $this->deck118Card(new \DateTime('2026-02-01 09:00:00', new \DateTimeZone('UTC')), 'e9322d')->getDone(),
         );
         self::assertCount(13, $deck->arguments);
         self::assertSame('2026-02-01T09:00:00+00:00', $deck->arguments[11]);
@@ -186,6 +208,7 @@ final class DeckServiceWriterTest extends TestCase {
             'Fechar',
             'Novo texto',
             null,
+            $this->deck118Card(new \DateTime('2026-02-01 09:00:00', new \DateTimeZone('UTC')), 'e9322d')->getDone(),
         );
         self::assertCount(13, $deck->arguments);
         self::assertSame('2026-02-01T09:00:00+00:00', $deck->arguments[11]);
@@ -221,7 +244,7 @@ final class DeckServiceWriterTest extends TestCase {
         };
         $this->services[CardService::class] = $deck;
         $this->recordSetUserId();
-        $this->capabilities->writer->updateCard('alice', $this->deck118Card(null, null), 'Fechar', '', null);
+        $this->capabilities->writer->updateCard('alice', $this->deck118Card(null, null), 'Fechar', '', null, null);
         self::assertSame([null, null], array_slice($deck->arguments, 11));
     }
 
@@ -236,7 +259,7 @@ final class DeckServiceWriterTest extends TestCase {
             self::assertCount(11, $arguments);
             return $card;
         });
-        $this->capabilities->writer->updateCard('alice', $card, 'Fechar', '', null);
+        $this->capabilities->writer->updateCard('alice', $card, 'Fechar', '', null, null);
     }
 
     public function testMoveCardWithoutOrderChecksTheDestinationStackBeforeReadingIt(): void {

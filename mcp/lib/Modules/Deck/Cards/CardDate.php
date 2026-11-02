@@ -45,13 +45,14 @@ class CardDate {
      *
      * @param \OCA\Deck\Db\Card $card Card as the capability read it.
      * @param \DateTimeZone|null $zone Zone the due date is shown in, or null to keep the stored one.
-     * @return array{title: string, description: string, duedate: string|null}
+     * @return array{title: string, description: string, duedate: string|null, completed: bool}
      */
     public static function fields(Card $card, ?\DateTimeZone $zone = null): array {
         return [
             'title' => (string) $card->getTitle(),
             'description' => (string) $card->getDescription(),
             'duedate' => self::instant($card->getDuedate(), $zone),
+            'completed' => $card->getDone() !== null,
         ];
     }
 

@@ -81,6 +81,23 @@ class OwnershipReader {
     }
 
     /**
+     * Whether the board containing a card is archived, after checking the same native edit grant as a write.
+     * Used only to avoid treating a repeated completion state as a successful no-op on an archived board;
+     * writes themselves still go through CardService so Deck remains the authority on refusal behavior.
+     */
+    public function cardBoardIsArchived(string $userId, int $cardId): bool {
+        $this->caller->bind($userId);
+        /** @var PermissionService $permissionService */
+        $permissionService = ($this->permissionServiceProvider)();
+        /** @var CardMapper $cardMapper */
+        $cardMapper = ($this->cardMapperProvider)();
+        $permissionService->checkPermission($cardMapper, $cardId, Acl::PERMISSION_EDIT);
+        /** @var BoardService $boardService */
+        $boardService = ($this->boardServiceProvider)();
+        return $boardService->isArchived($cardMapper, $cardId);
+    }
+
+    /**
      * Ownership of a board, after the manage check a structure change needs.
      *
      * Same contract as {@see self::stackOwnership()}, starting from the board: the check comes first, so a

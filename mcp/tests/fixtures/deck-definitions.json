@@ -140,7 +140,7 @@
         },
         {
             "name": "deck_edit_card",
-            "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+            "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -165,6 +165,10 @@
                             "null"
                         ],
                         "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                    },
+                    "completed": {
+                        "type": "boolean",
+                        "description": "Whether the card is complete; omission keeps its current completion state."
                     },
                     "assign": {
                         "type": "array",

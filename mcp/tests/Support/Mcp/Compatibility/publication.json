@@ -953,7 +953,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Read Talk messages",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -967,6 +967,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -2024,7 +2029,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Read Talk messages",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -2038,6 +2043,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -2455,7 +2465,7 @@
                                 {
                                     "name": "talk_read_messages",
                                     "title": "Read Talk messages",
-                                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -5121,7 +5131,7 @@
                 {
                     "name": "deck_edit_card",
                     "title": "Edit Deck card",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -5146,6 +5156,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -5781,7 +5795,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Read Talk messages",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -5795,6 +5809,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -8950,7 +8969,7 @@
                 {
                     "name": "deck_edit_card",
                     "title": "Edit Deck card",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -8975,6 +8994,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -9652,7 +9675,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Read Talk messages",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -9666,6 +9689,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -10817,7 +10845,7 @@
                                 {
                                     "name": "deck_edit_card",
                                     "title": "Edit Deck card",
-                                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -10965,7 +10993,7 @@
                                 {
                                     "name": "talk_read_messages",
                                     "title": "Read Talk messages",
-                                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -13593,7 +13621,7 @@
                 },
                 {
                     "name": "deck_edit_card",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -13618,6 +13646,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -14164,7 +14196,7 @@
                     "module": "talk",
                     "operation": "read",
                     "app": "spreed",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -14178,6 +14210,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -17382,7 +17419,7 @@
                         {
                             "name": "deck_edit_card",
                             "title": "Edit Deck card",
-                            "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                            "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -17407,6 +17444,10 @@
                                             "null"
                                         ],
                                         "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                                    },
+                                    "completed": {
+                                        "type": "boolean",
+                                        "description": "Whether the card is complete; omission keeps its current completion state."
                                     },
                                     "assign": {
                                         "type": "array",
@@ -18042,7 +18083,7 @@
                         {
                             "name": "talk_read_messages",
                             "title": "Read Talk messages",
-                            "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                            "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -18056,6 +18097,11 @@
                                         "minimum": 1,
                                         "maximum": 200,
                                         "default": 50
+                                    },
+                                    "before_message_id": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                                     }
                                 },
                                 "required": [
@@ -19494,7 +19540,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Ler mensagens do Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -19508,6 +19554,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -20565,7 +20616,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Ler mensagens do Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -20579,6 +20630,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -20996,7 +21052,7 @@
                                 {
                                     "name": "talk_read_messages",
                                     "title": "Ler mensagens do Talk",
-                                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -23662,7 +23718,7 @@
                 {
                     "name": "deck_edit_card",
                     "title": "Editar card do Deck",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -23687,6 +23743,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -24322,7 +24382,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Ler mensagens do Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -24336,6 +24396,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -27491,7 +27556,7 @@
                 {
                     "name": "deck_edit_card",
                     "title": "Editar card do Deck",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -27516,6 +27581,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -28193,7 +28262,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Ler mensagens do Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -28207,6 +28276,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -29358,7 +29432,7 @@
                                 {
                                     "name": "deck_edit_card",
                                     "title": "Editar card do Deck",
-                                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -29506,7 +29580,7 @@
                                 {
                                     "name": "talk_read_messages",
                                     "title": "Ler mensagens do Talk",
-                                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -32134,7 +32208,7 @@
                 },
                 {
                     "name": "deck_edit_card",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -32159,6 +32233,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -32705,7 +32783,7 @@
                     "module": "talk",
                     "operation": "read",
                     "app": "spreed",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -32719,6 +32797,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -35923,7 +36006,7 @@
                         {
                             "name": "deck_edit_card",
                             "title": "Editar card do Deck",
-                            "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                            "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -35948,6 +36031,10 @@
                                             "null"
                                         ],
                                         "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                                    },
+                                    "completed": {
+                                        "type": "boolean",
+                                        "description": "Whether the card is complete; omission keeps its current completion state."
                                     },
                                     "assign": {
                                         "type": "array",
@@ -36583,7 +36670,7 @@
                         {
                             "name": "talk_read_messages",
                             "title": "Ler mensagens do Talk",
-                            "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                            "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -36597,6 +36684,11 @@
                                         "minimum": 1,
                                         "maximum": 200,
                                         "default": 50
+                                    },
+                                    "before_message_id": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                                     }
                                 },
                                 "required": [
@@ -38035,7 +38127,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Leer mensajes de Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -38049,6 +38141,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -39106,7 +39203,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Leer mensajes de Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -39120,6 +39217,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -39537,7 +39639,7 @@
                                 {
                                     "name": "talk_read_messages",
                                     "title": "Leer mensajes de Talk",
-                                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -42203,7 +42305,7 @@
                 {
                     "name": "deck_edit_card",
                     "title": "Editar tarjeta de Deck",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -42228,6 +42330,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -42863,7 +42969,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Leer mensajes de Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -42877,6 +42983,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -46032,7 +46143,7 @@
                 {
                     "name": "deck_edit_card",
                     "title": "Editar tarjeta de Deck",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -46057,6 +46168,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -46734,7 +46849,7 @@
                 {
                     "name": "talk_read_messages",
                     "title": "Leer mensajes de Talk",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -46748,6 +46863,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -47899,7 +48019,7 @@
                                 {
                                     "name": "deck_edit_card",
                                     "title": "Editar tarjeta de Deck",
-                                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -48047,7 +48167,7 @@
                                 {
                                     "name": "talk_read_messages",
                                     "title": "Leer mensajes de Talk",
-                                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -50675,7 +50795,7 @@
                 },
                 {
                     "name": "deck_edit_card",
-                    "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                    "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -50700,6 +50820,10 @@
                                     "null"
                                 ],
                                 "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                            },
+                            "completed": {
+                                "type": "boolean",
+                                "description": "Whether the card is complete; omission keeps its current completion state."
                             },
                             "assign": {
                                 "type": "array",
@@ -51246,7 +51370,7 @@
                     "module": "talk",
                     "operation": "read",
                     "app": "spreed",
-                    "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                    "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -51260,6 +51384,11 @@
                                 "minimum": 1,
                                 "maximum": 200,
                                 "default": 50
+                            },
+                            "before_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                             }
                         },
                         "required": [
@@ -54464,7 +54593,7 @@
                         {
                             "name": "deck_edit_card",
                             "title": "Editar tarjeta de Deck",
-                            "description": "Edits the title, description, due date and assignees of a Deck card. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
+                            "description": "Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone. If the resource belongs to somebody else, the agent MUST ask the user before sending confirm_shared: true.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -54489,6 +54618,10 @@
                                             "null"
                                         ],
                                         "description": "Due date as YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] in the account timezone, or a timestamp with Z or an explicit offset (±HH:MM). Send null to remove it."
+                                    },
+                                    "completed": {
+                                        "type": "boolean",
+                                        "description": "Whether the card is complete; omission keeps its current completion state."
                                     },
                                     "assign": {
                                         "type": "array",
@@ -55124,7 +55257,7 @@
                         {
                             "name": "talk_read_messages",
                             "title": "Leer mensajes de Talk",
-                            "description": "Reads the latest messages of a conversation, without marking anything as read, without touching notifications and without recording activity. Use the id returned in reply_to to answer and attachmentId to cite an attachment.",
+                            "description": "Reads conversation messages without changing read or notification state or recording activity. Each page is ordered oldest-to-newest and includes messages plus next_before_message_id. Start without before_message_id; use the returned next_before_message_id as the exclusive before_message_id for older history. The cursor is null when no older page remains. Use a message id in reply_to to answer, and attachmentId to cite an attachment.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -55138,6 +55271,11 @@
                                         "minimum": 1,
                                         "maximum": 200,
                                         "default": 50
+                                    },
+                                    "before_message_id": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "description": "Return messages older than this ID, exclusive; use next_before_message_id from the previous page."
                                     }
                                 },
                                 "required": [

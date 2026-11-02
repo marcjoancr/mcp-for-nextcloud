@@ -30,6 +30,10 @@ Després d'un error de Deck, cada escriptura torna a llegir l'estat real abans d
 
 La supressió «només si està buida» no és atòmica: Deck no comprova `deleted_at` de la llista quan crea una targeta. Per tant, una targeta creada per una altra petició just després del segon recompte podria anar a la paperera juntament amb la llista o el tauler, des d'on es pot recuperar. Això s'indica a la descripció de l'eina i al gateway.
 
+## Completar i reobrir targetes
+
+A `deck_edit_card`, fes servir `completed: true` per completar una targeta i `completed: false` per reobrir-la. Omet el camp per conservar l’estat actual. Tornar a completar la targeta conserva la data de finalització original. La targeta roman a la seva llista, fins i tot si el tauler té una llista de targetes completades. Calen `deck.edit`, els permisos del tauler i la confirmació habitual.
+
 Consulta `mcp_guide` en viu per a l'esquema autoritatiu i les operacions disponibles.
 
 [Guies operatives](../../guides/README.md).

@@ -70,6 +70,13 @@ final class DeckServiceOwnershipTest extends TestCase {
         );
     }
 
+    public function testCardBoardArchiveProbeChecksEditAccessBeforeUsingDeckBoardService(): void {
+        $this->recordSetUserId();
+        $this->services[PermissionService::class]->expects(self::once())->method('checkPermission')->with(self::isInstanceOf(CardMapper::class), 7, Acl::PERMISSION_EDIT)->willReturn(true);
+        $this->services[BoardService::class]->expects(self::once())->method('isArchived')->with(self::isInstanceOf(CardMapper::class), 7)->willReturn(true);
+        self::assertTrue($this->capabilities->ownership->cardBoardIsArchived('alice', 7));
+    }
+
     public function testOwnershipIsRefusedBeforeAnyOwnerIsReadWhenAccessIsDenied(): void {
         $this->recordSetUserId();
         $this->services[PermissionService::class]->method('checkPermission')->willThrowException(new NoPermissionException('Permission denied'));
