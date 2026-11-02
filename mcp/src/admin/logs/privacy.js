@@ -15,17 +15,6 @@ export function mountLogPrivacy({ root, request, t, notifyError }) {
 		if (!box) {
 			return
 		}
-		// The "Learn more" button opens the explanation that ships in the template; without JS it stays open.
-		const more = root.querySelector('#mcp-logs-privacy-more')
-		const detail = root.querySelector('#mcp-logs-privacy-detail')
-		if (more && detail) {
-			detail.hidden = true
-			more.hidden = false
-			scope.on(more, 'click', () => {
-				detail.hidden = !detail.hidden
-				more.setAttribute('aria-expanded', detail.hidden ? 'false' : 'true')
-			})
-		}
 		try {
 			box.checked = (await api('GET', '/api/logs-privacy')).hideFileNames
 		} catch (e) {

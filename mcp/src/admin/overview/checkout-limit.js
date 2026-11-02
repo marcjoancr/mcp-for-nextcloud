@@ -12,6 +12,8 @@ export function mountCheckoutLimit({ root, request, t, notifyError }) {
 	async function start() {
 		const input = root.querySelector('#mcp-checkout-limit')
 		const save = root.querySelector('#mcp-checkout-limit-save')
+		const retry = root.querySelector('#mcp-checkout-limit-retry')
+		let savedValue
 		const status = root.querySelector('#mcp-checkout-limit-status')
 		const info = root.querySelector('#mcp-checkout-limit-info')
 		const mib = (bytes) => Math.round(bytes / 1048576 * 10) / 10
@@ -19,7 +21,8 @@ export function mountCheckoutLimit({ root, request, t, notifyError }) {
 		/** @param {object} data limit returned by the API, in bytes */
 		function show(data) {
 			// Round up and never show 0: a stored value below 1 MiB would fail the field's own min of 1 on the next save.
-			input.value = String(Math.max(1, Math.ceil(data.configuredBytes / 1048576)))
+			savedValue = String(Math.max(1, Math.ceil(data.configuredBytes / 1048576)))
+			input.value = savedValue
 			const effective = t('mcp', 'Effective limit: {size} MiB.', { size: mib(data.effectiveBytes) })
 			const php = data.phpBytes > 0
 				? t('mcp', 'PHP allows up to {size} MiB (post_max_size).', { size: mib(data.phpBytes) })
@@ -27,14 +30,25 @@ export function mountCheckoutLimit({ root, request, t, notifyError }) {
 			info.textContent = effective + ' ' + php
 		}
 
-		try {
-			show(await api('GET', '/api/checkout-limit'))
-		} catch (e) {
-			if (scope.disposed) return
-			info.textContent = t('mcp', 'Could not load the checkout upload limit.')
-			return
+		function syncSave() { save.disabled = input.disabled || input.value === savedValue }
+		async function load() {
+			input.disabled = save.disabled = true
+			retry.hidden = true
+			try {
+				show(await api('GET', '/api/checkout-limit'))
+				input.disabled = false
+				syncSave()
+			} catch {
+				if (scope.disposed) return
+				info.textContent = t('mcp', 'Could not load the checkout upload limit.')
+				retry.hidden = false
+			}
 		}
-
+		scope.on(retry, 'click', async () => {
+			await load()
+			if (!scope.disposed && !input.disabled) input.focus()
+		})
+		scope.on(input, 'input', syncSave)
 		scope.on(save, 'click', async () => {
 			const value = Number(input.value)
 			if (!Number.isInteger(value) || value < 1) {
@@ -42,23 +56,24 @@ export function mountCheckoutLimit({ root, request, t, notifyError }) {
 				flash(status, false)
 				return
 			}
-			save.disabled = true
+			input.disabled = save.disabled = true
 			try {
 				show(await api('PUT', '/api/checkout-limit', { mib: value }))
 				status.textContent = t('mcp', 'Saved')
 				flash(status, true)
 			} catch (e) {
-			if (scope.disposed) return
+				if (scope.disposed) return
 				status.textContent = t('mcp', 'Not saved')
 				flash(status, false)
 				notifyError(t('mcp', 'Could not save the checkout upload limit.'))
 			} finally {
 				if (!scope.disposed) {
-					save.disabled = false
+					input.disabled = false
+					syncSave()
 				}
 			}
 		})
-
+		await load()
 	}
 	const ready = start()
 	return { ready, destroy: scope.destroy }

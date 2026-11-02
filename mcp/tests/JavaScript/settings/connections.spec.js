@@ -153,3 +153,33 @@ test('connection load retries and removing the final row returns to the previous
     await page.getByRole('button', { name: 'Revoke client.example', exact: true }).click()
     await expect(page.locator('#mcp-connections-page-info')).toHaveText('Page 1')
 })
+
+test('connection pager stays out of the way until another page exists', async ({ page, app }) => {
+    await app.open('/personal')
+    await expect(page.locator('#mcp-connections .mcp-pager')).toBeHidden()
+
+    app.on('GET', '/api/my/connections', ({ query, state }) => ({
+        body: { connections: state.connections.slice(0, 1), page: Number(query.get('page')), hasMore: true },
+    }))
+    await page.reload()
+    await expect(page.locator('#mcp-connections .mcp-pager')).toBeVisible()
+    await expect(page.locator('#mcp-connections-next')).toBeEnabled()
+})
+
+for (const path of ['/admin#clients', '/personal']) {
+    test('phone connection actions fit the viewport on ' + path, async ({ page, app }) => {
+        await page.setViewportSize({ width: 390, height: 844 })
+        app.state.connections[0].client.host = 'x'.repeat(70) + '.example'
+        await app.open(path)
+        const row = page.locator('#mcp-connections-table tbody tr').first()
+        await expect(row.locator('button').first()).toBeVisible()
+        const bounds = await row.evaluate(tr => Array.from(tr.querySelectorAll('button'), button => {
+            const { left, right } = button.getBoundingClientRect()
+            return left >= 0 && right <= document.documentElement.clientWidth
+        }))
+        expect(bounds.every(Boolean)).toBe(true)
+        const headers = await row.locator('xpath=ancestor::table').locator('thead th').allTextContents()
+        expect(await row.locator('[data-label]').evaluateAll(cells => cells.map(cell => cell.dataset.label)))
+            .toEqual(headers.map(text => text.trim()))
+    })
+}

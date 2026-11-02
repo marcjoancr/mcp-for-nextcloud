@@ -9,7 +9,7 @@
 
 # Permisos y administración
 
-Abre **Administración → Nextcloud MCP**. Las cinco pestañas son **Resumen**, **Acceso y permisos**, **Clientes y conexiones**, **Protección de datos** y **Avanzado**. Sus direcciones (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) y la navegación por teclado abren la sección correspondiente.
+Abre **Administración → Nextcloud MCP**. Las cinco pestañas son **Vista general**, **Acceso y permisos**, **Clientes y conexiones**, **Protección de datos** y **Avanzado**. Sus direcciones (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) y la navegación por teclado abren la sección correspondiente. En pantallas estrechas, usa el selector Secciones para cambiar entre las cinco vistas. Clientes y conexiones muestra primero la lista de conexiones activas. En el móvil, cada conexión reúne sus datos y acciones.
 
 ## Habilitar el acceso
 
@@ -17,7 +17,7 @@ El servicio, la elegibilidad del usuario (**Puede conectarse**) y la conexión p
 
 La lectura de las herramientas de 2.0.0 empieza permitida salvo para Correo y los registros del servidor. Las demás operaciones empiezan denegadas. Compartir archivos con personas/grupos (`files.share`) y crear enlaces públicos (`files.link`) son permisos independientes. Listar recursos compartidos es una operación de lectura.
 
-Resumen muestra el endpoint, la versión, el número de conexiones y el límite de subida de checkout. Este límite se edita en MiB y no puede superar `post_max_size` de PHP. Avanzado contiene los roles y la privacidad de registros y OCR. Protección de datos contiene las etiquetas de exclusión; consulta [protección de archivos](file-protection.md).
+Vista general muestra el endpoint, la versión, el número de conexiones y el límite de subida de checkout. Este límite se edita en MiB y no puede superar `post_max_size` de PHP. Avanzado contiene los roles y la privacidad de registros y OCR. Protección de datos contiene las etiquetas de exclusión; consulta [protección de archivos](file-protection.md).
 
 ## Opciones individuales y herencia de grupos
 

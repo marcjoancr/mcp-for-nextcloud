@@ -4,7 +4,7 @@
 
 # Permissions and administration
 
-Open **Administration → Nextcloud MCP**. The five tabs are **Overview**, **Access and permissions**, **Clients and connections**, **Data protection** and **Advanced**. Their addresses (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) and keyboard navigation open the corresponding section.
+Open **Administration → Nextcloud MCP**. The five tabs are **Overview**, **Access and permissions**, **Clients and connections**, **Data protection** and **Advanced**. Their addresses (`#overview`, `#access`, `#clients`, `#protection`, `#advanced`) and keyboard navigation open the corresponding section. On narrow screens, use the Sections selector to switch between the same five views. Clients and connections opens with the active connections list. On phones, each connection has its own labeled rows and actions.
 
 ## Enable access
 

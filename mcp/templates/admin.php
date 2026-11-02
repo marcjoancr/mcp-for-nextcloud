@@ -9,7 +9,7 @@
  * permissions (the users × permissions matrix), clients and connections (OAuth clients and active
  * connections), data protection (exclusion tags) and advanced (server log, log privacy, OCR).
  * The generated js/admin.js composes bounded administration modules and shared connections. Without
- * JavaScript every panel stays visible, the tab bar stays hidden and the log privacy detail stays open.
+ * JavaScript every panel stays visible, the tab bar stays hidden and native disclosures remain usable.
  *
  * @var array{endpoint:string, serviceEnabled:bool, ocrActive:bool, ocrUrl:string, version:string, eligibleUsers:int|null, connectedUsers:int|null, activeConnections:int, unsupportedApps:list<array{name:string, installed:string, required:string}>, logsAvailable:bool, logType:string} $_
  * @var \OCP\IL10N $l
@@ -29,51 +29,38 @@
     <div role="tabpanel" id="mcp-panel-overview" aria-labelledby="mcp-tab-overview" class="mcp-tab-panel" tabindex="0">
     <div class="section mcp-block" id="mcp-block-status">
         <h2><?php p($l->t('Status')); ?></h2>
-        <div class="mcp-cards">
-            <div class="mcp-card mcp-card-wide">
-                <span class="mcp-card-label"><?php p($l->t('Endpoint')); ?></span>
-                <span class="mcp-endpoint">
+        <div class="mcp-overview-settings">
+            <div>
+                <input type="checkbox" class="checkbox" id="mcp-service" aria-describedby="mcp-service-help" disabled <?php if ($_['serviceEnabled']) { print_unescaped('checked'); } ?>>
+                <label for="mcp-service"><?php p($l->t('MCP service enabled')); ?></label>
+                <span class="mcp-status" id="mcp-service-status" aria-live="polite"></span>
+                <p class="settings-hint mcp-hint" id="mcp-service-help"><?php p($l->t('Turning the service off signs every client out at once.')); ?></p>
+            </div>
+            <div>
+                <strong><?php p($l->t('Endpoint')); ?></strong>
+                <div class="mcp-overview-endpoint mcp-endpoint">
                     <code id="mcp-endpoint"><?php p($_['endpoint']); ?></code>
                     <button type="button" class="mcp-copy" data-copy="mcp-endpoint"><?php p($l->t('Copy')); ?></button>
-                </span>
-            </div>
-            <div class="mcp-card">
-                <span class="mcp-card-label"><?php p($l->t('Service')); ?></span>
-                <span>
-                    <input type="checkbox" class="checkbox" id="mcp-service" <?php if ($_['serviceEnabled']) { print_unescaped('checked'); } ?>>
-                    <label for="mcp-service"><?php p($l->t('MCP service enabled')); ?></label>
-                    <span class="mcp-status" id="mcp-service-status" aria-live="polite"></span>
-                </span>
-            </div>
-            <div class="mcp-card">
-                <span class="mcp-card-label"><?php p($l->t('App version')); ?></span>
-                <span class="mcp-card-value"><?php p($_['version']); ?></span>
-            </div>
-            <div class="mcp-card">
-                <span class="mcp-card-label"><?php p($l->t('Eligible users')); ?></span>
-                <span class="mcp-card-value" id="mcp-count-eligible"><?php p($_['eligibleUsers'] === null ? '—' : (string)$_['eligibleUsers']); ?></span>
-            </div>
-            <div class="mcp-card">
-                <span class="mcp-card-label"><?php p($l->t('Connected users')); ?></span>
-                <span class="mcp-card-value" id="mcp-count-connected"><?php p($_['connectedUsers'] === null ? '—' : (string)$_['connectedUsers']); ?></span>
-                <span class="mcp-hint"><?php p($l->t('Eligible users who activated their connection.')); ?></span>
-            </div>
-            <div class="mcp-card">
-                <span class="mcp-card-label"><?php p($l->t('Active connections')); ?></span>
-                <span class="mcp-card-value" id="mcp-count-connections"><?php p((string)$_['activeConnections']); ?></span>
-            </div>
-            <div class="mcp-card mcp-card-wide">
-                <label class="mcp-card-label" for="mcp-checkout-limit"><?php p($l->t('Checkout upload limit')); ?></label>
-                <span>
-                    <input type="number" id="mcp-checkout-limit" class="mcp-checkout-limit" min="1" max="102400" step="1" inputmode="numeric" aria-describedby="mcp-checkout-limit-info">
-                    <span><?php p($l->t('MiB')); ?></span>
-                    <button type="button" id="mcp-checkout-limit-save"><?php p($l->t('Save')); ?></button>
-                    <span class="mcp-status" id="mcp-checkout-limit-status" aria-live="polite"></span>
-                </span>
-                <span class="mcp-hint" id="mcp-checkout-limit-info"></span>
+                </div>
             </div>
         </div>
-        <p class="settings-hint mcp-hint"><?php p($l->t('Paste the endpoint in the MCP client. Turning the service off signs every client out at once.')); ?></p>
+        <dl class="mcp-overview-stats">
+            <div><dt><?php p($l->t('App version')); ?></dt><dd><?php p($_['version']); ?></dd></div>
+            <div><dt><?php p($l->t('Eligible users')); ?></dt><dd id="mcp-count-eligible"><?php p($_['eligibleUsers'] === null ? '—' : (string)$_['eligibleUsers']); ?></dd></div>
+            <div><dt><?php p($l->t('Connected users')); ?></dt><dd id="mcp-count-connected" title="<?php p($l->t('Eligible users who activated their connection.')); ?>"><?php p($_['connectedUsers'] === null ? '—' : (string)$_['connectedUsers']); ?></dd></div>
+            <div><dt><?php p($l->t('Active connections')); ?></dt><dd id="mcp-count-connections"><?php p((string)$_['activeConnections']); ?></dd></div>
+        </dl>
+        <div class="mcp-overview-limit">
+            <label for="mcp-checkout-limit"><?php p($l->t('Checkout upload limit')); ?></label>
+            <div>
+                <input type="number" id="mcp-checkout-limit" class="mcp-checkout-limit" min="1" max="102400" step="1" inputmode="numeric" aria-describedby="mcp-checkout-limit-info" disabled>
+                <span><?php p($l->t('MiB')); ?></span>
+                <button type="button" id="mcp-checkout-limit-save" disabled><?php p($l->t('Save')); ?></button>
+                <button type="button" id="mcp-checkout-limit-retry" hidden><?php p($l->t('Retry')); ?></button>
+                <span class="mcp-status" id="mcp-checkout-limit-status" aria-live="polite"></span>
+            </div>
+            <p class="mcp-hint" id="mcp-checkout-limit-info"></p>
+        </div>
         <?php include __DIR__ . '/admin-file-write-policy-overview.php'; ?>
         <div id="mcp-tags-invalid-overview" class="mcp-tags-warning" role="alert" hidden>
             <p><?php p($l->t('The saved exclusion tags setting cannot be read, so the MCP tools treat every file and folder as not found. Choose the exclusion tags and save them again.')); ?> <a href="#protection"><?php p($l->t('Open Data protection')); ?></a></p>
@@ -289,6 +276,32 @@
     </div>
 
     <div role="tabpanel" id="mcp-panel-clients" aria-labelledby="mcp-tab-clients" class="mcp-tab-panel" tabindex="0">
+    <div class="section mcp-block" id="mcp-connections" data-scope="admin">
+        <h2><?php p($l->t('Active connections')); ?></h2>
+        <p class="settings-hint mcp-hint"><?php p($l->t('Each row is one MCP client signed in with OAuth. Revoking signs that client out at once; the user can sign in again while they may connect. App passwords are managed in each user’s security settings.')); ?></p>
+        <div class="mcp-toolbar">
+            <input type="search" id="mcp-connections-search" placeholder="<?php p($l->t('Search by user ID or client')); ?>" aria-label="<?php p($l->t('Search connections')); ?>">
+            <span class="mcp-pager" hidden>
+                <button type="button" id="mcp-connections-prev"><?php p($l->t('Previous')); ?></button>
+                <span id="mcp-connections-page-info"></span>
+                <button type="button" id="mcp-connections-next"><?php p($l->t('Next')); ?></button>
+            </span>
+            <span class="mcp-status" id="mcp-connections-status" aria-live="polite"></span>
+        </div>
+        <table class="mcp-connections-table" id="mcp-connections-table" aria-busy="true">
+            <thead>
+                <tr>
+                    <th scope="col"><?php p($l->t('User')); ?></th>
+                    <th scope="col"><?php p($l->t('Client')); ?></th>
+                    <th scope="col"><?php p($l->t('Signed in')); ?></th>
+                    <th scope="col"><?php p($l->t('Expires')); ?></th>
+                    <th scope="col"><span class="hidden-visually"><?php p($l->t('Actions')); ?></span></th>
+                </tr>
+            </thead>
+            <tbody><tr><td colspan="5" class="mcp-empty"><?php p($l->t('Loading…')); ?></td></tr></tbody>
+        </table>
+    </div>
+
     <div class="section mcp-block" id="mcp-block-oauth">
         <h2><?php p($l->t('OAuth clients')); ?></h2>
         <p>
@@ -318,31 +331,6 @@
         <p><button type="button" id="mcp-custom-add"><?php p($l->t('Add client')); ?></button></p>
     </div>
 
-    <div class="section mcp-block" id="mcp-connections" data-scope="admin">
-        <h2><?php p($l->t('Active connections')); ?></h2>
-        <p class="settings-hint mcp-hint"><?php p($l->t('Each row is one MCP client signed in with OAuth. Revoking signs that client out at once; the user can sign in again while they may connect. App passwords are managed in each user’s security settings.')); ?></p>
-        <div class="mcp-toolbar">
-            <input type="search" id="mcp-connections-search" placeholder="<?php p($l->t('Search by user ID or client')); ?>" aria-label="<?php p($l->t('Search connections')); ?>">
-            <span class="mcp-pager">
-                <button type="button" id="mcp-connections-prev"><?php p($l->t('Previous')); ?></button>
-                <span id="mcp-connections-page-info"></span>
-                <button type="button" id="mcp-connections-next"><?php p($l->t('Next')); ?></button>
-            </span>
-            <span class="mcp-status" id="mcp-connections-status" aria-live="polite"></span>
-        </div>
-        <table class="mcp-connections-table" id="mcp-connections-table" aria-busy="true">
-            <thead>
-                <tr>
-                    <th scope="col"><?php p($l->t('User')); ?></th>
-                    <th scope="col"><?php p($l->t('Client')); ?></th>
-                    <th scope="col"><?php p($l->t('Signed in')); ?></th>
-                    <th scope="col"><?php p($l->t('Expires')); ?></th>
-                    <th scope="col"><span class="hidden-visually"><?php p($l->t('Actions')); ?></span></th>
-                </tr>
-            </thead>
-            <tbody><tr><td colspan="5" class="mcp-empty"><?php p($l->t('Loading…')); ?></td></tr></tbody>
-        </table>
-    </div>
     </div>
 
     <div role="tabpanel" id="mcp-panel-protection" aria-labelledby="mcp-tab-protection" class="mcp-tab-panel" tabindex="0">
@@ -352,7 +340,13 @@
         <h2><?php p($l->t('Excluded from MCP access')); ?></h2>
         <p class="settings-hint mcp-hint"><?php p($l->t('Files and folders tagged with a selected tag, and everything inside those folders, are completely hidden from the tools of this MCP connector. The server log tools respect this only while “Hide the text of log messages” is on.')); ?></p>
         <p class="settings-hint mcp-hint"><?php p($l->t('The protection applies only to this connector: it does not cover other AI tools or connectors, and nothing stops someone from sending a file to an AI by hand. Only the tags selected here exclude files; any other tag is an ordinary label.')); ?></p>
-        <p class="settings-hint mcp-hint"><?php p($l->t('Recommended: invisible tags, which only administrators can assign or remove, or restricted tags, which only administrators and the groups they allow can assign or remove; users with edit access can remove collaborative tags.')); ?></p>
+        <p class="settings-hint mcp-hint"><?php p($l->t('Users with edit access can remove collaborative tags, which may expose excluded files.')); ?></p>
+        <details class="mcp-reference-details">
+            <summary><?php p($l->t('Choose tags that collaborators cannot remove')); ?></summary>
+            <div class="mcp-reference-content">
+                <p class="settings-hint mcp-hint"><?php p($l->t('Recommended: invisible tags, which only administrators can assign or remove, or restricted tags, which only administrators and the groups they allow can assign or remove; users with edit access can remove collaborative tags.')); ?></p>
+            </div>
+        </details>
         <div id="mcp-hidden-tags-section" class="mcp-hidden-tags">
             <div id="mcp-tags-list" class="mcp-tags-container" aria-busy="true">
                 <span class="mcp-tags-loading"><?php p($l->t('Loading tags…')); ?></span>
@@ -385,21 +379,23 @@
 
     <div class="section mcp-block" id="mcp-block-logs-privacy">
         <h2><?php p($l->t('Log privacy')); ?></h2>
-        <p>
+        <p class="mcp-privacy-control">
             <input type="checkbox" class="checkbox" id="mcp-logs-hide-file-names">
             <label for="mcp-logs-hide-file-names"><?php p($l->t('Hide the text of log messages')); ?></label>
             <span class="mcp-status" id="mcp-logs-hide-file-names-status" aria-live="polite"></span>
         </p>
-        <p>
-            <button type="button" class="mcp-learn-more" id="mcp-logs-privacy-more" aria-expanded="false" aria-controls="mcp-logs-privacy-detail" hidden><?php p($l->t('Learn more')); ?></button>
-        </p>
-        <div id="mcp-logs-privacy-detail" class="mcp-learn-more-box">
-            <p class="settings-hint mcp-hint"><?php p($l->t('On (default): while exclusion tags are configured, the text of log messages and the identification of the client (user agent) are hidden; the date, level, app, user, error type and route stay. Off: the full messages and clients are shown for diagnosis, and the exclusion by tags is not respected. The option exists because some IT teams need the names to track problems.')); ?></p>
-        </div>
+        <p class="settings-hint mcp-hint mcp-privacy-consequence"><?php p($l->t('When on, message text and client details are hidden while exclusion tags are configured. Turn it off to show them; exclusion tags then do not apply to server logs.')); ?></p>
+        <details id="mcp-logs-privacy-detail" class="mcp-reference-details">
+            <summary><?php p($l->t('Learn more')); ?></summary>
+            <div class="mcp-reference-content">
+                <p class="settings-hint mcp-hint"><?php p($l->t('On (default): while exclusion tags are configured, the text of log messages and the identification of the client (user agent) are hidden; the date, level, app, user, error type and route stay. Off: the full messages and clients are shown for diagnosis, and the exclusion by tags is not respected. The option exists because some IT teams need the names to track problems.')); ?></p>
+            </div>
+        </details>
     </div>
 
     <div class="section mcp-block" id="mcp-block-ocr">
         <h2><?php p($l->t('OCR')); ?></h2>
+        <p class="settings-hint mcp-hint"><?php p($l->t('Optional integration')); ?></p>
         <?php if ($_['ocrActive']) { ?>
             <p class="mcp-ocr" id="mcp-ocr" data-active="1"><?php p($l->t('Workflow OCR is active. PDFs it processes gain a text layer that files_read can read.')); ?></p>
         <?php } else { ?>

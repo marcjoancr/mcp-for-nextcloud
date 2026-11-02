@@ -4,7 +4,9 @@ import { test, expect } from '../support/app-fixture.js'
 
 test('policy lives in the admin bundle and saves canonical extensions with CSRF', async ({ page, app }) => {
     await app.open('/admin#protection')
+    await expect(page.locator('#mcp-file-policy-allowlist-fields')).toBeHidden()
     await page.locator('#mcp-file-policy-mode').selectOption('allowlist')
+    await expect(page.locator('#mcp-file-policy-allowlist-fields')).toBeVisible()
     await page.locator('#mcp-file-policy-extensions').fill('.TXT,md\nTxt')
     await page.locator('#mcp-file-policy-save').click()
     await expect(page.locator('#mcp-file-policy-status')).toHaveText('File type policy saved.')

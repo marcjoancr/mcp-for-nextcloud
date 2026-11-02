@@ -29,6 +29,25 @@ export function mountTabs({ root }) {
 	}
 	const validTabs = tabs.filter((tab) => byHash.get(tab.getAttribute('data-tab-hash')) === tab)
 	const firstTab = validTabs[0]
+	const compact = document.createElement('label')
+	compact.className = 'mcp-mobile-sections'
+	compact.append(tablist.getAttribute('aria-label'))
+	const select = document.createElement('select')
+	compact.append(select)
+	tablist.before(compact)
+	for (const hash of byHash.keys()) select.add(new Option('', hash))
+	function updateOptions() {
+		for (const option of select.options) {
+			const label = byHash.get(option.value).cloneNode(true)
+			label.querySelectorAll('[hidden]').forEach(node => node.remove())
+			option.textContent = label.textContent.trim()
+		}
+	}
+	updateOptions()
+	const alerts = new MutationObserver(updateOptions)
+	alerts.observe(tablist, { attributes: true, attributeFilter: ['hidden'], subtree: true })
+	scope.on(select, 'change', () => activate(byHash.get(select.value), false, true))
+	scope.use(() => { alerts.disconnect(); compact.remove() })
 
 	/**
 	 * Resolves the current URL hash to a tab. A tab hash wins; a hash that is the id of an element
@@ -64,6 +83,7 @@ export function mountTabs({ root }) {
 	 * @param {boolean} trackHash whether the URL hash is written (a new history entry)
 	 */
 	function activate(tab, moveFocus, trackHash) {
+		select.value = tab.getAttribute('data-tab-hash')
 		for (const candidate of validTabs) {
 			const selected = candidate === tab
 			candidate.setAttribute('aria-selected', selected ? 'true' : 'false')
