@@ -17,6 +17,7 @@ final class CalendarToolCatalog
         return [
             Tools\ListCalendars::class,
             Tools\ListEvents::class,
+            Tools\CheckAvailability::class,
             Tools\CreateEvent::class,
             Tools\UpdateEvent::class,
             Tools\MoveEvent::class,
@@ -33,7 +34,7 @@ final class CalendarToolCatalog
                 throw new \LogicException('Catalog entries must implement Tool');
             }
             $d = $class::definition();
-            if ($d->operation !== 'read' && !is_a($class, WriteTool::class, true)) {
+            if (!in_array($d->operation, ['read', 'availability'], true) && !is_a($class, WriteTool::class, true)) {
                 throw new \LogicException('Writes must implement WriteTool');
             }
             if (isset($result[$d->name])) {

@@ -177,9 +177,10 @@ final class FormsModuleTest extends TestCase {
         $module = FormsModule::withReader(new FakeFormsReader([], []));
         $definitions = $module->definitions();
 
-        self::assertSame(['forms_list', 'forms_read', 'forms_read_responses'], array_column($definitions, 'name'));
-        self::assertSame(['read', 'read', 'read_responses'], array_column($definitions, 'operation'));
-        self::assertSame(['forms', 'forms', 'forms'], array_column($definitions, 'app'));
+        self::assertSame(['forms_list', 'forms_read', 'forms_read_responses', 'forms_summarize_responses', 'forms_export_responses'], array_column($definitions, 'name'));
+        self::assertSame(['read', 'read', 'read_responses', 'summarize_responses', 'export_responses'], array_column($definitions, 'operation'));
+        self::assertSame(['forms', 'forms', 'forms', 'forms', 'forms'], array_column($definitions, 'app'));
+        self::assertSame(['files' => ['create']], $definitions[4]['grantAllOf']);
     }
 
     public function testReadsOnlyAllowlistedResponseFieldsAndHonorsAnonymousForms(): void {

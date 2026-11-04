@@ -65,6 +65,7 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Deck\\Db\\LabelMapper::findAssignedLabelsForCards' => ['cardIds', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::list' => ['cardId', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::create' => ['cardId', 'message'],
         'OCA\\Mail\\Service\\MailManager::getThread' => ['account', 'threadRootId'],

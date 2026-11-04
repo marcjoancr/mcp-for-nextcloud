@@ -18,9 +18,10 @@ final class LegacyCatalogContract {
 	 */
 	public static function baseline(array $baseline, array $current): array {
 		$expected = $baseline;
-		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment'];
+		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment', 'search'];
+		$expected['calendar'] = [...$baseline['calendar'], 'availability'];
 		$expected['talk'] = [...$baseline['talk'], 'publish_summary', 'search'];
-		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], 'forms' => ['read', 'read_responses']]) {
+		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], 'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses']]) {
 			throw new \UnexpectedValueException('Unexpected change to legacy permissions');
 		}
 		return $baseline;
@@ -35,14 +36,16 @@ final class LegacyCatalogContract {
 		foreach ($answers as &$state) {
 			foreach ($state['matrix'] as &$row) {
 				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false, 'read_attachment' => false, 'save_attachment' => false, 'read_drafts' => false, 'write_drafts' => false, 'delete_drafts' => false]
-					|| ($row['grants']['forms'] ?? null) !== ['read' => false, 'read_responses' => false]
+					|| ($row['grants']['forms'] ?? null) !== ['read' => false, 'read_responses' => false, 'summarize_responses' => false, 'export_responses' => false]
 					|| ($row['grants']['talk']['publish_summary'] ?? null) !== false
 					|| ($row['grants']['talk']['search'] ?? null) !== false
 					|| ($row['grants']['deck']['read_comments'] ?? null) !== false
-					|| ($row['grants']['deck']['comment'] ?? null) !== false) {
+					|| ($row['grants']['deck']['comment'] ?? null) !== false
+					|| ($row['grants']['deck']['search'] ?? null) !== false
+					|| ($row['grants']['calendar']['availability'] ?? null) !== false) {
 					throw new \UnexpectedValueException('Unexpected default in the legacy matrix');
 				}
-				unset($row['grants']['mail'], $row['grants']['forms'], $row['grants']['deck']['read_comments'], $row['grants']['deck']['comment'], $row['grants']['talk']['publish_summary'], $row['grants']['talk']['search']);
+				unset($row['grants']['deck']['search'], $row['grants']['calendar']['availability'], $row['grants']['mail'], $row['grants']['forms'], $row['grants']['deck']['read_comments'], $row['grants']['deck']['comment'], $row['grants']['talk']['publish_summary'], $row['grants']['talk']['search']);
 			}
 			unset($row);
 		}

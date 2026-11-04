@@ -27,7 +27,7 @@ final class GrantMatrixTest extends TestCase {
     }
 
     public function testCalendarCatalogOffersEveryOperationWithoutAnySelftest(): void {
-        self::assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer'], $this->fx->matrix()->page('', '', 1)['catalog']['calendar']);
+        self::assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability'], $this->fx->matrix()->page('', '', 1)['catalog']['calendar']);
     }
 
     public function testCalendarWritesAreDeniedByDefault(): void {

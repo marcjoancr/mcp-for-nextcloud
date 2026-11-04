@@ -37,3 +37,11 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 [Operational guides](../../guides/README.md).
 
 English · [Español](../../../es/reference/tools/calendar.md) · [Català](../../../ca/reference/tools/calendar.md) · [Português (Brasil)](../../../pt-BR/reference/tools/calendar.md) · [Português (Portugal)](../../../pt-PT/reference/tools/calendar.md)
+
+## Availability and conflicts
+
+`calendar_check_availability` requires the independent `calendar.availability` permission and explicit tool selection. Supply `from` (inclusive) and `to` (exclusive), with a maximum window of 31 days. Use optional `calendars` to select up to 20 accessible calendar paths; omit it to use all visible calendars, subject to the same limit. `min_duration_minutes` filters free intervals (default 30, range 5–1440).
+
+The response contains UTC busy intervals, overlap conflicts and common free intervals. Intervals that merely touch do not conflict. Recurring events, recurrence exceptions and timezones follow the existing calendar expansion rules; cancelled and transparent events do not block time. Date-only arguments and floating all-day values follow the existing UTC civil-date convention.
+
+No event title, description or attendee data is returned. Native shares, Calendar scope restrictions and event classification apply. If hidden events, invalid data or scan limits prevent a reliable calculation, the tool returns an error instead of claiming that time is free. The scan allows up to 2,000 calendar objects per calendar and 10,000 occurrences in total. Zero-duration events also make availability unavailable under this conservative policy. Availability is a snapshot of the accessible calendars, not a reservation or a claim about calendars the caller cannot access.

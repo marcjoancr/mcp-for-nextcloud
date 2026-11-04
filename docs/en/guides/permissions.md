@@ -62,6 +62,19 @@ The upgrade preserves the original individual and group settings. The 84 tools s
 
 Existing connections receive a selection limited to their previous operation permissions. Newly added tools require a new assignment and selection. Keep the pre-upgrade database and application backup together. After someone changes selections or blocks access in the new editor, recovery must retain those decisions. An older app cannot enforce them.
 
+## Forms analysis, Deck search and Calendar availability
+
+These additions start unassigned and are selected separately in each connection:
+
+| Tool | Operation | Additional native access |
+| --- | --- | --- |
+| `forms_summarize_responses` | `forms.summarize_responses` | Full form results permission |
+| `forms_export_responses` | `forms.export_responses` and `files.create` | Form results and creation in the selected Files folder |
+| `deck_search_cards` | `deck.search` | Read permission on each returned board |
+| `calendar_check_availability` | `calendar.availability` | Calendar scope, native shares and event classification |
+
+Existing read permissions do not automatically enable these tools. Form export is the only write in this set: it requires a current preview and confirmation, plus shared-destination confirmation when applicable. Neither a tool assignment nor a connection selection bypasses another user's native access restrictions.
+
 ## Saving, conflicts and undo
 
 Policy writes carry the revision displayed by the interface. A stale preview or concurrent change produces a conflict and a reload; the browser does not silently replay the write. An uncertain response is not shown as a successful save. Group/resource/client drafts stay drafts until their respective Save action.

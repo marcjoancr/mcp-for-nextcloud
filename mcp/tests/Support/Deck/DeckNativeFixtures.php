@@ -63,6 +63,16 @@ trait DeckNativeFixtures {
                     $time,
                     $zones,
                 ),
+                \OCA\Mcp\Modules\Deck\Reading\CardSearchReader::class => new \OCA\Mcp\Modules\Deck\Reading\CardSearchReader(
+                    $make(\OCA\Mcp\Modules\Deck\Access\DeckCaller::class),
+                    $make(\OCA\Mcp\Modules\Deck\Reading\BoardReader::class),
+                    $make(\OCA\Mcp\Modules\Deck\Assignments\AssignmentAccess::class),
+                    $provide(\OCA\Deck\Db\StackMapper::class),
+                    $provide(\OCA\Deck\Db\CardMapper::class),
+                    $provide(\OCA\Deck\Db\LabelMapper::class),
+                    $provide(\OCA\Deck\Service\PermissionService::class),
+                    $zones,
+                ),
                 \OCA\Mcp\Modules\Deck\Cards\CardWriter::class => new \OCA\Mcp\Modules\Deck\Cards\CardWriter(
                     $make(\OCA\Mcp\Modules\Deck\Access\DeckCaller::class),
                     $provide(\OCA\Deck\Service\CardService::class),
@@ -130,6 +140,7 @@ trait DeckNativeFixtures {
         $d->counts = $make(\OCA\Mcp\Modules\Deck\Structure\StructureCardCounter::class);
         $d->deletion = $make(\OCA\Mcp\Modules\Deck\Structure\EmptyStructureDeletion::class);
         $d->followup = $make(\OCA\Mcp\Modules\Deck\Followup\FollowupQuery::class);
+        $d->search = $make(\OCA\Mcp\Modules\Deck\Reading\CardSearchReader::class);
         return $d;
     }
 }

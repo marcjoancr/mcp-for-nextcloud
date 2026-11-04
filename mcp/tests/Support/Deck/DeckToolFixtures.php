@@ -154,6 +154,11 @@ trait DeckToolFixtures {
                     new \OCA\Mcp\Modules\Deck\Execution\ResultBoundary($logger),
                     $formatters,
                 ),
+                \OCA\Mcp\Modules\Deck\Tools\SearchCards::class => new \OCA\Mcp\Modules\Deck\Tools\SearchCards(
+                    $d->search->searchCards(...),
+                    new \OCA\Mcp\Modules\Deck\Execution\ResultBoundary($logger),
+                    $formatters,
+                ),
                 default => $this->deckTool($class, $d, $logger, null, $services),
             };
         }

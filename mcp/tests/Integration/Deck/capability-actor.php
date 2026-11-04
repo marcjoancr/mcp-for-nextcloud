@@ -205,6 +205,31 @@ switch ($action) {
         $module = (new \OCA\Mcp\AppInfo\Application())->getContainer()->get(\OCA\Mcp\Modules\Deck\DeckModule::class);
         $out = ['result'=>$module->call('deck_list_labels', $in['arguments'], $uid)];
         break;
+    case 'mcp-search-cards':
+        $module = (new \OCA\Mcp\AppInfo\Application())->getContainer()->get(\OCA\Mcp\Modules\Deck\DeckModule::class);
+        $policy = Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
+        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability(
+            $policy,
+            $apps,
+            Server::get(OCP\IUserManager::class),
+            Server::get(\OCA\Mcp\Access\Guests\GuestRestrictions::class),
+        );
+        $registry = new \OCA\Mcp\Mcp\Tools\ToolRegistry(
+            [$module],
+            $availability,
+            new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, Server::get(Psr\Log\LoggerInterface::class)),
+        );
+        $out = ['tools' => array_column($registry->list($uid), 'name')];
+        try {
+            $out['result'] = $registry->call('deck_search_cards', $in['arguments'], $uid);
+        } catch (InvalidArgumentException) {
+            $out['refused'] = true;
+        }
+        break;
+    case 'search-label':
+        $cards->assignLabel($in['card'], $in['label']);
+        $out = ['assigned' => true];
+        break;
     case 'mcp-labels':
         $module = (new \OCA\Mcp\AppInfo\Application())->getContainer()->get(\OCA\Mcp\Modules\Deck\DeckModule::class);
         try {

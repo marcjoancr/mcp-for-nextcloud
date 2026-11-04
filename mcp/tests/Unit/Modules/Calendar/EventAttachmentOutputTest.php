@@ -45,6 +45,7 @@ final class EventAttachmentOutputTest extends CalendarTestCase {
         return [
             'list calendars' => ['calendar_list_calendars', []],
             'list events' => ['calendar_list_events', ['from' => '2026-09-01', 'to' => '2026-11-01']],
+            'availability' => ['calendar_check_availability', ['calendars' => [self::PERSONAL], 'from' => '2026-10-01T00:00:00Z', 'to' => '2026-10-02T00:00:00Z']],
             'create' => ['calendar_create_event', ['calendar' => self::PERSONAL, 'summary' => 'Draft', 'start' => '2026-10-02', 'end' => '2026-10-03', 'allDay' => true]],
             'update' => ['calendar_update_event', $event + ['summary' => 'After']],
             'delete' => ['calendar_delete_event', $event],
@@ -69,7 +70,7 @@ final class EventAttachmentOutputTest extends CalendarTestCase {
         if ($tool === 'calendar_list_events') {
             self::assertStringContainsString('Before', $first['content'][0]['text'], 'the event with ATTACH was listed');
         }
-        if (str_starts_with($tool, 'calendar_list_')) {
+        if (str_starts_with($tool, 'calendar_list_') || $tool === 'calendar_check_availability') {
             return;
         }
         $confirmed = $this->registry->call($tool, $arguments + ['confirm' => true], 'alice');

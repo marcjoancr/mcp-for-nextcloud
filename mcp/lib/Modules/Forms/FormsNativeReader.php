@@ -99,9 +99,26 @@ final class FormsNativeReader implements FormsReader, FormsResponseReader {
 
         $questions = $formsService->getQuestions($formId);
         $fileQuestionIds = [];
+        $questionMetadata = [];
+        $questionsTruncated = false;
         foreach ($questions as $question) {
-            if (($question['type'] ?? null) === 'file' && is_int($question['id'] ?? null)) {
-                $fileQuestionIds[] = $question['id'];
+            if (is_int($question['id'] ?? null)) {
+                $id = $question['id'];
+                if (($question['type'] ?? null) === 'file') {
+                    $fileQuestionIds[] = $id;
+                }
+                if (count($questionMetadata) < FormsOutput::MAX_QUESTIONS) {
+                    $metadata = ['id' => $id];
+                    if (is_string($question['text'] ?? null)) {
+                        $metadata['text'] = $question['text'];
+                    }
+                    if (is_string($question['type'] ?? null)) {
+                        $metadata['type'] = $question['type'];
+                    }
+                    $questionMetadata[] = $metadata;
+                } else {
+                    $questionsTruncated = true;
+                }
             }
         }
 
@@ -110,6 +127,8 @@ final class FormsNativeReader implements FormsReader, FormsResponseReader {
             'formId' => $formId,
             'isAnonymous' => (bool)$form->getIsAnonymous(),
             'fileQuestionIds' => $fileQuestionIds,
+            'questions' => $questionMetadata,
+            'questionsTruncated' => $questionsTruncated,
             'submissions' => $submissionService->getSubmissions($formId, null, null, $limit + 1, $offset),
         ];
     }

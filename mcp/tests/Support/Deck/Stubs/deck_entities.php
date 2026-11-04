@@ -389,12 +389,16 @@ class AssignmentMapper {
 class Label {
 	public function __construct(private array $fields = []) {}
 	public function getId(): int { return $this->fields['id'] ?? 0; }
+	public function getCardId(): int { return $this->fields['cardId'] ?? 0; }
 	public function getBoardId(): int { return $this->fields['boardId'] ?? 0; }
 	public function getTitle(): string { return $this->fields['title'] ?? ''; }
 	public function getColor(): string { return $this->fields['color'] ?? ''; }
 }
 class LabelMapper {
 	public function findAll(int $boardId, ?int $limit = null, int $offset = 0): array {
+		throw new \LogicException('Stub: expected a PHPUnit mock.');
+	}
+	public function findAssignedLabelsForCards(array $cardIds, ?int $limit = null, int $offset = 0): array {
 		throw new \LogicException('Stub: expected a PHPUnit mock.');
 	}
 }

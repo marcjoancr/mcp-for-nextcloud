@@ -238,6 +238,7 @@ use \OCA\Mcp\Tests\Support\Deck\DeckToolFixtures;
         $config = $this->createMock(IConfig::class);
         $listCalendars = new ListCalendars($access);
         $listEvents = new ListEvents($access, $store, $store, $repository, $classification, new EventExpander(), $mapper, $dates, $time, $logger);
+        $availability = new \OCA\Mcp\Modules\Calendar\Reading\AvailabilityReader($access, $store, $store, $repository, $classification, new EventExpander(), $dates);
         $users = $this->userManager();
         $guard = new SharedGuard($users);
         $dav = new FakeCalendarDav($store);
@@ -250,7 +251,7 @@ use \OCA\Mcp\Tests\Support\Deck\DeckToolFixtures;
         $moveEvent = new MoveEvent($access, $relocator, $guard);
         $deleteEvent = new DeleteEvent($access, $guard, $dav, $store, $repository, new TrashPolicy($config), $scheduling);
         $transferEvent = new TransferEvent($relocator);
-        return \OCA\Mcp\Tests\Support\Calendar\CalendarModuleFactory::create($listCalendars, $listEvents, $createEvent, $updateEvent, $moveEvent, $deleteEvent, $transferEvent, new \OCA\Mcp\Modules\Calendar\Execution\EventApproval($scheduling, $builder, $guard, new \OCA\Mcp\Modules\Calendar\Scheduling\PlanWarnings(
+        return \OCA\Mcp\Tests\Support\Calendar\CalendarModuleFactory::create($listCalendars, $listEvents, $availability, $createEvent, $updateEvent, $moveEvent, $deleteEvent, $transferEvent, new \OCA\Mcp\Modules\Calendar\Execution\EventApproval($scheduling, $builder, $guard, new \OCA\Mcp\Modules\Calendar\Scheduling\PlanWarnings(
                 new \OCA\Mcp\Modules\Calendar\Scheduling\CollisionCheck($store, $store, $repository, $classification, new EventExpander(), $logger),
                 new \OCA\Mcp\Modules\Calendar\Scheduling\AvailabilityCheck($this->createMock(\OCP\Calendar\IManager::class), $users, $logger),
                 new \OCA\Mcp\Modules\Calendar\Scheduling\SharedCalendarFinder($access, $store, $users, $this->createMock(\OCP\IGroupManager::class)),

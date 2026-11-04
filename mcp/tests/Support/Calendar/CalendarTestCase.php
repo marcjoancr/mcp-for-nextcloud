@@ -124,6 +124,7 @@ abstract class CalendarTestCase extends TestCase {
         $scheduling = new Scheduling($appConfig);
         $listCalendars = new ListCalendars($access);
         $listEvents = new ListEvents($access, $this->store, $this->store, $repository, $classification, new EventExpander(), $mapper, $dates, $time, $logger);
+        $availability = new \OCA\Mcp\Modules\Calendar\Reading\AvailabilityReader($access, $this->store, $this->store, $repository, $classification, new EventExpander(), $dates);
         $createEvent = new CreateEvent($access, $guard, $this->dav, $this->store, $repository, $builder, $mapper, $dates, $attendees, $scheduling, $time);
         $updateEvent = new UpdateEvent($access, $guard, $this->dav, $this->store, $repository, $builder, $mapper, $dates, $attendees, $scheduling, $time);
         $moveEvent = new MoveEvent($access, $relocator, $guard);
@@ -170,7 +171,7 @@ abstract class CalendarTestCase extends TestCase {
             $logger,
             $zones,
         );
-        $this->module = \OCA\Mcp\Tests\Support\Calendar\CalendarModuleFactory::create($listCalendars, $listEvents, $createEvent, $updateEvent, $moveEvent, $deleteEvent, $transferEvent, new \OCA\Mcp\Modules\Calendar\Execution\EventApproval($scheduling, $builder, $guard, $warnings, $zones), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
+        $this->module = \OCA\Mcp\Tests\Support\Calendar\CalendarModuleFactory::create($listCalendars, $listEvents, $availability, $createEvent, $updateEvent, $moveEvent, $deleteEvent, $transferEvent, new \OCA\Mcp\Modules\Calendar\Execution\EventApproval($scheduling, $builder, $guard, $warnings, $zones), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
         $policy = $this->createMock(\OCA\Mcp\Access\Grants\GrantPolicy::class);
         $policy->method('granted')->willReturn(true);
         $policy->method('toolGranted')->willReturn(true);

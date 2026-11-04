@@ -238,6 +238,7 @@ class Application extends App implements IBootstrap {
         ], static fn (string $uid) => $c->get(\OCA\Mcp\Platform\FileAccess\References\OutputReferenceFilter::class)->assertAvailable($uid)));
         $context->registerService(CalendarModule::class, static fn (ContainerInterface $c) => new CalendarModule([
             'calendar_list_calendars' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ListCalendars::class),
+            'calendar_check_availability' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\CheckAvailability::class),
             'calendar_list_events' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ListEvents::class),
             'calendar_create_event' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\CreateEvent::class),
             'calendar_update_event' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\UpdateEvent::class),
@@ -301,6 +302,16 @@ class Application extends App implements IBootstrap {
             static fn () => $c->get(\OCA\Deck\Db\StackMapper::class),
             static fn () => $c->get(\OCA\Deck\Db\CardMapper::class),
             static fn () => $c->get(\OCA\Deck\Service\CardService::class),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Deck\Reading\CardSearchReader::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Deck\Reading\CardSearchReader(
+            $c->get(\OCA\Mcp\Modules\Deck\Access\DeckCaller::class),
+            $c->get(\OCA\Mcp\Modules\Deck\Reading\BoardReader::class),
+            $c->get(\OCA\Mcp\Modules\Deck\Assignments\AssignmentAccess::class),
+            static fn () => $c->get(\OCA\Deck\Db\StackMapper::class),
+            static fn () => $c->get(\OCA\Deck\Db\CardMapper::class),
+            static fn () => $c->get(\OCA\Deck\Db\LabelMapper::class),
+            static fn () => $c->get(\OCA\Deck\Service\PermissionService::class),
+            $c->get(UserTimezone::class),
         ));
         $context->registerService(\OCA\Mcp\Modules\Deck\Followup\FollowupQuery::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Deck\Followup\FollowupQuery(
             $c->get(\OCA\Mcp\Modules\Deck\Access\DeckCaller::class),
@@ -462,6 +473,7 @@ class Application extends App implements IBootstrap {
             'deck_edit_card' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\EditCard::class),
             'deck_move_card' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\MoveCard::class),
             'deck_delete_card' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\DeleteCard::class),
+            'deck_search_cards' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\SearchCards::class),
             'deck_followup_cards' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\FollowupCards::class),
             'deck_create_board' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\CreateBoard::class),
             'deck_create_stack' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\CreateStack::class),
@@ -485,6 +497,11 @@ class Application extends App implements IBootstrap {
         ));
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\ReadCard::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Deck\Tools\ReadCard(
             $c->get(\OCA\Mcp\Modules\Deck\Reading\CardReader::class)->findCard(...),
+            $c->get(\OCA\Mcp\Modules\Deck\Execution\ResultBoundary::class),
+            $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Deck\Tools\SearchCards::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Deck\Tools\SearchCards(
+            $c->get(\OCA\Mcp\Modules\Deck\Reading\CardSearchReader::class)->searchCards(...),
             $c->get(\OCA\Mcp\Modules\Deck\Execution\ResultBoundary::class),
             $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class),
         ));
@@ -593,6 +610,7 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsResponseReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader(
             $c->get(\OCA\Mcp\Modules\Forms\FormsReader::class), $c->get(\OCA\Mcp\Modules\Forms\FormsResponseReader::class),
+            $c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(
             $c->get(IAppManager::class), static fn (string $class) => $c->get($class), $c->get(IUserManager::class)));

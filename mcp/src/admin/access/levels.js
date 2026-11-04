@@ -18,15 +18,15 @@
 const TIERS = {
 	files: [['read'], ['edit', 'create', 'move', 'restore'], ['share', 'link']],
 	notes: [['read'], ['create', 'edit', 'move'], ['delete']],
-	deck: [['read'], ['create', 'edit', 'move'], ['delete', 'read_comments', 'comment']],
-	calendar: [['read'], ['create', 'edit', 'move'], ['delete', 'transfer']],
+	deck: [['read'], ['create', 'edit', 'move'], ['delete', 'read_comments', 'comment', 'search']],
+	calendar: [['read'], ['create', 'edit', 'move'], ['delete', 'transfer', 'availability']],
 	contacts: [['read'], ['create', 'edit'], ['delete']],
 	tasks: [['read'], ['create', 'edit'], ['delete']],
 	talk: [['read'], ['reply', 'attach', 'quote'], ['create', 'publish_summary', 'search']],
 	people: [['read']],
 	logs: [['read']],
 	mail: [['read'], ['search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts']],
-	forms: [['read'], ['read_responses']],
+	forms: [['read'], ['read_responses', 'summarize_responses', 'export_responses']],
 }
 
 /** Names of the tiers by how many a module has. */

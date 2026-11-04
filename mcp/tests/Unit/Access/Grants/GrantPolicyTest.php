@@ -121,6 +121,21 @@ final class GrantPolicyTest extends TestCase {
         }
     }
 
+    public function testFormAnalysisDeckSearchAndCalendarAvailabilityAreIndependentAndUserScoped(): void {
+        foreach (['forms', 'deck', 'calendar'] as $module) {
+            $this->policy->setGrant('alice', $module, 'read', true);
+        }
+        foreach ([['forms', 'summarize_responses'], ['forms', 'export_responses'], ['deck', 'search'], ['calendar', 'availability']] as [$module, $operation]) {
+            self::assertContains($operation, GrantPolicy::CATALOG[$module]);
+            self::assertFalse($this->policy->granted('alice', $module, $operation));
+            $this->policy->setGrant('alice', $module, $operation, true);
+            self::assertTrue($this->policy->granted('alice', $module, $operation));
+            self::assertFalse($this->policy->granted('bob', $module, $operation));
+            self::assertFalse($this->policy->granted('alice', 'files', 'create'));
+            $this->policy->setGrant('alice', $module, $operation, false);
+        }
+    }
+
     public function testReadStartsAllowedAndWriteStartsDenied(): void {
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
@@ -149,7 +164,7 @@ final class GrantPolicyTest extends TestCase {
 
     public function testCatalogMatchesContractAndFilesHasNoDelete(): void {
         $this->assertSame(['read', 'edit', 'create', 'move', 'restore', 'share', 'link'], GrantPolicy::CATALOG['files']);
-        $this->assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer'], GrantPolicy::CATALOG['calendar']);
+        $this->assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability'], GrantPolicy::CATALOG['calendar']);
         $this->assertSame(['read', 'reply', 'attach', 'quote', 'create', 'publish_summary', 'search'], GrantPolicy::CATALOG['talk']);
         $this->expectException(InvalidArgumentException::class);
         $this->policy->setGrant('alice', 'files', 'delete', true);

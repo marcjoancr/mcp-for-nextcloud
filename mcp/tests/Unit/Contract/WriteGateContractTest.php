@@ -26,6 +26,13 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 final class WriteGateContractTest extends TestCase {
+    public function testAnalysisAndAvailabilityReadsNeverNeedWriteConfirmationButExportDoes(): void {
+        foreach ([['forms', 'summarize_responses'], ['deck', 'search'], ['calendar', 'availability']] as [$module, $operation]) {
+            self::assertFalse(WriteGate::isWrite(['module' => $module, 'operation' => $operation]));
+        }
+        self::assertTrue(WriteGate::isWrite(['module' => 'forms', 'operation' => 'export_responses']));
+    }
+
     /** Builds a concrete app class with real app collaborators and mocks for everything else. */
     private function build(string $class): object {
         if ($class === \OCA\Mcp\Modules\Forms\FormsModule::class) {
@@ -211,7 +218,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'summarize_responses', 'availability'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 

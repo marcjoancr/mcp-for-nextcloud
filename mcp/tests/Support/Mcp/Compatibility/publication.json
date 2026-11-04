@@ -2267,6 +2267,7 @@
                             "count": 2,
                             "notes": [
                                 "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                                "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                                 "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                                 "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
                                 "Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.",
@@ -3866,6 +3867,59 @@
                     }
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "title": "Check calendar availability",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Check calendar availability",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    }
+                },
+                {
                     "name": "calendar_create_event",
                     "title": "Create event",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -5034,6 +5088,82 @@
                     },
                     "annotations": {
                         "title": "List Deck cards",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    }
+                },
+                {
+                    "name": "deck_search_cards",
+                    "title": "Search Deck cards",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Search Deck cards",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -7850,6 +7980,62 @@
                     "app": "calendar"
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "title": "Check calendar availability",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Check calendar availability",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    },
+                    "module": "calendar",
+                    "operation": "availability",
+                    "app": "calendar"
+                },
+                {
                     "name": "calendar_create_event",
                     "title": "Create event",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -9085,6 +9271,85 @@
                     },
                     "module": "deck",
                     "operation": "read",
+                    "app": "deck"
+                },
+                {
+                    "name": "deck_search_cards",
+                    "title": "Search Deck cards",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Search Deck cards",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    },
+                    "module": "deck",
+                    "operation": "search",
                     "app": "deck"
                 },
                 {
@@ -10650,7 +10915,7 @@
                 "content": [
                     {
                         "type": "text",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 23 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 7 tools — List calendars, List events, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 20 tools — List Deck boards, List Deck lists, List Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 23 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 8 tools — List calendars, List events, Check calendar availability, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 21 tools — List Deck boards, List Deck lists, List Deck cards, Search Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ],
                 "structuredContent": {
@@ -10986,9 +11251,10 @@
                         {
                             "module": "calendar",
                             "title": "Calendar",
-                            "count": 7,
+                            "count": 8,
                             "notes": [
                                 "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                                "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                                 "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                                 "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
                                 "Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.",
@@ -11010,6 +11276,14 @@
                                     "name": "calendar_list_events",
                                     "title": "List events",
                                     "description": "Lists events in a time range (default: next 7 days).",
+                                    "read_only": true,
+                                    "destructive": false,
+                                    "confirmation": []
+                                },
+                                {
+                                    "name": "calendar_check_availability",
+                                    "title": "Check calendar availability",
+                                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -11229,7 +11503,7 @@
                         {
                             "module": "deck",
                             "title": "Deck",
-                            "count": 20,
+                            "count": 21,
                             "notes": [
                                 "A card is addressed by three ids: deck_list_boards gives the board, deck_list_stacks the lists of a board, and deck_list_cards the cards of a list. Read them in that order before writing anything.",
                                 "deck_read_card returns the card with its comments; deck_followup_cards lists the cards that are due or overdue, per board.",
@@ -11264,6 +11538,14 @@
                                     "name": "deck_list_cards",
                                     "title": "List Deck cards",
                                     "description": "Lists the active cards of a Deck list (stack), paginated.",
+                                    "read_only": true,
+                                    "destructive": false,
+                                    "confirmation": []
+                                },
+                                {
+                                    "name": "deck_search_cards",
+                                    "title": "Search Deck cards",
+                                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -11609,7 +11891,7 @@
                     {
                         "uri": "mcp://guide",
                         "mimeType": "text/markdown",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 23 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 7 tools — List calendars, List events, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 20 tools — List Deck boards, List Deck lists, List Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 23 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 8 tools — List calendars, List events, Check calendar availability, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 21 tools — List Deck boards, List Deck lists, List Deck cards, Search Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ]
             },
@@ -13006,6 +13288,54 @@
                     "app": "calendar"
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "module": "calendar",
+                    "operation": "availability",
+                    "app": "calendar"
+                },
+                {
                     "name": "calendar_create_event",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                     "inputSchema": {
@@ -14033,6 +14363,77 @@
                     },
                     "module": "deck",
                     "operation": "read",
+                    "app": "deck"
+                },
+                {
+                    "name": "deck_search_cards",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "module": "deck",
+                    "operation": "search",
                     "app": "deck"
                 },
                 {
@@ -15837,6 +16238,96 @@
                         ],
                         "additionalProperties": false
                     }
+                },
+                {
+                    "name": "forms_summarize_responses",
+                    "module": "forms",
+                    "operation": "summarize_responses",
+                    "app": "forms",
+                    "description": "Counts exact answer values for each question in a bounded response page. Anonymous identities and file answers are omitted; partial results are marked.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "The form ID returned by forms_list."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            }
+                        },
+                        "required": [
+                            "id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "forms_export_responses",
+                    "module": "forms",
+                    "operation": "export_responses",
+                    "app": "forms",
+                    "grantAllOf": {
+                        "files": [
+                            "create"
+                        ]
+                    },
+                    "description": "Previews and exports a bounded, formula-safe CSV of form responses to Files. Review the destination and confirm the plan before writing.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "The form ID returned by forms_list."
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1024,
+                                "description": "Destination path in Files; the name must end in .csv."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "confirm": {
+                                "type": "boolean",
+                                "description": "Set true only after reviewing the current export plan."
+                            },
+                            "confirm_shared": {
+                                "type": "boolean",
+                                "description": "Set true only after reviewing the shared destination warning."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ]
         ],
@@ -17144,6 +17635,59 @@
                             }
                         },
                         {
+                            "name": "calendar_check_availability",
+                            "title": "Check calendar availability",
+                            "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "from": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 40,
+                                        "description": "inclusive start ISO date or timestamp"
+                                    },
+                                    "to": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 40,
+                                        "description": "exclusive end ISO date or timestamp"
+                                    },
+                                    "calendars": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1024,
+                                            "description": "accessible calendar path"
+                                        },
+                                        "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                                    },
+                                    "min_duration_minutes": {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 1440,
+                                        "default": 30,
+                                        "description": "Minimum length of returned free ranges, in minutes."
+                                    }
+                                },
+                                "required": [
+                                    "from",
+                                    "to"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "annotations": {
+                                "title": "Check calendar availability",
+                                "readOnlyHint": true,
+                                "destructiveHint": false,
+                                "idempotentHint": true,
+                                "openWorldHint": false
+                            }
+                        },
+                        {
                             "name": "calendar_create_event",
                             "title": "Create event",
                             "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -18312,6 +18856,82 @@
                             },
                             "annotations": {
                                 "title": "List Deck cards",
+                                "readOnlyHint": true,
+                                "destructiveHint": false,
+                                "idempotentHint": true,
+                                "openWorldHint": false
+                            }
+                        },
+                        {
+                            "name": "deck_search_cards",
+                            "title": "Search Deck cards",
+                            "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Case-insensitive text contained in the card title or description.",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                    },
+                                    "boardId": {
+                                        "type": "integer",
+                                        "description": "Id of the Deck board.",
+                                        "minimum": 1
+                                    },
+                                    "assignee": {
+                                        "type": "string",
+                                        "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                        "minLength": 1,
+                                        "maxLength": 255
+                                    },
+                                    "labelIds": {
+                                        "type": "array",
+                                        "maxItems": 100,
+                                        "uniqueItems": true,
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                                    },
+                                    "labelMatch": {
+                                        "type": "string",
+                                        "enum": [
+                                            "any",
+                                            "all"
+                                        ],
+                                        "default": "any",
+                                        "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                                    },
+                                    "dueAfter": {
+                                        "type": "string",
+                                        "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                                    },
+                                    "dueBefore": {
+                                        "type": "string",
+                                        "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                                    },
+                                    "limit": {
+                                        "type": "integer",
+                                        "description": "Maximum number of cards to return.",
+                                        "minimum": 1,
+                                        "maximum": 100,
+                                        "default": 50
+                                    },
+                                    "offset": {
+                                        "type": "integer",
+                                        "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                        "minimum": 0,
+                                        "maximum": 10000,
+                                        "default": 0
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "annotations": {
+                                "title": "Search Deck cards",
                                 "readOnlyHint": true,
                                 "destructiveHint": false,
                                 "idempotentHint": true,
@@ -22059,6 +22679,7 @@
                             "count": 2,
                             "notes": [
                                 "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                                "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                                 "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                                 "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
                                 "Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.",
@@ -23658,6 +24279,59 @@
                     }
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "title": "Consultar disponibilidade dos calendários",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Consultar disponibilidade dos calendários",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    }
+                },
+                {
                     "name": "calendar_create_event",
                     "title": "Criar evento",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -24826,6 +25500,82 @@
                     },
                     "annotations": {
                         "title": "Listar cards do Deck",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    }
+                },
+                {
+                    "name": "deck_search_cards",
+                    "title": "Buscar cartões do Deck",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Buscar cartões do Deck",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -27642,6 +28392,62 @@
                     "app": "calendar"
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "title": "Consultar disponibilidade dos calendários",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Consultar disponibilidade dos calendários",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    },
+                    "module": "calendar",
+                    "operation": "availability",
+                    "app": "calendar"
+                },
+                {
                     "name": "calendar_create_event",
                     "title": "Criar evento",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -28877,6 +29683,85 @@
                     },
                     "module": "deck",
                     "operation": "read",
+                    "app": "deck"
+                },
+                {
+                    "name": "deck_search_cards",
+                    "title": "Buscar cartões do Deck",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Buscar cartões do Deck",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    },
+                    "module": "deck",
+                    "operation": "search",
                     "app": "deck"
                 },
                 {
@@ -30442,7 +31327,7 @@
                 "content": [
                     {
                         "type": "text",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 23 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 7 tools — Listar calendários, Listar eventos, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 20 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 23 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 8 tools — Listar calendários, Listar eventos, Consultar disponibilidade dos calendários, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 21 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Buscar cartões do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ],
                 "structuredContent": {
@@ -30778,9 +31663,10 @@
                         {
                             "module": "calendar",
                             "title": "Calendário",
-                            "count": 7,
+                            "count": 8,
                             "notes": [
                                 "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                                "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                                 "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                                 "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
                                 "Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.",
@@ -30802,6 +31688,14 @@
                                     "name": "calendar_list_events",
                                     "title": "Listar eventos",
                                     "description": "Lists events in a time range (default: next 7 days).",
+                                    "read_only": true,
+                                    "destructive": false,
+                                    "confirmation": []
+                                },
+                                {
+                                    "name": "calendar_check_availability",
+                                    "title": "Consultar disponibilidade dos calendários",
+                                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -31021,7 +31915,7 @@
                         {
                             "module": "deck",
                             "title": "Deck",
-                            "count": 20,
+                            "count": 21,
                             "notes": [
                                 "A card is addressed by three ids: deck_list_boards gives the board, deck_list_stacks the lists of a board, and deck_list_cards the cards of a list. Read them in that order before writing anything.",
                                 "deck_read_card returns the card with its comments; deck_followup_cards lists the cards that are due or overdue, per board.",
@@ -31056,6 +31950,14 @@
                                     "name": "deck_list_cards",
                                     "title": "Listar cards do Deck",
                                     "description": "Lists the active cards of a Deck list (stack), paginated.",
+                                    "read_only": true,
+                                    "destructive": false,
+                                    "confirmation": []
+                                },
+                                {
+                                    "name": "deck_search_cards",
+                                    "title": "Buscar cartões do Deck",
+                                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -31401,7 +32303,7 @@
                     {
                         "uri": "mcp://guide",
                         "mimeType": "text/markdown",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 23 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 7 tools — Listar calendários, Listar eventos, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 20 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 23 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 8 tools — Listar calendários, Listar eventos, Consultar disponibilidade dos calendários, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 21 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Buscar cartões do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ]
             },
@@ -32798,6 +33700,54 @@
                     "app": "calendar"
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "module": "calendar",
+                    "operation": "availability",
+                    "app": "calendar"
+                },
+                {
                     "name": "calendar_create_event",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                     "inputSchema": {
@@ -33825,6 +34775,77 @@
                     },
                     "module": "deck",
                     "operation": "read",
+                    "app": "deck"
+                },
+                {
+                    "name": "deck_search_cards",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "module": "deck",
+                    "operation": "search",
                     "app": "deck"
                 },
                 {
@@ -35629,6 +36650,96 @@
                         ],
                         "additionalProperties": false
                     }
+                },
+                {
+                    "name": "forms_summarize_responses",
+                    "module": "forms",
+                    "operation": "summarize_responses",
+                    "app": "forms",
+                    "description": "Counts exact answer values for each question in a bounded response page. Anonymous identities and file answers are omitted; partial results are marked.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "The form ID returned by forms_list."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            }
+                        },
+                        "required": [
+                            "id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "forms_export_responses",
+                    "module": "forms",
+                    "operation": "export_responses",
+                    "app": "forms",
+                    "grantAllOf": {
+                        "files": [
+                            "create"
+                        ]
+                    },
+                    "description": "Previews and exports a bounded, formula-safe CSV of form responses to Files. Review the destination and confirm the plan before writing.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "The form ID returned by forms_list."
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1024,
+                                "description": "Destination path in Files; the name must end in .csv."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "confirm": {
+                                "type": "boolean",
+                                "description": "Set true only after reviewing the current export plan."
+                            },
+                            "confirm_shared": {
+                                "type": "boolean",
+                                "description": "Set true only after reviewing the shared destination warning."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ]
         ],
@@ -36936,6 +38047,59 @@
                             }
                         },
                         {
+                            "name": "calendar_check_availability",
+                            "title": "Consultar disponibilidade dos calendários",
+                            "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "from": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 40,
+                                        "description": "inclusive start ISO date or timestamp"
+                                    },
+                                    "to": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 40,
+                                        "description": "exclusive end ISO date or timestamp"
+                                    },
+                                    "calendars": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1024,
+                                            "description": "accessible calendar path"
+                                        },
+                                        "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                                    },
+                                    "min_duration_minutes": {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 1440,
+                                        "default": 30,
+                                        "description": "Minimum length of returned free ranges, in minutes."
+                                    }
+                                },
+                                "required": [
+                                    "from",
+                                    "to"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "annotations": {
+                                "title": "Consultar disponibilidade dos calendários",
+                                "readOnlyHint": true,
+                                "destructiveHint": false,
+                                "idempotentHint": true,
+                                "openWorldHint": false
+                            }
+                        },
+                        {
                             "name": "calendar_create_event",
                             "title": "Criar evento",
                             "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -38104,6 +39268,82 @@
                             },
                             "annotations": {
                                 "title": "Listar cards do Deck",
+                                "readOnlyHint": true,
+                                "destructiveHint": false,
+                                "idempotentHint": true,
+                                "openWorldHint": false
+                            }
+                        },
+                        {
+                            "name": "deck_search_cards",
+                            "title": "Buscar cartões do Deck",
+                            "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Case-insensitive text contained in the card title or description.",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                    },
+                                    "boardId": {
+                                        "type": "integer",
+                                        "description": "Id of the Deck board.",
+                                        "minimum": 1
+                                    },
+                                    "assignee": {
+                                        "type": "string",
+                                        "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                        "minLength": 1,
+                                        "maxLength": 255
+                                    },
+                                    "labelIds": {
+                                        "type": "array",
+                                        "maxItems": 100,
+                                        "uniqueItems": true,
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                                    },
+                                    "labelMatch": {
+                                        "type": "string",
+                                        "enum": [
+                                            "any",
+                                            "all"
+                                        ],
+                                        "default": "any",
+                                        "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                                    },
+                                    "dueAfter": {
+                                        "type": "string",
+                                        "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                                    },
+                                    "dueBefore": {
+                                        "type": "string",
+                                        "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                                    },
+                                    "limit": {
+                                        "type": "integer",
+                                        "description": "Maximum number of cards to return.",
+                                        "minimum": 1,
+                                        "maximum": 100,
+                                        "default": 50
+                                    },
+                                    "offset": {
+                                        "type": "integer",
+                                        "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                        "minimum": 0,
+                                        "maximum": 10000,
+                                        "default": 0
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "annotations": {
+                                "title": "Buscar cartões do Deck",
                                 "readOnlyHint": true,
                                 "destructiveHint": false,
                                 "idempotentHint": true,
@@ -41851,6 +43091,7 @@
                             "count": 2,
                             "notes": [
                                 "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                                "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                                 "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                                 "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
                                 "Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.",
@@ -43450,6 +44691,59 @@
                     }
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "title": "Consultar disponibilidad de calendarios",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Consultar disponibilidad de calendarios",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    }
+                },
+                {
                     "name": "calendar_create_event",
                     "title": "Crear evento",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -44618,6 +45912,82 @@
                     },
                     "annotations": {
                         "title": "Listar tarjetas de Deck",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    }
+                },
+                {
+                    "name": "deck_search_cards",
+                    "title": "Buscar tarjetas de Deck",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Buscar tarjetas de Deck",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -47434,6 +48804,62 @@
                     "app": "calendar"
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "title": "Consultar disponibilidad de calendarios",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Consultar disponibilidad de calendarios",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    },
+                    "module": "calendar",
+                    "operation": "availability",
+                    "app": "calendar"
+                },
+                {
                     "name": "calendar_create_event",
                     "title": "Crear evento",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -48669,6 +50095,85 @@
                     },
                     "module": "deck",
                     "operation": "read",
+                    "app": "deck"
+                },
+                {
+                    "name": "deck_search_cards",
+                    "title": "Buscar tarjetas de Deck",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "annotations": {
+                        "title": "Buscar tarjetas de Deck",
+                        "readOnlyHint": true,
+                        "destructiveHint": false,
+                        "idempotentHint": true,
+                        "openWorldHint": false
+                    },
+                    "module": "deck",
+                    "operation": "search",
                     "app": "deck"
                 },
                 {
@@ -50234,7 +51739,7 @@
                 "content": [
                     {
                         "type": "text",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 23 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 7 tools — Listar calendarios, Listar eventos, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 20 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 23 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 8 tools — Listar calendarios, Listar eventos, Consultar disponibilidad de calendarios, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 21 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Buscar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ],
                 "structuredContent": {
@@ -50570,9 +52075,10 @@
                         {
                             "module": "calendar",
                             "title": "Calendario",
-                            "count": 7,
+                            "count": 8,
                             "notes": [
                                 "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                                "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                                 "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                                 "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
                                 "Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.",
@@ -50594,6 +52100,14 @@
                                     "name": "calendar_list_events",
                                     "title": "Listar eventos",
                                     "description": "Lists events in a time range (default: next 7 days).",
+                                    "read_only": true,
+                                    "destructive": false,
+                                    "confirmation": []
+                                },
+                                {
+                                    "name": "calendar_check_availability",
+                                    "title": "Consultar disponibilidad de calendarios",
+                                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -50813,7 +52327,7 @@
                         {
                             "module": "deck",
                             "title": "Deck",
-                            "count": 20,
+                            "count": 21,
                             "notes": [
                                 "A card is addressed by three ids: deck_list_boards gives the board, deck_list_stacks the lists of a board, and deck_list_cards the cards of a list. Read them in that order before writing anything.",
                                 "deck_read_card returns the card with its comments; deck_followup_cards lists the cards that are due or overdue, per board.",
@@ -50848,6 +52362,14 @@
                                     "name": "deck_list_cards",
                                     "title": "Listar tarjetas de Deck",
                                     "description": "Lists the active cards of a Deck list (stack), paginated.",
+                                    "read_only": true,
+                                    "destructive": false,
+                                    "confirmation": []
+                                },
+                                {
+                                    "name": "deck_search_cards",
+                                    "title": "Buscar tarjetas de Deck",
+                                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -51193,7 +52715,7 @@
                     {
                         "uri": "mcp://guide",
                         "mimeType": "text/markdown",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 23 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 7 tools — Listar calendarios, Listar eventos, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 20 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 23 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 8 tools — Listar calendarios, Listar eventos, Consultar disponibilidad de calendarios, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 21 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Buscar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ]
             },
@@ -52590,6 +54112,54 @@
                     "app": "calendar"
                 },
                 {
+                    "name": "calendar_check_availability",
+                    "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "from": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "inclusive start ISO date or timestamp"
+                            },
+                            "to": {
+                                "type": "string",
+                                "minLength": 10,
+                                "maxLength": 40,
+                                "description": "exclusive end ISO date or timestamp"
+                            },
+                            "calendars": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1024,
+                                    "description": "accessible calendar path"
+                                },
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                            },
+                            "min_duration_minutes": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 1440,
+                                "default": 30,
+                                "description": "Minimum length of returned free ranges, in minutes."
+                            }
+                        },
+                        "required": [
+                            "from",
+                            "to"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "module": "calendar",
+                    "operation": "availability",
+                    "app": "calendar"
+                },
+                {
                     "name": "calendar_create_event",
                     "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                     "inputSchema": {
@@ -53617,6 +55187,77 @@
                     },
                     "module": "deck",
                     "operation": "read",
+                    "app": "deck"
+                },
+                {
+                    "name": "deck_search_cards",
+                    "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "Case-insensitive text contained in the card title or description.",
+                                "minLength": 1,
+                                "maxLength": 200
+                            },
+                            "boardId": {
+                                "type": "integer",
+                                "description": "Id of the Deck board.",
+                                "minimum": 1
+                            },
+                            "assignee": {
+                                "type": "string",
+                                "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "labelIds": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                            },
+                            "labelMatch": {
+                                "type": "string",
+                                "enum": [
+                                    "any",
+                                    "all"
+                                ],
+                                "default": "any",
+                                "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                            },
+                            "dueAfter": {
+                                "type": "string",
+                                "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                            },
+                            "dueBefore": {
+                                "type": "string",
+                                "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of cards to return.",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "module": "deck",
+                    "operation": "search",
                     "app": "deck"
                 },
                 {
@@ -55421,6 +57062,96 @@
                         ],
                         "additionalProperties": false
                     }
+                },
+                {
+                    "name": "forms_summarize_responses",
+                    "module": "forms",
+                    "operation": "summarize_responses",
+                    "app": "forms",
+                    "description": "Counts exact answer values for each question in a bounded response page. Anonymous identities and file answers are omitted; partial results are marked.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "The form ID returned by forms_list."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            }
+                        },
+                        "required": [
+                            "id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "forms_export_responses",
+                    "module": "forms",
+                    "operation": "export_responses",
+                    "app": "forms",
+                    "grantAllOf": {
+                        "files": [
+                            "create"
+                        ]
+                    },
+                    "description": "Previews and exports a bounded, formula-safe CSV of form responses to Files. Review the destination and confirm the plan before writing.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "The form ID returned by forms_list."
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1024,
+                                "description": "Destination path in Files; the name must end in .csv."
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 100,
+                                "default": 50
+                            },
+                            "confirm": {
+                                "type": "boolean",
+                                "description": "Set true only after reviewing the current export plan."
+                            },
+                            "confirm_shared": {
+                                "type": "boolean",
+                                "description": "Set true only after reviewing the shared destination warning."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ]
         ],
@@ -56728,6 +58459,59 @@
                             }
                         },
                         {
+                            "name": "calendar_check_availability",
+                            "title": "Consultar disponibilidad de calendarios",
+                            "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "from": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 40,
+                                        "description": "inclusive start ISO date or timestamp"
+                                    },
+                                    "to": {
+                                        "type": "string",
+                                        "minLength": 10,
+                                        "maxLength": 40,
+                                        "description": "exclusive end ISO date or timestamp"
+                                    },
+                                    "calendars": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 20,
+                                        "items": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 1024,
+                                            "description": "accessible calendar path"
+                                        },
+                                        "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                                    },
+                                    "min_duration_minutes": {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 1440,
+                                        "default": 30,
+                                        "description": "Minimum length of returned free ranges, in minutes."
+                                    }
+                                },
+                                "required": [
+                                    "from",
+                                    "to"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "annotations": {
+                                "title": "Consultar disponibilidad de calendarios",
+                                "readOnlyHint": true,
+                                "destructiveHint": false,
+                                "idempotentHint": true,
+                                "openWorldHint": false
+                            }
+                        },
+                        {
                             "name": "calendar_create_event",
                             "title": "Crear evento",
                             "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
@@ -57896,6 +59680,82 @@
                             },
                             "annotations": {
                                 "title": "Listar tarjetas de Deck",
+                                "readOnlyHint": true,
+                                "destructiveHint": false,
+                                "idempotentHint": true,
+                                "openWorldHint": false
+                            }
+                        },
+                        {
+                            "name": "deck_search_cards",
+                            "title": "Buscar tarjetas de Deck",
+                            "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Case-insensitive text contained in the card title or description.",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                    },
+                                    "boardId": {
+                                        "type": "integer",
+                                        "description": "Id of the Deck board.",
+                                        "minimum": 1
+                                    },
+                                    "assignee": {
+                                        "type": "string",
+                                        "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                                        "minLength": 1,
+                                        "maxLength": 255
+                                    },
+                                    "labelIds": {
+                                        "type": "array",
+                                        "maxItems": 100,
+                                        "uniqueItems": true,
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                                    },
+                                    "labelMatch": {
+                                        "type": "string",
+                                        "enum": [
+                                            "any",
+                                            "all"
+                                        ],
+                                        "default": "any",
+                                        "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                                    },
+                                    "dueAfter": {
+                                        "type": "string",
+                                        "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                                    },
+                                    "dueBefore": {
+                                        "type": "string",
+                                        "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                                    },
+                                    "limit": {
+                                        "type": "integer",
+                                        "description": "Maximum number of cards to return.",
+                                        "minimum": 1,
+                                        "maximum": 100,
+                                        "default": 50
+                                    },
+                                    "offset": {
+                                        "type": "integer",
+                                        "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                                        "minimum": 0,
+                                        "maximum": 10000,
+                                        "default": 0
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "annotations": {
+                                "title": "Buscar tarjetas de Deck",
                                 "readOnlyHint": true,
                                 "destructiveHint": false,
                                 "idempotentHint": true,

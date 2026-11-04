@@ -20,7 +20,7 @@ export function createPresentation({ t }) {
 	function operationLabels() {
 		return {
 			read: t('mcp', 'read'),
-			search: t('mcp', 'search messages'),
+			search: t('mcp', 'search'),
 			read_message: t('mcp', 'read mail content'),
 			read_attachment: t('mcp', 'read mail attachments'),
 			save_attachment: t('mcp', 'save mail attachments'),
@@ -28,7 +28,7 @@ export function createPresentation({ t }) {
 			write_drafts: t('mcp', 'save mail drafts'),
 			delete_drafts: t('mcp', 'delete mail drafts'),
 			read_comments: t('mcp', 'read card comments'),
-			read_responses: t('mcp', 'read form responses'),
+			read_responses: t('mcp', 'read form responses'), summarize_responses: t('mcp', 'summarize form responses'), export_responses: t('mcp', 'export form responses'), availability: t('mcp', 'check calendar availability'),
 			publish_summary: t('mcp', 'publish Talk summaries'),
 			comment: t('mcp', 'post card comments'),
 			edit: t('mcp', 'edit'),
@@ -45,6 +45,7 @@ export function createPresentation({ t }) {
 		}
 	}
 	function operationHint(module, operation) {
+		if (module === 'deck' && operation === 'search') return t('mcp', 'Search accessible cards by text, assignee, labels and due date')
 		if (module === 'talk' && operation === 'search') return t('mcp', 'Search conversation messages without marking them as read')
 		if (module === 'mail' && operation === 'read') return t('mcp', 'List own mail accounts and cached folders')
 		if (module === 'forms' && operation === 'read') return t('mcp', 'Read accessible forms, questions and options')
@@ -71,6 +72,9 @@ export function createPresentation({ t }) {
             delete_drafts: t('mcp', 'Delete mail drafts after preview and confirmation'),
 			read_comments: t('mcp', 'Read comments on accessible Deck cards'),
 			read_responses: t('mcp', 'Read responses with native form results permission'),
+			summarize_responses: t('mcp', 'Summarize responses with native form results permission'),
+			export_responses: t('mcp', 'Export responses to Files after preview and confirmation; requires file creation permission'),
+			availability: t('mcp', 'Check busy times, conflicts and free intervals in accessible calendars'),
 			publish_summary: t('mcp', 'Publish a summary after preview and confirmation'),
 			comment: t('mcp', 'Post a confirmed comment visible to readers of the board'),
 			edit: t('mcp', 'Change existing items'),

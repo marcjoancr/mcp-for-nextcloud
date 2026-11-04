@@ -12,6 +12,7 @@ class ToolMessages {
     public const TOOL_LIST_BOARDS_DESCRIPTION = 'Lists the Deck boards shared with you, excluding archived ones.';
     public const TOOL_LIST_STACKS_DESCRIPTION = 'Lists the lists (stacks) of a Deck board, with the number of cards in each.';
     public const TOOL_LIST_CARDS_DESCRIPTION = 'Lists the active cards of a Deck list (stack), paginated.';
+    public const TOOL_SEARCH_CARDS_DESCRIPTION = 'Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.';
     public const TOOL_READ_CARD_DESCRIPTION = 'Reads a Deck card with its description, dates and counters.';
     public const TOOL_CREATE_CARD_DESCRIPTION = 'Creates a Deck card at the end of a list (stack), owned by you. Optional assignees are account IDs with access to the board; use users_search to resolve IDs. If assignment fails after creation, the created card is returned with a warning.';
     public const TOOL_EDIT_CARD_DESCRIPTION = 'Edits the title, description, due date, completion state and assignees of a Deck card. Omit completed to keep its current state; setting it to true or false completes or reopens the card without changing its board position. Repeating true preserves the original completion timestamp. Use assign and unassign (lists of account IDs; use users_search to resolve IDs) to change who is responsible for it. Use lastModified to avoid overwriting a concurrent edit. If an assignment fails midway, the result lists what was assigned, unassigned and failed; nothing is undone.';
@@ -25,6 +26,11 @@ class ToolMessages {
     /* Parameter descriptions. */
     public const PARAM_BOARD_ID = 'Id of the Deck board.';
     public const PARAM_STACK_ID = 'Id of the Deck list (stack).';
+    public const PARAM_SEARCH_TEXT = 'Case-insensitive text contained in the card title or description.';
+    public const PARAM_LABEL_IDS = 'Label IDs to match. labelMatch any (default) needs one; all needs every requested label.';
+    public const PARAM_LABEL_MATCH = 'How labelIds are combined: any requires at least one requested label; all requires every requested label.';
+    public const PARAM_DUE_AFTER = 'Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone.';
+    public const PARAM_SEARCH_OFFSET = 'Number of matching cards to skip. The scan still stops at 2,000 cards.';
     public const PARAM_CARD_ID = 'Id of the Deck card.';
     public const PARAM_STATUS = 'Status filter: overdue (due before today), open, done or all. Default: overdue.';
     public const PARAM_ASSIGNEES = 'Optional list of account IDs to assign (maximum 100). Each account must exist and have access to the board. Omit or send an empty list to create without explicit assignments.';

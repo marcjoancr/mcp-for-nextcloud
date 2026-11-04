@@ -47,10 +47,10 @@ class GrantPolicy implements ScopeReader {
         // other, and removing a share asks for the operation of its type. Listing shares stays a 'read'.
         'files' => ['read', 'edit', 'create', 'move', 'restore', 'share', 'link'],
         'notes' => ['read', 'create', 'edit', 'move', 'delete'],
-        'deck' => ['read', 'create', 'edit', 'move', 'delete', 'read_comments', 'comment'],
+        'deck' => ['read', 'create', 'edit', 'move', 'delete', 'read_comments', 'comment', 'search'],
         'contacts' => ['read', 'create', 'edit', 'delete'],
         'tasks' => ['read', 'create', 'edit', 'delete'],
-        'calendar' => ['read', 'create', 'edit', 'move', 'delete', 'transfer'],
+        'calendar' => ['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability'],
         // 'create' is what talk_create_group asks for: opening a conversation invites people, so it is denied by
         // default like every other operation that is not a read.
         // Account search; read only, so the model can find who to invite or message.
@@ -59,7 +59,7 @@ class GrantPolicy implements ScopeReader {
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
         'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'],
-        'forms' => ['read', 'read_responses'],
+        'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses'],
     ];
 
     /**

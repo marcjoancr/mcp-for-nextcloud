@@ -163,3 +163,11 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 [Operational guides](../../guides/README.md).
 
 English · [Español](../../../es/reference/tools/deck.md) · [Català](../../../ca/reference/tools/deck.md) · [Português (Brasil)](../../../pt-BR/reference/tools/deck.md) · [Português (Portugal)](../../../pt-PT/reference/tools/deck.md)
+
+## Search cards
+
+`deck_search_cards` requires the independent `deck.search` permission and explicit tool selection. It searches active cards on boards the authenticated user can read, including shared boards with read-only access. It does not change cards or mark them viewed.
+
+Optional filters are `text` (title and description), `boardId`, `assignee` (user ID), `labelIds`, `labelMatch` (`any` or `all`), `dueAfter` and `dueBefore`. Date endpoints are inclusive in the user's timezone. Combine filters to narrow the result. Pagination uses `limit` (default 50, maximum 100) and `offset`.
+
+Search scans at most 100 boards, 500 stacks and 2,000 cards. A `truncated` result means a scan or result boundary prevented a complete answer; narrow the filters or use a specific board before drawing conclusions from missing results. Native Deck ACLs are checked for the caller; another user's private board cannot be queried by guessing its ID.

@@ -26,7 +26,7 @@ final class CalendarSelftestServiceTest extends CalendarTestCase {
 
     public function testSuccessfulRunReportsAndCleansUpWithoutChangingExposure(): void {
         self::assertTrue($this->service()->run('alice', [], $this->report(...)));
-        self::assertCount(7, $this->module->definitions());
+        self::assertCount(8, $this->module->definitions());
         self::assertSame('OK', $this->steps['result']['status']);
         self::assertSame('OK', $this->steps['cleanup']['status']);
         self::assertNull($this->active);
