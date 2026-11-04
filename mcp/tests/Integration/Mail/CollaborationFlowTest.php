@@ -51,10 +51,13 @@ final class CollaborationFlowTest extends IntegrationTestCase {
                 ToolPermissionFixture::restore($this->toolPermissionSnapshot);
             }
             $config = Server::get(IConfig::class);
-            if ($this->policySnapshot['service'] === '__mcp_it_missing__') {
-                $config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY);
-            } else {
-                $config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, $this->policySnapshot['service']);
+            // A skipped setup has no snapshot and must leave the shared service switch untouched.
+            if (array_key_exists('service', $this->policySnapshot)) {
+                if ($this->policySnapshot['service'] === '__mcp_it_missing__') {
+                    $config->deleteAppValue('mcp', GrantPolicy::SERVICE_KEY);
+                } else {
+                    $config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, $this->policySnapshot['service']);
+                }
             }
             foreach ($this->policySnapshot['users'] ?? [] as $uid => $values) {
                 foreach ($values as $key => $value) {
