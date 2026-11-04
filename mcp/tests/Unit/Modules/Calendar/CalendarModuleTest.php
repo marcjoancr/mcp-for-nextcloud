@@ -15,6 +15,11 @@ use OCA\Mcp\Tests\Unit\L10n\JsonL10n;
 use OCA\Mcp\Mcp\Confirmation\RendersPlans;
 
 final class CalendarModuleTest extends CalendarTestCase {
+    public function testAvailabilityIsASeparateReadCapability(): void {
+        $operations = array_column($this->module->definitions(), 'operation', 'name');
+        self::assertSame('availability', $operations['calendar_check_availability'] ?? null);
+    }
+
     public function testDefinitionsDeclareCatalogGrantsAppAndStrictSchemas(): void {
         $operations = [];
         foreach ($this->module->definitions() as $definition) {
@@ -28,6 +33,7 @@ final class CalendarModuleTest extends CalendarTestCase {
         $this->assertSame([
             'calendar_list_calendars' => 'read',
             'calendar_list_events' => 'read',
+            'calendar_check_availability' => 'availability',
             'calendar_create_event' => 'create',
             'calendar_update_event' => 'edit',
             'calendar_move_event' => 'move',

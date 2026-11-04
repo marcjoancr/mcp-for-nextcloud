@@ -45,6 +45,54 @@
                 "app": "calendar"
             },
             {
+                "name": "calendar_check_availability",
+                "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "from": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "inclusive start ISO date or timestamp"
+                        },
+                        "to": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "exclusive end ISO date or timestamp"
+                        },
+                        "calendars": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1024,
+                                "description": "accessible calendar path"
+                            },
+                            "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                        },
+                        "min_duration_minutes": {
+                            "type": "integer",
+                            "minimum": 5,
+                            "maximum": 1440,
+                            "default": 30,
+                            "description": "Minimum length of returned free ranges, in minutes."
+                        }
+                    },
+                    "required": [
+                        "from",
+                        "to"
+                    ],
+                    "additionalProperties": false
+                },
+                "module": "calendar",
+                "operation": "availability",
+                "app": "calendar"
+            },
+            {
                 "name": "calendar_create_event",
                 "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                 "inputSchema": {
@@ -424,6 +472,62 @@
                 },
                 "module": "calendar",
                 "operation": "read",
+                "app": "calendar"
+            },
+            {
+                "name": "calendar_check_availability",
+                "title": "Check calendar availability",
+                "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "from": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "inclusive start ISO date or timestamp"
+                        },
+                        "to": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "exclusive end ISO date or timestamp"
+                        },
+                        "calendars": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1024,
+                                "description": "accessible calendar path"
+                            },
+                            "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars."
+                        },
+                        "min_duration_minutes": {
+                            "type": "integer",
+                            "minimum": 5,
+                            "maximum": 1440,
+                            "default": 30,
+                            "description": "Minimum length of returned free ranges, in minutes."
+                        }
+                    },
+                    "required": [
+                        "from",
+                        "to"
+                    ],
+                    "additionalProperties": false
+                },
+                "annotations": {
+                    "title": "Check calendar availability",
+                    "readOnlyHint": true,
+                    "destructiveHint": false,
+                    "idempotentHint": true,
+                    "openWorldHint": false
+                },
+                "module": "calendar",
+                "operation": "availability",
                 "app": "calendar"
             },
             {
@@ -810,7 +914,7 @@
             "content": [
                 {
                     "type": "text",
-                    "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Calendar (`calendar`)\n\n7 tools available to you in this module.\n\nBehaviour notes\n\n- Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.\n- Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.\n- The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.\n- Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.\n- send_invitations hands the invitation to the CalDAV scheduling of the server. The plan and the result say whether the server has e-mail invitations switched on (imipEnabled); when it is off, say so to the user instead of claiming an e-mail was sent.\n- A calendar owned by somebody else (a share) needs confirm_shared after asking the user, and a transfer moves the event there and removes it from here.\n- A deleted event goes to the Nextcloud trash bin of the calendar; with retention at 0 the deletion is refused rather than permanent.\n- The writing tools appear only when the administrator granted them to this user; a module showing reads only means the writing grants are off.\n\n\n## List calendars — `calendar_list_calendars`\n\nReads only. Lists calendars visible to the user.\n\n## List events — `calendar_list_events`\n\nReads only. Lists events in a time range (default: next 7 days).\n\nParameters\n- `calendar` (string, optional, length 1..1024) — calendar path (optional)\n- `from` (string, optional, length 10..40) — start ISO date\n- `to` (string, optional, length 10..40) — end ISO date\n\n## Create event — `calendar_create_event`\n\nWrites: it changes something in this Nextcloud. Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `summary` (string, required, length 1..255) — event title\n- `start` (string, required, length 10..40) — start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, required, length 10..40) — exclusive end, in the same format as start\n- `allDay` (boolean, optional, default false) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — location\n- `description` (string, optional, length 0..65536) — description\n- `attendees` (array of string, optional, at least 1 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit event — `calendar_update_event`\n\nWrites: it changes something in this Nextcloud. Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Recurrent series dates cannot be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `summary` (string, optional, length 1..255) — new title\n- `start` (string, optional, length 10..40) — new start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, optional, length 10..40) — new exclusive end\n- `allDay` (boolean, optional) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — new location; empty to clear\n- `description` (string, optional, length 0..65536) — new description; empty to clear\n- `attendees` (array of string, optional, at least 0 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Move event to another calendar — `calendar_move_event`\n\nWrites: it changes something in this Nextcloud. Moves an event to another calendar of the same owner, without overwriting. Event attendees are not notified, just like when moving in the Calendar app. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete event — `calendar_delete_event`\n\nWrites: it changes something in this Nextcloud. Deletes an event (the entire series), moving it to the calendar trash bin. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Transfer event to another person's calendar — `calendar_transfer_event`\n\nWrites: it changes something in this Nextcloud. Transfers an event to a calendar owned by another user and shared with write permission. Requires confirm: true. Events with attendees are rejected: you remain the organizer and Nextcloud does not notify anyone in this operation. Event attendees are not notified, just like when moving in the Calendar app. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path, owned by another user\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
+                    "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Calendar (`calendar`)\n\n8 tools available to you in this module.\n\nBehaviour notes\n\n- Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.\n- calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.\n- Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.\n- The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.\n- Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.\n- send_invitations hands the invitation to the CalDAV scheduling of the server. The plan and the result say whether the server has e-mail invitations switched on (imipEnabled); when it is off, say so to the user instead of claiming an e-mail was sent.\n- A calendar owned by somebody else (a share) needs confirm_shared after asking the user, and a transfer moves the event there and removes it from here.\n- A deleted event goes to the Nextcloud trash bin of the calendar; with retention at 0 the deletion is refused rather than permanent.\n- The writing tools appear only when the administrator granted them to this user; a module showing reads only means the writing grants are off.\n\n\n## List calendars — `calendar_list_calendars`\n\nReads only. Lists calendars visible to the user.\n\n## List events — `calendar_list_events`\n\nReads only. Lists events in a time range (default: next 7 days).\n\nParameters\n- `calendar` (string, optional, length 1..1024) — calendar path (optional)\n- `from` (string, optional, length 10..40) — start ISO date\n- `to` (string, optional, length 10..40) — end ISO date\n\n## Check calendar availability — `calendar_check_availability`\n\nReads only. Check busy times, conflicts and free intervals in accessible calendars\n\nParameters\n- `from` (string, required, length 10..40) — inclusive start ISO date or timestamp\n- `to` (string, required, length 10..40) — exclusive end ISO date or timestamp\n- `calendars` (array of string, optional, at least 1 items, at most 20 items) — Calendar paths from calendar_list_calendars; omit to check all visible calendars.\n- `min_duration_minutes` (integer, optional, default 30, 5..1440) — Minimum length of returned free ranges, in minutes.\n\n## Create event — `calendar_create_event`\n\nWrites: it changes something in this Nextcloud. Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `summary` (string, required, length 1..255) — event title\n- `start` (string, required, length 10..40) — start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, required, length 10..40) — exclusive end, in the same format as start\n- `allDay` (boolean, optional, default false) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — location\n- `description` (string, optional, length 0..65536) — description\n- `attendees` (array of string, optional, at least 1 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit event — `calendar_update_event`\n\nWrites: it changes something in this Nextcloud. Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Recurrent series dates cannot be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `summary` (string, optional, length 1..255) — new title\n- `start` (string, optional, length 10..40) — new start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, optional, length 10..40) — new exclusive end\n- `allDay` (boolean, optional) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — new location; empty to clear\n- `description` (string, optional, length 0..65536) — new description; empty to clear\n- `attendees` (array of string, optional, at least 0 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Move event to another calendar — `calendar_move_event`\n\nWrites: it changes something in this Nextcloud. Moves an event to another calendar of the same owner, without overwriting. Event attendees are not notified, just like when moving in the Calendar app. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete event — `calendar_delete_event`\n\nWrites: it changes something in this Nextcloud. Deletes an event (the entire series), moving it to the calendar trash bin. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Transfer event to another person's calendar — `calendar_transfer_event`\n\nWrites: it changes something in this Nextcloud. Transfers an event to a calendar owned by another user and shared with write permission. Requires confirm: true. Events with attendees are rejected: you remain the organizer and Nextcloud does not notify anyone in this operation. Event attendees are not notified, just like when moving in the Calendar app. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path, owned by another user\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
                 }
             ],
             "structuredContent": {
@@ -819,6 +923,7 @@
                 "title": "Calendar",
                 "notes": [
                     "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                    "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                     "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                     "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
                     "Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.",
@@ -870,6 +975,54 @@
                                 "description": "end ISO date",
                                 "constraints": [
                                     "length 10..40"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "calendar_check_availability",
+                        "title": "Check calendar availability",
+                        "description": "Check busy times, conflicts and free intervals in accessible calendars",
+                        "read_only": true,
+                        "destructive": false,
+                        "confirmation": [],
+                        "parameters": [
+                            {
+                                "name": "from",
+                                "type": "string",
+                                "required": true,
+                                "description": "inclusive start ISO date or timestamp",
+                                "constraints": [
+                                    "length 10..40"
+                                ]
+                            },
+                            {
+                                "name": "to",
+                                "type": "string",
+                                "required": true,
+                                "description": "exclusive end ISO date or timestamp",
+                                "constraints": [
+                                    "length 10..40"
+                                ]
+                            },
+                            {
+                                "name": "calendars",
+                                "type": "array of string",
+                                "required": false,
+                                "description": "Calendar paths from calendar_list_calendars; omit to check all visible calendars.",
+                                "constraints": [
+                                    "at least 1 items",
+                                    "at most 20 items"
+                                ]
+                            },
+                            {
+                                "name": "min_duration_minutes",
+                                "type": "integer",
+                                "required": false,
+                                "description": "Minimum length of returned free ranges, in minutes.",
+                                "constraints": [
+                                    "default 30",
+                                    "5..1440"
                                 ]
                             }
                         ]

@@ -56,6 +56,7 @@ trait NativeDeckAdapterFixtures {
             CardMapper::class => $this->createMock(CardMapper::class),
             StackMapper::class => $this->createMock(StackMapper::class),
             AssignmentMapper::class => $this->createMock(AssignmentMapper::class),
+            \OCA\Deck\Db\LabelMapper::class => $this->createMock(\OCA\Deck\Db\LabelMapper::class),
             IUserManager::class => $this->createMock(IUserManager::class),
         ];
         $this->time = $this->createMock(ITimeFactory::class);

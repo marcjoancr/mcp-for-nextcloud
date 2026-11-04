@@ -44,6 +44,30 @@ final class ApplicationRegistrationTest extends TestCase {
         return $container;
     }
 
+    public function testMailFactoriesBuildAllCapabilitiesWithoutResolvingNativeMail(): void {
+        $built = [];
+        $container = $this->sharedContainer($built);
+        $module = $container->get(\OCA\Mcp\Modules\Mail\MailModule::class);
+        self::assertCount(10, $module->definitions());
+        foreach (\OCA\Mcp\Modules\Mail\MailToolCatalog::classes() as $tool) {
+            self::assertInstanceOf($tool, $container->get($tool));
+        }
+        self::assertInstanceOf(\OCA\Mcp\Modules\Files\Creation\IncomingFileCreation::class,
+            $container->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class));
+    }
+
+    public function testFormsFactoriesBuildAllCapabilitiesWithoutResolvingNativeForms(): void {
+        $built = [];
+        $container = $this->sharedContainer($built);
+        $module = $container->get(\OCA\Mcp\Modules\Forms\FormsModule::class);
+        self::assertCount(5, $module->definitions());
+        foreach (\OCA\Mcp\Modules\Forms\FormsToolCatalog::classes() as $tool) {
+            self::assertInstanceOf($tool, $container->get($tool));
+        }
+        self::assertInstanceOf(\OCA\Mcp\Modules\Files\Creation\IncomingFileCreation::class,
+            $container->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class));
+    }
+
     public function testSharedPolicyFactoriesPreserveInstanceIdentity(): void {
         $config = new InMemoryConfig();
         $built = [IConfig::class => $config->mock($this),
@@ -231,7 +255,7 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $module = $get(\OCA\Mcp\Modules\Deck\DeckModule::class);
-        self::assertCount(20, $module->definitions());
+        self::assertCount(21, $module->definitions());
         foreach (\OCA\Mcp\Modules\Deck\DeckToolCatalog::classes() as $tool) {
             self::assertInstanceOf($tool, $get($tool));
         }
@@ -263,7 +287,7 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $module = $get(\OCA\Mcp\Modules\Talk\TalkModule::class);
-        self::assertCount(9, $module->definitions());
+        self::assertCount(11, $module->definitions());
         foreach (\OCA\Mcp\Modules\Talk\TalkToolCatalog::classes() as $tool) {
             self::assertInstanceOf($tool, $get($tool));
         }
@@ -293,13 +317,13 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $count = 0;
-        foreach (['Calendar'=>7, 'Contacts'=>6, 'Tasks'=>7] as $feature=>$expected) {
+        foreach (['Calendar'=>8, 'Contacts'=>6, 'Tasks'=>7] as $feature=>$expected) {
             $module = $get('OCA\Mcp\Modules\\'.$feature.'\\'.$feature.'Module');
             self::assertCount($expected, $module->definitions());
             $catalog = 'OCA\Mcp\Modules\\'.$feature.'\\'.$feature.'ToolCatalog';
             foreach ($catalog::classes() as $tool) { self::assertInstanceOf($tool, $get($tool)); $count++; }
         }
-        self::assertSame(20, $count);
+        self::assertSame(21, $count);
         self::assertInstanceOf(\OCA\Mcp\Modules\Calendar\References\CalendarEventReferenceReader::class, $get(\OCA\Mcp\Modules\Calendar\Contracts\EventReferenceReader::class));
         self::assertInstanceOf(\OCA\Mcp\Modules\Calendar\Selftest\CalendarSelftestRunner::class, $get(\OCA\Mcp\Modules\Calendar\Selftest\CalendarSelftestRunner::class));
         self::assertInstanceOf(\OCA\Mcp\Command\CalendarSelftest::class, $get(\OCA\Mcp\Command\CalendarSelftest::class));

@@ -17,6 +17,8 @@ final class TalkToolCatalog
         return [
             Tools\ListConversations::class,
             Tools\ReadMessages::class,
+            Tools\SearchMessages::class,
+            Tools\ReadMessageContext::class,
             Tools\Reply::class,
             Tools\AttachFile::class,
             Tools\QuoteFile::class,

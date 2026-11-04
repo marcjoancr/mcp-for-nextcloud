@@ -18,7 +18,7 @@ final class FixtureFile {
 	 *
 	 * @param string $path destination file
 	 * @param string $header comment lines that precede `return [`, each ending in a newline
-	 * @param array{sources:array<string, mixed>, recipientSources:array<string, mixed>, mailSources?:array<string, mixed>, formsSources?:array<string, mixed>, classes:array<string, array<string, mixed>|null>} $fixture the fixture
+	 * @param array{sources:array<string, mixed>, recipientSources:array<string, mixed>, mailSources?:array<string, mixed>, formsSources?:array<string, mixed>, talkContextSources?:array<string, mixed>, classes:array<string, array<string, mixed>|null>} $fixture the fixture
 	 * @return void
 	 */
 	public static function write(string $path, string $header, array $fixture): void {
@@ -33,6 +33,9 @@ final class FixtureFile {
 		}
 		if (isset($fixture['formsSources'])) {
 			$pins .= "    'formsSources' => " . self::literal($fixture['formsSources']) . ",\n";
+		}
+		if (isset($fixture['talkContextSources'])) {
+			$pins .= "    'talkContextSources' => " . self::literal($fixture['talkContextSources']) . ",\n";
 		}
 		file_put_contents($path, $header . "return [\n" . $pins . "    'classes' => [\n" . implode("\n", $lines) . "\n    ],\n];\n");
 	}

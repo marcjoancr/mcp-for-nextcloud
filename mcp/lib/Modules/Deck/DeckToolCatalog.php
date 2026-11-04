@@ -14,6 +14,7 @@ use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use OCA\Mcp\Modules\Deck\Tools\ListBoards;
 use OCA\Mcp\Modules\Deck\Tools\ListStacks;
 use OCA\Mcp\Modules\Deck\Tools\ListCards;
+use OCA\Mcp\Modules\Deck\Tools\SearchCards;
 use OCA\Mcp\Modules\Deck\Tools\ReadCard;
 use OCA\Mcp\Modules\Deck\Tools\CreateCard;
 use OCA\Mcp\Modules\Deck\Tools\EditCard;
@@ -33,6 +34,7 @@ final class DeckToolCatalog {
             ListBoards::class,
             ListStacks::class,
             ListCards::class,
+            SearchCards::class,
             ReadCard::class,
             CreateCard::class,
             EditCard::class,

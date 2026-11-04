@@ -64,6 +64,9 @@ final class TalkTranslationTest extends TestCase
         'groupNameTooLong' => 'name do grupo excede o limite de caracteres',
         'invalidIdentifier' => 'identificador inválido',
         'invalidLimit' => 'limit deve ser um número entre 1 e 200',
+        'invalidSearchQuery' => 'query deve conter entre 1 e 256 caracteres',
+        'invalidSearchOffset' => 'offset deve estar entre 0 e 1000000',
+        'invalidContextLimits' => 'before e after devem estar cada um entre 0 e 100',
         'replyTargetNotFound' => 'mensagem citada não encontrada nesta conversa',
         'unknownTool' => 'ferramenta desconhecida',
     ];
@@ -175,7 +178,7 @@ final class TalkTranslationTest extends TestCase
         foreach ($texts as $text) {
             self::assertDoesNotMatchRegularExpression('/[À-ÿ]/u', $text);
         }
-        self::assertSame(\OCA\Mcp\Modules\Talk\Presentation\ToolMessages::TOOL_REPLY, $definitions[2]['description']);
+        self::assertSame(\OCA\Mcp\Modules\Talk\Presentation\ToolMessages::TOOL_SEARCH_MESSAGES, $definitions[2]['description']);
     }
 
     private function module(): TalkModule

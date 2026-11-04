@@ -14,6 +14,7 @@ use OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore;
 use OCA\Mcp\Modules\Mail\Integration\MailGateway;
 use OCA\Mcp\Modules\Mail\MailModule;
 use OCA\Mcp\Mcp\Confirmation\PreviewsWrites;
+use OCA\Mcp\Mcp\Confirmation\RendersPlans;
 use OCA\Mcp\Mcp\Tools\ToolRegistry;
 use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use OCP\App\IAppManager;
@@ -28,10 +29,10 @@ use Psr\Log\LoggerInterface;
  */
 final class MailModuleTest extends TestCase {
 	/** The tools of the module, in tools/list order. */
-	private const TOOLS = ['mail_list_accounts', 'mail_list_mailboxes', 'mail_search_messages', 'mail_read_message', 'mail_read_thread'];
+	private const TOOLS = ['mail_list_accounts', 'mail_list_mailboxes', 'mail_search_messages', 'mail_read_message', 'mail_read_thread', 'mail_read_attachment', 'mail_save_attachment', 'mail_read_drafts', 'mail_write_draft', 'mail_delete_draft'];
 
 	/**
-	 * Every tool is read-only, carries the Mail app id and never asks for confirm.
+	 * Read tools remain read-only while the new Mail mutations use explicit write operations.
 	 *
 	 * @return void
 	 */
@@ -41,10 +42,10 @@ final class MailModuleTest extends TestCase {
 		$this->assertSame(self::TOOLS, array_column($definitions, 'name'));
 		foreach ($definitions as $i => $definition) {
 			$this->assertSame('mail', $definition['module']);
-			$this->assertSame($i < 2 ? 'read' : ($i === 2 ? 'search' : 'read_message'), $definition['operation']);
+			$this->assertSame(['read', 'read', 'search', 'read_message', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'][$i], $definition['operation']);
 			$this->assertSame('mail', $definition['app']);
-			$this->assertFalse(WriteGate::isWrite($definition), $definition['name']);
-			$this->assertArrayNotHasKey('confirm', (array)$definition['inputSchema']['properties']);
+			$this->assertSame([false, false, false, false, false, false, true, false, true, true][$i], WriteGate::isWrite($definition), $definition['name']);
+			$this->assertFalse(array_key_exists('confirm', (array)$definition['inputSchema']['properties']));
 			$this->assertFalse($definition['inputSchema']['additionalProperties']);
 		}
 		$this->assertSame(['account_id'], $definitions[1]['inputSchema']['required']);
@@ -52,7 +53,9 @@ final class MailModuleTest extends TestCase {
 		$this->assertSame('read_message', $definitions[3]['operation']);
 		$this->assertSame('read_message', $definitions[4]['operation']);
 		self::assertArrayNotHasKey('body', $definitions[2]['inputSchema']['properties']);
-		$this->assertFalse(is_subclass_of(MailModule::class, PreviewsWrites::class));
+		$this->assertTrue(is_subclass_of(MailModule::class, PreviewsWrites::class));
+		$this->assertTrue(is_subclass_of(MailModule::class, RendersPlans::class));
+		$this->assertSame(['files' => ['create']], $definitions[6]['grantAllOf']);
 	}
 
 	/**
@@ -61,7 +64,7 @@ final class MailModuleTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheCatalogOffersOnlyReadingMail(): void {
-		$this->assertSame(['read', 'search', 'read_message'], GrantPolicy::CATALOG['mail']);
+		$this->assertSame(['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], GrantPolicy::CATALOG['mail']);
 		$this->assertContains('mail', GrantPolicy::DENIED_READS);
 		$policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
 		$this->assertFalse($policy->granted('alice', 'mail', 'read'));
@@ -153,11 +156,13 @@ final class MailModuleTest extends TestCase {
 		$users->method('get')->willReturn($this->createMock(IUser::class));
 		$policy->setGrant('alice', 'mail', 'read', true);
 		if ($messageGrants) {
-			foreach (['mail_search_messages', 'mail_read_message', 'mail_read_thread'] as $name) {
+			foreach (['mail_search_messages', 'mail_read_message', 'mail_read_thread', 'mail_read_attachment', 'mail_save_attachment', 'mail_read_drafts', 'mail_write_draft', 'mail_delete_draft'] as $name) {
 				InMemoryConfig::storeToolPolicy($config, 'user', 'alice', $name, 'allow');
 			}
-			$policy->setGrant('alice', 'mail', 'search', true);
-			$policy->setGrant('alice', 'mail', 'read_message', true);
+			foreach (['search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'] as $operation) {
+				$policy->setGrant('alice', 'mail', $operation, true);
+			}
+			$policy->setGrant('alice', 'files', 'create', true);
 		}
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $apps, $users);
         return new ToolRegistry([$this->module()], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)));
@@ -171,13 +176,18 @@ final class MailModuleTest extends TestCase {
 			'mail_search_messages' => static fn () => throw new \LogicException('Not called in this test'),
 			'mail_read_message' => static fn () => throw new \LogicException('Not called in this test'),
 			'mail_read_thread' => static fn () => throw new \LogicException('Not called in this test'),
+			'mail_read_attachment' => static fn () => throw new \LogicException('Not called in this test'),
+			'mail_save_attachment' => static fn () => throw new \LogicException('Not called in this test'),
+			'mail_read_drafts' => static fn () => throw new \LogicException('Not called in this test'),
+			'mail_write_draft' => static fn () => throw new \LogicException('Not called in this test'),
+			'mail_delete_draft' => static fn () => throw new \LogicException('Not called in this test'),
         ]);
     }
 
     public function testMetadataDoesNotResolveOptionalServices(): void {
         $factory = static fn () => throw new \LogicException('Unexpected resolution');
-		$module = new MailModule(['mail_list_accounts' => $factory, 'mail_list_mailboxes' => $factory, 'mail_search_messages' => $factory, 'mail_read_message' => $factory, 'mail_read_thread' => $factory]);
-		self::assertCount(5, $module->definitions());
+		$module = new MailModule(array_fill_keys(self::TOOLS, $factory));
+		self::assertCount(count(self::TOOLS), $module->definitions());
         self::assertNotEmpty($module->guideNotes());
     }
 }

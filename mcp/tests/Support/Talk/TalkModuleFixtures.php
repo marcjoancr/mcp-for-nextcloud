@@ -15,6 +15,8 @@ use OCA\Mcp\Modules\Talk\Execution\TalkErrors;
 use OCA\Mcp\Modules\Talk\Reading\ConversationReader;
 use OCA\Mcp\Modules\Talk\Tools\ListConversations;
 use OCA\Mcp\Modules\Talk\Tools\ReadMessages;
+use OCA\Mcp\Modules\Talk\Tools\SearchMessages;
+use OCA\Mcp\Modules\Talk\Tools\ReadMessageContext;
 use Psr\Log\LoggerInterface;
 
 final class TalkModuleFixtures
@@ -38,6 +40,18 @@ final class TalkModuleFixtures
             if ($class === ReadMessages::class) {
                 return new ReadMessages(
                     $get(ConversationReader::class)->readMessagePage(...),
+                    $services[ResultBoundary::class],
+                );
+            }
+            if ($class === SearchMessages::class) {
+                return new SearchMessages(
+                    $get(ConversationReader::class)->searchMessages(...),
+                    $services[ResultBoundary::class],
+                );
+            }
+            if ($class === ReadMessageContext::class) {
+                return new ReadMessageContext(
+                    $get(ConversationReader::class)->readMessageContext(...),
                     $services[ResultBoundary::class],
                 );
             }

@@ -31,8 +31,8 @@ final class TalkCompositionTest extends TestCase
             new ResultBoundary(new TalkErrors(), $logger),
             new PreviewBoundary(new TalkErrors(), $logger),
         );
-        self::assertCount(9, $module->definitions());
-        foreach (['talk_read_messages', 'unknown'] as $name) {
+        self::assertCount(11, $module->definitions());
+        foreach (['talk_read_messages', 'talk_search_messages', 'talk_read_message_context', 'unknown'] as $name) {
             try {
                 $module->preview($name, [], 'alice');
                 self::fail('Expected refusal');

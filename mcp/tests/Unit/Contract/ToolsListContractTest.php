@@ -355,10 +355,18 @@ final class ToolsListContractTest extends TestCase {
             ['mail', 'read', ['mail_list_accounts', 'mail_list_mailboxes']],
             ['mail', 'search', ['mail_search_messages']],
             ['mail', 'read_message', ['mail_read_message', 'mail_read_thread']],
+            ['mail', 'read_attachment', ['mail_read_attachment']],
+            ['mail', 'read_drafts', ['mail_read_drafts']],
+            ['mail', 'write_drafts', ['mail_write_draft']],
+            ['mail', 'delete_drafts', ['mail_delete_draft']],
+            ['talk', 'search', ['talk_search_messages']],
             ['deck', 'read_comments', ['deck_list_comments']],
             ['deck', 'comment', ['deck_add_comment']],
             ['forms', 'read', ['forms_list', 'forms_read']],
             ['forms', 'read_responses', ['forms_read_responses']],
+            ['forms', 'summarize_responses', ['forms_summarize_responses']],
+            ['deck', 'search', ['deck_search_cards']],
+            ['calendar', 'availability', ['calendar_check_availability']],
             ['talk', 'publish_summary', ['talk_publish_summary']],
         ] as [$module, $operation, $expected]) {
             $response = $this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
@@ -367,20 +375,21 @@ final class ToolsListContractTest extends TestCase {
             $tools = json_decode($response, false, 512, JSON_THROW_ON_ERROR)->result->tools;
             $names = [];
             foreach ($tools as $tool) {
-                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_') && !str_starts_with($tool->name, 'deck_') && !str_starts_with($tool->name, 'talk_')) {
+                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_') && !str_starts_with($tool->name, 'deck_') && !str_starts_with($tool->name, 'talk_') && !str_starts_with($tool->name, 'calendar_')) {
                     continue;
                 }
                 $names[] = $tool->name;
-                self::assertSame(!in_array($operation, ['comment', 'publish_summary'], true), $tool->annotations->readOnlyHint);
-                self::assertSame(in_array($operation, ['comment', 'publish_summary'], true), property_exists($tool->inputSchema->properties, 'confirm'));
+                self::assertSame(!in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true), $tool->annotations->readOnlyHint);
+                self::assertSame(in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true), property_exists($tool->inputSchema->properties, 'confirm'));
             }
             self::assertEqualsCanonicalizing($expected, $names);
         }
     }
 
     public function testNewToolsRequireIndependentAssignmentsDespiteLegacyOperationGrants(): void {
-        $newTools = ['forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
-            'mail_read_message', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary'];
+        $newTools = ['forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
+            'mail_read_message', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
+            'mail_write_draft', 'mail_delete_draft', 'talk_search_messages', 'talk_read_message_context'];
         $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
         $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;
         $legacy = json_decode($this->handle($request, $version, '{}', true, null, []), true)['result']['tools'];
@@ -391,6 +400,32 @@ final class ToolsListContractTest extends TestCase {
                 static fn (): bool => false, [$name => true]), true);
             $published = array_values(array_diff(array_column($response['result']['tools'], 'name'), ['mcp_status', 'mcp_guide']));
             self::assertSame([$name], $published, 'One tool assignment must not enable another capability');
+        }
+    }
+
+    public function testSavingMailAttachmentsRequiresFilesCreateInAdditionToItsOwnToolGrant(): void {
+        foreach ([false, true] as $filesCreate) {
+            $response = json_decode($this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
+                \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, '{}', true,
+                static fn (string $module, string $operation): bool => $filesCreate && $module === 'files' && $operation === 'create',
+                ['mail_save_attachment' => true]), true);
+            $names = array_column($response['result']['tools'], 'name');
+            self::assertSame($filesCreate, in_array('mail_save_attachment', $names, true));
+            self::assertNotContains('mail_read_attachment', $names);
+            self::assertNotContains('mail_write_draft', $names);
+        }
+    }
+
+    public function testExportingFormResponsesRequiresFilesCreateInAdditionToItsOwnToolGrant(): void {
+        foreach ([false, true] as $filesCreate) {
+            $response = json_decode($this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
+                \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, '{}', true,
+                static fn (string $module, string $operation): bool => $filesCreate && $module === 'files' && $operation === 'create',
+                ['forms_export_responses' => true]), true);
+            $names = array_column($response['result']['tools'], 'name');
+            self::assertSame($filesCreate, in_array('forms_export_responses', $names, true));
+            self::assertNotContains('forms_read_responses', $names);
+            self::assertNotContains('forms_summarize_responses', $names);
         }
     }
 

@@ -109,7 +109,7 @@ final class FormsNativeReaderTest extends TestCase {
             'OCA\\Forms\\Service\\SubmissionService' => $submissions,
         ]);
 
-        self::assertSame(['formId' => 12, 'isAnonymous' => true, 'fileQuestionIds' => [8], 'submissions' => []], $reader->readResponses('alice', 12, 20, 10));
+        self::assertSame(['formId' => 12, 'isAnonymous' => true, 'fileQuestionIds' => [8], 'questions' => [['id' => 8, 'type' => 'file'], ['id' => 9, 'type' => 'text']], 'questionsTruncated' => false, 'submissions' => []], $reader->readResponses('alice', 12, 20, 10));
         self::assertSame([12, 'results'], $forms->lookup);
         self::assertSame([12, null, null, 11, 20], $submissions->query);
     }

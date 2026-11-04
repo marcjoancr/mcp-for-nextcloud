@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
-<phpunit bootstrap="tests/bootstrap.php" colors="false" cacheDirectory=".phpunit.cache" controlGarbageCollector="true" numberOfTestsBeforeGarbageCollection="10">
+<!-- Collect cyclic test fixtures after each case so large-file tests stay below the fixed 1 GiB limit. -->
+<phpunit bootstrap="tests/bootstrap.php" colors="false" cacheDirectory=".phpunit.cache" controlGarbageCollector="true" numberOfTestsBeforeGarbageCollection="1">
     <testsuites><testsuite name="unit"><directory>tests</directory><exclude>tests/Integration</exclude></testsuite></testsuites>
 </phpunit>

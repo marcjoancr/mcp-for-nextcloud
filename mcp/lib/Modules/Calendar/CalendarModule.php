@@ -35,7 +35,7 @@ final class CalendarModule implements \OCA\Mcp\Mcp\Tools\ToolModule, \OCA\Mcp\Mc
         if (!$tool instanceof Tool || $tool::definition()->name !== $name) {
             throw new \LogicException('Factory returned a different tool');
         }
-        if (CalendarToolCatalog::definitions()[$name]['operation'] !== 'read' && !$tool instanceof WriteTool) {
+        if (!in_array(CalendarToolCatalog::definitions()[$name]['operation'], ['read', 'availability'], true) && !$tool instanceof WriteTool) {
             throw new \LogicException('Writes must implement WriteTool');
         }
         return $tool;
@@ -54,7 +54,7 @@ final class CalendarModule implements \OCA\Mcp\Mcp\Tools\ToolModule, \OCA\Mcp\Mc
     {
         ($this->assertReferencesAvailable)($userId);
         $this->known($name);
-        if (CalendarToolCatalog::definitions()[$name]['operation'] === 'read') {
+        if (in_array(CalendarToolCatalog::definitions()[$name]['operation'], ['read', 'availability'], true)) {
             throw new \InvalidArgumentException('Unknown tool');
         }
         return $this->resolve($name)->preview($arguments, new ToolContext($userId));
@@ -81,6 +81,7 @@ final class CalendarModule implements \OCA\Mcp\Mcp\Tools\ToolModule, \OCA\Mcp\Mc
     {
         return [
             'Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are ' . 'addressed by uid, and calendar_list_events gives the uids of a period.',
+            'calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.',
             'Every write answers with a plan first: what it would change, the etag of the object as it is now, and ' . 'which invitations would go out. Nothing is written until the very same call is repeated with ' . 'confirm: true, so show the plan to the user and wait for an explicit yes.',
             'The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a ' . 'collision with another event of the target calendar, a participant who is busy or whose agenda could ' . 'not be checked, and a calendar that is not shared with the participants. Each warning has a type ' . '(collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: ' . 'tell the user and repeat the call with confirm: true only if the answer is still yes. When ' . 'sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; ' . 'when there are several, ask the user which one to use and repeat the call with that calendar. Other ' . 'people\'s appointments are only ever reported as busy, never with their content. When an update ' . 'moves an event, the event\'s own slot is left out of the availability check of the guests it already ' . 'has (their copy of the invitation would otherwise make them busy); the collision check always leaves ' . 'the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.',
             'Dates and times arrive as they will be stored, and are read back in the timezone of the account; a ' . 'recurring event is expanded into its occurrences before it reaches the user.',

@@ -23,4 +23,5 @@ class DeckDoubles {
     public \OCA\Mcp\Modules\Deck\Structure\StructureCardCounter $counts;
     public \OCA\Mcp\Modules\Deck\Structure\EmptyStructureDeletion $deletion;
     public \OCA\Mcp\Modules\Deck\Followup\FollowupQuery $followup;
+    public \OCA\Mcp\Modules\Deck\Reading\CardSearchReader $search;
 }

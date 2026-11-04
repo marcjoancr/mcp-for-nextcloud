@@ -13,7 +13,8 @@ use OCA\Mcp\Mcp\Tools\Tool;
 final class FormsToolCatalog {
     /** @return list<class-string<Tool>> */
     public static function classes(): array {
-        return [Tools\ListForms::class, Tools\ReadForm::class, Tools\ReadResponses::class];
+        return [Tools\ListForms::class, Tools\ReadForm::class, Tools\ReadResponses::class,
+            Tools\SummarizeResponses::class, Tools\ExportResponses::class];
     }
 
     /** @return array<string, array<string, mixed>> */

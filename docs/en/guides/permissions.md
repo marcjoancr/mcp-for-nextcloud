@@ -12,7 +12,7 @@ The service, user eligibility (**Can connect**) and personal connection start of
 
 The original 2.0.0 read tools retain their defaults, except Mail and server logs, which start denied. Every newly added tool requires an explicit user or group assignment and selection in the connection. Assigning one new tool does not grant another: for example, reading a mail message does not enable reading a thread, and reading form questions does not enable reading responses. In the matrix, grant the individual tools for Mail search, message and thread reading; Forms listing, questions and responses; Deck comment reading and posting; and Talk summary publication.
 
-The tool definitions retain operation keys for classification: `mail.read` covers accounts and folders, `mail.search` header searches, and `mail.read_message` message and thread content. Forms uses `forms.read` for structure and `forms.read_responses` for responses; results also require native Forms results permission. Deck comments use `deck.read_comments` and `deck.comment`; Talk summaries use `talk.publish_summary`, independently of replies. Native resource access and any additional operation prerequisites still apply. Files sharing with people/groups (`files.share`) and public links (`files.link`) remain independent permissions. Listing shares is a read operation.
+The tool definitions retain operation keys for classification: `mail.read` covers accounts and folders, `mail.search` header searches, and `mail.read_message` message and thread content. Forms uses `forms.read` for structure and `forms.read_responses` for responses; results also require native Forms results permission. Deck comments use `deck.read_comments` and `deck.comment`; Talk summaries use `talk.publish_summary`, independently of replies. Mail attachment reading (`mail.read_attachment`), saving (`mail.save_attachment`), draft reading (`mail.read_drafts`), draft writing (`mail.write_drafts`) and draft deletion (`mail.delete_drafts`) are separate. Saving an attachment additionally requires `files.create` and the destination's native permissions and Files scope. Talk message search uses `talk.search`; contextual reading uses `talk.read`, with an independent tool assignment. New tools remain unassigned and unselected when upgrading. Native resource access and any additional operation prerequisites still apply. Files sharing with people/groups (`files.share`) and public links (`files.link`) remain independent permissions. Listing shares is a read operation.
 
 At connection time, MCP lists the tools permitted for the user and selected for that connection.
 Each tool also requires its module's app and any additional app it uses to be installed and enabled for that user.
@@ -61,6 +61,19 @@ When Nextcloud creates an account, MCP clears any individual tool grants and con
 The upgrade preserves the original individual and group settings. The 84 tools shipped in 2.0.0 inherit these settings until an administrator changes an assignment. An old unchecked group operation stays unassigned. Resetting an individual tool to **Unassigned** also clears its inherited individual operation override for that tool. The migration verifies the old and new decisions before activation. An unexpected difference or an unreadable policy stops the upgrade.
 
 Existing connections receive a selection limited to their previous operation permissions. Newly added tools require a new assignment and selection. Keep the pre-upgrade database and application backup together. After someone changes selections or blocks access in the new editor, recovery must retain those decisions. An older app cannot enforce them.
+
+## Forms analysis, Deck search and Calendar availability
+
+These additions start unassigned and are selected separately in each connection:
+
+| Tool | Operation | Additional native access |
+| --- | --- | --- |
+| `forms_summarize_responses` | `forms.summarize_responses` | Full form results permission |
+| `forms_export_responses` | `forms.export_responses` and `files.create` | Form results and creation in the selected Files folder |
+| `deck_search_cards` | `deck.search` | Read permission on each returned board |
+| `calendar_check_availability` | `calendar.availability` | Calendar scope, native shares and event classification |
+
+Existing read permissions do not automatically enable these tools. Form export is the only write in this set: it requires a current preview and confirmation, plus shared-destination confirmation when applicable. Neither a tool assignment nor a connection selection bypasses another user's native access restrictions.
 
 ## Saving, conflicts and undo
 

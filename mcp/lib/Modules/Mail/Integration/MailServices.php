@@ -14,9 +14,9 @@ use OCP\IUserManager;
 
 /**
  * Single place that knows the optional Nextcloud Mail classes by name, so the module compiles and the suite passes
- * with the mail app absent. Only the two read-side services the module needs are reachable from here: the account
- * service (accounts stored in Nextcloud) and the mailbox mapper (the folder list the Mail app keeps in its own
- * cache). Nothing here opens an IMAP connection.
+ * with the Mail app absent. Optional Mail services are resolved by fixed class names only after a per-user enablement
+ * check. Reads use the Mail cache and its IMAP client; draft writes call only the local unsent-draft APIs and never
+ * the send or outbox paths.
  */
 class MailServices {
 	/** App id of Nextcloud Mail. */
@@ -32,6 +32,10 @@ class MailServices {
 	private const CLIENT_FACTORY_CLASS = 'OCA\\Mail\\IMAP\\IMAPClientFactory';
 	private const SEARCH_QUERY_CLASS = 'OCA\\Mail\\Service\\Search\\SearchQuery';
 	private const FLAG_CLASS = 'OCA\\Mail\\Service\\Search\\Flag';
+	private const DRAFTS_SERVICE_CLASS = 'OCA\\Mail\\Service\\DraftsService';
+	private const LOCAL_MESSAGE_MAPPER_CLASS = 'OCA\\Mail\\Db\\LocalMessageMapper';
+	private const IMAP_MESSAGE_MAPPER_CLASS = 'OCA\\Mail\\IMAP\\MessageMapper';
+	private const LOCAL_MESSAGE_CLASS = 'OCA\\Mail\\Db\\LocalMessage';
 
 	/** OCA\Mail\Exception\ClientException: what AccountService::find() throws for an account the user does not own. */
 	public const CLIENT_EXCEPTION_CLASS = 'OCA\\Mail\\Exception\\ClientException';
@@ -91,6 +95,41 @@ class MailServices {
 
 	public function mailManager(string $userId): object {
 		return $this->resolve(self::MAIL_MANAGER_CLASS, $userId);
+	}
+
+	/** The Mail app's local compose-draft service. */
+	public function draftsService(string $userId): object {
+		return $this->resolve(self::DRAFTS_SERVICE_CLASS, $userId);
+	}
+
+	/** The Mail app's owner-scoped local message mapper. */
+	public function localMessageMapper(string $userId): object {
+		return $this->resolve(self::LOCAL_MESSAGE_MAPPER_CLASS, $userId);
+	}
+
+	/** The Mail app's IMAP message mapper for attachment reads. */
+	public function imapMessageMapper(string $userId): object {
+		return $this->resolve(self::IMAP_MESSAGE_MAPPER_CLASS, $userId);
+	}
+
+	/** Makes the Mail app's local unsent draft entity without a hard dependency on Mail. */
+	public function newLocalDraft(string $userId): object {
+		$class = self::LOCAL_MESSAGE_CLASS;
+		if (!$this->isEnabledFor($userId) || !class_exists($class)) {
+			throw new MailUnavailableException();
+		}
+		$message = new $class();
+		$message->setType($class::TYPE_DRAFT);
+		return $message;
+	}
+
+	/** The Mail app's local draft type constant. */
+	public function localDraftType(string $userId): int {
+		$class = self::LOCAL_MESSAGE_CLASS;
+		if (!$this->isEnabledFor($userId) || !class_exists($class)) {
+			throw new MailUnavailableException();
+		}
+		return $class::TYPE_DRAFT;
 	}
 
 	public function clientFactory(string $userId): object {

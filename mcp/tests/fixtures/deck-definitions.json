@@ -65,6 +65,77 @@
             "app": "deck"
         },
         {
+            "name": "deck_search_cards",
+            "description": "Searches active cards on Deck boards you can read by title or description, assignee, labels and due-date range. Results are capped at 100 cards and 2,000 scanned cards; truncated indicates more results or a scan bound.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "Case-insensitive text contained in the card title or description.",
+                        "minLength": 1,
+                        "maxLength": 200
+                    },
+                    "boardId": {
+                        "type": "integer",
+                        "description": "Id of the Deck board.",
+                        "minimum": 1
+                    },
+                    "assignee": {
+                        "type": "string",
+                        "description": "UID of the assignee (if you are not sure of someone's ID, call users_search first); returns only the cards assigned to that person.",
+                        "minLength": 1,
+                        "maxLength": 255
+                    },
+                    "labelIds": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "items": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "description": "Label IDs to match. labelMatch any (default) needs one; all needs every requested label."
+                    },
+                    "labelMatch": {
+                        "type": "string",
+                        "enum": [
+                            "any",
+                            "all"
+                        ],
+                        "default": "any",
+                        "description": "How labelIds are combined: any requires at least one requested label; all requires every requested label."
+                    },
+                    "dueAfter": {
+                        "type": "string",
+                        "description": "Returns only cards due on or after this date, in YYYY-MM-DD format, using your account timezone."
+                    },
+                    "dueBefore": {
+                        "type": "string",
+                        "description": "Returns only cards due on or before this date, in YYYY-MM-DD format."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of cards to return.",
+                        "minimum": 1,
+                        "maximum": 100,
+                        "default": 50
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "description": "Number of matching cards to skip. The scan still stops at 2,000 cards.",
+                        "minimum": 0,
+                        "maximum": 10000,
+                        "default": 0
+                    }
+                },
+                "additionalProperties": false
+            },
+            "module": "deck",
+            "operation": "search",
+            "app": "deck"
+        },
+        {
             "name": "deck_read_card",
             "description": "Reads a Deck card with its description, dates and counters.",
             "inputSchema": {

@@ -104,6 +104,11 @@ final class CalendarScopeTest extends IntegrationTestCase {
             . "BEGIN:VTODO\r\nUID:$uid\r\nDTSTAMP:20261001T100000Z\r\nSUMMARY:Task $uid\r\nEND:VTODO\r\nEND:VCALENDAR\r\n");
     }
 
+    private function event(int $calendarId, string $uid, string $start, string $end, string $summary): void {
+        $this->backend()->createCalendarObject($calendarId, $uid . '.ics', "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//mcp-it//EN\r\n"
+            . "BEGIN:VEVENT\r\nUID:$uid\r\nDTSTAMP:20261001T100000Z\r\nSUMMARY:$summary\r\nDTSTART:$start\r\nDTEND:$end\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n");
+    }
+
     /** bob shares (true) or withdraws (false) his calendar with alice through CalDAV, as the Calendar app does. */
     private function share(string $uri, bool $grant): void {
         $href = '<d:href>principal:principals/users/' . Fixtures::ALICE . '</d:href>';
@@ -230,5 +235,41 @@ final class CalendarScopeTest extends IntegrationTestCase {
         $this->assertSame([], $this->listedCalendars(), 'the recreated calendar does not inherit the old scope');
         $this->assertSame($this->calendarTool('calendar_list_events', ['calendar' => self::MISSING, 'from' => '2026-03-12', 'to' => '2026-03-13']),
             $this->calendarTool('calendar_list_events', ['calendar' => $sharedPath, 'from' => '2026-03-12', 'to' => '2026-03-13']));
+    }
+
+    public function testAvailabilityReadsAnAccessibleShareAndRefusesAnUnsharedCalendarWithoutChangingState(): void {
+        $sharedUri = "mcp-it-availability-shared-{$this->run}";
+        $foreignUri = "mcp-it-availability-foreign-{$this->run}";
+        $sharedId = $this->calendar(Fixtures::BOB, $sharedUri, ['VEVENT']);
+        $foreignId = $this->calendar(Fixtures::BOB, $foreignUri, ['VEVENT']);
+        $this->event($sharedId, "busy-a-{$this->run}", '20261104T100000Z', '20261104T120000Z', 'Private title A');
+        $this->event($sharedId, "busy-b-{$this->run}", '20261104T110000Z', '20261104T130000Z', 'Private title B');
+        $this->event($foreignId, "foreign-{$this->run}", '20261104T090000Z', '20261104T140000Z', 'Foreign title');
+        $this->share($sharedUri, true);
+        $sharedPath = self::HOME . $sharedUri . '_shared_by_' . Fixtures::BOB . '/';
+        $foreignPath = '/remote.php/dav/calendars/' . Fixtures::BOB . '/' . $foreignUri . '/';
+        $this->scope('calendar', [$sharedId]);
+
+        $sharedBefore = $this->backend()->getCalendarObjects($sharedId);
+        $foreignBefore = $this->backend()->getCalendarObjects($foreignId);
+        $args = ['calendars' => [$sharedPath], 'from' => '2026-11-04T09:00:00Z', 'to' => '2026-11-04T14:00:00Z'];
+        $result = $this->calendarTool('calendar_check_availability', $args);
+        $this->assertArrayNotHasKey('refused', $result);
+        $this->assertArrayNotHasKey('isError', $result, $result['content'][0]['text'] ?? '');
+        $data = $result['structuredContent'] ?? json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame([['calendar' => $sharedPath, 'start' => '2026-11-04T10:00:00Z', 'end' => '2026-11-04T13:00:00Z']], $data['busy']);
+        $this->assertSame([[
+            'calendars' => [$sharedPath],
+            'start' => '2026-11-04T11:00:00Z',
+            'end' => '2026-11-04T12:00:00Z',
+            'overlappingEvents' => 2,
+        ]], $data['conflicts']);
+        $this->assertStringNotContainsString('Private title', $result['content'][0]['text']);
+
+        $outside = $this->calendarTool('calendar_check_availability', ['calendars' => [$foreignPath]] + array_diff_key($args, ['calendars' => true]));
+        $missing = $this->calendarTool('calendar_check_availability', ['calendars' => [self::MISSING]] + array_diff_key($args, ['calendars' => true]));
+        $this->assertSame($missing, $outside, 'an unshared Bob calendar is indistinguishable from a missing path');
+        $this->assertSame($sharedBefore, $this->backend()->getCalendarObjects($sharedId), 'availability does not change the shared calendar');
+        $this->assertSame($foreignBefore, $this->backend()->getCalendarObjects($foreignId), 'availability does not read or change the unshared calendar');
     }
 }

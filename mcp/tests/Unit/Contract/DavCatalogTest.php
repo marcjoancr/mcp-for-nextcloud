@@ -9,7 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Contract;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 final class DavCatalogTest extends TestCase {
-    public static function modules(): array { return [['Calendar',7], ['Contacts',6], ['Tasks',7]]; }
+    public static function modules(): array { return [['Calendar',8], ['Contacts',6], ['Tasks',7]]; }
     #[DataProvider('modules')]
     public function testMetadataGuideAndSavedPlanRenderingDoNotResolveAnyTool(string $feature, int $count): void {
         \OCA\Mcp\L10n\Translator::reset();

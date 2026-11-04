@@ -32,9 +32,9 @@ final class FormsResponsesTest extends IntegrationTestCase {
 		if (getenv('MCP_IT_WITH_FORMS') !== '1') {
 			$this->markTestSkipped('Pinned Forms app is provisioned only in the opt-in Mail cell');
 		}
-		$this->snapshotPolicy(Fixtures::ALICE, ['grant_forms_read', 'grant_forms_read_responses']);
-		$this->snapshotPolicy(Fixtures::BOB, ['grant_forms_read', 'grant_forms_read_responses']);
-		$this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([Fixtures::ALICE, Fixtures::BOB], ['forms_list', 'forms_read', 'forms_read_responses']);
+		$this->snapshotPolicy(Fixtures::ALICE, ['grant_forms_read', 'grant_forms_read_responses', 'grant_forms_summarize_responses', 'grant_forms_export_responses', 'grant_files_create']);
+		$this->snapshotPolicy(Fixtures::BOB, ['grant_forms_read', 'grant_forms_read_responses', 'grant_forms_summarize_responses', 'grant_forms_export_responses', 'grant_files_create']);
+		$this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([Fixtures::ALICE, Fixtures::BOB], ['forms_list', 'forms_read', 'forms_read_responses', 'forms_summarize_responses', 'forms_export_responses']);
 		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::ALICE, ['forms_list' => 'allow', 'forms_read' => 'allow', 'forms_read_responses' => 'allow']);
 		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::BOB, ['forms_list' => 'allow', 'forms_read' => 'allow', 'forms_read_responses' => 'allow']);
 	}
@@ -195,6 +195,81 @@ final class FormsResponsesTest extends IntegrationTestCase {
 			self::assertSame(Fixtures::BOB, $byAnswer['identified answer after anonymity was disabled']['userId'] ?? null,
 				'new submissions after disabling anonymity can retain their respondent identity');
 		} finally {
+			$this->request($alice, 'DELETE', '/' . $formId, null);
+		}
+	}
+
+	public function testSummaryUsesNativeResultsAclAndItsOwnMcpPermission(): void {
+		$policy = Server::get(GrantPolicy::class);
+		$policy->setGlobalEnabled(true);
+		foreach ([Fixtures::ALICE, Fixtures::BOB] as $uid) {
+			$policy->setEligible($uid, true);
+			$policy->setConnected($uid, true);
+			$policy->setGrant($uid, 'forms', 'read_responses', true);
+			$policy->setGrant($uid, 'forms', 'summarize_responses', true);
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, [
+				'forms_read_responses' => 'allow', 'forms_summarize_responses' => 'allow',
+			]);
+		}
+		$alice = LoginFactory::basic(Fixtures::ALICE);
+		$bob = LoginFactory::basic(Fixtures::BOB);
+		$formId = $this->createForm($alice);
+		$exportedNode = null;
+		try {
+			$question = $this->request($alice, 'POST', '/' . $formId . '/questions', ['type' => 'short', 'text' => 'Favorite color']);
+			$questionId = (int)$question['id'];
+			$this->request($alice, 'PATCH', '/' . $formId, ['keyValuePairs' => ['submitMultiple' => true]]);
+			$this->request($alice, 'POST', '/' . $formId . '/submissions', ['answers' => [(string)$questionId => ['blue']]]);
+			$this->request($alice, 'POST', '/' . $formId . '/submissions', ['answers' => [(string)$questionId => ['green']]]);
+
+			$aliceClient = new McpClient($alice);
+			$bobClient = new McpClient($bob);
+			$foreign = $bobClient->tool('forms_summarize_responses', ['id' => $formId]);
+			self::assertTrue($foreign->isError(), 'without a native Forms share, the other user cannot summarize results');
+
+			$this->request($alice, 'POST', '/' . $formId . '/shares', [
+				'shareType' => 0, 'shareWith' => Fixtures::BOB, 'permissions' => ['submit', 'results'],
+			]);
+			$summary = $bobClient->tool('forms_summarize_responses', ['id' => $formId]);
+			self::assertTrue($summary->ok(), $summary->describe());
+			$data = $summary->structured() ?: $summary->json();
+			self::assertSame(2, $data['submissionsAnalyzed']);
+			self::assertSame($questionId, $data['questions'][0]['questionId']);
+			self::assertSame([['answer' => 'blue', 'count' => 1], ['answer' => 'green', 'count' => 1]], $data['questions'][0]['answers']);
+
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::BOB, ['forms_summarize_responses' => 'deny']);
+			$deniedByMcp = $bobClient->tool('forms_summarize_responses', ['id' => $formId]);
+			self::assertSame('Unknown tool', $deniedByMcp->body['error']['message'] ?? null,
+				'the new summary permission is independent from the existing response reader');
+			$existingReader = $bobClient->tool('forms_read_responses', ['id' => $formId]);
+			self::assertTrue($existingReader->ok(), 'denying the summary tool leaves the separately selected response reader available');
+
+			$policy->setGrant(Fixtures::ALICE, 'forms', 'export_responses', true);
+			$policy->setGrant(Fixtures::ALICE, 'files', 'create', true);
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::ALICE, ['forms_export_responses' => 'allow']);
+			$alice = LoginFactory::basic(Fixtures::ALICE);
+			$aliceClient = new McpClient($alice);
+			$path = 'forms-' . $formId . '.csv';
+			$exportPlan = $aliceClient->tool('forms_export_responses', ['id' => $formId, 'path' => $path]);
+			self::assertTrue($exportPlan->ok(), $exportPlan->describe());
+			$planData = $exportPlan->structured() ?: $exportPlan->json();
+			self::assertTrue($planData['requiresConfirmation']);
+			self::assertSame('/' . $path, $planData['destination']['path']);
+			self::assertFalse(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder(Fixtures::ALICE)->nodeExists($path), 'preview does not create the CSV');
+			$exportResult = $aliceClient->tool('forms_export_responses', [
+				'id' => $formId, 'path' => $path, 'confirm' => true, 'plan_state' => $planData['plan_state'],
+			]);
+			self::assertTrue($exportResult->ok(), $exportResult->describe());
+			$exportData = $exportResult->structured() ?: $exportResult->json();
+			self::assertTrue($exportData['exported']);
+			$exportedNode = Server::get(\OCP\Files\IRootFolder::class)->getUserFolder(Fixtures::ALICE)->get($path);
+			$csv = $exportedNode->getContent();
+			self::assertStringContainsString('"Favorite color"', $csv);
+			self::assertStringNotContainsString(Fixtures::ALICE, $csv, 'CSV does not include respondent identity');
+		} finally {
+			if ($exportedNode !== null) {
+				$exportedNode->delete();
+			}
 			$this->request($alice, 'DELETE', '/' . $formId, null);
 		}
 	}

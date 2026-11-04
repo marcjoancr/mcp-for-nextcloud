@@ -1,0 +1,107 @@
+{
+  "31": {
+    "server": "31.0.0",
+    "spreed": "21.1.4",
+    "files": {
+      "apps/spreed/lib/Chat/CommentsManager.php": {
+        "file": "31-apps-spreed-lib-Chat-CommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/spreed/v21.1.4/lib/Chat/CommentsManager.php",
+        "sha256": "126d9372556e2630d3c01728e4c249c96fb4545785c8422c9e1e27684f9c90ca"
+      },
+      "lib/private/Comments/Manager.php": {
+        "file": "31-lib-private-Comments-Manager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/private/Comments/Manager.php",
+        "sha256": "2f310e1c04acb0f0ff8d070568c47cddff490b614fc187f07ae191414e183c43"
+      },
+      "lib/public/Comments/ICommentsManager.php": {
+        "file": "31-lib-public-Comments-ICommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Comments/ICommentsManager.php",
+        "sha256": "bf934b3b6ddadf4e935545f63975449c56e86f26d7fb4e7527dc0267c6623da2"
+      }
+    }
+  },
+  "32": {
+    "server": "32.0.0",
+    "spreed": "22.0.0",
+    "files": {
+      "apps/spreed/lib/Chat/CommentsManager.php": {
+        "file": "32-apps-spreed-lib-Chat-CommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/spreed/v22.0.0/lib/Chat/CommentsManager.php",
+        "sha256": "5a94a366158d7ccdbad134d7b3fdbf023ee4cb47aea53fde6ea9b1ab84fb9783"
+      },
+      "lib/private/Comments/Manager.php": {
+        "file": "32-lib-private-Comments-Manager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/private/Comments/Manager.php",
+        "sha256": "9223925f5b7afaa43bf62ffdd9928f448ce1b36e584de73fcb80dda64e08f8c1"
+      },
+      "lib/public/Comments/ICommentsManager.php": {
+        "file": "32-lib-public-Comments-ICommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Comments/ICommentsManager.php",
+        "sha256": "763eab9ee80668ee121f8f19007d69013e6f93d50d79cdf0fffaad678cfab083"
+      }
+    }
+  },
+  "33": {
+    "server": "33.0.0",
+    "spreed": "23.0.0",
+    "files": {
+      "apps/spreed/lib/Chat/CommentsManager.php": {
+        "file": "33-apps-spreed-lib-Chat-CommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/spreed/v23.0.0/lib/Chat/CommentsManager.php",
+        "sha256": "713054d633d382f40d7a469e466298f4e73ce05a218a9b3f1dd9ee78a972b725"
+      },
+      "lib/private/Comments/Manager.php": {
+        "file": "33-lib-private-Comments-Manager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/private/Comments/Manager.php",
+        "sha256": "3413ef01ef2999366c7d7f74860fa7167dd9b6bc9cc0fa8e60726960697350ad"
+      },
+      "lib/public/Comments/ICommentsManager.php": {
+        "file": "33-lib-public-Comments-ICommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Comments/ICommentsManager.php",
+        "sha256": "465cda4f7ed763e3a952bc67bf6caf22df3b57754db81b7553b2a4111165dc45"
+      }
+    }
+  },
+  "34": {
+    "server": "34.0.0",
+    "spreed": "24.0.0",
+    "files": {
+      "apps/spreed/lib/Chat/CommentsManager.php": {
+        "file": "34-apps-spreed-lib-Chat-CommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/spreed/v24.0.0/lib/Chat/CommentsManager.php",
+        "sha256": "f7741b46e4f37282191466fe604b70ca2c0a341510f1ce6bbc12fbefb70bcc49"
+      },
+      "lib/private/Comments/Manager.php": {
+        "file": "34-lib-private-Comments-Manager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/private/Comments/Manager.php",
+        "sha256": "18a0d3a295706e5e12c3fbb7af6315196845a9a572a696f8b9567ac3b4aa1936"
+      },
+      "lib/public/Comments/ICommentsManager.php": {
+        "file": "34-lib-public-Comments-ICommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Comments/ICommentsManager.php",
+        "sha256": "465cda4f7ed763e3a952bc67bf6caf22df3b57754db81b7553b2a4111165dc45"
+      }
+    }
+  },
+  "35": {
+    "server": "35.0.0",
+    "spreed": "25.0.0",
+    "files": {
+      "apps/spreed/lib/Chat/CommentsManager.php": {
+        "file": "35-apps-spreed-lib-Chat-CommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/spreed/v25.0.0/lib/Chat/CommentsManager.php",
+        "sha256": "1fa3a1f82d00e23b50c1db6364b0dfa2ea810486353c8d761421238f9a5aa617"
+      },
+      "lib/private/Comments/Manager.php": {
+        "file": "35-lib-private-Comments-Manager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/private/Comments/Manager.php",
+        "sha256": "56be0da4966e11e1182d4ee8c7cc2d6f9a6380413dcfb0616fa0edab0d9801de"
+      },
+      "lib/public/Comments/ICommentsManager.php": {
+        "file": "35-lib-public-Comments-ICommentsManager.php",
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Comments/ICommentsManager.php",
+        "sha256": "e0ecaf762abb107beae9766ca9e2d1dec279978d114400ff5fda99a80c9756cd"
+      }
+    }
+  }
+}

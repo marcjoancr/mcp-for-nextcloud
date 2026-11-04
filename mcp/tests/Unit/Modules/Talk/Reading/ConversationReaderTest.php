@@ -13,6 +13,7 @@ use OCA\Mcp\Modules\Talk\Presentation\ActorNames;
 use OCA\Mcp\Modules\Talk\Reading\ConversationReader;
 use OCA\Mcp\Modules\Talk\Access\ConversationResolver;
 use OCA\Mcp\Tests\Support\Talk\TalkNativeFixtures;
+use OCA\Mcp\Tests\Support\Talk\ReaderCommentsGateway;
 use OCP\Comments\IComment;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -26,6 +27,7 @@ class ConversationReaderTest extends TestCase
     private ConversationResolver&MockObject $resolver;
     private IUserManager&MockObject $userManager;
     private ConversationReader $reader;
+    private ReaderCommentsGateway&MockObject $comments;
 
     protected function setUp(): void
     {
@@ -33,8 +35,137 @@ class ConversationReaderTest extends TestCase
         $this->talkServices = TalkNativeFixtures::create(fn(string $class) => $this->createMock($class));
         $this->resolver = $this->createMock(ConversationResolver::class);
         $this->userManager = $this->createMock(IUserManager::class);
+        $this->comments = $this->createMock(ReaderCommentsGateway::class);
         // The real ActorNames over the mocked accounts: the reader still owns the reading, not the naming rule.
-        $this->reader = new ConversationReader($this->talkServices->manager->forUser(...), $this->talkServices->participantService->forUser(...), $this->talkServices->chatManager->forUser(...), $this->resolver, new ActorNames($this->userManager), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
+        $this->reader = new ConversationReader($this->talkServices->manager->forUser(...), $this->talkServices->participantService->forUser(...), $this->talkServices->chatManager->forUser(...), fn(string $userId): object => $this->comments, $this->resolver, new ActorNames($this->userManager), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
+    }
+
+    public function testSearchStopsAtTheConversationAccessBoundary(): void
+    {
+        $this->resolver->expects($this->once())
+            ->method('resolveForReading')
+            ->with('alice', 'abcd')
+            ->willThrowException(new \OCA\Mcp\Modules\Talk\Access\ConversationAccessException('hidden'));
+        $this->talkServices->chatManager->expects($this->never())->method('forUser');
+
+        $this->expectException(\OCA\Mcp\Modules\Talk\Access\ConversationAccessException::class);
+        $this->reader->searchMessages('alice', 'abcd', 'needle', 10);
+    }
+
+    public function testSearchIsScopedToTheResolvedRoomAndReturnsNativePagedResults(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $room->id = 91;
+        $this->givenResolvedConversation($room);
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $first = $this->givenComment('20', 'comment', 'match one');
+        $second = $this->givenComment('19', 'comment', 'match two');
+        $third = $this->givenComment('18', 'comment', 'extra match');
+        $chatManager->expects($this->once())
+            ->method('searchForObjectsWithFilters')
+            ->with('match', ['91'], ['comment'], null, null, null, null, 4, 3)
+            ->willReturn([$first, $second, $third]);
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+
+        $page = $this->reader->searchMessages('alice', 'abcd', 'match', 2, 4);
+
+        $this->assertSame(['20', '19'], array_column($page['messages'], 'id'));
+        $this->assertSame(6, $page['next_offset']);
+        $this->assertTrue($page['has_more']);
+        $this->assertFalse($page['pagination_limited']);
+        $this->assertFalse($page['messages'][0]['text_truncated']);
+    }
+
+    public function testContextStopsAtTheConversationAccessBoundary(): void
+    {
+        $this->resolver->expects($this->once())
+            ->method('resolveForReading')
+            ->with('alice', 'abcd')
+            ->willThrowException(new \OCA\Mcp\Modules\Talk\Access\ConversationAccessException('hidden'));
+        $this->talkServices->chatManager->expects($this->never())->method('forUser');
+        $this->comments->expects($this->never())->method('getCommentsWithVerbForObjectSinceComment');
+
+        $this->expectException(\OCA\Mcp\Modules\Talk\Access\ConversationAccessException::class);
+        $this->reader->readMessageContext('alice', 'abcd', 20, 1, 1);
+    }
+
+    public function testContextReadsBothBoundedSidesAfterVerifyingTheAnchorBelongsToTheRoom(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $room->id = 91;
+        $this->givenResolvedConversation($room);
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $anchor = $this->givenComment('20', 'comment', 'anchor');
+        $chatManager->expects($this->once())->method('getComment')->with($room, '20')->willReturn($anchor);
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+        $older = $this->givenComment('19', 'comment', 'older');
+        $newer = $this->givenComment('21', 'comment', 'newer');
+        $this->comments->expects($this->exactly(2))
+            ->method('getCommentsWithVerbForObjectSinceComment')
+            ->willReturnCallback(function (string $objectType, string $objectId, array $verbs, int $anchorId, string $direction, int $limit, bool $includeAnchor) use ($older, $newer): array {
+                $this->assertSame('chat', $objectType);
+                $this->assertSame('91', $objectId);
+                $this->assertSame(['comment', 'object_shared', 'system', 'voice-message', 'record-audio', 'record-video'], $verbs);
+                $this->assertSame(20, $anchorId);
+                $this->assertSame(2, $limit);
+                $this->assertFalse($includeAnchor);
+                return $direction === 'desc' ? [$older] : [$newer];
+            });
+
+        $context = $this->reader->readMessageContext('alice', 'abcd', 20, 1, 1);
+
+        $this->assertSame(['19', '20', '21'], array_column($context['messages'], 'id'));
+        $this->assertFalse($context['has_more_before']);
+        $this->assertFalse($context['has_more_after']);
+    }
+
+    public function testContextBoundsLongTextAndExcludesPrivateReplyVerbs(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $this->givenResolvedConversation($room);
+        $anchor = $this->givenComment('20', 'comment', str_repeat('x', ConversationReader::MAX_RESULT_TEXT_LENGTH + 20));
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $chatManager->method('getComment')->willReturn($anchor);
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+        $this->comments->expects($this->once())
+            ->method('getCommentsWithVerbForObjectSinceComment')
+            ->with('chat', '91', ['comment', 'object_shared', 'system', 'voice-message', 'record-audio', 'record-video'], 20, 'desc', 2, false)
+            ->willReturn([]);
+
+        $context = $this->reader->readMessageContext('alice', 'abcd', 20, 1, 0);
+
+        $this->assertSame(ConversationReader::MAX_RESULT_TEXT_LENGTH, strlen($context['messages'][0]['text']));
+        $this->assertTrue($context['messages'][0]['text_truncated']);
+    }
+
+    public function testContextRefusesAnAnchorWithAHiddenOrNonMessageVerb(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $this->givenResolvedConversation($room);
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $chatManager->method('getComment')->willReturn($this->givenComment('20', 'private_reply', 'private link'));
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+        $this->comments->expects($this->never())->method('getCommentsWithVerbForObjectSinceComment');
+
+        try {
+            $this->reader->readMessageContext('alice', 'abcd', 20, 2, 2);
+            $this->fail('A private reply anchor must not be returned.');
+        } catch (\OCA\Mcp\Modules\Talk\Access\ConversationAccessException $e) {
+            $this->assertSame(\OCA\Mcp\Modules\Talk\Access\ConversationMessages::conversationNotFound(), $e->getMessage());
+        }
+    }
+
+    public function testContextRefusesAnAnchorFromAnotherConversationBeforeReadingEitherSide(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $this->givenResolvedConversation($room);
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $chatManager->method('getComment')->willThrowException(new \OCP\Comments\NotFoundException('hidden'));
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+        $this->comments->expects($this->never())->method('getCommentsWithVerbForObjectSinceComment');
+
+        $this->expectException(\OCA\Mcp\Modules\Talk\Access\ConversationAccessException::class);
+        $this->reader->readMessageContext('alice', 'abcd', 777, 2, 2);
     }
 
     public function testLimitZeroIsAnArgumentErrorBeforeAnyTalkCall(): void
@@ -628,6 +759,9 @@ interface ReaderChatGateway
 
     public function getComment(object $room, string $messageId): IComment;
 
+    /** @return array<IComment> */
+    public function searchForObjectsWithFilters(string $search, array $objectIds, array $verbs, ?\DateTimeImmutable $since, ?\DateTimeImmutable $until, ?string $actorType, ?string $actorId, int $offset, int $limit = 50): array;
+
     public function sendMessage(object $room, string $message): void;
 
     public function addSystemMessage(object $room, string $message, ?int $timestamp = null): void;
@@ -648,6 +782,13 @@ interface ReaderParticipantGateway
 /** Room double with the values the reader normalizes. */
 final class ReaderRoomStub
 {
+    public int $id = 91;
+
+    public function getId(): int
+    {
+        return $this->id;
+    }
+
     public function __construct(private string $token, private int $type = 2, private ?int $lastActivity = 0) {}
 
     public function getToken(): string

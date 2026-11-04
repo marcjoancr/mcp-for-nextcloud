@@ -520,7 +520,7 @@ final class TalkPlanRendererTest extends TestCase
         );
         return \OCA\Mcp\Tests\Support\Talk\TalkModuleFixtures::create(
             [
-                \OCA\Mcp\Modules\Talk\Reading\ConversationReader::class => new \OCA\Mcp\Modules\Talk\Reading\ConversationReader($services->manager->forUser(...), $services->participantService->forUser(...), $services->chatManager->forUser(...), $resolver, $this->createMock(ActorNames::class), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this)),
+                \OCA\Mcp\Modules\Talk\Reading\ConversationReader::class => new \OCA\Mcp\Modules\Talk\Reading\ConversationReader($services->manager->forUser(...), $services->participantService->forUser(...), $services->chatManager->forUser(...), fn(string $userId): object => $this->createMock(\OCA\Mcp\Tests\Support\Talk\ReaderCommentsGateway::class), $resolver, $this->createMock(ActorNames::class), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this)),
                 \OCA\Mcp\Modules\Talk\Access\ConversationResolver::class => $resolver,
                 \OCA\Mcp\Modules\Talk\Messaging\MessageSender::class => $this->writer,
                 \OCA\Mcp\Modules\Talk\Attachments\FileSharer::class => $this->sharer,
