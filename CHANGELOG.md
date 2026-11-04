@@ -4,6 +4,14 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.4.0
+
+- Search cached Mail headers and read messages or paginated threads without marking mail as read. Native account ownership and separate tool permissions apply to every call.
+- Complete or reopen Deck cards, read their comments, and publish a comment after reviewing its exact text and confirming the destination and audience.
+- Read Forms structures, questions, options and paginated responses. Response access requires native results permission; anonymous identities and uploaded-file answers are omitted.
+- Page through Talk history without marking messages as read, and publish prepared summaries after preview and confirmation. Changed destination or audience state requires another preview.
+- Require explicit assignments and connection selections for the new tools, preserving existing permissions and credentials. Include Spanish, German and Brazilian Portuguese application translations and updated localized guides.
+
 ## 2.3.3
 
 - The tool catalog and direct calls require both the user's permissions for the connection and the apps installed and enabled for that user. An enabled setting left behind by a removed app no longer exposes its tools.
