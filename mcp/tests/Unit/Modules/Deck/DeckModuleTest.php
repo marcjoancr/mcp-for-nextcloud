@@ -130,7 +130,7 @@ final class DeckModuleTest extends TestCase {
         self::assertInstanceOf(ToolModule::class, $this->module);
     }
 
-    public function testDeclaresTheEighteenUnconditionallyAvailableToolsInOrder(): void {
+    public function testDeclaresTheUnconditionallyAvailableToolsInOrder(): void {
         self::assertSame(
             [
                 'deck_list_boards',
@@ -151,6 +151,8 @@ final class DeckModuleTest extends TestCase {
                 'deck_list_card_files',
                 'deck_unlink_card_file',
                 'deck_link_card_file',
+                'deck_list_comments',
+                'deck_add_comment',
             ],
             array_column($this->module->definitions(), 'name'),
         );

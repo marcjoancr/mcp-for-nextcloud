@@ -66,6 +66,10 @@ class WriteMessages {
         return $kind === 'list' ? Translator::t('Could not confirm whether the list \'%s\' was created; read the board before retrying.', [$title]) : Translator::t('Could not confirm whether the card \'%s\' was created; read the list before retrying.', [$title]);
     }
 
+    public static function sharedCommentNotice(): string {
+        return Translator::t('People with access to this shared board can read the comment. Review the text before using confirm_shared: true.');
+    }
+
     /**
      * Message returned, without error, instead of writing on somebody else's board.
      * @param string $board Name of the board.

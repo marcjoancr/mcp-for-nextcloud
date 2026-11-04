@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Talk\Presentation;
 
+use OCA\Mcp\Mcp\Confirmation\PlanText;
 use OCA\Mcp\Modules\Talk\References\ReferenceMessages;
 
 final class MessagePlanRenderer
@@ -111,6 +112,22 @@ final class MessagePlanRenderer
             '',
             PlanMessages::planDirectConversationCreated($person),
         ]);
+    }
+
+    /** @param array<string,mixed> $plan @return string|null */
+    public static function summary(array $plan): ?string
+    {
+        $conversation = PlanFields::conversationName($plan);
+        $message = PlanFields::stringAt($plan, 'draft', 'message');
+        if ($conversation === null || $message === null) {
+            return null;
+        }
+        $body = [PlanMessages::planToConversation($conversation), '', PlanText::quoted($message)];
+        if (is_string($plan['visibility_warning'] ?? null)) {
+            $body[] = '';
+            $body[] = $plan['visibility_warning'];
+        }
+        return implode("\n", $body);
     }
 
     /**

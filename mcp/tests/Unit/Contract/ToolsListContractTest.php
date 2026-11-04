@@ -33,6 +33,9 @@ final class ToolsListContractTest extends TestCase {
 
     /** Builds a concrete app class with real app collaborators and mocks for everything else. */
     private function build(string $class): object {
+        if ($class === \OCA\Mcp\Modules\Forms\FormsModule::class) {
+            return \OCA\Mcp\Modules\Forms\FormsModule::withReader($this->createStub(\OCA\Mcp\Modules\Forms\FormsReader::class));
+        }
         if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
             return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
         }
@@ -146,9 +149,10 @@ final class ToolsListContractTest extends TestCase {
      *
      * @return string response body exactly as the endpoint encodes it
      */
-    private function handle(string $request, string $version, string $headers = '{}', bool $optionalAppsEnabled = true, ?callable $grants = null): string {
+    private function handle(string $request, string $version, string $headers = '{}', bool $optionalAppsEnabled = true, ?callable $grants = null, ?array $toolDecisions = null): string {
         $config = new InMemoryConfig();
-        $policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($config->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $configuration = $config->mock($this);
+        $policy = InMemoryConfig::policy($configuration, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
                 $policy->setGrant('alice', $module, $operation, $grants === null || $grants($module, $operation));
@@ -156,9 +160,20 @@ final class ToolsListContractTest extends TestCase {
         }
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn($optionalAppsEnabled);
+        $apps->method('getAppVersion')->willReturnCallback(static fn (string $id): string => ['mail' => '5.12.5', 'forms' => '5.4.1'][$id] ?? '');
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturn($this->createMock(IUser::class));
         $modules = array_map(fn (string $class) => $this->build($class), Application::MODULES);
+        foreach ($modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                if (\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($definition['name'])) { continue; }
+                if ($toolDecisions !== null && !array_key_exists($definition['name'], $toolDecisions)) { continue; }
+                $allowed = $toolDecisions === null
+                    ? ($grants === null || $grants($definition['module'], $definition['operation']))
+                    : ($toolDecisions[$definition['name']] ?? false);
+                InMemoryConfig::storeToolPolicy($configuration, 'user', 'alice', $definition['name'], $allowed ? 'allow' : 'deny');
+            }
+        }
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $apps, $users);
         $protocol = new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new ToolRegistry($modules, $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
             new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy),
@@ -335,6 +350,50 @@ final class ToolsListContractTest extends TestCase {
      * The title map is the source of truth for the display layer; the humanized fallback only keeps a
      * new tool from breaking at runtime, so a missing entry must fail here instead.
      */
+    public function testSensitiveGrantsPublishOnlyTheirOwnTools(): void {
+        foreach ([
+            ['mail', 'read', ['mail_list_accounts', 'mail_list_mailboxes']],
+            ['mail', 'search', ['mail_search_messages']],
+            ['mail', 'read_message', ['mail_read_message', 'mail_read_thread']],
+            ['deck', 'read_comments', ['deck_list_comments']],
+            ['deck', 'comment', ['deck_add_comment']],
+            ['forms', 'read', ['forms_list', 'forms_read']],
+            ['forms', 'read_responses', ['forms_read_responses']],
+            ['talk', 'publish_summary', ['talk_publish_summary']],
+        ] as [$module, $operation, $expected]) {
+            $response = $this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
+                \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, '{}', true,
+                static fn (string $m, string $op): bool => $m === $module && $op === $operation);
+            $tools = json_decode($response, false, 512, JSON_THROW_ON_ERROR)->result->tools;
+            $names = [];
+            foreach ($tools as $tool) {
+                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_') && !str_starts_with($tool->name, 'deck_') && !str_starts_with($tool->name, 'talk_')) {
+                    continue;
+                }
+                $names[] = $tool->name;
+                self::assertSame(!in_array($operation, ['comment', 'publish_summary'], true), $tool->annotations->readOnlyHint);
+                self::assertSame(in_array($operation, ['comment', 'publish_summary'], true), property_exists($tool->inputSchema->properties, 'confirm'));
+            }
+            self::assertEqualsCanonicalizing($expected, $names);
+        }
+    }
+
+    public function testNewToolsRequireIndependentAssignmentsDespiteLegacyOperationGrants(): void {
+        $newTools = ['forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
+            'mail_read_message', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary'];
+        $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
+        $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;
+        $legacy = json_decode($this->handle($request, $version, '{}', true, null, []), true)['result']['tools'];
+        self::assertSame([], array_values(array_intersect($newTools, array_column($legacy, 'name'))),
+            'Legacy operation grants cannot silently enable new tools');
+        foreach ($newTools as $name) {
+            $response = json_decode($this->handle($request, $version, '{}', true,
+                static fn (): bool => false, [$name => true]), true);
+            $published = array_values(array_diff(array_column($response['result']['tools'], 'name'), ['mcp_status', 'mcp_guide']));
+            self::assertSame([$name], $published, 'One tool assignment must not enable another capability');
+        }
+    }
+
     public function testEveryRegisteredToolIsInTheTitleMap(): void {
         $tools = json_decode($this->toolsListJson(), false, 512, JSON_THROW_ON_ERROR)->result->tools;
         $missing = [];

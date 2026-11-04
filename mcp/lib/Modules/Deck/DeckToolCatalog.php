@@ -10,6 +10,7 @@ namespace OCA\Mcp\Modules\Deck;
 use OCA\Mcp\Modules\Deck\Presentation\DeckSchema;
 use OCA\Mcp\Mcp\Tools\Tool;
 use OCA\Mcp\Mcp\Tools\WriteTool;
+use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use OCA\Mcp\Modules\Deck\Tools\ListBoards;
 use OCA\Mcp\Modules\Deck\Tools\ListStacks;
 use OCA\Mcp\Modules\Deck\Tools\ListCards;
@@ -50,6 +51,8 @@ final class DeckToolCatalog {
             \OCA\Mcp\Modules\Deck\Tools\ReadCardDependencies::class,
             \OCA\Mcp\Modules\Deck\Tools\AddCardDependency::class,
             \OCA\Mcp\Modules\Deck\Tools\RemoveCardDependency::class,
+            \OCA\Mcp\Modules\Deck\Tools\ListComments::class,
+            \OCA\Mcp\Modules\Deck\Tools\AddComment::class,
         ];
     }
 
@@ -64,7 +67,7 @@ final class DeckToolCatalog {
                 throw new \LogicException($class . ' must implement Tool');
             }
             $definition = $class::definition();
-            if ($definition->operation !== 'read' && !is_a($class, WriteTool::class, true)) {
+            if (WriteGate::isWrite($definition->toArray()) && !is_a($class, WriteTool::class, true)) {
                 throw new \LogicException($class . ' must implement WriteTool');
             }
             if (isset($definitions[$definition->name])) {

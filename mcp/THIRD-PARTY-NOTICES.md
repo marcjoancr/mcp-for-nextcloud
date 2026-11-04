@@ -132,10 +132,16 @@ included in the production package.
 | markdownlint | 0.42.0 | MIT | David Anson | Structural Markdown lint |
 | katex (transitive override) | 0.18.2 | MIT | Khan Academy and contributors | Patched math dependency of the development linter |
 
-## Optional Mail test inputs
+## Optional Forms and Mail test inputs
+
+The Forms read-only signatures in `tests/fixtures/nextcloud-api/forms-read.json` come from the
+[Forms 5.3.0 signature capture](https://github.com/sintax-tech/mcp-for-nextcloud/blob/7d3e29bc21751c723d9228fce6f1426219772bbf/mcp/tests/fixtures/nextcloud-api/forms/5.3.0.json).
+They retain the upstream version and archive digest. The native acceptance cell uses Forms 5.4.1;
+its archive digest is recorded in `tests/Integration/ci/forms-pins.json`.
 
 The selected Mail implementation and tests retain upstream Sintax attribution
-from release 1.2.1 (`3c61e928f3abdb37ad60b80ed207a5e243bf0ec4`). Mail API metadata
+from releases 1.2.1 (`3c61e928f3abdb37ad60b80ed207a5e243bf0ec4`, account and folder discovery)
+and 1.2.2 (`7d3e29bc21751c723d9228fce6f1426219772bbf`, header search and message reading). Mail API metadata
 is generated from official Nextcloud Mail 5.0.0, 5.5.0, 5.7.0 and 5.9.0 sources;
 exact archive/server-file SHA-256 values are in
 `tests/fixtures/nextcloud-api/mail-sources.json`. These are API signatures, not

@@ -43,7 +43,8 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
 
     private function boot(?array $modules = null): array {
         $config = new InMemoryConfig();
-        $policy = InMemoryConfig::policy($config->mock($this), new InMemoryOAuthStore());
+        $configuration = $config->mock($this);
+        $policy = InMemoryConfig::policy($configuration, new InMemoryOAuthStore());
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturnCallback(fn () => $this->enabled);
         $apps->method('getAppVersion')->willReturnCallback(fn () => $this->version);
@@ -63,7 +64,7 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
             $this->createMock(\OCA\Mcp\Modules\Notes\Contracts\NoteResourceReader::class), $registry->guide());
         return [$registry, $policy, new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $registry),
             new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy),
-            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $resources), $logger), $resources];
+            new \OCA\Mcp\Mcp\Protocol\ResourceRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), $resources), $logger), $resources, $configuration];
     }
 
     private function module(): ToolModule {
@@ -121,13 +122,22 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
                 $modules[] = (new \ReflectionClass($class))->newInstanceWithoutConstructor();
             }
         }
-        [$registry, $policy, $protocol, $resources] = $this->boot($modules);
+        [$registry, $policy, $protocol, $resources, $configuration] = $this->boot($modules);
         $publication = [];
         foreach (['en', 'pt_BR', 'es'] as $locale) {
             Translator::use(new JsonL10n($locale));
             foreach (['default', 'none', 'all', 'link'] as $mode) {
                 $uid = $mode;
                 if ($mode !== 'default') { $this->grants($policy, $uid, $mode === 'all'); }
+                if ($mode === 'all') {
+                    foreach ($modules as $module) {
+                        foreach ($module->definitions() as $definition) {
+                            if (!\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($definition['name'])) {
+                                InMemoryConfig::storeToolPolicy($configuration, 'user', $uid, $definition['name'], 'allow');
+                            }
+                        }
+                    }
+                }
                 if ($mode === 'link') { $policy->setGrant($uid, 'files', 'link', true); }
                 $publication[$locale][$mode] = ['published' => $registry->list($uid), 'definitions' => $registry->definitions($uid),
                     'guide' => $registry->call('mcp_guide', [], $uid), 'resource' => $resources->read('mcp://guide', $uid),

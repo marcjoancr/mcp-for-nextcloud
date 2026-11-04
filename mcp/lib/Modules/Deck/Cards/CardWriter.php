@@ -77,6 +77,7 @@ class CardWriter {
      * @param string $description New description.
      * @param string|null $duedate New due date as `YYYY-MM-DD` (midnight for the caller), the current
      *     ISO 8601 instant to keep it untouched, or null to clear it.
+     * @param \DateTimeInterface|null $done Completion timestamp to persist, or null to reopen.
      * @return Card Updated card.
      * @throws \Throwable Any Deck failure; the caller maps it with {@see DeckErrors}.
      */
@@ -86,6 +87,7 @@ class CardWriter {
         string $title,
         string $description,
         ?string $duedate,
+        ?\DateTimeInterface $done,
     ): Card {
         $this->caller->bind($userId);
         /** @var CardService $cardService */
@@ -103,7 +105,7 @@ class CardWriter {
             $this->instant($userId, $duedate),
             null,
             null,
-            new OptionalNullableValue($card->getDone()),
+            new OptionalNullableValue($done),
             ...CardUpdateArguments::fieldsAfterDone($cardService, $card),
         );
     }

@@ -66,10 +66,46 @@ final class GrantPolicyTest extends TestCase {
         $this->assertFalse($this->policy->canConnect('alice'));
     }
 
+    public function testLegacyMailDiscoveryDoesNotGrantMessageOrFormAccess(): void {
+        $this->policy->setGrant('alice', 'mail', 'read', true);
+        foreach ([['mail', 'search'], ['mail', 'read_message'], ['forms', 'read']] as [$module, $operation]) {
+            $this->assertFalse($this->policy->granted('alice', $module, $operation));
+            $this->policy->setGrant('alice', $module, $operation, true);
+            $this->assertTrue($this->policy->granted('alice', $module, $operation));
+            $this->assertFalse($this->policy->granted('bob', $module, $operation));
+            $this->policy->setGrant('alice', $module, $operation, false);
+        }
+    }
+
+    public function testExistingDeckGrantsDoNotEnableCommentAccess(): void {
+        $this->policy->setGrant('alice', 'deck', 'edit', true);
+        self::assertTrue($this->policy->granted('alice', 'deck', 'read'));
+        self::assertFalse($this->policy->granted('alice', 'deck', 'read_comments'));
+        self::assertFalse($this->policy->granted('alice', 'deck', 'comment'));
+        $this->policy->setGrant('alice', 'deck', 'comment', true);
+        self::assertTrue($this->policy->granted('alice', 'deck', 'comment'));
+        self::assertFalse($this->policy->granted('alice', 'deck', 'read_comments'));
+        self::assertFalse($this->policy->granted('bob', 'deck', 'comment'));
+    }
+
+    public function testFormResponsesAndTalkSummariesRequireIndependentExplicitGrants(): void {
+        $this->policy->setGrant('alice', 'forms', 'read', true);
+        $this->policy->setGrant('alice', 'talk', 'reply', true);
+        self::assertFalse($this->policy->granted('alice', 'forms', 'read_responses'));
+        self::assertFalse($this->policy->granted('alice', 'talk', 'publish_summary'));
+        $this->policy->setGrant('alice', 'forms', 'read_responses', true);
+        self::assertTrue($this->policy->granted('alice', 'forms', 'read_responses'));
+        self::assertFalse($this->policy->granted('alice', 'talk', 'publish_summary'));
+        self::assertFalse($this->policy->granted('bob', 'forms', 'read_responses'));
+        $this->policy->setGrant('alice', 'talk', 'publish_summary', true);
+        self::assertTrue($this->policy->granted('alice', 'talk', 'publish_summary'));
+        self::assertFalse($this->policy->granted('bob', 'talk', 'publish_summary'));
+    }
+
     public function testReadStartsAllowedAndWriteStartsDenied(): void {
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
-                $expected = $operation === 'read' && !in_array($module, ['logs', 'mail'], true);
+                $expected = $operation === 'read' && !in_array($module, ['logs', 'mail', 'forms'], true);
                 $this->assertSame($expected, $this->policy->granted('alice', $module, $operation), "$module.$operation");
                 $this->assertSame($expected, GrantPolicy::defaultGranted($module, $operation), "$module.$operation");
             }
@@ -95,7 +131,7 @@ final class GrantPolicyTest extends TestCase {
     public function testCatalogMatchesContractAndFilesHasNoDelete(): void {
         $this->assertSame(['read', 'edit', 'create', 'move', 'restore', 'share', 'link'], GrantPolicy::CATALOG['files']);
         $this->assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer'], GrantPolicy::CATALOG['calendar']);
-        $this->assertSame(['read', 'reply', 'attach', 'quote', 'create'], GrantPolicy::CATALOG['talk']);
+        $this->assertSame(['read', 'reply', 'attach', 'quote', 'create', 'publish_summary'], GrantPolicy::CATALOG['talk']);
         $this->expectException(InvalidArgumentException::class);
         $this->policy->setGrant('alice', 'files', 'delete', true);
     }

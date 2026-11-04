@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Mcp\Tools\Discovery;
 
 use OCA\Mcp\L10n\Translator;
+use OCA\Mcp\Mcp\Confirmation\WriteGate;
 
 /**
  * How tools are shown to the model and to the person reading the conversation.
@@ -32,8 +33,6 @@ final class ToolPresentation {
         . "messaging), if the user did not give the account ID, look the person up with the \"Search people\" tool and confirm "
         . "with the user when more than one account matches. Never invent an ID.";
 
-    /** Operations that only read; every other operation may change data. */
-    private const READ_OPERATION = 'read';
     /**
      * Operations a user cannot take back from the client: the ones that replace or remove what exists, and the
      * ones that publish a message under their own name in a room full of other people. Replying, sharing a file
@@ -41,7 +40,7 @@ final class ToolPresentation {
      * else to remove them, which is exactly the confirmation a client offers on a destructive tool. Editing is in
      * the list for the same reason a client marks it: what is written over the old content is gone from the file.
      */
-    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote'];
+    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary'];
     /**
      * Operations a client may repeat with the same result. A read obviously, and a rollback: restoring the same
      * version twice leaves the same content, however many versions the second attempt adds to the history.
@@ -155,7 +154,15 @@ final class ToolPresentation {
             'talk_create_group' => Translator::t('Create group in Talk'),
             // People
             'users_search' => Translator::t('Search people'),
-            // Logs
+            'forms_list' => Translator::t('List forms'),
+            'forms_read' => Translator::t('Read form questions and options'),
+            'forms_read_responses' => Translator::t('Read form responses'),
+            'talk_publish_summary' => Translator::t('Publish a summary in Talk'),
+            'mail_search_messages' => Translator::t('Search mail messages'),
+            'deck_list_comments' => Translator::t('Read card comments'),
+            'deck_add_comment' => Translator::t('Post card comment'),
+            'mail_read_thread' => Translator::t('Read mail thread'),
+            'mail_read_message' => Translator::t('Read mail message'),
             'mail_list_accounts' => Translator::t('List mail accounts'),
             'mail_list_mailboxes' => Translator::t('List mail folders'),
             'logs_list' => Translator::t('Read server log'),
@@ -175,7 +182,7 @@ final class ToolPresentation {
      * @return array{title: string, readOnlyHint: bool, destructiveHint: bool, idempotentHint: bool, openWorldHint: bool}
      */
     public static function annotations(string $name, string $operation, bool $destructiveHint = false): array {
-        $readOnly = $operation === self::READ_OPERATION;
+        $readOnly = !WriteGate::isWrite(['operation' => $operation]);
         return [
             'title' => self::title($name),
             'readOnlyHint' => $readOnly,
@@ -202,6 +209,7 @@ final class ToolPresentation {
             'talk' => Translator::t('Talk'),
             'people' => Translator::t('People'),
             'mail' => Translator::t('Mail'),
+            'forms' => Translator::t('Forms'),
             'logs' => Translator::t('Server log'),
             default => ucfirst($module),
         };

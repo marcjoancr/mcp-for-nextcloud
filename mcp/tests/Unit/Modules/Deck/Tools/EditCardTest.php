@@ -57,7 +57,7 @@ final class EditCardTest extends TestCase {
             'order' => 3,
         ]);
         $capabilities->cards->method('findCard')->willReturn($current);
-        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Novo título', 'Descrição atual', '2026-01-05T00:00:00+00:00')->willReturn($current);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Novo título', 'Descrição atual', '2026-01-05T00:00:00+00:00', $current->getDone())->willReturn($current);
         $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
         $payload = $this->payload($handler->execute(['cardId' => 7, 'title' => 'Novo título'], new ToolContext('alice')));
         self::assertSame(7, $payload['id']);
@@ -67,7 +67,7 @@ final class EditCardTest extends TestCase {
         $capabilities = $this->deckDoublesOwnedBy('alice');
         $current = $this->card(['id' => 7, 'description' => 'Só isso']);
         $capabilities->cards->method('findCard')->willReturn($current);
-        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', 'Só isso', null)->willReturn($current);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', 'Só isso', null, null)->willReturn($current);
         $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
         $handler->execute(['cardId' => 7, 'description' => 'Só isso'], new ToolContext('alice'));
     }
@@ -76,11 +76,11 @@ final class EditCardTest extends TestCase {
         $current = $this->card(['id' => 7, 'duedate' => new \DateTime('2026-01-05 00:00:00', new \DateTimeZone('UTC'))]);
         $capabilities = $this->deckDoublesOwnedBy('alice');
         $capabilities->cards->method('findCard')->willReturn($current);
-        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', '', null)->willReturn($current);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', '', null, null)->willReturn($current);
         $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter())->execute(['cardId' => 7, 'duedate' => null], new ToolContext('alice'));
         $capabilities = $this->deckDoublesOwnedBy('alice');
         $capabilities->cards->method('findCard')->willReturn($current);
-        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', '', '2026-01-05T00:00:00+00:00')->willReturn($current);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', '', '2026-01-05T00:00:00+00:00', null)->willReturn($current);
         $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter())->execute(['cardId' => 7, 'title' => 'Card', 'description' => ''], new ToolContext('alice'));
     }
 
@@ -102,6 +102,95 @@ final class EditCardTest extends TestCase {
         $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
         $result = $handler->execute(['cardId' => 7, 'title' => 'Novo título', 'lastModified' => 1700000000], new ToolContext('alice'));
         self::assertArrayNotHasKey('isError', $result);
+    }
+
+    public function testCompletedTrueCompletesAnOpenCardAndReportsDoneTimestamp(): void {
+        $capabilities = $this->deckDoublesOwnedBy('alice');
+        $current = $this->card(['id' => 7, 'done' => null, 'stackId' => 10, 'order' => 4]);
+        $capabilities->cards->method('findCard')->willReturn($current);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with(
+            'alice', $current, 'Card', '', null,
+            self::callback(static fn(mixed $done): bool => $done instanceof \DateTime),
+        )->willReturnCallback(static fn(string $userId, \OCA\Deck\Db\Card $before, string $title, string $description, ?string $duedate, ?\DateTime $done): \OCA\Deck\Db\Card => new \OCA\Deck\Db\Card([
+            'id' => 7, 'title' => $title, 'description' => $description, 'done' => $done,
+            'stackId' => 10, 'order' => 4,
+        ]));
+        $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
+        $payload = $this->payload($handler->execute(['cardId' => 7, 'completed' => true], new ToolContext('alice')));
+        self::assertIsInt($payload['done']);
+        self::assertSame(10, $payload['stackId']);
+        self::assertSame(4, $payload['order']);
+    }
+
+    public function testRepeatedCompletedTrueKeepsExistingTimestamp(): void {
+        $timestamp = new \DateTime('2026-01-02 10:00:00', new \DateTimeZone('UTC'));
+        $current = $this->card(['id' => 7, 'done' => $timestamp]);
+        $capabilities = $this->deckDoublesOwnedBy('alice');
+        $capabilities->cards->method('findCard')->willReturn($current);
+        $capabilities->writer->expects(self::never())->method('updateCard');
+        $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
+        $payload = $this->payload($handler->execute(['cardId' => 7, 'completed' => true], new ToolContext('alice')));
+        self::assertSame($timestamp->getTimestamp(), $payload['done']);
+    }
+
+    public function testRepeatedCompletionOnArchivedBoardStillGoesThroughNativeUpdate(): void {
+        $timestamp = new \DateTime('2026-01-02 10:00:00', new \DateTimeZone('UTC'));
+        $current = $this->card(['id' => 7, 'done' => $timestamp]);
+        $capabilities = $this->deckDoublesOwnedBy('alice');
+        $capabilities->cards->method('findCard')->willReturn($current);
+        $capabilities->ownership->method('cardBoardIsArchived')->with('alice', 7)->willReturn(true);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', '', null, $timestamp)->willReturn($current);
+        $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
+        $handler->execute(['cardId' => 7, 'completed' => true], new ToolContext('alice'));
+    }
+
+    public function testCompletionChangeIsRecognizedAfterWriteEvenWithSameSecondLastModified(): void {
+        $capabilities = $this->deckDoublesOwnedBy('alice');
+        $before = $this->card(['id' => 7, 'lastModified' => 1700000000, 'done' => null]);
+        $capabilities->cards->method('findCard')->willReturn($before);
+        $written = null;
+        $capabilities->writer->expects(self::once())->method('updateCard')->willReturnCallback(static function (string $user, \OCA\Deck\Db\Card $card, string $title, string $description, ?string $duedate, ?\DateTimeInterface $done) use (&$written): \OCA\Deck\Db\Card {
+            $written = new \OCA\Deck\Db\Card(['id' => 7, 'title' => $title, 'description' => $description, 'done' => $done, 'lastModified' => 1700000000]);
+            throw new RuntimeException('write response lost');
+        });
+        $capabilities->state->method('cardState')->willReturnCallback(static function () use (&$written): \OCA\Deck\Db\Card { return $written; });
+        $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
+        $payload = $this->payload($handler->execute(['cardId' => 7, 'completed' => true], new ToolContext('alice')));
+        self::assertIsInt($payload['done']);
+    }
+
+    public function testCompletedFalseReopensACard(): void {
+        $current = $this->card(['id' => 7, 'done' => new \DateTime('2026-01-02 10:00:00')]);
+        $capabilities = $this->deckDoublesOwnedBy('alice');
+        $capabilities->cards->method('findCard')->willReturn($current);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Card', '', null, null)->willReturn($this->card(['id' => 7, 'done' => null]));
+        $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
+        $payload = $this->payload($handler->execute(['cardId' => 7, 'completed' => false], new ToolContext('alice')));
+        self::assertNull($payload['done']);
+    }
+
+    public function testStaleLastModifiedRefusesCompletionWithoutWriting(): void {
+        $capabilities = $this->deckDoublesOwnedBy('alice');
+        $capabilities->cards->method('findCard')->willReturn($this->card(['id' => 7, 'lastModified' => 1700000000]));
+        $capabilities->writer->expects(self::never())->method('updateCard');
+        $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
+        $result = $handler->execute(['cardId' => 7, 'completed' => true, 'lastModified' => 1699999999], new ToolContext('alice'));
+        self::assertTrue($result['isError']);
+        self::assertSame(\OCA\Mcp\Modules\Deck\Execution\ErrorMessages::errorConflict(), $this->text($result));
+    }
+
+    public function testSharedBoardRequiresConfirmationBeforeCompletion(): void {
+        $capabilities = $this->deckDoubles();
+        $capabilities->ownership->method('cardOwnership')->willReturn($this->ownershipOf('pedro', 'Comercial'));
+        $capabilities->cards->expects(self::never())->method('findCard');
+        $capabilities->writer->expects(self::never())->method('updateCard');
+        $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
+        $this->assertSharedConfirmation($handler->execute(['cardId' => 7, 'completed' => true], new ToolContext('alice')));
+    }
+
+    public function testEditSchemaAcceptsOnlyBooleanCompletionState(): void {
+        $schema = EditCard::definition()->inputSchema;
+        self::assertSame('boolean', $schema['properties']['completed']['type']);
     }
 
     public function testCallWithoutAnyEditableFieldIsAParameterError(): void {
@@ -167,7 +256,7 @@ final class EditCardTest extends TestCase {
         $capabilities->ownership->method('cardOwnership')->willReturn($this->ownershipOf('pedro', 'Comercial'));
         $current = $this->card(['id' => 7, 'title' => 'Título atual', 'description' => 'Descrição atual']);
         $capabilities->cards->method('findCard')->willReturn($current);
-        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Novo título', 'Descrição atual', null)->willReturn($current);
+        $capabilities->writer->expects(self::once())->method('updateCard')->with('alice', $current, 'Novo título', 'Descrição atual', null, null)->willReturn($current);
         $handler = $this->deckTool(EditCard::class, $capabilities, $this->createMock(LoggerInterface::class), $this->cardFormatter());
         $payload = $this->payload($handler->execute(['cardId' => 7, 'title' => 'Novo título', 'confirm_shared' => true], new ToolContext('alice')));
         self::assertSame(7, $payload['id']);

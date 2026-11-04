@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Mcp\Guide;
 
 use OCA\Mcp\Mcp\Tools\ToolModule;
+use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use OCA\Mcp\Mcp\Tools\Results\ToolResult;
@@ -236,7 +237,7 @@ final class ToolGuide {
      */
     private function gates(array $definition): array {
         $gates = [];
-        if ($definition['operation'] !== 'read') {
+        if (WriteGate::isWrite($definition)) {
             $gates[] = ['name' => 'confirm', 'summary' => 'boolean, must be true'];
         }
         $properties = $definition['inputSchema']['properties'] ?? [];

@@ -87,3 +87,29 @@ raw catalog. Existing published tools/protocol/results are unchanged because the
 historical fixture has no known Mail version; focused Mail publication/native tests
 exercise enabled, explicitly granted Mail. People/Logs captures append only
 `MailModule` to Application's module order. No complete capture was regenerated.
+
+The Forms and Mail read extension adds `forms_list`, `forms_read`, `mail_search_messages`
+and `mail_read_message` to the raw catalogs. The People and Logs module-order captures
+also include Forms. The historical fixture reports unknown optional-app versions.
+Separate protocol tests cover the published schemas under each grant.
+The Deck and Talk extension updates the published descriptions and optional inputs
+for `deck_edit_card` and `talk_read_messages`. The Talk module fixture also shows
+the history cursor in the tool guide. The shared result examples remain unchanged.
+
+Mail thread reading adds one raw catalog entry. Deck comment reading and posting
+add two definitions to the raw and published Deck catalogs and update the guide
+count. The historical fixture has no known Mail version. The Mail tool is covered
+separately by grant and native protocol tests.
+
+Forms responses and Talk summaries append one definition each. Forms publication
+is covered by separate tests with a supported native version and explicit grants.
+The shared publication and protocol captures append the Talk summary tool and
+update its guide count. Every previous tool definition and result stays covered.
+
+The combined integration on the current permission model explicitly assigns new
+tools in the full-access fixture. The immutable 2.0.0 catalog and default, denied
+and alternative-link cases retain their authorization behavior. The protocol
+merge reorders named tool objects into module order; structural comparison
+verified that no values changed. Publication and result captures are byte-identical
+to the merged expectations. Independent tests require an explicit assignment for
+each new tool and verify that old operation grants cannot enable them.

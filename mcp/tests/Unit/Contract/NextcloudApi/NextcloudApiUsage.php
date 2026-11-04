@@ -62,6 +62,23 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Deck\\Service\\CommentService::list' => ['cardId', 'limit', 'offset'],
+        'OCA\\Deck\\Service\\CommentService::create' => ['cardId', 'message'],
+        'OCA\\Mail\\Service\\MailManager::getThread' => ['account', 'threadRootId'],
+        'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['ownerId'],
+        'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['user'],
+        'OCA\\Forms\\Service\\FormsService::getPermissions' => ['form'],
+        'OCA\\Forms\\Service\\FormsService::getFormIfAllowed' => ['formId', 'permissions'],
+        'OCA\\Forms\\Service\\FormsService::getForm' => ['form'],
+        'OCA\\Forms\\Service\\FormsService::getQuestions' => ['formId'],
+        'OCA\\Forms\\Service\\SubmissionService::getSubmissions' => ['formId', 'userId', 'query', 'limit', 'offset'],
+        'OCA\\Talk\\Service\\ParticipantService::getParticipantsForRoom' => ['room'],
+        'OCA\\Mail\\Db\\MessageMapper::findIdsByQuery' => ['mailbox', 'query', 'sortOrder', 'limit', 'uids'],
+        'OCA\\Mail\\Db\\MessageMapper::findByIds' => ['userId', 'ids', 'sortOrder'],
+        'OCA\\Mail\\Service\\MailManager::getMessage' => ['uid', 'id'],
+        'OCA\\Mail\\Service\\MailManager::getMailbox' => ['uid', 'id'],
+        'OCA\\Mail\\Service\\MailManager::getImapMessage' => ['client', 'account', 'mailbox', 'uid', 'loadBody'],
+        'OCA\\Mail\\IMAP\\IMAPClientFactory::getClient' => ['account'],
         'OCA\\Mail\\Service\\AccountService::findByUserId' => ['currentUserId'],
         'OCA\\Mail\\Service\\AccountService::find' => ['userId', 'id'],
         'OCA\\Mail\\Db\\MailboxMapper::findAll' => ['account'],
@@ -70,6 +87,7 @@ final class NextcloudApiUsage {
         'OCA\\Mail\\Account::getEmail' => [],
         'OCA\\Mail\\Account::getUserId' => [],
         'OCA\\Deck\\Db\\BoardMapper::find' => ['id','withLabels','withAcl','allowDeleted'],
+        'OCA\\Deck\\Service\\BoardService::isArchived' => ['mapper', 'id'],
         'OCA\\Deck\\Db\\BoardMapper::flushCache' => ['boardId','userId'],
         'OCP\\IGroup::count' => [],
         // BoardRecipientResolver authorizes the source before DeckRecipientDirectory reads complete native ACLs/readers.
@@ -105,6 +123,7 @@ final class NextcloudApiUsage {
         'OCA\\Talk\\Chat\\ChatManager::sendMessage' => ['chat', 'participant', 'actorType', 'actorId', 'message', 'creationDateTime', 'replyTo'],
         'OCA\\Talk\\Chat\\ChatManager::addSystemMessage' => ['chat', 'participant', 'actorType', 'actorId', 'message', 'creationDateTime', 'sendNotifications'],
         'OCA\\Talk\\Chat\\ChatManager::getParentComment' => ['chat', 'parentId'],
+        'OCA\\Talk\\Chat\\ChatManager::getComment' => ['chat', 'messageId'],
         'OCA\\Talk\\Chat\\ChatManager::getHistory' => ['chat', 'offset', 'limit', 'includeLastKnown'],
         'OCA\\Talk\\Service\\RoomService::createConversation' => ['type', 'name', 'owner'],
         'OCA\\Talk\\Service\\RoomService::createOneToOneConversation' => ['actor', 'targetUser'],
@@ -179,6 +198,11 @@ final class NextcloudApiUsage {
      * @var array<string, array<string, string>> "Class::method" => parameter => why its default is right
      */
     public const REVIEWED_TRAILING = [
+        'OCA\\Deck\\Service\\CommentService::create' => ['replyTo' => 'The native default posts a top-level comment on the requested card'],
+        'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['queryTerm' => 'No title filter for listing owned forms'],
+        'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['filterShown' => 'List only forms visible in the native sidebar'],
+        'OCA\\Mail\\Db\\MessageMapper::findByIds' => ['orderBy' => 'Default sent date ordering of cached messages'],
+        'OCA\\Mail\\IMAP\\IMAPClientFactory::getClient' => ['useCache' => 'Use the account client with native cache settings'],
         'OCP\\IGroup::count' => ['search' => '"": estimate the entire group; false/zero/subcounts do not replace post-load limits'],
         'OCA\\Deck\\Db\\AclMapper::findAll' => [
             'limit' => 'null: complete authorized board ACLs, bounded after loading',
@@ -298,6 +322,8 @@ final class NextcloudApiUsage {
      * @var array<string, array<string, string>> "Class::method" => parameter => how the app handles each type
      */
     public const REVIEWED_TYPE_CHANGES = [
+        'OCA\\Deck\\Service\\CommentService::list' => ['cardId' => 'Deck 1.15/1.16 require a string id; later releases require an integer'],
+        'OCA\\Deck\\Service\\CommentService::create' => ['replyTo' => 'Deck changed the optional parent from string to integer. MCP omits it in both versions.'],
         'OCA\\Deck\\Service\\CardService::update' => [
             'color' => '?string in Deck 1.18, ?OptionalNullableValue in 1.19: CardUpdateArguments::fieldsAfterDone() reads the type and wraps the colour when asked',
         ],
@@ -320,6 +346,11 @@ final class NextcloudApiUsage {
      * @var array<string, array{missing: list<string>, fallback: string, by: string, elsewhere?: array<string, string>}>
      */
     public const VERSION_GATED = [
+        'OCA\\Mail\\Service\\Search\\SearchQuery::setThreaded' => [
+            'missing' => ['31', '32'],
+            'fallback' => 'OCA\\Mail\\Db\\MessageMapper::findIdsByQuery',
+            'by' => \OCA\Mcp\Modules\Mail\Search\MailSearchCriteria::class,
+        ],
         'OCA\\Deck\\Db\\CardMapper::findDependenciesForCards' => [
             'missing' => ['31', '32', '33'],
             'fallback' => 'OCA\\Deck\\Db\\Card::getId',
@@ -388,6 +419,13 @@ final class NextcloudApiUsage {
      * @var array<string, string> "Class::method" => the call it really is
      */
     public const NAME_CLASHES = [
+        'OCP\\Files\\File::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\Folder::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\FileInfo::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\IRootFolder::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCP\\Files\\Node::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
+        'OCA\\Deck\\Db\\StackMapper::findByIds' => 'Mail MessageMapper::findByIds, in Modules/Mail/Integration/MailMessageGateway',
+        'OCA\\Talk\\Service\\RoomService::setHasAttachments' => 'Mail SearchQuery::setHasAttachments, in Modules/Mail/Search/MailSearchCriteria',
         'OCA\\Deck\\Service\\PermissionService::getUserId' => 'OCA\\Circles\\Model\\Member::getUserId, in Modules/Deck/Recipients/DeckRecipientDirectory',
         'OCP\\Files\\Node::getLastActivity' => 'OCA\\Talk\\Room::getLastActivity, in Modules/Talk/Reading/ConversationReader',
         'OCP\\Files\\File::getLastActivity' => 'OCA\\Talk\\Room::getLastActivity, in Modules/Talk/Reading/ConversationReader',

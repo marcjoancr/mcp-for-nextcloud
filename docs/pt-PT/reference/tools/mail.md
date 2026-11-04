@@ -8,7 +8,7 @@
 
 # Mail
 
-O Mail disponibiliza duas ferramentas apenas de leitura quando está ativado para
+O inventário do Mail disponibiliza duas ferramentas apenas de leitura quando está ativado para
 a conta, a versão instalada é conhecida e pelo menos 5.0.0, e a administração
 concede `mail.read`. Esta permissão começa negada, incluindo nas instalações
 existentes. O teste nativo utiliza Mail 5.12.5 no Nextcloud 35; a versão mínima da
@@ -26,8 +26,9 @@ em cache. Os contadores desconhecidos permanecem `null`. Sem pastas em cache,
 devolve uma página vazia e uma nota para abrir o Mail e sincronizar aí. Os dados
 podem estar desatualizados: estas ferramentas nunca atualizam a cache.
 
-Nenhuma ferramenta lê corpos de mensagens, inicia sessão no IMAP, marca mensagens
-como lidas, altera sinalizadores ou envia correio. As respostas excluem credenciais
+`mail_read_thread` lê uma conversa da mesma conta a partir de um `message_id` visível com `mail.read_message`, sem marcar as mensagens como lidas.
+
+A pesquisa `mail_search_messages` requer `mail.search` e usa cabeçalhos em cache. Para ler uma mensagem própria, `mail_read_message` requer `mail.read_message` e preserva o estado de não lida. Ambas as permissões começam negadas. As respostas excluem credenciais
 e configurações do servidor. Os ID desconhecidos, de terceiros ou delegados recebem
 a mesma recusa. Os nomes e endereços são valores JSON não fiáveis: os controlos e
 a formatação bidirecional são removidos, e o texto é limitado a 1.024 caracteres.

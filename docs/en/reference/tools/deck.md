@@ -150,6 +150,14 @@ Deck state before taking further action. Observing the requested state after an
 error does not prove which actor changed it or that the whole request completed;
 do not automatically repeat the write.
 
+## Card comments
+
+`deck_list_comments` reads a page of comments on a visible card with `deck.read_comments`. To post, call `deck_add_comment` with the target card and message and show the preview to the user. Readers of the board may include people outside the original email thread. After approval, repeat the call with `confirm: true` and the returned `plan_state`. A shared board also requires `confirm_shared: true`. A changed plan requires a fresh review. Posting requires `deck.comment` and native access to the card. Deck allows readers to comment even when they cannot edit card fields.
+
+## Card completion
+
+Set `completed` to `true` in `deck_edit_card` to complete a card, or to `false` to reopen it. Omit the field to preserve the current status. Repeating a completion keeps its original timestamp. The card stays in its current stack, including on boards with a designated done stack. The change uses `deck.edit`, native board permissions and the usual preview and confirmation for edits.
+
 See the live `mcp_guide` for the authoritative schema and available operations.
 
 [Operational guides](../../guides/README.md).

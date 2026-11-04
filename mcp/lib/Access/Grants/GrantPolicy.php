@@ -47,7 +47,7 @@ class GrantPolicy implements ScopeReader {
         // other, and removing a share asks for the operation of its type. Listing shares stays a 'read'.
         'files' => ['read', 'edit', 'create', 'move', 'restore', 'share', 'link'],
         'notes' => ['read', 'create', 'edit', 'move', 'delete'],
-        'deck' => ['read', 'create', 'edit', 'move', 'delete'],
+        'deck' => ['read', 'create', 'edit', 'move', 'delete', 'read_comments', 'comment'],
         'contacts' => ['read', 'create', 'edit', 'delete'],
         'tasks' => ['read', 'create', 'edit', 'delete'],
         'calendar' => ['read', 'create', 'edit', 'move', 'delete', 'transfer'],
@@ -55,10 +55,11 @@ class GrantPolicy implements ScopeReader {
         // default like every other operation that is not a read.
         // Account search; read only, so the model can find who to invite or message.
         'people' => ['read'],
-        'talk' => ['read', 'reply', 'attach', 'quote', 'create'],
+        'talk' => ['read', 'reply', 'attach', 'quote', 'create', 'publish_summary'],
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
-        'mail' => ['read'],
+        'mail' => ['read', 'search', 'read_message'],
+        'forms' => ['read', 'read_responses'],
     ];
 
     /**
@@ -66,7 +67,7 @@ class GrantPolicy implements ScopeReader {
      * user, so nobody may read it by omission. Mail is a new sensitive capability: upgrading must not grant it.
      * Administrators explicitly grant these reads to individuals or trusted groups.
      */
-    public const DENIED_READS = ['logs', 'mail'];
+    public const DENIED_READS = ['logs', 'mail', 'forms'];
 
     /** App id under which every value of this policy is stored. */
     public const APP = 'mcp';

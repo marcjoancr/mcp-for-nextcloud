@@ -7,6 +7,7 @@ $arguments = array_slice($argv, 1);
 $mail = end($arguments) === '--mail';
 if ($mail) { array_pop($arguments); }
 $mailPins = json_decode(file_get_contents(__DIR__ . '/mail-pins.json'), true, 512, JSON_THROW_ON_ERROR);
+$formsPins = json_decode(file_get_contents(__DIR__ . '/forms-pins.json'), true, 512, JSON_THROW_ON_ERROR);
 $manifest = json_decode(file_get_contents(__DIR__ . '/matrix.json'), true, 512, JSON_THROW_ON_ERROR);
 $plans = [];
 foreach ($manifest['cells'] as $cell) {
@@ -23,7 +24,8 @@ foreach ($manifest['cells'] as $cell) {
     }
     foreach ($modes as $mode) {
         $plans[] = $cell + ['mode' => $mode, 'baseline_commit' => $manifest['baselines'][$mode] ?? null,
-            'publishes_ports' => false, 'disposable' => true, 'mail' => $mail ? $mailPins : null];
+            'publishes_ports' => false, 'disposable' => true, 'mail' => $mail ? $mailPins : null,
+            'forms' => $mail ? $formsPins : null];
     }
 }
 if (array_slice($argv, 1) === ['--matrix']) {

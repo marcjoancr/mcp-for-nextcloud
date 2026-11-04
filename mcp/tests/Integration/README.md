@@ -7,7 +7,9 @@
 These tests load the installed Nextcloud core, not unit doubles. Run an explicit
 cell with `composer --working-dir=mcp test:integration -- 35 sqlite fresh`.
 Prefix the three cell arguments with `--plan` to inspect pins without starting
-containers. `ci/matrix.php --matrix` lists all 15 declared cells. Ordinary
+containers. Add `--mail` for the disposable NC35/MariaDB cell; it pins and
+provisions both Mail with a private IMAP fixture and Forms with the native app.
+`ci/matrix.php --matrix` lists all 15 declared base cells. Ordinary
 `composer check` excludes only this native suite and never starts Docker.
 
 Docker and Linux `ip`/`flock`, PHP, Composer, the locked Node/npm versions, curl and OpenSSL

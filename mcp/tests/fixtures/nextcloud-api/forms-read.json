@@ -1,0 +1,474 @@
+{
+  "version": "5.3.0",
+  "sha256": "598a17d99e1c30d17a00b5f89f9e50ff891ea7e6f704c3a6ee536b70614b849b",
+  "classes": {
+    "OCA\\Forms\\Service\\FormsService": {
+      "kind": "class",
+      "methods": {
+        "__construct": [
+          "userSession",
+          "activityManager",
+          "formMapper",
+          "optionMapper",
+          "questionMapper",
+          "shareMapper",
+          "submissionMapper",
+          "configService",
+          "groupManager",
+          "userManager",
+          "secureRandom",
+          "circlesService",
+          "filePathHelper",
+          "rootFolder",
+          "l10n",
+          "logger",
+          "eventDispatcher",
+          "confirmationEmailService"
+        ],
+        "areExtraSettingsValid": [
+          "extraSettings",
+          "questionType"
+        ],
+        "canDeleteResults": [
+          "form"
+        ],
+        "canEditForm": [
+          "form"
+        ],
+        "canSeeResults": [
+          "form"
+        ],
+        "canSubmit": [
+          "form"
+        ],
+        "generateFormHash": [],
+        "getFileName": [
+          "form",
+          "fileFormat"
+        ],
+        "getFilePath": [
+          "form"
+        ],
+        "getForm": [
+          "form"
+        ],
+        "getFormIfAllowed": [
+          "formId",
+          "permissions?"
+        ],
+        "getFormUploadedFilesFolderPath": [
+          "form"
+        ],
+        "getPartialFormArray": [
+          "form"
+        ],
+        "getPermissions": [
+          "form"
+        ],
+        "getPublicForm": [
+          "form"
+        ],
+        "getQuestion": [
+          "questionId"
+        ],
+        "getQuestions": [
+          "formId"
+        ],
+        "getShareDisplayName": [
+          "share"
+        ],
+        "getSharedForms": [
+          "user",
+          "filterShown?"
+        ],
+        "getShares": [
+          "formId"
+        ],
+        "getTemporaryUploadedFilePath": [
+          "form",
+          "question"
+        ],
+        "getUploadedFilePath": [
+          "form",
+          "submissionId",
+          "questionId",
+          "questionName",
+          "questionText"
+        ],
+        "hasFormExpired": [
+          "form"
+        ],
+        "hasUserAccess": [
+          "form"
+        ],
+        "isFormArchived": [
+          "form"
+        ],
+        "loadFormForSubmission": [
+          "formId",
+          "shareHash"
+        ],
+        "notifyNewShares": [
+          "form",
+          "share"
+        ],
+        "notifyNewSubmission": [
+          "form",
+          "submission"
+        ],
+        "obtainFormLock": [
+          "form"
+        ],
+        "search": [
+          "query"
+        ]
+      },
+      "types": {
+        "__construct": [
+          "OCP\\IUserSession",
+          "OCA\\Forms\\Activity\\ActivityManager",
+          "OCA\\Forms\\Db\\FormMapper",
+          "OCA\\Forms\\Db\\OptionMapper",
+          "OCA\\Forms\\Db\\QuestionMapper",
+          "OCA\\Forms\\Db\\ShareMapper",
+          "OCA\\Forms\\Db\\SubmissionMapper",
+          "OCA\\Forms\\Service\\ConfigService",
+          "OCP\\IGroupManager",
+          "OCP\\IUserManager",
+          "OCP\\Security\\ISecureRandom",
+          "OCA\\Forms\\Service\\CirclesService",
+          "OCA\\Forms\\Helper\\FilePathHelper",
+          "OCP\\Files\\IRootFolder",
+          "OCP\\IL10N",
+          "Psr\\Log\\LoggerInterface",
+          "OCP\\EventDispatcher\\IEventDispatcher",
+          "OCA\\Forms\\Service\\ConfirmationEmailService"
+        ],
+        "areExtraSettingsValid": [
+          "array",
+          "string"
+        ],
+        "canDeleteResults": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "canEditForm": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "canSeeResults": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "canSubmit": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "generateFormHash": [],
+        "getFileName": [
+          "OCA\\Forms\\Db\\Form",
+          "string"
+        ],
+        "getFilePath": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "getForm": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "getFormIfAllowed": [
+          "int",
+          "string"
+        ],
+        "getFormUploadedFilesFolderPath": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "getPartialFormArray": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "getPermissions": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "getPublicForm": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "getQuestion": [
+          "int"
+        ],
+        "getQuestions": [
+          "int"
+        ],
+        "getShareDisplayName": [
+          "array"
+        ],
+        "getSharedForms": [
+          "OCP\\IUser",
+          "bool"
+        ],
+        "getShares": [
+          "int"
+        ],
+        "getTemporaryUploadedFilePath": [
+          "OCA\\Forms\\Db\\Form",
+          "OCA\\Forms\\Db\\Question"
+        ],
+        "getUploadedFilePath": [
+          "OCA\\Forms\\Db\\Form",
+          "int",
+          "int",
+          "?string",
+          "string"
+        ],
+        "hasFormExpired": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "hasUserAccess": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "isFormArchived": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "loadFormForSubmission": [
+          "int",
+          "string"
+        ],
+        "notifyNewShares": [
+          "OCA\\Forms\\Db\\Form",
+          "OCA\\Forms\\Db\\Share"
+        ],
+        "notifyNewSubmission": [
+          "OCA\\Forms\\Db\\Form",
+          "OCA\\Forms\\Db\\Submission"
+        ],
+        "obtainFormLock": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "search": [
+          "OCP\\Search\\ISearchQuery"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [],
+      "external": []
+    },
+    "OCA\\Forms\\Db\\FormMapper": {
+      "kind": "class",
+      "methods": {
+        "__construct": [
+          "db",
+          "questionMapper",
+          "shareMapper",
+          "submissionMapper",
+          "configService",
+          "commentsManager",
+          "filePathHelper",
+          "uploadedFileMapper",
+          "rootFolder",
+          "logger"
+        ],
+        "delete": [
+          "entity"
+        ],
+        "deleteForm": [
+          "form"
+        ],
+        "findAllByOwnerId": [
+          "ownerId",
+          "queryTerm?"
+        ],
+        "findByHash": [
+          "hash"
+        ],
+        "findById": [
+          "id"
+        ],
+        "findSharedForms": [
+          "userId",
+          "groups?",
+          "teams?",
+          "filterShown?",
+          "queryTerm?"
+        ],
+        "getTableName": [],
+        "insert": [
+          "entity"
+        ],
+        "insertOrUpdate": [
+          "entity"
+        ],
+        "update": [
+          "entity"
+        ]
+      },
+      "types": {
+        "__construct": [
+          "OCP\\IDBConnection",
+          "OCA\\Forms\\Db\\QuestionMapper",
+          "OCA\\Forms\\Db\\ShareMapper",
+          "OCA\\Forms\\Db\\SubmissionMapper",
+          "OCA\\Forms\\Service\\ConfigService",
+          "OCP\\Comments\\ICommentsManager",
+          "OCA\\Forms\\Helper\\FilePathHelper",
+          "OCA\\Forms\\Db\\UploadedFileMapper",
+          "OCP\\Files\\IRootFolder",
+          "Psr\\Log\\LoggerInterface"
+        ],
+        "delete": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ],
+        "deleteForm": [
+          "OCA\\Forms\\Db\\Form"
+        ],
+        "findAllByOwnerId": [
+          "string",
+          "?string"
+        ],
+        "findByHash": [
+          "string"
+        ],
+        "findById": [
+          "int"
+        ],
+        "findSharedForms": [
+          "string",
+          "array",
+          "array",
+          "bool",
+          "?string"
+        ],
+        "getTableName": [],
+        "insert": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ],
+        "insertOrUpdate": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ],
+        "update": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [
+        "db",
+        "entityClass",
+        "tableName"
+      ],
+      "external": []
+    },
+    "OCA\\Forms\\Exception\\NoSuchFormException": {
+      "kind": "class",
+      "methods": {
+        "__construct": [
+          "message?",
+          "errorCode?"
+        ]
+      },
+      "types": {
+        "__construct": [
+          "",
+          "int"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [],
+      "external": [
+        "Exception"
+      ]
+    },
+    "OCA\\Forms\\Service\\SubmissionService": {
+      "kind": "class",
+      "methods": {
+        "__construct": [
+          "questionMapper",
+          "submissionMapper",
+          "answerMapper",
+          "uploadedFileMapper",
+          "rootFolder",
+          "config",
+          "l10n",
+          "logger",
+          "userManager",
+          "userSession",
+          "mailer",
+          "tempManager",
+          "formsService",
+          "urlGenerator",
+          "optionMapper"
+        ],
+        "getSubmission": [
+          "submissionId"
+        ],
+        "getSubmissions": [
+          "formId",
+          "userId?",
+          "query?",
+          "limit?",
+          "offset?"
+        ],
+        "getSubmissionsData": [
+          "form",
+          "fileFormat",
+          "file?"
+        ],
+        "validateSubmission": [
+          "questions",
+          "answers",
+          "formOwnerId"
+        ],
+        "writeFileToCloud": [
+          "form",
+          "path",
+          "fileFormat",
+          "ownerId?"
+        ]
+      },
+      "types": {
+        "__construct": [
+          "OCA\\Forms\\Db\\QuestionMapper",
+          "OCA\\Forms\\Db\\SubmissionMapper",
+          "OCA\\Forms\\Db\\AnswerMapper",
+          "OCA\\Forms\\Db\\UploadedFileMapper",
+          "OCP\\Files\\IRootFolder",
+          "OCP\\IConfig",
+          "OCP\\IL10N",
+          "Psr\\Log\\LoggerInterface",
+          "OCP\\IUserManager",
+          "OCP\\IUserSession",
+          "OCP\\Mail\\IMailer",
+          "OCP\\ITempManager",
+          "OCA\\Forms\\Service\\FormsService",
+          "OCA\\Forms\\Service\\IUrlGenerator",
+          "OCA\\Forms\\Db\\OptionMapper"
+        ],
+        "getSubmission": [
+          "int"
+        ],
+        "getSubmissions": [
+          "int",
+          "?string",
+          "?string",
+          "?int",
+          "int"
+        ],
+        "getSubmissionsData": [
+          "OCA\\Forms\\Db\\Form",
+          "string",
+          "?OCP\\Files\\File"
+        ],
+        "validateSubmission": [
+          "array",
+          "array",
+          "string"
+        ],
+        "writeFileToCloud": [
+          "OCA\\Forms\\Db\\Form",
+          "string",
+          "string",
+          "?string"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [],
+      "external": []
+    }
+  }
+}

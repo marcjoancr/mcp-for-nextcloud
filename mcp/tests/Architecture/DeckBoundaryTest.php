@@ -21,6 +21,7 @@ final class DeckBoundaryTest extends TestCase
         'OCA\Mcp\Access\Policy\PolicyUnavailable',
         'OCA\Mcp\Mcp\Tools\ToolModule',
         'OCA\Mcp\Mcp\Confirmation\PreviewsWrites',
+        'OCA\Mcp\Mcp\Confirmation\WriteGate',
         'OCA\Mcp\Mcp\Confirmation\RendersPlans',
         'OCA\Mcp\Mcp\Guide\ToolGuideNotes',
         'OCA\Mcp\Mcp\Tools\Results\ToolFailure',

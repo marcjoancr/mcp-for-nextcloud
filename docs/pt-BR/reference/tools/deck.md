@@ -33,6 +33,14 @@ Depois de um erro vindo do Deck, toda escrita relê o estado real antes de respo
 A exclusão "somente quando vazia" não é atômica: o Deck não olha o `deleted_at` da lista ao criar um card, então um card criado por outra requisição logo após a segunda contagem pode ir para a lixeira junto com a lista ou o quadro, de onde é recuperável. Isso está na descrição da tool e no gateway.
 
 
+## Comentários dos cartões
+
+`deck_list_comments` consulta comentários visíveis com `deck.read_comments`. `deck_add_comment` exige `deck.comment`. Mostre o quadro, o cartão e o texto antes de publicar. Após a aprovação, repita a chamada com `confirm: true` e o `plan_state` recebido. Em quadros compartilhados, inclua também `confirm_shared: true`.
+
+## Concluir e reabrir cartões
+
+Em `deck_edit_card`, use `completed: true` para concluir um cartão e `completed: false` para reabri-lo. Omita o campo para manter o estado atual. Concluir o cartão novamente preserva a data de conclusão original. O cartão permanece na mesma lista, mesmo que o quadro tenha uma lista de cartões concluídos. A operação exige `deck.edit`, as permissões do quadro e a confirmação habitual.
+
 Consulte `mcp_guide` para o esquema e as operações disponíveis.
 
 [Guias de operação](../../guides/README.md).

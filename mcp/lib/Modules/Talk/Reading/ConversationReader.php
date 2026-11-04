@@ -16,6 +16,7 @@ use OCA\Mcp\Modules\Talk\Access\ConversationResolver;
 use OCA\Mcp\Modules\Talk\Execution\TalkUnavailableException;
 use OCA\Mcp\Modules\Talk\Presentation\ActorNames;
 use OCP\Comments\IComment;
+use OCP\Comments\NotFoundException;
 use Throwable;
 
 /**
@@ -107,7 +108,20 @@ class ConversationReader
      * @throws ConversationAccessException When the conversation is missing or the user is not a participant
      * @throws TalkUnavailableException When spreed is unavailable
      */
-    public function readMessages(string $userId, string $token, int $limit): array
+    public function readMessages(
+        string $userId,
+        string $token,
+        int $limit,
+    ): array {
+        return $this->readMessagePage($userId, $token, $limit, null)['messages'];
+    }
+
+    /**
+     * Read one chronological page of a conversation without changing its read marker.
+     *
+     * @return array{messages:list<array{id:string, type:string, text:?string, actorType:string, actorId:string, actorDisplayName:string, timestamp:int, parentId:?string, attachmentId:?int}>, next_before_message_id:?int}
+     */
+    public function readMessagePage(string $userId, string $token, int $limit, ?int $beforeMessageId = null): array
     {
         if ($limit < 1 || $limit > self::MAX_MESSAGES) {
             throw new InvalidArgumentException(ConversationMessages::invalidLimit());
@@ -117,14 +131,36 @@ class ConversationReader
         $conversation = $this->resolver->resolveForReading($userId, $token);
         $chatManager = ($this->chatManager)($userId);
 
+        if ($beforeMessageId !== null) {
+            if ($beforeMessageId < 1) {
+                throw new ConversationAccessException(ConversationMessages::conversationNotFound());
+            }
+            try {
+                // Talk checks that the comment belongs to this room; unknown and foreign IDs share one refusal.
+                $chatManager->getComment($conversation->room, (string) $beforeMessageId);
+            } catch (NotFoundException $e) {
+                throw new ConversationAccessException(ConversationMessages::conversationNotFound(), $e);
+            }
+        }
+
+        $history = $chatManager->getHistory($conversation->room, $beforeMessageId ?? 0, $limit + 1, false);
+        $hasOlderMessages = count($history) > $limit;
+        $page = array_slice($history, 0, $limit);
+        $nextBeforeMessageId = $hasOlderMessages && $page !== []
+            ? (int) $page[array_key_last($page)]->getId()
+            : null;
+
         $messages = [];
-        foreach ($chatManager->getHistory($conversation->room, -$limit, $limit, false) as $comment) {
+        foreach (array_reverse($page) as $comment) {
             $message = $this->normalizeMessage($comment);
             $message['attachmentId'] = $this->references->attachmentId($userId, $conversation->token(), $message['attachmentId']);
             $messages[] = $message;
         }
 
-        return $messages;
+        return [
+            'messages' => $messages,
+            'next_before_message_id' => $nextBeforeMessageId,
+        ];
     }
 
     /**

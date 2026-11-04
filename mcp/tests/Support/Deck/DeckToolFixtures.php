@@ -107,11 +107,25 @@ trait DeckToolFixtures {
             $apps->method('isEnabledForUser')->willReturn(true);
         }
         $logger ??= $this->createMock(\Psr\Log\LoggerInterface::class);
+        $commentAccess = $this->createMock(\OCA\Mcp\Modules\Deck\CommentAccess::class);
+        $commentAccess->method('commentContext')->willReturn([
+            'card'=>['id'=>7,'boardId'=>3,'stackId'=>4,'title'=>'Planning','url'=>'/deck/3/7'],
+            'board'=>['owner'=>'alice','ownerDisplayName'=>'Alice','name'=>'Team board','shared'=>false],
+            'recipientHash'=>'fixture-audience','commentIds'=>[],
+        ]);
+        $commentAccess->method('listComments')->willReturn([]);
+        $commentAccess->method('createComment')->willReturn([]);
+        if ($config === null) {
+            $config = $this->createMock(\OCP\IConfig::class);
+            $config->method('getSystemValueString')->willReturnCallback(static fn(string $key, string $default=''): string => $default);
+            $config->method('getUserValue')->willReturnCallback(static fn(string $uid, string $app, string $key, mixed $default=null): mixed => $default);
+        }
         $services = [
             \OCP\IURLGenerator::class => $urls,
             \OCP\AppFramework\Utility\ITimeFactory::class => $time,
             \OCP\IUserManager::class => $users,
             \OCP\IConfig::class => $config,
+            \OCA\Mcp\Modules\Deck\CommentAccess::class => $commentAccess,
         ];
         $formatters = new \OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory(
             $urls ?? $this->createMock(\OCP\IURLGenerator::class),

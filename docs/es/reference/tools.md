@@ -16,7 +16,7 @@ Cada herramienta solo aparece en `tools/list` y solo se puede llamar si el usuar
 `mcp_guide` (título **Guía de herramientas**) describe las herramientas al propio modelo, para que no tenga que adivinar qué hace cada una:
 
 - **Sin argumentos**: una línea por módulo con los títulos de las herramientas disponibles **para ese usuario** (se aplican los mismos filtros de permisos y aplicaciones que en `tools/list`: un módulo desactivado o sin permiso no aparece).
-- **Con `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`): cada herramienta del módulo, con descripción, indicación de si lee o escribe, parámetros (tipo, obligatoriedad, descripción, `enum` y límites) y las confirmaciones necesarias.
+- **Con `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`, `forms`): cada herramienta del módulo, con descripción, indicación de si lee o escribe, parámetros (tipo, obligatoriedad, descripción, `enum` y límites) y las confirmaciones necesarias.
 - **Con `tool`**: una sola herramienta y su módulo.
 
 La guía está escrita en inglés; el modelo se la comunica al usuario en su idioma.
@@ -51,4 +51,7 @@ Además:
 
 [English](../../en/reference/tools.md) · Español · [Català](../../ca/reference/tools.md) · [Português (Brasil)](../../pt-BR/reference/tools.md) · [Português (Portugal)](../../pt-PT/reference/tools.md)
 
-[Mail](tools/mail.md).
+[Mail](tools/mail.md)
+- **Forms** permite listar formularios accesibles y leer sus preguntas y opciones con `forms_list` y `forms_read`. Requiere Forms 5.3.0 o posterior y `forms.read`. Los desplazamientos de la respuesta permiten continuar leyendo preguntas y opciones. Los campos de texto truncados a 1 KiB se indican en el resultado.
+
+`forms_read_responses` consulta respuestas con el permiso independiente `forms.read_responses` y acceso nativo al conjunto de resultados. Usa `id`, `offset` y `limit` (50 por defecto, máximo 100). Continúa con `nextOffset` mientras `hasMore` sea verdadero. Cada envío devuelve hasta 200 respuestas. `answersTruncated` y `textTruncated` indican contenido recortado. Se omiten las respuestas de archivos y los identificadores de participantes anónimos, también en envíos anteriores a un cambio de configuración del formulario. `fileAnswersOmitted` indica la omisión de archivos.

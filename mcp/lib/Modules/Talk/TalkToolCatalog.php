@@ -23,6 +23,7 @@ final class TalkToolCatalog
             Tools\MessageUser::class,
             Tools\SendBatch::class,
             Tools\CreateGroup::class,
+            Tools\PublishSummary::class,
         ];
     }
     /** @return array<string, array<string, mixed>> */

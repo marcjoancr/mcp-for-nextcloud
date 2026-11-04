@@ -12,6 +12,11 @@ use OCA\Mcp\Mcp\Confirmation\PlanText;
 
 final class PlanMessages
 {
+    public static function publicConversationVisibilityWarning(): string
+    {
+        return Translator::t('This is a public Talk conversation. People who can access it may see the summary.');
+    }
+
     /**
      * Instruction shown next to a group draft.
      *

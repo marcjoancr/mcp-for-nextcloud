@@ -40,9 +40,10 @@ MCP_IT_NC=$(field nc); MCP_IT_DB=$(field db); MCP_IT_MODE=$(field mode)
 MCP_IT_NC_IMAGE=$(field nc_image); MCP_IT_DB_IMAGE=$(field db_image); MCP_IT_BASELINE=$(field baseline_commit)
 MCP_IT_NET="$MCP_IT_RUN_ID-net"; MCP_IT_NC_NAME="$MCP_IT_RUN_ID-nc"; MCP_IT_DB_NAME="$MCP_IT_RUN_ID-db"
 MCP_IT_WITH_MAIL=$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p["mail"] === null ? "0" : "1";' "$RUNNER_TEMP/plan.json")
+MCP_IT_WITH_FORMS=$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p["forms"] === null ? "0" : "1";' "$RUNNER_TEMP/plan.json")
 MCP_IT_IMAP_NAME="$MCP_IT_RUN_ID-imap"
 MCP_IT_LOCAL=1
-export MCP_IT_WITH_MAIL MCP_IT_IMAP_NAME
+export MCP_IT_WITH_MAIL MCP_IT_WITH_FORMS MCP_IT_IMAP_NAME
 export RUNNER_TEMP MCP_IT_RUN_ID MCP_IT_LOCAL MCP_IT_NC MCP_IT_DB MCP_IT_MODE MCP_IT_NC_IMAGE MCP_IT_DB_IMAGE MCP_IT_BASELINE MCP_IT_NET MCP_IT_NC_NAME MCP_IT_DB_NAME
 # The label check also protects a pre-existing resource if creation fails on a name collision.
 cleanup() {

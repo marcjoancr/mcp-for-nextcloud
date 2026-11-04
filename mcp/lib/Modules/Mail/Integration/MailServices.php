@@ -27,6 +27,11 @@ class MailServices {
 
 	/** OCA\Mail\Db\MailboxMapper: the folder cache of the Mail app. */
 	private const MAILBOX_MAPPER_CLASS = 'OCA\\Mail\\Db\\MailboxMapper';
+	private const MESSAGE_MAPPER_CLASS = 'OCA\\Mail\\Db\\MessageMapper';
+	private const MAIL_MANAGER_CLASS = 'OCA\\Mail\\Service\\MailManager';
+	private const CLIENT_FACTORY_CLASS = 'OCA\\Mail\\IMAP\\IMAPClientFactory';
+	private const SEARCH_QUERY_CLASS = 'OCA\\Mail\\Service\\Search\\SearchQuery';
+	private const FLAG_CLASS = 'OCA\\Mail\\Service\\Search\\Flag';
 
 	/** OCA\Mail\Exception\ClientException: what AccountService::find() throws for an account the user does not own. */
 	public const CLIENT_EXCEPTION_CLASS = 'OCA\\Mail\\Exception\\ClientException';
@@ -78,6 +83,35 @@ class MailServices {
 	 */
 	public function mailboxMapper(string $userId): object {
 		return $this->resolve(self::MAILBOX_MAPPER_CLASS, $userId);
+	}
+
+	public function messageMapper(string $userId): object {
+		return $this->resolve(self::MESSAGE_MAPPER_CLASS, $userId);
+	}
+
+	public function mailManager(string $userId): object {
+		return $this->resolve(self::MAIL_MANAGER_CLASS, $userId);
+	}
+
+	public function clientFactory(string $userId): object {
+		return $this->resolve(self::CLIENT_FACTORY_CLASS, $userId);
+	}
+
+	public function newSearchQuery(string $userId): object {
+		$class = self::SEARCH_QUERY_CLASS;
+		if (!$this->isEnabledFor($userId) || !class_exists($class)) {
+			throw new MailUnavailableException();
+		}
+		return new $class();
+	}
+
+	public function flag(string $userId, string $constant, bool $isSet): object {
+		$class = self::FLAG_CLASS;
+		if (!$this->isEnabledFor($userId) || !class_exists($class) || !defined($class . '::' . $constant)) {
+			throw new MailUnavailableException();
+		}
+		$value = constant($class . '::' . $constant);
+		return $isSet ? $class::is($value) : $class::not($value);
 	}
 
 	/**

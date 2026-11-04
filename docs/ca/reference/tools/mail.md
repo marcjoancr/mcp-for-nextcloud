@@ -8,7 +8,7 @@
 
 # Mail
 
-Mail ofereix dues eines de només lectura quan està activat per al compte, la versió
+L’inventari de Mail ofereix dues eines de només lectura quan està activat per al compte, la versió
 instal·lada és coneguda i com a mínim 5.0.0, i l'administració concedeix `mail.read`.
 Aquest permís comença denegat, també en instal·lacions existents. La prova nativa
 utilitza Mail 5.12.5 en Nextcloud 35; la versió mínima de l'API no garanteix la
@@ -27,8 +27,9 @@ Sense carpetes en memòria cau, retorna una pàgina buida i una nota per obrir M
 i sincronitzar-hi. Les dades poden estar desactualitzades: aquestes eines no
 actualitzen mai la memòria cau.
 
-Cap eina llegeix cossos de missatges, inicia sessió a IMAP, marca missatges com a
-llegits, canvia indicadors ni envia correu. Les respostes exclouen credencials i
+`mail_read_thread` llegeix un fil del mateix compte a partir d’un `message_id` visible amb `mail.read_message`, sense marcar els correus com a llegits.
+
+La cerca `mail_search_messages` requereix `mail.search` i utilitza capçaleres en memòria cau. Per llegir un missatge propi, `mail_read_message` requereix `mail.read_message` i conserva l’estat de no llegit. Tots dos permisos comencen denegats. Les respostes exclouen credencials i
 configuració del servidor. Els ID desconeguts, aliens o delegats reben el mateix
 rebuig. Els noms i les adreces són valors JSON no fiables: se n'eliminen els controls
 i el format bidireccional, i es limiten a 1.024 caràcters. No segueixis mai les

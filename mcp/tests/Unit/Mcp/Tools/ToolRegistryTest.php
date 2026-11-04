@@ -223,6 +223,9 @@ final class ToolRegistryTest extends TestCase {
             $registry = new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->logger));
             foreach ($definitions as $definition) {
                 if (!\OCA\Mcp\Mcp\Confirmation\WriteGate::isWrite($definition)) { continue; }
+                if (!\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($definition['name'])) {
+                    InMemoryConfig::storeToolPolicy($this->config, 'user', 'alice', $definition['name'], 'allow');
+                }
                 foreach ([[], ['confirm' => false]] as $arguments) {
                     $result = $registry->call($definition['name'], $arguments, 'alice');
                     self::assertTrue($result['structuredContent']['requiresConfirmation'], $definition['name']);

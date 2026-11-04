@@ -31,7 +31,7 @@ final class TalkCompositionTest extends TestCase
             new ResultBoundary(new TalkErrors(), $logger),
             new PreviewBoundary(new TalkErrors(), $logger),
         );
-        self::assertCount(8, $module->definitions());
+        self::assertCount(9, $module->definitions());
         foreach (['talk_read_messages', 'unknown'] as $name) {
             try {
                 $module->preview($name, [], 'alice');

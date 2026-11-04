@@ -62,11 +62,89 @@ class ConversationReaderTest extends TestCase
         $chatManager
             ->expects($this->once())
             ->method('getHistory')
-            ->with($room, -25, 25, false)
+            ->with($room, 0, 26, false)
             ->willReturn([]);
         $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
 
-        $this->assertSame([], $this->reader->readMessages('alice', 'abcd', 25));
+        $this->assertSame(
+            ['messages' => [], 'next_before_message_id' => null],
+            $this->reader->readMessagePage('alice', 'abcd', 25),
+        );
+    }
+
+    public function testFirstPageIsChronologicalAndReturnsAnExclusiveOlderCursorWhenMoreExists(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $this->givenResolvedConversation($room);
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $chatManager->expects($this->once())
+            ->method('getHistory')
+            ->with($room, 0, 3, false)
+            ->willReturn([
+                $this->givenComment('20', 'comment', 'newest'),
+                $this->givenComment('19', 'comment', 'older'),
+                $this->givenComment('18', 'comment', 'extra older'),
+            ]);
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+
+        $page = $this->reader->readMessagePage('alice', 'abcd', 2);
+
+        $this->assertSame(['19', '20'], array_column($page['messages'], 'id'));
+        $this->assertSame(19, $page['next_before_message_id']);
+    }
+
+    public function testCursorIsCheckedAgainstTheResolvedRoomAndExcludesItsAnchor(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $anchor = $this->givenComment('20', 'comment', 'anchor');
+        $this->givenResolvedConversation($room);
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $chatManager->expects($this->once())->method('getComment')->with($room, '20')->willReturn($anchor);
+        $chatManager->expects($this->once())
+            ->method('getHistory')
+            ->with($room, 20, 3, false)
+            ->willReturn([
+                $this->givenComment('19', 'comment', 'newer'),
+                $this->givenComment('18', 'comment', 'older'),
+            ]);
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+
+        $page = $this->reader->readMessagePage('alice', 'abcd', 2, 20);
+
+        $this->assertSame(['18', '19'], array_column($page['messages'], 'id'));
+        $this->assertNull($page['next_before_message_id']);
+    }
+
+    public function testAnUnresolvableCursorHasTheSameRefusalForForeignAndMissingIds(): void
+    {
+        $room = new ReaderRoomStub('abcd');
+        $this->givenResolvedConversation($room);
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $chatManager->method('getComment')->willThrowException(new \OCP\Comments\NotFoundException('hidden'));
+        $chatManager->expects($this->never())->method('getHistory');
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+
+        try {
+            $this->reader->readMessagePage('alice', 'abcd', 10, 999);
+            $this->fail('A cursor from another or missing message must be refused.');
+        } catch (\OCA\Mcp\Modules\Talk\Access\ConversationAccessException $e) {
+            $this->assertSame(\OCA\Mcp\Modules\Talk\Access\ConversationMessages::conversationNotFound(), $e->getMessage());
+        }
+    }
+
+    public function testAZeroCursorIsRefusedWithoutReadingHistory(): void
+    {
+        $this->givenResolvedConversation(new ReaderRoomStub('abcd'));
+        $chatManager = $this->createMock(ReaderChatGateway::class);
+        $chatManager->expects($this->never())->method('getHistory');
+        $this->talkServices->chatManager->method('forUser')->willReturn($chatManager);
+
+        try {
+            $this->reader->readMessagePage('alice', 'abcd', 10, 0);
+            $this->fail('A cursor must be a positive message id.');
+        } catch (\OCA\Mcp\Modules\Talk\Access\ConversationAccessException $e) {
+            $this->assertSame(\OCA\Mcp\Modules\Talk\Access\ConversationMessages::conversationNotFound(), $e->getMessage());
+        }
     }
 
     public function testReadingNeverSendsOrMarksAnything(): void
@@ -547,6 +625,8 @@ interface ReaderChatGateway
 {
     /** @return array<IComment> */
     public function getHistory(object $room, int $offset, int $limit, bool $includeLastKnown, int $threadId = 0): array;
+
+    public function getComment(object $room, string $messageId): IComment;
 
     public function sendMessage(object $room, string $message): void;
 

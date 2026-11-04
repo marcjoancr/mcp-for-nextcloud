@@ -498,6 +498,9 @@ final class TalkPlanRendererTest extends TestCase
                 'oi',
             ),
             'talk_create_group' => $this->groupPlan->group('alice', 'Projeto X', []),
+            'talk_publish_summary' => \OCA\Mcp\Modules\Talk\Presentation\ConversationPlan::payload(
+                'talk_publish_summary', $conversation, 'alice', ['message' => 'oi'],
+            ),
         ]);
     }
 
@@ -607,6 +610,9 @@ final class TalkPlanRendererTest extends TestCase
                 new DirectContact('bob', 'Bob Souza'),
                 new DirectContact('carol', 'Carol Lima'),
             ]),
+            'talk_publish_summary' => \OCA\Mcp\Modules\Talk\Presentation\ConversationPlan::payload(
+                'talk_publish_summary', $conversation, 'alice', ['message' => 'oi'],
+            ),
         ]);
     }
 

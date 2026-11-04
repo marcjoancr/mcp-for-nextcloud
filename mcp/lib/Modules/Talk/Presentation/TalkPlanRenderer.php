@@ -28,6 +28,7 @@ final class TalkPlanRenderer
                 'talk_quote_file' => AttachmentPlanRenderer::quote($plan),
                 'talk_message_user' => MessagePlanRenderer::directMessage($plan),
                 'talk_create_group' => GroupPlanRenderer::group($plan),
+                'talk_publish_summary' => MessagePlanRenderer::summary($plan),
                 default => null,
             };
         } catch (Throwable) {

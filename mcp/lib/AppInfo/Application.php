@@ -15,6 +15,11 @@ use OCA\Mcp\Platform\Time\UserTimezone;
 use OCA\Mcp\Access\Visibility\VisibilityGuard;
 use OCA\Mcp\Modules\Calendar\CalendarModule;
 use OCA\Mcp\Modules\Deck\DeckModule;
+use OCA\Mcp\Modules\Deck\CommentAccess;
+use OCA\Mcp\Modules\Deck\CommentAudience;
+use OCA\Mcp\Modules\Deck\CommentOperations;
+use OCA\Mcp\Modules\Deck\NativeCommentAccess;
+use OCA\Mcp\Modules\Deck\Recipients\DeckRecipientDirectory;
 use OCA\Mcp\Modules\Talk\TalkModule;
 use OCA\Mcp\Platform\Dav\CalDav\ObjectStore as CalendarStore;
 use OCA\Mcp\Platform\Dav\CalDav\CalDavWriter as CalendarDav;
@@ -60,6 +65,7 @@ class Application extends App implements IBootstrap {
         \OCA\Mcp\Modules\People\PeopleModule::class,
         \OCA\Mcp\Modules\Logs\LogsModule::class,
         \OCA\Mcp\Modules\Mail\MailModule::class,
+        \OCA\Mcp\Modules\Forms\FormsModule::class,
     ];
 
     public function __construct() {
@@ -130,7 +136,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Talk\Execution\ResultBoundary::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Talk\Tools\ReadMessages::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\Tools\ReadMessages(
-            $c->get(\OCA\Mcp\Modules\Talk\Reading\ConversationReader::class)->readMessages(...),
+            $c->get(\OCA\Mcp\Modules\Talk\Reading\ConversationReader::class)->readMessagePage(...),
             $c->get(\OCA\Mcp\Modules\Talk\Execution\ResultBoundary::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Talk\Integration\TalkAvailability::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\Integration\TalkAvailability(
@@ -175,6 +181,13 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Talk\DirectMessaging\ContactResolver::class),
             $c->get(\Psr\Log\LoggerInterface::class)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Talk\Messaging\SummaryPublishing::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\Messaging\SummaryPublishing(
+            $c->get(\OCA\Mcp\Modules\Talk\Messaging\MessageSender::class),
+            $c->get(\OCA\Mcp\Modules\Talk\Access\ConversationResolver::class),
+            $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+            (new \OCA\Mcp\Modules\Talk\Integration\TalkServiceFactory('OCA\\Talk\\Service\\ParticipantService', static fn () => $c->get('OCA\\Talk\\Service\\ParticipantService'), $c->get(\OCA\Mcp\Modules\Talk\Integration\TalkAvailability::class)))->forUser(...),
+            $c->get(\OCA\Mcp\Modules\Talk\Integration\TalkConstants::class)->forUser(...),
+        ));
         $context->registerService(\OCA\Mcp\Modules\Talk\TalkModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\TalkModule(
             [
                 \OCA\Mcp\Modules\Talk\Tools\ListConversations::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\ListConversations::class),
@@ -184,6 +197,7 @@ class Application extends App implements IBootstrap {
                 \OCA\Mcp\Modules\Talk\Tools\QuoteFile::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\QuoteFile::class),
                 \OCA\Mcp\Modules\Talk\Tools\MessageUser::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\MessageUser::class),
                 \OCA\Mcp\Modules\Talk\Tools\SendBatch::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\SendBatch::class),
+                \OCA\Mcp\Modules\Talk\Tools\PublishSummary::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\PublishSummary::class),
                 \OCA\Mcp\Modules\Talk\Tools\CreateGroup::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\CreateGroup::class),
             ],
             $c->get(\OCA\Mcp\Modules\Talk\Execution\ResultBoundary::class),
@@ -369,7 +383,7 @@ class Application extends App implements IBootstrap {
                 $plans = $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class);
                 $native = new \OCA\Mcp\Modules\Deck\Files\Linking\NativeCardFileLink($shares, $caller, static fn()=> $c->get(\OCA\Deck\Sharing\DeckShareProvider::class));
                 $policy = new \OCA\Mcp\Modules\Deck\Files\Linking\CardLinkPolicy($shares, $config, $apps, $users, $c->get(\OCP\IUserSession::class), static fn()=> $c->get('OCA\\Guests\\GuestManager'));
-                $directory = new \OCA\Mcp\Modules\Deck\Recipients\DeckRecipientDirectory(static fn()=> $c->get(\OCA\Deck\Db\AclMapper::class), static fn()=> $c->get(\OCA\Deck\Service\CirclesService::class), $users, $c->get(\OCP\IGroupManager::class), $apps, static fn()=> $c->get(\OCA\Circles\CirclesManager::class)->stopSession());
+                $directory = $c->get(DeckRecipientDirectory::class);
                 $recipients = new \OCA\Mcp\Modules\Deck\Recipients\BoardRecipientResolver($gateway, $grants, $directory, $plans, $logger, $clear);
                 $prepare = new \OCA\Mcp\Modules\Deck\Files\Linking\CardFileLinkPreparation($gateway, $grants, $guard, new \OCA\Mcp\Modules\Deck\Files\CardFileNodeAccess($guard, $c->get(\OCP\Files\IRootFolder::class)), $policy, $native, $c->get(\OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo::class), $recipients, $clear);
                 return ['prepare'=>$prepare, 'native'=>$native, 'plans'=>new \OCA\Mcp\Modules\Deck\Files\Linking\CardLinkPlan($plans), 'shared'=>$c->get(\OCA\Mcp\Platform\FileAccess\Sharing\SharedWriteGuard::class)];
@@ -385,7 +399,42 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\ReadCardDependencies::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\ReadCardDependencies(new \OCA\Mcp\Modules\Deck\Dependencies\DependencyReading($c->get(\OCA\Mcp\Modules\Deck\Dependencies\DependencyAccess::class), $c->get(LoggerInterface::class), $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class))));
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\AddCardDependency::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\AddCardDependency(new \OCA\Mcp\Modules\Deck\Dependencies\DependencyEditing($c->get(\OCA\Mcp\Modules\Deck\Dependencies\DependencyAccess::class), $c->get(LoggerInterface::class), $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class), static fn()=> $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), true), $c->get(\OCA\Mcp\Modules\Deck\Execution\PreviewBoundary::class)));
         $context->registerService(\OCA\Mcp\Modules\Deck\Tools\RemoveCardDependency::class, static fn(ContainerInterface $c)=> new \OCA\Mcp\Modules\Deck\Tools\RemoveCardDependency(new \OCA\Mcp\Modules\Deck\Dependencies\DependencyEditing($c->get(\OCA\Mcp\Modules\Deck\Dependencies\DependencyAccess::class), $c->get(LoggerInterface::class), $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class), static fn()=> $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), false), $c->get(\OCA\Mcp\Modules\Deck\Execution\PreviewBoundary::class)));
+        $context->registerService(DeckRecipientDirectory::class, static fn (ContainerInterface $c) => new DeckRecipientDirectory(
+            static fn () => $c->get(\OCA\Deck\Db\AclMapper::class), static fn () => $c->get(\OCA\Deck\Service\CirclesService::class),
+            $c->get(IUserManager::class), $c->get(\OCP\IGroupManager::class), $c->get(IAppManager::class),
+            static fn () => $c->get(\OCA\Circles\CirclesManager::class)->stopSession(),
+        ));
+        $context->registerService(CommentAudience::class, static fn (ContainerInterface $c) => new CommentAudience(
+            $c->get(DeckRecipientDirectory::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+            static function () use ($c): void {
+                if (class_exists(\OCA\Circles\CirclesManager::class, false)) {
+                    $c->get(\OCA\Circles\CirclesManager::class)->stopSession();
+                }
+            },
+        ));
+        $context->registerService(CommentAccess::class, static fn (ContainerInterface $c) => new NativeCommentAccess(
+            $c->get(\OCA\Mcp\Modules\Deck\Access\DeckCaller::class),
+            static fn () => $c->get(\OCA\Deck\Service\CardService::class),
+            static fn () => $c->get(\OCA\Deck\Db\CardMapper::class),
+            static fn (string $uid) => new \OCA\Deck\Service\CommentService(
+                $c->get(\OCP\Comments\ICommentsManager::class), $c->get(\OCA\Deck\Service\PermissionService::class),
+                $c->get(\OCA\Deck\Db\CardMapper::class), $c->get(IUserManager::class), $c->get(LoggerInterface::class), $uid,
+            ),
+            $c->get(CommentAudience::class)->fingerprint(...),
+            static fn (string $uid, $card, int $boardId) => $c->get(\OCA\Mcp\Modules\Deck\Presentation\DeckFormatterFactory::class)
+                ->forUser($uid)->reference($card, $boardId),
+            static fn (string $uid): string => $c->get(IUserManager::class)->get($uid)?->getDisplayName() ?? $uid,
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Deck\Tools\ListComments::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Deck\Tools\ListComments(
+            $c->get(CommentOperations::class), $c->get(\OCA\Mcp\Modules\Deck\Execution\ResultBoundary::class),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Deck\Tools\AddComment::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Deck\Tools\AddComment(
+            $c->get(CommentOperations::class), $c->get(\OCA\Mcp\Modules\Deck\Execution\PreviewBoundary::class),
+            $c->get(\OCA\Mcp\Modules\Deck\Execution\ResultBoundary::class),
+        ));
         $context->registerService(DeckModule::class, static fn (ContainerInterface $c): DeckModule => new DeckModule([
+            'deck_list_comments' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\ListComments::class),
+            'deck_add_comment' => static fn () => $c->get(\OCA\Mcp\Modules\Deck\Tools\AddComment::class),
             'deck_list_labels' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\ListLabels::class),
             'deck_edit_card_labels' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\EditCardLabels::class),
             'deck_link_card_file' => static fn()=> $c->get(\OCA\Mcp\Modules\Deck\Tools\LinkCardFile::class),
@@ -525,12 +574,32 @@ class Application extends App implements IBootstrap {
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\People\Tools\SearchUsers => new \OCA\Mcp\Modules\People\Tools\SearchUsers(
                 $c->get(\OCA\Mcp\Modules\People\Search\PeopleSearch::class),
             ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsNativeReader::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\FormsNativeReader(
+            $c->get(IAppManager::class), $c->get(IUserManager::class),
+            static fn (string $class) => $c->get($class), static fn () => $c->get(IUserSession::class)->getUser()?->getUID(),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsResponseReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader(
+            $c->get(\OCA\Mcp\Modules\Forms\FormsReader::class), $c->get(\OCA\Mcp\Modules\Forms\FormsResponseReader::class),
+        ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(
             $c->get(IAppManager::class), static fn (string $class) => $c->get($class), $c->get(IUserManager::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class));
+        foreach ([\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class, \OCA\Mcp\Modules\Mail\Tools\ReadMessage::class, \OCA\Mcp\Modules\Mail\Tools\ReadThread::class] as $tool) {
+            $context->registerService($tool, static fn (ContainerInterface $c) => new $tool(
+                $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),
+                $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
+                $c->get(UserTimezone::class),
+                $c->get(\OCA\Mcp\Modules\Mail\Presentation\Link\MailLinks::class),
+            ));
+        }
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
+            'mail_search_messages' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class),
+            'mail_read_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadMessage::class),
+            'mail_read_thread' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadThread::class),
         ]));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes($c->get(\OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister::class)));

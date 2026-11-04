@@ -7,7 +7,7 @@
     <summary lang="es">Servidor MCP para su Nextcloud: conecte Claude, ChatGPT y otros clientes de IA, con permisos por usuario y por grupo</summary>
     <summary lang="de">MCP-Server für Nextcloud: KI-Clients mit Berechtigungen pro Benutzer und Gruppe verbinden</summary>
     <description><![CDATA[
-Selected 1.2.1 capabilities: tasks gain subtasks: read, list and set a parent in the same calendar, with loops and nesting beyond 64 levels refused. In Data protection, configure one personal-root backup folder name (default MCP backups); previous names and content remain preserved and protected. Files pre-write copies are on by default and can be suspended only with native Versions available for the acting user; existing Versions prerequisites still apply and native versions are not guaranteed for every file/backend. Contact deletion always requires a verified backup. Optional Mail lists only the caller's accounts and cached folders/counters: no message reading, IMAP synchronization or changes; open Mail once for an empty cache.
+Selected 1.2.1 capabilities: tasks gain subtasks: read, list and set a parent in the same calendar, with loops and nesting beyond 64 levels refused. In Data protection, configure one personal-root backup folder name (default MCP backups); previous names and content remain preserved and protected. Files pre-write copies are on by default and can be suspended only with native Versions available for the acting user; existing Versions prerequisites still apply and native versions are not guaranteed for every file/backend. Contact deletion always requires a verified backup. Mail lists the caller's own accounts and cached folders under mail.read. Separate grants allow header searches (mail.search) and reading a message without marking it as read (mail.read_message).
 
 **Nextcloud MCP** is an independently maintained fork of MCP for Cloud by Sintax. It is a native app that turns your Nextcloud into a Model Context Protocol (MCP) server. AI assistants work with your files, notes, calendars, contacts, tasks, Deck boards and Talk conversations through one URL on your own server: no extra service, no Docker, no copy of your data elsewhere.
 
@@ -19,7 +19,8 @@ Selected 1.2.1 capabilities: tasks gain subtasks: read, list and set a parent in
 - **Contacts**: search and read contacts, create and edit them while keeping every unknown vCard field.
 - **Tasks**: list, read, create, edit, complete and delete tasks, with their categories.
 - **Deck**: boards, lists and cards, a follow-up of the cards you manage, and card assignments.
-- **Mail**: list your own accounts and cached folders/counters; no message reading, synchronization or changes. Requires an explicit Mail read grant.
+- **Mail**: list owned accounts and folders, search headers and read messages without marking them as read. Each operation requires its own permission.
+- **Forms**: list accessible forms and read questions and options with forms.read.
 - **Talk**: read conversations, reply, message a user, share or quote a file and create group conversations.
 - **Server log**: read and analyze `nextcloud.log`, for administrators or the IT groups they choose. Off by default, read only, IPs masked, the output is treated as untrusted data and every query is audited. With hidden tags configured, an option on by default also hides the text of log messages.
 
@@ -51,11 +52,11 @@ Claude (claude.ai and Claude Desktop), ChatGPT and Gemini CLI sign in with OAuth
 
 ## Requirements
 
-Nextcloud 33–35 and PHP 8.4 or later. Deck, Talk and Mail are optional: their tools appear only when the app is enabled in a supported version.
+Nextcloud 33–35 and PHP 8.4 or later. Deck, Talk, Forms and Mail are optional: their tools appear only when the app is enabled in a supported version.
     ]]></description>
     <!-- Selected localized additions adapted from upstream 02526119b845ccc1d8399be002da3e30b5527df6; human review pending. -->
     <description lang="pt-br"><![CDATA[
-Funcionalidades selecionadas da 1.2.1: tarefas ganham subtarefas: ler, listar e definir a tarefa principal na mesma agenda, recusando ciclos e aninhamento acima de 64 níveis. Em Proteção de dados, configure um nome de pasta de backup na raiz pessoal (padrão MCP backups); nomes anteriores e conteúdo continuam preservados e protegidos. Cópias prévias de Arquivos vêm ligadas e só podem ser suspensas com Versions nativo disponível para quem age; os pré-requisitos existentes continuam valendo e não há garantia de versão nativa para todo arquivo/backend. Excluir contato sempre exige backup verificado. Mail opcional lista só contas próprias e pastas/contadores em cache: sem ler mensagens, sincronizar IMAP ou alterar dados; abra Mail uma vez se o cache estiver vazio.
+Funcionalidades selecionadas da 1.2.1: tarefas ganham subtarefas: ler, listar e definir a tarefa principal na mesma agenda, recusando ciclos e aninhamento acima de 64 níveis. Em Proteção de dados, configure um nome de pasta de backup na raiz pessoal (padrão MCP backups); nomes anteriores e conteúdo continuam preservados e protegidos. Cópias prévias de Arquivos vêm ligadas e só podem ser suspensas com Versions nativo disponível para quem age; os pré-requisitos existentes continuam valendo e não há garantia de versão nativa para todo arquivo/backend. Excluir contato sempre exige backup verificado. Com mail.read, Mail lista as próprias contas e pastas em cache. Há permissões independentes para buscar cabeçalhos (mail.search) e ler mensagens sem marcá-las como lidas (mail.read_message).
 
 **Nextcloud MCP** é um fork mantido de forma independente do MCP for Cloud da Sintax. É um app nativo que transforma o seu Nextcloud em um servidor Model Context Protocol (MCP). Os assistentes de IA trabalham com os seus arquivos, notas, calendários, contatos, tarefas, quadros do Deck e conversas do Talk por um único endereço no seu próprio servidor: sem serviço extra, sem Docker, sem cópia dos seus dados em outro lugar.
 
@@ -70,7 +71,8 @@ Funcionalidades selecionadas da 1.2.1: tarefas ganham subtarefas: ler, listar e 
 - **Talk**: ler conversas, responder, mandar mensagem a um usuário, compartilhar ou citar um arquivo e criar conversas em grupo.
 - **Log do servidor**: ler e analisar o `nextcloud.log`, só para administradores ou para os grupos de TI que eles escolherem. Desligado por padrão, somente leitura, IPs mascarados, a saída é tratada como dado não confiável e cada consulta é auditada. Com etiquetas de ocultação configuradas, uma opção ligada por padrão também esconde o texto das mensagens do log.
 
-- **Mail**: listar suas próprias contas e pastas/contadores em cache; sem ler mensagens, sincronizar ou alterar dados. A leitura do Mail exige uma permissão explícita.
+- **Mail**: listar contas e pastas próprias, buscar cabeçalhos e ler mensagens sem marcá-las como lidas. Cada operação exige sua própria permissão.
+- **Forms**: ler formulários acessíveis, perguntas e opções com forms.read.
 
 ## Capacidades selecionadas
 
@@ -100,10 +102,10 @@ O Claude (claude.ai e Claude Desktop), o ChatGPT e o Gemini CLI entram com OAuth
 
 ## Requisitos
 
-Nextcloud 33–35 e PHP 8.4 ou superior. O Deck, o Talk e o Mail são opcionais: as ferramentas deles só aparecem com o app ativo numa versão suportada.
+Nextcloud 33–35 e PHP 8.4 ou superior. Deck, Talk, Forms e Mail são opcionais: as ferramentas deles só aparecem com o app ativo numa versão suportada.
     ]]></description>
     <description lang="es"><![CDATA[
-Funciones seleccionadas de 1.2.1: las tareas ganan subtareas: leer, listar y definir la tarea principal en el mismo calendario, rechazando ciclos y anidamientos de más de 64 niveles. En Protección de datos, configure un nombre de carpeta de copias en la raíz personal (predeterminado MCP backups); nombres anteriores y contenido se conservan y protegen. Las copias previas de Archivos vienen activadas y solo pueden suspenderse con Versions nativo disponible para quien actúa; siguen vigentes los requisitos existentes y no se garantiza una versión nativa para cada archivo/backend. Eliminar contactos siempre exige copia verificada. Mail opcional lista solo cuentas propias y carpetas/contadores en caché: sin leer mensajes, sincronizar IMAP ni cambiar datos; abra Mail una vez si la caché está vacía.
+Funciones seleccionadas de 1.2.1: las tareas ganan subtareas: leer, listar y definir la tarea principal en el mismo calendario, rechazando ciclos y anidamientos de más de 64 niveles. En Protección de datos, configure un nombre de carpeta de copias en la raíz personal (predeterminado MCP backups); nombres anteriores y contenido se conservan y protegen. Las copias previas de Archivos vienen activadas y solo pueden suspenderse con Versions nativo disponible para quien actúa; siguen vigentes los requisitos existentes y no se garantiza una versión nativa para cada archivo/backend. Eliminar contactos siempre exige copia verificada. Con mail.read, Mail lista cuentas propias y carpetas en caché. Hay permisos independientes para buscar cabeceras (mail.search) y leer mensajes sin marcarlos como leídos (mail.read_message).
 
 **Nextcloud MCP** es un fork mantenido de forma independiente de MCP for Cloud de Sintax. Es una aplicación nativa que convierte su Nextcloud en un servidor Model Context Protocol (MCP). Los asistentes de IA trabajan con sus archivos, notas, calendarios, contactos, tareas, tableros de Deck y conversaciones de Talk a través de una sola dirección en su propio servidor: sin servicio adicional, sin Docker, sin copia de sus datos en otro lugar.
 
@@ -118,7 +120,8 @@ Funciones seleccionadas de 1.2.1: las tareas ganan subtareas: leer, listar y def
 - **Talk**: leer conversaciones, responder, enviar un mensaje a un usuario, compartir o citar un archivo y crear conversaciones de grupo.
 - **Registro del servidor**: leer y analizar `nextcloud.log`, solo para administradores o para los grupos de TI que ellos elijan. Desactivado por defecto, solo lectura, IPs enmascaradas, la salida se trata como dato no confiable y cada consulta queda auditada. Con etiquetas de ocultación configuradas, una opción activada por defecto también esconde el texto de los mensajes del registro.
 
-- **Mail**: listar las cuentas propias y sus carpetas/contadores en caché; sin leer mensajes, sincronizar ni modificar datos. La lectura de Mail requiere un permiso explícito.
+- **Mail**: listar cuentas y carpetas propias, buscar cabeceras y leer mensajes sin marcarlos como leídos. Cada operación requiere su propio permiso.
+- **Forms**: leer formularios accesibles, preguntas y opciones con forms.read.
 
 ## Capacidades seleccionadas
 
@@ -148,14 +151,14 @@ Claude (claude.ai y Claude Desktop), ChatGPT y Gemini CLI inician sesión con OA
 
 ## Requisitos
 
-Nextcloud 33–35 y PHP 8.4 o superior. Deck, Talk y Mail son opcionales: sus herramientas solo aparecen con la aplicación activa en una versión compatible.
+Nextcloud 33–35 y PHP 8.4 o superior. Deck, Talk, Forms y Mail son opcionales: sus herramientas solo aparecen con la aplicación activa en una versión compatible.
     ]]></description>
     <description lang="de"><![CDATA[
 Nextcloud MCP ist ein unabhängig gepflegter Fork von Sintax MCP for Cloud. Die App verbindet Claude, ChatGPT, Gemini CLI und andere KI-Clients über OAuth mit Dateien, Notes, Kalendern, Kontakten, Aufgaben, Deck und Talk unter den Berechtigungen der handelnden Person.
 
-Ausgewählte Funktionen aus 1.2.1: Aufgaben erhalten Unteraufgaben: übergeordnete Aufgabe im selben Kalender lesen, auflisten und festlegen; Schleifen und Verschachtelungen tiefer als 64 Ebenen werden abgelehnt. Unter Datenschutz einen Sicherungsordner direkt in der persönlichen Wurzel konfigurieren (Standard MCP backups, auch .mcp-backups möglich). Frühere Namen und Inhalte bleiben erhalten und gegen MCP-Schreibzugriffe geschützt. Dateikopien vor dem Schreiben sind standardmäßig an und können nur bei verfügbarem nativem Versions für die handelnde Person ausgesetzt werden. Bestehende Versions-Voraussetzungen bleiben gültig; native Versionen sind nicht für jede Datei/jedes Backend garantiert. Kontakte löschen benötigt immer eine geprüfte Sicherung. Optionale Mail-Werkzeuge listen nur eigene Konten und zwischengespeicherte Ordner/Zähler, ohne Nachrichten zu lesen, IMAP zu synchronisieren oder Daten zu ändern. Mail-Zugriff ist zunächst gesperrt und benötigt eine ausdrückliche Leseberechtigung. Bei leerem Cache das Konto einmal in Mail öffnen.
+Ausgewählte Funktionen aus 1.2.1: Aufgaben erhalten Unteraufgaben: übergeordnete Aufgabe im selben Kalender lesen, auflisten und festlegen; Schleifen und Verschachtelungen tiefer als 64 Ebenen werden abgelehnt. Unter Datenschutz einen Sicherungsordner direkt in der persönlichen Wurzel konfigurieren (Standard MCP backups, auch .mcp-backups möglich). Frühere Namen und Inhalte bleiben erhalten und gegen MCP-Schreibzugriffe geschützt. Dateikopien vor dem Schreiben sind standardmäßig an und können nur bei verfügbarem nativem Versions für die handelnde Person ausgesetzt werden. Bestehende Versions-Voraussetzungen bleiben gültig; native Versionen sind nicht für jede Datei/jedes Backend garantiert. Kontakte löschen benötigt immer eine geprüfte Sicherung. Mail listet mit mail.read eigene Konten und zwischengespeicherte Ordner auf. Separate Berechtigungen erlauben die Suche in Kopfzeilen (mail.search) und das Lesen einer Nachricht, ohne sie als gelesen zu markieren (mail.read_message). Forms zeigt mit forms.read zugängliche Formulare samt Fragen und Optionen.
 
-Nextcloud 33–35, PHP 8.4+. Mail, Deck und Talk sind optional. Der Administrator verwaltet Berechtigungen, Ausschluss-Tags und Ressourcenbereiche. Schreibvorgänge benötigen die jeweiligen Grants und Bestätigungen; Dateien werden vom MCP nicht gelöscht.
+Nextcloud 33–35, PHP 8.4+. Forms, Mail, Deck und Talk sind optional. Der Administrator verwaltet Berechtigungen, Ausschluss-Tags und Ressourcenbereiche. Schreibvorgänge benötigen die jeweiligen Grants und Bestätigungen; Dateien werden vom MCP nicht gelöscht.
     ]]></description>
     <version>2.3.3</version>
     <licence>AGPL-3.0-or-later</licence>

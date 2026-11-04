@@ -131,13 +131,14 @@ final class StructuredReferenceContractTest extends TestCase {
         return (string)json_encode(['message' => 'file_shared', 'parameters' => ['share' => (string)$share, 'metaData' => ['caption' => 'see plan.pdf']]]);
     }
 
-    /** @param list<IComment> $history */
+    /** @param list<IComment> $history fixture messages in chronological order */
     private function read(array $history): array {
         $room = new StructuredReferenceRoomStub('room1');
         $resolver = $this->createMock(ConversationResolver::class);
         $resolver->method('resolveForReading')->willReturn(new Conversation($room, new \stdClass()));
         $chat = $this->createMock(StructuredReferenceChat::class);
-        $chat->method('getHistory')->willReturn($history);
+        // Talk returns history newest first, including when multiple messages have the same timestamp.
+        $chat->method('getHistory')->willReturn(array_reverse($history));
         $users = $this->createMock(IUserManager::class);
         return (new ConversationReader(static fn () => throw new \LogicException('Unused manager'), static fn () => throw new \LogicException('Unused participants'), static fn () => $chat, $resolver, new ActorNames($users), $this->filter()))->readMessages('alice', 'room1', 50);
     }

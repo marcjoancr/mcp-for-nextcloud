@@ -28,6 +28,9 @@ use Psr\Log\LoggerInterface;
 final class WriteGateContractTest extends TestCase {
     /** Builds a concrete app class with real app collaborators and mocks for everything else. */
     private function build(string $class): object {
+        if ($class === \OCA\Mcp\Modules\Forms\FormsModule::class) {
+            return \OCA\Mcp\Modules\Forms\FormsModule::withReader($this->createStub(\OCA\Mcp\Modules\Forms\FormsReader::class));
+        }
         if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
             return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
         }
@@ -106,6 +109,17 @@ final class WriteGateContractTest extends TestCase {
                 $args[] = $parameter->isDefaultValueAvailable() ? $parameter->getDefaultValue() : ($name === 'string' ? 'mcp' : null);
                 continue;
             }
+            if ($name === \OCA\Mcp\Modules\Deck\CommentAccess::class) {
+                $access = $this->createMock($name);
+                $access->expects(self::never())->method('createComment');
+                $access->method('commentContext')->willReturn([
+                    'card' => ['id' => 1, 'boardId' => 1, 'stackId' => 1, 'title' => 'Card', 'url' => null],
+                    'board' => ['owner' => 'alice', 'ownerDisplayName' => 'Alice', 'name' => 'Board', 'shared' => false],
+                    'recipientHash' => 'test-audience', 'commentIds' => [],
+                ]);
+                $args[] = $access;
+                continue;
+            }
             $reflection = new \ReflectionClass($name);
             $args[] = $name === \Closure::class ? static fn () => null : (str_starts_with($name, 'OCA\\Mcp\\') && $reflection->isInstantiable() ? $this->build($name) : $this->createMock($name));
         }
@@ -114,7 +128,15 @@ final class WriteGateContractTest extends TestCase {
 
     private function registry(array $modules): ToolRegistry {
         $config = new InMemoryConfig();
-        $policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($config->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $configuration = $config->mock($this);
+        $policy = InMemoryConfig::policy($configuration, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        foreach ($modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                if (!\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($definition['name'])) {
+                    InMemoryConfig::storeToolPolicy($configuration, 'user', 'alice', $definition['name'], 'allow');
+                }
+            }
+        }
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
                 $policy->setGrant('alice', $module, $operation, true);
@@ -179,7 +201,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertSame('read', $definition['operation'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 
@@ -200,7 +222,7 @@ final class WriteGateContractTest extends TestCase {
                 $annotations = $listedTool['annotations'];
                 $this->assertFalse($annotations['readOnlyHint'], "$name: readOnlyHint must be false for write tools");
                 $this->assertFalse($annotations['openWorldHint'], "$name: openWorldHint must always be false");
-                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote'], true)
+                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary'], true)
                     || in_array($name, ['talk_create_group'], true)
                     || ($definition['destructiveHint'] ?? false) === true;
                 $this->assertSame($expectedDestructive, $annotations['destructiveHint'], "$name: destructiveHint mismatch");

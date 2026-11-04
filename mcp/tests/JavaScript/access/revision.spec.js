@@ -4,12 +4,25 @@ import { test, expect } from '../support/app-fixture.js'
 
 for (const status of [409, 428, 503]) {
     test(`matrix reloads ${status} without replaying the stale save or adopting its error revision`, async ({ page, app }) => {
-        app.on('PUT', '/api/grants/alice', ({ state }) => {
+        let release
+        const response = new Promise(resolve => { release = resolve })
+        app.on('PUT', '/api/grants/alice', async ({ state }) => {
+            await response
             state.revision = '9007199254740993'
             return { status, body: { error: 'Unavailable', uncertain: true, revision: '99999999999999999' } }
         })
         await app.open('/admin#access?view=operations')
-        await page.locator('input[aria-label^="alice — Files: read"]').check()
+        // Finish the one user action before an immediate error response replaces its checkbox.
+        // Otherwise Playwright can retry check() against the new, correctly unchecked row.
+        const aliceRead = page.locator('input[aria-label^="alice — Files: read"]')
+        try {
+            await aliceRead.check()
+            await expect(aliceRead).toBeChecked()
+            await expect(aliceRead).toBeDisabled()
+            await expect.poll(() => app.calls.filter(c => c.method === 'PUT').length).toBe(1)
+        } finally {
+            release()
+        }
         await expect.poll(() => {
             const save = app.calls.findIndex(c => c.method === 'PUT' && c.path === '/api/grants/alice')
             return save !== -1 && app.calls.slice(save + 1).some(c => c.method === 'GET' && c.path === '/api/grants')

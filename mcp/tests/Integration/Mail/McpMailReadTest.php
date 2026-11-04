@@ -23,6 +23,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('mail')]
 final class McpMailReadTest extends IntegrationTestCase {
+	private array $toolPermissionSnapshot = [];
+
 	/** Folder created on the server after Mail cached the account. */
 	private const CANARY = 'Canary';
 
@@ -39,6 +41,15 @@ final class McpMailReadTest extends IntegrationTestCase {
 		if (getenv('MCP_IT_WITH_MAIL') !== '1') {
 			$this->markTestSkipped('Mail cell only (MCP_IT_WITH_MAIL=1)');
 		}
+		$this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([MailActor::ALICE], ['mail_list_accounts', 'mail_list_mailboxes', 'mail_search_messages', 'mail_read_message']);
+	}
+
+	protected function tearDown(): void {
+		try {
+			if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
+		} finally {
+			parent::tearDown();
+		}
 	}
 
 	/**
@@ -47,7 +58,7 @@ final class McpMailReadTest extends IntegrationTestCase {
 	 * @return void
 	 */
 	public function testTheToolsReadTheCacheAndChangeNothing(): void {
-		\OCP\Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class)->setGrant(MailActor::ALICE, 'mail', 'read', true);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(MailActor::ALICE, ['mail_list_accounts' => 'allow', 'mail_list_mailboxes' => 'allow']);
         $alice = MailActor::run(MailActor::ALICE, 'accounts')['accounts'];
 		$bob = MailActor::run(MailActor::BOB, 'accounts')['accounts'];
 		$this->assertCount(1, $alice);
@@ -91,6 +102,47 @@ final class McpMailReadTest extends IntegrationTestCase {
 		$this->assertSame($out['missing'], $out['foreign']);
 	}
 
+	/** Reading an unread message uses BODY.PEEK, while searches and reads cannot cross account ownership. */
+	public function testMessageSearchAndBodyReadPreserveUnreadStateAndAccountIsolation(): void {
+		$policy = \OCP\Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
+		$policy->setGlobalEnabled(true);
+		$policy->setEligible(MailActor::ALICE, true);
+		$policy->setConnected(MailActor::ALICE, true);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(MailActor::ALICE, ['mail_list_accounts' => 'allow', 'mail_search_messages' => 'allow', 'mail_read_message' => 'allow']);
+		$accounts = MailActor::run(MailActor::ALICE, 'accounts')['accounts'];
+		$foreignAccounts = MailActor::run(MailActor::BOB, 'accounts')['accounts'];
+		$this->assertCount(1, $accounts);
+		$this->assertCount(1, $foreignAccounts);
+		$ownAccount = (int)$accounts[0]['id'];
+		$foreignAccount = (int)$foreignAccounts[0]['id'];
+		$inbox = $this->mailboxId($ownAccount, 'INBOX');
+		$foreignMessage = $this->messageId((int)$foreignAccounts[0]['id'], 'Message of bob');
+		$unreadId = $this->messageId($ownAccount, 'Unread message');
+
+		$imap = $this->imap('alice');
+		$before = $imap->state();
+		$this->assertNotContains('\\Seen', $before['INBOX']['flags'][3] ?? [], 'fixture message must begin unread');
+		$client = new \OCA\Mcp\Tests\Integration\Support\McpClient(\OCA\Mcp\Tests\Integration\Support\LoginFactory::basic(MailActor::ALICE));
+		$ownSearch = $client->tool('mail_search_messages', ['mailbox_id' => $inbox, 'unread' => true]);
+		$this->assertTrue($ownSearch->ok(), $ownSearch->describe());
+		$ids = array_column($ownSearch->json()['messages'], 'id');
+		$this->assertContains($unreadId, $ids);
+		$this->assertNotContains($foreignMessage, $ids);
+		$foreignSearch = $client->tool('mail_search_messages', ['account_id' => $foreignAccount]);
+		$missingSearch = $client->tool('mail_search_messages', ['account_id' => 987654321]);
+		$this->assertTrue($foreignSearch->isError());
+		$this->assertSame($missingSearch->fingerprint(), $foreignSearch->fingerprint());
+		$body = $client->tool('mail_read_message', ['message_id' => $unreadId]);
+		$this->assertTrue($body->ok(), $body->describe());
+		$this->assertStringContainsString('Body of Unread message.', $body->text());
+		$foreignRead = $client->tool('mail_read_message', ['message_id' => $foreignMessage]);
+		$missingRead = $client->tool('mail_read_message', ['message_id' => 987654321]);
+		$this->assertTrue($foreignRead->isError());
+		$this->assertSame($missingRead->fingerprint(), $foreignRead->fingerprint());
+		$this->assertSame($before, $imap->state(), 'mail search or body read changed IMAP flags or unread state');
+		$imap->close();
+	}
+
 	/**
 	 * A logged-in probe of alice's or bob's mailbox on the IMAP server of the cell.
 	 *
@@ -113,6 +165,32 @@ final class McpMailReadTest extends IntegrationTestCase {
 			->set('last_mailbox_sync', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
 			->executeStatement();
+	}
+
+	private function mailboxId(int $accountId, string $path): int {
+		$qb = $this->official()->getQueryBuilder();
+		$result = $qb->select('id')->from('mail_mailboxes')
+			->where($qb->expr()->eq('account_id', $qb->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('name', $qb->createNamedParameter($path)))
+			->executeQuery();
+		try {
+			return (int)$result->fetchOne();
+		} finally {
+			$result->closeCursor();
+		}
+	}
+
+	private function messageId(int $accountId, string $subject): int {
+		$qb = $this->official()->getQueryBuilder();
+		$qb->select('m.id')->from('mail_messages', 'm')->innerJoin('m', 'mail_mailboxes', 'b', 'm.mailbox_id = b.id')
+			->where($qb->expr()->eq('b.account_id', $qb->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('m.subject', $qb->createNamedParameter($subject)));
+		$result = $qb->executeQuery();
+		try {
+			return (int)$result->fetchOne();
+		} finally {
+			$result->closeCursor();
+		}
 	}
 
 	/**

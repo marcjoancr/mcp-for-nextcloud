@@ -14,11 +14,18 @@ export function createPresentation({ t }) {
 			people: t('mcp', 'People'),
 			logs: t('mcp', 'Server log'),
 			mail: t('mcp', 'Mail'),
+			forms: t('mcp', 'Forms'),
 		}
 	}
 	function operationLabels() {
 		return {
 			read: t('mcp', 'read'),
+			search: t('mcp', 'search mail headers'),
+			read_message: t('mcp', 'read mail content'),
+			read_comments: t('mcp', 'read card comments'),
+			read_responses: t('mcp', 'read form responses'),
+			publish_summary: t('mcp', 'publish Talk summaries'),
+			comment: t('mcp', 'post card comments'),
 			edit: t('mcp', 'edit'),
 			create: t('mcp', 'create'),
 			move: t('mcp', 'move'),
@@ -33,6 +40,8 @@ export function createPresentation({ t }) {
 		}
 	}
 	function operationHint(module, operation) {
+		if (module === 'mail' && operation === 'read') return t('mcp', 'List own mail accounts and cached folders')
+		if (module === 'forms' && operation === 'read') return t('mcp', 'Read accessible forms, questions and options')
 		if (module === 'talk' && operation === 'create') {
 			return t('mcp', 'Open new conversations, which invites people')
 		}
@@ -47,6 +56,12 @@ export function createPresentation({ t }) {
 		}
 		const hints = {
 			read: t('mcp', 'List, search and read'),
+			search: t('mcp', 'Search cached message headers in own mailboxes'),
+			read_message: t('mcp', 'Read mail content without marking the message as read'),
+			read_comments: t('mcp', 'Read comments on accessible Deck cards'),
+			read_responses: t('mcp', 'Read responses with native form results permission'),
+			publish_summary: t('mcp', 'Publish a summary after preview and confirmation'),
+			comment: t('mcp', 'Post a confirmed comment visible to readers of the board'),
 			edit: t('mcp', 'Change existing items'),
 			create: t('mcp', 'Create new items'),
 			move: t('mcp', 'Move or rename items'),

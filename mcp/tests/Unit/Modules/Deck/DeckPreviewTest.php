@@ -163,12 +163,29 @@ final class DeckPreviewTest extends TestCase {
         $capabilities->ownership->method('cardOwnership')->willReturn($this->ownershipOf('alice'));
         $plan = $this->moduleWith($capabilities)->preview('deck_edit_card', ['cardId' => 7, 'title' => 'Depois', 'lastModified' => 5], 'alice');
         self::assertSame(7, $plan['card']['id']);
-        self::assertSame(['title' => 'Antes', 'description' => 'texto', 'duedate' => null], $plan['card']['before']);
-        self::assertSame(['title' => 'Depois', 'description' => 'texto', 'duedate' => null], $plan['card']['after']);
+        self::assertSame(['title' => 'Antes', 'description' => 'texto', 'duedate' => null, 'completed' => false], $plan['card']['before']);
+        self::assertSame(['title' => 'Depois', 'description' => 'texto', 'duedate' => null, 'completed' => false], $plan['card']['after']);
         self::assertSame(['title'], $plan['changed']);
         self::assertSame(['current' => 1700000123, 'sent' => 5], $plan['lastModified']);
         self::assertSame([], $plan['shared']);
         self::assertTrue($plan['recoverable']);
+    }
+
+    public function testEditPlanShowsCompletionStateAndUnchangedCompletionDoesNotCountAsChange(): void {
+        $capabilities = $this->deckDoubles();
+        $capabilities->ownership->method('cardOwnership')->willReturn($this->ownershipOf('alice'));
+        $capabilities->writer->expects(self::never())->method('updateCard');
+        $capabilities->cards->method('findCard')->willReturn($this->card([
+            'id' => 7, 'title' => 'Antes', 'description' => 'texto', 'done' => new \DateTime('2026-01-02 10:00:00'),
+        ]));
+        $plan = $this->moduleWith($capabilities)->preview('deck_edit_card', ['cardId' => 7, 'completed' => true], 'alice');
+        self::assertTrue($plan['card']['before']['completed']);
+        self::assertTrue($plan['card']['after']['completed']);
+        self::assertSame([], $plan['changed']);
+        $reopened = $this->moduleWith($capabilities)->preview('deck_edit_card', ['cardId' => 7, 'completed' => false], 'alice');
+        self::assertTrue($reopened['card']['before']['completed']);
+        self::assertFalse($reopened['card']['after']['completed']);
+        self::assertSame(['completed'], $reopened['changed']);
     }
 
     /** The stored instant and the day the call sends are the same date for the user, so nothing changes. */

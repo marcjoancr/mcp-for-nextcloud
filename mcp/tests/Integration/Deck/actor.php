@@ -35,6 +35,10 @@ if (str_starts_with($action, 'link-')) {
     echo json_encode(OCA\Mcp\Tests\Integration\Guests\GuestDeckParityFixture::run($uid, $action, $in), JSON_THROW_ON_ERROR);
 } elseif (str_starts_with($action, 'date-')) {
     echo json_encode(OCA\Mcp\Tests\Integration\Deck\CardDueDateFixture::run($uid, $action, $in), JSON_THROW_ON_ERROR);
+} elseif (str_starts_with($action, 'completion-')) {
+    echo json_encode(OCA\Mcp\Tests\Integration\Deck\CardCompletionFixture::run($uid, $action, $in), JSON_THROW_ON_ERROR);
+} elseif (str_starts_with($action, 'comment-')) {
+    echo json_encode(OCA\Mcp\Tests\Integration\Deck\CardCommentFixture::run($uid, $action, $in), JSON_THROW_ON_ERROR);
 } else {
     require __DIR__ . '/capability-actor.php';
 }
