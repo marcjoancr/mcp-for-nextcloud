@@ -193,8 +193,17 @@ final class ToolRegistryTest extends TestCase {
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) { $this->policy->setGrant('alice', $module, $operation, true); }
         }
+        // Saving a Mail attachment also requires the independent Files create permission.
+        $this->policy->setGrant('alice', 'files', 'create', true);
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
+        $apps->method('getAppVersion')->willReturnCallback(static fn (string $app): string => match ($app) {
+            'mail' => '5.12.5',
+            'spreed' => '21.1.4',
+            'deck' => '1.15.0',
+            'forms' => '5.3.0',
+            default => '',
+        });
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturn($this->createMock(IUser::class));
         foreach (\OCA\Mcp\AppInfo\Application::MODULES as $class) {
@@ -227,7 +236,11 @@ final class ToolRegistryTest extends TestCase {
                     InMemoryConfig::storeToolPolicy($this->config, 'user', 'alice', $definition['name'], 'allow');
                 }
                 foreach ([[], ['confirm' => false]] as $arguments) {
-                    $result = $registry->call($definition['name'], $arguments, 'alice');
+                    try {
+                        $result = $registry->call($definition['name'], $arguments, 'alice');
+                    } catch (\OCA\Mcp\Mcp\Tools\Validation\UnknownToolException $e) {
+                        self::fail($definition['name'] . ' was hidden by the registry');
+                    }
                     self::assertTrue($result['structuredContent']['requiresConfirmation'], $definition['name']);
                     self::assertSame('requiresConfirmation', array_key_first($result['structuredContent']));
                     self::assertStringStartsWith('**', $result['content'][0]['text']);

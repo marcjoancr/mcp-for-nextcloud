@@ -106,7 +106,14 @@ start_imap() {
 	docker exec "$IMAP" doveadm mailbox create -u alice Sent Archive Projects Projects/2026
 	save_thread_message alice "Seen message" "shared-thread-root@mcp-it.example" "Body of Seen message."
 	save_thread_message alice "Flagged message" "alice-thread-reply@mcp-it.example" "Body of Flagged message." "shared-thread-root@mcp-it.example" "shared-thread-root@mcp-it.example"
-	save alice INBOX "Unread message"
+	# Keep the established three-message/count fixture while exercising actual MIME attachment reads.
+	{
+		printf 'From: sender@example.com\r\nTo: mcp-it@example.com\r\nSubject: Unread message\r\nDate: Sat, 24 Oct 2026 10:00:00 +0000\r\nMessage-ID: <Unread-message@mcp-it.example>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="mcp-attachment-boundary"\r\n\r\n'
+		printf -- '--mcp-attachment-boundary\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nBody of Unread message.\r\n'
+		printf -- '--mcp-attachment-boundary\r\nContent-Type: application/octet-stream; name="proof.txt"\r\nContent-Disposition: attachment; filename="proof.txt"\r\nContent-Transfer-Encoding: base64\r\n\r\n'
+		printf 'Attachment bytes\r\nwith UTF-8: café\n' | base64
+		printf '\r\n--mcp-attachment-boundary--\r\n'
+	} | docker exec -i "$IMAP" doveadm save -u alice -m INBOX
 	save alice Sent "Sent message"
 	save alice Archive "Archived message"
 	save_thread_message bob "Message of bob" "shared-thread-root@mcp-it.example" "Body of Message of bob."

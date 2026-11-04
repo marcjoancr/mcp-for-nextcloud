@@ -47,6 +47,9 @@ final class NextcloudApiUsage {
     public const EXTRA_CLASSES = [
         'OCP\\User\\Events\\BeforeUserCreatedEvent',
         'OCA\\Mail\\Account',
+        'OCA\\Mail\\Attachment',
+        'OCA\\Mail\\Db\\LocalAttachment',
+        'OCA\\Mail\\Db\\Recipient',
         'OCA\\Mail\\Db\\Mailbox',
         'OCA\\Circles\\Model\\Circle',
         'OCA\\Talk\\Participant',
@@ -65,6 +68,12 @@ final class NextcloudApiUsage {
         'OCA\\Deck\\Service\\CommentService::list' => ['cardId', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::create' => ['cardId', 'message'],
         'OCA\\Mail\\Service\\MailManager::getThread' => ['account', 'threadRootId'],
+        'OCA\\Mail\\Service\\DraftsService::getMessage' => ['id', 'userId'],
+        'OCA\\Mail\\Service\\DraftsService::saveMessage' => ['account', 'message', 'to', 'cc', 'bcc', 'attachments'],
+        'OCA\\Mail\\Service\\DraftsService::updateMessage' => ['account', 'message', 'to', 'cc', 'bcc', 'attachments'],
+        'OCA\\Mail\\Service\\DraftsService::deleteMessage' => ['userId', 'message'],
+        'OCA\\Mail\\Db\\LocalMessageMapper::getAllForUser' => ['userId', 'type'],
+        'OCA\\Mail\\IMAP\\MessageMapper::getAttachments' => ['client', 'mailbox', 'uid', 'userId'],
         'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['ownerId'],
         'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['user'],
         'OCA\\Forms\\Service\\FormsService::getPermissions' => ['form'],
@@ -125,6 +134,8 @@ final class NextcloudApiUsage {
         'OCA\\Talk\\Chat\\ChatManager::getParentComment' => ['chat', 'parentId'],
         'OCA\\Talk\\Chat\\ChatManager::getComment' => ['chat', 'messageId'],
         'OCA\\Talk\\Chat\\ChatManager::getHistory' => ['chat', 'offset', 'limit', 'includeLastKnown'],
+        'OCA\\Talk\\Chat\\ChatManager::searchForObjectsWithFilters' => ['search', 'objectIds', 'verbs', 'since', 'until', 'actorType', 'actorId', 'offset', 'limit'],
+        'OCA\\Talk\\Chat\\CommentsManager::getCommentsWithVerbForObjectSinceComment' => ['objectType', 'objectId', 'verbs', 'lastKnownCommentId', 'sortDirection', 'limit', 'includeLastKnown'],
         'OCA\\Talk\\Service\\RoomService::createConversation' => ['type', 'name', 'owner'],
         'OCA\\Talk\\Service\\RoomService::createOneToOneConversation' => ['actor', 'targetUser'],
         'OCA\\Talk\\Room::getDisplayName' => ['userId', 'forceName'],
@@ -198,6 +209,8 @@ final class NextcloudApiUsage {
      * @var array<string, array<string, string>> "Class::method" => parameter => why its default is right
      */
     public const REVIEWED_TRAILING = [
+        'OCA\\Mail\\IMAP\\MessageMapper::getAttachments' => ['attachmentIds' => 'Empty list: retrieve all parts only after the complete message size and UID generation were checked'],
+        'OCA\\Talk\\Chat\\CommentsManager::getCommentsWithVerbForObjectSinceComment' => ['topmostParentId' => 'Empty string: context is from the same authorized room, without restricting a thread'],
         'OCA\\Deck\\Service\\CommentService::create' => ['replyTo' => 'The native default posts a top-level comment on the requested card'],
         'OCA\\Forms\\Db\\FormMapper::findAllByOwnerId' => ['queryTerm' => 'No title filter for listing owned forms'],
         'OCA\\Forms\\Service\\FormsService::getSharedForms' => ['filterShown' => 'List only forms visible in the native sidebar'],

@@ -140,7 +140,7 @@ final class StructuredReferenceContractTest extends TestCase {
         // Talk returns history newest first, including when multiple messages have the same timestamp.
         $chat->method('getHistory')->willReturn(array_reverse($history));
         $users = $this->createMock(IUserManager::class);
-        return (new ConversationReader(static fn () => throw new \LogicException('Unused manager'), static fn () => throw new \LogicException('Unused participants'), static fn () => $chat, $resolver, new ActorNames($users), $this->filter()))->readMessages('alice', 'room1', 50);
+        return (new ConversationReader(static fn () => throw new \LogicException('Unused manager'), static fn () => throw new \LogicException('Unused participants'), static fn () => $chat, static fn () => throw new \LogicException('Unused Talk comments manager'), $resolver, new ActorNames($users), $this->filter()))->readMessages('alice', 'room1', 50);
     }
 
     public function testV9ReadMessagesWithholdsTheIdOfAnExcludedFileAndKeepsTheText(): void {

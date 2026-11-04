@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Integration\Compat;
 
-/** Keeps the legacy matrix intact except for the explicitly reviewed Deck, Mail and Forms grants. */
+/** Keeps the legacy matrix intact except for the explicitly reviewed Deck, Mail, Forms and Talk grants. */
 final class LegacyCatalogContract {
 	/**
 	 * @param array<string, list<string>> $baseline catalog actually read from the released 1.0.8 code
@@ -19,8 +19,8 @@ final class LegacyCatalogContract {
 	public static function baseline(array $baseline, array $current): array {
 		$expected = $baseline;
 		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment'];
-		$expected['talk'] = [...$baseline['talk'], 'publish_summary'];
-		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read', 'read_responses']]) {
+		$expected['talk'] = [...$baseline['talk'], 'publish_summary', 'search'];
+		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], 'forms' => ['read', 'read_responses']]) {
 			throw new \UnexpectedValueException('Unexpected change to legacy permissions');
 		}
 		return $baseline;
@@ -29,19 +29,20 @@ final class LegacyCatalogContract {
 	/**
 	 * @param array<string, array<string, mixed>> $answers branch observations over the complete legacy matrix
 	 * @return array<string, array<string, mixed>> all observations unchanged except the explicitly checked new matrix cell
-	 * @throws \UnexpectedValueException if Mail's new default is anything other than read-only Deny
+	 * @throws \UnexpectedValueException if Mail's new default is anything other than explicit Deny
 	 */
 	public static function answers(array $answers): array {
 		foreach ($answers as &$state) {
 			foreach ($state['matrix'] as &$row) {
-				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false]
+				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false, 'read_attachment' => false, 'save_attachment' => false, 'read_drafts' => false, 'write_drafts' => false, 'delete_drafts' => false]
 					|| ($row['grants']['forms'] ?? null) !== ['read' => false, 'read_responses' => false]
 					|| ($row['grants']['talk']['publish_summary'] ?? null) !== false
+					|| ($row['grants']['talk']['search'] ?? null) !== false
 					|| ($row['grants']['deck']['read_comments'] ?? null) !== false
 					|| ($row['grants']['deck']['comment'] ?? null) !== false) {
 					throw new \UnexpectedValueException('Unexpected default in the legacy matrix');
 				}
-				unset($row['grants']['mail'], $row['grants']['forms'], $row['grants']['deck']['read_comments'], $row['grants']['deck']['comment'], $row['grants']['talk']['publish_summary']);
+				unset($row['grants']['mail'], $row['grants']['forms'], $row['grants']['deck']['read_comments'], $row['grants']['deck']['comment'], $row['grants']['talk']['publish_summary'], $row['grants']['talk']['search']);
 			}
 			unset($row);
 		}

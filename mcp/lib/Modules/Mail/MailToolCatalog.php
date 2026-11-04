@@ -8,12 +8,13 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Mail;
 
 use OCA\Mcp\Mcp\Tools\Tool;
-use OCA\Mcp\Modules\Mail\Tools\{ListAccounts, ListMailboxes, ReadMessage, ReadThread, SearchMessages};
+use OCA\Mcp\Modules\Mail\Tools\{DeleteDraft, ListAccounts, ListMailboxes, ReadAttachment, ReadDrafts, ReadMessage, ReadThread, SaveAttachment, SearchMessages, WriteDraft};
 
 final class MailToolCatalog {
     /** @return list<class-string<Tool>> */
     public static function classes(): array {
-		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class, ReadThread::class];
+		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class, ReadThread::class,
+			ReadAttachment::class, SaveAttachment::class, ReadDrafts::class, WriteDraft::class, DeleteDraft::class];
     }
 
     /**
@@ -27,20 +28,13 @@ final class MailToolCatalog {
                 throw new \LogicException('Catalog entries must implement Tool');
             }
             $definition = $class::definition();
-			if (!in_array($definition->operation, ['read', 'search', 'read_message'], true)) {
-				throw new \LogicException('Mail tools must use a read-only operation');
+			if (!in_array($definition->operation, ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], true)) {
+				throw new \LogicException('Mail tools must use a declared Mail operation');
             }
             if (isset($result[$definition->name])) {
                 throw new \LogicException('Duplicate tool: ' . $definition->name);
             }
-            $result[$definition->name] = [
-                'name' => $definition->name,
-                'description' => $definition->description,
-                'module' => $definition->module,
-                'app' => $definition->app,
-                'operation' => $definition->operation,
-                'inputSchema' => $definition->inputSchema,
-            ];
+			$result[$definition->name] = $definition->toArray();
         }
         return $result;
     }

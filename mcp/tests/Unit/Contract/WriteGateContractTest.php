@@ -144,6 +144,7 @@ final class WriteGateContractTest extends TestCase {
         }
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
+        $apps->method('getAppVersion')->willReturnCallback(static fn (string $app): string => \OCA\Mcp\Access\AppAvailability\AppEnablement::MINIMUM_VERSIONS[$app] ?? '1.0.0');
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturn($this->createMock(IUser::class));
 
@@ -185,6 +186,15 @@ final class WriteGateContractTest extends TestCase {
         };
     }
 
+    public function testMailAttachmentsAndDraftsSeparateReadsFromConfirmedWrites(): void {
+        foreach (['read_attachment', 'read_drafts'] as $operation) {
+            self::assertFalse(WriteGate::isWrite(['module' => 'mail', 'operation' => $operation]));
+        }
+        foreach (['save_attachment', 'write_drafts', 'delete_drafts'] as $operation) {
+            self::assertTrue(WriteGate::isWrite(['module' => 'mail', 'operation' => $operation]));
+        }
+    }
+
     public function testEveryWritingToolAcrossAllRegisteredModulesIsGatedWithConsistentSchemaAndAnnotations(): void {
         $modules = array_map(fn (string $class) => $this->build($class), Application::MODULES);
         $registry = $this->registry($modules);
@@ -201,7 +211,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 
@@ -222,7 +232,7 @@ final class WriteGateContractTest extends TestCase {
                 $annotations = $listedTool['annotations'];
                 $this->assertFalse($annotations['readOnlyHint'], "$name: readOnlyHint must be false for write tools");
                 $this->assertFalse($annotations['openWorldHint'], "$name: openWorldHint must always be false");
-                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary'], true)
+                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true)
                     || in_array($name, ['talk_create_group'], true)
                     || ($definition['destructiveHint'] ?? false) === true;
                 $this->assertSame($expectedDestructive, $annotations['destructiveHint'], "$name: destructiveHint mismatch");

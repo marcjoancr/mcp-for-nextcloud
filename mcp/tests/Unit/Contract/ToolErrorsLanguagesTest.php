@@ -201,7 +201,7 @@ use \OCA\Mcp\Tests\Support\Deck\DeckToolFixtures;
         $services = \OCA\Mcp\Tests\Support\Talk\TalkNativeFixtures::create(fn (string $class) => $this->createMock($class));
         $services->manager->method('forUser')->willThrowException(new \RuntimeException('spreed is unreachable'));
         $resolver = new ConversationResolver($services->manager->forUser(...), $services->participantService->forUser(...), $services->roomService->forUser(...), $services->conversationConstants->forUser(...));
-        $reader = new ConversationReader($services->manager->forUser(...), $services->participantService->forUser(...), $services->chatManager->forUser(...), $resolver, $this->createMock(ActorNames::class), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
+        $reader = new ConversationReader($services->manager->forUser(...), $services->participantService->forUser(...), $services->chatManager->forUser(...), static fn () => throw new \LogicException('Unused Talk comments manager'), $resolver, $this->createMock(ActorNames::class), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
         return \OCA\Mcp\Tests\Support\Talk\TalkModuleFixtures::create([
             \OCA\Mcp\Modules\Talk\Reading\ConversationReader::class => $reader,
             \OCA\Mcp\Modules\Talk\Access\ConversationResolver::class => $resolver,

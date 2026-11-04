@@ -39,11 +39,20 @@ class ConversationReader
 
     /** Default amount of messages when the caller does not ask for a number, matching the module schema. */
     public const DEFAULT_MESSAGES = 50;
+    public const MAX_SEARCH_QUERY_LENGTH = 256;
+    public const MAX_RESULT_TEXT_LENGTH = 4000;
+    /** Talk-private replies and non-message commands/reactions must never enter model-visible history. */
+    private const READABLE_MESSAGE_VERBS = ['comment', 'object_shared', 'system', 'voice-message', 'record-audio', 'record-video'];
+    private const SEARCHABLE_MESSAGE_VERBS = ['comment'];
+    public const MAX_CONTEXT_MESSAGES_PER_SIDE = 100;
+    public const DEFAULT_CONTEXT_MESSAGES = 5;
+    public const MAX_SEARCH_OFFSET = 1000000;
 
     public function __construct(
         private \Closure $manager,
         private \Closure $participantService,
         private \Closure $chatManager,
+        private \Closure $commentsManager,
         private ConversationResolver $resolver,
         private ActorNames $actorNames,
         private \OCA\Mcp\Platform\FileAccess\References\OutputReferenceFilter $references,
@@ -161,6 +170,143 @@ class ConversationReader
             'messages' => $messages,
             'next_before_message_id' => $nextBeforeMessageId,
         ];
+    }
+
+    /**
+     * Search one authorized conversation with Talk's native bounded search API.
+     *
+     * @param string $userId Authenticated user
+     * @param string $token Conversation token
+     * @param string $query Non-empty text to search for
+     * @param int $limit Number of matches, between 1 and self::MAX_MESSAGES
+     * @param int $offset Number of matching rows to skip
+     * @return array{messages:list<array{id:string, type:string, text:?string, actorType:string, actorId:string, actorDisplayName:string, timestamp:int, parentId:?string, attachmentId:?int, text_truncated:bool}>, next_offset:?int, has_more:bool, pagination_limited:bool}
+     */
+    public function searchMessages(string $userId, string $token, string $query, int $limit, int $offset = 0): array
+    {
+        $query = trim($query);
+        if ($query === '' || mb_strlen($query) > self::MAX_SEARCH_QUERY_LENGTH) {
+            throw new InvalidArgumentException(ConversationMessages::invalidSearchQuery());
+        }
+        if ($limit < 1 || $limit > self::MAX_MESSAGES) {
+            throw new InvalidArgumentException(ConversationMessages::invalidLimit());
+        }
+        if ($offset < 0 || $offset > self::MAX_SEARCH_OFFSET) {
+            throw new InvalidArgumentException(ConversationMessages::invalidSearchOffset());
+        }
+
+        $this->references->assertAvailable($userId);
+        $conversation = $this->resolver->resolveForReading($userId, $token);
+        $chatManager = ($this->chatManager)($userId);
+        $results = $chatManager->searchForObjectsWithFilters(
+            $query,
+            [(string) $conversation->room->getId()],
+            self::SEARCHABLE_MESSAGE_VERBS,
+            null,
+            null,
+            null,
+            null,
+            $offset,
+            $limit + 1,
+        );
+        $hasMore = count($results) > $limit;
+        $page = array_slice($results, 0, $limit);
+        $messages = [];
+        foreach ($page as $comment) {
+            $message = $this->normalizeMessage($comment);
+            $message['attachmentId'] = $this->references->attachmentId($userId, $conversation->token(), $message['attachmentId']);
+            $messages[] = $this->boundResultText($message);
+        }
+
+        $nextOffset = $hasMore && $offset + $limit <= self::MAX_SEARCH_OFFSET ? $offset + $limit : null;
+        return [
+            'messages' => $messages,
+            'next_offset' => $nextOffset,
+            'has_more' => $hasMore,
+            'pagination_limited' => $hasMore && $nextOffset === null,
+        ];
+    }
+
+    /**
+     * Read a bounded window around a message in one conversation without changing read state.
+     *
+     * @return array{messages:list<array{id:string, type:string, text:?string, actorType:string, actorId:string, actorDisplayName:string, timestamp:int, parentId:?string, attachmentId:?int, text_truncated:bool}>, has_more_before:bool, has_more_after:bool}
+     */
+    public function readMessageContext(
+        string $userId,
+        string $token,
+        int $messageId,
+        int $beforeLimit = self::DEFAULT_CONTEXT_MESSAGES,
+        int $afterLimit = self::DEFAULT_CONTEXT_MESSAGES,
+    ): array {
+        if ($messageId < 1) {
+            throw new ConversationAccessException(ConversationMessages::conversationNotFound());
+        }
+        if (
+            $beforeLimit < 0 || $beforeLimit > self::MAX_CONTEXT_MESSAGES_PER_SIDE
+            || $afterLimit < 0 || $afterLimit > self::MAX_CONTEXT_MESSAGES_PER_SIDE
+        ) {
+            throw new InvalidArgumentException(ConversationMessages::invalidContextLimits());
+        }
+
+        $this->references->assertAvailable($userId);
+        $conversation = $this->resolver->resolveForReading($userId, $token);
+        $chatManager = ($this->chatManager)($userId);
+        try {
+            // Talk verifies the comment's object type and room ID, hiding foreign IDs and missing IDs alike.
+            $anchor = $chatManager->getComment($conversation->room, (string) $messageId);
+        } catch (NotFoundException $e) {
+            throw new ConversationAccessException(ConversationMessages::conversationNotFound(), $e);
+        }
+        if (!in_array((string) $anchor->getVerb(), self::READABLE_MESSAGE_VERBS, true)) {
+            throw new ConversationAccessException(ConversationMessages::conversationNotFound());
+        }
+
+        $commentsManager = ($this->commentsManager)($userId);
+        $older = $beforeLimit === 0 ? [] : $commentsManager->getCommentsWithVerbForObjectSinceComment(
+            'chat',
+            (string) $conversation->room->getId(),
+            self::READABLE_MESSAGE_VERBS,
+            $messageId,
+            'desc',
+            $beforeLimit + 1,
+            false,
+        );
+        $newer = $afterLimit === 0 ? [] : $commentsManager->getCommentsWithVerbForObjectSinceComment(
+            'chat',
+            (string) $conversation->room->getId(),
+            self::READABLE_MESSAGE_VERBS,
+            $messageId,
+            'asc',
+            $afterLimit + 1,
+            false,
+        );
+        $hasMoreBefore = count($older) > $beforeLimit;
+        $hasMoreAfter = count($newer) > $afterLimit;
+        $around = array_merge(array_reverse(array_slice($older, 0, $beforeLimit)), [$anchor], array_slice($newer, 0, $afterLimit));
+        $messages = [];
+        foreach ($around as $comment) {
+            $message = $this->normalizeMessage($comment);
+            $message['attachmentId'] = $this->references->attachmentId($userId, $conversation->token(), $message['attachmentId']);
+            $messages[] = $this->boundResultText($message);
+        }
+
+        return [
+            'messages' => $messages,
+            'has_more_before' => $hasMoreBefore,
+            'has_more_after' => $hasMoreAfter,
+        ];
+    }
+
+    /** Bound model-visible result bodies while preserving an explicit truncation signal. */
+    private function boundResultText(array $message): array
+    {
+        $text = $message['text'];
+        $message['text_truncated'] = is_string($text) && mb_strlen($text) > self::MAX_RESULT_TEXT_LENGTH;
+        if ($message['text_truncated']) {
+            $message['text'] = mb_substr((string) $text, 0, self::MAX_RESULT_TEXT_LENGTH);
+        }
+        return $message;
     }
 
     /**

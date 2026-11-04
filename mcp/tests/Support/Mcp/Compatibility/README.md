@@ -113,3 +113,11 @@ merge reorders named tool objects into module order; structural comparison
 verified that no values changed. Publication and result captures are byte-identical
 to the merged expectations. Independent tests require an explicit assignment for
 each new tool and verify that old operation grants cannot enable them.
+
+The 2026-11-04 Mail/Talk extension adds the five Mail raw definitions and the two
+Talk definitions/publications. A guarded update compared every existing tool
+object unchanged before adding these entries, and changed only the Talk guide
+line and count from nine to eleven. The metadata-only app-version fixture keeps
+Mail unpublished; supported Mail publication has separate contract coverage.
+Protocol changes contain only the two additive Talk tools. All other protocol
+fields and the complete result capture remain unchanged.

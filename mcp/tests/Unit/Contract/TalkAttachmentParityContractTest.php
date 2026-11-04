@@ -158,7 +158,7 @@ final class TalkAttachmentParityContractTest extends TestCase {
         $comment->method('getCreationDateTime')->willReturn(new DateTimeImmutable('@1700000000'));
         $resolver = $this->createMock(ConversationResolver::class);
         $resolver->method('resolveForReading')->willReturn($this->conversation());
-        $reader = new ConversationReader(static fn () => throw new \LogicException('Unused manager'), static fn () => throw new \LogicException('Unused participants'), fn () => $this->chat([$comment]), $resolver, new ActorNames($this->createMock(IUserManager::class)), $this->filter($shares));
+        $reader = new ConversationReader(static fn () => throw new \LogicException('Unused manager'), static fn () => throw new \LogicException('Unused participants'), fn () => $this->chat([$comment]), fn () => $this->createMock(\OCA\Mcp\Tests\Support\Talk\ReaderCommentsGateway::class), $resolver, new ActorNames($this->createMock(IUserManager::class)), $this->filter($shares));
         return $reader->readMessages('alice', 'room1', 10)[0]['attachmentId'];
     }
 
@@ -298,7 +298,7 @@ final class TalkAttachmentParityContractTest extends TestCase {
             AttachmentAccess::class => $this->access($shares),
             FileSharer::class => $sharer,
             ConversationReader::class => new ConversationReader(static fn () => throw new \LogicException('Unused manager'),
-                static fn () => throw new \LogicException('Unused participants'), fn () => $this->chat(), $resolver,
+                static fn () => throw new \LogicException('Unused participants'), fn () => $this->chat(), fn () => $this->createMock(\OCA\Mcp\Tests\Support\Talk\ReaderCommentsGateway::class), $resolver,
                 new ActorNames($this->createMock(IUserManager::class)), $this->filter($shares)),
         ], $this->createMock(\Psr\Log\LoggerInterface::class));
     }

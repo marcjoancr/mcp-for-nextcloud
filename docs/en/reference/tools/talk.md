@@ -6,7 +6,7 @@
 
 | Module | Read | Write |
 | --- | --- | --- |
-| **Talk** | conversations and messages (never marks anything as read) | reply (optionally quoting a message or linking a Deck card or calendar event you can see), direct message to a user, batch of messages, share or quote a file, create a group conversation (separate grant, off by default). **Nothing is sent before the user approves: a call without `confirm: true` returns only the plan (recipient, final text, attachments, what would be created or shared) and runs nothing; with `confirm: true` it checks the permissions again and sends. No approval id, token or record is kept on the server.** |
+| **Talk** | conversations, message search and context (never marks anything as read) | reply (optionally quoting a message or linking a Deck card or calendar event you can see), direct message to a user, batch of messages, share or quote a file, create a group conversation (separate grant, off by default). **Nothing is sent before the user approves: a call without `confirm: true` returns only the plan (recipient, final text, attachments, what would be created or shared) and runs nothing; with `confirm: true` it checks the permissions again and sends. No approval id, token or record is kept on the server.** |
 
 
 
@@ -19,6 +19,28 @@ For form responses, first use `forms_read_responses` with `forms.read_responses`
 ## Reading older messages
 
 `talk_read_messages` returns the latest page first, ordered from oldest to newest within each page. To read the preceding page, pass the returned `next_before_message_id` as `before_message_id` with the same `conversation_token`. The cursor message is excluded. A null cursor means the beginning of the available history has been reached. Each page checks access again and preserves unread messages and notifications.
+
+## Searching and reading context
+
+`talk_search_messages` searches ordinary message text within one `conversation_token`.
+It requires the independent `talk.search` operation. Results are bounded and paginated;
+keep the conversation and query unchanged when following `next_offset`. `has_more`
+indicates remaining matches; `pagination_limited` distinguishes the offset safety cap
+from the end of the results. The default page holds 50 matches, with a maximum of 200. Search
+excludes system events, attachment envelopes, reactions and private replies.
+
+Use a result's message ID with `talk_read_message_context` to read earlier and later
+messages around it in the same conversation. Pass `message_id`, with optional `before_limit`
+and `after_limit` counts (5 each by default, at most 100 each). `has_more_before` and
+`has_more_after` indicate additional neighbors outside the requested window. This is a separate tool assignment
+classified as `talk.read`; granting search does not grant context reading. Context
+is chronological and the anchor must belong to the requested conversation. Native
+membership and lobby checks apply again on every request. File references are filtered
+through the same visibility checks as ordinary history reading.
+
+Both tools preserve unread counters, notifications and read markers. New search and
+context results limit message text to 4,000 characters and flag truncated text. They
+have no sending side effects.
 
 See the live `mcp_guide` for the authoritative schema and available operations.
 

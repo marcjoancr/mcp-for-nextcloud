@@ -60,7 +60,7 @@ final class TalkModule implements ToolModule, PreviewsWrites, RendersPlans
     public function preview(string $name, array $arguments, string $userId): array
     {
         $this->assertKnown($name);
-        if (TalkToolCatalog::definitions()[$name]['operation'] === 'read') {
+        if (in_array(TalkToolCatalog::definitions()[$name]['operation'], ['read', 'search'], true)) {
             throw new \InvalidArgumentException(ErrorMessages::unknownTool());
         }
         try {
@@ -89,7 +89,7 @@ final class TalkModule implements ToolModule, PreviewsWrites, RendersPlans
         if (!($tool instanceof Tool) || $tool::definition()->name !== $name) {
             throw new \LogicException('Talk factory resolved a different tool');
         }
-        if (TalkToolCatalog::definitions()[$name]['operation'] !== 'read' && !($tool instanceof WriteTool)) {
+        if (!in_array(TalkToolCatalog::definitions()[$name]['operation'], ['read', 'search'], true) && !($tool instanceof WriteTool)) {
             throw new \LogicException('Writing tools must implement WriteTool');
         }
         return $tool;

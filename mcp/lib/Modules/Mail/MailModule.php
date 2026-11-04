@@ -10,10 +10,14 @@ namespace OCA\Mcp\Modules\Mail;
 use OCA\Mcp\Mcp\Tools\Tool;
 use OCA\Mcp\Mcp\Tools\ToolContext;
 use OCA\Mcp\Mcp\Guide\ToolGuideNotes;
+use OCA\Mcp\Mcp\Tools\WriteTool;
+use OCA\Mcp\Mcp\Confirmation\PreviewsWrites;
+use OCA\Mcp\Mcp\Confirmation\RendersPlans;
+use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use OCA\Mcp\Mcp\Tools\ToolModule;
 
 /** Static publication and lazy dispatch for the read-only Mail feature. */
-final class MailModule implements ToolModule, ToolGuideNotes {
+final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, RendersPlans {
     /** @param array<string, \Closure(): Tool> $factories */
     public function __construct(private array $factories) {
         $expected = array_keys(MailToolCatalog::definitions());
@@ -32,6 +36,27 @@ final class MailModule implements ToolModule, ToolGuideNotes {
     }
 
     public function call(string $name, array $arguments, string $userId): array {
+        return $this->resolve($name)->execute($arguments, new ToolContext($userId));
+    }
+
+    public function preview(string $name, array $arguments, string $userId): array {
+        $tool = $this->resolve($name);
+        if (!$tool instanceof WriteTool || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
+            throw new \InvalidArgumentException('Unknown tool');
+        }
+        return $tool->preview($arguments, new ToolContext($userId));
+    }
+
+    public function renderPlan(string $tool, array $plan): ?string {
+        return (new Presentation\MailPlanRenderer())->render($tool, $plan);
+    }
+
+    /** @return list<string> short behaviour notes about this module */
+    public function guideNotes(): array {
+        return Presentation\MailMessages::GUIDE_NOTES;
+    }
+
+    private function resolve(string $name): Tool {
         if (!isset($this->factories[$name])) {
             throw new \InvalidArgumentException('Unknown tool');
         }
@@ -39,11 +64,9 @@ final class MailModule implements ToolModule, ToolGuideNotes {
         if (!$tool instanceof Tool || $tool::definition()->name !== $name) {
             throw new \LogicException('Factory returned a different tool');
         }
-        return $tool->execute($arguments, new ToolContext($userId));
-    }
-
-    /** @return list<string> short behaviour notes about this module */
-    public function guideNotes(): array {
-        return Presentation\MailMessages::GUIDE_NOTES;
+        if (WriteGate::isWrite(MailToolCatalog::definitions()[$name]) && !$tool instanceof WriteTool) {
+            throw new \LogicException('Mail writes must implement WriteTool');
+        }
+        return $tool;
     }
 }

@@ -40,7 +40,7 @@ final class ToolPresentation {
      * else to remove them, which is exactly the confirmation a client offers on a destructive tool. Editing is in
      * the list for the same reason a client marks it: what is written over the old content is gone from the file.
      */
-    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary'];
+    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts'];
     /**
      * Operations a client may repeat with the same result. A read obviously, and a rollback: restoring the same
      * version twice leaves the same content, however many versions the second attempt adds to the history.
@@ -162,6 +162,13 @@ final class ToolPresentation {
             'deck_list_comments' => Translator::t('Read card comments'),
             'deck_add_comment' => Translator::t('Post card comment'),
             'mail_read_thread' => Translator::t('Read mail thread'),
+            'mail_read_attachment' => Translator::t('Read mail attachments'),
+            'mail_save_attachment' => Translator::t('Save a mail attachment'),
+            'mail_read_drafts' => Translator::t('Read mail drafts'),
+            'mail_write_draft' => Translator::t('Save a mail draft'),
+            'mail_delete_draft' => Translator::t('Delete a mail draft'),
+            'talk_search_messages' => Translator::t('Search Talk messages'),
+            'talk_read_message_context' => Translator::t('Read Talk message context'),
             'mail_read_message' => Translator::t('Read mail message'),
             'mail_list_accounts' => Translator::t('List mail accounts'),
             'mail_list_mailboxes' => Translator::t('List mail folders'),

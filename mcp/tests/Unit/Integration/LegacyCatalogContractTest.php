@@ -15,8 +15,8 @@ final class LegacyCatalogContractTest extends TestCase {
         $baseline = ['files' => ['read', 'edit'], 'deck' => ['read', 'edit'], 'talk' => ['read', 'reply'], 'logs' => ['read']];
         $expected = $baseline;
         $expected['deck'] = [...$expected['deck'], 'read_comments', 'comment'];
-        $expected['talk'] = [...$expected['talk'], 'publish_summary'];
-        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$expected, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read', 'read_responses']]));
+        $expected['talk'] = [...$expected['talk'], 'publish_summary', 'search'];
+        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$expected, 'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], 'forms' => ['read', 'read_responses']]));
         foreach ([$baseline, ['files' => ['read'], 'logs' => ['read'], 'mail' => ['read']],
             [...$baseline, 'mail' => ['read', 'write']], [...$baseline, 'unknown' => ['read']],
             ['mail' => ['read']]] as $current) {
@@ -31,9 +31,9 @@ final class LegacyCatalogContractTest extends TestCase {
         $legacy = ['1' => ['globalEnabled' => true, 'users' => ['alice' => ['grants' => ['files' => ['read' => false]]]],
             'matrix' => ['alice' => ['eligible' => true, 'connected' => false, 'grants' => ['files' => ['read' => false], 'deck' => ['read' => true], 'talk' => ['read' => true]]]]]];
         $branch = $legacy;
-        $branch['1']['matrix']['alice']['grants']['mail'] = ['read' => false, 'search' => false, 'read_message' => false];
+        $branch['1']['matrix']['alice']['grants']['mail'] = ['read' => false, 'search' => false, 'read_message' => false, 'read_attachment' => false, 'save_attachment' => false, 'read_drafts' => false, 'write_drafts' => false, 'delete_drafts' => false];
         $branch['1']['matrix']['alice']['grants']['forms'] = ['read' => false, 'read_responses' => false];
-        $branch['1']['matrix']['alice']['grants']['talk']['publish_summary'] = false;
+        $branch['1']['matrix']['alice']['grants']['talk'] += ['publish_summary' => false, 'search' => false];
         $branch['1']['matrix']['alice']['grants']['deck'] += ['read_comments' => false, 'comment' => false];
         self::assertSame($legacy, LegacyCatalogContract::answers($branch));
         self::assertArrayHasKey('mail', $branch['1']['matrix']['alice']['grants'], 'The input must not be modified');

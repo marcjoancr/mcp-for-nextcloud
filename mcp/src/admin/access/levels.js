@@ -22,10 +22,10 @@ const TIERS = {
 	calendar: [['read'], ['create', 'edit', 'move'], ['delete', 'transfer']],
 	contacts: [['read'], ['create', 'edit'], ['delete']],
 	tasks: [['read'], ['create', 'edit'], ['delete']],
-	talk: [['read'], ['reply', 'attach', 'quote'], ['create', 'publish_summary']],
+	talk: [['read'], ['reply', 'attach', 'quote'], ['create', 'publish_summary', 'search']],
 	people: [['read']],
 	logs: [['read']],
-	mail: [['read'], ['search', 'read_message']],
+	mail: [['read'], ['search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts']],
 	forms: [['read'], ['read_responses']],
 }
 

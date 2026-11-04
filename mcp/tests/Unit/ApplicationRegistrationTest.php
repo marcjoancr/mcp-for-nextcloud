@@ -44,6 +44,18 @@ final class ApplicationRegistrationTest extends TestCase {
         return $container;
     }
 
+    public function testMailFactoriesBuildAllCapabilitiesWithoutResolvingNativeMail(): void {
+        $built = [];
+        $container = $this->sharedContainer($built);
+        $module = $container->get(\OCA\Mcp\Modules\Mail\MailModule::class);
+        self::assertCount(10, $module->definitions());
+        foreach (\OCA\Mcp\Modules\Mail\MailToolCatalog::classes() as $tool) {
+            self::assertInstanceOf($tool, $container->get($tool));
+        }
+        self::assertInstanceOf(\OCA\Mcp\Modules\Files\Creation\IncomingFileCreation::class,
+            $container->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class));
+    }
+
     public function testSharedPolicyFactoriesPreserveInstanceIdentity(): void {
         $config = new InMemoryConfig();
         $built = [IConfig::class => $config->mock($this),
@@ -263,7 +275,7 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $module = $get(\OCA\Mcp\Modules\Talk\TalkModule::class);
-        self::assertCount(9, $module->definitions());
+        self::assertCount(11, $module->definitions());
         foreach (\OCA\Mcp\Modules\Talk\TalkToolCatalog::classes() as $tool) {
             self::assertInstanceOf($tool, $get($tool));
         }

@@ -140,6 +140,8 @@ class TalkModuleTest extends TestCase
             [
                 'talk_list_conversations' => 'read',
                 'talk_read_messages' => 'read',
+                'talk_search_messages' => 'search',
+                'talk_read_message_context' => 'read',
                 'talk_reply' => 'reply',
                 'talk_attach_file' => 'attach',
                 'talk_quote_file' => 'quote',
@@ -181,6 +183,10 @@ class TalkModuleTest extends TestCase
         $this->assertSame(1, $schemas['talk_read_messages']['properties']['limit']['minimum']);
         $this->assertSame(200, $schemas['talk_read_messages']['properties']['limit']['maximum']);
         $this->assertSame(50, $schemas['talk_read_messages']['properties']['limit']['default']);
+        $this->assertSame(['conversation_token', 'query'], $schemas['talk_search_messages']['required']);
+        $this->assertSame(200, $schemas['talk_search_messages']['properties']['limit']['maximum']);
+        $this->assertSame(['conversation_token', 'message_id'], $schemas['talk_read_message_context']['required']);
+        $this->assertSame(100, $schemas['talk_read_message_context']['properties']['before_limit']['maximum']);
         $this->assertSame(['conversation_token', 'message'], $schemas['talk_reply']['required']);
         $this->assertSame(['conversation_token', 'path'], $schemas['talk_attach_file']['required']);
         $this->assertSame(['conversation_token', 'attachment_id'], $schemas['talk_quote_file']['required']);
@@ -282,6 +288,34 @@ class TalkModuleTest extends TestCase
         );
 
         $this->assertSame(['messages' => [['id' => '8']], 'next_before_message_id' => 7], $this->payloadOf($result));
+    }
+
+    public function testSearchIsRoutedAsAReadOperationWithItsBoundedPageArguments(): void
+    {
+        $this->reader->expects($this->once())
+            ->method('searchMessages')
+            ->with('alice', 'abcd', 'budget', 20, 40)
+            ->willReturn(['messages' => [], 'next_offset' => null, 'has_more' => false, 'pagination_limited' => false]);
+
+        $result = $this->module->call(\OCA\Mcp\Modules\Talk\Tools\SearchMessages::NAME, [
+            'conversation_token' => 'abcd', 'query' => 'budget', 'limit' => 20, 'offset' => 40,
+        ], 'alice');
+
+        $this->assertSame(['messages' => [], 'next_offset' => null, 'has_more' => false, 'pagination_limited' => false], $this->payloadOf($result));
+    }
+
+    public function testMessageContextIsRoutedAsAReadOperationWithBothSideBounds(): void
+    {
+        $this->reader->expects($this->once())
+            ->method('readMessageContext')
+            ->with('alice', 'abcd', 20, 3, 4)
+            ->willReturn(['messages' => [], 'has_more_before' => false, 'has_more_after' => true]);
+
+        $result = $this->module->call(\OCA\Mcp\Modules\Talk\Tools\ReadMessageContext::NAME, [
+            'conversation_token' => 'abcd', 'message_id' => 20, 'before_limit' => 3, 'after_limit' => 4,
+        ], 'alice');
+
+        $this->assertSame(['messages' => [], 'has_more_before' => false, 'has_more_after' => true], $this->payloadOf($result));
     }
 
     public function testReadMessagesSchemaAcceptsAnOptionalPositiveCursor(): void
@@ -452,7 +486,7 @@ class TalkModuleTest extends TestCase
             $this->assertStringNotContainsString('approval_id', $descriptions[$name], $name);
         }
 
-        foreach (['talk_list_conversations', 'talk_read_messages'] as $name) {
+        foreach (['talk_list_conversations', 'talk_read_messages', 'talk_search_messages', 'talk_read_message_context'] as $name) {
             $this->assertStringNotContainsString('confirm: true', $descriptions[$name], $name);
         }
     }
@@ -1023,7 +1057,7 @@ class TalkModuleTest extends TestCase
     public function testEveryWritingToolIsReportedAsWriting(): void
     {
         foreach ($this->module->definitions() as $definition) {
-            $expected = $definition['operation'] !== 'read';
+            $expected = !in_array($definition['operation'], ['read', 'search'], true);
             foreach (\OCA\Mcp\Modules\Talk\TalkToolCatalog::classes() as $class) {
                 if ($class::definition()->name === $definition['name']) {
                     $this->assertSame(
