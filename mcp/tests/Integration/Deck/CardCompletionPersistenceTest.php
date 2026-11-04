@@ -20,6 +20,20 @@ use PHPUnit\Framework\Attributes\Group;
 /** Completion edits persist exactly as requested and remain isolated to the card's authorized user. */
 #[Group('deck')]
 final class CardCompletionPersistenceTest extends IntegrationTestCase {
+    private array $toolPermissionSnapshot = [];
+    protected function setUp(): void {
+        parent::setUp();
+        $this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([DeckFixture::OWNER, DeckFixture::READER, DeckFixture::OUTSIDER], ['deck_read_card', 'deck_edit_card']);
+    }
+
+    protected function tearDown(): void {
+        try {
+            if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
+        } finally {
+            parent::tearDown();
+        }
+    }
+
     /** @return array<string, mixed> */
     private function payload(ToolReply $reply): array {
         self::assertTrue($reply->ok(), $reply->describe());
@@ -61,6 +75,7 @@ final class CardCompletionPersistenceTest extends IntegrationTestCase {
 
     public function testCompletionTransitionsPreserveTheNativeTimestampAndOtherCardFields(): void {
         $owner = DeckFixture::OWNER;
+        \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($owner, ['deck_read_card' => 'allow', 'deck_edit_card' => 'allow']);
         $client = new McpClient(LoginFactory::basic($owner));
         $policy = Server::get(GrantPolicy::class);
         $snapshot = $this->snapshotPolicy([$owner]);
@@ -69,17 +84,16 @@ final class CardCompletionPersistenceTest extends IntegrationTestCase {
             $policy->setGlobalEnabled(true);
             $policy->setEligible($owner, true);
             $policy->setConnected($owner, true);
-            foreach (['read', 'edit'] as $operation) { $policy->setGrant($owner, 'deck', $operation, true); }
             $fixture = DeckFixture::run($owner, 'completion-seed');
             $cardId = $fixture['card'];
 
             self::assertNull(DeckFixture::run($owner, 'completion-read', ['card' => $cardId])['done']);
-            $policy->setGrant($owner, 'deck', 'edit', false);
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($owner, ['deck_edit_card' => 'deny']);
             $grantDenied = $client->tool('deck_edit_card', ['cardId' => $cardId, 'completed' => true]);
             self::assertSame(-32602, $grantDenied->body['error']['code'] ?? null, 'the MCP catalog refuses deck_edit_card when deck.edit is denied');
             self::assertSame('Unknown tool', $grantDenied->body['error']['message'] ?? null);
             self::assertNull(DeckFixture::run($owner, 'completion-read', ['card' => $cardId])['done']);
-            $policy->setGrant($owner, 'deck', 'edit', true);
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($owner, ['deck_edit_card' => 'allow']);
             $completed = $this->payload($client->write('deck_edit_card', ['cardId' => $cardId, 'completed' => true]));
             self::assertIsInt($completed['done']);
             $firstDone = DeckFixture::run($owner, 'completion-read', ['card' => $cardId]);
@@ -110,11 +124,11 @@ final class CardCompletionPersistenceTest extends IntegrationTestCase {
             $policy->setGlobalEnabled(true);
             $policy->setEligible($owner, true);
             $policy->setConnected($owner, true);
-            foreach (['read', 'edit'] as $operation) { $policy->setGrant($owner, 'deck', $operation, true); }
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($owner, ['deck_read_card' => 'allow', 'deck_edit_card' => 'allow']);
             $fixture = DeckFixture::run($owner, 'completion-seed');
             $policy->setEligible($reader, true);
             $policy->setConnected($reader, true);
-            foreach (['read', 'edit'] as $operation) { $policy->setGrant($reader, 'deck', $operation, true); }
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($reader, ['deck_read_card' => 'allow', 'deck_edit_card' => 'allow']);
             $client = new McpClient(LoginFactory::basic($reader));
             self::assertSame(['canRead' => true], DeckFixture::run($reader, 'completion-can-read', $fixture));
             $read = $client->tool('deck_read_card', ['cardId' => $fixture['card']]);
@@ -138,11 +152,11 @@ final class CardCompletionPersistenceTest extends IntegrationTestCase {
             $policy->setGlobalEnabled(true);
             $policy->setEligible($owner, true);
             $policy->setConnected($owner, true);
-            foreach (['read', 'edit'] as $operation) { $policy->setGrant($owner, 'deck', $operation, true); }
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($owner, ['deck_read_card' => 'allow', 'deck_edit_card' => 'allow']);
             $fixture = DeckFixture::run($owner, 'completion-seed');
             $policy->setEligible($outsider, true);
             $policy->setConnected($outsider, true);
-            $policy->setGrant($outsider, 'deck', 'edit', true);
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($outsider, ['deck_edit_card' => 'allow']);
             $reply = (new McpClient(LoginFactory::basic($outsider)))->tool('deck_edit_card', ['cardId' => $fixture['card'], 'completed' => true]);
             self::assertTrue($reply->isError(), $reply->describe());
             self::assertNull(DeckFixture::run($owner, 'completion-read', ['card' => $fixture['card']])['done']);

@@ -149,9 +149,10 @@ final class ToolsListContractTest extends TestCase {
      *
      * @return string response body exactly as the endpoint encodes it
      */
-    private function handle(string $request, string $version, string $headers = '{}', bool $optionalAppsEnabled = true, ?callable $grants = null): string {
+    private function handle(string $request, string $version, string $headers = '{}', bool $optionalAppsEnabled = true, ?callable $grants = null, ?array $toolDecisions = null): string {
         $config = new InMemoryConfig();
-        $policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($config->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $configuration = $config->mock($this);
+        $policy = InMemoryConfig::policy($configuration, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
                 $policy->setGrant('alice', $module, $operation, $grants === null || $grants($module, $operation));
@@ -163,6 +164,16 @@ final class ToolsListContractTest extends TestCase {
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturn($this->createMock(IUser::class));
         $modules = array_map(fn (string $class) => $this->build($class), Application::MODULES);
+        foreach ($modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                if (\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($definition['name'])) { continue; }
+                if ($toolDecisions !== null && !array_key_exists($definition['name'], $toolDecisions)) { continue; }
+                $allowed = $toolDecisions === null
+                    ? ($grants === null || $grants($definition['module'], $definition['operation']))
+                    : ($toolDecisions[$definition['name']] ?? false);
+                InMemoryConfig::storeToolPolicy($configuration, 'user', 'alice', $definition['name'], $allowed ? 'allow' : 'deny');
+            }
+        }
         $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $apps, $users);
         $protocol = new McpProtocol(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new \OCA\Mcp\Mcp\Protocol\ToolRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new ToolRegistry($modules, $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, $this->createMock(LoggerInterface::class)))),
             new \OCA\Mcp\Mcp\Protocol\PromptRequests(\OCA\Mcp\Tests\Unit\InstalledApp::identity($this), new PromptCatalog(), $policy),
@@ -364,6 +375,22 @@ final class ToolsListContractTest extends TestCase {
                 self::assertSame(in_array($operation, ['comment', 'publish_summary'], true), property_exists($tool->inputSchema->properties, 'confirm'));
             }
             self::assertEqualsCanonicalizing($expected, $names);
+        }
+    }
+
+    public function testNewToolsRequireIndependentAssignmentsDespiteLegacyOperationGrants(): void {
+        $newTools = ['forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
+            'mail_read_message', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary'];
+        $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
+        $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;
+        $legacy = json_decode($this->handle($request, $version, '{}', true, null, []), true)['result']['tools'];
+        self::assertSame([], array_values(array_intersect($newTools, array_column($legacy, 'name'))),
+            'Legacy operation grants cannot silently enable new tools');
+        foreach ($newTools as $name) {
+            $response = json_decode($this->handle($request, $version, '{}', true,
+                static fn (): bool => false, [$name => true]), true);
+            $published = array_values(array_diff(array_column($response['result']['tools'], 'name'), ['mcp_status', 'mcp_guide']));
+            self::assertSame([$name], $published, 'One tool assignment must not enable another capability');
         }
     }
 

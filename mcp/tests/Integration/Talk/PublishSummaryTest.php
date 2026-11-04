@@ -10,6 +10,7 @@ namespace OCA\Mcp\Tests\Integration\Talk;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Tests\Integration\Exclusion\ExclusionTestCase;
 use OCA\Mcp\Tests\Integration\Fixtures;
+use OCA\Mcp\Tests\Integration\Support\LoginFactory;
 use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCA\Mcp\Tests\Integration\Support\ToolReply;
 use OCA\Talk\Events\AAttendeeRemovedEvent;
@@ -24,15 +25,18 @@ use PHPUnit\Framework\Attributes\Group;
 final class PublishSummaryTest extends ExclusionTestCase {
 	/** @var array<string, array<string, string>> */
 	private array $policySnapshot = [];
+	private array $toolPermissionSnapshot = [];
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->snapshotPolicy(Fixtures::ALICE, ['grant_talk_read', 'grant_talk_reply', 'grant_talk_publish_summary']);
 		$this->snapshotPolicy(Fixtures::BOB, ['grant_talk_read', 'grant_talk_reply', 'grant_talk_publish_summary']);
+		$this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([self::ALICE, self::BOB], ['talk_list_conversations', 'talk_read_messages', 'talk_create_group', 'talk_reply', 'talk_publish_summary']);
 	}
 
 	protected function tearDown(): void {
 		try {
+			if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
 			$config = Server::get(IConfig::class);
 			foreach ($this->policySnapshot as $uid => $values) {
 				foreach ($values as $key => $value) {
@@ -49,15 +53,17 @@ final class PublishSummaryTest extends ExclusionTestCase {
 	}
 
 	public function testSummaryRequiresSeparateGrantAndPreviewConfirmationIsBoundToCallerTextAndRoomState(): void {
-		$alice = $this->mcp(self::ALICE);
-		$bob = $this->mcp(self::BOB);
 		$policy = Server::get(GrantPolicy::class);
-		$policy->setGrant(self::ALICE, 'talk', 'read', true);
-		$policy->setGrant(self::ALICE, 'talk', 'reply', true);
-		$policy->setGrant(self::BOB, 'talk', 'read', true);
-		$policy->setGrant(self::BOB, 'talk', 'reply', true);
-		$policy->setGrant(self::ALICE, 'talk', 'publish_summary', false);
-		$policy->setGrant(self::BOB, 'talk', 'publish_summary', true);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::ALICE, [
+			'talk_list_conversations' => 'allow', 'talk_read_messages' => 'allow', 'talk_create_group' => 'allow',
+			'talk_reply' => 'allow', 'talk_publish_summary' => 'allow',
+		]);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::BOB, [
+			'talk_list_conversations' => 'allow', 'talk_read_messages' => 'allow', 'talk_reply' => 'allow', 'talk_publish_summary' => 'allow',
+		]);
+		$alice = new McpClient(LoginFactory::basic(self::ALICE));
+		$bob = new McpClient(LoginFactory::basic(self::BOB));
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::ALICE, ['talk_publish_summary' => 'deny']);
 
 		$room = $this->payload($alice->write('talk_create_group', [
 			'name' => 'mcp summary ' . $this->run,
@@ -76,8 +82,7 @@ final class PublishSummaryTest extends ExclusionTestCase {
 			'talk.reply does not implicitly grant talk.publish_summary');
 		self::assertSame('Unknown tool', $denied->body['error']['message'] ?? null);
 
-		$policy->setGrant(self::ALICE, 'talk', 'publish_summary', true);
-		$policy->setGrant(self::ALICE, 'talk', 'reply', false);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::ALICE, ['talk_publish_summary' => 'allow', 'talk_reply' => 'deny']);
 		$initialMessages = array_column($this->messages($alice, $token), 'text');
 		$preview = $this->payload($alice->tool('talk_publish_summary', ['conversation_token' => $token, 'message' => " Approved summary \n"]));
 		self::assertSame('Approved summary', $preview['draft']['message'] ?? null, 'preview returns the exact normalized text');

@@ -144,7 +144,8 @@ final class MailModuleTest extends TestCase {
 	 * @return ToolRegistry the registry
 	 */
 	private function registry(bool $enabled, string $version, bool $messageGrants = true): ToolRegistry {
-		$policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
+		$config = (new InMemoryConfig())->mock($this);
+		$policy = InMemoryConfig::policy($config, new InMemoryOAuthStore());
 		$apps = $this->createMock(IAppManager::class);
 		$apps->method('isEnabledForUser')->willReturnCallback(static fn (string $app): bool => $app === 'mail' && $enabled);
 		$apps->method('getAppVersion')->willReturn($version);
@@ -152,6 +153,9 @@ final class MailModuleTest extends TestCase {
 		$users->method('get')->willReturn($this->createMock(IUser::class));
 		$policy->setGrant('alice', 'mail', 'read', true);
 		if ($messageGrants) {
+			foreach (['mail_search_messages', 'mail_read_message', 'mail_read_thread'] as $name) {
+				InMemoryConfig::storeToolPolicy($config, 'user', 'alice', $name, 'allow');
+			}
 			$policy->setGrant('alice', 'mail', 'search', true);
 			$policy->setGrant('alice', 'mail', 'read_message', true);
 		}

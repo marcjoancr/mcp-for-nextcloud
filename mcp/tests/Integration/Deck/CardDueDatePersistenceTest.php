@@ -48,6 +48,7 @@ final class CardDueDatePersistenceTest extends IntegrationTestCase {
 		foreach ($config->getAppKeys('mcp') as $key) {
 			$oldApp[$key] = $config->getAppValue('mcp', $key);
 		}
+		$toolSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([$uid], ['deck_read_card', 'deck_list_cards', 'deck_followup_cards', 'deck_create_card', 'deck_edit_card', 'deck_create_board']);
 		$f = null;
 		try {
 			$config->setUserValue($uid, 'core', 'timezone', $zone);
@@ -58,9 +59,14 @@ final class CardDueDatePersistenceTest extends IntegrationTestCase {
 			foreach (['read', 'create', 'edit'] as $operation) {
 				$policy->setGrant($uid, 'deck', $operation, true);
 			}
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, [
+				'deck_read_card' => 'allow', 'deck_list_cards' => 'allow', 'deck_followup_cards' => 'allow',
+				'deck_create_card' => 'allow', 'deck_edit_card' => 'allow', 'deck_create_board' => 'allow',
+			]);
 			$f = DeckFixture::run($uid, 'date-seed', ['instant' => $instant]);
 			$body(new McpClient(LoginFactory::basic($uid)), $f);
 		} finally {
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($toolSnapshot);
 			if ($f !== null) {
 				DeckFixture::run($uid, 'date-cleanup', $f);
 			}

@@ -32,6 +32,7 @@ final class McpMailThreadTest extends IntegrationTestCase {
 			}
 		}
 		$serviceBefore = $config->getAppValue('mcp', GrantPolicy::SERVICE_KEY, '__missing__');
+		$toolSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([MailActor::ALICE, MailActor::BOB], ['mail_read_thread']);
 		$aliceImap = new ImapProbe((string)getenv('MCP_IT_IMAP_HOST'), (int)getenv('MCP_IT_IMAP_PORT'), 'alice', (string)getenv('MCP_IT_IMAP_PASSWORD'));
 		$bobImap = new ImapProbe((string)getenv('MCP_IT_IMAP_HOST'), (int)getenv('MCP_IT_IMAP_PORT'), 'bob', (string)getenv('MCP_IT_IMAP_PASSWORD'));
 		try {
@@ -39,8 +40,7 @@ final class McpMailThreadTest extends IntegrationTestCase {
 			foreach ([MailActor::ALICE, MailActor::BOB] as $uid) {
 				$policy->setEligible($uid, true);
 				$policy->setConnected($uid, true);
-				$policy->setGrant($uid, 'mail', 'read_message', true);
-				$policy->setGrant($uid, 'mail', 'read', true);
+				\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, ['mail_read_thread' => 'allow']);
 			}
 			$aliceState = $aliceImap->state();
 			$bobState = $bobImap->state();
@@ -98,6 +98,7 @@ final class McpMailThreadTest extends IntegrationTestCase {
 			} else {
 				$config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, $serviceBefore);
 			}
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($toolSnapshot);
 			foreach ($snapshot as $uid => $values) {
 				foreach ($values as $key => $value) {
 					if ($value === '__missing__') {

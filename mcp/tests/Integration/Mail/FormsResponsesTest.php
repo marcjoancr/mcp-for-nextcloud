@@ -25,6 +25,7 @@ final class FormsResponsesTest extends IntegrationTestCase {
 
 	/** @var array<string, array<string, string>> */
 	private array $policySnapshot = [];
+	private array $toolPermissionSnapshot = [];
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -33,10 +34,14 @@ final class FormsResponsesTest extends IntegrationTestCase {
 		}
 		$this->snapshotPolicy(Fixtures::ALICE, ['grant_forms_read', 'grant_forms_read_responses']);
 		$this->snapshotPolicy(Fixtures::BOB, ['grant_forms_read', 'grant_forms_read_responses']);
+		$this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([Fixtures::ALICE, Fixtures::BOB], ['forms_list', 'forms_read', 'forms_read_responses']);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::ALICE, ['forms_list' => 'allow', 'forms_read' => 'allow', 'forms_read_responses' => 'allow']);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::BOB, ['forms_list' => 'allow', 'forms_read' => 'allow', 'forms_read_responses' => 'allow']);
 	}
 
 	protected function tearDown(): void {
 		try {
+			if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
 			$config = Server::get(IConfig::class);
 			foreach ($this->policySnapshot as $uid => $values) {
 				foreach ($values as $key => $value) {
@@ -77,12 +82,12 @@ final class FormsResponsesTest extends IntegrationTestCase {
 			foreach ([Fixtures::ALICE, Fixtures::BOB] as $uid) {
 				$policy->setEligible($uid, true);
 				$policy->setConnected($uid, true);
-				$policy->setGrant($uid, 'forms', 'read', true);
+				\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, ['forms_list' => 'allow', 'forms_read' => 'allow']);
 			}
 			$aliceClient = new McpClient($alice);
 			$bobClient = new McpClient($bob);
-			$policy->setGrant(Fixtures::ALICE, 'forms', 'read_responses', true);
-			$policy->setGrant(Fixtures::BOB, 'forms', 'read_responses', true);
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::ALICE, ['forms_read_responses' => 'allow']);
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::BOB, ['forms_read_responses' => 'allow']);
 
 			$first = $aliceClient->tool('forms_read_responses', ['id' => $formId, 'limit' => 1]);
 			self::assertTrue($first->ok(), $first->describe());
@@ -130,7 +135,7 @@ final class FormsResponsesTest extends IntegrationTestCase {
 			self::assertSame($missing->fingerprint(), $foreign->fingerprint(),
 				'foreign and missing forms use the same generic response');
 
-			$policy->setGrant(Fixtures::ALICE, 'forms', 'read_responses', false);
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::ALICE, ['forms_read_responses' => 'deny']);
 			$revoked = $aliceClient->tool('forms_read_responses', ['id' => $formId]);
 			self::assertSame(-32602, $revoked->body['error']['code'] ?? null,
 				'revoking the MCP permission removes the tool from this user’s available catalog');
@@ -160,8 +165,7 @@ final class FormsResponsesTest extends IntegrationTestCase {
 			$policy->setGlobalEnabled(true);
 			$policy->setEligible(Fixtures::ALICE, true);
 			$policy->setConnected(Fixtures::ALICE, true);
-			$policy->setGrant(Fixtures::ALICE, 'forms', 'read', true);
-			$policy->setGrant(Fixtures::ALICE, 'forms', 'read_responses', true);
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(Fixtures::ALICE, ['forms_list' => 'allow', 'forms_read' => 'allow', 'forms_read_responses' => 'allow']);
 			$reply = (new McpClient($alice))->tool('forms_read_responses', ['id' => $formId]);
 			self::assertTrue($reply->ok(), $reply->describe());
 			$data = $reply->structured() ?: $reply->json();

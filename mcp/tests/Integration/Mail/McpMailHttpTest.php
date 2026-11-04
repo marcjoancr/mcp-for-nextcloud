@@ -16,14 +16,31 @@ use OCP\Server;
 
 /** Authenticated HTTP discovery and calls, with no Mail loadApp or actor in the requesting process. */
 final class McpMailHttpTest extends ExclusionTestCase {
+    private array $toolPermissionSnapshot = [];
+
+    protected function setUp(): void {
+        parent::setUp();
+        if (getenv('MCP_IT_WITH_MAIL') === '1') {
+            $this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([self::ALICE, self::BOB], ['mail_list_accounts', 'mail_list_mailboxes']);
+        }
+    }
+
+    protected function tearDown(): void {
+        try {
+            if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
+        } finally {
+            parent::tearDown();
+        }
+    }
+
 	/** @return void both supported HTTP credentials reach Mail through the endpoint's normal boot and admission */
 	public function testAuthenticatedEndpointDiscoversAndReadsOnlyOwnedCachedMail(): void {
 		if (getenv('MCP_IT_WITH_MAIL') !== '1') {
 			$this->markTestSkipped('Opt-in disposable Mail cell only');
 		}
 		$policy = Server::get(GrantPolicy::class);
-        self::assertFalse($policy->granted(self::BOB, 'mail', 'read'), 'New Mail grant must start denied');
-        $policy->setGrant(self::ALICE, 'mail', 'read', true);
+        self::assertFalse($policy->toolGranted(self::BOB, 'mail_list_accounts', 'mail', 'read'), 'New Mail tool grant must start denied');
+        \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::ALICE, ['mail_list_accounts' => 'allow', 'mail_list_mailboxes' => 'allow']);
 		$own = $this->account(self::ALICE);
 		$foreign = $this->account(self::BOB);
 		$before = $this->cacheHash($own);
@@ -52,7 +69,7 @@ final class McpMailHttpTest extends ExclusionTestCase {
 			self::assertSame($missing->fingerprint(), $other->fingerprint());
 		}
 		self::assertSame($before, $this->cacheHash($own), 'HTTP calls must leave cached account/folder state unchanged');
-        $policy->setGrant(self::ALICE, 'mail', 'read', false);
+        \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::ALICE, ['mail_list_accounts' => 'deny', 'mail_list_mailboxes' => 'deny']);
         foreach ($clients as $client) {
             self::assertFalse($client->tool('mail_list_accounts')->ok(), 'Revocation must affect existing credentials');
         }

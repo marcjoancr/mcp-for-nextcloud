@@ -19,6 +19,21 @@ use PHPUnit\Framework\Attributes\Group;
 /** Real Talk history cursors remain room-bound and reading pages never changes participant unread state. */
 #[Group('talk')]
 final class MessagePaginationTest extends ExclusionTestCase {
+    private array $toolPermissionSnapshot = [];
+
+    protected function setUp(): void {
+        parent::setUp();
+        $this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([self::ALICE, self::BOB, 'mcp-it-legacy'], ['talk_list_conversations', 'talk_read_messages', 'talk_create_group', 'talk_reply']);
+    }
+
+    protected function tearDown(): void {
+        try {
+            if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
+        } finally {
+            parent::tearDown();
+        }
+    }
+
     /** @param list<string> $keys @return array<string,string> */
     private function snapshotPolicy(string $uid, array $keys): array {
         $config = \OCP\Server::get(IConfig::class);
@@ -45,8 +60,13 @@ final class MessagePaginationTest extends ExclusionTestCase {
 
     /** @return array{McpClient, McpClient, string, list<string>} */
     private function conversationWithMessages(): array {
-        $alice = $this->mcp(self::ALICE);
-        $bob = $this->mcp(self::BOB);
+        foreach ([self::ALICE, self::BOB] as $uid) {
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, [
+                'talk_list_conversations' => 'allow', 'talk_read_messages' => 'allow', 'talk_create_group' => 'allow', 'talk_reply' => 'allow',
+            ]);
+        }
+        $alice = new McpClient(LoginFactory::basic(self::ALICE));
+        $bob = new McpClient(LoginFactory::basic(self::BOB));
         $room = $this->payload($alice->write('talk_create_group', ['name' => 'mcp history ' . $this->run, 'participants' => [self::BOB]]));
         $token = (string)$room['conversation_token'];
         $texts = [];
@@ -106,7 +126,7 @@ final class MessagePaginationTest extends ExclusionTestCase {
         self::assertSame($unreadBefore, $nativeBefore['unread']);
         $policy = \OCP\Server::get(GrantPolicy::class);
         $policySnapshot = $this->snapshotPolicy(self::BOB, ['grant_talk_read']);
-        $policy->setGrant(self::BOB, 'talk', 'read', false);
+        \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::BOB, ['talk_read_messages' => 'deny']);
         try {
             $denied = $bob->tool('talk_read_messages', ['conversation_token' => $token, 'limit' => 2]);
             self::assertSame(-32602, $denied->body['error']['code'] ?? null, 'the MCP catalog refuses talk_read_messages when talk.read is denied');
@@ -114,6 +134,7 @@ final class MessagePaginationTest extends ExclusionTestCase {
             self::assertSame($nativeBefore, $this->nativeReadState(self::BOB, $token), 'a denied request leaves native Talk state unchanged');
         } finally {
             $this->restorePolicy(self::BOB, $policySnapshot);
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(self::BOB, ['talk_read_messages' => 'allow']);
         }
 
         $first = $this->payload($bob->tool('talk_read_messages', ['conversation_token' => $token, 'limit' => 2]));
@@ -175,15 +196,19 @@ final class MessagePaginationTest extends ExclusionTestCase {
     }
 
     public function testPrivateRoomAndForeignRoomCursorDoNotCrossParticipants(): void {
-        $alice = $this->mcp(self::ALICE);
-        $bob = $this->mcp(self::BOB);
         $legacyUid = 'mcp-it-legacy';
+        foreach ([self::ALICE, self::BOB] as $uid) {
+            \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, ['talk_list_conversations' => 'allow', 'talk_read_messages' => 'allow', 'talk_create_group' => 'allow', 'talk_reply' => 'allow']);
+        }
+        $alice = new McpClient(LoginFactory::basic(self::ALICE));
+        $bob = new McpClient(LoginFactory::basic(self::BOB));
         $policy = \OCP\Server::get(GrantPolicy::class);
         $legacyPolicySnapshot = $this->snapshotPolicy($legacyUid, [GrantPolicy::ELIGIBLE_KEY, GrantPolicy::CONNECTED_KEY, 'grant_talk_create', 'grant_talk_reply']);
         $this->later(fn() => $this->restorePolicy($legacyUid, $legacyPolicySnapshot));
         $policy->setEligible($legacyUid, true);
         $policy->setConnected($legacyUid, true);
         foreach (['create', 'reply'] as $operation) { $policy->setGrant($legacyUid, 'talk', $operation, true); }
+        \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($legacyUid, ['talk_create_group' => 'allow', 'talk_reply' => 'allow', 'talk_read_messages' => 'allow']);
         $legacy = new McpClient(LoginFactory::basic($legacyUid));
         $privateRoom = $this->payload($legacy->write('talk_create_group', ['name' => 'private history ' . $this->run, 'participants' => [self::BOB]]));
         $privateToken = (string)$privateRoom['conversation_token'];

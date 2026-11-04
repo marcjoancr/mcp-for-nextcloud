@@ -105,3 +105,11 @@ Forms responses and Talk summaries append one definition each. Forms publication
 is covered by separate tests with a supported native version and explicit grants.
 The shared publication and protocol captures append the Talk summary tool and
 update its guide count. Every previous tool definition and result stays covered.
+
+The combined integration on the current permission model explicitly assigns new
+tools in the full-access fixture. The immutable 2.0.0 catalog and default, denied
+and alternative-link cases retain their authorization behavior. The protocol
+merge reorders named tool objects into module order; structural comparison
+verified that no values changed. Publication and result captures are byte-identical
+to the merged expectations. Independent tests require an explicit assignment for
+each new tool and verify that old operation grants cannot enable them.

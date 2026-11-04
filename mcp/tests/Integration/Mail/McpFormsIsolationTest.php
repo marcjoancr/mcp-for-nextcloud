@@ -20,12 +20,25 @@ use PHPUnit\Framework\Attributes\Group;
 /** Native Forms API fixtures and MCP calls against a pinned Forms app in the opt-in Mail cell. */
 #[Group('forms')]
 final class McpFormsIsolationTest extends IntegrationTestCase {
+	private array $toolPermissionSnapshot = [];
 	private const FORMS_API = Http::BASE . '/ocs/v2.php/apps/forms/api/v3/forms';
 
 	protected function setUp(): void {
 		parent::setUp();
 		if (getenv('MCP_IT_WITH_FORMS') !== '1') {
 			$this->markTestSkipped('Pinned Forms app is provisioned only in the opt-in Mail cell');
+		}
+		$this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([Fixtures::ALICE, Fixtures::BOB], ['forms_list', 'forms_read']);
+		foreach ([Fixtures::ALICE, Fixtures::BOB] as $uid) {
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, ['forms_list' => 'allow', 'forms_read' => 'allow']);
+		}
+	}
+
+	protected function tearDown(): void {
+		try {
+			if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
+		} finally {
+			parent::tearDown();
 		}
 	}
 
@@ -54,7 +67,7 @@ final class McpFormsIsolationTest extends IntegrationTestCase {
 			foreach ([Fixtures::ALICE, Fixtures::BOB] as $uid) {
 				$policy->setEligible($uid, true);
 				$policy->setConnected($uid, true);
-				$policy->setGrant($uid, 'forms', 'read', true);
+				\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, ['forms_list' => 'allow', 'forms_read' => 'allow']);
 			}
 			$aliceClient = new McpClient($alice);
 			$bobClient = new McpClient($bob);

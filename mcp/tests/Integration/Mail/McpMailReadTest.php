@@ -23,6 +23,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('mail')]
 final class McpMailReadTest extends IntegrationTestCase {
+	private array $toolPermissionSnapshot = [];
+
 	/** Folder created on the server after Mail cached the account. */
 	private const CANARY = 'Canary';
 
@@ -39,6 +41,15 @@ final class McpMailReadTest extends IntegrationTestCase {
 		if (getenv('MCP_IT_WITH_MAIL') !== '1') {
 			$this->markTestSkipped('Mail cell only (MCP_IT_WITH_MAIL=1)');
 		}
+		$this->toolPermissionSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([MailActor::ALICE], ['mail_list_accounts', 'mail_list_mailboxes', 'mail_search_messages', 'mail_read_message']);
+	}
+
+	protected function tearDown(): void {
+		try {
+			if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
+		} finally {
+			parent::tearDown();
+		}
 	}
 
 	/**
@@ -47,7 +58,7 @@ final class McpMailReadTest extends IntegrationTestCase {
 	 * @return void
 	 */
 	public function testTheToolsReadTheCacheAndChangeNothing(): void {
-		\OCP\Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class)->setGrant(MailActor::ALICE, 'mail', 'read', true);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(MailActor::ALICE, ['mail_list_accounts' => 'allow', 'mail_list_mailboxes' => 'allow']);
         $alice = MailActor::run(MailActor::ALICE, 'accounts')['accounts'];
 		$bob = MailActor::run(MailActor::BOB, 'accounts')['accounts'];
 		$this->assertCount(1, $alice);
@@ -97,8 +108,7 @@ final class McpMailReadTest extends IntegrationTestCase {
 		$policy->setGlobalEnabled(true);
 		$policy->setEligible(MailActor::ALICE, true);
 		$policy->setConnected(MailActor::ALICE, true);
-		$policy->setGrant(MailActor::ALICE, 'mail', 'search', true);
-		$policy->setGrant(MailActor::ALICE, 'mail', 'read_message', true);
+		\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign(MailActor::ALICE, ['mail_list_accounts' => 'allow', 'mail_search_messages' => 'allow', 'mail_read_message' => 'allow']);
 		$accounts = MailActor::run(MailActor::ALICE, 'accounts')['accounts'];
 		$foreignAccounts = MailActor::run(MailActor::BOB, 'accounts')['accounts'];
 		$this->assertCount(1, $accounts);

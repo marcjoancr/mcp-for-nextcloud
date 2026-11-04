@@ -30,14 +30,15 @@ final class CardCommentsPersistenceTest extends IntegrationTestCase {
 			}
 		}
 		$serviceBefore = $config->getAppValue('mcp', GrantPolicy::SERVICE_KEY, '__missing__');
+		$toolSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([$owner, $reader], ['deck_list_comments', 'deck_add_comment']);
 		$fixture = null;
 		try {
 			$policy->setGlobalEnabled(true);
 			foreach ([$owner, $reader] as $uid) {
 				$policy->setEligible($uid, true);
 				$policy->setConnected($uid, true);
-				$policy->setGrant($uid, 'deck', 'read_comments', true);
-				$policy->setGrant($uid, 'deck', 'comment', true);
+				\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, ['deck_list_comments' => 'allow', 'deck_add_comment' => 'allow']);
+				// Both comment tools use explicit per-tool permissions above.
 			}
 			$fixture = DeckFixture::run($owner, 'comment-seed');
 			$ownerClient = new McpClient(LoginFactory::basic($owner));
@@ -94,6 +95,7 @@ final class CardCommentsPersistenceTest extends IntegrationTestCase {
 			} else {
 				$config->setAppValue('mcp', GrantPolicy::SERVICE_KEY, $serviceBefore);
 			}
+			\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($toolSnapshot);
 			foreach ($snapshot as $uid => $values) {
 				foreach ($values as $key => $value) {
 					if ($value === '__missing__') {

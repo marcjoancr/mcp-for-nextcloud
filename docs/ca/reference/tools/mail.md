@@ -27,7 +27,7 @@ Sense carpetes en memòria cau, retorna una pàgina buida i una nota per obrir M
 i sincronitzar-hi. Les dades poden estar desactualitzades: aquestes eines no
 actualitzen mai la memòria cau.
 
-`mail_read_thread` llegeix un fil de el mateix compte a partir d’un `message_id` visible amb `mail.read_message`, sense marcar els correus com a llegits.
+`mail_read_thread` llegeix un fil del mateix compte a partir d’un `message_id` visible amb `mail.read_message`, sense marcar els correus com a llegits.
 
 La cerca `mail_search_messages` requereix `mail.search` i utilitza capçaleres en memòria cau. Per llegir un missatge propi, `mail_read_message` requereix `mail.read_message` i conserva l’estat de no llegit. Tots dos permisos comencen denegats. Les respostes exclouen credencials i
 configuració del servidor. Els ID desconeguts, aliens o delegats reben el mateix

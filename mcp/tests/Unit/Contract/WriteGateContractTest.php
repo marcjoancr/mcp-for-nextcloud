@@ -128,7 +128,15 @@ final class WriteGateContractTest extends TestCase {
 
     private function registry(array $modules): ToolRegistry {
         $config = new InMemoryConfig();
-        $policy = \OCA\Mcp\Tests\Unit\InMemoryConfig::policy($config->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        $configuration = $config->mock($this);
+        $policy = InMemoryConfig::policy($configuration, new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
+        foreach ($modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                if (!\OCA\Mcp\Access\Grants\LegacyToolCatalog::contains($definition['name'])) {
+                    InMemoryConfig::storeToolPolicy($configuration, 'user', 'alice', $definition['name'], 'allow');
+                }
+            }
+        }
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
                 $policy->setGrant('alice', $module, $operation, true);
