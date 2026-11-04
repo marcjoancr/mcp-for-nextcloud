@@ -3873,6 +3873,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -7694,6 +7736,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -11515,6 +11599,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -15331,6 +15457,48 @@
                         },
                         "annotations": {
                             "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
                             "readOnlyHint": false,
                             "destructiveHint": true,
                             "idempotentHint": false,
@@ -19791,6 +19959,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -23612,6 +23822,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -27433,6 +27685,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ]
             }
@@ -31249,6 +31543,48 @@
                         },
                         "annotations": {
                             "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
                             "readOnlyHint": false,
                             "destructiveHint": true,
                             "idempotentHint": false,
@@ -35722,6 +36058,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ],
                 "ttlMs": 0,
@@ -39552,6 +39930,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ],
                 "ttlMs": 0,
@@ -43382,6 +43802,48 @@
                             "idempotentHint": false,
                             "openWorldHint": false
                         }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
                     }
                 ],
                 "ttlMs": 0,
@@ -47207,6 +47669,48 @@
                         },
                         "annotations": {
                             "title": "Post card comment",
+                            "readOnlyHint": false,
+                            "destructiveHint": true,
+                            "idempotentHint": false,
+                            "openWorldHint": false
+                        }
+                    },
+                    {
+                        "name": "talk_publish_summary",
+                        "title": "Publish a summary in Talk",
+                        "description": "Publishes the supplied summary text as one message in an existing Talk conversation where you can write. This tool does not read Forms data or compose a summary. The preview shows the exact message and destination without writing; explicitly show it to the user and get their approval. Confirm with the same conversation_token, message, and plan_state. Confirmation becomes stale if the conversation audience changes. Public conversations may be visible to people beyond current participants. If sending reports an uncertain result, check Talk before trying again; this tool never retries automatically.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "conversation_token": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 30
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                },
+                                "confirm": {
+                                    "type": "boolean",
+                                    "description": "Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan."
+                                },
+                                "plan_state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                                }
+                            },
+                            "required": [
+                                "conversation_token",
+                                "message"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "annotations": {
+                            "title": "Publish a summary in Talk",
                             "readOnlyHint": false,
                             "destructiveHint": true,
                             "idempotentHint": false,

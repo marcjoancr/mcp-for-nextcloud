@@ -177,9 +177,83 @@ final class FormsModuleTest extends TestCase {
         $module = FormsModule::withReader(new FakeFormsReader([], []));
         $definitions = $module->definitions();
 
-        self::assertSame(['forms_list', 'forms_read'], array_column($definitions, 'name'));
-        self::assertSame(['read', 'read'], array_column($definitions, 'operation'));
-        self::assertSame(['forms', 'forms'], array_column($definitions, 'app'));
+        self::assertSame(['forms_list', 'forms_read', 'forms_read_responses'], array_column($definitions, 'name'));
+        self::assertSame(['read', 'read', 'read_responses'], array_column($definitions, 'operation'));
+        self::assertSame(['forms', 'forms', 'forms'], array_column($definitions, 'app'));
+    }
+
+    public function testReadsOnlyAllowlistedResponseFieldsAndHonorsAnonymousForms(): void {
+        $reader = new FakeFormsReader([], []);
+        $responses = new FakeFormsResponseReader(['alice:7' => [
+            'formId' => 7,
+            'isAnonymous' => true,
+            'submissions' => [[
+                'id' => 1, 'formId' => 7, 'userId' => 'alice', 'timestamp' => 123,
+                'answers' => [['id' => 2, 'submissionId' => 1, 'fileId' => 999, 'questionId' => 3, 'text' => 'yes', 'uploadedFileToken' => 'secret']],
+            ]],
+        ]]);
+        $module = FormsModule::withReader($reader, $responses);
+
+        $result = $this->call($module, 'forms_read_responses', ['id' => 7], 'alice');
+
+        self::assertSame([['id' => 1, 'timestamp' => 123, 'answers' => [['questionId' => 3, 'text' => 'yes']], 'answersTruncated' => false]], $result['submissions']);
+        self::assertSame(7, $result['formId']);
+        self::assertTrue($result['isAnonymous']);
+        self::assertFalse($result['fileAnswersOmitted']);
+        self::assertSame(['alice', 7, 0, 50], $responses->requests[0]);
+    }
+
+    public function testHistoricalAnonymousResponsesKeepTheirIdentityHidden(): void {
+        $responses = new FakeFormsResponseReader(['alice:7' => [
+            'formId' => 7, 'isAnonymous' => false,
+            'submissions' => [
+                ['id' => 1, 'userId' => 'anon-user-stable-pseudonym', 'timestamp' => 123, 'answers' => []],
+                ['id' => 2, 'userId' => 'bob', 'timestamp' => 124, 'answers' => []],
+            ],
+        ]]);
+        $module = FormsModule::withReader(new FakeFormsReader([], []), $responses);
+        $result = $this->call($module, 'forms_read_responses', ['id' => 7], 'alice');
+        self::assertArrayNotHasKey('userId', $result['submissions'][0]);
+        self::assertSame('bob', $result['submissions'][1]['userId']);
+    }
+
+    public function testResponsePagesAreBoundedAndMissingOrForbiddenIsGeneric(): void {
+        $responses = new FakeFormsResponseReader(['alice:7' => ['formId' => 7, 'isAnonymous' => false, 'submissions' => []]]);
+        $module = FormsModule::withReader(new FakeFormsReader([], []), $responses);
+        $result = $this->call($module, 'forms_read_responses', ['id' => 7, 'offset' => 8, 'limit' => 2], 'alice');
+        self::assertSame(['formId' => 7, 'isAnonymous' => false, 'submissions' => [], 'fileAnswersOmitted' => false, 'hasMore' => false, 'nextOffset' => null], $result);
+        self::assertSame(['alice', 7, 8, 2], $responses->requests[0]);
+
+        try {
+            $this->call($module, 'forms_read_responses', ['id' => 999], 'alice');
+            self::fail('Missing and forbidden forms must be indistinguishable');
+        } catch (ToolFailure $e) {
+            self::assertSame(ToolFailure::NOT_FOUND, $e->getMessage());
+        }
+    }
+
+    public function testResponseSanitizerDropsFileAnswersAndBoundsText(): void {
+        $module = FormsModule::withReader(new FakeFormsReader([], []), new FakeFormsResponseReader(['alice:7' => [
+            'formId' => 7,
+            'isAnonymous' => false,
+            'fileQuestionIds' => [4],
+            'submissions' => [[
+                'id' => 3, 'formId' => 7, 'userId' => 'alice', 'timestamp' => 50,
+                'answers' => [
+                    ['questionId' => 4, 'text' => '/private/file/path', 'fileId' => 66],
+                    ['questionId' => 5, 'text' => str_repeat('x', 2048), 'uploadedFileToken' => 'never-return'],
+                ],
+            ]],
+        ]]));
+
+        $result = $this->call($module, 'forms_read_responses', ['id' => 7], 'alice');
+
+        self::assertSame('alice', $result['submissions'][0]['userId']);
+        self::assertTrue($result['fileAnswersOmitted']);
+        self::assertCount(1, $result['submissions'][0]['answers']);
+        self::assertSame(1024, strlen($result['submissions'][0]['answers'][0]['text']));
+        self::assertTrue($result['submissions'][0]['answers'][0]['textTruncated']);
+        self::assertArrayNotHasKey('uploadedFileToken', $result['submissions'][0]['answers'][0]);
     }
 
     private function call(FormsModule $module, string $name, array $arguments, string $userId): array {
@@ -188,6 +262,15 @@ final class FormsModuleTest extends TestCase {
         $validated = ArgumentValidator::validate($published['inputSchema'], $arguments);
         $result = $module->call($name, $validated, $userId);
         return json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
+    }
+}
+
+final class FakeFormsResponseReader implements \OCA\Mcp\Modules\Forms\FormsResponseReader {
+    public array $requests = [];
+    public function __construct(private array $byKey) {}
+    public function readResponses(string $userId, int $formId, int $offset, int $limit): ?array {
+        $this->requests[] = [$userId, $formId, $offset, $limit];
+        return $this->byKey[$userId . ':' . $formId] ?? null;
     }
 }
 

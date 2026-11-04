@@ -22,3 +22,5 @@ Consulta `mcp_guide` per obtenir l'esquema autoritatiu i les operacions disponib
 [Guies operatives](../../guides/README.md).
 
 [English](../../../en/reference/tools/talk.md) · [Español](../../../es/reference/tools/talk.md) · Català · [Português (Brasil)](../../../pt-BR/reference/tools/talk.md) · [Português (Portugal)](../../../pt-PT/reference/tools/talk.md)
+
+`forms_read_responses` consulta respostes amb `forms.read_responses` i el permís natiu per veure resultats. `talk_publish_summary` publica el text `message` en una conversa existent amb el permís independent `talk.publish_summary`. Mostra el text complet i el destí abans de repetir la crida amb `confirm: true` i el `plan_state` rebut. Si canvien, cal una altra vista prèvia.

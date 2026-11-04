@@ -40,7 +40,7 @@ final class ToolPresentation {
      * else to remove them, which is exactly the confirmation a client offers on a destructive tool. Editing is in
      * the list for the same reason a client marks it: what is written over the old content is gone from the file.
      */
-    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment'];
+    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary'];
     /**
      * Operations a client may repeat with the same result. A read obviously, and a rollback: restoring the same
      * version twice leaves the same content, however many versions the second attempt adds to the history.
@@ -156,6 +156,8 @@ final class ToolPresentation {
             'users_search' => Translator::t('Search people'),
             'forms_list' => Translator::t('List forms'),
             'forms_read' => Translator::t('Read form questions and options'),
+            'forms_read_responses' => Translator::t('Read form responses'),
+            'talk_publish_summary' => Translator::t('Publish a summary in Talk'),
             'mail_search_messages' => Translator::t('Search mail messages'),
             'deck_list_comments' => Translator::t('Read card comments'),
             'deck_add_comment' => Translator::t('Post card comment'),

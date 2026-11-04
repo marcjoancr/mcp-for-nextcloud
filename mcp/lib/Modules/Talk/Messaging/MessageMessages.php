@@ -20,6 +20,11 @@ final class MessageMessages
         return Translator::t('the message could not be sent');
     }
 
+    public static function summaryDeliveryUncertain(): string
+    {
+        return Translator::t('Talk may have published the summary. Check the conversation before trying again.');
+    }
+
     /**
      * The message body is missing or blank.
      * @return string The message in the language of the current user.

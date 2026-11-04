@@ -70,7 +70,6 @@ final class FormsNativeReaderTest extends TestCase {
                 $this->lookup = [$id, $permission];
                 return $this->form;
             }
-
             public function getForm(object $form): array {
                 return ['id' => 12, 'questions' => []];
             }
@@ -81,6 +80,64 @@ final class FormsNativeReaderTest extends TestCase {
         self::assertSame([12, 'submit'], $service->lookup);
     }
 
+    public function testReadsResponsesOnlyAfterNativeResultsAuthorizationAndUsesBoundedNativeQuery(): void {
+        $user = $this->createMock(IUser::class);
+        $form = new class {
+            public function getIsAnonymous(): bool { return true; }
+        };
+        $forms = new class($form) {
+            public ?array $lookup = null;
+            public function __construct(private object $form) {}
+            public function getFormIfAllowed(int $id, string $permission): object {
+                $this->lookup = [$id, $permission];
+                return $this->form;
+            }
+            public function getPermissions(object $form): array { return ['results']; }
+            public function getQuestions(int $id): array {
+                return [['id' => 8, 'type' => 'file'], ['id' => 9, 'type' => 'text']];
+            }
+        };
+        $submissions = new class {
+            public ?array $query = null;
+            public function getSubmissions(int $formId, ?string $userId, ?string $query, ?int $limit, int $offset): array {
+                $this->query = [$formId, $userId, $query, $limit, $offset];
+                return [];
+            }
+        };
+        $reader = $this->reader($user, [
+            'OCA\\Forms\\Service\\FormsService' => $forms,
+            'OCA\\Forms\\Service\\SubmissionService' => $submissions,
+        ]);
+
+        self::assertSame(['formId' => 12, 'isAnonymous' => true, 'fileQuestionIds' => [8], 'submissions' => []], $reader->readResponses('alice', 12, 20, 10));
+        self::assertSame([12, 'results'], $forms->lookup);
+        self::assertSame([12, null, null, 11, 20], $submissions->query);
+    }
+
+    public function testSubmitterWithoutExplicitResultsPermissionCannotReadTheSharedResponseSet(): void {
+        $user = $this->createMock(IUser::class);
+        $forms = new class {
+            public function getFormIfAllowed(int $id, string $permission): object { return new \stdClass(); }
+            public function getPermissions(object $form): array { return ['submit']; }
+        };
+        $reader = $this->reader($user, ['OCA\\Forms\\Service\\FormsService' => $forms]);
+        self::assertNull($reader->readResponses('alice', 12, 0, 50));
+    }
+
+    public function testHidesNativeMissingAndForbiddenResultFormsAsNull(): void {
+        if (!class_exists('OCA\\Forms\\Exception\\NoSuchFormException')) {
+            class_alias(FormNoSuchFormException::class, 'OCA\\Forms\\Exception\\NoSuchFormException');
+        }
+        $user = $this->createMock(IUser::class);
+        $service = new class {
+            public function getFormIfAllowed(int $id, string $permission): never {
+                throw new FormNoSuchFormException('forbidden or missing');
+            }
+        };
+        $reader = $this->reader($user, ['OCA\\Forms\\Service\\FormsService' => $service]);
+        self::assertNull($reader->readResponses('alice', 12, 0, 10));
+    }
+
     public function testRejectsMismatchedSessionBeforeResolvingFormsServices(): void {
         $user = $this->createMock(IUser::class);
         $serviceCalled = false;
@@ -89,6 +146,19 @@ final class FormsNativeReaderTest extends TestCase {
         try {
             $reader->list('alice');
             self::fail('A mismatched session must fail closed');
+        } catch (ToolFailure $e) {
+            self::assertSame(ToolFailure::FORBIDDEN, $e->getMessage());
+        }
+        self::assertFalse($serviceCalled);
+    }
+
+    public function testRejectsMismatchedSessionBeforeResolvingResponseServices(): void {
+        $user = $this->createMock(IUser::class);
+        $serviceCalled = false;
+        $reader = $this->reader($user, [], 'bob', $serviceCalled);
+        try {
+            $reader->readResponses('alice', 1, 0, 10);
+            self::fail('A mismatched session must not read submissions');
         } catch (ToolFailure $e) {
             self::assertSame(ToolFailure::FORBIDDEN, $e->getMessage());
         }
@@ -111,6 +181,8 @@ final class FormsNativeReaderTest extends TestCase {
         return new FormsNativeReader($apps, $users, $service, static fn(): ?string => $sessionUid);
     }
 }
+
+final class FormNoSuchFormException extends \RuntimeException {}
 
 final class FormStub {
     public function __construct(private int $id, private string $title = 'Form') {

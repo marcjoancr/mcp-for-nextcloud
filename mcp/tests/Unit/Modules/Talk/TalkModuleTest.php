@@ -146,6 +146,7 @@ class TalkModuleTest extends TestCase
                 'talk_message_user' => 'reply',
                 'talk_send_batch' => 'reply',
                 'talk_create_group' => 'create',
+                'talk_publish_summary' => 'publish_summary',
             ],
             array_column($this->module->definitions(), 'operation', 'name'),
         );

@@ -53,3 +53,5 @@ Además:
 
 [Mail](tools/mail.md)
 - **Forms** permite listar formularios accesibles y leer sus preguntas y opciones con `forms_list` y `forms_read`. Requiere Forms 5.3.0 o posterior y `forms.read`. Los desplazamientos de la respuesta permiten continuar leyendo preguntas y opciones. Los campos de texto truncados a 1 KiB se indican en el resultado.
+
+`forms_read_responses` consulta respuestas con el permiso independiente `forms.read_responses` y acceso nativo al conjunto de resultados. Usa `id`, `offset` y `limit` (50 por defecto, máximo 100). Continúa con `nextOffset` mientras `hasMore` sea verdadero. Cada envío devuelve hasta 200 respuestas. `answersTruncated` y `textTruncated` indican contenido recortado. Se omiten las respuestas de archivos y los identificadores de participantes anónimos, también en envíos anteriores a un cambio de configuración del formulario. `fileAnswersOmitted` indica la omisión de archivos.

@@ -41,10 +41,16 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule {
         return $tool->execute($arguments, new ToolContext($userId));
     }
 
-    public static function withReader(FormsReader $reader): self {
+    public static function withReader(FormsReader $reader, ?FormsResponseReader $responseReader = null): self {
+        $responseReader ??= new class implements FormsResponseReader {
+            public function readResponses(string $userId, int $formId, int $offset, int $limit): ?array {
+                return null;
+            }
+        };
         return new self([
             'forms_list' => static fn (): Tool => new Tools\ListForms($reader),
             'forms_read' => static fn (): Tool => new Tools\ReadForm($reader),
+            'forms_read_responses' => static fn (): Tool => new Tools\ReadResponses($responseReader),
         ]);
     }
 }

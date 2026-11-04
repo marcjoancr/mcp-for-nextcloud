@@ -19,7 +19,8 @@ final class LegacyCatalogContract {
 	public static function baseline(array $baseline, array $current): array {
 		$expected = $baseline;
 		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment'];
-		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read']]) {
+		$expected['talk'] = [...$baseline['talk'], 'publish_summary'];
+		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message'], 'forms' => ['read', 'read_responses']]) {
 			throw new \UnexpectedValueException('Unexpected change to legacy permissions');
 		}
 		return $baseline;
@@ -34,12 +35,13 @@ final class LegacyCatalogContract {
 		foreach ($answers as &$state) {
 			foreach ($state['matrix'] as &$row) {
 				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false]
-					|| ($row['grants']['forms'] ?? null) !== ['read' => false]
+					|| ($row['grants']['forms'] ?? null) !== ['read' => false, 'read_responses' => false]
+					|| ($row['grants']['talk']['publish_summary'] ?? null) !== false
 					|| ($row['grants']['deck']['read_comments'] ?? null) !== false
 					|| ($row['grants']['deck']['comment'] ?? null) !== false) {
 					throw new \UnexpectedValueException('Unexpected default in the legacy matrix');
 				}
-				unset($row['grants']['mail'], $row['grants']['forms'], $row['grants']['deck']['read_comments'], $row['grants']['deck']['comment']);
+				unset($row['grants']['mail'], $row['grants']['forms'], $row['grants']['deck']['read_comments'], $row['grants']['deck']['comment'], $row['grants']['talk']['publish_summary']);
 			}
 			unset($row);
 		}

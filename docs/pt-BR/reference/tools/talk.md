@@ -24,3 +24,5 @@ Consulte `mcp_guide` para o esquema e as operações disponíveis.
 [Guias de operação](../../guides/README.md).
 
 [English](../../../en/reference/tools/talk.md) · [Español](../../../es/reference/tools/talk.md) · [Català](../../../ca/reference/tools/talk.md) · Português (Brasil) · [Português (Portugal)](../../../pt-PT/reference/tools/talk.md)
+
+`forms_read_responses` consulta respostas com `forms.read_responses` e permissão nativa para ver resultados. `talk_publish_summary` publica o texto `message` em uma conversa existente com a permissão independente `talk.publish_summary`. Mostre o texto completo e o destino antes de repetir a chamada com `confirm: true` e o `plan_state` recebido. Se mudarem, é necessária outra prévia.

@@ -19,7 +19,7 @@ class TalkConstants
      * Talk constants the permission checks depend on, read from the loaded classes instead of being copied here,
      * so a change of value upstream cannot silently loosen or break the ACL.
      *
-     * @return array{chatPermission:int, lobbyIgnorePermission:int, readOnly:int, changelogType:int, lobbyNone:int, actorUsers:string, groupType:int}
+     * @return array{chatPermission:int, lobbyIgnorePermission:int, readOnly:int, changelogType:int, lobbyNone:int, actorUsers:string, groupType:int, publicType:int, oneToOneType:int}
      * @throws TalkUnavailableException When spreed is disabled for the user or a class is not loaded
      */
     public function forUser(string $userId): array
@@ -41,6 +41,8 @@ class TalkConstants
             'lobbyNone' => (int) constant(self::WEBINARY_CLASS . '::LOBBY_NONE'),
             'actorUsers' => (string) constant(self::ATTENDEE_CLASS . '::ACTOR_USERS'),
             'groupType' => (int) constant(self::ROOM_CLASS . '::TYPE_GROUP'),
+            'publicType' => (int) constant(self::ROOM_CLASS . '::TYPE_PUBLIC'),
+            'oneToOneType' => (int) constant(self::ROOM_CLASS . '::TYPE_ONE_TO_ONE'),
         ];
     }
 }

@@ -372,6 +372,103 @@
       "external": [
         "Exception"
       ]
+    },
+    "OCA\\Forms\\Service\\SubmissionService": {
+      "kind": "class",
+      "methods": {
+        "__construct": [
+          "questionMapper",
+          "submissionMapper",
+          "answerMapper",
+          "uploadedFileMapper",
+          "rootFolder",
+          "config",
+          "l10n",
+          "logger",
+          "userManager",
+          "userSession",
+          "mailer",
+          "tempManager",
+          "formsService",
+          "urlGenerator",
+          "optionMapper"
+        ],
+        "getSubmission": [
+          "submissionId"
+        ],
+        "getSubmissions": [
+          "formId",
+          "userId?",
+          "query?",
+          "limit?",
+          "offset?"
+        ],
+        "getSubmissionsData": [
+          "form",
+          "fileFormat",
+          "file?"
+        ],
+        "validateSubmission": [
+          "questions",
+          "answers",
+          "formOwnerId"
+        ],
+        "writeFileToCloud": [
+          "form",
+          "path",
+          "fileFormat",
+          "ownerId?"
+        ]
+      },
+      "types": {
+        "__construct": [
+          "OCA\\Forms\\Db\\QuestionMapper",
+          "OCA\\Forms\\Db\\SubmissionMapper",
+          "OCA\\Forms\\Db\\AnswerMapper",
+          "OCA\\Forms\\Db\\UploadedFileMapper",
+          "OCP\\Files\\IRootFolder",
+          "OCP\\IConfig",
+          "OCP\\IL10N",
+          "Psr\\Log\\LoggerInterface",
+          "OCP\\IUserManager",
+          "OCP\\IUserSession",
+          "OCP\\Mail\\IMailer",
+          "OCP\\ITempManager",
+          "OCA\\Forms\\Service\\FormsService",
+          "OCA\\Forms\\Service\\IUrlGenerator",
+          "OCA\\Forms\\Db\\OptionMapper"
+        ],
+        "getSubmission": [
+          "int"
+        ],
+        "getSubmissions": [
+          "int",
+          "?string",
+          "?string",
+          "?int",
+          "int"
+        ],
+        "getSubmissionsData": [
+          "OCA\\Forms\\Db\\Form",
+          "string",
+          "?OCP\\Files\\File"
+        ],
+        "validateSubmission": [
+          "array",
+          "array",
+          "string"
+        ],
+        "writeFileToCloud": [
+          "OCA\\Forms\\Db\\Form",
+          "string",
+          "string",
+          "?string"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [],
+      "external": []
     }
   }
 }

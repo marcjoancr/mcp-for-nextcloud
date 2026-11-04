@@ -181,6 +181,13 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Talk\DirectMessaging\ContactResolver::class),
             $c->get(\Psr\Log\LoggerInterface::class)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Talk\Messaging\SummaryPublishing::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\Messaging\SummaryPublishing(
+            $c->get(\OCA\Mcp\Modules\Talk\Messaging\MessageSender::class),
+            $c->get(\OCA\Mcp\Modules\Talk\Access\ConversationResolver::class),
+            $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+            (new \OCA\Mcp\Modules\Talk\Integration\TalkServiceFactory('OCA\\Talk\\Service\\ParticipantService', static fn () => $c->get('OCA\\Talk\\Service\\ParticipantService'), $c->get(\OCA\Mcp\Modules\Talk\Integration\TalkAvailability::class)))->forUser(...),
+            $c->get(\OCA\Mcp\Modules\Talk\Integration\TalkConstants::class)->forUser(...),
+        ));
         $context->registerService(\OCA\Mcp\Modules\Talk\TalkModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Talk\TalkModule(
             [
                 \OCA\Mcp\Modules\Talk\Tools\ListConversations::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\ListConversations::class),
@@ -190,6 +197,7 @@ class Application extends App implements IBootstrap {
                 \OCA\Mcp\Modules\Talk\Tools\QuoteFile::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\QuoteFile::class),
                 \OCA\Mcp\Modules\Talk\Tools\MessageUser::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\MessageUser::class),
                 \OCA\Mcp\Modules\Talk\Tools\SendBatch::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\SendBatch::class),
+                \OCA\Mcp\Modules\Talk\Tools\PublishSummary::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\PublishSummary::class),
                 \OCA\Mcp\Modules\Talk\Tools\CreateGroup::NAME => static fn () => $c->get(\OCA\Mcp\Modules\Talk\Tools\CreateGroup::class),
             ],
             $c->get(\OCA\Mcp\Modules\Talk\Execution\ResultBoundary::class),
@@ -566,11 +574,15 @@ class Application extends App implements IBootstrap {
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\People\Tools\SearchUsers => new \OCA\Mcp\Modules\People\Tools\SearchUsers(
                 $c->get(\OCA\Mcp\Modules\People\Search\PeopleSearch::class),
             ));
-        $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\FormsNativeReader(
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsNativeReader::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\FormsNativeReader(
             $c->get(IAppManager::class), $c->get(IUserManager::class),
             static fn (string $class) => $c->get($class), static fn () => $c->get(IUserSession::class)->getUser()?->getUID(),
         ));
-        $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader($c->get(\OCA\Mcp\Modules\Forms\FormsReader::class)));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsResponseReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader(
+            $c->get(\OCA\Mcp\Modules\Forms\FormsReader::class), $c->get(\OCA\Mcp\Modules\Forms\FormsResponseReader::class),
+        ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(
             $c->get(IAppManager::class), static fn (string $class) => $c->get($class), $c->get(IUserManager::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class));

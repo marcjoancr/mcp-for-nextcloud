@@ -263,7 +263,7 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $module = $get(\OCA\Mcp\Modules\Talk\TalkModule::class);
-        self::assertCount(8, $module->definitions());
+        self::assertCount(9, $module->definitions());
         foreach (\OCA\Mcp\Modules\Talk\TalkToolCatalog::classes() as $tool) {
             self::assertInstanceOf($tool, $get($tool));
         }

@@ -4,9 +4,9 @@
 
 # Tools
 
-The module catalogs contain at most **91 module tools**, plus `mcp_status` and
-`mcp_guide` (93 total). Three Deck dependency tools are conditional on compatible
-NC34/35 native APIs, leaving at most 88 module tools (90 total) without them.
+The module catalogs contain at most **93 module tools**, plus `mcp_status` and
+`mcp_guide` (95 total). Three Deck dependency tools are conditional on compatible
+NC34/35 native APIs, leaving at most 90 module tools (92 total) without them.
 App availability and each account's access further reduce these counts.
 
 Each tool only appears in `tools/list` and can only be called when the user has the grant for the operation and the required app is enabled for them. Grant and app are checked again on every call. Everything runs as the authenticated user, through their own Nextcloud folder, and the Nextcloud permissions and shares keep applying.
@@ -45,7 +45,9 @@ Plus:
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
 - [Mail](tools/mail.md)
-- **Forms** — `forms_list` lists accessible forms. `forms_read` reads a form’s questions and options. Requires Forms 5.3.0 or later and the separate `forms.read` grant. Neither tool exposes submissions. Use the returned offsets to retrieve subsequent questions and options. Text fields longer than 1 KiB carry a truncation flag.
+- **Forms** — `forms_list` lists accessible forms. `forms_read` reads a form’s questions and options. Requires Forms 5.3.0 or later and the separate `forms.read` grant. `forms_read_responses` reads submission pages with the separate `forms.read_responses` grant and native results permission. Use the returned offsets to retrieve subsequent questions and options. Text fields longer than 1 KiB carry a truncation flag.
+
+For `forms_read_responses`, pass the form `id`, `limit` (default 50, maximum 100) and `offset`. Follow `nextOffset` while `hasMore` is true. Each submission includes at most 200 answers, with `answersTruncated` indicating omitted answers. Text longer than 1 KiB has `textTruncated: true`. Uploaded file answers are omitted and reported through `fileAnswersOmitted`. Anonymous submissions omit respondent IDs even when the form's anonymity setting later changes. A submitter's ability to view their own responses does not grant access to the full result set through this tool.
 
 `mcp_status` provides diagnostics without reading user data. Server identity in
 protocol, tool, prompt and resource metadata reports the installed app version

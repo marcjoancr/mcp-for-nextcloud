@@ -15,10 +15,11 @@ use OCP\IUser;
 use OCP\IUserManager;
 
 /** Uses the Forms app's own services so its share, group, team, and permit-all ACLs remain authoritative. */
-final class FormsNativeReader implements FormsReader {
+final class FormsNativeReader implements FormsReader, FormsResponseReader {
     private const FORMS_SERVICE = 'OCA\\Forms\\Service\\FormsService';
     private const FORM_MAPPER = 'OCA\\Forms\\Db\\FormMapper';
     private const SUBMIT_PERMISSION = 'submit';
+    private const RESULTS_PERMISSION = 'results';
     private const NO_SUCH_FORM = 'OCA\\Forms\\Exception\\NoSuchFormException';
 
     /**
@@ -73,6 +74,44 @@ final class FormsNativeReader implements FormsReader {
         }
 
         return $formsService->getForm($form);
+    }
+
+    public function readResponses(string $userId, int $formId, int $offset, int $limit): ?array {
+        $this->assertUser($userId);
+        $offset = max(0, $offset);
+        $limit = min(max(1, $limit), FormsOutput::MAX_SUBMISSIONS);
+        $formsService = ($this->service)(self::FORMS_SERVICE);
+        try {
+            // Forms checks current-user result visibility here, including ownership, shares and prior submissions.
+            $form = $formsService->getFormIfAllowed($formId, self::RESULTS_PERMISSION);
+        } catch (\Throwable $exception) {
+            if (is_a($exception, self::NO_SUCH_FORM)) {
+                return null;
+            }
+            throw $exception;
+        }
+
+        // Forms' native results check also admits prior submitters who may see only their own row.
+        // This tool reads the shared result set, so require its explicit results permission.
+        if (!in_array(self::RESULTS_PERMISSION, $formsService->getPermissions($form), true)) {
+            return null;
+        }
+
+        $questions = $formsService->getQuestions($formId);
+        $fileQuestionIds = [];
+        foreach ($questions as $question) {
+            if (($question['type'] ?? null) === 'file' && is_int($question['id'] ?? null)) {
+                $fileQuestionIds[] = $question['id'];
+            }
+        }
+
+        $submissionService = ($this->service)('OCA\\Forms\\Service\\SubmissionService');
+        return [
+            'formId' => $formId,
+            'isAnonymous' => (bool)$form->getIsAnonymous(),
+            'fileQuestionIds' => $fileQuestionIds,
+            'submissions' => $submissionService->getSubmissions($formId, null, null, $limit + 1, $offset),
+        ];
     }
 
     private function assertUser(string $userId): IUser {

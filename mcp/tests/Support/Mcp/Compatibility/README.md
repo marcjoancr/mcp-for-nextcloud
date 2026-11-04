@@ -100,3 +100,8 @@ Mail thread reading adds one raw catalog entry. Deck comment reading and posting
 add two definitions to the raw and published Deck catalogs and update the guide
 count. The historical fixture has no known Mail version. The Mail tool is covered
 separately by grant and native protocol tests.
+
+Forms responses and Talk summaries append one definition each. Forms publication
+is covered by separate tests with a supported native version and explicit grants.
+The shared publication and protocol captures append the Talk summary tool and
+update its guide count. Every previous tool definition and result stays covered.

@@ -193,7 +193,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 
@@ -214,7 +214,7 @@ final class WriteGateContractTest extends TestCase {
                 $annotations = $listedTool['annotations'];
                 $this->assertFalse($annotations['readOnlyHint'], "$name: readOnlyHint must be false for write tools");
                 $this->assertFalse($annotations['openWorldHint'], "$name: openWorldHint must always be false");
-                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment'], true)
+                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary'], true)
                     || in_array($name, ['talk_create_group'], true)
                     || ($definition['destructiveHint'] ?? false) === true;
                 $this->assertSame($expectedDestructive, $annotations['destructiveHint'], "$name: destructiveHint mismatch");

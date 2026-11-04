@@ -55,11 +55,11 @@ class GrantPolicy implements ScopeReader {
         // default like every other operation that is not a read.
         // Account search; read only, so the model can find who to invite or message.
         'people' => ['read'],
-        'talk' => ['read', 'reply', 'attach', 'quote', 'create'],
+        'talk' => ['read', 'reply', 'attach', 'quote', 'create', 'publish_summary'],
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
         'mail' => ['read', 'search', 'read_message'],
-        'forms' => ['read'],
+        'forms' => ['read', 'read_responses'],
     ];
 
     /**

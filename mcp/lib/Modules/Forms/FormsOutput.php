@@ -16,6 +16,9 @@ final class FormsOutput {
     public const DEFAULT_QUESTIONS = 50;
     public const MAX_OPTIONS = 50;
     public const DEFAULT_OPTIONS = 50;
+    public const MAX_SUBMISSIONS = 100;
+    public const DEFAULT_SUBMISSIONS = 50;
+    public const MAX_ANSWERS_PER_SUBMISSION = 200;
     private const MAX_TEXT_BYTES = 1024;
     private const MAX_SETTING_ITEMS = 100;
     private const SUMMARY_FIELDS = ['id', 'title', 'permissions'];
@@ -36,6 +39,66 @@ final class FormsOutput {
     /** @param array<string, mixed> $form */
     public static function summary(array $form): array {
         return self::pick($form, self::SUMMARY_FIELDS);
+    }
+
+    /** @param array{isAnonymous: bool, submissions: list<array<string, mixed>>, fileQuestionIds?: list<int>} $page @return array<string, mixed> */
+    public static function responses(array $page, int $offset, int $limit): array {
+        $submissions = array_slice($page['submissions'], 0, $limit);
+        $hasMore = count($page['submissions']) > $limit;
+        $safe = [];
+        $fileAnswersOmitted = false;
+        foreach ($submissions as $submission) {
+            if (!is_array($submission)) {
+                continue;
+            }
+            $item = [];
+            foreach (['id', 'timestamp'] as $field) {
+                if (is_int($submission[$field] ?? null)) {
+                    $item[$field] = $submission[$field];
+                }
+            }
+            if (!$page['isAnonymous'] && is_string($submission['userId'] ?? null)
+                && !str_starts_with($submission['userId'], 'anon-user-')) {
+                if (strlen($submission['userId']) <= self::MAX_TEXT_BYTES) {
+                    $item['userId'] = $submission['userId'];
+                } else {
+                    $item['userIdOmitted'] = true;
+                }
+            }
+            $item['answers'] = [];
+            $answers = is_array($submission['answers'] ?? null) ? $submission['answers'] : [];
+            $item['answersTruncated'] = count($answers) > self::MAX_ANSWERS_PER_SUBMISSION;
+            foreach (array_slice($answers, 0, self::MAX_ANSWERS_PER_SUBMISSION) as $answer) {
+                if (!is_array($answer)) {
+                    continue;
+                }
+                if (is_int($answer['questionId'] ?? null) && in_array($answer['questionId'], $page['fileQuestionIds'] ?? [], true)) {
+                    $fileAnswersOmitted = true;
+                    continue;
+                }
+                $safeAnswer = [];
+                if (is_int($answer['questionId'] ?? null)) {
+                    $safeAnswer['questionId'] = $answer['questionId'];
+                }
+                if (is_string($answer['text'] ?? null)) {
+                    $safeAnswer['text'] = self::boundedString($answer['text']);
+                    if (strlen($answer['text']) > self::MAX_TEXT_BYTES) {
+                        $safeAnswer['textTruncated'] = true;
+                    }
+                }
+                $item['answers'][] = $safeAnswer;
+            }
+            $safe[] = $item;
+        }
+
+        return [
+            'formId' => $page['formId'],
+            'isAnonymous' => $page['isAnonymous'],
+            'submissions' => $safe,
+            'fileAnswersOmitted' => $fileAnswersOmitted,
+            'hasMore' => $hasMore,
+            'nextOffset' => $hasMore ? $offset + min($limit, count($page['submissions'])) : null,
+        ];
     }
 
     /** @param array<string, mixed> $form */
@@ -131,5 +194,9 @@ final class FormsOutput {
             }
         }
         return $output;
+    }
+
+    private static function boundedString(string $value): string {
+        return strlen($value) > self::MAX_TEXT_BYTES ? mb_strcut($value, 0, self::MAX_TEXT_BYTES, 'UTF-8') : $value;
     }
 }

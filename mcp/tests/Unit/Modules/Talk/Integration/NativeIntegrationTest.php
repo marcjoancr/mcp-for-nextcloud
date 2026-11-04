@@ -194,6 +194,8 @@ class NativeIntegrationTest extends TestCase
                 'lobbyNone' => 11,
                 'actorUsers' => 'personas',
                 'groupType' => 42,
+                'publicType' => 43,
+                'oneToOneType' => 44,
             ],
             $constants,
         );
@@ -231,6 +233,8 @@ final class TalkRoomFixture
     public const READ_ONLY = 7;
     public const TYPE_CHANGELOG = 9;
     public const TYPE_GROUP = 42;
+    public const TYPE_PUBLIC = 43;
+    public const TYPE_ONE_TO_ONE = 44;
 }
 
 /** Stand-in for the lobby states of OCA\Talk\Webinary, with values no upstream release uses. */

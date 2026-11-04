@@ -347,6 +347,8 @@ final class ToolsListContractTest extends TestCase {
             ['deck', 'read_comments', ['deck_list_comments']],
             ['deck', 'comment', ['deck_add_comment']],
             ['forms', 'read', ['forms_list', 'forms_read']],
+            ['forms', 'read_responses', ['forms_read_responses']],
+            ['talk', 'publish_summary', ['talk_publish_summary']],
         ] as [$module, $operation, $expected]) {
             $response = $this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',
                 \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, '{}', true,
@@ -354,12 +356,12 @@ final class ToolsListContractTest extends TestCase {
             $tools = json_decode($response, false, 512, JSON_THROW_ON_ERROR)->result->tools;
             $names = [];
             foreach ($tools as $tool) {
-                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_') && !str_starts_with($tool->name, 'deck_')) {
+                if (!str_starts_with($tool->name, 'mail_') && !str_starts_with($tool->name, 'forms_') && !str_starts_with($tool->name, 'deck_') && !str_starts_with($tool->name, 'talk_')) {
                     continue;
                 }
                 $names[] = $tool->name;
-                self::assertSame($operation !== 'comment', $tool->annotations->readOnlyHint);
-                self::assertSame($operation === 'comment', property_exists($tool->inputSchema->properties, 'confirm'));
+                self::assertSame(!in_array($operation, ['comment', 'publish_summary'], true), $tool->annotations->readOnlyHint);
+                self::assertSame(in_array($operation, ['comment', 'publish_summary'], true), property_exists($tool->inputSchema->properties, 'confirm'));
             }
             self::assertEqualsCanonicalizing($expected, $names);
         }
