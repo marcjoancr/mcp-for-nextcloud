@@ -288,14 +288,29 @@ final class CheckPackageTest extends TestCase {
      */
     public function testLargeMetadataBodiesStayWithinASmallMemoryLimit(): void {
         $size = 24 << 20;
-        $body = str_repeat("\0", $size);
         $cases = [
-            [self::header('././@LongLink', 'K', $size) . $body, 0, ''],
-            [self::header('PaxHeader/x', 'x', $size) . $body, 1, "pax header on: mcp/after\n"],
-            [self::header('././@LongLink', 'L', $size) . $body, 1, "has a GNU long name of $size bytes, over the limit of 65536\n"],
+            [self::header('././@LongLink', 'K', $size), 0, ''],
+            [self::header('PaxHeader/x', 'x', $size), 1, "pax header on: mcp/after\n"],
+            [self::header('././@LongLink', 'L', $size), 1, "has a GNU long name of $size bytes, over the limit of 65536\n"],
         ];
-        foreach ($cases as [$extension, $expectedCode, $expectedEnd]) {
-            $archive = $this->archive([...$this->clean(), $extension, self::file('mcp/after')]);
+        // Stream the fixture too: retaining three bodies and concatenating the tar can
+        // exhaust the suite's memory budget before the bounded reader is exercised.
+        $chunk = str_repeat("\0", 1 << 20);
+        foreach ($cases as [$header, $expectedCode, $expectedEnd]) {
+            $archive = $this->dir . '/large-metadata.tar.gz';
+            $stream = gzopen($archive, 'wb');
+            if ($stream === false) {
+                throw new RuntimeException('Could not create the large metadata fixture');
+            }
+            try {
+                gzwrite($stream, implode('', $this->clean()) . $header);
+                for ($written = 0; $written < $size; $written += strlen($chunk)) {
+                    gzwrite($stream, $chunk);
+                }
+                gzwrite($stream, self::file('mcp/after') . str_repeat("\0", 1024));
+            } finally {
+                gzclose($stream);
+            }
             [$code, $stdout, $stderr] = $this->runScript([$archive, 'templates'], ['-d', 'memory_limit=16M']);
             $this->assertSame([$expectedCode, ''], [$code, $stdout], $stderr);
             $this->assertSame($expectedEnd, $expectedEnd === '' ? $stderr : substr($stderr, -strlen($expectedEnd)));
