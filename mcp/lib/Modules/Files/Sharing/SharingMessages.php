@@ -136,6 +136,18 @@ final class SharingMessages {
         return Translator::t('Your administrator has not allowed the AI to manage this kind of share.');
     }
 
+    public static function uploadLinkFolderOnly(): string {
+        return Translator::t('Upload-only public links can be created for folders only.');
+    }
+
+    public static function uploadLinksDisabled(): string {
+        return Translator::t('Your administrator has disabled public folder uploads.');
+    }
+
+    public static function linkModeConflict(): string {
+        return Translator::t('This item already has a public link with a different access mode; remove that link explicitly before creating the other mode.');
+    }
+
     /** @return string description of files_list_shares */
     public static function listSharesTool(): string {
         return 'List the shares you created: with a path, the shares of that file or folder (which must be yours); '
@@ -196,13 +208,33 @@ final class SharingMessages {
             . 'shown once in the result. Never choose a password yourself.';
     }
 
+    public static function sharePasswordModeParam(): string {
+        return 'Public link only: preserve the current password, set a generated password, or remove it. Removing is refused when the administrator requires passwords.';
+    }
+
+    public static function shareExpiryModeParam(): string {
+        return 'Preserve the current expiry, set it with expires, or remove it. Native enforced expiry rules still apply.';
+    }
+
+    public static function uploadLinkTool(): string {
+        return 'Create or update a password-protected public folder link that lets visitors create files only. Visitors cannot read, list, update or delete existing content. Needs the separate "upload_link" permission.';
+    }
+
+    public static function uploadLinkAccess(): string {
+        return Translator::t('create files only; existing content cannot be read, listed, updated or deleted');
+    }
+
+    public static function uploadPasswordModeParam(): string {
+        return 'A password is always required. Preserve the current password, or set a newly generated one that is shown once.';
+    }
+
     /** @return string description of files_unshare */
     public static function unshareTool(): string {
         return 'Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link '
             . 'loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, '
             . 'group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own '
             . 'shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it '
-            . 'returns the plan and changes nothing. Needs the "share" permission; removing a public link needs "link".';
+            . 'returns the plan and changes nothing. Needs the "share" permission; removing a read link needs "link", and removing an upload-only link needs "upload_link".';
     }
 
     /** @return string description of the shareId parameter of files_unshare */

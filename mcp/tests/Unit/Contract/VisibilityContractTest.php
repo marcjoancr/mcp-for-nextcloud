@@ -70,6 +70,11 @@ final class VisibilityContractTest extends TestCase {
         'files_image_view' => 'image_view',
         'files_images_view' => 'images_view',
         'files_image_search' => 'image_search',
+        'files_get_image_description' => 'description_read',
+        'files_set_image_description' => 'description_edit',
+        'files_list_tags' => 'list_tags_for_path',
+        'files_set_tags' => 'set_tags_on_paths',
+        'files_create_upload_link' => 'upload_link',
         'files_list_shares' => 'list_shares',
         'files_share' => 'share',
         'files_unshare' => 'unshare',
@@ -85,6 +90,9 @@ final class VisibilityContractTest extends TestCase {
         'talk_attach_file' => 'talk_attach',
         'talk_quote_file' => 'talk_quote',
     ];
+
+    /** Native tag creation mutates global taxonomy and accepts no file or path; it does not touch a Files resource. */
+    public const GLOBAL_FILE_TAXONOMY_TOOLS = ['files_create_tag' => 'server-wide category; no file resource argument'];
 
     private InMemoryConfig $config;
     private $tagMapper;
@@ -309,6 +317,9 @@ final class VisibilityContractTest extends TestCase {
     }
 
     private function registry(array $modules): ToolRegistry {
+        foreach (['files_get_image_description', 'files_set_image_description', 'files_list_tags', 'files_set_tags', 'files_create_upload_link'] as $tool) {
+            InMemoryConfig::storeToolPolicy($this->config->mock($this), 'user', 'alice', $tool, 'allow');
+        }
         $policy = $this->policy();
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
@@ -340,6 +351,14 @@ final class VisibilityContractTest extends TestCase {
                 $isNotesModule = ($mod === 'notes');
                 $isTalkFileTool = in_array($name, ['talk_attach_file', 'talk_quote_file'], true);
 
+                if ($isFilesModule && isset(self::GLOBAL_FILE_TAXONOMY_TOOLS[$name])) {
+                    self::assertArrayNotHasKey($name, self::FILE_TOUCHING_TOOLS);
+                    $properties = $def['inputSchema']['properties'] ?? [];
+                    self::assertArrayNotHasKey('path', $properties, 'Global tag creation has no target file path.');
+                    self::assertArrayNotHasKey('paths', $properties, 'Global tag creation has no target file list.');
+                    continue;
+                }
+
                 if ($isFilesModule || $isNotesModule || $isTalkFileTool) {
                     $fileTouchingDiscovered[$name] = true;
                 }
@@ -362,6 +381,59 @@ final class VisibilityContractTest extends TestCase {
         sort($discoveredKeys);
 
         $this->assertSame($discoveredKeys, $matrixKeys, 'Audit matrix and discovered file tools must have 100% parity.');
+    }
+
+    /** Metadata and tag operations must deny a hidden file before exposing its description or assignments. */
+    public function testMetadataAndTagToolsHideTaggedFilesAndFolders(): void {
+        $directImage = $this->tree->addFile('/alice/files/secret_direct.jpg', 'image bytes', 'image/jpeg');
+        $this->tagAssignments[(string)$directImage] = [self::HIDDEN_TAG];
+        $directFile = $this->tree->addFile('/alice/files/secret_direct.txt', 'secret text');
+        $this->tagAssignments[(string)$directFile] = [self::HIDDEN_TAG];
+        $hiddenFolder = $this->tree->addFolder('/alice/files/SecretFolder');
+        $this->tagAssignments[(string)$hiddenFolder] = [self::HIDDEN_TAG];
+        $this->tree->addFile('/alice/files/SecretFolder/secret_ancestral.jpg', 'image bytes', 'image/jpeg');
+        $this->tree->addFile('/alice/files/SecretFolder/secret_ancestral.txt', 'secret text');
+
+        $filesModule = $this->build(FilesModule::class);
+        $secretTokens = ['secret_direct', 'secret_ancestral', 'SecretFolder'];
+        $assertModuleDenied = function (callable $call, string $tool) use ($secretTokens): void {
+            try {
+                $call();
+                self::fail($tool . ' unexpectedly exposed the hidden node');
+            } catch (\OCA\Mcp\Mcp\Tools\Results\ToolFailure $failure) {
+                self::assertSame(FileAccessMessages::notFound(), $failure->getMessage(), $tool);
+                foreach ($secretTokens as $secret) self::assertStringNotContainsString($secret, $failure->getMessage(), $tool);
+            }
+        };
+
+        foreach (['/secret_direct.jpg', '/SecretFolder/secret_ancestral.jpg'] as $path) {
+            $assertModuleDenied(fn () => $filesModule->call('files_get_image_description', ['path' => $path], 'alice'), 'files_get_image_description');
+            foreach ([[], ['confirm' => true, 'plan_state' => 'untrusted-state', 'confirm_shared' => true]] as $confirm) {
+                $arguments = ['path' => $path, 'description' => 'private overwrite'] + $confirm;
+                $assertModuleDenied(fn () => isset($arguments['confirm'])
+                    ? $filesModule->call('files_set_image_description', $arguments, 'alice')
+                    : $filesModule->preview('files_set_image_description', $arguments, 'alice'), 'files_set_image_description');
+            }
+        }
+        foreach (['/secret_direct.txt', '/SecretFolder/secret_ancestral.txt'] as $path) {
+            $assertModuleDenied(fn () => $filesModule->call('files_list_tags', ['path' => $path], 'alice'), 'files_list_tags');
+            foreach ([[], ['confirm' => true, 'plan_state' => 'untrusted-state', 'confirm_shared' => true]] as $confirm) {
+                $arguments = ['paths' => [$path], 'add' => ['Public'], 'remove' => []] + $confirm;
+                $assertModuleDenied(fn () => isset($arguments['confirm'])
+                    ? $filesModule->call('files_set_tags', $arguments, 'alice')
+                    : $filesModule->preview('files_set_tags', $arguments, 'alice'), 'files_set_tags');
+            }
+        }
+        $assertModuleDenied(fn () => $filesModule->preview('files_set_tags', [
+            'paths' => ['/secret_missing.txt'], 'add' => ['Public'], 'remove' => [],
+        ], 'alice'), 'files_set_tags');
+        // This global category action has no file argument, so hidden-file denial does not apply to it.
+        $definition = array_values(array_filter($filesModule->definitions(), static fn (array $d): bool => $d['name'] === 'files_create_tag'))[0];
+        self::assertSame('server-wide category; no file resource argument', self::GLOBAL_FILE_TAXONOMY_TOOLS['files_create_tag']);
+        self::assertSame('tags_create', $definition['operation']);
+        self::assertArrayNotHasKey('path', $definition['inputSchema']['properties']);
+        self::assertArrayNotHasKey('paths', $definition['inputSchema']['properties']);
+        self::assertSame([], $this->tree->ops, 'hidden resource denials never mutate the tree');
     }
 
     /**

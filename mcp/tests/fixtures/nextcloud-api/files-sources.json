@@ -1,0 +1,132 @@
+{
+  "31": {
+    "lib/public/AppFramework/Http/DataResponse.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/AppFramework/Http/DataResponse.php",
+      "sha256": "3b4ba744b5783d692121245d89924f61f53676c1c28f9974d35fa411ae82cf81"
+    },
+    "lib/public/AppFramework/Http/Response.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/AppFramework/Http/Response.php",
+      "sha256": "ba8da958d0a3545e22f6cd9a3dcc522c66ca9990a0eb729f98886e4be89d93b7"
+    },
+    "lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php",
+      "sha256": "6c040a48da97b3b88756dba5ee82f5061ee55c47dfb6486d2ad54af0937827b8"
+    },
+    "lib/public/SystemTag/TagAlreadyExistsException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/SystemTag/TagAlreadyExistsException.php",
+      "sha256": "f4760bb6ae78f1f43489d1603b4a045b1c50553def7c4adfe432a5cdf09dea43"
+    },
+    "apps/files/lib/Event/LoadAdditionalScriptsEvent.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files/lib/Event/LoadAdditionalScriptsEvent.php",
+      "sha256": "7ca6871ff26360e2c30f0e54c4d34e01f70f1877b5734cc8a930f8191fd59f63"
+    },
+    "lib/public/EventDispatcher/Event.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/EventDispatcher/Event.php",
+      "sha256": "5e863c02c49ebed5caec574b5120832825fe881ca9ff55aabf4dd89e371d777d"
+    }
+  },
+  "32": {
+    "lib/public/AppFramework/Http/DataResponse.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/AppFramework/Http/DataResponse.php",
+      "sha256": "3b4ba744b5783d692121245d89924f61f53676c1c28f9974d35fa411ae82cf81"
+    },
+    "lib/public/AppFramework/Http/Response.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/AppFramework/Http/Response.php",
+      "sha256": "fd72d1fc2404340e512f2819983648e5678222e5905f0e0dad2eef02f9d98965"
+    },
+    "lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php",
+      "sha256": "6c040a48da97b3b88756dba5ee82f5061ee55c47dfb6486d2ad54af0937827b8"
+    },
+    "lib/public/SystemTag/TagAlreadyExistsException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/SystemTag/TagAlreadyExistsException.php",
+      "sha256": "f4760bb6ae78f1f43489d1603b4a045b1c50553def7c4adfe432a5cdf09dea43"
+    },
+    "apps/files/lib/Event/LoadAdditionalScriptsEvent.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files/lib/Event/LoadAdditionalScriptsEvent.php",
+      "sha256": "7ca6871ff26360e2c30f0e54c4d34e01f70f1877b5734cc8a930f8191fd59f63"
+    },
+    "lib/public/EventDispatcher/Event.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/EventDispatcher/Event.php",
+      "sha256": "5e863c02c49ebed5caec574b5120832825fe881ca9ff55aabf4dd89e371d777d"
+    }
+  },
+  "33": {
+    "lib/public/AppFramework/Http/DataResponse.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/AppFramework/Http/DataResponse.php",
+      "sha256": "3b4ba744b5783d692121245d89924f61f53676c1c28f9974d35fa411ae82cf81"
+    },
+    "lib/public/AppFramework/Http/Response.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/AppFramework/Http/Response.php",
+      "sha256": "42a581ae4a4c9f489f12dd60e16120b87b4b5a97f4051164b2c9549420cac139"
+    },
+    "lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php",
+      "sha256": "6c040a48da97b3b88756dba5ee82f5061ee55c47dfb6486d2ad54af0937827b8"
+    },
+    "lib/public/SystemTag/TagAlreadyExistsException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/SystemTag/TagAlreadyExistsException.php",
+      "sha256": "f4760bb6ae78f1f43489d1603b4a045b1c50553def7c4adfe432a5cdf09dea43"
+    },
+    "apps/files/lib/Event/LoadAdditionalScriptsEvent.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files/lib/Event/LoadAdditionalScriptsEvent.php",
+      "sha256": "7ca6871ff26360e2c30f0e54c4d34e01f70f1877b5734cc8a930f8191fd59f63"
+    },
+    "lib/public/EventDispatcher/Event.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/EventDispatcher/Event.php",
+      "sha256": "5e863c02c49ebed5caec574b5120832825fe881ca9ff55aabf4dd89e371d777d"
+    }
+  },
+  "34": {
+    "lib/public/AppFramework/Http/DataResponse.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/AppFramework/Http/DataResponse.php",
+      "sha256": "5f80492fd18e8a8d029fa63d8f8359e176619414c9c67747a42eca6f83d31c3a"
+    },
+    "lib/public/AppFramework/Http/Response.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/AppFramework/Http/Response.php",
+      "sha256": "05a46b5b6d57bb927ae6bed26aba89dfb7452a359bc9e06c604a80b6c93b080c"
+    },
+    "lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php",
+      "sha256": "6c040a48da97b3b88756dba5ee82f5061ee55c47dfb6486d2ad54af0937827b8"
+    },
+    "lib/public/SystemTag/TagAlreadyExistsException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/SystemTag/TagAlreadyExistsException.php",
+      "sha256": "f4760bb6ae78f1f43489d1603b4a045b1c50553def7c4adfe432a5cdf09dea43"
+    },
+    "apps/files/lib/Event/LoadAdditionalScriptsEvent.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files/lib/Event/LoadAdditionalScriptsEvent.php",
+      "sha256": "7ca6871ff26360e2c30f0e54c4d34e01f70f1877b5734cc8a930f8191fd59f63"
+    },
+    "lib/public/EventDispatcher/Event.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/EventDispatcher/Event.php",
+      "sha256": "3331e32fc17d1cc406c5e16df14364333b41bfcee9a81dd0b15c5a22ad1e6c3f"
+    }
+  },
+  "35": {
+    "lib/public/AppFramework/Http/DataResponse.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/AppFramework/Http/DataResponse.php",
+      "sha256": "fb1298cbe5c439deeb32a8565805742a29e9af24d5fb3903b7b9cec678f95614"
+    },
+    "lib/public/AppFramework/Http/Response.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/AppFramework/Http/Response.php",
+      "sha256": "6626c8597b8e7ca7a6d135e8df2fe9082deb54883f4e4dffa2cea2c4f6daef1d"
+    },
+    "lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/FilesMetadata/Exceptions/FilesMetadataNotFoundException.php",
+      "sha256": "6c040a48da97b3b88756dba5ee82f5061ee55c47dfb6486d2ad54af0937827b8"
+    },
+    "lib/public/SystemTag/TagAlreadyExistsException.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/SystemTag/TagAlreadyExistsException.php",
+      "sha256": "1a87c6970a2725a782ea3d37ee69792689d4f89d4901c9442eaaa8cdd4eeb51a"
+    },
+    "apps/files/lib/Event/LoadAdditionalScriptsEvent.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files/lib/Event/LoadAdditionalScriptsEvent.php",
+      "sha256": "200e4c1afde11febd866c03b078f149ba11fd9ec707a144254710810b1b49af4"
+    },
+    "lib/public/EventDispatcher/Event.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/EventDispatcher/Event.php",
+      "sha256": "59e50d933879a0150bee6aacd7d062d047015150f5b7599db9cac3d00549f24c"
+    }
+  }
+}

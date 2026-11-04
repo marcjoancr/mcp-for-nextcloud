@@ -25,6 +25,7 @@ final class FilesBoundaryTest extends TestCase {
         'OCA\Mcp\Mcp\Guide\ToolGuideNotes',
 
         'OCA\Mcp\Mcp\Confirmation\PlanState',
+        'OCA\Mcp\Mcp\Confirmation\WriteGate',
         'OCA\Mcp\Mcp\Confirmation\PlanChanged',
         'OCA\Mcp\Access\Visibility\VisibilityGuard',
         'OCA\Mcp\Access\AppAvailability\AppEnablement',

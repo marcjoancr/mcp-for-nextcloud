@@ -19,6 +19,12 @@ export function createPresentation({ t }) {
 	}
 	function operationLabels() {
 		return {
+			description_read: t('mcp', 'read image descriptions'),
+			description_edit: t('mcp', 'edit image descriptions'),
+			tags_read: t('mcp', 'read file tags'),
+			tags_create: t('mcp', 'create file tags'),
+			tags_edit: t('mcp', 'assign file tags'),
+			upload_link: t('mcp', 'create upload-only links'),
 			read: t('mcp', 'read'),
 			search: t('mcp', 'search'),
 			read_message: t('mcp', 'read mail content'),
@@ -62,6 +68,12 @@ export function createPresentation({ t }) {
 			return t('mcp', 'Move an event to another person’s calendar')
 		}
 		const hints = {
+			description_read: t('mcp', 'Read native and embedded descriptions of accessible images'),
+			description_edit: t('mcp', 'Edit descriptions visible in Files after preview and confirmation'),
+			tags_read: t('mcp', 'List visible categories and tags on accessible files'),
+			tags_create: t('mcp', 'Create public categories when native Nextcloud policy permits'),
+			tags_edit: t('mcp', 'Assign or remove permitted tags after preview and confirmation'),
+			upload_link: t('mcp', 'Create password-protected upload-only folder links'),
 			read: t('mcp', 'List, search and read'),
 			search: t('mcp', 'Search cached message headers in own mailboxes'),
 			read_message: t('mcp', 'Read mail content without marking the message as read'),

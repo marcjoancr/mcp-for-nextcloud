@@ -72,6 +72,8 @@ final class FilesShareLinkTest extends FilesToolsTestCase {
         $properties = array_column($this->module->definitions(), null, 'name')['files_share']['inputSchema']['properties'];
         self::assertSame('boolean', $properties['password']['type']);
         self::assertStringContainsString('link', $properties['password']['description']);
+        self::assertSame(['preserve', 'set', 'remove'], $properties['password_mode']['enum']);
+        self::assertSame(['preserve', 'set', 'remove'], $properties['expiry_mode']['enum']);
     }
 
     public function testThePlanOfANewLinkWritesNothingAndPromisesNoPassword(): void {
@@ -177,14 +179,13 @@ final class FilesShareLinkTest extends FilesToolsTestCase {
         self::assertSame(Constants::PERMISSION_READ | Constants::PERMISSION_SHARE, $link->getPermissions());
     }
 
-    /** A folder link that allowed uploads comes back to read only. */
-    public function testAnUploadLinkIsBroughtBackToReadOnly(): void {
+    /** An upload-only link is not silently converted to a read link by files_share. */
+    public function testAnUploadLinkIsNotSilentlyConvertedToReadOnly(): void {
         $link = $this->shares->add(['type' => IShare::TYPE_LINK, 'with' => null, 'node' => $this->id('/Projetos'), 'nodeType' => 'folder',
-            'nodeObject' => $this->tree->node('/alice/files/Projetos'), 'token' => 't', 'permissions' => 15]);
-        $plan = $this->plan('files_share', ['path' => '/Projetos', 'with' => 'link']);
-        self::assertSame(['update', 'edit', 'view'], [$plan['action'], $plan['before']['permission'], $plan['after']['permission']]);
-        $this->confirm(['path' => '/Projetos', 'with' => 'link']);
-        self::assertSame(Constants::PERMISSION_READ, $link->getPermissions());
+            'nodeObject' => $this->tree->node('/alice/files/Projetos'), 'token' => 't', 'permissions' => Constants::PERMISSION_CREATE]);
+        self::assertSame(SharingMessages::linkModeConflict(), $this->refusal('plan', ['path' => '/Projetos', 'with' => 'link']));
+        self::assertSame([], $this->shares->writes);
+        self::assertSame(Constants::PERMISSION_CREATE, $link->getPermissions());
     }
 
     public function testPasswordTrueOnAnExistingLinkReplacesItAndShowsTheNewOneOnce(): void {
@@ -208,6 +209,21 @@ final class FilesShareLinkTest extends FilesToolsTestCase {
         self::assertTrue($out['hasPassword']);
         self::assertSame(FakeShares::hashOf('old-secret'), $link->getPassword());
         self::assertStringNotContainsString('old-secret', json_encode($out));
+    }
+
+    public function testExplicitModesRemoveExistingPasswordAndExpiry(): void {
+        $link = $this->existingLink(['password' => FakeShares::hashOf('old-secret'), 'expires' => new \DateTime('2026-10-10 12:00')]);
+        $plan = $this->plan('files_share', ['path' => self::FILE, 'with' => 'link', 'password_mode' => 'remove', 'expiry_mode' => 'remove']);
+        self::assertSame('update', $plan['action']);
+        self::assertSame(['before' => true, 'after' => 'none', 'required' => false], $plan['password']);
+        self::assertSame(['expires' => null], array_intersect_key($plan['after'], ['expires' => true]));
+
+        $out = $this->confirm(['path' => self::FILE, 'with' => 'link', 'password_mode' => 'remove', 'expiry_mode' => 'remove']);
+        self::assertNull($link->getPassword());
+        self::assertNull($link->getExpirationDate());
+        self::assertTrue($link->getNoExpirationDate());
+        self::assertFalse($out['hasPassword']);
+        self::assertArrayNotHasKey('password', $out);
     }
 
     /** The administrator started to require passwords after the link was made: the update gives it one. */

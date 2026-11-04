@@ -29,7 +29,7 @@ final class UnshareFile implements WriteTool {
             module: 'files',
             app: 'files_sharing',
             operation: 'share',
-            grantAnyOf: ['share', 'link'],
+            grantAnyOf: ['share', 'link', 'upload_link'],
             destructiveHint: true,
             description: SharingMessages::unshareTool(),
             inputSchema: self::schema([

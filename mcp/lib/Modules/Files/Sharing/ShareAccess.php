@@ -183,7 +183,7 @@ final class ShareAccess {
      * files_share and files_unshare. Whether a password exists, never the stored hash.
      *
      * @param IShare|null $share the share as read now, null when there is none
-     * @return array{id:string, bits:int, expires:string|null, note:string, hasPassword:bool}|null null for no share
+     * @return array{id:string, bits:int, expires:string|null, noExpiration:bool, note:string, hasPassword:bool}|null null for no share
      */
     public static function snapshot(?IShare $share): ?array {
         if ($share === null) {
@@ -193,6 +193,7 @@ final class ShareAccess {
             'id' => (string)$share->getFullId(),
             'bits' => (int)$share->getPermissions(),
             'expires' => $share->getExpirationDate()?->format(\DateTimeInterface::ATOM),
+            'noExpiration' => $share->getNoExpirationDate(),
             'note' => (string)$share->getNote(),
             'hasPassword' => self::hasPassword($share),
         ];
@@ -202,6 +203,23 @@ final class ShareAccess {
     public static function hasPassword(IShare $share): bool {
         $password = $share->getPassword();
         return $password !== null && $password !== '';
+    }
+
+    /** An upload-only public link has CREATE and none of READ, UPDATE or DELETE. */
+    public static function isUploadOnlyLink(IShare $share): bool {
+        $bits = (int)$share->getPermissions();
+        return $share->getShareType() === IShare::TYPE_LINK
+            && ($bits & \OCP\Constants::PERMISSION_CREATE) !== 0
+            && ($bits & (\OCP\Constants::PERMISSION_READ | \OCP\Constants::PERMISSION_UPDATE | \OCP\Constants::PERMISSION_DELETE)) === 0;
+    }
+
+    /** Select link grant based on its actual permission bits, so one grant cannot revoke the other link mode. */
+    public function assertShareGrant(string $uid, IShare $share, string $tool): void {
+        if (self::isUploadOnlyLink($share)) {
+            $this->assertUploadLinkGranted($uid, $tool);
+            return;
+        }
+        $this->assertGranted($uid, $share->getShareType(), $tool);
     }
 
     /**
@@ -226,6 +244,17 @@ final class ShareAccess {
         if (!$this->policy->granted($uid, 'files', $operation)
             || !$this->policy->toolGranted($uid, $tool, 'files', $operation)
             || ($this->connection !== null && !$this->connection->allowsVariant($tool, $operation))) {
+            throw new ToolFailure(SharingMessages::shareNotGranted());
+        }
+    }
+
+    /** Require the separate upload-only-link grant at preview and execution time. */
+    public function assertUploadLinkGranted(string $uid, string $tool = 'files_create_upload_link'): void {
+        // The dedicated tool is admitted by the registry's tool selection. Only
+        // multi-action tools such as unshare have separately stored variants.
+        if (!$this->policy->granted($uid, 'files', 'upload_link')
+            || !$this->policy->toolGranted($uid, $tool, 'files', 'upload_link')
+            || ($tool !== 'files_create_upload_link' && $this->connection !== null && !$this->connection->allowsVariant($tool, 'upload_link'))) {
             throw new ToolFailure(SharingMessages::shareNotGranted());
         }
     }

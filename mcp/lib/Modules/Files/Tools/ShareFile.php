@@ -43,6 +43,8 @@ final class ShareFile implements WriteTool {
                     'expires' => ['type' => 'string', 'minLength' => 1, 'description' => SharingMessages::shareExpiresParam()],
                     'note' => ['type' => 'string', 'maxLength' => ShareWriter::NOTE_MAX, 'description' => SharingMessages::shareNoteParam()],
                     'password' => ['type' => 'boolean', 'description' => SharingMessages::sharePasswordParam()],
+                    'password_mode' => ['type' => 'string', 'enum' => ['preserve', 'set', 'remove'], 'description' => SharingMessages::sharePasswordModeParam()],
+                    'expiry_mode' => ['type' => 'string', 'enum' => ['preserve', 'set', 'remove'], 'description' => SharingMessages::shareExpiryModeParam()],
                     PlanState::ARGUMENT => PlanState::property(),
                 ], ['path', 'with']),
         );

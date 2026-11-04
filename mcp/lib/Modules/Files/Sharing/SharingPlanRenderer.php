@@ -15,7 +15,7 @@ final class SharingPlanRenderer {
     public static function render(string $tool, array $plan): ?string {
         try {
             $lines = match ($tool) {
-                'files_share' => self::share($plan),
+                'files_share', 'files_create_upload_link' => self::share($plan),
                 'files_unshare' => self::unshare($plan),
                 default => null,
             };
@@ -85,12 +85,17 @@ final class SharingPlanRenderer {
      * @return list<string>
      */
     private static function link(array $plan, string $path, string $action, ?array $before, array $after, bool $isDir): array {
-        $lines = [match ($action) {
+        $uploadOnly = ($plan['uploadOnly'] ?? false) === true;
+        $lines = [$uploadOnly ? match ($action) {
+            'create' => Translator::t('Create an upload-only public link to %s.', [PlanFormatting::bold($path)]),
+            'update' => Translator::t('Change the upload-only public link of %s.', [PlanFormatting::bold($path)]),
+            'none' => Translator::t('%s already has this upload-only public link: nothing to change.', [PlanFormatting::bold($path)]),
+        } : match ($action) {
             'create' => Translator::t('Create a public link to %s.', [PlanFormatting::bold($path)]),
             'update' => Translator::t('Change the public link of %s.', [PlanFormatting::bold($path)]),
             'none' => Translator::t('%s already has a public link exactly like this: nothing to change.', [PlanFormatting::bold($path)]),
         }, ''];
-        $access = self::access($after['permission'] ?? null, $isDir);
+        $access = ($plan['uploadOnly'] ?? false) === true ? SharingMessages::uploadLinkAccess() : self::access($after['permission'] ?? null, $isDir);
         $lines[] = '- ' . ($action === 'update' && ($before['permission'] ?? null) !== ($after['permission'] ?? null)
             ? Translator::t('Access: %s → %s', [self::access($before['permission'] ?? null, $isDir), $access])
             : Translator::t('Access: %s', [$access]));
@@ -103,6 +108,8 @@ final class SharingPlanRenderer {
                 => Translator::t('Password: required by the administrator; a new one will be generated and shown only once, in the result.'),
             ($password['after'] ?? null) === 'new' => Translator::t('Password: a new one will be generated and shown only once, in the result.'),
             ($password['after'] ?? null) === 'kept' => Translator::t('Password: unchanged; it is never shown.'),
+            ($password['after'] ?? null) === 'none' && ($password['before'] ?? null) === true
+                => Translator::t('Password: the current one will be removed.'),
             default => Translator::t('Password: none.'),
         };
         array_push($lines, ...self::noteLines($action, $before, $after));

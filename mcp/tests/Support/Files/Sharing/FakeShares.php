@@ -48,6 +48,7 @@ final class FakeShares {
         'shareApiInternalDefaultExpireDays' => 7,
         'shareApiAllowLinks' => true,
         'shareApiLinkEnforcePassword' => false,
+        'shareApiLinkAllowPublicUpload' => false,
         'shareApiLinkDefaultExpireDate' => false,
         'shareApiLinkDefaultExpireDateEnforced' => false,
         'shareApiLinkDefaultExpireDays' => 7,
@@ -81,6 +82,7 @@ final class FakeShares {
             'permissions' => $o['permissions'] ?? Constants::PERMISSION_READ,
             'password' => $o['password'] ?? null,
             'expirationDate' => $o['expires'] ?? null,
+            'noExpirationDate' => $o['noExpiration'] ?? false,
             'token' => $o['token'] ?? null,
             'note' => $o['note'] ?? '',
         ]);
@@ -183,7 +185,7 @@ final class FakeShares {
                 return $share;
             };
         };
-        foreach (['shareType', 'sharedWith', 'sharedWithDisplayName', 'sharedBy', 'shareOwner', 'permissions', 'password',
+        foreach (['shareType', 'sharedWith', 'sharedWithDisplayName', 'sharedBy', 'shareOwner', 'permissions', 'password', 'noExpirationDate',
             'expirationDate', 'token', 'note', 'id'] as $property) {
             $share->method('get' . ucfirst($property))->willReturnCallback(static fn () => $get($property));
             $share->method('set' . ucfirst($property))->willReturnCallback($set($property));
@@ -205,6 +207,7 @@ final class FakeShares {
         $share->method('getNodeId')->willReturnCallback(static fn (): int => (int)$get('nodeId'));
         $share->method('getNodeType')->willReturnCallback(static fn () => $get('nodeType') ?? 'file');
         $share->method('getNote')->willReturnCallback(static fn (): string => (string)$get('note'));
+        $share->method('getNoExpirationDate')->willReturnCallback(static fn (): bool => (bool)$get('noExpirationDate'));
         return $share;
     }
 

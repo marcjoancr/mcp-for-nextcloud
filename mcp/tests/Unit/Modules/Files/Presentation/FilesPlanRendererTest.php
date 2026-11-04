@@ -267,6 +267,18 @@ final class FilesPlanRendererTest extends FilesToolsTestCase {
         foreach (self::toolsProvider() as [$tool, $arguments]) {
             $plans[$tool] = $this->plan($tool, $arguments);
         }
+        $plans['files_set_image_description'] = [
+            'path' => '/Photos/dish.jpg', 'current_description' => 'Old description', 'description' => 'New description', 'source' => 'embedded_exif',
+        ];
+        $plans['files_create_tag'] = ['name' => 'Tacos', 'reused' => false];
+        $plans['files_set_tags'] = ['changes' => [['path' => '/Arquivo/dish.jpg', 'current' => ['Old'], 'add' => ['Tacos'], 'remove' => ['Old'], 'shared' => null]]];
+        $this->sharePolicy->setGrant('alice', 'files', 'upload_link', true);
+        \OCA\Mcp\Tests\Unit\InMemoryConfig::storeToolPolicy($this->configMock, 'user', 'alice', 'files_create_upload_link', 'allow');
+        $plans['files_create_upload_link'] = [
+            'path' => '/Arquivo', 'with' => ['type' => 'link', 'displayName' => 'anyone with the link'],
+            'action' => 'create', 'before' => null, 'after' => ['permission' => 4, 'expires' => null, 'note' => null],
+            'isDir' => true, 'uploadOnly' => true, 'password' => ['after' => 'new', 'required' => true],
+        ];
         // An undo needs a batch that really ran, so one move is confirmed first and its id is undone.
         $this->tree->addFile('/alice/files/Documentos/lote.md', 'lote', 'text/markdown');
         $ran = $this->module->call('files_move_batch', ['moves' => [['from' => '/Documentos/lote.md', 'to' => '/Arquivo/lote.md']], 'confirm' => true], 'alice');
@@ -289,10 +301,32 @@ final class FilesPlanRendererTest extends FilesToolsTestCase {
         $this->assertSame('Move **a\\_b\\*c.md** to **x/\\[clique\\]\\(javascript:alert(1)).md**.', trim($body));
     }
 
+    public function testTagAndDescriptionPreviewsShowBeforeAfterSourceAndSharedNotice(): void {
+        $tagBody = FilesPlanRenderer::render('files_set_tags', ['changes' => [[
+            'path' => '/Shared/meal.md', 'current' => ['Old'], 'add' => ['Tacos'], 'remove' => ['Old'],
+            'shared' => ['scope' => 'shared', 'ownerDisplayName' => 'Marta', 'sharedBy' => 'Marta'],
+        ]]]);
+        $this->assertNotNull($tagBody);
+        $this->assertStringContainsString('Before: "Old"', $tagBody);
+        $this->assertStringContainsString('After: "Tacos"', $tagBody);
+        $this->assertStringContainsString('Marta', $tagBody);
+        $this->assertStringContainsString('extra confirmation', $tagBody);
+
+        $description = FilesPlanRenderer::render('files_set_image_description', [
+            'path' => '/Photos/dish.jpg', 'current_description' => 'Old [caption]', 'description' => '', 'source' => 'embedded_exif',
+        ]);
+        $this->assertNotNull($description);
+        $this->assertStringContainsString('embedded EXIF metadata', $description);
+        $this->assertStringContainsString('Before: "Old \\[caption\\]"', $description);
+        $this->assertStringContainsString('After: ""', $description);
+        $this->assertStringContainsString('image bytes stay unchanged', $description);
+    }
+
     public function testADiffCannotOpenAnotherLineOrLinkOfThePlan(): void {
         $body = (string)FilesPlanRenderer::render('files_edit', ['path' => 'a.md', 'diff' => "-old\n+**new**\n+[c](javascript:1)\n+\n+### Warnings"]);
 
         $this->assertStringContainsString('After: «\\*\\*new\\*\\* \\[c\\]\\(javascript:1) \\#\\#\\# Warnings»', $body);
         $this->assertStringNotContainsString("\n### ", $body);
     }
+
 }

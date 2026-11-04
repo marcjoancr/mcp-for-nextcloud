@@ -566,6 +566,209 @@
             }
         },
         {
+            "name": "files_get_image_description",
+            "module": "files",
+            "operation": "description_read",
+            "description": "Read the saved or embedded description of an image in Files.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Path relative to your Files root."
+                    }
+                },
+                "required": [
+                    "path"
+                ],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "files_set_image_description",
+            "module": "files",
+            "operation": "description_edit",
+            "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Path relative to your Files root."
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 16000,
+                        "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                    },
+                    "confirm_shared": {
+                        "type": "boolean",
+                        "description": "Required only when the file is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user."
+                    }
+                },
+                "required": [
+                    "path",
+                    "description"
+                ],
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "files_list_tags",
+            "module": "files",
+            "operation": "tags_read",
+            "description": "List public, assignable native file tags, optionally including tags on one accessible file.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        {
+            "name": "files_create_tag",
+            "module": "files",
+            "operation": "tags_create",
+            "description": "Create or reuse a public, assignable native file tag.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "name"
+                ]
+            }
+        },
+        {
+            "name": "files_set_tags",
+            "module": "files",
+            "operation": "tags_edit",
+            "description": "Add and/or remove public, assignable native tags on accessible files.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "paths": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Path of the file or folder, e.g. /Documents/report.pdf"
+                        }
+                    },
+                    "add": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                        }
+                    },
+                    "remove": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                        }
+                    },
+                    "confirm_shared": {
+                        "type": "boolean",
+                        "description": "Required only when the file is outside your personal folder (shared, team folder, or external storage). Send only after confirming with the user."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "paths",
+                    "add"
+                ]
+            }
+        },
+        {
+            "name": "files_create_upload_link",
+            "module": "files",
+            "operation": "upload_link",
+            "app": "files_sharing",
+            "destructiveHint": true,
+            "description": "Create or update a password-protected public folder link that lets visitors create files only. Visitors cannot read, list, update or delete existing content. Needs the separate \"upload_link\" permission.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Path of the file or folder, e.g. /Documents/report.pdf"
+                    },
+                    "expires": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Last day of access, YYYY-MM-DD in the user's timezone, tomorrow or later."
+                    },
+                    "expiry_mode": {
+                        "type": "string",
+                        "enum": [
+                            "preserve",
+                            "set",
+                            "remove"
+                        ],
+                        "description": "Preserve the current expiry, set it with expires, or remove it. Native enforced expiry rules still apply."
+                    },
+                    "password_mode": {
+                        "type": "string",
+                        "enum": [
+                            "preserve",
+                            "set"
+                        ],
+                        "default": "preserve",
+                        "description": "A password is always required. Preserve the current password, or set a newly generated one that is shown once."
+                    },
+                    "plan_state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                    }
+                },
+                "required": [
+                    "path"
+                ],
+                "additionalProperties": false
+            }
+        },
+        {
             "name": "files_list_shares",
             "module": "files",
             "operation": "read",
@@ -637,6 +840,24 @@
                         "type": "boolean",
                         "description": "Public link only: true makes the server generate a new password, which replaces the current one and is shown once in the result. Never choose a password yourself."
                     },
+                    "password_mode": {
+                        "type": "string",
+                        "enum": [
+                            "preserve",
+                            "set",
+                            "remove"
+                        ],
+                        "description": "Public link only: preserve the current password, set a generated password, or remove it. Removing is refused when the administrator requires passwords."
+                    },
+                    "expiry_mode": {
+                        "type": "string",
+                        "enum": [
+                            "preserve",
+                            "set",
+                            "remove"
+                        ],
+                        "description": "Preserve the current expiry, set it with expires, or remove it. Native enforced expiry rules still apply."
+                    },
                     "plan_state": {
                         "type": "string",
                         "minLength": 1,
@@ -658,10 +879,11 @@
             "app": "files_sharing",
             "grantAnyOf": [
                 "share",
-                "link"
+                "link",
+                "upload_link"
             ],
             "destructiveHint": true,
-            "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a public link needs \"link\".",
+            "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1525,6 +1747,24 @@
                             "type": "boolean",
                             "description": "Public link only: true makes the server generate a new password, which replaces the current one and is shown once in the result. Never choose a password yourself."
                         },
+                        "password_mode": {
+                            "type": "string",
+                            "enum": [
+                                "preserve",
+                                "set",
+                                "remove"
+                            ],
+                            "description": "Public link only: preserve the current password, set a generated password, or remove it. Removing is refused when the administrator requires passwords."
+                        },
+                        "expiry_mode": {
+                            "type": "string",
+                            "enum": [
+                                "preserve",
+                                "set",
+                                "remove"
+                            ],
+                            "description": "Preserve the current expiry, set it with expires, or remove it. Native enforced expiry rules still apply."
+                        },
                         "plan_state": {
                             "type": "string",
                             "minLength": 1,
@@ -1553,7 +1793,7 @@
             {
                 "name": "files_unshare",
                 "title": "Stop sharing file or folder",
-                "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a public link needs \"link\".",
+                "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -2063,6 +2303,24 @@
                             "type": "boolean",
                             "description": "Public link only: true makes the server generate a new password, which replaces the current one and is shown once in the result. Never choose a password yourself."
                         },
+                        "password_mode": {
+                            "type": "string",
+                            "enum": [
+                                "preserve",
+                                "set",
+                                "remove"
+                            ],
+                            "description": "Public link only: preserve the current password, set a generated password, or remove it. Removing is refused when the administrator requires passwords."
+                        },
+                        "expiry_mode": {
+                            "type": "string",
+                            "enum": [
+                                "preserve",
+                                "set",
+                                "remove"
+                            ],
+                            "description": "Preserve the current expiry, set it with expires, or remove it. Native enforced expiry rules still apply."
+                        },
                         "plan_state": {
                             "type": "string",
                             "minLength": 1,
@@ -2091,7 +2349,7 @@
             {
                 "name": "files_unshare",
                 "title": "Stop sharing file or folder",
-                "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a public link needs \"link\".",
+                "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -2174,6 +2432,24 @@
                             "type": "boolean",
                             "description": "Public link only: true makes the server generate a new password, which replaces the current one and is shown once in the result. Never choose a password yourself."
                         },
+                        "password_mode": {
+                            "type": "string",
+                            "enum": [
+                                "preserve",
+                                "set",
+                                "remove"
+                            ],
+                            "description": "Public link only: preserve the current password, set a generated password, or remove it. Removing is refused when the administrator requires passwords."
+                        },
+                        "expiry_mode": {
+                            "type": "string",
+                            "enum": [
+                                "preserve",
+                                "set",
+                                "remove"
+                            ],
+                            "description": "Preserve the current expiry, set it with expires, or remove it. Native enforced expiry rules still apply."
+                        },
                         "plan_state": {
                             "type": "string",
                             "minLength": 1,
@@ -2202,7 +2478,7 @@
             {
                 "name": "files_unshare",
                 "title": "Stop sharing file or folder",
-                "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a public link needs \"link\".",
+                "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                 "inputSchema": {
                     "type": "object",
                     "properties": {

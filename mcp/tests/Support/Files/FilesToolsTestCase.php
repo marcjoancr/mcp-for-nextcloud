@@ -52,9 +52,13 @@ use OCA\Mcp\Modules\Files\Sharing\ShareWriter;
 use OCA\Mcp\Modules\Files\Tools\CheckoutFile;
 use OCA\Mcp\Modules\Files\Tools\CopyFile;
 use OCA\Mcp\Modules\Files\Tools\CreateFile;
+use OCA\Mcp\Modules\Files\Tools\CreateTag;
+use OCA\Mcp\Modules\Files\Tools\CreateUploadLink;
 use OCA\Mcp\Modules\Files\Tools\EditFile;
+use OCA\Mcp\Modules\Files\Tools\GetImageDescription;
 use OCA\Mcp\Modules\Files\Tools\ListFiles;
 use OCA\Mcp\Modules\Files\Tools\ListShares;
+use OCA\Mcp\Modules\Files\Tools\ListTags;
 use OCA\Mcp\Modules\Files\Tools\ListVersions;
 use OCA\Mcp\Modules\Files\Tools\MakeDirectory;
 use OCA\Mcp\Modules\Files\Tools\MoveBatch;
@@ -67,6 +71,8 @@ use OCA\Mcp\Modules\Files\Tools\RestoreVersion;
 use OCA\Mcp\Modules\Files\Tools\SearchFiles;
 use OCA\Mcp\Modules\Files\Tools\SearchImages;
 use OCA\Mcp\Modules\Files\Tools\ShareFile;
+use OCA\Mcp\Modules\Files\Tools\SetFileTags;
+use OCA\Mcp\Modules\Files\Tools\SetImageDescription;
 use OCA\Mcp\Modules\Files\Tools\UndoBatch;
 use OCA\Mcp\Modules\Files\Tools\UnshareFile;
 use OCA\Mcp\Modules\Files\Tools\UploadFile;
@@ -134,9 +140,11 @@ abstract class FilesToolsTestCase extends TestCase {
     protected ?BatchStore $batchStore = null;
     protected ITempManager $temp;
     protected InMemoryConfig $config;
+    protected \OCP\IConfig $configMock;
     protected IPreview $previewManager;
     protected ISystemTagManager $tagManager;
     protected ISystemTagObjectMapper $tagMapper;
+    protected \OCP\FilesMetadata\IFilesMetadataManager $filesMetadata;
     protected \Psr\Log\LoggerInterface $logger;
     protected FilesModule $module;
     /** files_lock behind ILockManager, without any lock until a test puts one. */
@@ -160,6 +168,8 @@ abstract class FilesToolsTestCase extends TestCase {
     protected \Psr\Log\LoggerInterface $shareLogger;
     /** Shares alice created, behind the IShareManager double of files_list_shares. */
     protected FakeShares $shares;
+    /** Share workflow retained for direct focused upload-link capability tests. */
+    protected ShareWriter $shareWriter;
     /** Logger of files_upload and files_create, to check that a failed write logs the exception class only. */
     protected \Psr\Log\LoggerInterface $creationLogger;
     /** Nextcloud's file name rules, as a default install applies them. */
@@ -203,7 +213,7 @@ abstract class FilesToolsTestCase extends TestCase {
         $this->batches = new InMemoryBatchStore($db);
         $db->method('escapeLikeParameter')->willReturnCallback(fn (string $s) => addcslashes($s, '\\_%'));
         $this->config = new InMemoryConfig();
-        $config = $this->config->mock($this);
+        $config = $this->configMock = $this->config->mock($this);
         $urls = $this->createMock(IURLGenerator::class);
         $urls->method('linkToRouteAbsolute')->willReturnCallback(function (string $route, array $args = []): string {
             $this->issued[$route][] = (string)($args['token'] ?? '');
@@ -219,6 +229,7 @@ abstract class FilesToolsTestCase extends TestCase {
         $this->previewManager = $this->createMock(IPreview::class);
         $this->tagManager = $this->createMock(ISystemTagManager::class);
         $this->tagMapper = $this->createMock(ISystemTagObjectMapper::class);
+        $this->filesMetadata = $this->createMock(\OCP\FilesMetadata\IFilesMetadataManager::class);
         $this->logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $this->filenames = new FakeFilenameValidator();
         $this->creationLogger = $this->createMock(\Psr\Log\LoggerInterface::class);
@@ -227,6 +238,25 @@ abstract class FilesToolsTestCase extends TestCase {
         $imageSearch = new ImageSearch(new ImageMetadata($access, $this->tagManager, $this->tagMapper, $this->users, fn () => ($this->createMock(\Psr\Container\ContainerInterface::class))->get(ImageMetadata::METADATA_SERVICE)), $this->tagManager, $this->tagMapper, $this->users, $this->logger, $db, $this->visibilityGuard);
         $fileVisibility = $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->tagMapper, $this->visibilityRoot());
         $sharing = $this->sharing($urls);
+        $this->shareWriter = $sharing['shareWriter'];
+        $descriptionService = fn () => new \OCA\Mcp\Modules\Files\Descriptions\DescriptionService(
+            $root,
+            fn () => $this->filesMetadata,
+            \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config),
+            new \OCA\Mcp\Modules\Files\Descriptions\EmbeddedDescriptionReader(),
+            $access,
+            new SharedWriteGuard($access),
+        );
+        $tagsService = fn () => new \OCA\Mcp\Modules\Files\Tags\NativeTags(
+            $root,
+            $this->tagManager,
+            $this->tagMapper,
+            $this->users,
+            $this->visibilityGuard,
+            new PlanState($config),
+            new SharedWriteGuard($access),
+            \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config),
+        );
         $this->services = [
             'rootFolder' => $root,
             'extractor' => $extractor,
@@ -257,6 +287,12 @@ abstract class FilesToolsTestCase extends TestCase {
             'files_image_view' => fn () => new ViewImage($root, $imageTools),
             'files_images_view' => fn () => new ViewImages($root, $imageTools),
             'files_image_search' => fn () => new SearchImages($root, $imageSearch),
+            'files_get_image_description' => fn () => new GetImageDescription($descriptionService(), $this->visibilityGuard),
+            'files_set_image_description' => fn () => new SetImageDescription($descriptionService(), $this->visibilityGuard, new PlanState($config)),
+            'files_list_tags' => fn () => new ListTags($tagsService()),
+            'files_create_tag' => fn () => new CreateTag($tagsService()),
+            'files_set_tags' => fn () => new SetFileTags($tagsService()),
+            'files_create_upload_link' => fn () => new CreateUploadLink($root, $sharing['shareWriter']),
             'files_list_shares' => fn () => new ListShares($root, $sharing['shareLister']),
             'files_share' => fn () => new ShareFile($root, $sharing['shareWriter']),
             'files_unshare' => fn () => new UnshareFile($root, $sharing['shareRemover']),
@@ -279,7 +315,7 @@ abstract class FilesToolsTestCase extends TestCase {
      */
     private function sharing(IURLGenerator $urls): array {
         $this->shares = new FakeShares($this);
-        $this->sharePolicy = InMemoryConfig::policy($this->config->mock($this), new InMemoryOAuthStore());
+        $this->sharePolicy = InMemoryConfig::policy($this->configMock, new InMemoryOAuthStore());
         $accounts = $this->createMock(IUserManager::class);
         $accounts->method('get')->willReturnCallback(function (string $uid): ?IUser {
             if (!isset($this->people[$uid])) {

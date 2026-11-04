@@ -118,7 +118,7 @@ final class GrantMatrixTest extends TestCase {
      */
     public function testTheNewFilesRestoreColumnArrivesWithTheCatalog(): void {
         $page = $this->fx->matrix()->page('', '', 1);
-        $this->assertSame(['read', 'edit', 'create', 'move', 'restore', 'share', 'link'], $page['catalog']['files']);
+        $this->assertSame(['read', 'edit', 'create', 'move', 'restore', 'share', 'link', 'description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'], $page['catalog']['files']);
         $this->assertNotSame([], $page['users']);
         foreach ($page['users'] as $user) {
             foreach (['restore', 'create', 'move', 'share', 'link'] as $operation) {

@@ -115,15 +115,17 @@ final class FilesModuleTest extends TestCase {
         $this->assertSame(['files_list', 'files_search', 'files_tree', 'files_mkdir', 'files_copy', 'files_move',
             'files_move_batch', 'files_undo_batch', 'files_read', 'files_edit', 'files_replace',
             'files_checkout', 'files_versions_list', 'files_version_read', 'files_version_restore',
-            'files_image_view', 'files_images_view', 'files_image_search', 'files_list_shares', 'files_share', 'files_unshare',
+            'files_image_view', 'files_images_view', 'files_image_search', 'files_get_image_description', 'files_set_image_description',
+            'files_list_tags', 'files_create_tag', 'files_set_tags', 'files_create_upload_link', 'files_list_shares', 'files_share', 'files_unshare',
             'files_upload', 'files_create'],
             array_keys($defs));
         $this->assertSame(['read', 'read', 'read', 'create', 'create', 'move', 'move', 'move', 'read', 'edit',
-            'edit', 'edit', 'read', 'read', 'restore', 'read', 'read', 'read', 'read', 'share', 'share', 'create', 'create'], array_column($defs, 'operation'));
+            'edit', 'edit', 'read', 'read', 'restore', 'read', 'read', 'read', 'description_read', 'description_edit',
+            'tags_read', 'tags_create', 'tags_edit', 'upload_link', 'read', 'share', 'share', 'create', 'create'], array_column($defs, 'operation'));
         $this->assertSame([
             'files_edit' => 'files_versions', 'files_replace' => 'files_versions', 'files_checkout' => 'files_versions',
             'files_versions_list' => 'files_versions', 'files_version_read' => 'files_versions', 'files_version_restore' => 'files_versions',
-            'files_list_shares' => 'files_sharing', 'files_share' => 'files_sharing', 'files_unshare' => 'files_sharing',
+            'files_create_upload_link' => 'files_sharing', 'files_list_shares' => 'files_sharing', 'files_share' => 'files_sharing', 'files_unshare' => 'files_sharing',
         ], array_column($defs, 'app', 'name'));
         $this->assertArrayNotHasKey('app', $defs['files_tree'], 'a árvore só depende de arquivos, que sempre existem');
         $this->assertSame(['path', 'old', 'new'], $defs['files_replace']['inputSchema']['required']);

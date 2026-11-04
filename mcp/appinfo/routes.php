@@ -6,6 +6,8 @@
 declare(strict_types=1);
 
 return ['routes' => [
+    ['name' => 'file_description#show', 'url' => '/api/files/description', 'verb' => 'GET'],
+    ['name' => 'file_description#update', 'url' => '/api/files/description', 'verb' => 'PUT'],
         ['name' => 'backupSettings#show', 'url' => '/api/backup-settings', 'verb' => 'GET'],
         ['name' => 'backupSettings#update', 'url' => '/api/backup-settings', 'verb' => 'PUT'],
     ['name' => 'override_preview#index', 'url' => '/api/grants/commands/preview', 'verb' => 'POST'],

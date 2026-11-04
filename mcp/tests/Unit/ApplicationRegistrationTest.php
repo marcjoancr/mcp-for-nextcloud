@@ -486,7 +486,7 @@ final class ApplicationRegistrationTest extends TestCase {
         $container = $this->createMock(ContainerInterface::class);
         $container->expects(self::never())->method('get');
         $module = $this->registeredFactories()[\OCA\Mcp\Modules\Files\FilesModule::class]($container);
-        self::assertCount(23, $module->definitions());
+        self::assertCount(29, $module->definitions());
     }
 
     public function testEveryRegisteredFactoryBuildsItsService(): void {
