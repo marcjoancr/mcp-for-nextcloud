@@ -4,6 +4,16 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.5.0
+
+- Read Mail attachments without marking messages as read and save selected attachments to Files after preview and confirmation. Read, create, update and delete unsent drafts without sending mail.
+- Search Talk messages and read surrounding context without changing read state.
+- Summarize Forms response pages and export bounded, formula-safe CSV files to Files after preview and confirmation. Native results permissions apply; respondent identities and uploaded-file answers are omitted.
+- Search readable Deck cards by text, assignee, labels and due dates, including shared read-only boards.
+- Check Calendar availability, conflicts and free intervals in accessible calendars, including recurring events. Hidden or incomplete event data fails closed rather than suggesting unreliable availability.
+- Keep new permissions and connection selections independent. File exports require Files creation permission; confirmed writes recheck the caller, source and destination. Include Spanish, German and Brazilian Portuguese application translations.
+- Stream large package-test fixtures to keep the PHP 8.2 suite within its existing memory limit.
+
 ## 2.4.0
 
 - Search cached Mail headers and read messages or paginated threads without marking mail as read. Native account ownership and separate tool permissions apply to every call.
