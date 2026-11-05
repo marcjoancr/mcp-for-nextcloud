@@ -60,9 +60,9 @@ final class FilesListSharesTest extends FilesToolsTestCase {
         self::assertSame('https://cloud.test/apps/mcp/TOKEN1', $out['shares'][1]['url']);
     }
 
-    public function testANodeOfAnotherOwnerIsRefused(): void {
-        $this->tree->addFile('/alice/files/Recebido.pdf', 'x', 'application/pdf', ['scope' => 'shared']);
-        self::assertSame(SharingMessages::shareNotOwner(), $this->failure('files_list_shares', ['path' => '/Recebido.pdf']));
+    public function testAReceivedNodeWithoutSharingPermissionIsRefused(): void {
+        $this->tree->addFile('/alice/files/Recebido.pdf', 'x', 'application/pdf', ['scope' => 'shared', 'shareable' => false]);
+        self::assertSame(SharingMessages::shareNodeNotShareable(), $this->failure('files_list_shares', ['path' => '/Recebido.pdf']));
     }
 
     public function testAMissingPathIsNotFound(): void {
@@ -100,12 +100,9 @@ final class FilesListSharesTest extends FilesToolsTestCase {
         }
     }
 
-    /**
-     * The scenario of the review: Alice received a file of Bruno and made a public link of it elsewhere. The listing
-     * without path is of her own files only, so that link, its token and its recipient never come out.
-     */
-    public function testALinkTheUserMadeOfAReceivedFileIsNotListed(): void {
-        $this->tree->addFile('/alice/files/Compartilhado/relatorio.pdf', 'pdf', 'application/pdf', ['scope' => 'shared']);
+    /** Previously created links disappear when the incoming file no longer permits re-sharing. */
+    public function testALinkOnAReceivedFileWithRevokedSharingPermissionIsNotListed(): void {
+        $this->tree->addFile('/alice/files/Compartilhado/relatorio.pdf', 'pdf', 'application/pdf', ['scope' => 'shared', 'shareable' => false]);
         $this->shares->add(['node' => $this->id('/Compartilhado/relatorio.pdf'), 'type' => IShare::TYPE_LINK, 'with' => null,
             'owner' => 'bruno', 'token' => 'TOKDOBRUNO']);
         $this->shares->add(['node' => $this->id('/Compartilhado/relatorio.pdf'), 'with' => 'carla', 'owner' => 'bruno']);

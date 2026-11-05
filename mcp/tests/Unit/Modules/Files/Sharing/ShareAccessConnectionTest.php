@@ -19,12 +19,13 @@ use PHPUnit\Framework\TestCase;
 
 final class ShareAccessConnectionTest extends TestCase {
     public function testPublicLinkNeedsConsentForTheActualToolAndAction(): void {
-        $policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
+        $config = (new InMemoryConfig())->mock($this);
+        $policy = InMemoryConfig::policy($config, new InMemoryOAuthStore());
         $policy->setGrant('alice', 'files', 'share', true);
         $policy->setGrant('alice', 'files', 'link', true);
         $context = new ConnectionContext();
         $context->setSelection(['files_share', 'files_unshare'], ['files_share' => ['share'], 'files_unshare' => ['link']]);
-        $access = new ShareAccess($this->createStub(IManager::class), $policy, $this->createStub(FilesAccessGuard::class), $context);
+        $access = new ShareAccess($this->createStub(IManager::class), $policy, $this->createStub(FilesAccessGuard::class), $config, $context);
         $access->assertGranted('alice', IShare::TYPE_GROUP, 'files_share');
         $access->assertGranted('alice', IShare::TYPE_LINK, 'files_unshare');
         $this->expectException(ToolFailure::class);

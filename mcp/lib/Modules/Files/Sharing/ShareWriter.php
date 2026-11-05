@@ -249,7 +249,7 @@ final class ShareWriter {
         if (isset($arguments['password'])) {
             throw new ArgumentValidationException('Invalid argument: password', 'password', Translator::t('only for a public link'));
         }
-        $node = $this->access->ownNode($userFolder, $uid, (string)$arguments['path']);
+        $node = $this->access->nodeForPath($userFolder, $uid, (string)$arguments['path']);
         $this->access->assertFolderExposure($node);
         if ($recipient->kind === ShareRecipient::USER && $recipient->id === $uid) {
             throw new ToolFailure(SharingMessages::shareWithSelf());
@@ -332,7 +332,7 @@ final class ShareWriter {
      * @throws ToolFailure for every other refusal, with a translated reason
      */
     private function prepareLink(Folder $userFolder, string $uid, array $arguments, ShareRecipient $recipient, bool $uploadOnly = false): array {
-        $node = $this->access->ownNode($userFolder, $uid, (string)$arguments['path']);
+        $node = $this->access->nodeForPath($userFolder, $uid, (string)$arguments['path'], allowPublicReshare: true);
         $this->access->assertFolderExposure($node);
         $this->assertLinksAllowed($uid);
         $level = (string)($arguments['permission'] ?? SharePermission::VIEW);
@@ -345,6 +345,9 @@ final class ShareWriter {
         $folder = NodeAccess::isFolder($node);
         if ($uploadOnly && !$folder) {
             throw new ToolFailure(SharingMessages::uploadLinkFolderOnly());
+        }
+        if ($uploadOnly && !$node->isCreatable()) {
+            throw new ToolFailure(SharingMessages::shareAboveOwnPermissions());
         }
         $existing = $this->access->findExisting($uid, $node, $recipient);
         $current = $existing === null ? null : (int)$existing->getPermissions();

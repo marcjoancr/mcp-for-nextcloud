@@ -147,9 +147,49 @@ final class FilesShareLinkTest extends FilesToolsTestCase {
         self::assertSame(SharingMessages::shareNotGranted(), $this->refusal('plan', ['path' => self::FILE, 'with' => 'link']));
     }
 
-    public function testANodeOfAnotherOwnerIsRefused(): void {
-        $this->tree->addFile('/alice/files/Recebido.pdf', 'x', 'application/pdf', ['scope' => 'shared']);
-        self::assertSame(SharingMessages::shareNotOwner(), $this->refusal('plan', ['path' => '/Recebido.pdf', 'with' => 'link']));
+    public function testRecipientManagesOnlyTheirOwnPublicLinkOnASharedFolder(): void {
+        $id = $this->tree->addFolder('/alice/files/Shared', ['scope' => 'shared', 'incomingShare' => $this->createStub(IShare::class)]);
+        $ownerLink = $this->shares->add(['node' => $id, 'type' => IShare::TYPE_LINK, 'by' => 'pedro', 'owner' => 'pedro', 'token' => 'owner-token']);
+        $arguments = ['path' => '/Shared', 'with' => 'link'];
+        $created = $this->confirm($arguments);
+        self::assertSame('create', $created['action']);
+        self::assertSame('alice', $this->shares->writes[0][1]->getSharedBy());
+        self::assertSame('pedro', $this->shares->writes[0][1]->getShareOwner());
+        self::assertSame('update', $this->confirm($arguments + ['note' => 'For the client'])['action']);
+        foreach ([['path' => '/Shared'], []] as $filter) {
+            $listed = $this->json('files_list_shares', $filter)['shares'];
+            self::assertSame([$created['shareId']], array_column($listed, 'shareId'));
+            self::assertTrue($listed[0]['removable']);
+        }
+        self::assertSame(\OCA\Mcp\Platform\FileAccess\FileAccessMessages::notFound(),
+            $this->failure('files_unshare', ['shareId' => $ownerLink->getFullId(), 'confirm' => true]));
+        self::assertSame($created['shareId'], $this->plan('files_unshare', $arguments)['shareId']);
+        $this->tool('files_unshare', ['shareId' => $created['shareId'], 'confirm' => true]);
+        self::assertSame([$ownerLink], $this->shares->shares);
+    }
+
+    public function testDelegatedLinkRechecksNativeSharingAndResharingPolicyOnConfirmation(): void {
+        $path = '/alice/files/Shared';
+        $this->tree->addFolder($path, ['scope' => 'shared', 'incomingShare' => $this->createStub(IShare::class)]);
+        $args = ['path' => '/Shared', 'with' => 'link'];
+        $args[PlanState::ARGUMENT] = $this->stateOf('files_share', $args);
+        $this->tree->nodes[$path]['shareable'] = false;
+        self::assertSame(SharingMessages::shareNodeNotShareable(), $this->refusal('confirm', $args));
+        $this->tree->nodes[$path]['shareable'] = true;
+        $this->configMock->setAppValue('core', 'shareapi_allow_resharing', 'no');
+        self::assertSame(SharingMessages::shareNodeNotShareable(), $this->refusal('confirm', $args));
+        self::assertSame([], $this->shares->writes);
+    }
+
+    public function testADelegatedLinkCannotBypassAnIncomingDownloadRestriction(): void {
+        $incoming = $this->createStub(IShare::class);
+        $attributes = $this->createStub(\OCP\Share\IAttributes::class);
+        $attributes->method('getAttribute')->willReturn(false);
+        $incoming->method('getAttributes')->willReturn($attributes);
+        $this->tree->addFolder('/alice/files/Shared', ['scope' => 'shared', 'incomingShare' => $incoming]);
+        $args = ['path' => '/Shared', 'with' => 'link'];
+        self::assertSame(SharingMessages::shareNodeNotShareable(), $this->refusal('plan', $args));
+        self::assertSame([], $this->shares->writes);
     }
 
     /** One link per file: asking again changes the one that exists. */

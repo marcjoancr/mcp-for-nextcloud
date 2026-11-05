@@ -352,14 +352,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "List shares",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -1368,14 +1368,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "List shares",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -2134,8 +2134,8 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
@@ -2213,7 +2213,7 @@
                                 {
                                     "name": "files_list_shares",
                                     "title": "List shares",
-                                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -3576,14 +3576,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "List shares",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -3606,7 +3606,7 @@
                 {
                     "name": "files_share",
                     "title": "Share file or folder",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -3689,7 +3689,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Stop sharing file or folder",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -3702,7 +3702,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -7925,14 +7925,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "List shares",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -7958,7 +7958,7 @@
                 {
                     "name": "files_share",
                     "title": "Share file or folder",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -8048,7 +8048,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Stop sharing file or folder",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -8061,7 +8061,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -11493,8 +11493,8 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
@@ -11728,7 +11728,7 @@
                                 {
                                     "name": "files_list_shares",
                                     "title": "List shares",
-                                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -11736,7 +11736,7 @@
                                 {
                                     "name": "files_share",
                                     "title": "Share file or folder",
-                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -11746,7 +11746,7 @@
                                 {
                                     "name": "files_unshare",
                                     "title": "Stop sharing file or folder",
-                                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -12577,7 +12577,7 @@
                 {
                     "name": "files_share",
                     "title": "Share file or folder",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -12660,7 +12660,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Stop sharing file or folder",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -12673,7 +12673,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -12706,7 +12706,7 @@
                 {
                     "name": "files_share",
                     "title": "Share file or folder",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -12796,7 +12796,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Stop sharing file or folder",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -12809,7 +12809,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -12872,14 +12872,14 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
                                     "name": "files_share",
                                     "title": "Share file or folder",
-                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -12889,7 +12889,7 @@
                                 {
                                     "name": "files_unshare",
                                     "title": "Stop sharing file or folder",
-                                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -13690,14 +13690,14 @@
                     "module": "files",
                     "operation": "read",
                     "app": "files_sharing",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -13720,7 +13720,7 @@
                         "link"
                     ],
                     "destructiveHint": true,
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -13800,7 +13800,7 @@
                         "upload_link"
                     ],
                     "destructiveHint": true,
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -13813,7 +13813,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -18217,14 +18217,14 @@
                         {
                             "name": "files_list_shares",
                             "title": "List shares",
-                            "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                            "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
                                     "path": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                        "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                                     },
                                     "offset": {
                                         "type": "integer",
@@ -18247,7 +18247,7 @@
                         {
                             "name": "files_share",
                             "title": "Share file or folder",
-                            "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                            "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -18330,7 +18330,7 @@
                         {
                             "name": "files_unshare",
                             "title": "Stop sharing file or folder",
-                            "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                            "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -18343,7 +18343,7 @@
                                     "path": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                        "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                                     },
                                     "with": {
                                         "type": "string",
@@ -21908,14 +21908,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar compartilhamentos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -22924,14 +22924,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar compartilhamentos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -23690,8 +23690,8 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
@@ -23769,7 +23769,7 @@
                                 {
                                     "name": "files_list_shares",
                                     "title": "Listar compartilhamentos",
-                                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -25132,14 +25132,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar compartilhamentos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -25162,7 +25162,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartilhar arquivo ou pasta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -25245,7 +25245,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Parar de compartilhar arquivo ou pasta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -25258,7 +25258,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -29481,14 +29481,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar compartilhamentos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -29514,7 +29514,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartilhar arquivo ou pasta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -29604,7 +29604,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Parar de compartilhar arquivo ou pasta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -29617,7 +29617,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -33049,8 +33049,8 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
@@ -33284,7 +33284,7 @@
                                 {
                                     "name": "files_list_shares",
                                     "title": "Listar compartilhamentos",
-                                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -33292,7 +33292,7 @@
                                 {
                                     "name": "files_share",
                                     "title": "Compartilhar arquivo ou pasta",
-                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -33302,7 +33302,7 @@
                                 {
                                     "name": "files_unshare",
                                     "title": "Parar de compartilhar arquivo ou pasta",
-                                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -34133,7 +34133,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartilhar arquivo ou pasta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -34216,7 +34216,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Parar de compartilhar arquivo ou pasta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -34229,7 +34229,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -34262,7 +34262,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartilhar arquivo ou pasta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -34352,7 +34352,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Parar de compartilhar arquivo ou pasta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -34365,7 +34365,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -34428,14 +34428,14 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
                                     "name": "files_share",
                                     "title": "Compartilhar arquivo ou pasta",
-                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -34445,7 +34445,7 @@
                                 {
                                     "name": "files_unshare",
                                     "title": "Parar de compartilhar arquivo ou pasta",
-                                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -35246,14 +35246,14 @@
                     "module": "files",
                     "operation": "read",
                     "app": "files_sharing",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -35276,7 +35276,7 @@
                         "link"
                     ],
                     "destructiveHint": true,
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -35356,7 +35356,7 @@
                         "upload_link"
                     ],
                     "destructiveHint": true,
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -35369,7 +35369,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -39773,14 +39773,14 @@
                         {
                             "name": "files_list_shares",
                             "title": "Listar compartilhamentos",
-                            "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                            "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
                                     "path": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                        "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                                     },
                                     "offset": {
                                         "type": "integer",
@@ -39803,7 +39803,7 @@
                         {
                             "name": "files_share",
                             "title": "Compartilhar arquivo ou pasta",
-                            "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                            "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -39886,7 +39886,7 @@
                         {
                             "name": "files_unshare",
                             "title": "Parar de compartilhar arquivo ou pasta",
-                            "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                            "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -39899,7 +39899,7 @@
                                     "path": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                        "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                                     },
                                     "with": {
                                         "type": "string",
@@ -43464,14 +43464,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar recursos compartidos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -44480,14 +44480,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar recursos compartidos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -45246,8 +45246,8 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
@@ -45325,7 +45325,7 @@
                                 {
                                     "name": "files_list_shares",
                                     "title": "Listar recursos compartidos",
-                                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -46688,14 +46688,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar recursos compartidos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -46718,7 +46718,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartir archivo o carpeta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -46801,7 +46801,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Dejar de compartir archivo o carpeta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -46814,7 +46814,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -51037,14 +51037,14 @@
                 {
                     "name": "files_list_shares",
                     "title": "Listar recursos compartidos",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -51070,7 +51070,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartir archivo o carpeta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -51160,7 +51160,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Dejar de compartir archivo o carpeta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -51173,7 +51173,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -54605,8 +54605,8 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
@@ -54840,7 +54840,7 @@
                                 {
                                     "name": "files_list_shares",
                                     "title": "Listar recursos compartidos",
-                                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -54848,7 +54848,7 @@
                                 {
                                     "name": "files_share",
                                     "title": "Compartir archivo o carpeta",
-                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -54858,7 +54858,7 @@
                                 {
                                     "name": "files_unshare",
                                     "title": "Dejar de compartir archivo o carpeta",
-                                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -55689,7 +55689,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartir archivo o carpeta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -55772,7 +55772,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Dejar de compartir archivo o carpeta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -55785,7 +55785,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -55818,7 +55818,7 @@
                 {
                     "name": "files_share",
                     "title": "Compartir archivo o carpeta",
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -55908,7 +55908,7 @@
                 {
                     "name": "files_unshare",
                     "title": "Dejar de compartir archivo o carpeta",
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -55921,7 +55921,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -55984,14 +55984,14 @@
                                 "files_read and files_version_read of a PDF or image with no text return text_layer: false and a notice instead of an error: the file is a scan. If the Workflow OCR app is active it recognises the text in the background (by the administrator's rule) and writes it into the PDF as a new version, so read again later; otherwise view the page as an image with the image tools.",
                                 "There is no delete: files_undo_batch is the way back from files_move_batch, and files_version_restore writes the content of a stored version back over the file, applying the administrator backup setting.",
                                 "files_share shares a file or folder of yours with a person (with: user:<uid>) or a group (group:<gid>); find the id with users_search (include_groups: true for groups) and never guess it. Sharing again with the same recipient changes that share; the plan shows before → after, including a re-share right a web-made share loses. Nextcloud notifies the recipient. with: \"link\" is the public link of the file (needs the \"link\" permission): its password is generated by the server, never by you, and is shown once in the confirmed result; tell the user to save it. Confirm with the plan_state of the plan: when the share changed in the meantime, nothing is written and the answer is the new plan to show again.",
-                                "files_list_shares shows only the shares you created and only of your own files; a file you received cannot be re-shared here. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
-                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared, a share of a file you do not own or a Talk attachment, and answers \"not found\" for all of them. Confirm with the plan_state of the plan, as for files_share."
+                                "files_list_shares shows only shares you created. On items shared with you, you can manage your own public links when Nextcloud permits re-sharing and downloads. A password is never shown, only hasPassword. A room share is a Talk attachment and is removed in Talk. Sharing with people or groups needs the \"share\" permission and public links the separate \"link\" permission, both granted by the administrator.",
+                                "files_unshare removes one share you created (by the shareId of files_list_shares, or by path plus with); the plan says who loses access, and the file itself is never touched. It cannot remove what somebody else shared or an internal share on a received item. Remove Talk attachments in Talk. Confirm with the plan_state of the plan, as for files_share."
                             ],
                             "tools": [
                                 {
                                     "name": "files_share",
                                     "title": "Compartir archivo o carpeta",
-                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -56001,7 +56001,7 @@
                                 {
                                     "name": "files_unshare",
                                     "title": "Dejar de compartir archivo o carpeta",
-                                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                                     "read_only": false,
                                     "destructive": true,
                                     "confirmation": [
@@ -56802,14 +56802,14 @@
                     "module": "files",
                     "operation": "read",
                     "app": "files_sharing",
-                    "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                    "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                             },
                             "offset": {
                                 "type": "integer",
@@ -56832,7 +56832,7 @@
                         "link"
                     ],
                     "destructiveHint": true,
-                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                    "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -56912,7 +56912,7 @@
                         "upload_link"
                     ],
                     "destructiveHint": true,
-                    "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                    "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -56925,7 +56925,7 @@
                             "path": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                             },
                             "with": {
                                 "type": "string",
@@ -61329,14 +61329,14 @@
                         {
                             "name": "files_list_shares",
                             "title": "Listar recursos compartidos",
-                            "description": "List the shares you created: with a path, the shares of that file or folder (which must be yours); without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
+                            "description": "List the shares you created: with a path, your shares on that file or folder, including your public links on items you can re-share; without one, every share you created, 50 per page with offset. Each item has shareId, type (user, group, link or room), with (id and display name), permission (view, edit or custom), reshare, expires, hasPassword, url (links only; null for a folder link while files are excluded from MCP access), removable and path. Passwords are never returned. A room share is a Talk attachment: it is listed with removable: false and is removed in Talk.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
                                     "path": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "File or folder of yours whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
+                                        "description": "File or folder whose shares to list, e.g. /Documents/report.pdf. Omit to list every share you created."
                                     },
                                     "offset": {
                                         "type": "integer",
@@ -61359,7 +61359,7 @@
                         {
                             "name": "files_share",
                             "title": "Compartir archivo o carpeta",
-                            "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes the public link of the file (one per file, view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
+                            "description": "Share a file or folder of yours with a person or a group, or change how it is already shared with them. Find the account or group id with users_search first (include_groups: true for groups); never guess it. Sharing again with the same recipient changes that share instead of creating another one. permission is view (open and download) or edit (change; on a folder also add and delete inside it); a share never lets the recipient share it on. expires is the last day (YYYY-MM-DD, in the user's timezone, tomorrow or later); omit it to keep the current one, or for a new share to get the administrator's default. Without confirm: true it returns the plan and changes nothing. Nextcloud notifies the recipient. Needs the \"share\" permission. with: \"link\" creates or changes your public link on an item you own or can re-share (view only, anyone with it can open it) and needs the \"link\" permission; its password is generated by the server when you pass password: true or the administrator requires one, and is returned once in the confirmed result only.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -61442,7 +61442,7 @@
                         {
                             "name": "files_unshare",
                             "title": "Dejar de compartir archivo o carpeta",
-                            "description": "Stop sharing a file or folder of yours: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. Only your own shares of your own files can be removed; a Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
+                            "description": "Stop sharing a file or folder: removes one share you created, so that person, group or public link loses access. Name the share with the shareId from files_list_shares, or with path plus with (user:<uid>, group:<gid> or link). Nothing is deleted: the file or folder and its content stay as they are. You can also remove your own public link on an item you can re-share. A Talk attachment is removed in Talk. Without confirm: true it returns the plan and changes nothing. Needs the \"share\" permission; removing a read link needs \"link\", and removing an upload-only link needs \"upload_link\".",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -61455,7 +61455,7 @@
                                     "path": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "File or folder of yours, e.g. /Documents/report.pdf. Use it together with with."
+                                        "description": "File or folder, e.g. /Documents/report.pdf. Use it together with with."
                                     },
                                     "with": {
                                         "type": "string",

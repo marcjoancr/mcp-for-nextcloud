@@ -70,6 +70,25 @@ final class FilesCreateUploadLinkTest extends FilesToolsTestCase {
         self::assertSame('ocinternal:' . $share->getId(), $out['shareId']);
     }
 
+    public function testUploadLinkRequiresCreatePermissionOnTheReceivedFolderAtConfirmation(): void {
+        $this->grantUploadLink();
+        $this->shares->settings['shareApiLinkAllowPublicUpload'] = true;
+        $this->tree->addFolder('/alice/files/Received', ['scope' => 'shared', 'incomingShare' => $this->createStub(IShare::class)]);
+        $root = $this->tree->rootFolder();
+        $args = $this->writerArguments(['path' => '/Received']);
+        $plan = $this->inTool(fn () => $this->shareWriter->planUploadLink($root, 'alice', $args));
+        $args[PlanState::ARGUMENT] = $plan[PlanState::ARGUMENT];
+        $this->tree->nodes['/alice/files/Received']['permissions'] = Constants::PERMISSION_READ | Constants::PERMISSION_SHARE;
+        self::assertSame(SharingMessages::shareAboveOwnPermissions(), $this->writerFailure(fn () => $this->inTool(
+            fn () => $this->shareWriter->applyUploadLink($root, 'alice', $args),
+        )));
+        self::assertSame([], $this->shares->writes);
+        $this->tree->nodes['/alice/files/Received']['permissions'] |= Constants::PERMISSION_CREATE;
+        $result = $this->inTool(fn () => $this->shareWriter->applyUploadLink($root, 'alice', $args));
+        self::assertSame('upload', $result['permission']);
+        self::assertTrue($result['hasPassword']);
+    }
+
     public function testTheNormalLinkGrantDoesNotAuthorizeAnUploadLink(): void {
         $this->sharePolicy->setGrant('alice', 'files', 'link', true);
         self::assertSame(SharingMessages::shareNotGranted(), $this->writerFailure(fn () => $this->inTool(

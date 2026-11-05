@@ -433,6 +433,7 @@ final class NextcloudApiUsage {
      * @var array<string, string> "Class::method" => the call it really is
      */
     public const NAME_CLASHES = [
+        'OCA\\Talk\\Room::getAttributes' => 'OCP\\Share\\IShare::getAttributes, in Modules/Files/Sharing/ShareAccess',
         'OCP\\Files\\File::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
         'OCP\\Files\\Folder::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
         'OCP\\Files\\FileInfo::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
