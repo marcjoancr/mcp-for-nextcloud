@@ -23,7 +23,7 @@ final class FilesDispatchTest extends TestCase {
     public function testDefinitionsDoNotResolveTools(): void {
         $module = new FilesModule($this->factories(), (\OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this))->assertScopeReadable(...));
         self::assertSame(array_values(FilesToolCatalog::definitions()), $module->definitions());
-        self::assertCount(23, $module->definitions());
+        self::assertCount(29, $module->definitions());
         self::assertNotEmpty($module->guideNotes());
     }
 
@@ -55,7 +55,7 @@ final class FilesDispatchTest extends TestCase {
 
     public function testMetadataDoesNotRequireAConstructedModule(): void {
         $module = (new \ReflectionClass(FilesModule::class))->newInstanceWithoutConstructor();
-        self::assertCount(23, $module->definitions());
+        self::assertCount(29, $module->definitions());
     }
     public function testResolvedToolMustMatchItsFactoryName(): void {
         $factories = $this->factories();

@@ -5,13 +5,15 @@
 
 Administration and personal settings each register one classic script through
 `OCP\Util::addScript`. Authored code uses native JavaScript modules; esbuild produces
-two self-contained IIFEs without runtime imports or chunks. Nextcloud does not
-need Node.js to serve the packaged application.
+three self-contained IIFEs without runtime imports or chunks. Nextcloud does not
+need Node.js to serve the packaged application. The Files entry is registered by
+the Files-specific script-loading event and uses the supported sidebar-tab API.
 
 ```text
 mcp/src/
-  entries/                 admin.js, personal.js: root guards and host wiring
+  entries/                 admin.js, personal.js, files.js: host wiring
   platform/                Nextcloud host, HTTP, lifecycle and policy state
+  files/                   native image-description sidebar and browser fallback
   settings/                connections.js: explicit admin/personal scope
   admin/
     bootstrap.js           page composition and explicit sibling callbacks
@@ -30,6 +32,7 @@ mcp/src/
 mcp/js/
   admin.js                 generated, ignored
   personal.js              generated, ignored
+  files.js                 generated, ignored; loaded only on Files pages
 ```
 
 ## Composition and lifecycle
@@ -84,11 +87,13 @@ composer --working-dir=mcp check
 ```
 
 `test`, `test:js` and `package` always build fresh assets. `assets:build` rejects
-missing inputs, import cycles, unreachable authored modules, non-app dependencies
-and any administration graph in the personal entry. It records the input graph in
+missing inputs, authored import cycles, unreachable authored modules and runtime
+external imports. Only the Files entry may bundle the pinned official Nextcloud
+client libraries; their licenses are included in THIRD-PARTY-NOTICES. The personal
+entry cannot contain the administration graph. It records the input graph in
 ignored `mcp/build/assets-metafile.json`. Never edit or commit generated bundles.
 
-The package contains both generated entries and existing styles/translations,
+The package contains all three generated entries and existing styles/translations,
 plus their license notices. Sources, development dependencies, scripts, tests,
 configuration and source maps stay outside the production archive. A source checkout
 is the development artifact; the checked tarball is the deployment artifact.

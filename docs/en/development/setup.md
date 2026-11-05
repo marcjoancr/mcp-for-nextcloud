@@ -76,7 +76,7 @@ traces and other generated output stay in ignored `mcp/build/`; the fixture serv
 binds only to `127.0.0.1`. It uses actual PHP templates and synthetic APIs and does
 not replace verification on a real Nextcloud host.
 
-Author JavaScript in `mcp/src/`; `mcp/js/admin.js` and `personal.js` are ignored
+Author JavaScript in `mcp/src/`; `mcp/js/admin.js`, `personal.js` and `files.js` are ignored
 build products. Run `composer --working-dir=mcp assets:build` after editing before
 a focused npm test or loading a source checkout in a disposable Nextcloud instance.
 The complete Composer commands build automatically and never install missing tools.

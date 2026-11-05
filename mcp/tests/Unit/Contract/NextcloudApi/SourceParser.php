@@ -27,6 +27,7 @@ final class SourceParser {
         'OCA\\Files_Versions\\' => 'apps/files_versions/lib/',
         'OCA\\Files_Trashbin\\' => 'apps/files_trashbin/lib/',
         'OCA\\Files_Sharing\\' => 'apps/files_sharing/lib/',
+        'OCA\\Files\\' => 'apps/files/lib/',
     ];
 
     /** @var array<string, array<string, mixed>|null> parsed classes, null when absent */

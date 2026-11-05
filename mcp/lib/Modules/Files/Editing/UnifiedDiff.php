@@ -161,6 +161,8 @@ final class UnifiedDiff {
         $groups[] = [$start, $previous];
 
         $hunks = [];
+        // Keep one extra character so between() can distinguish an exact fit from a truncated diff.
+        $remaining = self::MAX_CHARS + 1;
         foreach ($groups as [$first, $last]) {
             $from = max(0, $first - self::CONTEXT);
             $to = min(count($ops) - 1, $last + self::CONTEXT);
@@ -168,7 +170,13 @@ final class UnifiedDiff {
             $body = '';
             for ($i = $from; $i <= $to; $i++) {
                 [$mark, $text, $noTerminator] = $ops[$i];
-                $body .= $mark . $text . "\n" . ($noTerminator ? self::NO_NEWLINE . "\n" : '');
+                if ($remaining > 0) {
+                    // Slice before concatenation: a single changed line can be tens of MiB.
+                    $visible = strlen($text) > $remaining ? mb_substr($text, 0, $remaining) : $text;
+                    $line = $mark . $visible . "\n" . ($noTerminator ? self::NO_NEWLINE . "\n" : '');
+                    $body .= $line;
+                    $remaining -= mb_strlen($line);
+                }
                 // A line survives in the old file unless an earlier op added one, and in the new file
                 // unless an earlier op removed one.
                 if ($mark !== '+') {
@@ -180,7 +188,12 @@ final class UnifiedDiff {
                     $newCount++;
                 }
             }
-            $hunks[] = sprintf("@@ -%d,%d +%d,%d @@\n", $oldStart, $oldCount, $newStart, $newCount) . $body;
+            $header = sprintf("@@ -%d,%d +%d,%d @@\n", $oldStart, $oldCount, $newStart, $newCount);
+            $hunks[] = $header . $body;
+            $remaining -= strlen($header);
+            if ($remaining <= 0) {
+                break;
+            }
         }
         return $hunks;
     }

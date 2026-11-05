@@ -48,6 +48,56 @@ The optional [file type policy](../configuration.md#file-type-policy) limits
 filenames for Files and Notes writes, including uploads, checkout uploads,
 restoration, copy/move and undo. It starts off and never grants access.
 
+## Image descriptions, tags and upload links
+
+These capabilities require explicit tool assignment and independent grants. Existing
+Files read, edit and link grants do not automatically enable the new tools.
+
+| Tool | Grant | Behavior |
+| --- | --- | --- |
+| `files_get_image_description` | `files.description_read` | Read the effective description and its source for an accessible image. |
+| `files_set_image_description` | `files.description_edit` | Preview and confirm a native Files metadata description update. |
+| `files_list_tags` | `files.tags_read` | List visible assignable categories, optionally with an accessible file's current tags. |
+| `files_create_tag` | `files.tags_create` | Preview and confirm creation or reuse of a public assignable system tag. |
+| `files_set_tags` | `files.tags_edit` | Preview and confirm additions/removals on up to 20 accessible, writable files. |
+| `files_create_upload_link` | `files.upload_link` | Preview and confirm a password-protected, upload-only folder link. |
+
+Descriptions are stored in native Files metadata under `mcp-image-description`.
+The Files sidebar exposes the same value and uses the signed-in user's tool grants,
+Files scope and native permissions. Saving in the sidebar is an explicit action;
+MCP writes use a preview and its `plan_state`, with additional confirmation for
+shared files. Stale previews cannot overwrite a changed description.
+The limit is 16,000 UTF-8 bytes. No sidecar is created and image bytes are unchanged.
+An explicit empty description suppresses the embedded fallback. Without an override,
+the reader uses Photos `photos-ifd0` ImageDescription when available, then bounded
+JPEG EXIF IFD0 ImageDescription. It reports the source; it does not claim universal
+IPTC/XMP extraction. The description is a Nextcloud value, not a portable change
+embedded in downloaded image bytes.
+
+System tags such as `Tacos` and `Interior` are shared categories across the server,
+not private per-user labels. Listing categories reveals no files. File listing,
+assignment and image search still enforce each user's access and configured folder
+scope. Hidden or restricted categories are not exposed by these tools, and native
+creation/assignment policies remain authoritative. Names are limited to 64 UTF-8
+bytes. All targets are preflighted before a batch assignment; independent storage
+failures during writes can still leave a partially applied batch.
+
+For public read links, `files_share` accepts `password_mode` and `expiry_mode`, each
+with `preserve`, `set`, or `remove`. Setting expiry requires `expires`; setting a password
+generates a new secret, returned only by the successful write. `remove` explicitly
+requests no password or no expiry, including when the administrator has a default
+expiry. Mandatory administrator policies can reject removal. Omitting modes keeps
+the existing behavior. A read link can therefore have neither password nor expiry,
+a password without expiry, or both, when server policy permits.
+
+Upload links require `files.upload_link`, a writable folder owned by the caller,
+and native public uploads enabled. They grant only CREATE: visitors cannot list,
+read, update or delete existing files. A password is always required; `password_mode`
+can preserve it or generate a replacement, while `expiry_mode` supports removal.
+The implementation manages one public link per node and refuses to silently convert
+between read and upload-only access. Removing an upload link also requires the
+upload-link grant. Passwords are never included in previews, listing or logs.
+
 ## Images (`files_image_view`, `files_images_view`, `files_image_search`)
 
 

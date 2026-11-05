@@ -45,7 +45,7 @@ class GrantPolicy implements ScopeReader {
         // like every operation but read, both start denied. 'share' shares an own file with a person or a
         // group and 'link' creates a public link; they are separate so an admin can allow one without the
         // other, and removing a share asks for the operation of its type. Listing shares stays a 'read'.
-        'files' => ['read', 'edit', 'create', 'move', 'restore', 'share', 'link'],
+        'files' => ['read', 'edit', 'create', 'move', 'restore', 'share', 'link', 'description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'],
         'notes' => ['read', 'create', 'edit', 'move', 'delete'],
         'deck' => ['read', 'create', 'edit', 'move', 'delete', 'read_comments', 'comment', 'search'],
         'contacts' => ['read', 'create', 'edit', 'delete'],

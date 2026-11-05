@@ -150,7 +150,7 @@
         "analyse": "Run both fixed static analysis scopes; extra arguments are ignored.",
         "check": "Validate, lint, analyze, run PHP and JavaScript tests, and package; extra arguments are ignored.",
         "test:js": "Build assets and run the complete JavaScript suite; extra arguments are ignored.",
-        "assets:build": "Build both production JavaScript entries; extra arguments are ignored.",
+        "assets:build": "Build all three production JavaScript entries; extra arguments are ignored.",
         "docs:check": "Validate all repository documentation, links and provenance; fixed scope.",
         "docs:translations": "Report translation freshness; missing/stale are advisory, invalid provenance fails.",
         "test:docs": "Run all documentation tooling tests; fail on empty discovery.",

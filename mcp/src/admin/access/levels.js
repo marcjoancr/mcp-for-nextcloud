@@ -16,7 +16,7 @@
 
 /** Cumulative tiers per module: [Read, Edit, Full]. Modules with one operation have only Read. */
 const TIERS = {
-	files: [['read'], ['edit', 'create', 'move', 'restore'], ['share', 'link']],
+	files: [['read'], ['edit', 'create', 'move', 'restore'], ['share', 'link', 'description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link']],
 	notes: [['read'], ['create', 'edit', 'move'], ['delete']],
 	deck: [['read'], ['create', 'edit', 'move'], ['delete', 'read_comments', 'comment', 'search']],
 	calendar: [['read'], ['create', 'edit', 'move'], ['delete', 'transfer', 'availability']],

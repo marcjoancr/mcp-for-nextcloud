@@ -81,13 +81,34 @@ final class FilesUnshareTest extends FilesToolsTestCase {
         $tagMapper->method('getTagIdsForObjects')->willReturn([(string)$this->id('/Documentos/ata.md') => ['999']]);
     }
 
-    public function testTheToolIsAWriteReachableWithShareOrLinkAndAllArgumentsAreOptional(): void {
+    public function testTheToolIsAWriteReachableWithShareLinkOrUploadLinkAndAllArgumentsAreOptional(): void {
         $definition = array_column($this->module->definitions(), null, 'name')['files_unshare'];
-        self::assertSame(['files', 'share', ['share', 'link'], true],
+        self::assertSame(['files', 'share', ['share', 'link', 'upload_link'], true],
             [$definition['module'], $definition['operation'], $definition['grantAnyOf'], $definition['destructiveHint']]);
         self::assertSame(['shareId', 'path', 'with', 'plan_state'], array_keys($definition['inputSchema']['properties']));
         self::assertSame([], $definition['inputSchema']['required'] ?? []);
         self::assertStringContainsString('files_list_shares', $definition['description']);
+    }
+
+    public function testUploadLinkGrantCannotRevokeAnOrdinaryReadLink(): void {
+        $this->sharePolicy->setGrant('alice', 'files', 'share', false);
+        $this->sharePolicy->setGrant('alice', 'files', 'link', false);
+        $this->sharePolicy->setGrant('alice', 'files', 'upload_link', true);
+        $readLink = $this->shares->add(['node' => $this->id('/Documentos/ata.md'), 'nodeObject' => $this->tree->node('/alice/files/Documentos/ata.md'),
+            'type' => IShare::TYPE_LINK, 'with' => null, 'token' => 'read', 'permissions' => \OCP\Constants::PERMISSION_READ]);
+        self::assertSame(SharingMessages::shareNotGranted(), $this->planFailure(['shareId' => $readLink->getFullId()]));
+        self::assertSame([], $this->shares->writes);
+    }
+
+    public function testOrdinaryLinkGrantCannotRevokeAnUploadOnlyLink(): void {
+        $this->sharePolicy->setGrant('alice', 'files', 'share', false);
+        $this->sharePolicy->setGrant('alice', 'files', 'link', true);
+        $this->sharePolicy->setGrant('alice', 'files', 'upload_link', false);
+        $folder = $this->tree->node('/alice/files/Projetos');
+        $link = $this->shares->add(['node' => $folder->getId(), 'nodeType' => 'folder', 'nodeObject' => $folder,
+            'type' => IShare::TYPE_LINK, 'with' => null, 'token' => 'upload', 'permissions' => \OCP\Constants::PERMISSION_CREATE]);
+        self::assertSame(SharingMessages::shareNotGranted(), $this->planFailure(['shareId' => $link->getFullId()]));
+        self::assertSame([], $this->shares->writes);
     }
 
     public function testThePlanByIdNamesWhoLosesAccessAndRemovesNothing(): void {

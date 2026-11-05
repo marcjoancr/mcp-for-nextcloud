@@ -354,7 +354,7 @@ unpack_release_app() {
     sha=$4
     archive="$TOOLS_DIR/$app.tar.gz"
     url=${5:-"https://github.com/nextcloud-releases/$repo/releases/download/$tag/$app-$tag.tar.gz"}
-    curl -fsSL -o "$archive" "$url"
+    sh "$REPO_ROOT/mcp/tests/Integration/ci/fetch-release.sh" "$url" "$archive"
     echo "$sha  $archive" | sha256_check
     chmod 0644 "$archive"
     docker exec -u www-data "$NC" tar -xzf "/mcp-it-tools/$app.tar.gz" -C /var/www/html/custom_apps

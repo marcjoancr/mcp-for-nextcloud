@@ -157,7 +157,11 @@ final class PackageCheck {
         if ($tops !== ['mcp']) {
             $found[] = 'top-level entries must be only mcp/, found: [' . implode(', ', array_map(static fn (string $top): string => "'$top'", $tops)) . ']';
         }
-        foreach (['mcp/js/admin.js', 'mcp/js/personal.js'] as $required) {
+        // Historical upgrade archives predate the Files sidebar. Require its bundle
+        // whenever the app ships the listener that loads it.
+        $scripts = ['mcp/js/admin.js', 'mcp/js/personal.js'];
+        if (isset($names['mcp/lib/Listener/FilesDescriptionSidebarListener.php'])) $scripts[] = 'mcp/js/files.js';
+        foreach ($scripts as $required) {
             if (!($names[$required] ?? false)) {
                 $found[] = "missing production script: $required";
             }

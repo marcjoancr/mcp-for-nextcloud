@@ -66,13 +66,20 @@ final class CheckPackageTest extends TestCase {
         self::assertStringContainsString($path, implode('\n', $problems));
     }
 
-    public function testBothFinalBundlesMustBeRegularFiles(): void {
-        foreach (['admin', 'personal'] as $name) {
+    public function testAllFinalBundlesMustBeRegularFiles(): void {
+        foreach (['admin', 'personal', 'files'] as $name) {
             $path = "mcp/js/$name.js";
             $entries = array_values(array_filter($this->clean(), static fn (string $entry): bool => rtrim(substr($entry, 0, 100), "\0") !== $path));
             self::assertContains("missing production script: $path", $this->check($entries));
             self::assertContains("missing production script: $path", $this->check([...$entries, self::dir($path)]));
         }
+    }
+
+    public function testHistoricalArchiveWithoutFilesSidebarRemainsValid(): void {
+        $entries = array_values(array_filter($this->clean(), static fn (string $entry): bool => !in_array(rtrim(substr($entry, 0, 100), "\0"), [
+            'mcp/js/files.js', 'mcp/lib/Listener/FilesDescriptionSidebarListener.php',
+        ], true)));
+        self::assertSame([], $this->check($entries));
     }
 
     /** Each license and attribution notice is mandatory, including original vendor licenses. */
@@ -338,6 +345,8 @@ final class CheckPackageTest extends TestCase {
             ...array_map(static fn (string $path): string => self::file($path, 'License or notice'), PackageCheck::REQUIRED_LEGAL_FILES),
             self::file('mcp/js/admin.js', 'x'),
             self::file('mcp/js/personal.js', 'x'),
+            self::file('mcp/js/files.js', 'x'),
+            self::file('mcp/lib/Listener/FilesDescriptionSidebarListener.php', '<?php'),
             self::file('mcp/css/admin.css', 'x'),
             self::dir('mcp/vendor'),
             self::file('mcp/vendor/autoload.php'),

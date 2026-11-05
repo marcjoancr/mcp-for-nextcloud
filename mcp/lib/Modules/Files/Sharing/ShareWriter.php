@@ -91,6 +91,11 @@ final class ShareWriter {
         return $this->planOf($this->prepare($userFolder, $uid, $arguments), $uid);
     }
 
+    /** Plan a password-protected folder link that permits file creation only. */
+    public function planUploadLink(Folder $userFolder, string $uid, array $arguments): array {
+        return $this->planOf($this->prepare($userFolder, $uid, $arguments, true), $uid);
+    }
+
     /**
      * The plan of one prepared change, with its {@see PlanState}.
      *
@@ -111,6 +116,7 @@ final class ShareWriter {
             'isDir' => $change['folder'],
             'with' => $change['recipient']->toArray(),
             'shareId' => $change['existing']?->getFullId(),
+            'uploadOnly' => (bool)($change['uploadOnly'] ?? false),
             'before' => $change['before'],
             'after' => $change['after'],
             'expiresSource' => $change['expiresSource'],
@@ -134,7 +140,7 @@ final class ShareWriter {
      * @return string the opaque {@see PlanState} of the change
      */
     private function stateOf(array $change, string $uid): string {
-        return $this->states->of('files_share', $uid, [
+        return $this->states->of(($change['uploadOnly'] ?? false) ? 'files_create_upload_link' : 'files_share', $uid, [
             'action' => $change['action'],
             'shareId' => $change['existing']?->getFullId(),
             'node' => ['id' => $change['node']->getId(), 'path' => $change['path']],
@@ -152,14 +158,16 @@ final class ShareWriter {
      * any of them are two different approvals even when they would end in the same snapshot.
      *
      * @param array<string, mixed> $arguments validated arguments
-     * @return array{permission:string, expires:string|null, note:string|null, password:bool|null}
+     * @return array{permission:string, expires:string|null, expiryMode:string, note:string|null, password:bool|null, passwordMode:string}
      */
     private static function requested(array $arguments): array {
         return [
             'permission' => (string)($arguments['permission'] ?? SharePermission::VIEW),
             'expires' => isset($arguments['expires']) ? (string)$arguments['expires'] : null,
+            'expiryMode' => (string)($arguments['expiry_mode'] ?? (isset($arguments['expires']) ? 'set' : 'preserve')),
             'note' => isset($arguments['note']) ? (string)$arguments['note'] : null,
             'password' => isset($arguments['password']) ? $arguments['password'] === true : null,
+            'passwordMode' => (string)($arguments['password_mode'] ?? (($arguments['password'] ?? false) === true ? 'set' : 'preserve')),
         ];
     }
 
@@ -180,6 +188,17 @@ final class ShareWriter {
      */
     public function apply(Folder $userFolder, string $uid, array $arguments): array {
         $change = $this->prepare($userFolder, $uid, $arguments);
+        return $this->applyPrepared($change, $uid, $arguments);
+    }
+
+    /** Execute the current upload-link plan only if its bound state still matches. */
+    public function applyUploadLink(Folder $userFolder, string $uid, array $arguments): array {
+        $change = $this->prepare($userFolder, $uid, $arguments, true);
+        return $this->applyPrepared($change, $uid, $arguments);
+    }
+
+    /** @param array<string, mixed> $change freshly prepared change */
+    private function applyPrepared(array $change, string $uid, array $arguments): array {
         PlanState::require($arguments);
         if (!PlanState::matches($this->stateOf($change, $uid), $arguments)) {
             throw new PlanChanged($this->planOf($change, $uid, true));
@@ -217,11 +236,15 @@ final class ShareWriter {
      * @return array{action:string, node:Node, path:string, folder:bool, recipient:ShareRecipient, existing:IShare|null, bits:int, expires:\DateTime|null, note:string|null, before:array<string, mixed>|null, after:array<string, mixed>, expiresSource:string, timezone:\DateTimeZone, warnings:list<string>, generatePassword:bool, passwordPlan:array{before:bool|null, after:string, required:bool}|null, requested:array{permission:string, expires:string|null, note:string|null, password:bool|null}}
      * @throws ArgumentValidationException|ToolFailure for any refusal
      */
-    private function prepare(Folder $userFolder, string $uid, array $arguments): array {
+    private function prepare(Folder $userFolder, string $uid, array $arguments, bool $uploadOnly = false): array {
         $recipient = $this->recipients->resolve((string)$arguments['with'], 'with');
-        $this->access->assertGranted($uid, $recipient->shareType());
+        if ($uploadOnly) {
+            $this->access->assertUploadLinkGranted($uid);
+        } else {
+            $this->access->assertGranted($uid, $recipient->shareType());
+        }
         if ($recipient->kind === ShareRecipient::LINK) {
-            return $this->prepareLink($userFolder, $uid, $arguments, $recipient);
+            return $this->prepareLink($userFolder, $uid, $arguments, $recipient, $uploadOnly);
         }
         if (isset($arguments['password'])) {
             throw new ArgumentValidationException('Invalid argument: password', 'password', Translator::t('only for a public link'));
@@ -308,7 +331,7 @@ final class ShareWriter {
      * @throws ArgumentValidationException for `edit` or an unusable date
      * @throws ToolFailure for every other refusal, with a translated reason
      */
-    private function prepareLink(Folder $userFolder, string $uid, array $arguments, ShareRecipient $recipient): array {
+    private function prepareLink(Folder $userFolder, string $uid, array $arguments, ShareRecipient $recipient, bool $uploadOnly = false): array {
         $node = $this->access->ownNode($userFolder, $uid, (string)$arguments['path']);
         $this->access->assertFolderExposure($node);
         $this->assertLinksAllowed($uid);
@@ -320,17 +343,47 @@ final class ShareWriter {
             throw new ToolFailure(SharingMessages::shareNodeNotShareable());
         }
         $folder = NodeAccess::isFolder($node);
+        if ($uploadOnly && !$folder) {
+            throw new ToolFailure(SharingMessages::uploadLinkFolderOnly());
+        }
         $existing = $this->access->findExisting($uid, $node, $recipient);
         $current = $existing === null ? null : (int)$existing->getPermissions();
-        $bits = $current !== null && SharePermission::classify($current, $folder) === SharePermission::VIEW
-            ? $current : SharePermission::bits(SharePermission::VIEW, $folder);
+        if ($uploadOnly && !$this->shareManager->shareApiLinkAllowPublicUpload()) {
+            throw new ToolFailure(SharingMessages::uploadLinksDisabled());
+        }
+        $currentUploadOnly = $existing !== null
+            && ($current & \OCP\Constants::PERMISSION_CREATE) !== 0
+            && ($current & (\OCP\Constants::PERMISSION_READ | \OCP\Constants::PERMISSION_UPDATE | \OCP\Constants::PERMISSION_DELETE)) === 0;
+        if ($existing !== null && $currentUploadOnly !== $uploadOnly) {
+            throw new ToolFailure(SharingMessages::linkModeConflict());
+        }
+        $bits = $uploadOnly
+            ? \OCP\Constants::PERMISSION_CREATE
+            : ($current !== null && SharePermission::classify($current, $folder) === SharePermission::VIEW
+                ? $current : SharePermission::bits(SharePermission::VIEW, $folder));
 
         $zone = $this->zones->forUser($uid);
-        $expires = isset($arguments['expires']) ? $this->expiry((string)$arguments['expires'], $zone, true) : null;
+        $expiryMode = (string)($arguments['expiry_mode'] ?? (isset($arguments['expires']) ? 'set' : 'preserve'));
+        if (!in_array($expiryMode, ['preserve', 'set', 'remove'], true) || (($expiryMode === 'set') !== isset($arguments['expires']))) {
+            throw new ArgumentValidationException('Invalid argument: expiry_mode', 'expiry_mode', Translator::t('set requires expires; otherwise omit expires'));
+        }
+        $expires = $expiryMode === 'set' ? $this->expiry((string)$arguments['expires'], $zone, true) : null;
         $note = isset($arguments['note']) ? (string)$arguments['note'] : null;
         $hadPassword = $existing === null ? null : ShareAccess::hasPassword($existing);
-        $required = $this->shareManager->shareApiLinkEnforcePassword();
-        $generate = ($arguments['password'] ?? false) === true || ($required && $hadPassword !== true);
+        $required = $uploadOnly || $this->shareManager->shareApiLinkEnforcePassword();
+        $passwordMode = (string)($arguments['password_mode'] ?? (($arguments['password'] ?? false) === true ? 'set' : 'preserve'));
+        if (!in_array($passwordMode, ['preserve', 'set', 'remove'], true)
+            || (isset($arguments['password']) && isset($arguments['password_mode']) && $arguments['password'] === true && $passwordMode !== 'set')) {
+            throw new ArgumentValidationException('Invalid argument: password_mode', 'password_mode', Translator::t('choose one password mode'));
+        }
+        if ($passwordMode === 'remove' && $required) {
+            throw new ToolFailure(SharingMessages::linkPasswordRefused());
+        }
+        $generate = $passwordMode === 'set' || ($passwordMode === 'preserve' && $required && $hadPassword !== true);
+        $removePassword = $passwordMode === 'remove';
+        if ($expiryMode === 'remove' && $this->shareManager->shareApiLinkDefaultExpireDateEnforced()) {
+            throw new ToolFailure(SharingMessages::shareRefused());
+        }
 
         $before = $existing === null ? null : [
             'permission' => SharePermission::classify($current, $folder),
@@ -340,7 +393,8 @@ final class ShareWriter {
         ];
         $enforced = $this->shareManager->shareApiLinkDefaultExpireDateEnforced();
         [$afterExpires, $source] = match (true) {
-            $expires !== null => [$expires->format('Y-m-d'), 'requested'],
+            $expiryMode === 'set' => [$expires->format('Y-m-d'), 'requested'],
+            $expiryMode === 'remove' => [null, 'removed'],
             $before !== null => [$before['expires'], $before['expires'] === null ? 'none' : 'kept'],
             $this->shareManager->shareApiLinkDefaultExpireDate() || $enforced => [$this->today($zone)
                 ->modify('+' . $this->shareManager->shareApiLinkDefaultExpireDays() . ' days')->format('Y-m-d'), 'default'],
@@ -351,12 +405,12 @@ final class ShareWriter {
             $expires = new \DateTime($afterExpires . ' ' . self::EXPIRY_HOUR, $zone);
         }
         $after = [
-            'permission' => SharePermission::VIEW,
+            'permission' => $uploadOnly ? 'upload' : SharePermission::VIEW,
             'reshare' => SharePermission::reshare($bits),
             'expires' => $afterExpires,
             'note' => $note ?? $before['note'] ?? null,
         ];
-        $unchanged = $existing !== null && !$generate
+        $unchanged = $existing !== null && !$generate && !$removePassword
             && $current === $bits
             && $afterExpires === $before['expires']
             && ($note === null || $note === $before['note']);
@@ -377,9 +431,12 @@ final class ShareWriter {
             'timezone' => $zone,
             'warnings' => [SharingMessages::linkPublicWarning()],
             'generatePassword' => $generate,
+            'uploadOnly' => $uploadOnly,
+            'removePassword' => $removePassword,
+            'removeExpiry' => $expiryMode === 'remove',
             'passwordPlan' => [
                 'before' => $hadPassword,
-                'after' => $generate ? 'new' : ($hadPassword === true ? 'kept' : 'none'),
+                'after' => $generate ? 'new' : ($removePassword ? 'none' : ($hadPassword === true ? 'kept' : 'none')),
                 'required' => $required,
             ],
             'requested' => self::requested($arguments),
@@ -519,9 +576,13 @@ final class ShareWriter {
                 $share->setPermissions($change['bits']);
                 if ($password !== null) {
                     $share->setPassword($password);
+                } elseif (($change['removePassword'] ?? false) === true) {
+                    $share->setPassword(null);
                 }
-                if ($change['expires'] !== null) {
-                    $share->setExpirationDate($change['expires']);
+                if (($change['removeExpiry'] ?? false) === true) {
+                    $share->setNoExpirationDate(true)->setExpirationDate(null);
+                } elseif ($change['expires'] !== null) {
+                    $share->setNoExpirationDate(false)->setExpirationDate($change['expires']);
                 }
                 if ($change['note'] !== null) {
                     $share->setNote($change['note']);
@@ -538,6 +599,11 @@ final class ShareWriter {
             }
             if ($password !== null) {
                 $share->setPassword($password);
+            }
+            if (($change['removeExpiry'] ?? false) === true) {
+                $share->setNoExpirationDate(true);
+            } elseif ($change['expires'] !== null) {
+                $share->setNoExpirationDate(false);
             }
             if ($change['expires'] !== null) {
                 $share->setExpirationDate($change['expires']);

@@ -30,7 +30,7 @@ final class ShareFormatter {
      * @param string $path the shared node as the user sees it, user-relative
      * @param bool $removable whether files_unshare may remove it ({@see ShareAccess::isRemovable()})
      * @return array{shareId:string, type:string, with:array{id:string, displayName:string}, permission:string, reshare:bool, expires:string|null, hasPassword:bool, url?:string|null, removable:bool, path:string}
-     *   `shareId` is the full id files_unshare takes; `permission` is view, edit or custom
+     *   `shareId` is the full id files_unshare takes; `permission` is view, edit, upload or custom
      *   ({@see SharePermission::classify()}); `reshare` is the SHARE bit, which on a link means outgoing
      *   federation and not a re-share; `expires` is Y-m-d or null; `url` normally exists for a link only,
      *   and is null for a folder link while D7 suppresses capabilities
@@ -45,7 +45,7 @@ final class ShareFormatter {
             'shareId' => (string)$share->getFullId(),
             'type' => $recipient->kind,
             'with' => ['id' => $recipient->id, 'displayName' => $recipient->displayName],
-            'permission' => SharePermission::classify($bits, $share->getNodeType() === 'folder'),
+            'permission' => ShareAccess::isUploadOnlyLink($share) ? 'upload' : SharePermission::classify($bits, $share->getNodeType() === 'folder'),
             'reshare' => SharePermission::reshare($bits),
             'expires' => $share->getExpirationDate()?->format('Y-m-d'),
             'hasPassword' => $password !== null && $password !== '',

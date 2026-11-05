@@ -32,6 +32,12 @@ use OCA\Mcp\Modules\Files\Tools\UnshareFile;
 use OCA\Mcp\Modules\Files\Tools\UploadFile;
 use OCA\Mcp\Modules\Files\Tools\ViewImage;
 use OCA\Mcp\Modules\Files\Tools\ViewImages;
+use OCA\Mcp\Modules\Files\Tools\GetImageDescription;
+use OCA\Mcp\Modules\Files\Tools\SetImageDescription;
+use OCA\Mcp\Modules\Files\Tools\ListTags;
+use OCA\Mcp\Modules\Files\Tools\CreateTag;
+use OCA\Mcp\Modules\Files\Tools\SetFileTags;
+use OCA\Mcp\Modules\Files\Tools\CreateUploadLink;
 
 /** Explicit metadata only: no service lookup or tool construction during discovery. */
 final class FilesToolCatalog {
@@ -56,6 +62,12 @@ final class FilesToolCatalog {
             ViewImage::class,
             ViewImages::class,
             SearchImages::class,
+            GetImageDescription::class,
+            SetImageDescription::class,
+            ListTags::class,
+            CreateTag::class,
+            SetFileTags::class,
+            CreateUploadLink::class,
             ListShares::class,
             ShareFile::class,
             UnshareFile::class,
@@ -75,7 +87,7 @@ final class FilesToolCatalog {
                 throw new \LogicException($class . ' must implement Tool');
             }
             $definition = $class::definition();
-            if ($definition->operation !== 'read' && !is_a($class, WriteTool::class, true)) {
+            if (\OCA\Mcp\Mcp\Confirmation\WriteGate::isWrite($definition->toArray()) && !is_a($class, WriteTool::class, true)) {
                 throw new \LogicException($class . ' must implement WriteTool');
             }
             if (isset($definitions[$definition->name])) {

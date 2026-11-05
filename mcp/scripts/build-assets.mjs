@@ -5,7 +5,7 @@ import { basename, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const app = fileURLToPath(new URL('../', import.meta.url))
-const entries = ['admin', 'personal']
+const entries = ['admin', 'personal', 'files']
 const banner = `/*
  * Generated from src/entries; edit the authored modules, then run composer assets:build.
  * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
@@ -32,11 +32,15 @@ function verifyGraph(metadata, inventory) {
     const visited = new Set()
     const active = new Set()
     function visit(source) {
-        if (active.has(source)) throw new Error(`Cyclic production import: ${source}`)
+        if (active.has(source)) {
+            if (source.startsWith('node_modules/')) return
+            throw new Error(`Cyclic production import: ${source}`)
+        }
         if (visited.has(source)) return
-        if (!inventory.includes(source)) throw new Error(`Non-app runtime dependency: ${source}`)
+        if (!inventory.includes(source) && !source.startsWith('node_modules/')) throw new Error(`Non-app runtime dependency: ${source}`)
         active.add(source)
         for (const dependency of inputs[source].imports) {
+            if (dependency.external && dependency.path === '<runtime>') continue
             if (dependency.external) throw new Error(`External runtime import: ${dependency.path}`)
             visit(dependency.path)
         }
@@ -46,6 +50,9 @@ function verifyGraph(metadata, inventory) {
     for (const source of Object.keys(inputs)) visit(source)
     for (const [output, details] of Object.entries(metadata.outputs)) {
         if (details.imports.length) throw new Error(`Bundle still imports runtime resources: ${output}`)
+        if (!output.endsWith('/files.js') && Object.keys(details.inputs).some(input => input.startsWith('node_modules/'))) {
+            throw new Error('Only the Files sidebar may bundle the official Nextcloud client libraries.')
+        }
         if (output.endsWith('/personal.js') && Object.keys(details.inputs).some(input => input.startsWith('src/admin/'))) {
             throw new Error('The personal bundle must not include administration features.')
         }
@@ -69,9 +76,21 @@ export async function buildAssets(root = app) {
             outdir: 'js', bundle: true, format: 'iife', platform: 'browser', target: 'es2020',
             write: false, metafile: true, minify: false, sourcemap: false, charset: 'utf8',
             legalComments: 'inline', banner: { js: banner },
+            plugins: [{
+                name: 'sax-browser-fallback',
+                setup(builder) {
+                    // sax supports browsers without Node streams; bundle that fallback
+                    // instead of leaving its optional require('stream') unresolved.
+                    builder.onResolve({ filter: /^stream$/ }, args => {
+                        if (args.importer.endsWith('/node_modules/sax/lib/sax.js')) {
+                            return { path: join(root, 'src/files/sax-browser-stream.js') }
+                        }
+                    })
+                },
+            }],
         })
         verifyGraph(result.metafile, await sources(root))
-        if (result.outputFiles.length !== 2) throw new Error('Expected exactly two production scripts.')
+        if (result.outputFiles.length !== entries.length) throw new Error('Expected exactly three production scripts.')
         for (const output of result.outputFiles) await writeFile(join(stage, basename(output.path)), output.contents)
         for (const entry of entries) await rename(join(stage, `${entry}.js`), join(root, 'js', `${entry}.js`))
         await writeFile(join(root, 'build/assets-metafile.json'), JSON.stringify(result.metafile, null, 2) + '\n')

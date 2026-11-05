@@ -127,7 +127,7 @@ start_imap() {
 install_mail() {
 	mkdir -p "$TOOLS_DIR"
 	archive="$TOOLS_DIR/mail.tar.gz"
-	curl -fsSL -o "$archive" "https://github.com/nextcloud-releases/mail/releases/download/$MAIL_TAG/mail-$MAIL_TAG.tar.gz"
+	sh "$HERE/fetch-release.sh" "https://github.com/nextcloud-releases/mail/releases/download/$MAIL_TAG/mail-$MAIL_TAG.tar.gz" "$archive"
 	echo "$MAIL_SHA  $archive" | sha256_check
 	# The archive is public source; www-data must read it across the tools mount.
 	chmod 0644 "$archive"
@@ -141,7 +141,7 @@ install_mail() {
 # install_forms: the Forms release pinned for NC35, checked before it is enabled.
 install_forms() {
 	archive="$TOOLS_DIR/forms.tar.gz"
-	curl -fsSL -o "$archive" "https://github.com/nextcloud-releases/forms/releases/download/$FORMS_TAG/forms-$FORMS_TAG.tar.gz"
+	sh "$HERE/fetch-release.sh" "https://github.com/nextcloud-releases/forms/releases/download/$FORMS_TAG/forms-$FORMS_TAG.tar.gz" "$archive"
 	echo "$FORMS_SHA  $archive" | sha256_check
 	chmod 0644 "$archive"
 	docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/forms.tar.gz -C /var/www/html/custom_apps

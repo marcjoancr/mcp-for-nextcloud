@@ -105,6 +105,13 @@ final class UnifiedDiffTest extends TestCase {
         $this->assertStringContainsString('+alterado', $diff);
     }
 
+    public function testLongMultibyteLinePreservesTheExactVisiblePrefixAndHunkCounts(): void {
+        $line = str_repeat('🍀', UnifiedDiff::MAX_CHARS);
+        $prefix = "--- antes\n+++ depois\n@@ -1,2 +1,1 @@\n-";
+        $expected = $prefix . mb_substr($line, 0, UnifiedDiff::MAX_CHARS - mb_strlen($prefix));
+        self::assertSame($expected . "\n" . UnifiedDiff::TRUNCATED, UnifiedDiff::between($line . "\nold\n", "new\n"));
+    }
+
     public function testLongDiffIsTruncatedAtTheCharacterLimit(): void {
         $lines = range(1, UnifiedDiff::MAX_LINES + 1);
         $before = implode("\n", $lines);

@@ -136,6 +136,24 @@ final class GrantPolicyTest extends TestCase {
         }
     }
 
+    public function testFilesMetadataTagsAndUploadLinksHaveSeparateUserGrants(): void {
+        foreach (['read', 'edit', 'create', 'link', 'share'] as $legacy) {
+            $this->policy->setGrant('alice', 'files', $legacy, true);
+        }
+        $operations = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
+        foreach ($operations as $operation) {
+            self::assertContains($operation, GrantPolicy::CATALOG['files']);
+            self::assertFalse($this->policy->granted('alice', 'files', $operation));
+            $this->policy->setGrant('alice', 'files', $operation, true);
+            self::assertTrue($this->policy->granted('alice', 'files', $operation));
+            self::assertFalse($this->policy->granted('bob', 'files', $operation));
+            foreach (array_diff($operations, [$operation]) as $other) {
+                self::assertFalse($this->policy->granted('alice', 'files', $other));
+            }
+            $this->policy->setGrant('alice', 'files', $operation, false);
+        }
+    }
+
     public function testReadStartsAllowedAndWriteStartsDenied(): void {
         foreach (GrantPolicy::CATALOG as $module => $operations) {
             foreach ($operations as $operation) {
@@ -163,7 +181,7 @@ final class GrantPolicyTest extends TestCase {
     }
 
     public function testCatalogMatchesContractAndFilesHasNoDelete(): void {
-        $this->assertSame(['read', 'edit', 'create', 'move', 'restore', 'share', 'link'], GrantPolicy::CATALOG['files']);
+        $this->assertSame(['read', 'edit', 'create', 'move', 'restore', 'share', 'link', 'description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'], GrantPolicy::CATALOG['files']);
         $this->assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability'], GrantPolicy::CATALOG['calendar']);
         $this->assertSame(['read', 'reply', 'attach', 'quote', 'create', 'publish_summary', 'search'], GrantPolicy::CATALOG['talk']);
         $this->expectException(InvalidArgumentException::class);
@@ -225,7 +243,7 @@ final class GrantPolicyTest extends TestCase {
         $this->assertTrue($state['alice']['eligible']);
         $this->assertFalse($state['alice']['grants']['files']['read']);
         $this->assertTrue($state['bob']['grants']['notes']['delete']);
-        $this->assertSame(['read' => true, 'edit' => false, 'create' => false, 'move' => false, 'restore' => false, 'share' => false, 'link' => false], $state['carol']['grants']['files']);
+        $this->assertSame(['read' => true, 'edit' => false, 'create' => false, 'move' => false, 'restore' => false, 'share' => false, 'link' => false, 'description_read' => false, 'description_edit' => false, 'tags_read' => false, 'tags_create' => false, 'tags_edit' => false, 'upload_link' => false], $state['carol']['grants']['files']);
         foreach (['alice', 'bob', 'carol'] as $uid) {
             foreach (GrantPolicy::CATALOG as $module => $operations) {
                 foreach ($operations as $operation) {

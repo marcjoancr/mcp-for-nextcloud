@@ -66,7 +66,7 @@ final class FilesModule implements ToolModule, PreviewsWrites, RendersPlans, Too
             throw new \LogicException('Files factory resolved a different tool');
         }
         $definition = FilesToolCatalog::definitions()[$name];
-        if ($definition['operation'] !== 'read' && !$tool instanceof WriteTool) {
+        if (\OCA\Mcp\Mcp\Confirmation\WriteGate::isWrite($definition) && !$tool instanceof WriteTool) {
             throw new \LogicException('Writing tools must implement WriteTool');
         }
         return $tool;

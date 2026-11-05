@@ -92,7 +92,7 @@ abstract class ExclusionTestCase extends IntegrationTestCase {
         foreach ([self::ALICE, self::BOB] as $uid) {
             $policy->setEligible($uid, true);
             $policy->setConnected($uid, true);
-            foreach (['create', 'move', 'edit', 'restore', 'share', 'link'] as $operation) {
+            foreach (['create', 'move', 'edit', 'restore', 'share', 'link', 'upload_link'] as $operation) {
                 $policy->setGrant($uid, 'files', $operation, true);
             }
             foreach (['reply', 'attach', 'quote', 'create'] as $operation) {

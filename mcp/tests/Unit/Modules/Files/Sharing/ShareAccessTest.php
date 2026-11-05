@@ -28,6 +28,8 @@ final class ShareAccessTest extends TestCase {
     private FakeTree $tree;
     private FakeShares $shares;
     private GrantPolicy $policy;
+    private InMemoryConfig $config;
+    private \OCP\IConfig $configMock;
     /** @var list<int> node ids the visibility guard hides */
     private array $hidden = [];
     private ShareAccess $access;
@@ -38,7 +40,9 @@ final class ShareAccessTest extends TestCase {
         $this->tree->addFolder('/alice/files/Projetos');
         $this->tree->addFile('/alice/files/Recebido.pdf', 'pdf', 'application/pdf', ['scope' => 'shared']);
         $this->shares = new FakeShares($this);
-        $this->policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
+        $this->config = new InMemoryConfig();
+        $this->configMock = $this->config->mock($this);
+        $this->policy = InMemoryConfig::policy($this->configMock, new InMemoryOAuthStore());
         $guard = $this->createMock(VisibilityGuard::class);
         $guard->method('isVisible')->willReturnCallback(fn (Node $n): bool => !in_array($n->getId(), $this->hidden, true));
         $guard->method('assertVisible')->willReturnCallback(function (Node $n): void {
@@ -47,6 +51,27 @@ final class ShareAccessTest extends TestCase {
             }
         });
         $this->access = new ShareAccess($this->shares->manager(), $this->policy, $guard);
+    }
+
+    public function testSingleOperationUploadToolDoesNotRequireAMultiActionProfileVariant(): void {
+        $policy = $this->createMock(GrantPolicy::class);
+        $policy->method('granted')->with('alice', 'files', 'upload_link')->willReturn(true);
+        $policy->method('toolGranted')->with('alice', 'files_create_upload_link', 'files', 'upload_link')->willReturn(true);
+        $connection = $this->createMock(\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext::class);
+        $connection->expects(self::never())->method('allowsVariant');
+        $access = new ShareAccess($this->shares->manager(), $policy, $this->createMock(VisibilityGuard::class), $connection);
+        $access->assertUploadLinkGranted('alice');
+    }
+
+    public function testUploadRevocationStillRequiresItsExactProfileVariant(): void {
+        $policy = $this->createMock(GrantPolicy::class);
+        $policy->method('granted')->willReturn(true);
+        $policy->method('toolGranted')->willReturn(true);
+        $connection = $this->createMock(\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext::class);
+        $connection->expects(self::once())->method('allowsVariant')->with('files_unshare', 'upload_link')->willReturn(false);
+        $access = new ShareAccess($this->shares->manager(), $policy, $this->createMock(VisibilityGuard::class), $connection);
+        $this->expectException(ToolFailure::class);
+        $access->assertUploadLinkGranted('alice', 'files_unshare');
     }
 
     private function id(string $path): int {
@@ -230,5 +255,12 @@ final class ShareAccessTest extends TestCase {
         self::assertSame(SharingMessages::shareNotGranted(), $this->failure(fn () => $this->access->assertGranted('alice', IShare::TYPE_LINK)));
         $this->policy->setGrant('alice', 'files', 'link', true);
         $this->access->assertGranted('alice', IShare::TYPE_LINK);
+    }
+
+    public function testUploadOnlyLinksAreClassifiedByCreateWithoutOtherPermissions(): void {
+        self::assertFalse(ShareAccess::isUploadOnlyLink($this->shares->add(['type' => IShare::TYPE_LINK, 'with' => null,
+            'permissions' => \OCP\Constants::PERMISSION_READ | \OCP\Constants::PERMISSION_CREATE])));
+        self::assertTrue(ShareAccess::isUploadOnlyLink($this->shares->add(['type' => IShare::TYPE_LINK, 'with' => null,
+            'permissions' => \OCP\Constants::PERMISSION_CREATE])));
     }
 }

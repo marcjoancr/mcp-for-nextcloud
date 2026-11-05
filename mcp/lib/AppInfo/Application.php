@@ -95,6 +95,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Db\PolicyEventsMapper::class), $c->get(\OCP\Config\IUserConfig::class),
             $c->get(\OCP\IAppConfig::class), $c->get(\OCA\Mcp\Access\Policy\Events\PolicyEventProcessor::class),
         ));
+        $context->registerEventListener('OCA\\Files\\Event\\LoadAdditionalScriptsEvent', \OCA\Mcp\Listener\FilesDescriptionSidebarListener::class);
         $context->registerEventListener(\OCP\User\Events\UserChangedEvent::class, \OCA\Mcp\OAuth\UserRevocationListener::class);
         // A reused UID starts without the previous account's connection-level tool choices, even if the old account's
         // UserDeletedEvent was missed and the paired deletion listener therefore could not clear them safely.
@@ -531,6 +532,12 @@ class Application extends App implements IBootstrap {
             'files_image_view' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\ViewImage::class),
             'files_images_view' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\ViewImages::class),
             'files_image_search' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\SearchImages::class),
+            'files_get_image_description' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\GetImageDescription::class),
+            'files_set_image_description' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\SetImageDescription::class),
+            'files_list_tags' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\ListTags::class),
+            'files_create_tag' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\CreateTag::class),
+            'files_set_tags' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\SetFileTags::class),
+            'files_create_upload_link' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\CreateUploadLink::class),
             'files_list_shares' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\ListShares::class),
             'files_share' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\ShareFile::class),
             'files_unshare' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\UnshareFile::class),
@@ -559,6 +566,15 @@ class Application extends App implements IBootstrap {
                 $c->get(\OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo::class),
                 static fn () => $c->get(\OCA\Mcp\Modules\Files\Versions\VersionReader::MANAGER),
                 $c->get(\OCA\Mcp\Modules\Files\Reading\OcrSupport::class),
+            ));
+        $context->registerService(\OCA\Mcp\Modules\Files\Descriptions\DescriptionService::class,
+            static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Files\Descriptions\DescriptionService(
+                $c->get(IRootFolder::class),
+                static fn () => $c->get(\OCP\FilesMetadata\IFilesMetadataManager::class),
+                $c->get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class),
+                $c->get(\OCA\Mcp\Modules\Files\Descriptions\EmbeddedDescriptionReader::class),
+                $c->get(\OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo::class),
+                $c->get(\OCA\Mcp\Platform\FileAccess\Sharing\SharedWriteGuard::class),
             ));
         $context->registerService(\OCA\Mcp\Modules\Files\Images\ImageMetadata::class,
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\Files\Images\ImageMetadata => new \OCA\Mcp\Modules\Files\Images\ImageMetadata(

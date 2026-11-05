@@ -145,6 +145,7 @@ final class RoutesTest extends TestCase {
             'checkout#download' => $open, 'checkout#upload' => $open, 'checkout#uploadPost' => $open,
             // Logged-in users, session and CSRF token intact.
             'settings#personal' => ['NoAdminRequired'],
+            'file_description#show' => ['NoAdminRequired'], 'file_description#update' => ['NoAdminRequired'],
             'tool_permissions#index' => [], 'tool_permissions#origin' => [], 'tool_permissions#subjects' => [], 'tool_permissions#update' => [],
             'connection_permissions#index' => ['NoAdminRequired'], 'connection_permissions#update' => ['NoAdminRequired'],
             'my_connections#index' => ['NoAdminRequired'], 'my_connections#destroy' => ['NoAdminRequired'],

@@ -276,6 +276,8 @@ final class FilesSharePlanStateTest extends FilesToolsTestCase {
                 'expires' => [['path' => self::FILE, 'with' => 'group:finance', 'expires' => '2026-12-31'], ['path' => self::FILE, 'with' => 'group:finance', 'expires' => '2027-01-15']],
                 'note' => [['path' => self::FILE, 'with' => 'user:bruno', 'note' => ''], ['path' => self::FILE, 'with' => 'user:bruno']],
                 'password' => [['path' => self::FILE, 'with' => 'link'], ['path' => self::FILE, 'with' => 'link', 'password' => false]],
+                'password_mode' => [['path' => self::FILE, 'with' => 'link'], ['path' => self::FILE, 'with' => 'link', 'password_mode' => 'remove']],
+                'expiry_mode' => [['path' => self::FILE, 'with' => 'link'], ['path' => self::FILE, 'with' => 'link', 'expires' => '2026-12-31', 'expiry_mode' => 'set']],
             ],
             'files_unshare' => [
                 'shareId' => [['shareId' => $bruno->getFullId()], ['shareId' => $carla->getFullId()]],
