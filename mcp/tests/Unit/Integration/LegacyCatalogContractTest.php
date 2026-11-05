@@ -11,9 +11,10 @@ use PHPUnit\Framework\TestCase;
 
 /** A legacy comparison cannot hide changed grants when a new capability is added. */
 final class LegacyCatalogContractTest extends TestCase {
-    public function testOnlyTheExplicitMailAndFormsAdditionsAreAccepted(): void {
+    public function testOnlyTheReviewedCatalogAdditionsAreAccepted(): void {
         $baseline = ['files' => ['read', 'edit'], 'deck' => ['read', 'edit'], 'talk' => ['read', 'reply'], 'calendar' => ['read', 'create'], 'logs' => ['read']];
         $expected = $baseline;
+        $expected['files'] = [...$expected['files'], 'description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
         $expected['deck'] = [...$expected['deck'], 'read_comments', 'comment', 'search'];
         $expected['calendar'] = [...$expected['calendar'], 'availability'];
         $expected['talk'] = [...$expected['talk'], 'publish_summary', 'search'];
@@ -28,10 +29,12 @@ final class LegacyCatalogContractTest extends TestCase {
         LegacyCatalogContract::baseline([...$baseline, 'mail' => ['read']], [...$baseline, 'mail' => ['read']]);
     }
 
-    public function testOnlyAnExplicitlyDeniedMailCellIsRemovedAndAllOtherValuesSurvive(): void {
+    public function testOnlyExplicitlyDeniedNewOperationsAreRemovedAndAllOtherValuesSurvive(): void {
         $legacy = ['1' => ['globalEnabled' => true, 'users' => ['alice' => ['grants' => ['files' => ['read' => false]]]],
             'matrix' => ['alice' => ['eligible' => true, 'connected' => false, 'grants' => ['files' => ['read' => false], 'deck' => ['read' => true], 'talk' => ['read' => true], 'calendar' => ['read' => true]]]]]];
         $branch = $legacy;
+        $files = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
+        $branch['1']['matrix']['alice']['grants']['files'] += array_fill_keys($files, false);
         $branch['1']['matrix']['alice']['grants']['mail'] = ['read' => false, 'search' => false, 'read_message' => false, 'read_attachment' => false, 'save_attachment' => false, 'read_drafts' => false, 'write_drafts' => false, 'delete_drafts' => false];
         $branch['1']['matrix']['alice']['grants']['forms'] = ['read' => false, 'read_responses' => false, 'summarize_responses' => false, 'export_responses' => false];
         $branch['1']['matrix']['alice']['grants']['talk'] += ['publish_summary' => false, 'search' => false];
@@ -43,6 +46,18 @@ final class LegacyCatalogContractTest extends TestCase {
             $unsafe['1']['matrix']['alice']['grants'][$module][$operation] = true;
             try { LegacyCatalogContract::answers($unsafe); self::fail('Unsafe new capability default accepted'); }
             catch (\UnexpectedValueException) { self::assertTrue(true); }
+        }
+        foreach ($files as $operation) {
+            foreach ([true, 0, null] as $invalid) {
+                $unsafe = $branch;
+                if ($invalid === null) {
+                    unset($unsafe['1']['matrix']['alice']['grants']['files'][$operation]);
+                } else {
+                    $unsafe['1']['matrix']['alice']['grants']['files'][$operation] = $invalid;
+                }
+                try { LegacyCatalogContract::answers($unsafe); self::fail("Unsafe Files $operation accepted"); }
+                catch (\UnexpectedValueException) { self::assertTrue(true); }
+            }
         }
         self::assertArrayHasKey('mail', $branch['1']['matrix']['alice']['grants'], 'The input must not be modified');
         $branch['1']['matrix']['alice']['grants']['files']['read'] = true;

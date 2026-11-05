@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Integration\Compat;
 
-/** Keeps the legacy matrix intact except for the explicitly reviewed Deck, Mail, Forms and Talk grants. */
+/** Keeps the legacy matrix intact except for explicitly reviewed additions. */
 final class LegacyCatalogContract {
+	private const FILES_ADDITIONS = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
+
 	/**
 	 * @param array<string, list<string>> $baseline catalog actually read from the released 1.0.8 code
 	 * @param array<string, list<string>> $current candidate catalog
@@ -18,6 +20,7 @@ final class LegacyCatalogContract {
 	 */
 	public static function baseline(array $baseline, array $current): array {
 		$expected = $baseline;
+		$expected['files'] = [...$baseline['files'], ...self::FILES_ADDITIONS];
 		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment', 'search'];
 		$expected['calendar'] = [...$baseline['calendar'], 'availability'];
 		$expected['talk'] = [...$baseline['talk'], 'publish_summary', 'search'];
@@ -30,11 +33,17 @@ final class LegacyCatalogContract {
 	/**
 	 * @param array<string, array<string, mixed>> $answers branch observations over the complete legacy matrix
 	 * @return array<string, array<string, mixed>> all observations unchanged except the explicitly checked new matrix cell
-	 * @throws \UnexpectedValueException if Mail's new default is anything other than explicit Deny
+	 * @throws \UnexpectedValueException if any new operation has a default other than explicit Deny
 	 */
 	public static function answers(array $answers): array {
 		foreach ($answers as &$state) {
 			foreach ($state['matrix'] as &$row) {
+				foreach (self::FILES_ADDITIONS as $operation) {
+					if (($row['grants']['files'][$operation] ?? null) !== false) {
+						throw new \UnexpectedValueException("Expected Files $operation to be denied after upgrade");
+					}
+					unset($row['grants']['files'][$operation]);
+				}
 				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false, 'read_attachment' => false, 'save_attachment' => false, 'read_drafts' => false, 'write_drafts' => false, 'delete_drafts' => false]
 					|| ($row['grants']['forms'] ?? null) !== ['read' => false, 'read_responses' => false, 'summarize_responses' => false, 'export_responses' => false]
 					|| ($row['grants']['talk']['publish_summary'] ?? null) !== false
