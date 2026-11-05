@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <!-- Collect cyclic test fixtures after each case so large-file tests stay below the fixed 1 GiB limit. -->
 <phpunit bootstrap="tests/bootstrap.php" colors="false" cacheDirectory=".phpunit.cache" controlGarbageCollector="true" numberOfTestsBeforeGarbageCollection="1">
+    <extensions><bootstrap class="OCA\Mcp\Tests\Support\ConfigFixtureCleanup"/></extensions>
     <testsuites><testsuite name="unit"><directory>tests</directory><exclude>tests/Integration</exclude></testsuite></testsuites>
 </phpunit>

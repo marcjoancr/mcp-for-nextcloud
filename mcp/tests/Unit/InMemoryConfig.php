@@ -48,6 +48,18 @@ final class InMemoryConfig {
     private static ?\WeakMap $resolvers = null;
     private static ?\WeakMap $groupDatabases = null;
 
+    /** On PHP 8.2 a map value can keep its own mock key alive through the test or policy services. */
+    public static function releaseFixtures(): void {
+        self::$userConfigs = null;
+        self::$stores = null;
+        self::$services = null;
+        self::$states = null;
+        self::$authUsers = null;
+        self::$processors = null;
+        self::$resolvers = null;
+        self::$groupDatabases = null;
+    }
+
     /** @return \OCA\Mcp\Db\AuthUsersMapper the OAuth generations the writer of $config uses (over $generations) */
     public static function authUsers(IConfig $config): \OCA\Mcp\Db\AuthUsersMapper {
         self::services($config);
