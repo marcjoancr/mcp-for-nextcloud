@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Files\Sharing;
 
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
+use OCA\Mcp\L10n\Translator;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\HintException;
 use OCP\Security\Events\GenerateSecurePasswordEvent;
@@ -64,6 +65,14 @@ final class LinkPassword {
         throw new ToolFailure(SharingMessages::linkPasswordRefused());
     }
 
+    /** Validate the exact user-supplied value at preview and again at confirmation. */
+    public function validateCustom(#[\SensitiveParameter] string $password): void {
+        // Nextcloud's update path uses empty() before hashing. Reject "0" as well as an empty password.
+        if ($password === '' || $password === '0' || str_contains($password, "\0") || !$this->accepted($password)) {
+            throw new ToolFailure(Translator::t('Choose another link password that meets the server password policy.'));
+        }
+    }
+
     /** @return string|null the password of the policy app, null when no listener answered or the generator failed */
     private function fromPolicy(): ?string {
         $event = new GenerateSecurePasswordEvent(PasswordContext::SHARING);
@@ -81,7 +90,7 @@ final class LinkPassword {
      * @return bool whether the administrator's password policy accepts the password for a share
      * @throws ToolFailure when a listener fails in any other way than a refusal; its message is never read
      */
-    private function accepted(string $password): bool {
+    private function accepted(#[\SensitiveParameter] string $password): bool {
         try {
             $this->events->dispatchTyped(new ValidatePasswordPolicyEvent($password, PasswordContext::SHARING));
             return true;

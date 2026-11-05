@@ -434,6 +434,11 @@ final class FakeTree {
      */
     private function storage(string $path): object {
         $scope = $this->nodes[$path]['scope'] ?? 'personal';
+        if (isset($this->nodes[$path]['incomingShare'])) {
+            $storage = $this->mock(\OCP\Files\Storage\ISharedStorage::class);
+            $storage->method('getShare')->willReturn($this->nodes[$path]['incomingShare']);
+            return $storage;
+        }
         // A share mount jails the shared storage, so the object the node holds is a wrapper: it reports
         // itself as a shared storage through instanceOfStorage() and is not an ISharedStorage by instanceof.
         $storage = $this->mock(\OCP\Files\Storage\IStorage::class);

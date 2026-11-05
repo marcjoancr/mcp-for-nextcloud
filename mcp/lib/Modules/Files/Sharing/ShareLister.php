@@ -12,7 +12,7 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use OCP\Files\Folder;
 
 /**
- * The result of files_list_shares: the shares of one own node, or one page of every share the user created.
+ * The result of files_list_shares: the shares of one visible node, or one page of every share the user created.
  * With exclusions configured, folder links retain metadata with url:null and no token.
  * The rules live in {@see ShareAccess}, the shape of each item in {@see ShareFormatter}. Stateless.
  */
@@ -23,7 +23,7 @@ final class ShareLister {
     ) {}
 
     /**
-     * Every share the user created for a node the user owns and can see.
+     * Every share the user created for a visible node the user owns or can re-share by public link.
      *
      * @param Folder $userFolder the user's folder
      * @param string $uid authenticated user
@@ -33,7 +33,7 @@ final class ShareLister {
      * @throws ToolFailure not found (also hidden), forbidden, the root folder, or a node of another owner
      */
     public function forPath(Folder $userFolder, string $uid, string $path): array {
-        $node = $this->access->ownNode($userFolder, $uid, $path);
+        $node = $this->access->nodeForPath($userFolder, $uid, $path, allowPublicReshare: true);
         $path = PathGuard::normalize($path);
         $shares = array_map(
             fn ($share): array => $this->formatter->item($share, $path, $this->access->isRemovable($share, $uid), $this->access->hideFolderUrl($node)),

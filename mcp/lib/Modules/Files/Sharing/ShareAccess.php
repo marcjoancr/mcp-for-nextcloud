@@ -15,6 +15,8 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use OCP\Files\Folder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
+use OCP\Files\Storage\ISharedStorage;
+use OCP\IConfig;
 use OCP\Share\IManager as IShareManager;
 use OCP\Share\IShare;
 
@@ -22,13 +24,8 @@ use OCP\Share\IShare;
  * The access rules every sharing tool shares: which node may be shared, which shares the user sees, which of
  * them the user may remove and which grant each share type needs.
  *
- * Rules (plan 0.10, decisions 2, 3 and 4):
- * - only a node the user owns (`getOwner()->getUID() === uid`) and that the FilesAccessGuard shows; a hidden
- *   node is refused exactly like a missing one;
- * - only the shares the user initiated (`getSharesBy(..., reshares: false)`), so nobody else's shares are
- *   enumerated, not even other people's shares of the user's own file;
- * - removable only when the user created it, owns the file and it is not a Talk attachment (TYPE_ROOM);
- * - USER and GROUP need `files.share`, LINK needs `files.link`.
+ * The actor can manage shares they initiated. Internal shares require ownership. Public links also support
+ * readable nodes the actor can re-share under the native ACL and the server's re-sharing policy.
  *
  * Everything goes through IShareManager, so the administrator's sharing rules always apply. Stateless: the
  * user is a parameter of every call and one instance serves every request.
@@ -48,12 +45,13 @@ final class ShareAccess {
         private GrantPolicy $policy,
         // Required on purpose (invariant 1): without it a hidden node would be listed and shareable.
         private FilesAccessGuard $visibilityGuard,
+        private IConfig $config,
         private ?\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext $connection = null,
     ) {}
 
     /**
      * The node at a path, when the user may share it: it exists, is visible, is readable, is not the user
-     * folder itself and belongs to the user.
+     * folder itself and is owned by the user or eligible for a delegated public link.
      *
      * @param Folder $userFolder the user's folder
      * @param string $uid authenticated user
@@ -62,13 +60,18 @@ final class ShareAccess {
      * @throws \InvalidArgumentException for a path with traversal or control characters
      * @throws ToolFailure not found (also for a hidden node), forbidden, the root folder, or a node of another owner
      */
-    public function ownNode(Folder $userFolder, string $uid, string $path): Node {
+    public function nodeForPath(Folder $userFolder, string $uid, string $path, bool $allowPublicReshare = false): Node {
         if (PathGuard::normalize($path) === '/') {
             throw new ToolFailure(SharingMessages::shareRootRefused());
         }
         $node = NodeAccess::run(fn (): Node => NodeAccess::get($userFolder, $path, $this->visibilityGuard));
         if ($node->getOwner()?->getUID() !== $uid) {
-            throw new ToolFailure(SharingMessages::shareNotOwner());
+            if (!$allowPublicReshare) {
+                throw new ToolFailure(SharingMessages::shareNotOwner());
+            }
+            if (!$this->canReshare($node)) {
+                throw new ToolFailure(SharingMessages::shareNodeNotShareable());
+            }
         }
         return $node;
     }
@@ -77,13 +80,17 @@ final class ShareAccess {
      * Every share the user created for one node, in {@see self::LISTED_TYPES} order.
      *
      * @param string $uid authenticated user, the initiator of the shares returned
-     * @param Node $node node already checked by {@see self::ownNode()}
+     * @param Node $node node already checked by {@see self::nodeForPath()}
      * @return list<IShare> the shares, none of them created by somebody else
      */
     public function sharesOf(string $uid, Node $node): array {
         $shares = [];
         foreach (self::LISTED_TYPES as $type) {
-            array_push($shares, ...$this->sharesBy($uid, $type, $node, -1, 0));
+            foreach ($this->sharesBy($uid, $type, $node, -1, 0) as $share) {
+                if ($this->canList($uid, $node, $share)) {
+                    $shares[] = $share;
+                }
+            }
         }
         return $shares;
     }
@@ -93,13 +100,13 @@ final class ShareAccess {
      * duplicating (decision 6). Any link of the user counts for `link`.
      *
      * @param string $uid authenticated user
-     * @param Node $node node already checked by {@see self::ownNode()}
+     * @param Node $node node already checked by {@see self::nodeForPath()}
      * @param ShareRecipient $recipient who the share would be for
      * @return IShare|null the existing share, null when there is none
      */
     public function findExisting(string $uid, Node $node, ShareRecipient $recipient): ?IShare {
         foreach ($this->sharesBy($uid, $recipient->shareType(), $node, -1, 0) as $share) {
-            if ($recipient->matches($share)) {
+            if ($share->getSharedBy() === $uid && $recipient->matches($share)) {
                 return $share;
             }
         }
@@ -109,9 +116,8 @@ final class ShareAccess {
     /**
      * One page of every share the user created, all types concatenated in {@see self::LISTED_TYPES} order.
      *
-     * The offset counts listed shares only: a share whose node is hidden, out of the user's reach or owned by
-     * somebody else is skipped before paging, so it neither appears nor shortens a page. The core counts nothing per type, so each type
-     * is read from its start up to what the page needs; MAX_OFFSET bounds that cost.
+     * Hidden, inaccessible and ineligible shares are skipped before paging. Each type is read from its start
+     * up to what the page needs. MAX_OFFSET bounds that cost.
      *
      * @param Folder $userFolder the user's folder, for the user's own view of each node
      * @param string $uid authenticated user, the initiator of every share returned
@@ -129,9 +135,7 @@ final class ShareAccess {
                 $batch = $this->sharesBy($uid, $type, null, $need, $from);
                 foreach ($batch as $share) {
                     $node = $this->nodeOf($userFolder, $share);
-                    // A share the user created of a received file (a re-share made elsewhere) is not of an own file:
-                    // the global listing never shows it, and it takes no place on a page (decision 4, invariant 7).
-                    if ($node !== null && $node->getOwner()?->getUID() === $uid && count($found) < $need) {
+                    if ($node !== null && $this->canList($uid, $node, $share) && count($found) < $need) {
                         $found[] = ['share' => $share, 'node' => $node];
                     }
                 }
@@ -141,6 +145,36 @@ final class ShareAccess {
             }
         }
         return ['items' => array_slice($found, $offset, $limit), 'hasMore' => count($found) > $offset + $limit];
+    }
+
+    private function canReshare(Node $node): bool {
+        if (!$node->isReadable() || !$node->isShareable()
+            || $this->config->getAppValue('core', 'shareapi_allow_resharing', 'yes') !== 'yes') {
+            return false;
+        }
+        // The native Files controller inherits download restrictions before calling IManager.
+        // These MCP links cannot express that restriction. Require a known, unrestricted incoming share.
+        $storage = $node->getStorage();
+        if (!$storage instanceof ISharedStorage && method_exists($storage, 'getInstanceOfStorage')) {
+            $storage = $storage->getInstanceOfStorage(ISharedStorage::class);
+        }
+        if (!$storage instanceof ISharedStorage) {
+            return false;
+        }
+        $parent = $storage->getShare();
+        return !$parent->getHideDownload() && $parent->getAttributes()?->getAttribute('permissions', 'download') !== false;
+    }
+
+    /** Only reveal a delegated link when its bearer would receive at most the actor's current access. */
+    public function canList(string $uid, Node $node, IShare $share): bool {
+        if ($share->getSharedBy() !== $uid) {
+            return false;
+        }
+        if ($node->getOwner()?->getUID() === $uid) {
+            return true;
+        }
+        return $share->getShareType() === IShare::TYPE_LINK && $this->canReshare($node)
+            && ((int)$share->getPermissions() & ~(int)$node->getPermissions()) === 0;
     }
 
     /**
@@ -163,7 +197,7 @@ final class ShareAccess {
     }
 
     /**
-     * Whether the user may remove this share (decision 3): created by the user, of a file the user owns, of a
+     * Whether the user may remove this share (decision 3): created by the user, of an owned file or a delegated public link, of a
      * type this app manages. A Talk attachment (TYPE_ROOM) never is: removing it would erase it from the chat
      * of everybody else, so it is removed in Talk. The owner is the one the share records, which the core
      * keeps in step with ownership transfers.
@@ -175,7 +209,7 @@ final class ShareAccess {
     public function isRemovable(IShare $share, string $uid): bool {
         return isset(self::OPERATIONS[$share->getShareType()])
             && $share->getSharedBy() === $uid
-            && $share->getShareOwner() === $uid;
+            && ($share->getShareType() === IShare::TYPE_LINK || $share->getShareOwner() === $uid);
     }
 
     /**

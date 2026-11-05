@@ -1,6 +1,8 @@
 OC.L10N.register(
     "mcp",
     {
+    "The link will use the password you supplied." : "El enlace usará la contraseña que has indicado.",
+    "Choose another link password that meets the server password policy." : "Elige otra contraseña para el enlace que cumpla la política del servidor.",
     "Image description" : "Descripción de imagen",
     "Save description" : "Guardar descripción",
     "Loading description…" : "Cargando descripción…",

@@ -4,6 +4,11 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.6.2
+
+- Allow public read and upload-only links on items received with native re-sharing rights. Users can manage only links they created through the MCP.
+- Accept user-supplied link passwords at creation and rotation. Confirmations bind the chosen password and enforce the native password policy.
+
 ## 2.6.1
 
 - Fix image description access in the Files sidebar. Signed-in users can read and edit descriptions according to their Files grants, folder scope and native file permissions.

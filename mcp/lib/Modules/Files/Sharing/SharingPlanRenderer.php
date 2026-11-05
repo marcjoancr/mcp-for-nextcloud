@@ -102,6 +102,7 @@ final class SharingPlanRenderer {
         $lines[] = self::validityLine($plan, $action, $before, $after);
         $password = is_array($plan['password'] ?? null) ? $plan['password'] : [];
         $lines[] = '- ' . match (true) {
+            ($password['after'] ?? null) === 'custom' => Translator::t('The link will use the password you supplied.'),
             ($password['after'] ?? null) === 'new' && ($password['before'] ?? null) === true
                 => Translator::t('Password: the current one will be replaced by a new one, shown only once, in the result.'),
             ($password['after'] ?? null) === 'new' && ($password['required'] ?? false) === true

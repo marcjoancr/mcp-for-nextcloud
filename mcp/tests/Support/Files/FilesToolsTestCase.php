@@ -340,7 +340,7 @@ abstract class FilesToolsTestCase extends TestCase {
         $groups->method('getUserGroupIds')->willReturnCallback(fn (IUser $user): array => array_keys(array_filter(
             $this->groups, fn (array $group): bool => in_array($user->getUID(), $group['members'], true))));
         $manager = $this->shares->manager();
-        $access = new ShareAccess($manager, $this->sharePolicy, $this->visibilityGuard ?? $this->shares->guardShowingAll());
+        $access = new ShareAccess($manager, $this->sharePolicy, $this->visibilityGuard ?? $this->shares->guardShowingAll(), $this->configMock);
         $recipients = new ShareRecipientResolver($accounts, $groups);
         $formatter = new ShareFormatter($recipients, $urls);
         $this->shareLogger = $this->createMock(\Psr\Log\LoggerInterface::class);

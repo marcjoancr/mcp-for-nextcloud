@@ -38,7 +38,7 @@ final class ShareAccessTest extends TestCase {
         $this->tree = new FakeTree($this);
         $this->tree->addFile('/alice/files/Relatorio.pdf', 'pdf', 'application/pdf');
         $this->tree->addFolder('/alice/files/Projetos');
-        $this->tree->addFile('/alice/files/Recebido.pdf', 'pdf', 'application/pdf', ['scope' => 'shared']);
+        $this->tree->addFile('/alice/files/Recebido.pdf', 'pdf', 'application/pdf', ['scope' => 'shared', 'incomingShare' => $this->createStub(IShare::class)]);
         $this->shares = new FakeShares($this);
         $this->config = new InMemoryConfig();
         $this->configMock = $this->config->mock($this);
@@ -50,7 +50,7 @@ final class ShareAccessTest extends TestCase {
                 throw new ToolFailure(FileAccessMessages::notFound());
             }
         });
-        $this->access = new ShareAccess($this->shares->manager(), $this->policy, $guard);
+        $this->access = new ShareAccess($this->shares->manager(), $this->policy, $guard, $this->configMock);
     }
 
     public function testSingleOperationUploadToolDoesNotRequireAMultiActionProfileVariant(): void {
@@ -59,7 +59,7 @@ final class ShareAccessTest extends TestCase {
         $policy->method('toolGranted')->with('alice', 'files_create_upload_link', 'files', 'upload_link')->willReturn(true);
         $connection = $this->createMock(\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext::class);
         $connection->expects(self::never())->method('allowsVariant');
-        $access = new ShareAccess($this->shares->manager(), $policy, $this->createMock(VisibilityGuard::class), $connection);
+        $access = new ShareAccess($this->shares->manager(), $policy, $this->createMock(VisibilityGuard::class), $this->configMock, $connection);
         $access->assertUploadLinkGranted('alice');
     }
 
@@ -69,7 +69,7 @@ final class ShareAccessTest extends TestCase {
         $policy->method('toolGranted')->willReturn(true);
         $connection = $this->createMock(\OCA\Mcp\Modules\Files\Contracts\FileConnectionContext::class);
         $connection->expects(self::once())->method('allowsVariant')->with('files_unshare', 'upload_link')->willReturn(false);
-        $access = new ShareAccess($this->shares->manager(), $policy, $this->createMock(VisibilityGuard::class), $connection);
+        $access = new ShareAccess($this->shares->manager(), $policy, $this->createMock(VisibilityGuard::class), $this->configMock, $connection);
         $this->expectException(ToolFailure::class);
         $access->assertUploadLinkGranted('alice', 'files_unshare');
     }
@@ -88,34 +88,34 @@ final class ShareAccessTest extends TestCase {
     }
 
     public function testOwnNodeReturnsAFileOfTheUser(): void {
-        $node = $this->access->ownNode($this->tree->rootFolder(), 'alice', '/Relatorio.pdf');
+        $node = $this->access->nodeForPath($this->tree->rootFolder(), 'alice', '/Relatorio.pdf');
         self::assertSame($this->id('/Relatorio.pdf'), $node->getId());
     }
 
     public function testANodeOfAnotherOwnerIsRefused(): void {
         self::assertSame(SharingMessages::shareNotOwner(),
-            $this->failure(fn () => $this->access->ownNode($this->tree->rootFolder(), 'alice', '/Recebido.pdf')));
+            $this->failure(fn () => $this->access->nodeForPath($this->tree->rootFolder(), 'alice', '/Recebido.pdf')));
     }
 
     public function testAHiddenNodeIsNotFound(): void {
         $this->hidden[] = $this->id('/Relatorio.pdf');
         self::assertSame(FileAccessMessages::notFound(),
-            $this->failure(fn () => $this->access->ownNode($this->tree->rootFolder(), 'alice', '/Relatorio.pdf')));
+            $this->failure(fn () => $this->access->nodeForPath($this->tree->rootFolder(), 'alice', '/Relatorio.pdf')));
     }
 
     public function testAMissingNodeIsNotFound(): void {
         self::assertSame(FileAccessMessages::notFound(),
-            $this->failure(fn () => $this->access->ownNode($this->tree->rootFolder(), 'alice', '/nada.txt')));
+            $this->failure(fn () => $this->access->nodeForPath($this->tree->rootFolder(), 'alice', '/nada.txt')));
     }
 
     public function testTheRootFolderIsRefused(): void {
         self::assertSame(SharingMessages::shareRootRefused(),
-            $this->failure(fn () => $this->access->ownNode($this->tree->rootFolder(), 'alice', '/')));
+            $this->failure(fn () => $this->access->nodeForPath($this->tree->rootFolder(), 'alice', '/')));
     }
 
     public function testATraversalIsAnArgumentError(): void {
         $this->expectException(\InvalidArgumentException::class);
-        $this->access->ownNode($this->tree->rootFolder(), 'alice', '/../bob/files/x');
+        $this->access->nodeForPath($this->tree->rootFolder(), 'alice', '/../bob/files/x');
     }
 
     public function testSharesOfAskEveryListedTypeForThatNodeOnlyAsInitiator(): void {
@@ -210,11 +210,8 @@ final class ShareAccessTest extends TestCase {
         self::assertFalse($second['hasMore']);
     }
 
-    /**
-     * A share the user created of a file somebody else owns (a re-share made in another interface) is not the user's
-     * to list: it neither appears nor takes a place on a page, for a person and for a link alike.
-     */
-    public function testListMineSkipsSharesTheUserCreatedOfAReceivedFile(): void {
+    /** Filtering internal re-shares before paging preserves the actor's eligible links on later pages. */
+    public function testListMineSkipsInternalResharesButIncludesDelegatedLinks(): void {
         $received = $this->id('/Recebido.pdf');
         $own = $this->id('/Relatorio.pdf');
         $kept = [];
@@ -225,14 +222,14 @@ final class ShareAccessTest extends TestCase {
         for ($i = 30; $i < 55; $i++) {
             $kept[] = $this->shares->add(['node' => $own, 'with' => 'v' . $i]);
         }
-        $this->shares->add(['node' => $received, 'type' => IShare::TYPE_LINK, 'with' => null, 'owner' => 'bruno', 'token' => 'TOK']);
+        $kept[] = $this->shares->add(['node' => $received, 'type' => IShare::TYPE_LINK, 'with' => null, 'owner' => 'bruno', 'token' => 'TOK']);
 
         $first = $this->access->listMine($this->tree->rootFolder(), 'alice', 0);
         self::assertSame(array_slice($kept, 0, 50), array_column($first['items'], 'share'));
         self::assertTrue($first['hasMore']);
         $second = $this->access->listMine($this->tree->rootFolder(), 'alice', 50);
         self::assertSame(array_slice($kept, 50), array_column($second['items'], 'share'));
-        self::assertFalse($second['hasMore'], 'o link do arquivo recebido não conta como mais uma página');
+        self::assertFalse($second['hasMore']);
     }
 
     /** The path of a listed share is the user's own view of it, never the owner's tree. */
