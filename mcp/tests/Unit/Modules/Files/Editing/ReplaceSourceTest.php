@@ -158,7 +158,11 @@ final class ReplaceSourceTest extends FilesToolsTestCase {
 		$this->assertSame(TextExtractor::MAX_BYTES, $plan['size']['after']);
 		$this->assertCount(1, $this->tree->contentReads);
 		$out = $this->json('files_replace', $this->args());
-		$this->assertSame(str_replace($marker, 'NOVO', $content), $this->tree->nodes[self::ABS]['content']);
+		// Compare every byte without asking PHPUnit to format the entire 20 MiB fixture.
+		$this->assertTrue(
+			str_replace($marker, 'NOVO', $content) === $this->tree->nodes[self::ABS]['content'],
+			'The replacement at the size ceiling must preserve all other bytes.',
+		);
 		$this->assertStringStartsWith('/MCP backups/Documentos/teto.txt.', $out['backup']);
 		$this->assertGreaterThanOrEqual(2, count($this->tree->contentReads));
 	}
