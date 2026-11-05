@@ -4,6 +4,10 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.6.1
+
+- Fix image description access in the Files sidebar. Signed-in users can read and edit descriptions according to their Files grants, folder scope and native file permissions.
+
 ## 2.6.0
 
 - Read and edit native image descriptions in the Files sidebar and through MCP. Saving a description leaves the original image bytes intact.
