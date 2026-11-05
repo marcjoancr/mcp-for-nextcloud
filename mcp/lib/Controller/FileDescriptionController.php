@@ -41,10 +41,11 @@ final class FileDescriptionController extends Controller {
         if ($user === null) return new DataResponse(['error' => Translator::t('Authentication required.')], Http::STATUS_UNAUTHORIZED);
         try {
             return $this->policy->within($user->getUID(), function () use ($user, $path): DataResponse {
-                if (!$this->tools->allowsTool($user->getUID(), 'files_get_image_description')) return new DataResponse(['error' => Translator::t('This action is not available.')], Http::STATUS_FORBIDDEN);
+                // The sidebar is a native Files surface, not an MCP connection.
+                if (!$this->tools->allowsToolAdministratively($user->getUID(), 'files_get_image_description')) return new DataResponse(['error' => Translator::t('This action is not available.')], Http::STATUS_FORBIDDEN);
                 $this->visibility->assertScopeReadable();
                 $record = NodeAccess::run(fn (): array => $this->descriptions->read($user->getUID(), $path, $this->visibility));
-                $record['can_edit'] = $this->tools->allowsTool($user->getUID(), 'files_set_image_description')
+                $record['can_edit'] = $this->tools->allowsToolAdministratively($user->getUID(), 'files_set_image_description')
                     && ($record['access']['permissions']['update'] ?? false) === true;
                 return new DataResponse($record);
             });
@@ -61,7 +62,7 @@ final class FileDescriptionController extends Controller {
         if ($user === null) return new DataResponse(['error' => Translator::t('Authentication required.')], Http::STATUS_UNAUTHORIZED);
         try {
             return $this->policy->within($user->getUID(), function () use ($user, $path, $description, $state): DataResponse {
-                if (!$this->tools->allowsTool($user->getUID(), 'files_set_image_description')) return new DataResponse(['error' => Translator::t('This action is not available.')], Http::STATUS_FORBIDDEN);
+                if (!$this->tools->allowsToolAdministratively($user->getUID(), 'files_set_image_description')) return new DataResponse(['error' => Translator::t('This action is not available.')], Http::STATUS_FORBIDDEN);
                 $this->visibility->assertScopeReadable();
                 return new DataResponse(NodeAccess::run(fn (): array => $this->descriptions->write($user->getUID(), $path, $description, $state, $this->visibility, true)));
             });

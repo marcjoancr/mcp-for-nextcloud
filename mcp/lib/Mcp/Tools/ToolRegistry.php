@@ -140,13 +140,26 @@ class ToolRegistry {
         return [];
     }
 
-    /** Explicit lookup for non-tool protocol routes that expose the same capability. */
+    /** Explicit lookup for an MCP route, including this request's OAuth tool selection. */
     public function allowsTool(string $userId, string $name): bool {
         foreach ($this->modules as $module) {
             foreach ($module->definitions() as $definition) {
                 if ($definition['name'] === $name) {
                     return $this->availability->permits($module, $userId)
                         && $this->availability->allowed($definition, $userId);
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Explicit lookup for a native route that uses the user's effective grant ceiling, not an MCP selection. */
+    public function allowsToolAdministratively(string $userId, string $name): bool {
+        foreach ($this->modules as $module) {
+            foreach ($module->definitions() as $definition) {
+                if ($definition['name'] === $name) {
+                    return $this->availability->permits($module, $userId)
+                        && $this->availability->administrativelyAllowed($definition, $userId);
                 }
             }
         }

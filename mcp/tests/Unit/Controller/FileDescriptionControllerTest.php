@@ -45,6 +45,24 @@ final class FileDescriptionControllerTest extends TestCase {
         self::assertSame(['error' => 'This action is not available.'], $response->getData());
     }
 
+    public function testReadUsesEffectiveUserGrantWithoutAnMcpConnectionSelection(): void {
+        $controller = $this->controllerWithNativeGrantAndBlockedScope('alice', 'files_get_image_description');
+
+        $response = $controller->show('/Photos/private.jpg');
+
+        self::assertSame(404, $response->getStatus());
+        self::assertSame(['error' => 'This image is unavailable.'], $response->getData());
+    }
+
+    public function testWriteUsesEffectiveUserGrantWithoutAnMcpConnectionSelection(): void {
+        $controller = $this->controllerWithNativeGrantAndBlockedScope('alice', 'files_set_image_description');
+
+        $response = $controller->update('/Photos/private.jpg', 'caption', 'state');
+
+        self::assertSame(404, $response->getStatus());
+        self::assertSame(['error' => 'This image is unavailable.'], $response->getData());
+    }
+
     public function testMissingFileReturnsGenericNotFoundWithoutLeakingPath(): void {
         $controller = $this->controllerWithResolutionFailure('alice', 'files_get_image_description', new NotFoundException('/Photos/private.jpg'));
 
@@ -73,7 +91,8 @@ final class FileDescriptionControllerTest extends TestCase {
         $policy = $this->createMock(GrantPolicy::class);
         $policy->expects(self::once())->method('within')->with($uid, self::anything())->willReturnCallback(static fn (string $_uid, callable $work) => $work());
         $tools = $this->createMock(ToolRegistry::class);
-        $tools->expects(self::once())->method('allowsTool')->with($uid, $toolName)->willReturn($grant);
+        $tools->expects(self::once())->method('allowsToolAdministratively')->with($uid, $toolName)->willReturn($grant);
+        $tools->expects(self::never())->method('allowsTool');
         $visibility = $this->createMock(FilesAccessGuard::class);
         $visibility->expects(self::never())->method('assertScopeReadable');
         $rootFolder = $this->createMock(IRootFolder::class);
@@ -101,7 +120,8 @@ final class FileDescriptionControllerTest extends TestCase {
         $policy = $this->createMock(GrantPolicy::class);
         $policy->method('within')->willReturnCallback(static fn (string $_uid, callable $work) => $work());
         $tools = $this->createMock(ToolRegistry::class);
-        $tools->method('allowsTool')->willReturn(true);
+        $tools->method('allowsToolAdministratively')->willReturn(true);
+        $tools->expects(self::never())->method('allowsTool');
         $visibility = $this->createMock(FilesAccessGuard::class);
         $visibility->expects(self::once())->method('assertScopeReadable');
         $folder = $this->createMock(Folder::class);
@@ -115,6 +135,35 @@ final class FileDescriptionControllerTest extends TestCase {
         $descriptions = new DescriptionService(
             $rootFolder,
             static fn () => throw new \RuntimeException('Metadata should not be resolved after a node lookup failure.'),
+            new BackupLocation($document),
+            new EmbeddedDescriptionReader(),
+            $this->createMock(NodeAccessInfo::class),
+            $this->createMock(SharedWriteGuard::class),
+        );
+        return new FileDescriptionController('mcp', $this->createMock(IRequest::class), $session, $descriptions, $policy, $tools, $visibility);
+    }
+
+    private function controllerWithNativeGrantAndBlockedScope(string $uid, string $toolName): FileDescriptionController {
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn($uid);
+        $session = $this->createMock(IUserSession::class);
+        $session->method('getUser')->willReturn($user);
+        $policy = $this->createMock(GrantPolicy::class);
+        $policy->method('within')->willReturnCallback(static fn (string $_uid, callable $work) => $work());
+        $tools = $this->createMock(ToolRegistry::class);
+        $tools->expects(self::once())->method('allowsToolAdministratively')->with($uid, $toolName)->willReturn(true);
+        $tools->expects(self::never())->method('allowsTool');
+        $visibility = $this->createMock(FilesAccessGuard::class);
+        $visibility->expects(self::once())->method('assertScopeReadable')->willThrowException(new \OCA\Mcp\Access\Policy\PolicyUnavailable());
+        $rootFolder = $this->createMock(IRootFolder::class);
+        $rootFolder->expects(self::never())->method('getUserFolder');
+        $document = new class extends BackupSettingsDocument {
+            public function __construct() {}
+            public function read(): ?string { return null; }
+        };
+        $descriptions = new DescriptionService(
+            $rootFolder,
+            static fn () => throw new \RuntimeException('Metadata must not resolve after the scope check fails.'),
             new BackupLocation($document),
             new EmbeddedDescriptionReader(),
             $this->createMock(NodeAccessInfo::class),
