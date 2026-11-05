@@ -89,6 +89,21 @@ final class FilesCreateUploadLinkTest extends FilesToolsTestCase {
         self::assertTrue($result['hasPassword']);
     }
 
+    public function testCustomPasswordCanCreateAndRotateAnUploadLink(): void {
+        $this->grantUploadLink();
+        $this->shares->settings['shareApiLinkAllowPublicUpload'] = true;
+        foreach (['create' => self::PASSWORD, 'update' => self::PASSWORD . '!'] as $action => $password) {
+            $args = ['path' => self::FOLDER, 'custom_password' => $password];
+            $plan = $this->inTool(fn () => $this->plan('files_create_upload_link', $args));
+            self::assertSame($action, $plan['action']);
+            self::assertSame('custom', $plan['password']['after']);
+            $result = $this->inTool(fn () => $this->json('files_create_upload_link', $args + ['confirm' => true, 'plan_state' => $plan['plan_state']]));
+            self::assertArrayNotHasKey('password', $result);
+            self::assertSame(FakeShares::hashOf($password), $this->shares->shares[0]->getPassword());
+            self::assertSame(Constants::PERMISSION_CREATE, $this->shares->shares[0]->getPermissions());
+        }
+    }
+
     public function testTheNormalLinkGrantDoesNotAuthorizeAnUploadLink(): void {
         $this->sharePolicy->setGrant('alice', 'files', 'link', true);
         self::assertSame(SharingMessages::shareNotGranted(), $this->writerFailure(fn () => $this->inTool(

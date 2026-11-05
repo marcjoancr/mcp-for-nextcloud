@@ -91,6 +91,50 @@ final class FilesShareLinkPasswordLeakTest extends FilesToolsTestCase {
         $this->assertNoPassword('armazenamento do compartilhamento', (string)$this->shares->shares[0]->getPassword());
     }
 
+    public function testCustomPasswordBindsConfirmationAndNeverAppearsInResultsOrLogs(): void {
+        $args = ['path' => self::FILE, 'with' => 'link', 'custom_password' => self::PASSWORD];
+        $plan = $this->registry->call('files_share', $args, 'alice');
+        self::assertSame('custom', $plan['structuredContent']['password']['after'] ?? null);
+        $this->assertNoPassword('preview', self::all($plan));
+        $confirm = $args + ['confirm' => true, 'plan_state' => $plan['structuredContent']['plan_state']];
+        $changed = $this->registry->call('files_share', array_replace($confirm, ['custom_password' => self::PASSWORD . '!']), 'alice');
+        self::assertTrue($changed['structuredContent']['requiresConfirmation']);
+        $this->assertNoPassword('changed plan', self::all($changed));
+        self::assertSame([], $this->shares->writes);
+        $done = $this->registry->call('files_share', $confirm, 'alice');
+        self::assertTrue($done['structuredContent']['hasPassword']);
+        $this->assertNoPassword('confirmation', self::all($done));
+        self::assertSame(\OCA\Mcp\Tests\Support\Files\Sharing\FakeShares::hashOf(self::PASSWORD), $this->shares->shares[0]->getPassword());
+        $this->assertNoPassword('list', self::all($this->registry->call('files_list_shares', [], 'alice')));
+        $this->assertNoPassword('logs', self::all($this->logged));
+    }
+
+    public function testStaleRotationCannotReplaceAPasswordChangedAfterPreview(): void {
+        $args = ['path' => self::FILE, 'with' => 'link', 'custom_password' => self::PASSWORD];
+        $this->confirmed($args);
+        $args['custom_password'] .= '-next';
+        $plan = $this->registry->call('files_share', $args, 'alice');
+        $share = $this->shares->shares[0];
+        $otherHash = \OCA\Mcp\Tests\Support\Files\Sharing\FakeShares::hashOf('another-rotation');
+        $share->setPassword($otherHash);
+        $result = $this->registry->call('files_share', $args + ['confirm' => true, 'plan_state' => $plan['structuredContent']['plan_state']], 'alice');
+        self::assertTrue($result['structuredContent']['requiresConfirmation'] ?? false);
+        self::assertSame($otherHash, $share->getPassword());
+        $this->assertNoPassword('stale rotation', self::all($result));
+    }
+
+    public function testCustomPasswordPolicyIsRecheckedAfterPreview(): void {
+        $args = ['path' => self::FILE, 'with' => 'link', 'custom_password' => self::PASSWORD];
+        $plan = $this->registry->call('files_share', $args, 'alice');
+        self::assertTrue(isset($plan['structuredContent']['plan_state']));
+        $this->passwordPolicyFailure = static fn (string $value): \Throwable => new \OCP\HintException($value);
+        $failure = $this->registry->call('files_share', $args + ['confirm' => true, 'plan_state' => $plan['structuredContent']['plan_state']], 'alice');
+        self::assertTrue($failure['isError']);
+        $this->assertNoPassword('policy refusal', self::all($failure));
+        $this->assertNoPassword('policy log', self::all($this->logged));
+        self::assertSame([], $this->shares->writes);
+    }
+
     /** A refusal of the core after the password was generated logs the class only and returns no password. */
     public function testACoreRefusalAfterGeneratingLeaksNothing(): void {
         $this->linkPasswords = [self::PASSWORD];

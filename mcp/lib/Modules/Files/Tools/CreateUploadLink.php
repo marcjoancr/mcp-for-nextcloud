@@ -37,7 +37,8 @@ final class CreateUploadLink implements WriteTool {
                     'path' => ['type' => 'string', 'minLength' => 1, 'description' => ReadingMessages::path()],
                     'expires' => ['type' => 'string', 'minLength' => 1, 'description' => SharingMessages::shareExpiresParam()],
                     'expiry_mode' => ['type' => 'string', 'enum' => ['preserve', 'set', 'remove'], 'description' => SharingMessages::shareExpiryModeParam()],
-                    'password_mode' => ['type' => 'string', 'enum' => ['preserve', 'set'], 'default' => 'preserve', 'description' => SharingMessages::uploadPasswordModeParam()],
+                    'custom_password' => SharingMessages::customPasswordProperty(),
+                    'password_mode' => ['type' => 'string', 'enum' => ['preserve', 'set'], 'description' => SharingMessages::uploadPasswordModeParam()],
                     PlanState::ARGUMENT => PlanState::property(),
                 ],
                 'required' => ['path'],
@@ -63,6 +64,6 @@ final class CreateUploadLink implements WriteTool {
 
     /** @param array<string, mixed> $arguments @return array<string, mixed> */
     private function writerArguments(array $arguments): array {
-        return $arguments + ['with' => 'link', 'permission' => 'view', 'password_mode' => 'preserve'];
+        return $arguments + ['with' => 'link', 'permission' => 'view'];
     }
 }

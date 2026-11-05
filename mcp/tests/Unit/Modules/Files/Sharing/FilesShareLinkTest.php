@@ -192,6 +192,15 @@ final class FilesShareLinkTest extends FilesToolsTestCase {
         self::assertSame([], $this->shares->writes);
     }
 
+    public function testCustomPasswordRefusesAmbiguousModesAndInternalRecipients(): void {
+        $this->sharePolicy->setGrant('alice', 'files', 'share', true);
+        $args = ['path' => self::FILE, 'with' => 'link', 'custom_password' => self::PASSWORD];
+        foreach ([['password' => true], ['password_mode' => 'preserve'], ['password_mode' => 'remove'], ['with' => 'user:bruno']] as $changes) {
+            self::assertSame('custom_password', $this->argumentError(array_replace($args, $changes))['field']);
+        }
+        self::assertSame([], $this->shares->writes);
+    }
+
     /** One link per file: asking again changes the one that exists. */
     public function testAnExistingLinkIsUpdatedNotDuplicated(): void {
         $link = $this->existingLink();
