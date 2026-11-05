@@ -70,3 +70,16 @@ Cualquier `FAIL` devuelve un código distinto de cero. Si falla la limpieza, `cl
 [Guías operativas](README.md).
 
 [English](../../en/guides/troubleshooting.md) · Español · [Català](../../ca/guides/troubleshooting.md) · [Português (Brasil)](../../pt-BR/guides/troubleshooting.md) · [Português (Portugal)](../../pt-PT/guides/troubleshooting.md)
+
+## Diagnosticar un intento desde el chat
+
+El administrador puede abrir una ventana de diagnóstico limitada a la cuenta afectada y a las herramientas que quiere observar. Para investigar un enlace de lectura, selecciona `files_share`. Usa el identificador exacto de la cuenta en Nextcloud. Crea un archivo nuevo con permisos 0600 para el proceso PHP en un directorio controlado por el administrador, fuera del sitio web, de Archivos y de los registros consultables desde el MCP.
+
+Configura `mcp.tool_diagnostics` siguiendo el [ejemplo de configuración](../../en/guides/troubleshooting.md#trace-an-authenticated-tool-call). El campo `until` contiene un instante fijo de finalización en segundos Unix. Verifica la captura con una vista previa antes de pedir a la persona que repita el intento.
+
+- `preview_returned` indica que el MCP devolvió una vista previa. La referencia opaca del plan permite relacionarla con su confirmación.
+- Una entrada `received` con la fase `confirmation` indica que la confirmación llegó al MCP. Busca el resultado con el mismo identificador de petición.
+- `invalid_plan_state` indica un problema con la referencia de confirmación. `new_preview_required` indica que el servidor devolvió un plan nuevo. `share_refused` indica que Nextcloud rechazó la operación por sus reglas de compartición.
+- Si solo ves la recepción, comprueba en Nextcloud si el enlace existe antes de reintentar. Si falta la recepción, comprueba la ventana, el usuario, la herramienta, los permisos del archivo y el límite de 1 MiB. Un bloqueo concurrente del archivo también puede impedir una anotación. Para investigar problemas anteriores a la autenticación, consulta el estado HTTP y el detalle de la acción en el cliente.
+
+El registro guarda horas UTC, fases, referencias opacas y resultados clasificados. Omite contraseñas, rutas, enlaces, identificadores de cuenta y contenido de las llamadas. Al cerrar la incidencia, retira la configuración y elimina el archivo. Para otra incidencia, crea uno nuevo con su propio vencimiento.

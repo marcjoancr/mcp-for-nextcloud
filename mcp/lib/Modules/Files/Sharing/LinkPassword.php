@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Files\Sharing;
 
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
-use OCA\Mcp\L10n\Translator;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\HintException;
 use OCP\Security\Events\GenerateSecurePasswordEvent;
@@ -69,7 +68,7 @@ final class LinkPassword {
     public function validateCustom(#[\SensitiveParameter] string $password): void {
         // Nextcloud's update path uses empty() before hashing. Reject "0" as well as an empty password.
         if ($password === '' || $password === '0' || str_contains($password, "\0") || !$this->accepted($password)) {
-            throw new ToolFailure(Translator::t('Choose another link password that meets the server password policy.'));
+            throw new ToolFailure(SharingMessages::customPasswordRefused());
         }
     }
 

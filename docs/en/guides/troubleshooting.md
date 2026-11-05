@@ -67,3 +67,22 @@ Any `FAIL` returns a non-zero code. If the cleanup fails, `cleanup-resource` ind
 [Operational guides](README.md).
 
 English · [Español](../../es/guides/troubleshooting.md) · [Català](../../ca/guides/troubleshooting.md) · [Português (Brasil)](../../pt-BR/guides/troubleshooting.md) · [Português (Portugal)](../../pt-PT/guides/troubleshooting.md)
+
+## Trace an authenticated tool call
+
+An instance administrator can enable a private trace for one exact Nextcloud user ID and an explicit list of tool names. For example, on the Nextcloud host create a new journal in an operator-controlled directory outside the web root, user storage and any logs exposed through MCP. Give only the PHP worker access to the file (mode 0600). Set the following system configuration, replacing the sample values with an absolute **fixed Unix expiry timestamp**, the worker-visible path and the selected account. Computing the expiry from the current time in the configuration would continuously extend the capture.
+
+```php
+'mcp.tool_diagnostics' => [
+    'user' => '<exact Nextcloud UID>',
+    'tools' => ['files_share'],
+    'file' => '/var/log/private-mcp/tool-calls.jsonl',
+    'until' => 0, // Replace with the Unix timestamp at which capture should stop.
+],
+```
+
+Each authenticated call records a UTC receipt and a result with the same random request ID. A preview returning a plan and a confirmation presenting that plan share an opaque plan reference. A changed plan has a new reference. The journal contains fixed classifications and excludes credentials, client IDs, user IDs, paths, public URLs, raw arguments, responses and exception messages.
+
+Use a controlled preview to verify the capture before interpreting an incident. Look for `preview_returned`, followed by a `confirmation` receipt and its result. For example, `invalid_plan_state` identifies a missing or invalid confirmation reference, `new_preview_required` indicates that the server requested fresh approval, and `share_refused` indicates that a sharing rule rejected the call. A lone receipt leaves the outcome uncertain. Check native state before retrying a write.
+
+Capture starts at authenticated tool dispatch. An empty journal can also result from an expired window, a different account or tool, file permissions, lock contention or the 1 MiB limit. Check endpoint HTTP status and the client action details for attempts that never reached dispatch. Remove the configuration and delete the private journal after the investigation. Use a fresh file and expiry for each new incident.
