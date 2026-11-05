@@ -665,7 +665,11 @@ class Application extends App implements IBootstrap {
         $context->registerService(PromptCatalog::class, static fn (ContainerInterface $c): PromptCatalog => new PromptCatalog($c->get(ToolRegistry::class)));
         $context->registerService(ResourceRegistry::class, static fn (ContainerInterface $c): ResourceRegistry => new ResourceRegistry($c->get(ToolRegistry::class), $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Modules\Files\Contracts\FileResourceReader::class), $c->get(\OCA\Mcp\Modules\Notes\Contracts\NoteResourceReader::class), $c->get(ToolRegistry::class)->guide(), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class)));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ServerIdentity($c->get(IAppManager::class), $c->get(\OCA\Mcp\Release\SourceOffer::class)));
-        $context->registerService(\OCA\Mcp\Mcp\Protocol\ToolRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ToolRequests($c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class), $c->get(ToolRegistry::class)));
+        $context->registerService(\OCA\Mcp\Mcp\Protocol\ToolRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ToolRequests(
+            $c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class),
+            $c->get(ToolRegistry::class),
+            new \OCA\Mcp\Mcp\Diagnostics\ToolCallDiagnostics($c->get(\OCP\IConfig::class), \OCA\Mcp\Modules\Files\Sharing\SharingMessages::diagnosticReason(...)),
+        ));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\PromptRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\PromptRequests($c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class), $c->get(PromptCatalog::class), $c->get(GrantPolicy::class)));
         $context->registerService(\OCA\Mcp\Mcp\Protocol\ResourceRequests::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Protocol\ResourceRequests($c->get(\OCA\Mcp\Mcp\Protocol\ServerIdentity::class), $c->get(ResourceRegistry::class)));
         $context->registerService(McpProtocol::class, static fn (ContainerInterface $c): McpProtocol => new McpProtocol(

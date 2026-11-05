@@ -10,6 +10,20 @@ namespace OCA\Mcp\Modules\Files\Sharing;
 use OCA\Mcp\L10n\Translator;
 
 final class SharingMessages {
+    public static function customPasswordRefused(): string {
+        return Translator::t('Choose another link password that meets the server password policy.');
+    }
+
+    public static function diagnosticReason(string $message): string {
+        return match ($message) {
+            self::customPasswordRefused() => 'password_policy',
+            self::linkPasswordRefused() => 'password_refused',
+            self::shareRefused() => 'share_refused',
+            self::shareNodeNotShareable(), self::shareNotGranted(), self::shareLinksDisabled() => 'sharing_denied',
+            default => 'tool_error',
+        };
+    }
+
     /** @return string the password policy refused every password the server generated for a link */
     public static function linkPasswordRefused(): string {
         return Translator::t('The server could not generate a password that meets the password policy, so no link was created. Ask your administrator to check the password policy.');

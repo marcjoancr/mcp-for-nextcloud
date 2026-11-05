@@ -4,6 +4,10 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.6.3
+
+- Add opt-in, expiring diagnostics for authenticated tool calls, including correlated previews and confirmations and redacted failure classifications.
+
 ## 2.6.2
 
 - Allow public read and upload-only links on items received with native re-sharing rights. Users can manage only links they created through the MCP.

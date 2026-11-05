@@ -10,11 +10,12 @@ namespace OCA\Mcp\Mcp\Protocol;
 use OCA\Mcp\Mcp\Tools\ToolRegistry;
 use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 use OCA\Mcp\Mcp\Tools\Validation\ArgumentValidationException;
+use OCA\Mcp\Mcp\Diagnostics\ToolCallDiagnostics;
 use InvalidArgumentException;
 
 /** Adapts tool discovery and execution to the supported protocol eras. */
 final class ToolRequests {
-    public function __construct(private ServerIdentity $identity, private ToolRegistry $tools) {}
+    public function __construct(private ServerIdentity $identity, private ToolRegistry $tools, private ?ToolCallDiagnostics $diagnostics = null) {}
 
     /** @return list<array<string, mixed>> diagnostic tool followed by the tools the user may call now */
     public function list(string $userId): array {
@@ -34,6 +35,26 @@ final class ToolRequests {
      * @return array{status:int, body:array<string, mixed>}
      */
     public function call(int|string $id, array $params, string $userId, bool $modern): array {
+        $trace = $this->diagnostics?->begin($userId, $params['name'] ?? null, $params['arguments'] ?? []);
+        try {
+            $response = $this->execute($id, $params, $userId, $modern);
+        } catch (\Throwable $failure) {
+            if ($trace !== null) {
+                $this->diagnostics?->failed($trace);
+            }
+            throw $failure;
+        }
+        if ($trace !== null) {
+            $this->diagnostics?->finish($trace, $response['body']);
+        }
+        return $response;
+    }
+
+    /**
+     * @param array<string,mixed> $params
+     * @return array{status:int, body:array<string,mixed>}
+     */
+    private function execute(int|string $id, array $params, string $userId, bool $modern): array {
         $name = $params['name'] ?? null;
         $arguments = $params['arguments'] ?? [];
         if (!is_string($name) || !is_array($arguments)) {
