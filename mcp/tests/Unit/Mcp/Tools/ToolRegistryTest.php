@@ -118,6 +118,21 @@ final class ToolRegistryTest extends TestCase {
         $registry->call('files_read', [], 'alice');
     }
 
+    public function testAdministrativeLookupUsesUserGrantsWithoutAnMcpSelection(): void {
+        $connection = new \OCA\Mcp\OAuth\ConnectionContext();
+        $registry = $this->registry($connection);
+        $this->policy->setGrant('alice', 'files', 'edit', true);
+
+        self::assertTrue($registry->allowsToolAdministratively('alice', 'files_edit'));
+        self::assertFalse($registry->allowsTool('alice', 'files_edit'));
+
+        $connection->set(10);
+        $connection->setSelection(['files_read']);
+        self::assertTrue($registry->allowsToolAdministratively('alice', 'files_edit'));
+        self::assertFalse($registry->allowsTool('alice', 'files_edit'));
+        self::assertNotContains('files_edit', array_column($registry->list('alice'), 'name'));
+    }
+
     private function registry(?\OCA\Mcp\OAuth\ConnectionContext $connection = null): ToolRegistry {
         $test = $this;
         $module = new class($test) implements ToolModule {

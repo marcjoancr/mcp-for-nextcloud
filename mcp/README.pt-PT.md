@@ -15,7 +15,7 @@ Ligue um cliente MCP ao seu Nextcloud. Pesquise ficheiros, leia notas, acompanhe
 
 O Nextcloud MCP é um fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). O desenvolvimento decorre em [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
 
-A **versão 2.6.0** mantém o identificador `mcp`. A loja de aplicações do Nextcloud distribui o projeto original. Consulte o guia de instalação antes de substituir uma instalação existente.
+A **versão 2.6.1** mantém o identificador `mcp`. A loja de aplicações do Nextcloud distribui o projeto original. Consulte o guia de instalação antes de substituir uma instalação existente.
 
 ## Primeiros passos
 
