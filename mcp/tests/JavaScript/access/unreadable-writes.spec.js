@@ -59,7 +59,10 @@ test('unreadable write followed by unreadable recovery exposes Retry and release
     const before = reads(app)
     app.on('PUT', '/api/grants/alice', () => html)
     app.on('GET', '/api/grants', () => html)
-    await page.locator('input[aria-label^="alice — Files: read"]').check()
+    const grant = page.locator('input[aria-label^="alice — Files: read"]')
+    await expect(grant).not.toBeChecked()
+    // The recovery error replaces the checkbox. Assert the retry UI after the click.
+    await grant.click()
     await expect(page.locator('#mcp-matrix').getByRole('button', { name: 'Retry' })).toBeVisible()
     await expect(page.locator('#mcp-matrix')).toHaveAttribute('aria-busy', 'false')
     expect(reads(app)).toBe(before + 1)
