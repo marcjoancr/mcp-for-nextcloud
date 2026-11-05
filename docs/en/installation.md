@@ -6,7 +6,7 @@
 
 ## Requirements
 
-Nextcloud MCP 2.5.0 uses app ID `mcp`. It replaces an existing installation of MCP for Cloud. The Nextcloud App Store distributes the original app. For the fork, use the package built from the reviewed source revision.
+Nextcloud MCP 2.6.0 uses app ID `mcp`. It replaces an existing installation of MCP for Cloud. The Nextcloud App Store distributes the original app. For the fork, use the package built from the reviewed source revision.
 
 The reference environment is Linux x86-64 with Apache. Use maintained patch versions and the PHP extensions `zip`, `mbstring` and `dom`. SQLite is used for local tests and recovery rehearsals.
 
@@ -20,7 +20,7 @@ Tools depend on the corresponding Nextcloud apps and the account’s grants. Dec
 
 ### Install via SSH
 
-Verify `mcp-2.5.0.tar.gz` and its matching source kit against a trusted manifest digest. Rehearse the upgrade and recovery on your server profile and make sure automated updates preserve the fork. The command `occ app:install mcp` selects the original store package.
+Verify `mcp-2.6.0.tar.gz` and its matching source kit against a trusted manifest digest. Rehearse the upgrade and recovery on your server profile and make sure automated updates preserve the fork. The command `occ app:install mcp` selects the original store package.
 
 Before deployment, use MCP Inspector to verify HTTPS access, client authorization and revocation, then confirm that a client can read the tool guide in a disposable instance.
 

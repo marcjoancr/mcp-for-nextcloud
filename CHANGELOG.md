@@ -4,6 +4,14 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.6.0
+
+- Read and edit native image descriptions in the Files sidebar and through MCP. Saving a description leaves the original image bytes intact.
+- List, create and apply public system tags to accessible files with separate grants for each action.
+- Set or remove passwords and expiry dates on public read links according to server policy. Create password-protected upload-only folder links with a separate grant.
+- Preview and confirm Files writes, enforce user and folder restrictions, and keep new capabilities denied by default on upgrade.
+- Bound memory use when rendering large text edit previews.
+
 ## 2.5.0
 
 - Read Mail attachments without marking messages as read and save selected attachments to Files after preview and confirmation. Read, create, update and delete unsent drafts without sending mail.
