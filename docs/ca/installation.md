@@ -11,7 +11,7 @@
 
 ## Requisits
 
-Nextcloud MCP 2.6.3 fa servir l’identificador `mcp` i substitueix qualsevol instal·lació prèvia de MCP for Cloud. La botiga del Nextcloud distribueix l’aplicació original. Per instal·lar el fork, fes servir el paquet compilat a partir de la revisió de codi verificada.
+Nextcloud MCP 2.6.4 fa servir l’identificador `mcp` i substitueix qualsevol instal·lació prèvia de MCP for Cloud. La botiga del Nextcloud distribueix l’aplicació original. Per instal·lar el fork, fes servir el paquet compilat a partir de la revisió de codi verificada.
 
 L’entorn de referència és Linux x86-64 amb Apache. Fes servir versions amb manteniment de seguretat i les extensions PHP `zip`, `mbstring` i `dom`. SQLite es fa servir en proves locals i assajos de recuperació.
 
@@ -25,7 +25,7 @@ Les eines disponibles depenen de les aplicacions del Nextcloud i dels permisos d
 
 ### Instal·lar per SSH
 
-Verifica `mcp-2.6.3.tar.gz` i el kit de codi font corresponent amb el resum de confiança del manifest. Assaja l’actualització i la recuperació en un entorn com el del teu servidor i comprova que les actualitzacions automàtiques conserven el fork. L’ordre `occ app:install mcp` instal·la el paquet original de la botiga.
+Verifica `mcp-2.6.4.tar.gz` i el kit de codi font corresponent amb el resum de confiança del manifest. Assaja l’actualització i la recuperació en un entorn com el del teu servidor i comprova que les actualitzacions automàtiques conserven el fork. L’ordre `occ app:install mcp` instal·la el paquet original de la botiga.
 
 Abans del desplegament, fes servir MCP Inspector per comprovar l’accés HTTPS, l’autorització i la revocació del client. Després, comprova que un client pot llegir la guia d’eines en una instància de prova d’un sol ús.
 

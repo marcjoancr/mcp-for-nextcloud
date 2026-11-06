@@ -4,6 +4,11 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+## 2.6.4
+
+- Allow descriptions and summaries for every regular file type in the Files sidebar and through MCP, preserving existing descriptions and tool assignments.
+- Keep separate read/edit permissions, native file access checks and user-bound confirmation plans. Limit embedded Photos/EXIF fallback to images.
+
 ## 2.6.3
 
 - Add opt-in, expiring diagnostics for authenticated tool calls, including correlated previews and confirmations and redacted failure classifications.
