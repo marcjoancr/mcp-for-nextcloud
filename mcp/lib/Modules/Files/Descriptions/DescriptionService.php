@@ -25,6 +25,7 @@ use OCP\FilesMetadata\Model\IFilesMetadata;
 use Psr\Container\NotFoundExceptionInterface;
 
 final class DescriptionService {
+    // Keep the original key so existing descriptions need no migration.
     public const KEY = 'mcp-image-description';
     public const MAX_BYTES = 16000;
 
@@ -55,7 +56,8 @@ final class DescriptionService {
     /** @return array<string, mixed> */
     public function readFile(File $file, ?string $userId = null, ?IFilesMetadata $snapshot = null): array {
         [$stored, $photos, $syncToken] = $this->metadataDescriptions($file, $snapshot);
-        $rawExif = $photos === null ? $this->embedded->read($file) : null;
+        $isImage = str_starts_with((string)$file->getMimetype(), 'image/');
+        $rawExif = $isImage && $photos === null ? $this->embedded->read($file) : null;
         $hasStored = $stored !== null;
         $embedded = $photos ?? $rawExif;
         $description = $hasStored ? $stored : ($embedded ?? '');
@@ -67,7 +69,9 @@ final class DescriptionService {
             'stored' => $hasStored,
             'state' => $state,
             'etag' => (string)$file->getEtag(),
-            'supported_fields' => ['Files metadata mcp-image-description', 'Photos metadata photos-ifd0 ImageDescription', 'EXIF IFD0 ImageDescription in JPEG files'],
+            'supported_fields' => $isImage
+                ? ['Files metadata mcp-image-description', 'Photos metadata photos-ifd0 ImageDescription', 'EXIF IFD0 ImageDescription in JPEG files']
+                : ['Files metadata mcp-image-description'],
             'access' => $userId === null ? null : $this->accessInfo->describe($file, $userId),
         ];
     }
@@ -96,7 +100,7 @@ final class DescriptionService {
             throw new ToolFailure(Translator::t('Files metadata could not be read.'));
         }
         $current = $this->readFile($file, $userId, $metadata);
-        if (!hash_equals($current['state'], $expectedState)) throw new ToolFailure(Translator::t('The image description changed; preview the update again.'));
+        if (!hash_equals($current['state'], $expectedState)) throw new ToolFailure(Translator::t('The file description changed; preview the update again.'));
         if (($shared = $this->sharedWrites->guard($file, $userId, $path, $confirmShared)) !== null) return ['shared_confirmation' => $shared];
         try {
             // Saving this exact metadata snapshot preserves Nextcloud's sync token. A concurrent update is refused.
@@ -107,7 +111,7 @@ final class DescriptionService {
                 throw new \RuntimeException('Metadata readback mismatch');
             }
         } catch (\Throwable) {
-            throw new ToolFailure(Translator::t('The image description could not be saved.'));
+            throw new ToolFailure(Translator::t('The file description could not be saved.'));
         }
         return $this->readFile($file, $userId);
     }
@@ -118,9 +122,6 @@ final class DescriptionService {
         $this->assertAllowedPath($path, true);
         $root = $this->rootFolder->getUserFolder($userId);
         $file = NodeAccess::requireFile(NodeAccess::get($root, $path, $visibility));
-        if (!str_starts_with((string)$file->getMimetype(), 'image/')) {
-            throw new ToolFailure(Translator::t('This file is not an image.'));
-        }
         return [$root, $file];
     }
 
@@ -158,7 +159,7 @@ final class DescriptionService {
         try {
             $stored = $snapshot->hasKey(self::KEY) ? $snapshot->getString(self::KEY) : null;
             $photos = null;
-            if ($snapshot->hasKey('photos-ifd0')) {
+            if (str_starts_with((string)$file->getMimetype(), 'image/') && $snapshot->hasKey('photos-ifd0')) {
                 $ifd0 = $snapshot->getArray('photos-ifd0');
                 foreach (['ImageDescription', 'image_description', 'Image Description'] as $key) {
                     if (isset($ifd0[$key]) && is_string($ifd0[$key]) && $ifd0[$key] !== '') {

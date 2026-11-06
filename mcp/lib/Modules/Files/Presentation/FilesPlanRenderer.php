@@ -118,11 +118,11 @@ final class FilesPlanRenderer {
                 default => Translator::t('no existing description'),
             };
             $lines = [
-                Translator::t('Set the image description for %s.', [PlanFormatting::bold($path)]),
+                Translator::t('Set the file description for %s.', [PlanFormatting::bold($path)]),
                 '- ' . Translator::t('Current source: %s', [$source]),
                 '- ' . Translator::t('Before: %s', [PlanText::quoted($plan['current_description'])]),
                 '- ' . Translator::t('After: %s', [PlanText::quoted($plan['description'])]),
-                '- ' . Translator::t('Only Files metadata will change; the image bytes stay unchanged.'),
+                '- ' . Translator::t('Only Files metadata will change; the file bytes stay unchanged.'),
             ];
             $shared = is_array($plan['shared'] ?? null) ? [$plan['shared']] : [];
             return implode("\n", array_merge($lines, PlanFormatting::sharing([

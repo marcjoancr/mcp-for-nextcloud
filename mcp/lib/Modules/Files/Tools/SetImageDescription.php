@@ -27,12 +27,12 @@ final class SetImageDescription implements WriteTool {
     public static function definition(): ToolDefinition {
         return new ToolDefinition(
             name: self::NAME, module: 'files', operation: 'description_edit',
-            description: 'Set an image description in Nextcloud Files metadata after preview and confirmation.',
+            description: 'Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.',
             inputSchema: [
                 'type' => 'object',
                 'properties' => [
                     'path' => ['type' => 'string', 'minLength' => 1, 'description' => 'Path relative to your Files root.'],
-                    'description' => ['type' => 'string', 'maxLength' => DescriptionService::MAX_BYTES, 'description' => 'Plain-text description; an empty string explicitly clears any embedded fallback.'],
+                    'description' => ['type' => 'string', 'maxLength' => DescriptionService::MAX_BYTES, 'description' => 'Plain-text description or summary; an empty string explicitly clears any embedded image fallback.'],
                     'plan_state' => PlanState::property(),
                     'confirm_shared' => ['type' => 'boolean', 'description' => EditingMessages::confirmShared()],
                 ],
@@ -69,7 +69,7 @@ final class SetImageDescription implements WriteTool {
             'access' => $before['access'] ?? null,
             'shared' => $before['shared'] ?? null,
             'requiresSharedConfirmation' => ($before['shared'] ?? null) !== null,
-            'warnings' => [Translator::t('Only the Nextcloud Files metadata value will change. The image bytes will remain unchanged.')],
+            'warnings' => [Translator::t('Only the Nextcloud Files metadata value will change. The file bytes will remain unchanged.')],
             PlanState::ARGUMENT => $this->states->of(self::NAME, $userId, $this->shown($arguments, $before['state'])),
         ];
     }

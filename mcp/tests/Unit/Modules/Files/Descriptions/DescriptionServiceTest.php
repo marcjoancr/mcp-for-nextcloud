@@ -20,9 +20,28 @@ use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\FilesMetadata\IFilesMetadataManager;
 use OCP\FilesMetadata\Model\IFilesMetadata;
+use OCA\Mcp\Modules\Files\Tools\GetImageDescription;
+use OCA\Mcp\Modules\Files\Tools\SetImageDescription;
+use OCA\Mcp\Mcp\Tools\ToolContext;
+use OCA\Mcp\Mcp\Confirmation\PlanState;
+use OCA\Mcp\Mcp\Confirmation\PlanChanged;
+use OCP\IConfig;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class DescriptionServiceTest extends TestCase {
+    public static function fileTypes(): array {
+        return [
+            'image' => ['image/jpeg'],
+            'PDF' => ['application/pdf'],
+            'text' => ['text/plain'],
+            'document' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+            'video' => ['video/mp4'],
+            'audio' => ['audio/mpeg'],
+            'unknown' => ['application/octet-stream'],
+        ];
+    }
+
     public function testExplicitEmptyMetadataOverridesEmbeddedExifDescription(): void {
         $file = $this->file($this->jpegWithDescription('embedded caption'));
         $metadata = $this->metadata(true, '', []);
@@ -69,8 +88,9 @@ final class DescriptionServiceTest extends TestCase {
         self::assertFalse($record['stored']);
     }
 
-    public function testScopedReadResolvesOnlyTheAuthenticatedUsersRoot(): void {
-        $file = $this->file('unchanged bytes');
+    #[DataProvider('fileTypes')]
+    public function testScopedReadResolvesOnlyTheAuthenticatedUsersRoot(string $mime): void {
+        $file = $this->file('unchanged bytes', mime: $mime);
         $root = $this->createMock(Folder::class);
         $root->expects(self::once())->method('get')->with('Photos/image.jpg')->willReturn($file);
         $roots = $this->createMock(IRootFolder::class);
@@ -89,14 +109,15 @@ final class DescriptionServiceTest extends TestCase {
         }
     }
 
-    public function testMetadataWriteUsesNativeStoreWithoutRewritingImageBytes(): void {
-        $file = $this->file('unchanged bytes');
+    #[DataProvider('fileTypes')]
+    public function testMetadataWriteUsesNativeStoreWithoutRewritingFileBytes(string $mime): void {
+        $file = $this->file('unchanged bytes', mime: $mime);
         $file->expects(self::never())->method('putContent');
         $initial = $this->storedMetadata('old caption', 'sync-1');
         $writeSnapshot = $this->storedMetadata('old caption', 'sync-1');
         $persisted = $this->storedMetadata('new caption', 'sync-2');
         $manager = $this->createMock(IFilesMetadataManager::class);
-        $manager->method('getMetadata')->willReturnOnConsecutiveCalls($initial, $writeSnapshot, $persisted, $persisted);
+        $manager->method('getMetadata')->willReturnOnConsecutiveCalls($initial, $initial, $writeSnapshot, $persisted, $persisted, $persisted);
         $manager->expects(self::once())->method('saveMetadata')->with($writeSnapshot);
         $root = $this->folderContaining($file, 'Photos/image.jpg');
         $roots = $this->createMock(IRootFolder::class);
@@ -108,16 +129,24 @@ final class DescriptionServiceTest extends TestCase {
         $shared = $this->createMock(SharedWriteGuard::class);
         $shared->method('guard')->willReturn(null);
         $service = $this->scopedService($manager, $roots, $visibility, $info, $shared);
-        $preview = $service->read('alice', '/Photos/image.jpg', $visibility);
-
-        $saved = $service->write('alice', '/Photos/image.jpg', 'new caption', $preview['state'], $visibility);
+        $config = $this->createMock(IConfig::class);
+        $config->method('getSystemValue')->willReturn('description-test-key');
+        $tool = new SetImageDescription($service, $visibility, new PlanState($config));
+        $arguments = ['path' => '/Photos/image.jpg', 'description' => 'new caption'];
+        $context = new ToolContext('alice');
+        $preview = $tool->preview($arguments, $context);
+        $result = $tool->execute($arguments + ['plan_state' => $preview['plan_state']], $context);
+        $saved = json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
+        $read = (new GetImageDescription($service, $visibility))->execute(['path' => $arguments['path']], $context);
+        self::assertSame('new caption', json_decode($read['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR)['description']);
 
         self::assertSame('new caption', $saved['description']);
         self::assertSame('files_metadata', $saved['source']);
     }
 
-    public function testNativeReadOnlyFileCannotBeEditedEvenWithAConfirmedPlan(): void {
-        $file = $this->file('unchanged bytes', 23, false);
+    #[DataProvider('fileTypes')]
+    public function testNativeReadOnlyFileCannotBeEditedEvenWithAConfirmedPlan(string $mime): void {
+        $file = $this->file('unchanged bytes', 23, false, $mime);
         $manager = $this->createMock(IFilesMetadataManager::class);
         $manager->expects(self::never())->method('getMetadata');
         $root = $this->folderContaining($file, 'Photos/image.jpg');
@@ -181,6 +210,53 @@ final class DescriptionServiceTest extends TestCase {
         $service->write('alice', '/Photos/image.jpg', 'new caption', $preview['state'], $visibility);
     }
 
+    public function testNonImageDescriptionDoesNotReadContentOrPhotosMetadata(): void {
+        $file = $this->file('binary document', mime: 'application/pdf');
+        $file->expects(self::never())->method('fopen');
+        $metadata = $this->metadata(false, null, ['ImageDescription' => 'stale photo caption']);
+        $record = $this->service($this->manager($metadata))->readFile($file);
+
+        self::assertSame('', $record['description']);
+        self::assertSame('none', $record['source']);
+        self::assertFalse($record['stored']);
+        self::assertSame(['Files metadata mcp-image-description'], $record['supported_fields']);
+    }
+
+    public function testFoldersCannotHaveFileDescriptions(): void {
+        $folder = $this->createMock(Folder::class);
+        $folder->method('isReadable')->willReturn(true);
+        $root = $this->createMock(Folder::class);
+        $root->method('get')->with('Documents')->willReturn($folder);
+        $roots = $this->createMock(IRootFolder::class);
+        $roots->method('getUserFolder')->with('alice')->willReturn($root);
+        $visibility = $this->createMock(FilesAccessGuard::class);
+        $manager = $this->createMock(IFilesMetadataManager::class);
+        $manager->expects(self::never())->method('getMetadata');
+        $service = $this->scopedService($manager, $roots, $visibility);
+
+        $this->expectException(ToolFailure::class);
+        $service->read('alice', '/Documents', $visibility);
+    }
+
+    public function testDocumentPlansCannotCrossUsersEvenForTheSameSharedFile(): void {
+        $file = $this->file('PDF bytes', mime: 'application/pdf');
+        $root = $this->folderContaining($file, 'Documents/report.pdf');
+        $roots = $this->createMock(IRootFolder::class);
+        $roots->method('getUserFolder')->willReturnMap([['alice', $root], ['bob', $root]]);
+        $manager = $this->manager($this->storedMetadata('original summary', 'sync-1'));
+        $manager->expects(self::never())->method('saveMetadata');
+        $visibility = $this->createMock(FilesAccessGuard::class);
+        $service = $this->scopedService($manager, $roots, $visibility);
+        $config = $this->createMock(IConfig::class);
+        $config->method('getSystemValue')->willReturn('description-test-key');
+        $tool = new SetImageDescription($service, $visibility, new PlanState($config));
+        $arguments = ['path' => '/Documents/report.pdf', 'description' => 'new summary'];
+        $plan = $tool->preview($arguments, new ToolContext('alice'));
+
+        $this->expectException(PlanChanged::class);
+        $tool->execute($arguments + ['plan_state' => $plan['plan_state']], new ToolContext('bob'));
+    }
+
     private function scopedService(IFilesMetadataManager $manager, IRootFolder $root, FilesAccessGuard $visibility, ?NodeAccessInfo $info = null, ?SharedWriteGuard $shared = null): DescriptionService {
         return new DescriptionService(
             $root,
@@ -241,7 +317,7 @@ final class DescriptionServiceTest extends TestCase {
         return $metadata;
     }
 
-    private function file(string $bytes, int $id = 23, bool $updateable = true): File {
+    private function file(string $bytes, int $id = 23, bool $updateable = true, string $mime = 'image/jpeg'): File {
         $stream = tmpfile();
         fwrite($stream, $bytes);
         rewind($stream);
@@ -249,7 +325,7 @@ final class DescriptionServiceTest extends TestCase {
         $file->method('fopen')->willReturn($stream);
         $file->method('getEtag')->willReturn('etag-1');
         $file->method('getId')->willReturn($id);
-        $file->method('getMimetype')->willReturn('image/jpeg');
+        $file->method('getMimetype')->willReturn($mime);
         $file->method('isReadable')->willReturn(true);
         $file->method('isUpdateable')->willReturn($updateable);
         return $file;

@@ -406,7 +406,7 @@ final class VisibilityContractTest extends TestCase {
             }
         };
 
-        foreach (['/secret_direct.jpg', '/SecretFolder/secret_ancestral.jpg'] as $path) {
+        foreach (['/secret_direct.jpg', '/SecretFolder/secret_ancestral.jpg', '/secret_direct.txt', '/SecretFolder/secret_ancestral.txt'] as $path) {
             $assertModuleDenied(fn () => $filesModule->call('files_get_image_description', ['path' => $path], 'alice'), 'files_get_image_description');
             foreach ([[], ['confirm' => true, 'plan_state' => 'untrusted-state', 'confirm_shared' => true]] as $confirm) {
                 $arguments = ['path' => $path, 'description' => 'private overwrite'] + $confirm;

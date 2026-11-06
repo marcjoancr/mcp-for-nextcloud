@@ -319,7 +319,7 @@ final class FilesPlanRendererTest extends FilesToolsTestCase {
         $this->assertStringContainsString('embedded EXIF metadata', $description);
         $this->assertStringContainsString('Before: "Old \\[caption\\]"', $description);
         $this->assertStringContainsString('After: ""', $description);
-        $this->assertStringContainsString('image bytes stay unchanged', $description);
+        $this->assertStringContainsString('file bytes stay unchanged', $description);
     }
 
     public function testADiffCannotOpenAnotherLineOrLinkOfThePlan(): void {

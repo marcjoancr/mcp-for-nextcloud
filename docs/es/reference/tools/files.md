@@ -41,21 +41,23 @@
 
 Usa `custom_password` para establecer o cambiar la contraseña elegida por el usuario en un enlace de lectura o de solo subida. El MCP la valida según la política del servidor y nunca la devuelve.
 
-## Descripciones de imágenes, etiquetas y enlaces de carga
+## Descripciones de archivos, etiquetas y enlaces de carga
 
 Estas funciones requieren una asignación explícita de cada herramienta y permisos independientes. Los permisos actuales de lectura, edición y enlaces de Files no habilitan automáticamente las herramientas nuevas.
 
 | Herramienta | Permiso | Comportamiento |
 | --- | --- | --- |
-| `files_get_image_description` | `files.description_read` | Lee la descripción efectiva y su origen para una imagen accesible. |
+| `files_get_image_description` | `files.description_read` | Lee la descripción o resumen de cualquier archivo accesible e indica su origen. |
 | `files_set_image_description` | `files.description_edit` | Previsualiza y confirma la actualización de una descripción en los metadatos nativos de Files. |
 | `files_list_tags` | `files.tags_read` | Enumera las categorías visibles asignables y, opcionalmente, las etiquetas actuales de un archivo accesible. |
 | `files_create_tag` | `files.tags_create` | Previsualiza y confirma la creación o reutilización de una etiqueta del sistema pública y asignable. |
 | `files_set_tags` | `files.tags_edit` | Previsualiza y confirma la adición o eliminación de etiquetas en hasta 20 archivos accesibles y modificables. |
 | `files_create_upload_link` | `files.upload_link` | Previsualiza y confirma un enlace de carpeta protegido por contraseña y solo para cargas. |
 
+Las descripciones y resúmenes admiten todos los tipos de archivo, incluidos PDF, documentos, texto, vídeo y audio; no se aplican a carpetas. Los nombres históricos de las herramientas y la clave de metadatos se conservan para mantener las asignaciones, los permisos y las descripciones existentes.
+
 Las descripciones se guardan en los metadatos nativos de Files bajo `mcp-image-description`. La barra lateral de Files muestra el mismo valor y usa los permisos de herramientas del usuario conectado, el alcance de Files y los permisos nativos. Guardar desde la barra lateral es una acción explícita; las escrituras MCP requieren una vista previa y su `plan_state`, y los archivos compartidos requieren una confirmación adicional. Las vistas previas obsoletas no pueden sobrescribir una descripción modificada.
-El límite es de 16.000 bytes UTF-8. No se crea ningún archivo auxiliar y los bytes de la imagen no cambian. Una descripción vacía explícita oculta la alternativa incorporada. Si no hay una sustitución, el lector utiliza primero la descripción ImageDescription de `photos-ifd0` de Photos cuando está disponible y, después, la descripción ImageDescription de IFD0 EXIF de JPEG, dentro de límites. Indica el origen; no afirma extraer universalmente IPTC/XMP. La descripción es un valor de Nextcloud, no un cambio portátil incorporado en los bytes de la imagen descargada.
+El límite es de 16.000 bytes UTF-8. No se crea ningún archivo auxiliar y los bytes del archivo no cambian. Una descripción vacía explícita oculta la alternativa incorporada. En las imágenes, si no hay una sustitución, el lector utiliza primero la descripción ImageDescription de `photos-ifd0` de Photos cuando está disponible y, después, la descripción ImageDescription de IFD0 EXIF de JPEG, dentro de límites. Indica el origen; no afirma extraer universalmente IPTC/XMP. La descripción es un valor de Nextcloud, no un cambio portátil incorporado en los bytes del archivo descargado.
 
 Las etiquetas del sistema, como `Tacos` e `Interior`, son categorías compartidas en el servidor, no etiquetas privadas por usuario. La enumeración de categorías no revela archivos. La enumeración de archivos, la asignación y la búsqueda de imágenes siguen aplicando el acceso de cada usuario y el alcance de carpetas configurado. Estas herramientas no muestran categorías ocultas o restringidas, y las políticas nativas de creación y asignación siguen siendo la autoridad. Los nombres tienen un límite de 64 bytes UTF-8. Todos los destinos se comprueban antes de una asignación por lotes; los fallos de almacenamiento independientes durante las escrituras todavía pueden dejar un lote aplicado parcialmente.
 

@@ -19,8 +19,8 @@ export function createPresentation({ t }) {
 	}
 	function operationLabels() {
 		return {
-			description_read: t('mcp', 'read image descriptions'),
-			description_edit: t('mcp', 'edit image descriptions'),
+			description_read: t('mcp', 'read file descriptions'),
+			description_edit: t('mcp', 'edit file descriptions'),
 			tags_read: t('mcp', 'read file tags'),
 			tags_create: t('mcp', 'create file tags'),
 			tags_edit: t('mcp', 'assign file tags'),
@@ -68,7 +68,7 @@ export function createPresentation({ t }) {
 			return t('mcp', 'Move an event to another person’s calendar')
 		}
 		const hints = {
-			description_read: t('mcp', 'Read native and embedded descriptions of accessible images'),
+			description_read: t('mcp', 'Read descriptions of accessible files, including embedded image descriptions'),
 			description_edit: t('mcp', 'Edit descriptions visible in Files after preview and confirmation'),
 			tags_read: t('mcp', 'List visible categories and tags on accessible files'),
 			tags_create: t('mcp', 'Create public categories when native Nextcloud policy permits'),

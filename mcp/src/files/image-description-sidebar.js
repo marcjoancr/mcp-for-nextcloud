@@ -29,7 +29,7 @@ function requestHeaders(json = false) {
     return headers
 }
 
-class ImageDescriptionTab extends HTMLElement {
+class FileDescriptionTab extends HTMLElement {
     requestId = 0
     canEdit = false
 
@@ -75,7 +75,7 @@ class ImageDescriptionTab extends HTMLElement {
         this.textarea.rows = 5
         this.textarea.maxLength = 16000
         this.textarea.disabled = true
-        this.textarea.setAttribute('aria-label', t('mcp', 'Image description'))
+        this.textarea.setAttribute('aria-label', t('mcp', 'File description'))
         this.saveButton = document.createElement('button')
         this.saveButton.type = 'button'
         this.saveButton.textContent = t('mcp', 'Save description')
@@ -87,7 +87,7 @@ class ImageDescriptionTab extends HTMLElement {
     async load() {
         if (!this.isConnected || !this._node) return
         const path = filePath(this._node)
-        if (!path) return this.showError(t('mcp', 'This image is unavailable.'))
+        if (!path) return this.showError(t('mcp', 'This file is unavailable.'))
         const requestId = ++this.requestId
         this.path = path
         this.state = null
@@ -102,7 +102,7 @@ class ImageDescriptionTab extends HTMLElement {
             const response = await window.fetch(url, { method: 'GET', headers: requestHeaders(), credentials: 'same-origin' })
             const data = await response.json()
             if (requestId !== this.requestId) return
-            if (!response.ok) throw new Error(data.error || t('mcp', 'This image is unavailable.'))
+            if (!response.ok) throw new Error(data.error || t('mcp', 'This file is unavailable.'))
             this.state = data.state
             this.canEdit = data.can_edit === true
             this.textarea.value = data.description
@@ -117,7 +117,7 @@ class ImageDescriptionTab extends HTMLElement {
             const editStatus = this.canEdit ? '' : ` ${t('mcp', 'You have read-only access to this description.')}`
             this.status.textContent = sharedWarning + sourceStatus + editStatus
         } catch (error) {
-            if (requestId === this.requestId) this.showError(error.message || t('mcp', 'This image is unavailable.'))
+            if (requestId === this.requestId) this.showError(error.message || t('mcp', 'This file is unavailable.'))
         } finally {
             if (requestId === this.requestId) this.saveButton.disabled = !this.canEdit
         }
@@ -163,9 +163,9 @@ export function registerFileDescriptionSidebar() {
         iconSvgInline: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v2H4zm0 5h16v2H4zm0 5h11v2H4zm0 5h8v2H4z"/></svg>',
         order: 80,
         tagName: componentName,
-        enabled: ({ node }) => node?.type === 'file' && String(node.mime || '').startsWith('image/'),
+        enabled: ({ node }) => node?.type === 'file',
         async onInit() {
-            if (!customElements.get(componentName)) customElements.define(componentName, ImageDescriptionTab)
+            if (!customElements.get(componentName)) customElements.define(componentName, FileDescriptionTab)
         },
     })
 }

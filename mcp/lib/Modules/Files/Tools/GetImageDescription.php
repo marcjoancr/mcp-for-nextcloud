@@ -21,7 +21,7 @@ final class GetImageDescription implements Tool {
     public static function definition(): ToolDefinition {
         return new ToolDefinition(
             name: 'files_get_image_description', module: 'files', operation: 'description_read',
-            description: 'Read the saved or embedded description of an image in Files.',
+            description: 'Read the saved description or summary of any file in Files, with embedded description fallback for images.',
             inputSchema: ['type' => 'object', 'properties' => ['path' => ['type' => 'string', 'minLength' => 1, 'description' => 'Path relative to your Files root.']], 'required' => ['path'], 'additionalProperties' => false],
         );
     }

@@ -3322,8 +3322,8 @@
                 },
                 {
                     "name": "files_get_image_description",
-                    "title": "Read image description",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "title": "Read file description",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -3339,7 +3339,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Read image description",
+                        "title": "Read file description",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -3348,8 +3348,8 @@
                 },
                 {
                     "name": "files_set_image_description",
-                    "title": "Edit image description",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "title": "Edit file description",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -3361,7 +3361,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -3385,7 +3385,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Edit image description",
+                        "title": "Edit file description",
                         "readOnlyHint": false,
                         "destructiveHint": false,
                         "idempotentHint": false,
@@ -7671,8 +7671,8 @@
                 },
                 {
                     "name": "files_get_image_description",
-                    "title": "Read image description",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "title": "Read file description",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -7688,7 +7688,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Read image description",
+                        "title": "Read file description",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -7699,8 +7699,8 @@
                 },
                 {
                     "name": "files_set_image_description",
-                    "title": "Edit image description",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "title": "Edit file description",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -7712,7 +7712,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -7736,7 +7736,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Edit image description",
+                        "title": "Edit file description",
                         "readOnlyHint": false,
                         "destructiveHint": false,
                         "idempotentHint": false,
@@ -11497,7 +11497,7 @@
                 "content": [
                     {
                         "type": "text",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 29 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, Read image description, Edit image description, List file tags, Create file tag, Assign file tags, Create upload-only link, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 8 tools — List calendars, List events, Check calendar availability, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 21 tools — List Deck boards, List Deck lists, List Deck cards, Search Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 29 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, Read file description, Edit file description, List file tags, Create file tag, Assign file tags, Create upload-only link, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 8 tools — List calendars, List events, Check calendar availability, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 21 tools — List Deck boards, List Deck lists, List Deck cards, Search Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ],
                 "structuredContent": {
@@ -11695,16 +11695,16 @@
                                 },
                                 {
                                     "name": "files_get_image_description",
-                                    "title": "Read image description",
-                                    "description": "Read the saved or embedded description of an image in Files.",
+                                    "title": "Read file description",
+                                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
                                 },
                                 {
                                     "name": "files_set_image_description",
-                                    "title": "Edit image description",
-                                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                                    "title": "Edit file description",
+                                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                                     "read_only": false,
                                     "destructive": false,
                                     "confirmation": [
@@ -12531,7 +12531,7 @@
                     {
                         "uri": "mcp://guide",
                         "mimeType": "text/markdown",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 29 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, Read image description, Edit image description, List file tags, Create file tag, Assign file tags, Create upload-only link, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 8 tools — List calendars, List events, Check calendar availability, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 21 tools — List Deck boards, List Deck lists, List Deck cards, Search Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Files** (`files`): 29 tools — List files, Search files, View folder tree, Create folder, Copy file, Move file, Move files in bulk, Undo bulk operation, Read file, Edit file, Replace part of a file, Download file for local editing, List file versions, Read file version, Restore file version, View image, View several images, Search images, Read file description, Edit file description, List file tags, Create file tag, Assign file tags, Create upload-only link, List shares, Share file or folder, Stop sharing file or folder, Upload new file, Create text file.\n- **Notes** (`notes`): 7 tools — List notes, Search notes, Read note, Create note, Edit note, Move note, Delete note.\n- **Calendar** (`calendar`): 8 tools — List calendars, List events, Check calendar availability, Create event, Edit event, Move event to another calendar, Delete event, Transfer event to another person's calendar.\n- **Contacts** (`contacts`): 6 tools — List address books, Search contacts, Read contact, Create contact, Edit contact, Delete contact.\n- **Tasks** (`tasks`): 7 tools — List task calendars, List tasks, Read task, Create task, Edit task, Complete task, Delete task.\n- **Deck** (`deck`): 21 tools — List Deck boards, List Deck lists, List Deck cards, Search Deck cards, Read Deck card, Create card in Deck, Edit Deck card, Move card in Deck, Delete Deck card, Follow up on Deck tasks, Create Deck board, Create list in Deck, Delete Deck list, Delete Deck board, List Deck labels, Change Deck card labels, List Deck card files, Unlink Deck card file, Link Deck card file, Read card comments, Post card comment.\n- **Talk** (`talk`): 11 tools — List Talk conversations, Read Talk messages, Search Talk messages, Read Talk message context, Reply in Talk, Attach file in Talk, Quote file in Talk, Direct message in Talk, Send batch in Talk, Create group in Talk, Publish a summary in Talk.\n- **People** (`people`): 1 tools — Search people.\n- **Server log** (`logs`): 2 tools — Read server log, Analyze server log.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ]
             },
@@ -13526,7 +13526,7 @@
                     "name": "files_get_image_description",
                     "module": "files",
                     "operation": "description_read",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -13546,7 +13546,7 @@
                     "name": "files_set_image_description",
                     "module": "files",
                     "operation": "description_edit",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -13558,7 +13558,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -18016,8 +18016,8 @@
                         },
                         {
                             "name": "files_get_image_description",
-                            "title": "Read image description",
-                            "description": "Read the saved or embedded description of an image in Files.",
+                            "title": "Read file description",
+                            "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -18033,7 +18033,7 @@
                                 "additionalProperties": false
                             },
                             "annotations": {
-                                "title": "Read image description",
+                                "title": "Read file description",
                                 "readOnlyHint": true,
                                 "destructiveHint": false,
                                 "idempotentHint": true,
@@ -18042,8 +18042,8 @@
                         },
                         {
                             "name": "files_set_image_description",
-                            "title": "Edit image description",
-                            "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                            "title": "Edit file description",
+                            "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -18055,7 +18055,7 @@
                                     "description": {
                                         "type": "string",
                                         "maxLength": 16000,
-                                        "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                        "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                                     },
                                     "plan_state": {
                                         "type": "string",
@@ -18079,7 +18079,7 @@
                                 "additionalProperties": false
                             },
                             "annotations": {
-                                "title": "Edit image description",
+                                "title": "Edit file description",
                                 "readOnlyHint": false,
                                 "destructiveHint": false,
                                 "idempotentHint": false,
@@ -24944,8 +24944,8 @@
                 },
                 {
                     "name": "files_get_image_description",
-                    "title": "Ler descrição da imagem",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "title": "Ler descrição do arquivo",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -24961,7 +24961,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Ler descrição da imagem",
+                        "title": "Ler descrição do arquivo",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -24970,8 +24970,8 @@
                 },
                 {
                     "name": "files_set_image_description",
-                    "title": "Editar descrição da imagem",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "title": "Editar descrição do arquivo",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -24983,7 +24983,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -25007,7 +25007,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Editar descrição da imagem",
+                        "title": "Editar descrição do arquivo",
                         "readOnlyHint": false,
                         "destructiveHint": false,
                         "idempotentHint": false,
@@ -29293,8 +29293,8 @@
                 },
                 {
                     "name": "files_get_image_description",
-                    "title": "Ler descrição da imagem",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "title": "Ler descrição do arquivo",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -29310,7 +29310,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Ler descrição da imagem",
+                        "title": "Ler descrição do arquivo",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -29321,8 +29321,8 @@
                 },
                 {
                     "name": "files_set_image_description",
-                    "title": "Editar descrição da imagem",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "title": "Editar descrição do arquivo",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -29334,7 +29334,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -29358,7 +29358,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Editar descrição da imagem",
+                        "title": "Editar descrição do arquivo",
                         "readOnlyHint": false,
                         "destructiveHint": false,
                         "idempotentHint": false,
@@ -33119,7 +33119,7 @@
                 "content": [
                     {
                         "type": "text",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 29 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Ler descrição da imagem, Editar descrição da imagem, Listar etiquetas de arquivos, Criar etiqueta de arquivo, Atribuir etiquetas a arquivos, Criar link somente para envio, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 8 tools — Listar calendários, Listar eventos, Consultar disponibilidade dos calendários, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 21 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Buscar cartões do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 29 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Ler descrição do arquivo, Editar descrição do arquivo, Listar etiquetas de arquivos, Criar etiqueta de arquivo, Atribuir etiquetas a arquivos, Criar link somente para envio, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 8 tools — Listar calendários, Listar eventos, Consultar disponibilidade dos calendários, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 21 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Buscar cartões do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ],
                 "structuredContent": {
@@ -33317,16 +33317,16 @@
                                 },
                                 {
                                     "name": "files_get_image_description",
-                                    "title": "Ler descrição da imagem",
-                                    "description": "Read the saved or embedded description of an image in Files.",
+                                    "title": "Ler descrição do arquivo",
+                                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
                                 },
                                 {
                                     "name": "files_set_image_description",
-                                    "title": "Editar descrição da imagem",
-                                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                                    "title": "Editar descrição do arquivo",
+                                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                                     "read_only": false,
                                     "destructive": false,
                                     "confirmation": [
@@ -34153,7 +34153,7 @@
                     {
                         "uri": "mcp://guide",
                         "mimeType": "text/markdown",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 29 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Ler descrição da imagem, Editar descrição da imagem, Listar etiquetas de arquivos, Criar etiqueta de arquivo, Atribuir etiquetas a arquivos, Criar link somente para envio, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 8 tools — Listar calendários, Listar eventos, Consultar disponibilidade dos calendários, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 21 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Buscar cartões do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Arquivos** (`files`): 29 tools — Listar arquivos, Buscar arquivos, Ver árvore de pastas, Criar pasta, Copiar arquivo, Mover arquivo, Mover arquivos em lote, Desfazer operação em lote, Ler arquivo, Editar arquivo, Substituir trecho do arquivo, Baixar arquivo para edição local, Listar versões do arquivo, Ler versão do arquivo, Restaurar versão do arquivo, Ver imagem, Ver várias imagens, Buscar imagens, Ler descrição do arquivo, Editar descrição do arquivo, Listar etiquetas de arquivos, Criar etiqueta de arquivo, Atribuir etiquetas a arquivos, Criar link somente para envio, Listar compartilhamentos, Compartilhar arquivo ou pasta, Parar de compartilhar arquivo ou pasta, Enviar arquivo novo, Criar arquivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Ler nota, Criar nota, Editar nota, Mover nota, Excluir nota.\n- **Calendário** (`calendar`): 8 tools — Listar calendários, Listar eventos, Consultar disponibilidade dos calendários, Criar evento, Editar evento, Mover evento para outro calendário, Excluir evento, Transferir evento para calendário de outra pessoa.\n- **Contatos** (`contacts`): 6 tools — Listar catálogos de endereços, Buscar contatos, Ler contato, Criar contato, Editar contato, Excluir contato.\n- **Tarefas** (`tasks`): 7 tools — Listar agendas de tarefas, Listar tarefas, Ler tarefa, Criar tarefa, Editar tarefa, Concluir tarefa, Excluir tarefa.\n- **Deck** (`deck`): 21 tools — Listar quadros do Deck, Listar listas do Deck, Listar cards do Deck, Buscar cartões do Deck, Ler card do Deck, Criar card no Deck, Editar card do Deck, Mover card no Deck, Excluir card do Deck, Acompanhar tarefas do Deck, Criar quadro no Deck, Criar lista no Deck, Excluir lista do Deck, Excluir quadro do Deck, Listar etiquetas do Deck, Alterar etiquetas do cartão do Deck, Listar arquivos do cartão do Deck, Desvincular arquivo do cartão do Deck, Vincular arquivo ao cartão do Deck, Ler comentários do cartão, Publicar comentário no cartão.\n- **Talk** (`talk`): 11 tools — Listar conversas do Talk, Ler mensagens do Talk, Pesquisar mensagens do Talk, Ler o contexto de uma mensagem do Talk, Responder no Talk, Anexar arquivo no Talk, Citar arquivo no Talk, Mensagem direta no Talk, Enviar lote no Talk, Criar grupo no Talk, Publicar um resumo no Talk.\n- **Pessoas** (`people`): 1 tools — Buscar pessoas.\n- **Log do servidor** (`logs`): 2 tools — Ler log do servidor, Analisar log do servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ]
             },
@@ -35148,7 +35148,7 @@
                     "name": "files_get_image_description",
                     "module": "files",
                     "operation": "description_read",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -35168,7 +35168,7 @@
                     "name": "files_set_image_description",
                     "module": "files",
                     "operation": "description_edit",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -35180,7 +35180,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -39638,8 +39638,8 @@
                         },
                         {
                             "name": "files_get_image_description",
-                            "title": "Ler descrição da imagem",
-                            "description": "Read the saved or embedded description of an image in Files.",
+                            "title": "Ler descrição do arquivo",
+                            "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -39655,7 +39655,7 @@
                                 "additionalProperties": false
                             },
                             "annotations": {
-                                "title": "Ler descrição da imagem",
+                                "title": "Ler descrição do arquivo",
                                 "readOnlyHint": true,
                                 "destructiveHint": false,
                                 "idempotentHint": true,
@@ -39664,8 +39664,8 @@
                         },
                         {
                             "name": "files_set_image_description",
-                            "title": "Editar descrição da imagem",
-                            "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                            "title": "Editar descrição do arquivo",
+                            "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -39677,7 +39677,7 @@
                                     "description": {
                                         "type": "string",
                                         "maxLength": 16000,
-                                        "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                        "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                                     },
                                     "plan_state": {
                                         "type": "string",
@@ -39701,7 +39701,7 @@
                                 "additionalProperties": false
                             },
                             "annotations": {
-                                "title": "Editar descrição da imagem",
+                                "title": "Editar descrição do arquivo",
                                 "readOnlyHint": false,
                                 "destructiveHint": false,
                                 "idempotentHint": false,
@@ -46566,8 +46566,8 @@
                 },
                 {
                     "name": "files_get_image_description",
-                    "title": "Leer descripción de imagen",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "title": "Leer descripción de archivo",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -46583,7 +46583,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Leer descripción de imagen",
+                        "title": "Leer descripción de archivo",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -46592,8 +46592,8 @@
                 },
                 {
                     "name": "files_set_image_description",
-                    "title": "Editar descripción de imagen",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "title": "Editar descripción de archivo",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -46605,7 +46605,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -46629,7 +46629,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Editar descripción de imagen",
+                        "title": "Editar descripción de archivo",
                         "readOnlyHint": false,
                         "destructiveHint": false,
                         "idempotentHint": false,
@@ -50915,8 +50915,8 @@
                 },
                 {
                     "name": "files_get_image_description",
-                    "title": "Leer descripción de imagen",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "title": "Leer descripción de archivo",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -50932,7 +50932,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Leer descripción de imagen",
+                        "title": "Leer descripción de archivo",
                         "readOnlyHint": true,
                         "destructiveHint": false,
                         "idempotentHint": true,
@@ -50943,8 +50943,8 @@
                 },
                 {
                     "name": "files_set_image_description",
-                    "title": "Editar descripción de imagen",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "title": "Editar descripción de archivo",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -50956,7 +50956,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -50980,7 +50980,7 @@
                         "additionalProperties": false
                     },
                     "annotations": {
-                        "title": "Editar descripción de imagen",
+                        "title": "Editar descripción de archivo",
                         "readOnlyHint": false,
                         "destructiveHint": false,
                         "idempotentHint": false,
@@ -54741,7 +54741,7 @@
                 "content": [
                     {
                         "type": "text",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 29 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Leer descripción de imagen, Editar descripción de imagen, Listar etiquetas de archivos, Crear etiqueta de archivo, Asignar etiquetas a archivos, Crear enlace de solo subida, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 8 tools — Listar calendarios, Listar eventos, Consultar disponibilidad de calendarios, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 21 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Buscar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 29 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Leer descripción de archivo, Editar descripción de archivo, Listar etiquetas de archivos, Crear etiqueta de archivo, Asignar etiquetas a archivos, Crear enlace de solo subida, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 8 tools — Listar calendarios, Listar eventos, Consultar disponibilidad de calendarios, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 21 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Buscar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ],
                 "structuredContent": {
@@ -54939,16 +54939,16 @@
                                 },
                                 {
                                     "name": "files_get_image_description",
-                                    "title": "Leer descripción de imagen",
-                                    "description": "Read the saved or embedded description of an image in Files.",
+                                    "title": "Leer descripción de archivo",
+                                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
                                 },
                                 {
                                     "name": "files_set_image_description",
-                                    "title": "Editar descripción de imagen",
-                                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                                    "title": "Editar descripción de archivo",
+                                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                                     "read_only": false,
                                     "destructive": false,
                                     "confirmation": [
@@ -55775,7 +55775,7 @@
                     {
                         "uri": "mcp://guide",
                         "mimeType": "text/markdown",
-                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 29 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Leer descripción de imagen, Editar descripción de imagen, Listar etiquetas de archivos, Crear etiqueta de archivo, Asignar etiquetas a archivos, Crear enlace de solo subida, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 8 tools — Listar calendarios, Listar eventos, Consultar disponibilidad de calendarios, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 21 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Buscar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
+                        "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Tool guide\n\nGrants and disabled apps are already applied: what is missing from this list you cannot call. The modules available to you are files, notes, calendar, contacts, tasks, deck, talk, people, logs.\n\n- **Archivos** (`files`): 29 tools — Listar archivos, Buscar archivos, Ver árbol de carpetas, Crear carpeta, Copiar archivo, Mover archivo, Mover archivos en lote, Deshacer operación en lote, Leer archivo, Editar archivo, Reemplazar un fragmento del archivo, Descargar archivo para editarlo en local, Listar versiones del archivo, Leer versión del archivo, Restaurar versión del archivo, Ver imagen, Ver varias imágenes, Buscar imágenes, Leer descripción de archivo, Editar descripción de archivo, Listar etiquetas de archivos, Crear etiqueta de archivo, Asignar etiquetas a archivos, Crear enlace de solo subida, Listar recursos compartidos, Compartir archivo o carpeta, Dejar de compartir archivo o carpeta, Subir archivo nuevo, Crear archivo de texto.\n- **Notas** (`notes`): 7 tools — Listar notas, Buscar notas, Leer nota, Crear nota, Editar nota, Mover nota, Eliminar nota.\n- **Calendario** (`calendar`): 8 tools — Listar calendarios, Listar eventos, Consultar disponibilidad de calendarios, Crear evento, Editar evento, Mover evento a otro calendario, Eliminar evento, Transferir evento al calendario de otra persona.\n- **Contactos** (`contacts`): 6 tools — Listar libretas de direcciones, Buscar contactos, Leer contacto, Crear contacto, Editar contacto, Eliminar contacto.\n- **Tareas** (`tasks`): 7 tools — Listar calendarios de tareas, Listar tareas, Leer tarea, Crear tarea, Editar tarea, Completar tarea, Eliminar tarea.\n- **Deck** (`deck`): 21 tools — Listar tableros de Deck, Listar listas de Deck, Listar tarjetas de Deck, Buscar tarjetas de Deck, Leer tarjeta de Deck, Crear tarjeta en Deck, Editar tarjeta de Deck, Mover tarjeta en Deck, Eliminar tarjeta de Deck, Seguimiento de tareas de Deck, Crear tablero en Deck, Crear lista en Deck, Eliminar lista de Deck, Eliminar tablero de Deck, Listar etiquetas de Deck, Cambiar etiquetas de la tarjeta de Deck, Listar archivos de la tarjeta de Deck, Desvincular archivo de la tarjeta de Deck, Vincular archivo a la tarjeta de Deck, Leer comentarios de la tarjeta, Publicar un comentario en la tarjeta.\n- **Talk** (`talk`): 11 tools — Listar conversaciones de Talk, Leer mensajes de Talk, Buscar mensajes de Talk, Leer el contexto de un mensaje de Talk, Responder en Talk, Adjuntar archivo en Talk, Citar archivo en Talk, Mensaje directo en Talk, Enviar lote en Talk, Crear grupo en Talk, Publicar un resumen en Talk.\n- **Personas** (`people`): 1 tools — Buscar personas.\n- **Registro del servidor** (`logs`): 2 tools — Leer registro del servidor, Analizar registro del servidor.\n\nCall this tool again with `module` set to one of those names to get every parameter and every behaviour note of that module, or with `tool` to detail a single tool."
                     }
                 ]
             },
@@ -56770,7 +56770,7 @@
                     "name": "files_get_image_description",
                     "module": "files",
                     "operation": "description_read",
-                    "description": "Read the saved or embedded description of an image in Files.",
+                    "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -56790,7 +56790,7 @@
                     "name": "files_set_image_description",
                     "module": "files",
                     "operation": "description_edit",
-                    "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                    "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -56802,7 +56802,7 @@
                             "description": {
                                 "type": "string",
                                 "maxLength": 16000,
-                                "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -61260,8 +61260,8 @@
                         },
                         {
                             "name": "files_get_image_description",
-                            "title": "Leer descripción de imagen",
-                            "description": "Read the saved or embedded description of an image in Files.",
+                            "title": "Leer descripción de archivo",
+                            "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -61277,7 +61277,7 @@
                                 "additionalProperties": false
                             },
                             "annotations": {
-                                "title": "Leer descripción de imagen",
+                                "title": "Leer descripción de archivo",
                                 "readOnlyHint": true,
                                 "destructiveHint": false,
                                 "idempotentHint": true,
@@ -61286,8 +61286,8 @@
                         },
                         {
                             "name": "files_set_image_description",
-                            "title": "Editar descripción de imagen",
-                            "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+                            "title": "Editar descripción de archivo",
+                            "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
@@ -61299,7 +61299,7 @@
                                     "description": {
                                         "type": "string",
                                         "maxLength": 16000,
-                                        "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                                        "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                                     },
                                     "plan_state": {
                                         "type": "string",
@@ -61323,7 +61323,7 @@
                                 "additionalProperties": false
                             },
                             "annotations": {
-                                "title": "Editar descripción de imagen",
+                                "title": "Editar descripción de archivo",
                                 "readOnlyHint": false,
                                 "destructiveHint": false,
                                 "idempotentHint": false,
