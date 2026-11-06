@@ -46,7 +46,7 @@ test('description sidebar switches file state, renders hostile text literally, a
 
     await page.evaluate(() => {
         document.querySelector('mcp-files-description-tab').node = {
-            type: 'file', mime: 'image/jpeg', path: '/Photos/other.jpg', root: '',
+            type: 'file', mime: 'application/pdf', path: '/Documents/report.pdf', root: '',
         }
     })
     await expect(tab.locator('textarea')).toHaveValue('second file caption')
@@ -54,7 +54,7 @@ test('description sidebar switches file state, renders hostile text literally, a
     await tab.locator('textarea').fill('<svg onload=alert(2)>')
     await tab.getByRole('button', { name: 'Save description' }).click()
     await expect(tab.getByRole('status')).toContainText('Description saved.')
-    expect(writes).toEqual([{ path: '/Photos/other.jpg', description: '<svg onload=alert(2)>', state: 'state-2' }])
+    expect(writes).toEqual([{ path: '/Documents/report.pdf', description: '<svg onload=alert(2)>', state: 'state-2' }])
 })
 
 test('description sidebar reports a stale-state refusal instead of claiming success', async ({ page, app }) => {
@@ -63,7 +63,7 @@ test('description sidebar reports a stale-state refusal instead of claiming succ
             await route.fulfill({ json: { description: 'caption', source: 'files_metadata', stored: true, state: 'stale-state', access: { scope: 'personal' }, can_edit: true } })
             return
         }
-        await route.fulfill({ status: 409, json: { error: 'The image description changed; preview the update again.' } })
+        await route.fulfill({ status: 409, json: { error: 'The file description changed; preview the update again.' } })
     })
     const tab = await mountDescriptionTab(page)
     await expect(tab.locator('textarea')).toHaveValue('caption')
@@ -132,4 +132,16 @@ test('description sidebar disables editing when the edit grant or native write p
     await expect(tab.locator('textarea')).toBeDisabled()
     await expect(tab.getByRole('button', { name: 'Save description' })).toBeDisabled()
     await expect(tab.getByRole('status')).toContainText('read-only access')
+})
+
+
+test('description tab supports every regular file type but not folders', async ({ page, app }) => {
+    await page.goto('/admin?bare=1')
+    await page.addScriptTag({ url: '/apps/mcp/js/files.js' })
+    const enabled = await page.evaluate(() => {
+        const tab = window._nc_files_scope.v4_0.filesSidebarTabs.get('mcp-image-description')
+        return ['image/jpeg', 'application/pdf', 'text/plain', 'video/mp4', 'audio/mpeg', 'application/octet-stream', ''].map(mime => tab.enabled({ node: { type: 'file', mime } }))
+            .concat(tab.enabled({ node: { type: 'folder', mime: 'httpd/unix-directory' } }))
+    })
+    expect(enabled).toEqual([true, true, true, true, true, true, true, false])
 })

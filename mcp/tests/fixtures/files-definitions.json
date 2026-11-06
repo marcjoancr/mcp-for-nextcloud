@@ -569,7 +569,7 @@
             "name": "files_get_image_description",
             "module": "files",
             "operation": "description_read",
-            "description": "Read the saved or embedded description of an image in Files.",
+            "description": "Read the saved description or summary of any file in Files, with embedded description fallback for images.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -589,7 +589,7 @@
             "name": "files_set_image_description",
             "module": "files",
             "operation": "description_edit",
-            "description": "Set an image description in Nextcloud Files metadata after preview and confirmation.",
+            "description": "Set a description or summary for any file in Nextcloud Files metadata after preview and confirmation.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -601,7 +601,7 @@
                     "description": {
                         "type": "string",
                         "maxLength": 16000,
-                        "description": "Plain-text description; an empty string explicitly clears any embedded fallback."
+                        "description": "Plain-text description or summary; an empty string explicitly clears any embedded image fallback."
                     },
                     "plan_state": {
                         "type": "string",

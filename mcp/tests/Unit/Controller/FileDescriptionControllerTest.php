@@ -51,7 +51,7 @@ final class FileDescriptionControllerTest extends TestCase {
         $response = $controller->show('/Photos/private.jpg');
 
         self::assertSame(404, $response->getStatus());
-        self::assertSame(['error' => 'This image is unavailable.'], $response->getData());
+        self::assertSame(['error' => 'This file is unavailable.'], $response->getData());
     }
 
     public function testWriteUsesEffectiveUserGrantWithoutAnMcpConnectionSelection(): void {
@@ -60,7 +60,7 @@ final class FileDescriptionControllerTest extends TestCase {
         $response = $controller->update('/Photos/private.jpg', 'caption', 'state');
 
         self::assertSame(404, $response->getStatus());
-        self::assertSame(['error' => 'This image is unavailable.'], $response->getData());
+        self::assertSame(['error' => 'This file is unavailable.'], $response->getData());
     }
 
     public function testMissingFileReturnsGenericNotFoundWithoutLeakingPath(): void {
@@ -69,7 +69,7 @@ final class FileDescriptionControllerTest extends TestCase {
         $response = $controller->show('/Photos/private.jpg');
 
         self::assertSame(404, $response->getStatus());
-        self::assertSame(['error' => 'This image is unavailable.'], $response->getData());
+        self::assertSame(['error' => 'This file is unavailable.'], $response->getData());
         self::assertStringNotContainsString('/Photos/private.jpg', json_encode($response->getData(), JSON_THROW_ON_ERROR));
     }
 

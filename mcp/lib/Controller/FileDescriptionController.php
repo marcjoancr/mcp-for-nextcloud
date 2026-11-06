@@ -50,9 +50,9 @@ final class FileDescriptionController extends Controller {
                 return new DataResponse($record);
             });
         } catch (ToolFailure|\OCA\Mcp\Access\Policy\PolicyUnavailable) {
-            return new DataResponse(['error' => Translator::t('This image is unavailable.')], Http::STATUS_NOT_FOUND);
+            return new DataResponse(['error' => Translator::t('This file is unavailable.')], Http::STATUS_NOT_FOUND);
         } catch (\InvalidArgumentException) {
-            return new DataResponse(['error' => Translator::t('The image path is invalid.')], Http::STATUS_BAD_REQUEST);
+            return new DataResponse(['error' => Translator::t('The file path is invalid.')], Http::STATUS_BAD_REQUEST);
         }
     }
 
@@ -69,9 +69,9 @@ final class FileDescriptionController extends Controller {
         } catch (ToolFailure $e) {
             return new DataResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
         } catch (\OCA\Mcp\Access\Policy\PolicyUnavailable) {
-            return new DataResponse(['error' => Translator::t('This image is unavailable.')], Http::STATUS_NOT_FOUND);
+            return new DataResponse(['error' => Translator::t('This file is unavailable.')], Http::STATUS_NOT_FOUND);
         } catch (\InvalidArgumentException) {
-            return new DataResponse(['error' => Translator::t('The description or image path is invalid.')], Http::STATUS_BAD_REQUEST);
+            return new DataResponse(['error' => Translator::t('The description or file path is invalid.')], Http::STATUS_BAD_REQUEST);
         }
     }
 }
