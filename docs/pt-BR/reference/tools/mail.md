@@ -1,14 +1,14 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/mail.md -->
-<!-- translation-source-revision: 64c63b0a0a33ff35d566c89bd2e08736d43ff645 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Revisão humana pendente:** consulte a [versão em inglês](../../../en/reference/tools/mail.md).
 
 # Mail
 
-O inventário do Mail oferece duas ferramentas somente de leitura quando está habilitado para a
+Mail oferece duas ferramentas somente de leitura quando está habilitado para a
 conta, a versão instalada é conhecida e pelo menos 5.0.0, e a administração concede
 `mail.read`. Essa permissão começa negada, inclusive nas instalações existentes.
 O teste nativo usa Mail 5.12.5 no Nextcloud 35; a versão mínima da API não garante
@@ -26,9 +26,8 @@ Contadores desconhecidos permanecem `null`. Sem pastas em cache, retorna uma pá
 vazia e uma nota para abrir Mail e sincronizar por lá. Os dados podem estar
 desatualizados: essas ferramentas nunca atualizam o cache.
 
-`mail_read_thread` lê uma conversa da mesma conta a partir de um `message_id` visível com `mail.read_message`, sem marcar os e-mails como lidos.
-
-A pesquisa `mail_search_messages` requer `mail.search` e usa cabeçalhos em cache. Para ler o conteúdo de uma mensagem própria, `mail_read_message` requer `mail.read_message` e preserva o estado de não lida. Os dois novos acessos começam negados. As respostas excluem credenciais e
+Nenhuma ferramenta lê corpos de mensagens, entra no IMAP, marca mensagens como
+lidas, altera sinalizadores ou envia e-mail. As respostas excluem credenciais e
 configurações do servidor. IDs desconhecidos, de terceiros ou delegados recebem a
 mesma recusa. Nomes e endereços são valores JSON não confiáveis: controles e
 formatação bidirecional são removidos, e o texto é limitado a 1.024 caracteres.

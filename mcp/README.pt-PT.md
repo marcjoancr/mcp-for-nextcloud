@@ -2,29 +2,33 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: b93ec95263f3db1d7b208b7cb3c17cef2e1f3f20 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](README.md).
 
 # Nextcloud MCP
 
+**O seu Nextcloud, na conversa.** Pesquise ficheiros, trabalhe com notas, calendários, contactos e tarefas, gira cartões do Deck e ponha o Talk em dia através de um cliente MCP. Mail disponibiliza as contas próprias e contagens de pastas em cache; operadores autorizados podem consultar os registos do servidor.
+
 [English](README.md) · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · **Português (Portugal)**
-
-Ligue um cliente MCP ao seu Nextcloud. Pesquise ficheiros, leia notas, acompanhe conversas no Talk ou faça a gestão de tarefas através de um único ponto de acesso. Cada pedido respeita as permissões de quem iniciou sessão.
-
-O Nextcloud MCP é um fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). O desenvolvimento decorre em [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
-
-A **versão 2.7.0** mantém o identificador `mcp`. A loja de aplicações do Nextcloud distribui o projeto original. Consulte o guia de instalação antes de substituir uma instalação existente.
 
 ## Primeiros passos
 
-URL do servidor · `https://cloud.example.com/apps/mcp/`
+Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.0.0** e mantém o identificador `mcp`. A edição da Nextcloud App Store é a do projeto original; use o pacote revisto deste fork para instalar ou substituir a aplicação.
 
-- [Instalar o fork](../docs/pt-PT/installation.md)
-- [Ligar um cliente](../docs/pt-PT/guides/clients.md)
-- [Explorar as ferramentas](../docs/pt-PT/reference/tools.md)
-- [Configurar as permissões](../docs/pt-PT/guides/permissions.md)
+1. [Instale a aplicação](../docs/pt-PT/installation.md).
+2. [Ative o serviço, a elegibilidade do utilizador e a ligação pessoal](../docs/pt-PT/guides/permissions.md#ativar-o-acesso).
+3. [Ligue um cliente](../docs/pt-PT/guides/clients.md) a `https://cloud.example.com/apps/mcp/` com OAuth ou uma palavra-passe de aplicação.
+4. Peça o **Guia das ferramentas** e experimente «Que conversas do Talk têm mensagens por ler?» ou «Encontra a proposta do projeto e resume-a.». São pedidos de exemplo, não transcrições de sessões reais.
+
+## O acesso continua sob o seu controlo
+
+Até **86 ferramentas** em dez módulos, incluindo as de guia/estado, são filtradas pelas aplicações disponíveis e permissões da conta. As permissões nativas do Nextcloud aplicam-se em cada pedido. Os administradores podem limitar o acesso a pastas, calendários e listas de tarefas selecionados e excluir ficheiros com determinadas etiquetas. As ferramentas de escrita devolvem uma pré-visualização salvo confirmação explícita; o assistente deve obter a aprovação do utilizador. Não existe ferramenta de eliminação de ficheiros. As ferramentas de Mail e registos são apenas de leitura e exigem permissões explícitas.
+
+Os resultados são enviados ao cliente de IA escolhido, sujeito às suas próprias políticas de tratamento e retenção.
+
+[Ferramentas](../docs/pt-PT/reference/tools.md) · [Permissões](../docs/pt-PT/guides/permissions.md) · [Proteção de ficheiros](../docs/pt-PT/guides/file-protection.md) · [Resolução de problemas](../docs/pt-PT/guides/troubleshooting.md)
 
 ## Licença
 
@@ -39,6 +43,6 @@ Estão incluídos Smalot PdfParser, Symfony Polyfill Mbstring e o autoloader do 
 
 Hierarquia de tarefas: [@mturgeonferland](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18).
 
-Sintax / Jhonatan Jaworski · [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw).
+A documentação original também reconhece a contribuição de Sintax/Jhonatan Jaworski para o [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). Este crédito histórico é preservado sem sugerir que o XERJ tenha revisto este fork.
 
 Developed by Sintax — https://sintax.tech

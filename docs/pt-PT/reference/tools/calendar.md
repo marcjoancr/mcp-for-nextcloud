@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/calendar.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../../en/reference/tools/calendar.md).
@@ -23,7 +23,7 @@
 | `calendar_delete_event` | calendar.delete | Exclui a série no lixo; exige retenção ativa. |
 | `calendar_transfer_event` | calendar.transfer | MOVE para agenda de outro proprietário partilhada com permissão de escrita; recusa participantes. |
 
-Calendário expõe leitura e as cinco escritas, sem nenhum passo no terminal. As escritas nascem desligadas na matriz da administração (Administração → MCP) e só aparecem para quem recebeu o grant; toda escrita exige ainda `confirm: true`, a ACL do Nextcloud (e `confirm_shared` em agenda alheia) e o ETag opcional. Compatibilidade: a aplicação declara `min-version` 32 e `max-version` 35 em `info.xml`; a parte interna (`EmbeddedCalDavServer` do core) é coberta pelos testes e por essa faixa, e uma versão nova do Nextcloud exige uma nova versão do app. O app Calendário precisa estar ativado para o utilizador. Sabre e Symfony Console vêm do core do Nextcloud e ficam fora do `vendor/` do pacote.
+Calendário expõe leitura e as cinco escritas, sem nenhum passo no terminal. As escritas nascem desligadas na matriz da administração (Administração → MCP) e só aparecem para quem recebeu o grant; toda escrita exige ainda `confirm: true`, a ACL do Nextcloud (e `confirm_shared` em agenda alheia) e o ETag opcional. Compatibilidade: a aplicação declara `min-version` 33 e `max-version` 35 em `info.xml`; a parte interna (`EmbeddedCalDavServer` do core) é coberta pelos testes e por essa faixa, e uma versão nova do Nextcloud exige uma nova versão do app. O app Calendário precisa estar ativado para o utilizador. Sabre e Symfony Console vêm do core do Nextcloud e ficam fora do `vendor/` do pacote.
 
 | Tool de escrita | Grant | Comportamento |
 | --- | --- | --- |

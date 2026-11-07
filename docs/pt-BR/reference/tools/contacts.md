@@ -3,16 +3,16 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/tools/contacts.md -->
-<!-- translation-source-revision: a527ea9ff481a7a1f060b3162496bcfaadd2d928 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../../en/reference/tools/contacts.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../../en/reference/tools/contacts.md).
 
 # Contatos
 
 | Módulo | Leitura | Escrita |
 | --- | --- | --- |
-| **Contatos** | listar catálogos pessoais/compartilhados, buscar e ler contatos, incluindo o catálogo somente leitura de contas da instância (colegas, com `accountId` para convites) conforme as regras de enumeração do admin | criar e editar preservando campos desconhecidos do vCard; excluir permanentemente só após backup `.vcf` verificado em `/MCP backups/Contacts` |
+| **Contatos** | listar catálogos pessoais/compartilhados, buscar e ler contatos, incluindo o catálogo somente leitura de contas da instância (colegas, com `accountId` para convites) conforme as regras de enumeração do admin | criar e editar preservando campos desconhecidos do vCard; excluir permanentemente só após backup `.vcf` verificado em `Contacts` na pasta de backup configurada (padrão `/MCP backups/Contacts`; obrigatório mesmo com as cópias de Files suspensas) |
 
 [Comportamento de Contatos e Tarefas](contacts-tasks.md).
 

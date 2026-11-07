@@ -3,10 +3,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/guides/clients.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../en/guides/clients.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/guides/clients.md).
 
 # Conectando clientes
 
@@ -62,7 +62,7 @@ Dois passos, um do administrador e um do usuário, sem nenhum passo no terminal 
 ```
 
 3. No Gemini CLI, rode `/mcp auth` (ou `/mcp auth nextcloud`).
-4. O seu Nextcloud abre no navegador: faça login e clique em **Permitir**. O Gemini CLI está ouvindo numa porta livre escolhida por ele mesmo, então o navegador retorna para `http://localhost:<porta>/oauth/callback`. O app aceita `http://localhost/oauth/callback`, `http://127.0.0.1/oauth/callback` e `http://[::1]/oauth/callback`, e ignora a porta para endereços loopback (RFC 8252 7.3), então a porta aleatória ainda casa.
+4. O seu Nextcloud abre no navegador: faça login e clique em **Permitir**. O Gemini CLI está ouvindo numa porta livre escolhida por ele mesmo, então o navegador retorna para `http://localhost:<port>/oauth/callback`. O app aceita `http://localhost/oauth/callback`, `http://127.0.0.1/oauth/callback` e `http://[::1]/oauth/callback`, e ignora a porta para endereços loopback (RFC 8252 7.3), então a porta aleatória ainda casa.
 
 Por que um cliente embutido: o Gemini CLI não publica documento de identidade de cliente, então o app traz um cliente público fixo para programas locais. O id é o mesmo para todo mundo na instância, e isso é seguro porque ele não concede nada sozinho — o login, a elegibilidade, a conexão pessoal, as liberações do administrador, a tela de consentimento e o PKCE continuam valendo. Desligar a opção também impede o cliente de trocar um código de autorização e de renovar token.
 
@@ -79,7 +79,7 @@ Os controles de clientes exigem administrador, proteção CSRF e revisão de pol
 
 ### Outros clientes MCP (senha de app)
 
-Crie uma senha de app em *Configurações pessoais → Segurança* e ative a conexão em *Configurações pessoais → Nextcloud MCP*. Depois configure o cliente com a URL acima e autenticação HTTP Basic (`usuario:senha-de-app`). Teste rápido:
+Crie uma senha de app em *Configurações pessoais → Segurança* e ative a conexão em *Configurações pessoais → Nextcloud MCP*. Depois configure o cliente com a URL acima e autenticação HTTP Basic (`username:app-password`). Teste rápido:
 
 ```bash
 curl -u 'alice:APP-PASSWORD' \

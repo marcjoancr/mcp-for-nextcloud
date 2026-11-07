@@ -2,20 +2,31 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/README.md -->
-<!-- translation-source-revision: fcf7286e2b2e0f3a680ff77549580eb696963c89 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../en/README.md).
 
-# Documentació en català
+# Documentació de Nextcloud MCP
 
 [English](../en/README.md) · [Español](../es/README.md) · **Català** · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)
 
-Connecta un client MCP al teu Nextcloud. Cerca fitxers, llegeix notes, segueix converses del Talk o gestiona tasques des d’un únic punt d’accés. Cada petició respecta els permisos de qui ha iniciat la sessió.
+Utilitza el teu Nextcloud des d'un assistent MCP, amb els permisos de l'usuari que ha iniciat la sessió. Comença per la instal·lació, habilita l'accés i connecta un client.
 
-- [Instal·la el fork](installation.md)
-- [Connecta un client](guides/clients.md)
-- [Explora les eines](reference/tools.md)
-- [Configura els permisos](guides/permissions.md)
+| Vull… | Consulta |
+| --- | --- |
+| Instal·lar o actualitzar aquest fork | [Instal·lació i recuperació](installation.md) |
+| Connectar un assistent | [Configuració de clients](guides/clients.md) |
+| Habilitar usuaris, grups i operacions | [Permisos i administració](guides/permissions.md) |
+| Triar quines dades s'exposen | [Protecció de fitxers](guides/file-protection.md) |
+| Trobar una acció compatible | [Catàleg d'eines](reference/tools.md) |
+| Diagnosticar una connexió o crida fallida | [Resolució de problemes](guides/troubleshooting.md) |
+| Llegir registres del servidor mitjançant MCP | [Accés als registres del servidor](guides/server-logs.md) |
 
-[Documentació](guides/README.md) · [Desenvolupament (English)](../en/development/README.md)
+## Referència
+
+[Configuració](reference/configuration.md) · [OAuth](reference/oauth.md) · [Recursos MCP](reference/resources.md) · [Totes les guies operatives](guides/README.md)
+
+## Col·labora-hi
+
+La [guia de desenvolupament (en anglès)](../en/development/README.md) cobreix configuració, arquitectura, proves, empaquetament i manteniment de la documentació. L'anglès és la font canònica; les traduccions conserven la revisió d'origen i l'estat visible de revisió humana.

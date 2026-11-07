@@ -3,10 +3,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/guides/README.md -->
-<!-- translation-source-revision: a527ea9ff481a7a1f060b3162496bcfaadd2d928 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../en/guides/README.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/guides/README.md).
 
 # Guias de operação
 
@@ -14,7 +14,7 @@
 - [Conectando clientes](clients.md)
 - [Permissões e administração](permissions.md)
 - [Proteção de arquivos](file-protection.md)
-- [Log do servidor (1.0.2)](server-logs.md)
+- [Logs do servidor](server-logs.md)
 - [Diagnóstico](troubleshooting.md)
 - [Ferramentas](../reference/tools.md)
 - [Recursos (MCP Resources)](../reference/resources.md)

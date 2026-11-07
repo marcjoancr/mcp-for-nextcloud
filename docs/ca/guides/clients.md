@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/clients.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/guides/clients.md).
@@ -34,7 +34,7 @@ Tots els clients fan servir el mateix URL, `https://cloud.example.com/apps/mcp/`
 2. Autenticació: **Inicia la sessió** (OAuth). ChatGPT s'identifica amb el document d'identitat del client publicat a `chatgpt.com`; l'aplicació el baixa per saber quins URI de redirecció hi ha registrats. No calen capçaleres ni contrasenya d'aplicació.
 3. **Connecta**: s'obrirà Nextcloud; inicia la sessió i prem **Permet**.
 
-`chatgpt.com` està permès per defecte, així que una instal·lació sense configurar ja accepta ChatGPT. Si l'administrador ha restringit la llista a altres dominis, ChatGPT serà rebutjat amb `invalid_client` abans que s'obri la pàgina d'inici de sessió; demana-li que hi torni a afegir `chatgpt.com`.
+`chatgpt.com` està permès per defecte, així que una instal·lació sense configurar ja accepta ChatGPT. Si l'administrador ha restringit la llista a altres dominis, ChatGPT serà rebutjat amb `invalid_client` abans que s'obri la pàgina d'inici de sessió; demana-li que torni a afegir `chatgpt.com` a *Configuració d'administració → Nextcloud MCP → Clients OAuth → Dominis de client permesos*.
 
 ### Gemini CLI
 
@@ -78,7 +78,7 @@ Els controls de clients exigeixen administrador, protecció CSRF i revisió de p
 
 ### Altres clients MCP (contrasenya d'aplicació)
 
-Crea una contrasenya d'aplicació a *Configuració personal → Seguretat*, activa la connexió a *Configuració personal → Nextcloud MCP* i configura el client amb l'URL anterior i autenticació HTTP Basic (`usuari:contrasenya-aplicació`). Comprovació ràpida:
+Crea una contrasenya d'aplicació a *Configuració personal → Seguretat*, activa la connexió a *Configuració personal → Nextcloud MCP* i configura el client amb l'URL anterior i autenticació HTTP Basic (`username:app-password`). Comprovació ràpida:
 
 ```bash
 curl -u 'alice:APP-PASSWORD' \

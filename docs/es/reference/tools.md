@@ -2,12 +2,14 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../en/reference/tools.md).
 
 # Herramientas
+
+Los catálogos contienen como máximo **84 herramientas de módulos**, más `mcp_status` y `mcp_guide` (86 en total). Tres herramientas de dependencias de Deck requieren API nativas compatibles de NC34/35; sin ellas quedan como máximo 81 herramientas de módulos (83 en total). La disponibilidad de aplicaciones y el acceso de cada cuenta reducen aún más estas cifras.
 
 Cada herramienta solo aparece en `tools/list` y solo se puede llamar si el usuario tiene concedido el permiso de la operación y la aplicación necesaria está habilitada para esa persona. Ambos requisitos se vuelven a comprobar en cada llamada. Todo se ejecuta como el usuario autenticado, a través de su propia carpeta de Nextcloud, y se siguen aplicando los permisos y recursos compartidos de Nextcloud.
 
@@ -16,7 +18,7 @@ Cada herramienta solo aparece en `tools/list` y solo se puede llamar si el usuar
 `mcp_guide` (título **Guía de herramientas**) describe las herramientas al propio modelo, para que no tenga que adivinar qué hace cada una:
 
 - **Sin argumentos**: una línea por módulo con los títulos de las herramientas disponibles **para ese usuario** (se aplican los mismos filtros de permisos y aplicaciones que en `tools/list`: un módulo desactivado o sin permiso no aparece).
-- **Con `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`, `forms`): cada herramienta del módulo, con descripción, indicación de si lee o escribe, parámetros (tipo, obligatoriedad, descripción, `enum` y límites) y las confirmaciones necesarias.
+- **Con `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`): cada herramienta del módulo, con descripción, indicación de si lee o escribe, parámetros (tipo, obligatoriedad, descripción, `enum` y límites) y las confirmaciones necesarias.
 - **Con `tool`**: una sola herramienta y su módulo.
 
 La guía está escrita en inglés; el modelo se la comunica al usuario en su idioma.
@@ -32,7 +34,7 @@ Además:
 - **Títulos claros de las herramientas** en el cliente («Buscar archivos», «Listar calendarios») y anotaciones MCP (`readOnlyHint`, `destructiveHint`) para que los clientes puedan pedir confirmación antes de operaciones arriesgadas.
 - **Confirmaciones de seguridad** para recursos que pertenecen a otras personas: carpetas compartidas, carpetas de equipo y tableros y calendarios de otros usuarios. El servidor rechaza la primera llamada y devuelve un mensaje listo para presentar; el asistente debe pedir permiso al usuario antes de repetirla con `confirm_shared: true`. *(Deck y Calendar desde 0.6.6; Files y Notes desde 0.7.0.)*
 - **Respeto por las aplicaciones opcionales**: se ocultan las herramientas y las columnas de la matriz de administración de una aplicación desactivada (para todos o para ese usuario).
-- **Interfaz localizada**: la matriz de administración, la página personal, la pantalla de consentimiento y todos los mensajes de las herramientas usan el idioma de la cuenta Nextcloud. Se incluyen todos los módulos (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, los mensajes compartidos, las páginas de checkout y la prueba de Calendar). Están disponibles inglés, portugués de Brasil y español (la traducción al español es inicial y aún requiere revisión nativa). Las descripciones de herramientas siguen en inglés, porque las lee el modelo.
+- **Interfaz localizada**: la matriz de administración, la página personal, la pantalla de consentimiento y todos los mensajes de las herramientas usan el idioma de la cuenta Nextcloud. Se incluyen todos los módulos (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, los mensajes compartidos, las páginas de checkout y la prueba de Calendar). Se incluyen las fuentes en inglés y los catálogos de interfaz en alemán, portugués de Brasil y español. Los nuevos mensajes seleccionados aún requieren revisión humana, incluida la interfaz de administración renderizada en alemán. La documentación operativa también conserva borradores en catalán y portugués europeo con su propia procedencia y revisión pendiente; las descripciones de herramientas siguen en inglés porque las lee el modelo.
 - **Compatibilidad con ambas generaciones de MCP**: MCP sin estado `2026-07-28` (`server/discover`) y el flujo clásico `initialize` (`2025-06-18` y anteriores), en el mismo endpoint.
 
 - [Files](tools/files.md)
@@ -44,14 +46,10 @@ Además:
 - [Logs](tools/logs.md)
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
+- [Mail](tools/mail.md)
 
-`mcp_status` proporciona diagnósticos sin leer datos de usuario.
+`mcp_status` proporciona diagnósticos sin leer datos de usuario. La identidad del servidor en los metadatos de protocolo, herramientas, prompts y recursos informa de la versión instalada desde Nextcloud, en vez de copiar un número de versión del proyecto original.
 
 [Guías operativas](../guides/README.md).
 
 [English](../../en/reference/tools.md) · Español · [Català](../../ca/reference/tools.md) · [Português (Brasil)](../../pt-BR/reference/tools.md) · [Português (Portugal)](../../pt-PT/reference/tools.md)
-
-[Mail](tools/mail.md)
-- **Forms** permite listar formularios accesibles y leer sus preguntas y opciones con `forms_list` y `forms_read`. Requiere Forms 5.3.0 o posterior y `forms.read`. Los desplazamientos de la respuesta permiten continuar leyendo preguntas y opciones. Los campos de texto truncados a 1 KiB se indican en el resultado.
-
-`forms_read_responses` consulta respuestas con el permiso independiente `forms.read_responses` y acceso nativo al conjunto de resultados. Usa `id`, `offset` y `limit` (50 por defecto, máximo 100). Continúa con `nextOffset` mientras `hasMore` sea verdadero. Cada envío devuelve hasta 200 respuestas. `answersTruncated` y `textTruncated` indican contenido recortado. Se omiten las respuestas de archivos y los identificadores de participantes anónimos, también en envíos anteriores a un cambio de configuración del formulario. `fileAnswersOmitted` indica la omisión de archivos.

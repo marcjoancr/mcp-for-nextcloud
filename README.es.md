@@ -2,39 +2,91 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: b93ec95263f3db1d7b208b7cb3c17cef2e1f3f20 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](README.md).
 
 # Nextcloud MCP
 
+### Tu Nextcloud, dentro de la conversación.
+
+Busca archivos, prepara una reunión, actualiza una tarea o ponte al día en Talk desde un asistente MCP. Una aplicación nativa de Nextcloud conecta tu cliente con los datos y permisos que ya gestionas.
+
+[![Pruebas](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml?query=branch%3Amain)
+[![Calidad](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/quality.yml?query=branch%3Amain)
+[![Empaquetado](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/package.yml/badge.svg?branch=main)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/package.yml?query=branch%3Amain)
+[![Nextcloud 33–35](https://img.shields.io/badge/Nextcloud-33%E2%80%9335-0082C9?logo=nextcloud&logoColor=white)](docs/es/installation.md#requisitos)
+[![PHP 8.4+](https://img.shields.io/badge/PHP-8.4%2B-777BB4?logo=php&logoColor=white)](mcp/appinfo/info.xml)
+[![AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-2E7D32)](LICENSE)
+
+**[Primeros pasos](docs/es/installation.md)** · **[Conecta tu asistente](docs/es/guides/clients.md)** · **[Explora las herramientas](docs/es/reference/tools.md)** · [Documentación](docs/es/README.md)
+
 [English](README.md) · **Español** · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
-[![CI](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/marcjoancr/mcp-for-nextcloud/actions/workflows/tests.yml?query=branch%3Amain) · **Nextcloud 33–35** · **PHP 8.4+** · [AGPL-3.0-or-later](LICENSE)
+![Un cliente MCP se conecta por HTTPS a Nextcloud MCP, que aplica los permisos del usuario y ofrece diez módulos de Nextcloud.](docs/assets/overview.es.svg)
 
-Conecta un cliente MCP a tu Nextcloud. Busca archivos, lee notas, sigue conversaciones de Talk o gestiona tareas desde un único punto de acceso. Cada petición respeta los permisos de la persona que ha iniciado sesión.
+## Mira qué puedes hacer
 
-**Pruébalo:** en ChatGPT o Claude, pregunta «¿Qué conversaciones de Talk tienen mensajes sin leer?». La guía muestra qué herramientas puedes usar con tu cuenta. El administrador puede limitar tanto las herramientas como los recursos a los que acceden.
+Son ejemplos de peticiones, no transcripciones de sesiones reales. Las acciones disponibles dependen de las aplicaciones activas, los permisos concedidos por la administración y tus propios permisos de Nextcloud.
 
-Nextcloud MCP es un fork independiente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). El desarrollo se realiza en [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
+| Pídele a tu asistente… | Qué aporta Nextcloud MCP |
+| --- | --- |
+| «Busca la propuesta del proyecto y resúmela». | Busca por nombre o contenido; lee texto, PDF, DOCX y ODT; muestra vistas previas de imágenes. |
+| «Prepárame para las reuniones de mañana». | Lee eventos del calendario y notas; después redacta o actualiza una nota tras la confirmación. |
+| «¿Qué tareas y tarjetas de Deck necesitan mi atención?». | Lista tareas y subtareas, consulta tableros y hace seguimiento de tarjetas vencidas. |
+| «Ponme al día sobre las conversaciones sin leer de Talk». | Lista conversaciones y lee mensajes; envía una respuesta tras la confirmación. |
+| «Sustituye este párrafo del informe». | Muestra el cambio de texto y aplica la edición confirmada con las protecciones de copia de seguridad configuradas. |
+| «Muéstrame los contadores de mensajes sin leer de mis carpetas de correo». | Lee los contadores en caché de las carpetas de tus propias cuentas de Mail, sin descargar mensajes. |
 
-La **versión 2.7.0** conserva el identificador `mcp`. La tienda de aplicaciones de Nextcloud distribuye el proyecto original. Consulta la guía de instalación antes de sustituir una instalación existente.
+## Una conexión, diez módulos
 
-## Primeros pasos
+Los catálogos definen hasta **86 herramientas**, incluidas la guía y las herramientas de estado. El descubrimiento solo muestra las que puede usar la cuenta; tres herramientas de dependencias de Deck requieren además API compatibles de NC34/35.
 
-URL del servidor · `https://cloud.example.com/apps/mcp/`
+| Módulo | Capacidades |
+| --- | --- |
+| [Files](docs/es/reference/tools/files.md) | Buscar, leer, previsualizar imágenes, editar, subir, organizar, compartir y restaurar versiones. Sin herramienta para eliminar archivos. |
+| [Notes](docs/es/reference/tools/notes.md) | Buscar, crear y editar notas, incluidos cambios parciales del texto. |
+| [Calendar](docs/es/reference/tools/calendar.md) | Leer y gestionar eventos mediante CalDAV nativo, con participantes e invitaciones explícitas. |
+| [Contacts](docs/es/reference/tools/contacts.md) | Buscar y gestionar contactos conservando los campos desconocidos del vCard. |
+| [Tasks](docs/es/reference/tools/tasks.md) | Crear, actualizar y completar tareas; gestionar subtareas dentro de una lista. |
+| [Deck](docs/es/reference/tools/deck.md) | Gestionar tableros, listas, tarjetas, personas asignadas, etiquetas, enlaces nativos a archivos y dependencias compatibles. |
+| [Talk](docs/es/reference/tools/talk.md) | Leer conversaciones, enviar mensajes, compartir archivos y crear conversaciones de grupo. |
+| [People](docs/es/reference/tools/people.md) | Buscar personas y grupos antes de compartir o enviar mensajes. |
+| [Mail](docs/es/reference/tools/mail.md) | Listar cuentas propias y carpetas/contadores en caché. Solo lectura; no lee ni envía mensajes. |
+| [Registros del servidor](docs/es/reference/tools/logs.md) | Diagnóstico acotado y de solo lectura para administradores y grupos de TI autorizados; desactivado por defecto. |
 
-- [Instalar el fork](docs/es/installation.md)
-- [Conectar un cliente](docs/es/guides/clients.md)
-- [Explorar las herramientas](docs/es/reference/tools.md)
-- [Configurar los permisos](docs/es/guides/permissions.md)
+## Dentro de tu Nextcloud
 
-[Documentación](docs/es/README.md) · [Cómo contribuir](CONTRIBUTING.md) · [Registro de cambios](CHANGELOG.md)
+- **Una aplicación PHP nativa.** Se ejecuta dentro de Nextcloud con un único endpoint HTTPS. No requiere gestionar un servicio MCP independiente ni un entorno Node.js.
+- **Tus permisos en cada petición.** Las comprobaciones nativas de Nextcloud se combinan con permisos por usuario/grupo, restricciones opcionales de recursos y etiquetas de exclusión.
+- **Vista previa antes de cambiar datos.** Las llamadas de escritura devuelven un plan salvo que se confirmen explícitamente. El asistente debe mostrarlo y obtener aprobación; el servidor no guarda la aprobación de la conversación.
+- **Una interfaz de administración.** Inspecciona el acceso efectivo, elige operaciones y recursos permitidos, gestiona clientes OAuth y revoca conexiones.
+- **OAuth o contraseñas de aplicación.** Admite identidades de cliente publicadas, un cliente nativo para programas locales y clientes registrados por administradores. Otros clientes compatibles pueden usar HTTP Basic con una contraseña de aplicación de Nextcloud.
 
-## Desarrollo
+El conector se ejecuta en tu servidor. Los datos devueltos por las herramientas se envían al cliente de IA elegido, sujeto a sus propias políticas de tratamiento y conservación. Empieza por [permisos](docs/es/guides/permissions.md) y [protección de archivos](docs/es/guides/file-protection.md) para elegir a qué puede acceder.
 
-Crea una rama desde `main` y dirige el pull request a este fork. La [guía de arquitectura (en inglés)](docs/en/development/architecture-specification.md) explica cómo se organizan las herramientas de Files, Deck, Talk y los demás módulos, y cómo comparten el transporte MCP.
+## Conéctate
+
+1. **Instala el fork** en Nextcloud **33–35** con PHP **8.4+**, mediante un paquete construido desde una revisión del código examinada. Sigue la guía de [instalación y actualizaciones](docs/es/installation.md).
+2. **Habilita el acceso** en *Administración → Nextcloud MCP*: activa el servicio, permite al usuario conectarse y elige sus permisos. La escritura empieza denegada; leer Mail y los registros también requiere permiso explícito.
+3. **Activa la conexión del usuario** en *Ajustes personales → Nextcloud MCP* y añade esta URL de servidor al cliente MCP:
+
+   ```text
+   https://cloud.example.com/apps/mcp/
+   ```
+
+4. **Pide la Guía de herramientas** y prueba una de las peticiones anteriores. Consulta la [configuración de clientes](docs/es/guides/clients.md) para OAuth, programas nativos y contraseñas de aplicación. Si falla el descubrimiento o el inicio de sesión, consulta [solución de problemas](docs/es/guides/troubleshooting.md).
+
+Sustituye el origen del ejemplo por la URL de tu Nextcloud e incluye su subdirectorio de instalación si lo tiene.
+
+## Proyecto y desarrollo
+
+Este es el fork independiente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). El manifiesto declara la versión **2.0.0** y conserva el identificador **`mcp`**. La edición de la tienda de Nextcloud pertenece al proyecto original; `occ app:install mcp` instala esa edición. Usa el código de este fork y su procedimiento de instalación si eliges esta implementación.
+
+El desarrollo parte de `main` y las solicitudes de incorporación se dirigen a este fork. Empieza por [Contribuir (en inglés)](CONTRIBUTING.md), la [preparación del entorno (en inglés)](docs/en/development/setup.md) y la [arquitectura (en inglés)](docs/en/development/architecture-specification.md). Los requisitos de ejecución anteriores difieren de la matriz de pruebas PHP 8.2–8.5 para colaboradores. La aceptación de una versión corresponde al artefacto y entorno concretos que se hayan probado.
+
+[Registro de cambios (en inglés)](CHANGELOG.md) · [Notificar un problema](https://github.com/marcjoancr/mcp-for-nextcloud/issues) · [Construir un paquete (en inglés)](docs/en/development/packaging.md)
 
 ## Licencia
 
@@ -49,6 +101,6 @@ El paquete incluye Smalot PdfParser, Symfony Polyfill Mbstring y el cargador aut
 
 Jerarquía de tareas: [@mturgeonferland](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18).
 
-Sintax / Jhonatan Jaworski · [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw).
+Sintax / Jhonatan Jaworski · [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). Este crédito histórico se conserva sin implicar que XERJ haya revisado este fork.
 
 Developed by Sintax — https://sintax.tech

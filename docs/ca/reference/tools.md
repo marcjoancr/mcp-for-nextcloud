@@ -2,12 +2,14 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/reference/tools.md).
 
 # Eines
+
+Els catàlegs dels mòduls contenen com a màxim **84 eines de mòdul**, més `mcp_status` i `mcp_guide` (86 en total). Tres eines de dependències de Deck depenen d’API natives compatibles de NC34/35, de manera que sense elles hi ha com a màxim 81 eines de mòdul (83 en total). La disponibilitat d’aplicacions i l’accés de cada compte redueixen encara més aquests recomptes.
 
 Cada eina només apareix a `tools/list` i només es pot cridar si l'usuari té el permís per a l'operació i l'aplicació necessària està activada. El permís i l'estat de l'aplicació es tornen a comprovar en cada crida. Tot s'executa com a usuari autenticat, dins de la seva pròpia carpeta de Nextcloud, i es continuen aplicant els permisos i els elements compartits de Nextcloud.
 
@@ -16,7 +18,7 @@ Cada eina només apareix a `tools/list` i només es pot cridar si l'usuari té e
 `mcp_guide` (títol **Guia d'eines**) descriu les eines al mateix model perquè no hagi d'endevinar què fa cadascuna:
 
 - **sense arguments** — una línia per mòdul amb els títols de les eines disponibles **per a aquest usuari** (s'aplica el mateix filtre de permisos i aplicacions que a `tools/list`: els mòduls desactivats o sense permís no apareixen);
-- **amb `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`) — cada eina del mòdul: descripció, si llegeix o escriu, paràmetres amb tipus, caràcter obligatori, descripció, valors `enum` i límits, i les confirmacions requerides;
+- **amb `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`) — cada eina del mòdul: descripció, si llegeix o escriu, paràmetres amb tipus, caràcter obligatori, descripció, valors `enum` i límits, i les confirmacions requerides;
 - **amb `tool`** — una única eina i el mòdul al qual pertany.
 
 La guia està escrita en anglès; el model en comunica el contingut en l'idioma de l'usuari.
@@ -32,7 +34,7 @@ A més:
 - **Títols d'eina entenedors** al client («Cerca fitxers», «Llista calendaris») i anotacions MCP (`readOnlyHint`, `destructiveHint`) perquè els clients puguin demanar confirmació abans d'accions arriscades.
 - **Confirmacions de seguretat** per als recursos d'altres persones: carpetes compartides, carpetes d'equip, taulers Deck i calendaris d'altres persones. El servidor rebutja la primera crida i retorna un missatge preparat; l'assistent ha de demanar autorització a l'usuari abans de repetir-la amb `confirm_shared: true`. *(Deck i Calendar des de la versió 0.6.6; Files i Notes des de la 0.7.0.)*
 - **Respecte per les aplicacions opcionals**: s'amaguen les eines i les columnes de la matriu d'administració de les aplicacions desactivades (per a tothom o per a un usuari concret).
-- **Interfície localitzada**: la matriu d'administració, la pàgina personal, la pantalla de consentiment i tots els missatges que mostra una eina segueixen l'idioma del compte Nextcloud. Es cobreixen tots els mòduls (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, els missatges compartits, les pàgines de checkout i l'autoprova de Calendar). Hi ha traduccions a l'anglès, al portuguès brasiler i al castellà (primera traducció, pendent de revisió nativa); les descripcions de les eines continuen en anglès perquè les llegeix el model.
+- **Interfície localitzada**: la matriu d'administració, la pàgina personal, la pantalla de consentiment i tots els missatges que mostra una eina segueixen l'idioma del compte Nextcloud. Es cobreixen tots els mòduls (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, els missatges compartits, les pàgines de checkout i l'autoprova de Calendar). S'inclouen el text font anglès i catàlegs d'interfície alemany, portuguès brasiler i castellà. Alguns missatges nous encara necessiten revisió lingüística humana, inclosa la interfície alemanya d'administració renderitzada. La documentació operativa també conserva esborranys en català i portuguès europeu amb la seva procedència pendent; les descripcions de les eines continuen en anglès perquè les llegeix el model.
 - **Dues versions de MCP**: MCP sense estat `2026-07-28` (`server/discover`) i el flux clàssic `initialize` (`2025-06-18` i versions anteriors) al mateix punt d'accés.
 
 - [Fitxers](tools/files.md)
@@ -44,11 +46,10 @@ A més:
 - [Registres](tools/logs.md)
 - [Talk](tools/talk.md)
 - [Persones](tools/people.md)
+- [Mail](tools/mail.md)
 
-`mcp_status` ofereix diagnòstics sense llegir dades de l'usuari.
+`mcp_status` ofereix diagnòstics sense llegir dades de l'usuari. La identitat del servidor a les metadades de protocol, eines, prompts i recursos informa de la versió instal·lada des de Nextcloud en lloc de copiar un número de versió del projecte original.
 
 [Guies operatives](../guides/README.md).
 
 [English](../../en/reference/tools.md) · [Español](../../es/reference/tools.md) · Català · [Português (Brasil)](../../pt-BR/reference/tools.md) · [Português (Portugal)](../../pt-PT/reference/tools.md)
-
-[Mail](tools/mail.md).

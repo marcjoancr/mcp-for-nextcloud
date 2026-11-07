@@ -1,0 +1,63 @@
+<!-- SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech> -->
+<!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="430" viewBox="0 0 1160 430" role="img" aria-labelledby="title description">
+  <title id="title">Seu Nextcloud, na conversa</title>
+  <desc id="description">Um cliente MCP conecta-se por HTTPS com OAuth ou senha de aplicativo. Nextcloud MCP verifica permissões e oferece Arquivos, Notas, Calendário, Contatos, Tarefas, Deck, Talk, Pessoas, Mail e logs do servidor. Somente resultados permitidos retornam ao cliente. Escritas exigem plano e confirmação.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1">
+      <stop stop-color="#0b172c"/>
+      <stop offset="1" stop-color="#132944"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M1 1 6 4 1 7" fill="none" stroke="#73c7ff" stroke-width="1.5"/>
+    </marker>
+  </defs>
+  <rect width="1160" height="430" rx="20" fill="url(#background)"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="32" y="38" fill="#83d1ff" font-size="12" font-weight="700" letter-spacing="2">APLICATIVO NATIVO NEXTCLOUD</text>
+    <text x="32" y="76" fill="#fff" font-size="29" font-weight="700">Uma conexão. Seu Nextcloud.</text>
+    <text x="32" y="104" fill="#bacce1" font-size="15">Traga seu trabalho para a conversa, com as permissões da sua conta.</text>
+
+    <rect x="32" y="136" width="252" height="220" rx="14" fill="#172e49" stroke="#35516d"/>
+    <rect x="50" y="155" width="38" height="32" rx="8" fill="#285578"/>
+    <path d="M60 164h18v11H68l-5 5v-5h-3z" fill="none" stroke="#a3ddff" stroke-width="1.6" stroke-linejoin="round"/>
+    <text x="50" y="220" fill="#fff" font-size="22" font-weight="700">Seu cliente MCP</text>
+    <text x="50" y="250" fill="#d3e1ef" font-size="15">Peça em linguagem natural.</text>
+    <text x="50" y="280" fill="#bacce1" font-size="12">Ache arquivos. Prepare reuniões.</text>
+    <text x="50" y="302" fill="#bacce1" font-size="12">Acompanhe. Confira alterações.</text>
+    <text x="50" y="334" fill="#83d1ff" font-size="11" font-weight="700">OAUTH OU SENHA DE APLICATIVO</text>
+
+    <path d="M294 236h42" stroke="#73c7ff" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <text x="296" y="220" fill="#bacce1" font-size="10">HTTPS</text>
+
+    <rect x="348" y="136" width="306" height="220" rx="14" fill="#073f69" stroke="#439ee0"/>
+    <g transform="translate(366 153) scale(.95)" fill="none" stroke="#a3ddff" stroke-width="2.5" stroke-linecap="round">
+      <path d="M16 16 7 8m9 8 9-8m-9 8v10"/>
+      <g fill="#a3ddff" stroke="none"><circle cx="16" cy="16" r="4.5"/><circle cx="6.5" cy="7.5" r="3.5"/><circle cx="25.5" cy="7.5" r="3.5"/><circle cx="16" cy="26.5" r="3.5"/></g>
+    </g>
+    <text x="368" y="220" fill="#fff" font-size="22" font-weight="700">Nextcloud MCP</text>
+    <text x="368" y="250" fill="#d3e1ef" font-size="14">Sua identidade. Suas permissões.</text>
+    <text x="368" y="280" fill="#bacce1" font-size="13">Acesso nativo + restrições de recursos</text>
+    <text x="368" y="302" fill="#bacce1" font-size="13">+ etiquetas de exclusão de arquivos</text>
+    <text x="368" y="334" fill="#a3ddff" font-size="12" font-weight="700">Ler · Planejar · Confirmar · Aplicar</text>
+
+    <path d="M664 236h42" stroke="#73c7ff" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+    <rect x="718" y="136" width="410" height="220" rx="14" fill="#172e49" stroke="#35516d"/>
+    <text x="738" y="173" fill="#fff" font-size="22" font-weight="700">Seus aplicativos Nextcloud</text>
+    <text x="738" y="199" fill="#bacce1" font-size="13">Aplicativos e permissões definem as ferramentas.</text>
+    <g fill="#223f5d">
+      <rect x="738" y="217" width="112" height="32" rx="7"/><rect x="860" y="217" width="112" height="32" rx="7"/><rect x="982" y="217" width="126" height="32" rx="7"/>
+      <rect x="738" y="259" width="112" height="32" rx="7"/><rect x="860" y="259" width="112" height="32" rx="7"/><rect x="982" y="259" width="126" height="32" rx="7"/>
+      <rect x="738" y="301" width="76" height="32" rx="7"/><rect x="824" y="301" width="80" height="32" rx="7"/><rect x="914" y="301" width="76" height="32" rx="7"/><rect x="1000" y="301" width="108" height="32" rx="7"/>
+    </g>
+    <g fill="#e1edf8" font-size="14" text-anchor="middle">
+      <text x="794" y="238">Arquivos</text><text x="916" y="238">Notas</text><text x="1045" y="238">Calendário</text>
+      <text x="794" y="280">Contatos</text><text x="916" y="280">Tarefas</text><text x="1045" y="280">Deck</text>
+      <text x="776" y="322">Talk</text><text x="864" y="322">Pessoas</text><text x="952" y="322">Mail</text><text x="1054" y="322">Logs</text>
+    </g>
+    <path d="M32 379h1096" stroke="#35516d"/>
+    <text x="32" y="407" fill="#bacce1" font-size="14">Só resultados permitidos retornam ao cliente. Escritas exigem prévia e confirmação explícita.</text>
+  </g>
+</svg>

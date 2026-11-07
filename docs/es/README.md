@@ -2,20 +2,31 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/README.md -->
-<!-- translation-source-revision: fcf7286e2b2e0f3a680ff77549580eb696963c89 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../en/README.md).
 
-# Documentación en español
+# Documentación de Nextcloud MCP
 
 [English](../en/README.md) · **Español** · [Català](../ca/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)
 
-Conecta un cliente MCP a tu Nextcloud. Busca archivos, lee notas, sigue conversaciones de Talk o gestiona tareas desde un único punto de acceso. Cada petición respeta los permisos de la persona que ha iniciado sesión.
+Usa tu Nextcloud desde un asistente MCP con los permisos de la persona que ha iniciado sesión. Empieza por instalar, habilitar el acceso y conectar un cliente.
 
-- [Instalar el fork](installation.md)
-- [Conectar un cliente](guides/clients.md)
-- [Explorar las herramientas](reference/tools.md)
-- [Configurar los permisos](guides/permissions.md)
+| Quiero… | Consulta |
+| --- | --- |
+| Instalar o actualizar este fork | [Instalación y recuperación](installation.md) |
+| Conectar un asistente | [Configuración de clientes](guides/clients.md) |
+| Habilitar usuarios, grupos y operaciones | [Permisos y administración](guides/permissions.md) |
+| Elegir qué datos se exponen | [Protección de archivos](guides/file-protection.md) |
+| Encontrar una acción compatible | [Catálogo de herramientas](reference/tools.md) |
+| Diagnosticar una conexión o llamada fallida | [Solución de problemas](guides/troubleshooting.md) |
+| Leer registros del servidor mediante MCP | [Acceso a registros del servidor](guides/server-logs.md) |
 
-[Documentación](guides/README.md) · [Desarrollo (English)](../en/development/README.md)
+## Referencia
+
+[Configuración](reference/configuration.md) · [OAuth](reference/oauth.md) · [Recursos MCP](reference/resources.md) · [Todas las guías operativas](guides/README.md)
+
+## Contribuir
+
+La [guía de desarrollo (en inglés)](../en/development/README.md) cubre la preparación del entorno, arquitectura, pruebas, empaquetado y mantenimiento de la documentación. El inglés es la fuente canónica; las traducciones conservan su revisión de origen y el estado visible de revisión humana.

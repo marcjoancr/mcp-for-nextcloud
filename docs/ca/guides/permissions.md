@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/permissions.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/guides/permissions.md).
@@ -15,9 +15,17 @@ Obre **Administració → Nextcloud MCP**. Les cinc pestanyes són **Resum**, **
 
 El servei, l'elegibilitat de l'usuari (**Pot connectar-se**) i la connexió personal comencen desactivats, també per als administradors. Activa el servei, permet que l'usuari es connecti i deixa que activi la connexió a **Configuració personal → Nextcloud MCP**. L'autenticació per si sola no concedeix accés: el compte, el servei, l'elegibilitat, la connexió, l'aplicació opcional, el permís d'operació i els permisos natius de Nextcloud sobre el recurs han de permetre la petició.
 
-La lectura comença permesa, excepte els registres del servidor. Les altres operacions comencen denegades. Compartir fitxers amb persones/grups (`files.share`) i crear enllaços públics (`files.link`) són permisos independents. Llistar comparticions és una operació de lectura.
+La lectura comença permesa, excepte els registres del servidor i Mail. Mail requereix un permís explícit de lectura individual o de grup, també després d’una actualització. Les altres operacions comencen denegades. Compartir fitxers amb persones/grups (`files.share`) i crear enllaços públics (`files.link`) són permisos independents. Llistar comparticions és una operació de lectura.
 
 Resum mostra l'endpoint, la versió, el nombre de connexions i el límit de pujada de checkout. Aquest límit s'edita en MiB i no pot superar `post_max_size` de PHP. Avançat conté els rols i la privadesa dels registres i OCR. Protecció de dades conté les etiquetes d'exclusió; consulta [protecció de fitxers](file-protection.md).
+
+## Restriccions de l'aplicació Guests
+
+Des de la versió 1.1.2, MCP torna a aplicar les restriccions de Guests després d'autenticar una contrasenya d'aplicació o un token OAuth. Es rebutja un convidat si la seva llista d'aplicacions permeses exclou MCP. MCP retorna HTTP 403; Guests pot rebutjar abans l'inici de sessió amb contrasenya d'aplicació a Nextcloud (a Nextcloud 35 aquest rebuig es mostra com HTTP 500). Les eines, els recursos de Notes i les referències de Talk d'aplicacions no permeses s'amaguen o es rebutgen; les eines de versions de fitxers també requereixen que Guests permeti `files_versions`. Files i Tasks utilitzen les aplicacions sempre permeses `files` i `dav`.
+
+L'emmagatzematge extern ocult continua inaccessible, inclosos els muntatges de Nextcloud 35 resolts directament per camí. Les referències estructurades a fitxers de Talk i Tasks, inclosa la publicació d'adjunts del Talk, utilitzen la mateixa comprovació d'emmagatzematge ocult. Si Guests amaga altres comptes, compartir continua limitat als grups del convidat. Un estat il·legible de Guests denega l'accés.
+
+Els enllaços de checkout i pujada apliquen les mateixes restriccions pertinents al seu propietari abans de resoldre un fitxer. Un convidat rebutjat rep la resposta d'un enllaç desconegut (404), sense consumir-lo. Les versions de Guests anteriors a 4.8.0 no poden aplicar aquestes restriccions sense sessió i, per tant, es rebutgen els enllaços de convidats. Els comptes no convidats i les instal·lacions sense Guests conserven el comportament existent.
 
 ## Opcions individuals i herència de grups
 
@@ -45,7 +53,7 @@ Les peticions de restabliment/lot es limiten a 50 usuaris i 2500 cel·les. La pr
 
 L'administrador pot restringir els recursos de **Files**, **Calendar** i **Tasks** d'un usuari des del panell d'accés. Cada mòdul és independent: **Tots els recursos** vol dir sense restricció; **Només els seleccionats**, amb una selecció buida, no permet cap recurs. El límit és de 200 recursos per usuari i mòdul. Les restriccions només redueixen les concessions i els permisos natius existents; canviar-les no revoca la connexió. S'apliquen a l'operació següent.
 
-Notes, Contacts, Deck i Talk no tenen restricció de recursos per mòdul a 1.1.0. Les referències estructurades a fitxers i les operacions amb adjunts poden requerir comprovacions de l'àmbit de Files; consulta [protecció de fitxers](file-protection.md). Restringir una carpeta no restringeix de manera general tot el que altres mòduls hi emmagatzemen a sota.
+Notes, Contacts, Deck i Talk no tenen restricció de recursos per mòdul. Mail tampoc no ofereix selecció de recursos per compte. Les referències estructurades a fitxers i les operacions amb adjunts poden requerir comprovacions de l'àmbit de Files; consulta [protecció de fitxers](file-protection.md). Restringir una carpeta no restringeix de manera general tot el que altres mòduls hi emmagatzemen a sota.
 
 L'inspector, exclusiu dels administradors, informa **Permès**, **Bloquejat** o **Desconegut**, la comprovació que bloqueja i l'origen del permís. Pot explicar una ruta exclosa a l'administrador; els errors MCP mantenen denegacions genèriques. Les consultes i els canvis poden generar missatges d'auditoria de nivell informatiu sense noms ni rutes de recursos. Depenen del nivell de registre del servidor i no garanteixen una traça d'auditoria.
 

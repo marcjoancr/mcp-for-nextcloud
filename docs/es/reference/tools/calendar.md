@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/calendar.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../../en/reference/tools/calendar.md).
@@ -23,7 +23,7 @@
 | `calendar_delete_event` | calendar.delete | Elimina la serie y la envía a la papelera; requiere que la retención esté activa. |
 | `calendar_transfer_event` | calendar.transfer | MOVE a un calendario de otro propietario que se haya compartido con permiso de escritura; rechaza eventos con asistentes. |
 
-Calendar ofrece lectura y cinco operaciones de escritura, sin necesidad de usar el terminal. Estas operaciones empiezan desactivadas en la matriz de administración (Administración → MCP) y solo aparecen para quienes tengan el permiso; todas requieren también `confirm: true`, ACL de Nextcloud (y `confirm_shared` en el calendario de otra persona) y, opcionalmente, un ETag. Compatibilidad: en `info.xml`, la aplicación declara `min-version` 32 y `max-version` 35; las pruebas cubren la integración interna (`EmbeddedCalDavServer`) del núcleo y ese intervalo. Una nueva versión de Nextcloud requiere una nueva versión de la aplicación. El usuario debe tener habilitada la aplicación Calendar. Sabre y Symfony Console proceden del núcleo Nextcloud y no se incluyen en `vendor/` del paquete.
+Calendar ofrece lectura y cinco operaciones de escritura, sin necesidad de usar el terminal. Estas operaciones empiezan desactivadas en la matriz de administración (Administración → MCP) y solo aparecen para quienes tengan el permiso; todas requieren también `confirm: true`, ACL de Nextcloud (y `confirm_shared` en el calendario de otra persona) y, opcionalmente, un ETag. Compatibilidad: en `info.xml`, la aplicación declara `min-version` 33 y `max-version` 35; las pruebas cubren la integración interna (`EmbeddedCalDavServer`) del núcleo y ese intervalo. Una nueva versión de Nextcloud requiere una nueva versión de la aplicación. El usuario debe tener habilitada la aplicación Calendar. Sabre y Symfony Console proceden del núcleo Nextcloud y no se incluyen en `vendor/` del paquete.
 
 | Herramienta de escritura | Permiso | Comportamiento |
 | --- | --- | --- |

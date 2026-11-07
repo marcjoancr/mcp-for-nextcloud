@@ -2,14 +2,14 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/clients.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../en/guides/clients.md).
 
 # Ligar clientes
 
-Todos os clientes usam a mesma URL, `https://cloud.example.com/apps/mcp/`, e autenticam-se como a pessoa que os utiliza, com suas permissões. Todos precisam primeiro do serviço MCP ativo, de um utilizador elegível e de uma ligação pessoal ativa. A configuração específica do cliente muda:
+Todos os clientes usam o mesmo URL, `https://cloud.example.com/apps/mcp/`, e autenticam-se como a pessoa que os utiliza, com as suas permissões. Todos precisam primeiro do serviço MCP ativo, de um utilizador elegível e de uma ligação pessoal ativa. A configuração específica do cliente muda:
 
 | Cliente | Autenticação | O que o administrador tem de fazer primeiro |
 |---|---|---|
@@ -72,9 +72,9 @@ Em *Definições de administração → Nextcloud MCP → Clientes OAuth*, o adm
 - **Anfitriões de clientes permitidos** — anfitriões, separados por vírgulas, cujos documentos de identidade de cliente publicados a aplicação pode transferir; `claude.ai` e `chatgpt.com` são permitidos por predefinição. Indique nomes de anfitrião exatos, sem `https://`, porta, caminho ou `*`, e mantenha pelo menos um anfitrião. O anfitrião é o que consta do URL que o cliente utiliza como `client_id`. Ao guardar, substitui-se a lista inteira. A remoção de um anfitrião recusa imediatamente esse cliente, mesmo que o respetivo documento já esteja em cache.
 - **Permitir programas locais (cliente nativo)** — ativa o cliente `nextcloud-mcp-native` descrito acima e apresenta o `client_id` e os URIs de redirecionamento aceites, para copiar.
 
-- **Clientes autoalojados (URIs de redirecionamento personalizados)**: registe nome, estado ativado e URIs exatos de callback, e copie o ID gerado para o cliente. Usam HTTPS ou HTTP de loopback; a porta deve corresponder exatamente, diferente do cliente nativo incluído. Consulte limites e validação em [OAuth](../reference/oauth.md#clientes-publicados-nativos-e-registados).
+- **Clientes autoalojados (URIs de redirecionamento personalizados)**: registe nome, estado ativado e URIs exatos de callback, e copie o ID gerado para o cliente. Usam HTTPS ou HTTP de loopback; a porta deve corresponder exatamente, ao contrário do cliente nativo incluído. Consulte limites e validação em [OAuth](../reference/oauth.md#clientes-publicados-nativos-e-registados).
 
-Os controlos de clientes exigem administrador, proteção CSRF e revisão de política atual, e informam gravações recusados. Uma configuração própria não é substituída pelos valores predefinidos: um valor de `oauth_client_hosts` guardado antes de 0.8.0 continua em uso.
+Os controlos de clientes exigem administrador, proteção CSRF e revisão de política atual, e indicam as gravações recusadas. Uma configuração própria não é substituída pelos valores predefinidos: um valor de `oauth_client_hosts` guardado antes de 0.8.0 continua em uso.
 
 ### Outros clientes MCP (palavra-passe de aplicação)
 

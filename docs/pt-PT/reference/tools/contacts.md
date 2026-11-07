@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/contacts.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../../en/reference/tools/contacts.md).
@@ -11,7 +11,7 @@
 
 | Módulo | Leitura | Escrita |
 | --- | --- | --- |
-| **Contactos** | listar catálogos pessoais/partilhados, pesquisar e ler contactos, incluindo o catálogo somente leitura de contas da instância (colegas, com `accountId` para convites) conforme as regras de enumeração da administração | criar e editar preservando campos desconhecidos do vCard; excluir permanentemente só após backup `.vcf` verificado em `/MCP backups/Contacts` |
+| **Contactos** | listar catálogos pessoais/partilhados, pesquisar e ler contactos, incluindo o catálogo somente leitura de contas da instância (colegas, com `accountId` para convites) conforme as regras de enumeração da administração | criar e editar preservando campos desconhecidos do vCard; eliminar permanentemente apenas após cópia `.vcf` verificada em `Contacts` na pasta de cópias de segurança configurada (predefinição `/MCP backups/Contacts`; obrigatória mesmo com as cópias de Files suspensas) |
 
 [Comportamento de Contactos e Tarefas](contacts-tasks.md).
 

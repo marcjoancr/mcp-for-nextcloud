@@ -3,10 +3,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/guides/file-protection.md -->
-<!-- translation-source-revision: 44f24c4420cff47272bfc91200a023a12b51e88d -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../en/guides/file-protection.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/guides/file-protection.md).
 
 # Proteção de arquivos
 
@@ -16,9 +16,13 @@ Administradores podem restringir independentemente Files a pastas selecionadas, 
 
 Após admitir conta/política/operação, o escopo de recursos é verificado antes das exclusões por etiquetas e permissões nativas. Um escopo ilegível produz indisponibilidade temporária antes de buscar recursos. Recursos fora do escopo recebem a recusa genérica de recurso inexistente e desaparecem das listas. Restrições se aplicam à próxima operação sem revogar a conexão.
 
-Notes, Contacts, Deck e Talk não têm restrição de recursos por módulo em 1.1.0. Portanto, restringir Files não restringe automaticamente notas armazenadas nessas pastas. Suas próprias permissões e as exclusões por etiquetas aplicáveis continuam em vigor. Anexos e referências estruturadas entre módulos podem exigir o escopo de Files: Talk oculta IDs de anexos inacessíveis, Tasks filtra referências ATTACH protegidas da saída preservando o conteúdo DAV armazenado, Calendar emite campos selecionados em vez de ATTACH bruto e Deck exibe contagens de anexos em vez de URLs de arquivos. Texto livre não tem um filtro geral de prevenção de vazamento de dados.
+Notes, Contacts, Deck e Talk não têm restrição de recursos por módulo em 1.1.0. Portanto, restringir Files não restringe automaticamente notas armazenadas nessas pastas. Suas próprias permissões e as exclusões por etiquetas aplicáveis continuam em vigor. Anexos e referências estruturadas entre módulos podem exigir o escopo de Files: Talk oculta IDs de anexos inacessíveis, Tasks filtra referências ATTACH protegidas da saída preservando o conteúdo DAV armazenado, Calendar emite campos selecionados em vez de ATTACH bruto e Deck lista apenas associações nativas a arquivos visíveis autorizadas e referências de dependência legíveis, sem contagem nativa de anexos nem identificadores ocultos. Texto livre não tem um filtro geral de prevenção de vazamento de dados.
 
 Enquanto houver exclusões por etiquetas configuradas, pastas visíveis não podem ser compartilhadas, copiadas nem movidas para outro pai pelo MCP; a recusa ocorre antes de enumerar a subárvore ou alterá-la. Renomear no mesmo pai preserva verificações nativas/de bloqueio. Listagens de compartilhamentos de pastas existentes retornam `url: null` sem ler o token público. A saída estruturada também retira links públicos de pastas quando exclusões ou restrições de Files impedem exposição segura. Use a interface nativa de Files para essas operações recusadas.
+
+## Política opcional de nomes de arquivo
+
+A aba administrativa **Proteção de dados** pode limitar nomes/extensões nas escritas MCP de Files e Notes. Começa em **Sem restrição (padrão)**, nunca concede acesso e mantém os backups internos obrigatórios de recuperação. O [guia de configuração](../reference/configuration.md#política-de-tipos-de-arquivo) explica a lista de extensões permitidas, a opção sem extensão, o manifesto de cópia de pastas, a verificação prévia limitada, resultados parciais e os limites de movimentação nativa e concorrência. Verifica nomes, não MIME/conteúdo; não protege outros clientes nem elimina injeção de prompt.
 
 ## Arquivo travado (1.0.5)
 
@@ -28,7 +32,7 @@ Escritas de Notes e Files diante do `files_lock` (app até o Nextcloud 34, embut
 - **Onde:** antes da confirmação de compartilhamento e do backup, e de novo logo antes de cada escrita (`LockAwareWrite::run`): `putContent`, move, rename e delete de nota, cada item de lote e de undo, restauração de versão, upload do checkout, conteúdo de arquivo novo e cópia de backup. A recusa do storage (`ManuallyLockedException`) também é capturada e explicada (`capture`, usado na cópia, que só lê a origem).
 - **Na dúvida, recusa:** consulta de trava que falha recusa; pasta que se move é checada com tudo o que o usuário alcança dentro dela, até 5.000 itens (`LockAwareWrite::TREE_LIMIT`), e uma listagem maior que o orçamento restante recusa sem ler a trava dos itens. A listagem de cada pasta é lida inteira antes dessa comparação: o `getDirectoryListing()` não tem limite no 32–35 e o `Folder::search()`, que tem, consulta a cache de arquivos e não reproduz a listagem. Arquivo oculto pelo `VisibilityGuard` não é nomeado e o `lock` do plano traz só `blocking: true`.
 - **Plano (`confirm` ausente):** não recusa; acrescenta `lock` e um aviso `file_locked` em `warnings`. Em `files_move_batch` o item travado vai para `denied`, e o lote é recusado inteiro.
-- **Restauração de versão:** com provider, lê a versão por `IVersionManager::read()` e grava pelo arquivo, sem o `rollback()` do core, cujo `handleAppLocks` repete a escrita no escopo do Text/Office. A garantia sobre o conteúdo substituído é o backup em `/MCP backups`.
+- **Restauração de versão:** com provider, lê a versão por `IVersionManager::read()` e grava pelo arquivo, sem o `rollback()` do core, cujo `handleAppLocks` repete a escrita no escopo do Text/Office. Quando as cópias MCP estão habilitadas, o conteúdo substituído tem uma cópia verificada na pasta de backup configurada na raiz (padrão `/MCP backups`). Se as cópias estiverem suspensas conforme a [política de backup](../reference/configuration.md#cópias-de-backup-mcp), a retenção nativa de versões não é garantida para todos os backends.
 - **Checkout:** trava → 423. Antes de gastar o link, o link continua valendo; depois, a resposta cita o backup e pede novo `files_checkout`.
 - **Mensagem:** app ou pessoa (nome de exibição; nunca UID, app id nem token), desde quando, até quando e o que fazer, em en/de/pt_BR/es. Recusa sem correlação segura pelo token fica com responsável não identificado. Log só em `debug`, sem caminho nem token.
 - **Limite:** TOKEN só é recusada pela checagem do MCP, que não é atômica com a escrita, e o `getLocks()` do files_lock responde do cache da requisição, inclusive negativo: uma trava TOKEN criada depois da primeira consulta do arquivo na mesma requisição não é vista. Travas USER e APP também são aplicadas pelo storage do files_lock, que lê a trava de novo na escrita, exceto na exclusão ou na renomeação de/para Markdown de um documento do Text: o listener do Text (`BeforeNodeDeletedListener`/`BeforeNodeRenamedListener`) roda antes do storage e faz `resetDocument(..., true)`, soltando a trava APP; uma trava APP do Text criada depois da consulta do MCP é solta assim e não impede a exclusão ou a renomeação. O MCP só recusa a trava que o provider observa. O files_lock não oferece aquisição atômica de trava (consulta e inserção separadas, `file_id` sem índice único), por isso o app não toma trava própria.

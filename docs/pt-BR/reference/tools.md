@@ -3,12 +3,14 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: a527ea9ff481a7a1f060b3162496bcfaadd2d928 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../en/reference/tools.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/reference/tools.md).
 
 # Ferramentas
+
+Os catálogos dos módulos contêm no máximo **84 ferramentas de módulos**, mais `mcp_status` e `mcp_guide` (86 no total). Três ferramentas de dependência do Deck dependem de APIs nativas compatíveis no NC34/35; sem elas, há no máximo 81 ferramentas de módulos (83 no total). A disponibilidade dos aplicativos e o acesso de cada conta reduzem ainda mais esses números.
 
 Cada tool só aparece em `tools/list` e só pode ser chamada quando o usuário tem o grant da operação, e o app exigido está habilitado para ele. Grant e app são verificados de novo a cada chamada. Tudo roda como o usuário autenticado, pela pasta dele no Nextcloud, e as permissões e compartilhamentos do Nextcloud continuam valendo.
 
@@ -17,7 +19,7 @@ Cada tool só aparece em `tools/list` e só pode ser chamada quando o usuário t
 `mcp_guide` (título **Guia das ferramentas**) descreve as ferramentas ao próprio modelo, para que ele não precise adivinhar o que cada uma faz:
 
 - **sem argumento** — uma linha por módulo com os títulos das ferramentas, apenas dos módulos disponíveis **para aquele usuário** (o mesmo filtro de grant e app do `tools/list`: módulo desabilitado ou sem grant não aparece);
-- **com `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`) — cada ferramenta do módulo: descrição, se lê ou escreve, parâmetros com tipo, obrigatoriedade, descrição, `enum` e limites, e as confirmações que exige;
+- **com `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`) — cada ferramenta do módulo: descrição, se lê ou escreve, parâmetros com tipo, obrigatoriedade, descrição, `enum` e limites, e as confirmações que exige;
 - **com `tool`** — uma só ferramenta, com o módulo a que pertence.
 
 O guia é escrito em inglês e o modelo repassa no idioma do usuário.
@@ -33,7 +35,7 @@ E também:
 - **Nomes amigáveis das ferramentas** no cliente ("Buscar arquivos", "Listar calendários") e anotações MCP (`readOnlyHint`, `destructiveHint`), para o cliente pedir confirmação em ações de risco.
 - **Confirmação de segurança** em recursos de outras pessoas: pastas compartilhadas, pastas de time, quadros do Deck e calendários de outro dono. O servidor recusa a primeira chamada e devolve uma mensagem pronta. O assistente precisa perguntar ao usuário antes de repetir com `confirm_shared: true`. *(Deck e Calendário desde a 0.6.6; Arquivos e Notas desde a 0.7.0)*
 - **Apps opcionais respeitados**: as tools e as colunas da matriz de admin de um app desativado (para todos ou para um usuário) ficam ocultas.
-- **Interface traduzida**: a matriz de admin, a página pessoal, a tela de consentimento e toda mensagem mostrada por uma tool seguem o idioma da conta Nextcloud do usuário. Todos os módulos estão cobertos (Arquivos, Notas, Calendário, Contatos, Tarefas, Deck, Talk, as mensagens compartilhadas, as páginas de checkout e o selftest do calendário). Inglês, português do Brasil e espanhol vêm incluídos (o espanhol é uma primeira tradução e ainda precisa de revisão de um nativo); as descrições das tools ficam em inglês, porque quem as lê é o modelo.
+- **Interface traduzida**: a matriz de admin, a página pessoal, a tela de consentimento e toda mensagem mostrada por uma tool seguem o idioma da conta Nextcloud do usuário. Todos os módulos estão cobertos (Arquivos, Notas, Calendário, Contatos, Tarefas, Deck, Talk, as mensagens compartilhadas, as páginas de checkout e o selftest do calendário). Inclui o texto-fonte em inglês e catálogos de interface em alemão, português do Brasil e espanhol. Algumas mensagens novas ainda exigem revisão humana do idioma, inclusive a interface administrativa alemã renderizada. A documentação operacional também mantém rascunhos em catalão e português europeu com sua própria proveniência pendente; as descrições das ferramentas ficam em inglês, porque quem as lê é o modelo.
 - **As duas gerações do MCP** no mesmo endpoint: `2026-07-28`, sem estado (`server/discover`), e o fluxo clássico com `initialize` (`2025-06-18` e anteriores).
 
 - [Arquivos](tools/files.md)
@@ -45,11 +47,10 @@ E também:
 - [Logs](tools/logs.md)
 - [Talk](tools/talk.md)
 - [Pessoas](tools/people.md)
+- [Mail](tools/mail.md)
 
-`mcp_status`: diagnóstico; não lê dados do usuário.
+`mcp_status` fornece diagnóstico sem ler dados do usuário. A identidade do servidor nos metadados de protocolo, ferramentas, prompts e recursos informa a versão instalada do aplicativo obtida do Nextcloud, em vez de um número de versão copiado do projeto original.
 
 [Guias de operação](../guides/README.md).
 
 [English](../../en/reference/tools.md) · [Español](../../es/reference/tools.md) · [Català](../../ca/reference/tools.md) · Português (Brasil) · [Português (Portugal)](../../pt-PT/reference/tools.md)
-
-[Mail](tools/mail.md).

@@ -3,10 +3,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/guides/permissions.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../en/guides/permissions.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/guides/permissions.md).
 
 # Permissões e administração
 
@@ -16,9 +16,17 @@ Abra **Administração → Nextcloud MCP**. As cinco abas são **Visão geral**,
 
 O serviço, a elegibilidade do usuário (**Pode conectar**) e a conexão pessoal começam desativados, inclusive para administradores. Ative o serviço, permita que o usuário se conecte e deixe que ele ative sua conexão em **Configurações pessoais → Nextcloud MCP**. A autenticação sozinha não concede acesso: a conta, o serviço, a elegibilidade, a conexão, o aplicativo opcional, a permissão de operação e as permissões nativas do Nextcloud sobre o recurso devem permitir a solicitação.
 
-A leitura começa permitida, exceto para os logs do servidor. As demais operações começam negadas. Compartilhar arquivos com pessoas/grupos (`files.share`) e criar links públicos (`files.link`) são permissões independentes. Listar compartilhamentos é uma operação de leitura.
+A leitura começa permitida, exceto para os logs do servidor e Mail. Mail exige uma permissão explícita de leitura individual ou de grupo, inclusive após uma atualização. As demais operações começam negadas. Compartilhar arquivos com pessoas/grupos (`files.share`) e criar links públicos (`files.link`) são permissões independentes. Listar compartilhamentos é uma operação de leitura.
 
 Visão geral mostra o endpoint, a versão, o número de conexões e o limite de upload de checkout. Esse limite é editado em MiB e não pode exceder `post_max_size` do PHP. Avançado contém os papéis e a privacidade dos logs e OCR. Proteção de dados contém as etiquetas de exclusão; consulte [proteção de arquivos](file-protection.md).
+
+## Restrições do aplicativo Guests
+
+Desde a versão 1.1.2, MCP reaplica as restrições do Guests após autenticar uma senha de aplicativo ou token OAuth. Um convidado cuja lista de aplicativos permitidos exclua MCP é recusado. MCP retorna HTTP 403; Guests pode recusar o login com senha de aplicativo antes, no Nextcloud (a recusa aparece como HTTP 500 no Nextcloud 35). Ferramentas, recursos Notes e referências Talk de aplicativos não permitidos são ocultados ou recusados; ferramentas de versões de arquivos também exigem que Guests permita `files_versions`. Files e Tasks usam os aplicativos sempre permitidos `files` e `dav`.
+
+Armazenamento externo oculto continua inacessível, inclusive montagens do Nextcloud 35 resolvidas diretamente pelo caminho. Referências estruturadas a arquivos em Talk e Tasks, inclusive a publicação de anexos Talk, usam a mesma verificação de armazenamento oculto. Quando Guests oculta outras contas, o compartilhamento continua limitado aos grupos do convidado. Um estado ilegível de Guests resulta em recusa segura.
+
+Links de checkout e upload aplicam as mesmas restrições pertinentes ao proprietário antes de resolver um arquivo. Um convidado recusado recebe a resposta de link desconhecido (404), sem consumi-lo. Versões de Guests anteriores a 4.8.0 não conseguem aplicar essas restrições sem sessão; por isso, links de convidados são recusados. Contas que não são convidadas e instalações sem Guests mantêm seu comportamento.
 
 ## Escolhas individuais e herança de grupos
 
@@ -46,7 +54,7 @@ Solicitações de redefinição/lote se limitam a 50 usuários e 2500 células. 
 
 O administrador pode restringir os recursos de **Files**, **Calendar** e **Tasks** de um usuário pelo painel de acesso. Cada módulo é independente: **Todos os recursos** significa sem restrição; **Somente selecionados**, com seleção vazia, não permite nenhum. O limite é de 200 recursos por usuário e módulo. As restrições apenas reduzem as concessões e permissões nativas existentes; alterá-las não revoga a conexão. Aplicam-se à próxima operação.
 
-Notes, Contacts, Deck e Talk não têm restrição de recursos por módulo em 1.1.0. Referências estruturadas a arquivos e operações com anexos podem exigir verificações do escopo de Files; consulte [proteção de arquivos](file-protection.md). Restringir uma pasta não restringe genericamente tudo que outros módulos armazenam abaixo dela.
+Notes, Contacts, Deck e Talk não têm restrição de recursos por módulo. Mail também não oferece seleção de recursos por conta. Referências estruturadas a arquivos e operações com anexos podem exigir verificações do escopo de Files; consulte [proteção de arquivos](file-protection.md). Restringir uma pasta não restringe genericamente tudo que outros módulos armazenam abaixo dela.
 
 O inspetor, exclusivo de administradores, informa **Permitido**, **Bloqueado** ou **Desconhecido**, a verificação que bloqueia e a origem da permissão. Pode explicar um caminho excluído ao administrador; erros MCP mantêm recusas genéricas. Consultas e alterações podem gerar mensagens de auditoria de nível informativo sem nomes nem caminhos de recursos. Dependem do nível de log do servidor e não garantem uma trilha de auditoria.
 

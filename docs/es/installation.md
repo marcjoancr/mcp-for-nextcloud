@@ -2,42 +2,68 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/installation.md -->
-<!-- translation-source-revision: b93ec95263f3db1d7b208b7cb3c17cef2e1f3f20 -->
+<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../en/installation.md).
 
 # Instalación
 
+Nextcloud MCP se ejecuta como aplicación nativa de Nextcloud. Usa el PHP y el almacenamiento del servidor existente; no necesita un proceso MCP independiente ni Node.js en ejecución.
+
 ## Requisitos
 
-Nextcloud MCP 2.7.0 usa el identificador `mcp` y sustituye cualquier instalación previa de MCP for Cloud. La tienda de Nextcloud distribuye la aplicación original. Para instalar el fork, usa el paquete compilado a partir de la revisión de código verificada.
+| Componente | Requisito |
+| --- | --- |
+| Nextcloud | **33–35**, como declara el manifiesto de la aplicación |
+| PHP | **8.4 o posterior**, también compatible con la versión de Nextcloud elegida |
+| Extensiones PHP | `zip`, `mbstring` y `dom`, además de los requisitos propios de Nextcloud |
+| Acceso del cliente | Una URL HTTPS accesible desde el cliente MCP elegido |
+| Aplicaciones opcionales | Habilita las correspondientes a Notes, Deck, Talk y Mail para usar sus funciones |
 
-El entorno de referencia es Linux x86-64 con Apache. Usa versiones con mantenimiento de seguridad y las extensiones PHP `zip`, `mbstring` y `dom`. SQLite se usa en pruebas locales y ensayos de recuperación.
+Las herramientas también dependen de los permisos del usuario y los permisos nativos sobre los recursos. Mail requiere una versión conocida de al menos 5.0.0 y permiso explícito de lectura; esa versión mínima de API no certifica todas las combinaciones de Mail y servidor. Las dependencias de Deck requieren API compatibles de NC34/35. Consulta el [catálogo de herramientas](reference/tools.md).
 
-| Nextcloud | PHP | Base de datos |
-| --- | --- | --- |
-| 35 | 8.5 | MariaDB 10.11 o PostgreSQL 16 |
-| 34 | 8.5 | MariaDB 10.11 |
-| 33 | 8.4 | MariaDB 10.11 |
+Las herramientas de desarrollo también prueban PHP 8.2/8.3; esos entornos no reducen el requisito de PHP 8.4 para instalar la aplicación. La matriz de pruebas nativas cubre Linux x86-64/Apache con NC33/34/35 y MariaDB 10.11, además de NC35 con PostgreSQL 16 o SQLite. Una prueba independiente de LinuxServer/Nginx usa NC35/PostgreSQL/S3. Son perfiles de prueba, no una garantía exhaustiva de compatibilidad de despliegues.
 
-Las herramientas disponibles dependen de las aplicaciones de Nextcloud y de los permisos de la cuenta. Las operaciones de dependencias de Deck requieren API compatibles en NC34/35. Consulta el [catálogo de herramientas](reference/tools.md).
+## Elige el paquete del fork
 
-### Instalar por SSH
+El fork conserva el identificador **`mcp`** y el manifiesto declara la versión **2.0.0**. Sustituye una instalación existente de MCP for Cloud con ese mismo identificador. La tienda de Nextcloud distribuye el proyecto original: **`occ app:install mcp` instala la edición de la tienda**.
 
-Verifica `mcp-2.7.0.tar.gz` y el kit de fuentes correspondiente con el hash de confianza del manifiesto. Ensaya la actualización y la recuperación en un entorno como el de tu servidor y comprueba que las actualizaciones automáticas conservan el fork. El comando `occ app:install mcp` instala el paquete original de la tienda.
+Usa `mcp-2.0.0.tar.gz` construido desde una revisión examinada del fork, con su kit de fuentes correspondiente y el hash del manifiesto obtenido por un canal de confianza independiente. Un archivo de código fuente de GitHub o una copia del directorio `mcp/` sin construir no son paquetes de instalación. El checkout completo contiene las instrucciones de empaquetado en `docs/en/development/packaging.md` y `docs/en/development/source-delivery.md` (en inglés).
 
-Antes del despliegue, usa MCP Inspector para comprobar el acceso HTTPS, la autorización y revocación del cliente. Después, confirma que un cliente puede consultar la guía de herramientas en una instancia de prueba desechable.
+## Instalación nueva
+
+Para una instancia donde `mcp` aún no esté instalada:
+
+1. Verifica el paquete y el kit de fuentes correspondiente con el hash de confianza del manifiesto.
+2. Extrae el único directorio `mcp/` del archivo en una raíz de aplicaciones configurada en `apps_paths` de Nextcloud. Ajusta la propiedad y el acceso de lectura según los roles de servicio y mantenimiento de tu despliegue.
+3. Como usuario de mantenimiento de Nextcloud, ejecuta `php /absolute/path/to/nextcloud/occ app:enable mcp` con el PHP seleccionado para esa instancia. En despliegues con contenedores, ejecuta el equivalente dentro de su entorno de mantenimiento.
+4. Abre **Administración → Nextcloud MCP**. Activa el servicio, permite conectarse a los usuarios previstos y elige sus permisos de operación.
+5. Cada usuario activa su conexión en **Ajustes personales → Nextcloud MCP** y sigue la [configuración de clientes](guides/clients.md).
+
+Usa el endpoint que muestra Resumen en administración, normalmente:
+
+```text
+https://cloud.example.com/apps/mcp/
+```
+
+Incluye el subdirectorio de instalación de Nextcloud si lo tiene. El servicio, la elegibilidad del usuario y la conexión personal empiezan desactivados, también para administradores. La escritura empieza denegada; leer Mail y los registros del servidor también requiere permiso explícito. Consulta [permisos y administración](guides/permissions.md).
+
+Las respuestas de las herramientas llegan al cliente de IA conectado. Elige permisos y restricciones de recursos según los datos que ese cliente deba recibir; alojar el conector en tu servidor no determina las políticas de tratamiento o conservación del cliente.
 
 ## Actualización y recuperación
 
-Antes de actualizar, prepara una copia coherente de aplicación, base de datos y configuración/datos necesarios de Nextcloud, siguiendo el procedimiento del operador. El modo de mantenimiento impide el tráfico durante la sustitución sin cambiar la política de servicio MCP ni revocar credenciales por una actualización rutinaria. Sustituye todo el directorio de la aplicación, ejecuta la actualización nativa necesaria, limpia/reinicia las cachés PHP cuando corresponda y comprueba historial de migraciones, recursos de interfaz, permisos y conexiones existentes antes de reabrir el tráfico.
+Antes de actualizar, prepara una copia coherente de la aplicación, la base de datos y la configuración/datos de Nextcloud necesarios, siguiendo el procedimiento del operador. Ensaya la sustitución y recuperación en un perfil aislado equivalente y asegúrate de que las actualizaciones automáticas de la tienda no puedan sustituir el fork.
 
-Prioriza reparar hacia delante tras una actualización fallida. Revertir solo los archivos de aplicación a 1.0.8 es inseguro: ese código no aplica las nuevas revocaciones por época/generación ni restricciones de recursos. Una copia de base de datos también puede contener credenciales revocadas después de crearla.
+El modo de mantenimiento impide el tráfico durante la sustitución sin cambiar la política de servicio MCP ni revocar credenciales solo por una actualización rutinaria. Sustituye el directorio completo de la aplicación, ejecuta `occ upgrade` nativo, vacía o reinicia las cachés PHP cuando proceda y verifica el historial de migraciones, los recursos, los permisos y las conexiones existentes antes de reabrir el tráfico. Mantén los metadatos de entrega de fuentes alineados con el kit instalado.
 
-Para una recuperación coordinada, mantén Nextcloud en mantenimiento mientras restauras estados correspondientes de aplicación y base de datos y la configuración/datos necesarios. Antes de reabrir MCP, invalida códigos/tokens OAuth restaurados mediante los comandos de política admitidos, desconecta explícitamente las cuentas que deban reconectarse y revisa permisos efectivos y restricciones de recursos. Revisa/revoca por separado las contraseñas de aplicación de Nextcloud en Seguridad. Volver a habilitar el servicio no sustituye esta revisión. Una versión antigua que no aplique las restricciones necesarias no puede reabrirse para esos usuarios.
+Protege la raíz efectiva de aplicaciones, sus directorios ascendientes escribibles y la configuración que selecciona `apps_paths`. Un montaje de solo lectura de `mcp/` no impide que un proceso seleccione código sustituto si el directorio padre o la configuración siguen siendo escribibles. Separa el acceso de servicio del mantenimiento del operador cuando el despliegue requiera esa protección.
 
-La suite nativa desechable ensaya restaurar aplicación/SQLite de la misma versión, rechazar credenciales antiguas y reconectar explícitamente. No certifica las herramientas de copia del operador, una reversión solo de archivos ni todas las configuraciones de almacenamiento de producción.
+Tras una actualización fallida, prefiere reparar hacia delante. Restaurar solo los archivos de la aplicación a 1.0.8 es inseguro: ese código no aplica las nuevas revocaciones por época/generación ni las restricciones de recursos. Una copia de la base de datos también puede contener credenciales revocadas después de crearla.
+
+Para una recuperación coordinada, mantén Nextcloud en mantenimiento mientras restauras estados coincidentes de aplicación y base de datos, así como la configuración/datos necesarios. Antes de reabrir MCP, invalida los códigos y tokens OAuth restaurados mediante los comandos de política admitidos, desconecta explícitamente las cuentas que deban volver a conectarse y revisa permisos efectivos y restricciones de recursos. Revisa o revoca por separado las contraseñas de aplicación en los controles nativos de Seguridad. Reactivar el servicio por sí solo no sustituye esa revisión. Una versión antigua incapaz de aplicar las restricciones necesarias no puede reabrirse para esos usuarios.
+
+La suite nativa desechable ensaya una restauración coordinada de aplicación/SQLite de la misma versión, el rechazo de credenciales antiguas y la reconexión explícita. No certifica las herramientas de copia del operador, una reversión solo de archivos ni todas las distribuciones de almacenamiento de producción.
 
 [Guías operativas](guides/README.md).
 
