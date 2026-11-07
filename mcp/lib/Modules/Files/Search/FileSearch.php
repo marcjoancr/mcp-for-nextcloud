@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Files\Search;
 
 use OCA\Mcp\Modules\Files\Reading\FileEntry;
+use OCA\Mcp\Modules\Files\Descriptions\DescriptionSearch;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCP\App\IAppManager;
 use OCP\Files\Folder;
@@ -26,99 +27,135 @@ final class FileSearch {
         private FilesAccessGuard $visibilityGuard,
         private ?IAppManager $appManager = null,
         private ?IFullTextSearchManager $ftsManager = null,
+        private ?DescriptionSearch $descriptionSearch = null,
     ) {}
 
     /**
      * @return array{search_mode:string, full_text_active:bool, notice?:string, files:list<array{name:string, path:string, isDir:bool, size:int, mtime:string, contentType:string, access:array<string, mixed>, excerpts?:list<string>}>}
      */
-    public function search(Folder $root, string $userId, string $query, int $limit, string $mode = 'auto'): array {
+    public function search(Folder $root, string $userId, string $query, int $limit, string $mode = 'auto', bool $canReadDescriptions = false): array {
         if ($mode === 'name') {
+            $seenIds = [];
             return [
                 'search_mode' => 'name_only',
                 'full_text_active' => $this->isFullTextAvailable($userId),
-                'files' => $this->searchByName($root, $userId, $query, $limit),
+                'files' => $this->searchByName($root, $userId, $query, $limit, $seenIds),
             ];
         }
 
-        if (!$this->isFullTextAvailable($userId)) {
-            return [
-                'search_mode' => 'name_only',
-                'full_text_active' => false,
-                'notice' => SearchMessages::searchNameOnlyNotice(),
-                'files' => $this->searchByName($root, $userId, $query, $limit),
-            ];
-        }
+        $descriptionSearchAvailable = $canReadDescriptions && $this->descriptionSearch !== null;
+        $fullTextActive = $this->isFullTextAvailable($userId);
+        $fullTextFailed = false;
+        $files = [];
+        $seenIds = [];
+        $notice = null;
+        if ($fullTextActive) {
+            try {
+                $results = $this->ftsManager->search([
+                    'search' => $query,
+                    'providers' => ['files'],
+                    'size' => $limit + self::SEARCH_OVERFETCH,
+                    'page' => 1,
+                ], $userId);
 
-        try {
-            $results = $this->ftsManager->search([
-                'search' => $query,
-                'providers' => ['files'],
-                'size' => $limit + self::SEARCH_OVERFETCH,
-                'page' => 1,
-            ], $userId);
+                foreach ($results as $result) {
+                    if (!$result instanceof ISearchResult) {
+                        continue;
+                    }
+                    foreach ($result->getDocuments() as $doc) {
+                        $fileId = (int)$doc->getId();
+                        if ($fileId <= 0) {
+                            continue;
+                        }
+                        $nodes = $root->getById($fileId);
+                        if ($nodes === []) {
+                            continue;
+                        }
+                        $visibleNodes = ($this->visibilityGuard->filter($nodes) ?? array_values($nodes));
+                        if ($visibleNodes === []) {
+                            continue;
+                        }
+                        $node = $visibleNodes[0];
+                        if ($node->getPath() === $root->getPath() || !$node->isReadable()) {
+                            continue;
+                        }
+                        if (isset($seenIds[$node->getId()])) {
+                            continue;
+                        }
+                        $seenIds[$node->getId()] = true;
 
-            $files = [];
-            $seen = [];
-            foreach ($results as $result) {
-                if (!$result instanceof ISearchResult) {
-                    continue;
-                }
-                foreach ($result->getDocuments() as $doc) {
-                    $fileId = (int)$doc->getId();
-                    if ($fileId <= 0) {
-                        continue;
-                    }
-                    $nodes = $root->getById($fileId);
-                    if ($nodes === []) {
-                        continue;
-                    }
-                    $visibleNodes = ($this->visibilityGuard->filter($nodes) ?? array_values($nodes));
-                    if ($visibleNodes === []) {
-                        continue;
-                    }
-                    $node = $visibleNodes[0];
-                    if ($node->getPath() === $root->getPath() || !$node->isReadable()) {
-                        continue;
-                    }
-                    if (isset($seen[$node->getId()])) {
-                        continue;
-                    }
-                    $seen[$node->getId()] = true;
+                        $snippets = [];
+                        foreach ($doc->getExcerpts() as $item) {
+                            if (is_array($item) && isset($item['excerpt']) && is_string($item['excerpt'])) {
+                                $snippets[] = trim(strip_tags($item['excerpt']));
+                            } elseif (is_string($item)) {
+                                $snippets[] = trim(strip_tags($item));
+                            }
+                        }
+                        $snippets = array_values(array_filter($snippets, static fn (string $s) => $s !== ''));
 
-                    $snippets = [];
-                    foreach ($doc->getExcerpts() as $item) {
-                        if (is_array($item) && isset($item['excerpt']) && is_string($item['excerpt'])) {
-                            $snippets[] = trim(strip_tags($item['excerpt']));
-                        } elseif (is_string($item)) {
-                            $snippets[] = trim(strip_tags($item));
+                        $entry = $this->entries->describe($root, $userId, $node);
+                        if ($snippets !== []) {
+                            $entry['excerpts'] = $snippets;
+                        }
+                        $files[] = $entry;
+                        if (count($files) >= $limit) {
+                            break 2;
                         }
                     }
-                    $snippets = array_values(array_filter($snippets, static fn (string $s) => $s !== ''));
-
-                    $entry = $this->entries->describe($root, $userId, $node);
-                    if ($snippets !== []) {
-                        $entry['excerpts'] = $snippets;
-                    }
-                    $files[] = $entry;
-                    if (count($files) >= $limit) {
-                        break 2;
-                    }
                 }
+            } catch (\Throwable) {
+                $fullTextActive = false;
+                $fullTextFailed = true;
+                $seenIds = [];
+                $files = $this->searchByName($root, $userId, $query, $limit, $seenIds);
             }
-
-            return [
-                'search_mode' => 'content',
-                'full_text_active' => true,
-                'files' => $files,
-            ];
-        } catch (\Throwable) {
-            return [
-                'search_mode' => 'name_only',
-                'full_text_active' => false,
-                'notice' => SearchMessages::searchFallbackNotice(),
-                'files' => $this->searchByName($root, $userId, $query, $limit),
-            ];
+        } else {
+            $files = $this->searchByName($root, $userId, $query, $limit, $seenIds);
         }
+        $searchDescriptions = $descriptionSearchAvailable && count($files) < $limit;
+        if (!$fullTextActive) {
+            $notice = match ([$fullTextFailed, $searchDescriptions]) {
+                [true, true] => SearchMessages::searchFallbackWithDescriptionNotice(),
+                [true, false] => SearchMessages::searchFallbackNotice(),
+                [false, true] => SearchMessages::searchNameAndDescriptionNotice(),
+                default => SearchMessages::searchNameOnlyNotice(),
+            };
+        }
+        $files = $this->includeDescriptionMatches($root, $userId, $query, $limit, $files, $searchDescriptions, $seenIds);
+        $result = [
+            'search_mode' => $searchDescriptions ? ($fullTextActive ? 'content_and_description' : 'name_and_description') : ($fullTextActive ? 'content' : 'name_only'),
+            'full_text_active' => $fullTextActive,
+            'files' => $files,
+        ];
+        if ($notice !== null) $result['notice'] = $notice;
+        return $result;
+    }
+
+    /** @param list<array{name:string, path:string, isDir:bool, size:int, mtime:string, contentType:string, access:array<string, mixed>, excerpts?:list<string>}> $files
+     * @return list<array{name:string, path:string, isDir:bool, size:int, mtime:string, contentType:string, access:array<string, mixed>, excerpts?:list<string>}> */
+    private function includeDescriptionMatches(Folder $root, string $userId, string $query, int $limit, array $files, bool $canReadDescriptions, array &$seenIds): array {
+        if (!$canReadDescriptions || $this->descriptionSearch === null) {
+            return $files;
+        }
+        $seenPaths = [];
+        foreach ($files as $file) {
+            $seenPaths[$file['path']] = true;
+        }
+        foreach ($this->descriptionSearch->find($root, $query, min(100, $limit)) as $node) {
+            if (count($files) >= $limit) break;
+            if ($node->getPath() === $root->getPath() || !$node->isReadable() || !$this->visibilityGuard->isVisible($node)) {
+                continue;
+            }
+            $id = (int)$node->getId();
+            if ($id > 0 && isset($seenIds[$id])) continue;
+            $entry = $this->entries->describe($root, $userId, $node);
+            if (isset($seenPaths[$entry['path']])) continue;
+            $seenPaths[$entry['path']] = true;
+            if ($id > 0) $seenIds[$id] = true;
+            $files[] = $entry;
+        }
+        return $files;
     }
 
     /**
@@ -144,12 +181,11 @@ final class FileSearch {
     }
 
     /** @return list<array{name:string, path:string, isDir:bool, size:int, mtime:string, contentType:string, access:array<string, mixed>}> */
-    private function searchByName(Folder $root, string $userId, string $query, int $limit): array {
+    private function searchByName(Folder $root, string $userId, string $query, int $limit, array &$seenIds): array {
         // %, _ and \ in the term are literal: escaped the way core's own file search escapes LIKE terms.
         $pattern = '%' . $this->db->escapeLikeParameter($query) . '%';
         $user = $this->userManager->get($userId);
         $out = [];
-        $seenIds = [];
         $batchSize = $limit + self::SEARCH_OVERFETCH;
         $maxInspected = 500;
         $offset = 0;
@@ -166,11 +202,8 @@ final class FileSearch {
                 $batchCount++;
                 $totalInspected++;
                 $id = (int)$node->getId();
-                if ($id > 0) {
-                    if (isset($seenIds[$id])) {
-                        continue;
-                    }
-                    $seenIds[$id] = true;
+                if ($id > 0 && isset($seenIds[$id])) {
+                    continue;
                 }
                 $newInBatch++;
 
@@ -179,6 +212,9 @@ final class FileSearch {
                 }
                 if (!$this->visibilityGuard->isVisible($node)) {
                     continue;
+                }
+                if ($id > 0) {
+                    $seenIds[$id] = true;
                 }
                 $out[] = $this->entries->describe($root, $userId, $node);
                 if (count($out) >= $limit) {

@@ -246,6 +246,7 @@ abstract class FilesToolsTestCase extends TestCase {
             new \OCA\Mcp\Modules\Files\Descriptions\EmbeddedDescriptionReader(),
             $access,
             new SharedWriteGuard($access),
+            new \OCA\Mcp\Modules\Files\Descriptions\DescriptionIndexWriter($this->createMock(\OCP\IDBConnection::class)),
         );
         $tagsService = fn () => new \OCA\Mcp\Modules\Files\Tags\NativeTags(
             $root,

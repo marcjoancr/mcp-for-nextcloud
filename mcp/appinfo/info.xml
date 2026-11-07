@@ -177,6 +177,7 @@ Nextcloud 33–35, PHP 8.4+. Forms, Mail, Deck und Talk sind optional. Der Admin
         <nextcloud min-version="33" max-version="35"/>
     </dependencies>
     <background-jobs>
+        <job>OCA\Mcp\BackgroundJob\DescriptionBackfillJob</job>
         <job>OCA\Mcp\BackgroundJob\PolicyCleanupJob</job>
         <job>OCA\Mcp\BackgroundJob\ReconcileJob</job>
     </background-jobs>

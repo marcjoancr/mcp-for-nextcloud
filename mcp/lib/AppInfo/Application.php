@@ -544,6 +544,14 @@ class Application extends App implements IBootstrap {
             'files_upload' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\UploadFile::class),
             'files_create' => static fn () => $c->get(\OCA\Mcp\Modules\Files\Tools\CreateFile::class),
         ], static fn () => $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class)->assertScopeReadable()));
+        $context->registerService(\OCA\Mcp\Modules\Files\Tools\SearchFiles::class,
+            static fn (ContainerInterface $c): \OCA\Mcp\Modules\Files\Tools\SearchFiles => new \OCA\Mcp\Modules\Files\Tools\SearchFiles(
+                $c->get(IRootFolder::class),
+                $c->get(\OCA\Mcp\Modules\Files\Search\FileSearch::class),
+                static function (string $uid) use ($c): bool {
+                    return $c->get(ToolRegistry::class)->allowsTool($uid, 'files_get_image_description');
+                },
+            ));
         $context->registerService(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability(
             $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class),
             $c->get(\OCA\Mcp\OAuth\ConnectionContext::class),
@@ -575,6 +583,7 @@ class Application extends App implements IBootstrap {
                 $c->get(\OCA\Mcp\Modules\Files\Descriptions\EmbeddedDescriptionReader::class),
                 $c->get(\OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo::class),
                 $c->get(\OCA\Mcp\Platform\FileAccess\Sharing\SharedWriteGuard::class),
+                $c->get(\OCA\Mcp\Modules\Files\Descriptions\DescriptionIndexWriter::class),
             ));
         $context->registerService(\OCA\Mcp\Modules\Files\Images\ImageMetadata::class,
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\Files\Images\ImageMetadata => new \OCA\Mcp\Modules\Files\Images\ImageMetadata(

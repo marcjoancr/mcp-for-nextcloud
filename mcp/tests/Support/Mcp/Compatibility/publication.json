@@ -58,14 +58,14 @@
                 {
                     "name": "files_search",
                     "title": "Search files",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -81,7 +81,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -1056,14 +1056,14 @@
                 {
                     "name": "files_search",
                     "title": "Search files",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -1079,7 +1079,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -2149,7 +2149,7 @@
                                 {
                                     "name": "files_search",
                                     "title": "Search files",
-                                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -2643,14 +2643,14 @@
                 {
                     "name": "files_search",
                     "title": "Search files",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -2666,7 +2666,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -6952,14 +6952,14 @@
                 {
                     "name": "files_search",
                     "title": "Search files",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -6975,7 +6975,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -11534,7 +11534,7 @@
                                 {
                                     "name": "files_search",
                                     "title": "Search files",
-                                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -12978,14 +12978,14 @@
                     "name": "files_search",
                     "module": "files",
                     "operation": "read",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -13001,7 +13001,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -17337,14 +17337,14 @@
                         {
                             "name": "files_search",
                             "title": "Search files",
-                            "description": "Search files by name or content in the user folder on Nextcloud.",
+                            "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
                                     "query": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Search query to find in file names or content."
+                                        "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                                     },
                                     "limit": {
                                         "type": "integer",
@@ -17360,7 +17360,7 @@
                                             "name"
                                         ],
                                         "default": "auto",
-                                        "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                        "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                                     }
                                 },
                                 "additionalProperties": false,
@@ -21680,14 +21680,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar arquivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -21703,7 +21703,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -22678,14 +22678,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar arquivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -22701,7 +22701,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -23771,7 +23771,7 @@
                                 {
                                     "name": "files_search",
                                     "title": "Buscar arquivos",
-                                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -24265,14 +24265,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar arquivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -24288,7 +24288,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -28574,14 +28574,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar arquivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -28597,7 +28597,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -33156,7 +33156,7 @@
                                 {
                                     "name": "files_search",
                                     "title": "Buscar arquivos",
-                                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -34600,14 +34600,14 @@
                     "name": "files_search",
                     "module": "files",
                     "operation": "read",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -34623,7 +34623,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -38959,14 +38959,14 @@
                         {
                             "name": "files_search",
                             "title": "Buscar arquivos",
-                            "description": "Search files by name or content in the user folder on Nextcloud.",
+                            "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
                                     "query": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Search query to find in file names or content."
+                                        "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                                     },
                                     "limit": {
                                         "type": "integer",
@@ -38982,7 +38982,7 @@
                                             "name"
                                         ],
                                         "default": "auto",
-                                        "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                        "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                                     }
                                 },
                                 "additionalProperties": false,
@@ -43302,14 +43302,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar archivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -43325,7 +43325,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -44300,14 +44300,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar archivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -44323,7 +44323,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -45393,7 +45393,7 @@
                                 {
                                     "name": "files_search",
                                     "title": "Buscar archivos",
-                                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -45887,14 +45887,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar archivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -45910,7 +45910,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -50196,14 +50196,14 @@
                 {
                     "name": "files_search",
                     "title": "Buscar archivos",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -50219,7 +50219,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -54778,7 +54778,7 @@
                                 {
                                     "name": "files_search",
                                     "title": "Buscar archivos",
-                                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                                     "read_only": true,
                                     "destructive": false,
                                     "confirmation": []
@@ -56222,14 +56222,14 @@
                     "name": "files_search",
                     "module": "files",
                     "operation": "read",
-                    "description": "Search files by name or content in the user folder on Nextcloud.",
+                    "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Search query to find in file names or content."
+                                "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                             },
                             "limit": {
                                 "type": "integer",
@@ -56245,7 +56245,7 @@
                                     "name"
                                 ],
                                 "default": "auto",
-                                "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                             }
                         },
                         "additionalProperties": false,
@@ -60581,14 +60581,14 @@
                         {
                             "name": "files_search",
                             "title": "Buscar archivos",
-                            "description": "Search files by name or content in the user folder on Nextcloud.",
+                            "description": "Search files by name or indexed content in the user folder on Nextcloud; when permitted, stored file descriptions are searched too.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {
                                     "query": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Search query to find in file names or content."
+                                        "description": "Search term to find in file names or indexed content, and in stored file descriptions when permitted."
                                     },
                                     "limit": {
                                         "type": "integer",
@@ -60604,7 +60604,7 @@
                                             "name"
                                         ],
                                         "default": "auto",
-                                        "description": "Search mode: \"auto\" uses full-text content search when available, falling back to name search; \"name\" searches only file names."
+                                        "description": "Search mode: \"auto\" uses full-text content search when available, falls back to name search, and includes matching stored descriptions when permitted. Results report content_and_description or name_and_description when descriptions are searched; \"name\" searches only file names."
                                     }
                                 },
                                 "additionalProperties": false,

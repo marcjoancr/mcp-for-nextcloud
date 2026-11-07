@@ -20,6 +20,7 @@ final class SearchFiles implements Tool {
     public function __construct(
         private IRootFolder $rootFolder,
         private FileSearch $reader,
+        private ?\Closure $canReadDescriptions = null,
     ) {}
 
     public static function definition(): ToolDefinition {
@@ -39,7 +40,17 @@ final class SearchFiles implements Tool {
     public function execute(array $arguments, ToolContext $context): array {
         $userId = $context->userId;
         $root = $this->rootFolder->getUserFolder($userId);
-        return NodeAccess::run(fn (): array => ToolResult::json($this->reader->search($root, $userId, $arguments['query'], (int)$arguments['limit'], (string)($arguments['mode'] ?? 'auto'))));
+        $canReadDescriptions = ($arguments['mode'] ?? 'auto') !== 'name'
+            && $this->canReadDescriptions !== null
+            && ($this->canReadDescriptions)($userId);
+        return NodeAccess::run(fn (): array => ToolResult::json($this->reader->search(
+            $root,
+            $userId,
+            $arguments['query'],
+            (int)$arguments['limit'],
+            (string)($arguments['mode'] ?? 'auto'),
+            $canReadDescriptions,
+        )));
     }
 
     /**

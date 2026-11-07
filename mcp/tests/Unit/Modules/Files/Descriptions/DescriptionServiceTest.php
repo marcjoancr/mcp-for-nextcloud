@@ -11,6 +11,8 @@ use OCA\Mcp\Access\BackupPolicy\BackupLocation;
 use OCA\Mcp\Access\BackupPolicy\BackupSettingsDocument;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
+use OCA\Mcp\Modules\Files\Descriptions\DescriptionIndex;
+use OCA\Mcp\Modules\Files\Descriptions\DescriptionIndexWriter;
 use OCA\Mcp\Modules\Files\Descriptions\DescriptionService;
 use OCA\Mcp\Modules\Files\Descriptions\EmbeddedDescriptionReader;
 use OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo;
@@ -115,6 +117,7 @@ final class DescriptionServiceTest extends TestCase {
         $file->expects(self::never())->method('putContent');
         $initial = $this->storedMetadata('old caption', 'sync-1');
         $writeSnapshot = $this->storedMetadata('old caption', 'sync-1');
+        $writeSnapshot->expects(self::once())->method('setStringList')->with('mcp-description-terms', self::callback(static fn (array $terms): bool => count($terms) === 2), true);
         $persisted = $this->storedMetadata('new caption', 'sync-2');
         $manager = $this->createMock(IFilesMetadataManager::class);
         $manager->method('getMetadata')->willReturnOnConsecutiveCalls($initial, $initial, $writeSnapshot, $persisted, $persisted, $persisted);
@@ -265,7 +268,39 @@ final class DescriptionServiceTest extends TestCase {
             new EmbeddedDescriptionReader(),
             $info ?? $this->createMock(NodeAccessInfo::class),
             $shared ?? $this->createMock(SharedWriteGuard::class),
+            $this->writer(),
         );
+    }
+
+    public function testNativeSearchIndexFailureRollsBackEvenWhenDescriptionReadbackSucceeds(): void {
+        $db = $this->createMock(\OCP\IDBConnection::class);
+        $db->expects(self::once())->method('rollBack');
+        $db->expects(self::never())->method('commit');
+        $saved = $this->storedMetadata('new caption', 'sync-2');
+        $this->expectException(\RuntimeException::class);
+        $this->writer($db, [])->save($this->manager($saved), $saved, 23, 'new caption');
+    }
+
+    public function testSearchMatchesConsecutiveWholeWordsAtTheEndOfLongDescriptions(): void {
+        $description = str_repeat('scene ', 2000) . "PICAR, hierbas con limo\u{0301}n";
+        foreach (['picar hierbas', 'hierbas', 'con limón'] as $query) {
+            self::assertTrue(DescriptionIndex::matches($description, DescriptionIndex::words($query)));
+        }
+        foreach (['hierbas picar', 'picar con', 'hierba'] as $query) {
+            self::assertFalse(DescriptionIndex::matches($description, DescriptionIndex::words($query)));
+        }
+    }
+
+    private function writer(?\OCP\IDBConnection $db = null, ?array $physicalTerms = null): DescriptionIndexWriter {
+        $db ??= $this->createMock(\OCP\IDBConnection::class);
+        $qb = $this->createMock(\OCP\DB\QueryBuilder\IQueryBuilder::class);
+        $db->method('getQueryBuilder')->willReturn($qb);
+        $qb->method('expr')->willReturn($this->createMock(\OCP\DB\QueryBuilder\IExpressionBuilder::class));
+        foreach (['select', 'from', 'where', 'andWhere'] as $method) $qb->method($method)->willReturnSelf();
+        $result = $this->createMock(\OCP\DB\IResult::class);
+        $result->method('fetchFirstColumn')->willReturn($physicalTerms ?? DescriptionIndex::terms('new caption'));
+        $qb->method('executeQuery')->willReturn($result);
+        return new DescriptionIndexWriter($db);
     }
 
     private function backupLocation(): BackupLocation {
@@ -284,7 +319,9 @@ final class DescriptionServiceTest extends TestCase {
 
     private function storedMetadata(string $value, string $syncToken): IFilesMetadata {
         $metadata = $this->createMock(IFilesMetadata::class);
-        $metadata->method('hasKey')->willReturnCallback(static fn (string $key): bool => $key === DescriptionService::KEY);
+        $metadata->method('hasKey')->willReturnCallback(static fn (string $key): bool => in_array($key, [DescriptionService::KEY, DescriptionIndex::KEY], true));
+        $metadata->method('isIndex')->with(DescriptionIndex::KEY)->willReturn(true);
+        $metadata->method('getStringList')->with(DescriptionIndex::KEY)->willReturn(DescriptionIndex::terms($value));
         $metadata->method('getString')->with(DescriptionService::KEY)->willReturn($value);
         $metadata->method('getSyncToken')->willReturn($syncToken);
         $metadata->method('setString')->with(DescriptionService::KEY, self::anything())->willReturn($metadata);
@@ -299,6 +336,7 @@ final class DescriptionServiceTest extends TestCase {
             new EmbeddedDescriptionReader(),
             $this->createMock(NodeAccessInfo::class),
             $this->createMock(SharedWriteGuard::class),
+            $this->writer(),
         );
     }
 
