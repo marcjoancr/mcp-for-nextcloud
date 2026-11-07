@@ -74,7 +74,8 @@ The runner emits case names and outcomes, not credentials or raw protocol payloa
 `result.json` records candidate/source hashes, required cases, failures/blocked
 cases and closure. Individual CLI records include exit codes and stream hashes.
 A missing required case or failed cleanup returns nonzero. ChatGPT and human
-reviews always remain pending; a local pass cannot qualify public HTTPS or S7.
+reviews require separate evidence; this runner cannot qualify public HTTPS or
+a hosted-client journey.
 
 The native Nextcloud 35 token provider has a ten-second local cache. The password
 revocation case records immediate DAV status and, if still accepted, waits eleven
@@ -115,8 +116,8 @@ Copy both manifests into a new private directory outside the repository, then
 run `npm ci --ignore-scripts --prefix /absolute/inspector-install` with Node
 24.22.1 on PATH. Keep the historical installation unchanged. Do not use floating `npx` installs
 or regenerate the reviewed lock. The runner verifies that exact lock and
-installed CLI bundle hash before importing code. The repository's normal build
-runtime pin is separate and has not been changed by this storage qualification.
+installed CLI bundle hash before importing code. The repository's normal build runtime is pinned independently in `mcp/.node-version`;
+the historical private-TLS runner retains its own older fixture contract.
 `storage-run.mjs` creates a private copy of the entire bundle with only an appended
 export declaration; all original bytes and implementation bodies remain intact.
 `storage-worker.mjs` imports it in a fresh process for each case and uses the real
@@ -138,7 +139,9 @@ Inspector 2.13.0 passes these cases. Inspector 2.11.0 fails the new stamp-save
 case before dependent cases run. The original 14/15 result is retained as history:
 its final assertion required static-client behavior outside the provider's
 contract, and is not evidence of token exfiltration or an MCP server defect.
-See the [diagnosis and exact evidence](../../../docs/en/development/inspector-storage-resolution.md).
+The retired diagnosis and per-run evidence are preserved in Git history under
+`docs/en/development/inspector-storage-resolution.md`. The executable storage
+runner and locked manifests own the reproducible check.
 No required failure is treated as expected/pass; a failed or blocked required
 case still returns nonzero. This remains an explicit opt-in client-component
 qualification, separate from ordinary `check`.
@@ -146,9 +149,9 @@ qualification, separate from ordinary `check`.
 A passing result does **not** qualify SDK network rebinding, reuse of static
 secrets across authorization servers, private/public OAuth journeys or hosted
 ChatGPT. Prefer dynamic registration for the supported isolated multi-issuer
-scenario. Public Inspector acceptance remains pending; the old private-TLS runner
-must be refreshed and rerun on the chosen final fixture before making a new
-end-to-end client claim.
+scenario. The old private-TLS runner must be refreshed and rerun on the chosen
+final fixture before using it to support a new end-to-end client claim. Independent
+public-client results must identify their actual artifact and endpoint.
 
 Evidence lives in `~/.local/state/mcp-client-tests/storage-*/`. Key files, generated
 synthetic credentials, raw errors and copies of stores are private, not upload

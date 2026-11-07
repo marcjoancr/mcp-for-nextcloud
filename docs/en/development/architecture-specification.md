@@ -35,6 +35,7 @@ mcp/
       Notes/               note capabilities
       People/              directory lookup
       Logs/                bounded log reading and search
+      Mail/                owned accounts and cached mailbox metadata
     Db/                    persistence and native entities
     Migration/             registered database migration identities
     Listener/              native event adapters
@@ -64,11 +65,11 @@ For example, Files uses `Reading/` and `Editing/`; shared file mutation safeguar
 live in `Editing/ContentWriter.php`. Read and write handlers can be tested without
 constructing unrelated capabilities.
 
-The catalogs contain at most 82 module tools: Files 23, Deck 21, Talk 8,
-Calendar 7, Contacts 6, Tasks 7, Notes 7, People 1 and Logs 2. The three Deck
-dependency tools appear only on compatible NC34/35 native APIs; without that
-capability the module maximum is 79 (Deck 18). The two diagnostic tools,
-`mcp_status` and `mcp_guide`, are separate, giving at most 84 tools in total.
+The catalogs contain at most 84 module tools: Files 23, Deck 21, Talk 8,
+Calendar 7, Contacts 6, Tasks 7, Notes 7, People 1, Logs 2 and Mail 2. The three
+Deck dependency tools appear only on compatible NC34/35 native APIs; without
+that capability the module maximum is 81 (Deck 18). The two diagnostic tools,
+`mcp_status` and `mcp_guide`, are separate, giving at most 86 tools in total.
 Actual discovery is further narrowed by grants, app availability, Guests and
 resource/access checks. These maxima never promise that every tool is available
 to an account. Catalog order, definitions, plans and result rendering have

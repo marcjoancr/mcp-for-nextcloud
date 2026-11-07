@@ -103,16 +103,17 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
   extend native production support.
 - Replace the upstream 1.1.2 same-version replacement test with a real upgrade to
   2.0.0. Preserve the earlier NC32 and same-version evidence in Git history.
-- This is an unpublished development candidate. Source-offer delivery, update
-  control, integrity handling, final platform/installed-version qualification,
-  actual-host facts and human reviews remain pending. Public HTTPS, Inspector
-  and ChatGPT acceptance are not established by local unit or native tests.
+- Provide matching runtime/source kits, installed-file verification and source-offer
+  metadata. Release acceptance must bind the exact artifact to its tested server
+  and client environments; local unit/native results alone do not qualify public
+  HTTPS or a hosted assistant. See [source delivery](docs/en/development/source-delivery.md).
 
 ### Selected upstream 1.2.1 integration
 
 U1–U5 reconcile the selected 1.2.1 capabilities with the fork architecture.
-Release, intended-server and hosted-client qualification remain pending; see the
-[U5 record](docs/en/development/upstream-1.2.1-u5-integration.md).
+The per-candidate U5 execution record is preserved in Git history under
+`docs/en/development/upstream-1.2.1-u5-integration.md`; it describes the acceptance
+scope at that integration checkpoint.
 
 - Preserve backup-mirror privacy across verified personal roots and canonical
   shared aliases without treating ordinary nested names as backup folders.
@@ -124,7 +125,8 @@ Release, intended-server and hosted-client qualification remain pending; see the
   retain recorded folders that became reserved. Plans, receipts and client guidance
   describe the effective copy policy without promising native version recovery.
   See [configuration](docs/en/reference/configuration.md#mcp-backup-copies) and
-  [U2 evidence](docs/en/development/upstream-1.2.1-u2-integration.md).
+  the historical U2 evidence at `docs/en/development/upstream-1.2.1-u2-integration.md`
+  in Git history.
 
 - Add Tasks parent reads, direct-child filtering and confirmed parent changes,
   preserving other relations and rejecting cycles or depth beyond 64. Keep numeric
@@ -139,8 +141,8 @@ Release, intended-server and hosted-client qualification remain pending; see the
 ### Selected upstream 1.2.0 integration
 
 Selected source: `02526119b845ccc1d8399be002da3e30b5527df6`; the independent
-candidate now declares 2.0.0. Final qualification and human reviews remain pending.
-The Colima queue and German README addition are excluded from this integration;
+candidate now declares 2.0.0. Acceptance results for this integration are historical
+and apply to their recorded artifact and environment. The Colima queue and German README addition are excluded from this integration;
 no blanket upstream 1.2.0 parity or intended-server upgrade claim is made. U5
 records the separate disposable Apache 1.2.0 upgrade evidence.
 
@@ -192,7 +194,7 @@ remain unchanged.
 
 - Apply Guests hidden-storage checks to structured file references as well as Files operations, including Talk attachment publication and task attachment output. This closes a direct-path lookup gap identified while integrating upstream 1.1.2.
 
-The release version for this architectural contribution is not assigned. Source builds require the locked frontend toolchain; installed packages do not require Node.js. See [setup](docs/en/development/setup.md) and [packaging](docs/en/development/packaging.md).
+The application manifest assigns version 2.0.0 to this architectural contribution. Source builds require the locked frontend toolchain; installed packages do not require Node.js. See [setup](docs/en/development/setup.md) and [packaging](docs/en/development/packaging.md).
 
 ## 1.1.2
 

@@ -3,7 +3,7 @@
 
 # Adding a tool
 
-Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People and Logs are implemented examples
+Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People, Logs and Mail are implemented examples
 of capability-based authoring. Their tools use explicit catalogs and focused
 capabilities; see the [architecture catalog counts](architecture-specification.md#capability-ownership)
 for maximum and conditional availability. Shared MCP infrastructure now has final owners; administration remains
@@ -424,6 +424,26 @@ Tests mirror capabilities under `tests/Unit/Modules/Logs`; synthetic log support
 immutable pre-extraction fixtures live under `tests/Support/Logs`. Real Application
 closure tests cover access, privacy changes and audit failure. The boundary scanner
 rejects retired routes and containers.
+
+## Mail: owned account and cached mailbox reads
+
+`Modules/Mail` separates `Accounts/AccountLister` and `Mailboxes/MailboxLister`
+behind two thin tools. `MailToolCatalog` rejects non-read definitions and
+`MailModule` requires an exact lazy factory map. Register entries and factories
+together in `AppInfo/Application.php`; discovery must not resolve optional Mail
+services merely to publish metadata.
+
+The `Contracts/MailReader` boundary is implemented by `Integration/MailGateway`.
+Keep native-service resolution and version checks there, and preserve ownership
+checks before reading mailbox metadata. The actor comes from `ToolContext`, never
+from an account-owner argument. Delegated accounts are excluded.
+
+Mail only reads the existing account/folder cache. Do not introduce message-body
+reads, IMAP synchronization or mutation into this contract. `mail.read` starts
+denied even after upgrades. Unit coverage lives under `tests/Unit/Modules/Mail`;
+use the explicit [native Mail fixture](testing.md#optional-mail-acceptance) for
+real application/ownership and unchanged-cache checks. See the
+[Mail reference](../reference/tools/mail.md) for user-facing limits.
 
 ## Shared MCP ownership
 

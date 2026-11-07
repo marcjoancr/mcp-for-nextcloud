@@ -7,9 +7,9 @@
 This inventory adapts upstream W01 from release
 `02526119b845ccc1d8399be002da3e30b5527df6`, including its bounded tree-copy and
 sink-recheck corrections, to the fork's capability owners. It covers writes
-through this connector. See [integration evidence](upstream-1.2.0-integration.md)
-for candidate-specific execution, including the native matrix. This document is
-an ownership and coverage map, not a claim that the native matrix has passed.
+through this connector. This document is an ownership and coverage map. Use
+[testing](testing.md) to verify a candidate against the native matrix; historical
+execution results do not qualify a new artifact.
 
 ## Configuration and decisions
 
@@ -29,8 +29,9 @@ both caches, and `getValueString(..., false)` can still return a previously load
 lazy value. `FileWritePolicyTest` models this behavior, and
 `FileWritePolicyRecoveryTest` exercises it against core. The selected native
 sources inspected were `lib/private/AppConfig.php` in pinned Nextcloud 32.0.15,
-33.0.9, 34.0.4 and 35.0.1, matching the
-[native matrix](../../../mcp/tests/Integration/ci/matrix.json).
+33.0.9, 34.0.4 and 35.0.1. The current
+[native matrix](../../../mcp/tests/Integration/ci/matrix.json) owns the separate
+executable test-image pins; the inspected historical sources are not those pins.
 
 Cache invalidation and rereading do not create a transaction joining an
 administrator's policy change to a file mutation. Shared-cache repopulation,
@@ -137,4 +138,4 @@ case checks an exempt vCard backup alongside a refused public vCard upload.
 The Notes case requires the
 pinned Notes app. Execute these through the existing disposable native harness;
 see [testing](testing.md). Local doubles and API-surface fixtures are separate
-from native runtime evidence. F3 and human review remain separate acceptance work.
+from native runtime evidence. Release and human review remain separate acceptance work.
