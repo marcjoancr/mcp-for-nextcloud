@@ -10,6 +10,7 @@ namespace OCA\Mcp\Tests\Unit\Modules\Files\Search;
 use OCA\Mcp\Modules\Files\FilesModule;
 use OCA\Mcp\Modules\Files\Reading\FileEntry;
 use OCA\Mcp\Modules\Files\Search\FileSearch;
+use OCA\Mcp\Modules\Files\Descriptions\DescriptionSearch;
 use OCA\Mcp\Modules\Files\Search\SearchMessages;
 use OCA\Mcp\Modules\Files\Tools\SearchFiles;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard as VisibilityGuard;
@@ -23,6 +24,73 @@ use OCP\FullTextSearch\Model\IIndexDocument;
 use OCP\FullTextSearch\Model\ISearchResult;
 
 final class FilesSearchContentTest extends FilesToolsTestCase {
+    public function testAutoSearchIncludesReadableDescriptionMatchesAndDeduplicates(): void {
+        $this->enabled[] = 'fulltextsearch';
+        $this->enabled[] = 'files_fulltextsearch';
+        $this->tree->addFile('/alice/files/Documentos/nota.md', 'Sem nome correspondente', 'text/markdown');
+        $descriptionFile = $this->tree->node('/alice/files/Documentos/ata.md');
+        $secondFile = $this->tree->node('/alice/files/Documentos/nota.md');
+        $descriptions = $this->createMock(DescriptionSearch::class);
+        $descriptions->expects($this->once())->method('find')->with($this->anything(), 'relatorio', 10)->willReturn([$descriptionFile, $secondFile]);
+
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $this->tree->rootFolder());
+        $doc = $this->createMock(IIndexDocument::class);
+        $doc->method('getId')->willReturn((string)$this->tree->nodes['/alice/files/Documentos/ata.md']['id']);
+        $doc->method('getExcerpts')->willReturn([]);
+        $searchResult = $this->createMock(ISearchResult::class);
+        $searchResult->method('getDocuments')->willReturn([$doc]);
+        $fts = $this->createMock(IFullTextSearchManager::class);
+        $fts->method('isAvailable')->willReturn(true);
+        $fts->method('isProviderIndexed')->willReturn(true);
+        $fts->method('search')->willReturn([$searchResult]);
+        $this->module = $this->buildModuleWithFts($root, $fts, null, $descriptions);
+
+        $res = $this->json('files_search', ['query' => 'relatorio', 'limit' => 10]);
+        $this->assertSame('content_and_description', $res['search_mode']);
+        $this->assertSame(['/Documentos/ata.md', '/Documentos/nota.md'], array_column($res['files'], 'path'));
+    }
+
+    public function testNameModeDoesNotSearchDescriptions(): void {
+        $descriptions = $this->createMock(DescriptionSearch::class);
+        $descriptions->expects($this->never())->method('find');
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $this->tree->rootFolder());
+        $this->module = $this->buildModuleWithFts($root, $this->createMock(IFullTextSearchManager::class), null, $descriptions);
+
+        $res = $this->json('files_search', ['query' => 'relatorio', 'mode' => 'name']);
+        $this->assertSame('name_only', $res['search_mode']);
+        $this->assertSame([], $res['files']);
+    }
+
+    public function testDescriptionSearchIsReportedWhenFullTextSearchIsUnavailable(): void {
+        $file = $this->tree->node('/alice/files/Documentos/ata.md');
+        $descriptions = $this->createMock(DescriptionSearch::class);
+        $descriptions->expects($this->once())->method('find')->willReturn([$file]);
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $this->tree->rootFolder());
+        $this->module = $this->buildModuleWithFts($root, $this->createMock(IFullTextSearchManager::class), null, $descriptions);
+
+        $res = $this->json('files_search', ['query' => 'summary']);
+        $this->assertSame('name_and_description', $res['search_mode']);
+        $this->assertFalse($res['full_text_active']);
+        $this->assertSame(SearchMessages::searchNameAndDescriptionNotice(), $res['notice']);
+        $this->assertSame(['/Documentos/ata.md'], array_column($res['files'], 'path'));
+    }
+
+    public function testDescriptionSearchIsOmittedWithoutDescriptionReadPermission(): void {
+        $descriptions = $this->createMock(DescriptionSearch::class);
+        $descriptions->expects($this->never())->method('find');
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $this->tree->rootFolder());
+        $this->module = $this->buildModuleWithFts($root, $this->createMock(IFullTextSearchManager::class), null, $descriptions, static fn (string $uid): bool => false);
+
+        $res = $this->json('files_search', ['query' => 'private caption']);
+        $this->assertSame('name_only', $res['search_mode']);
+        $this->assertSame(SearchMessages::searchNameOnlyNotice(), $res['notice']);
+        $this->assertSame([], $res['files']);
+    }
+
     public function testFullTextSearchReturnsContentMatchesWithExcerpts(): void {
         $this->enabled[] = 'fulltextsearch';
         $this->enabled[] = 'files_fulltextsearch';
@@ -150,10 +218,26 @@ final class FilesSearchContentTest extends FilesToolsTestCase {
         $this->assertSame([], $resName['files']);
     }
 
+    public function testHiddenAliasDoesNotMaskReadableAliasWithSameFileId(): void {
+        $fileId = $this->tree->nodes['/alice/files/Documentos/ata.md']['id'];
+        $this->tree->addFile('/alice/files/Documentos/ata-copy.md', 'also searchable', 'text/markdown');
+        $this->tree->nodes['/alice/files/Documentos/ata-copy.md']['id'] = $fileId;
+        $guard = $this->createMock(VisibilityGuard::class);
+        $guard->method('isVisible')->willReturnCallback(static fn ($node): bool => $node->getPath() === '/alice/files/Documentos/ata-copy.md');
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $this->tree->rootFolder());
+        $this->module = $this->buildModuleWithFts($root, $this->createMock(IFullTextSearchManager::class), $guard);
+
+        $res = $this->json('files_search', ['query' => 'Ata', 'mode' => 'name']);
+        $this->assertSame(['/Documentos/ata-copy.md'], array_column($res['files'], 'path'));
+    }
+
     private function buildModuleWithFts(
         IRootFolder $root,
         IFullTextSearchManager $ftsManager,
         ?VisibilityGuard $guard = null,
+        ?DescriptionSearch $descriptions = null,
+        ?\Closure $descriptionPermission = null,
     ): FilesModule {
         $access = new NodeAccessInfo(FakeUsers::manager($this, FakeUsers::DEFAULTS), $this->tree->shareManager());
         $db = $this->createMock(\OCP\IDBConnection::class);
@@ -161,7 +245,11 @@ final class FilesSearchContentTest extends FilesToolsTestCase {
 
         $guard ??= \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this);
         return new FilesModule(FilesFactories::complete([
-            'files_search' => fn () => new SearchFiles($root, new FileSearch($db, $this->users, new FileEntry($access), $guard, $this->apps, $ftsManager)),
+            'files_search' => fn () => new SearchFiles(
+                $root,
+                new FileSearch($db, $this->users, new FileEntry($access), $guard, $this->apps, $ftsManager, $descriptions),
+                $descriptions === null ? null : ($descriptionPermission ?? static fn (string $uid): bool => true),
+            ),
         ]), (\OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this))->assertScopeReadable(...));
     }
 }

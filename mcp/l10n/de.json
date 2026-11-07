@@ -1472,6 +1472,8 @@
     "_Move %n item:_::_Move %n items:_" : ["%n Element verschieben:", "%n Elemente verschieben:"],
     "_Undo a batch and put %n item back where it was:_::_Undo a batch and put %n items back where they were:_" : ["Einen Stapel rückgängig machen und %n Element zurückverschieben:", "Einen Stapel rückgängig machen und %n Elemente zurückverschieben:"],
     "Full-text search is not available. Search was performed by file name only." : "Volltextsuche nicht verfügbar. Es wurde nur nach Dateinamen gesucht.",
+    "Full-text search is not available. Search used file names and permitted stored descriptions." : "Die Volltextsuche ist nicht verfügbar. Es wurde anhand von Dateinamen und erlaubten gespeicherten Beschreibungen gesucht.",
+    "Full-text search encountered an error. Search used file names and permitted stored descriptions." : "Bei der Volltextsuche ist ein Fehler aufgetreten. Es wurde anhand von Dateinamen und erlaubten gespeicherten Beschreibungen gesucht.",
     "Full-text search encountered an error; search was performed by file name only." : "Bei der Volltextsuche ist ein Fehler aufgetreten; es wurde nur nach Dateinamen gesucht.",
     "one of: %s" : "Eines von: %s",
     "expected user:<uid>, group:<gid> or link" : "Erwartet: user:<uid>, group:<gid> oder link",

@@ -108,6 +108,7 @@ final class FileDescriptionControllerTest extends TestCase {
             new EmbeddedDescriptionReader(),
             $this->createMock(NodeAccessInfo::class),
             $this->createMock(SharedWriteGuard::class),
+            new \OCA\Mcp\Modules\Files\Descriptions\DescriptionIndexWriter($this->createMock(\OCP\IDBConnection::class)),
         );
         return new FileDescriptionController('mcp', $this->createMock(IRequest::class), $session, $descriptions, $policy, $tools, $visibility);
     }
@@ -139,6 +140,7 @@ final class FileDescriptionControllerTest extends TestCase {
             new EmbeddedDescriptionReader(),
             $this->createMock(NodeAccessInfo::class),
             $this->createMock(SharedWriteGuard::class),
+            new \OCA\Mcp\Modules\Files\Descriptions\DescriptionIndexWriter($this->createMock(\OCP\IDBConnection::class)),
         );
         return new FileDescriptionController('mcp', $this->createMock(IRequest::class), $session, $descriptions, $policy, $tools, $visibility);
     }
@@ -168,6 +170,7 @@ final class FileDescriptionControllerTest extends TestCase {
             new EmbeddedDescriptionReader(),
             $this->createMock(NodeAccessInfo::class),
             $this->createMock(SharedWriteGuard::class),
+            new \OCA\Mcp\Modules\Files\Descriptions\DescriptionIndexWriter($this->createMock(\OCP\IDBConnection::class)),
         );
         return new FileDescriptionController('mcp', $this->createMock(IRequest::class), $session, $descriptions, $policy, $tools, $visibility);
     }

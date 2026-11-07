@@ -627,6 +627,8 @@ OC.L10N.register(
     "Follow up on Deck tasks" : "Acompanhar tarefas do Deck",
     "Full-text search encountered an error; search was performed by file name only." : "A busca em texto completo encontrou um erro; a pesquisa foi realizada apenas pelo nome do arquivo.",
     "Full-text search is not available. Search was performed by file name only." : "A busca em texto completo não está disponível. A pesquisa foi realizada apenas pelo nome do arquivo.",
+    "Full-text search is not available. Search used file names and permitted stored descriptions." : "A busca em texto completo não está disponível. A pesquisa usou nomes de arquivos e descrições salvas permitidas.",
+    "Full-text search encountered an error. Search used file names and permitted stored descriptions." : "A busca em texto completo encontrou um erro. A pesquisa usou nomes de arquivos e descrições salvas permitidas.",
     "Get Workflow OCR in the App Store" : "Obter o Workflow OCR na loja de apps",
     "Group" : "Grupo",
     "group with more than %d participants" : "grupo com mais de %d participantes",

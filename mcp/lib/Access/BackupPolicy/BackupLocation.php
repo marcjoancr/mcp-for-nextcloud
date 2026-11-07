@@ -114,7 +114,13 @@ final class BackupLocation {
 	 * @return bool whether the top-level name is reserved now or was reserved before
 	 */
 	public function contains(string $path): bool {
-		$settings = $this->current();
+		$this->current();
+		return $this->containsInSnapshot($path);
+	}
+
+	/** Check a normalized user-relative path against the same reserved names throughout a listing. */
+	public function containsInSnapshot(string $path): bool {
+		$settings = $this->snapshot();
 		return in_array(BackupFolderName::normalize(explode('/', ltrim($path, '/'), 2)[0]), $settings['reserved'], true);
 	}
 }

@@ -36,6 +36,7 @@ final class DescriptionService {
         private EmbeddedDescriptionReader $embedded,
         private NodeAccessInfo $accessInfo,
         private SharedWriteGuard $sharedWrites,
+        private DescriptionIndexWriter $indexWriter,
     ) {}
 
     /** @return array{description:string, source:string, stored:bool, state:string, etag:string, supported_fields:list<string>} */
@@ -105,11 +106,7 @@ final class DescriptionService {
         try {
             // Saving this exact metadata snapshot preserves Nextcloud's sync token. A concurrent update is refused.
             $metadata->setString(self::KEY, $description);
-            $manager->saveMetadata($metadata);
-            $saved = $manager->getMetadata((int)$file->getId(), false);
-            if (!$saved->hasKey(self::KEY) || $saved->getString(self::KEY) !== $description) {
-                throw new \RuntimeException('Metadata readback mismatch');
-            }
+            $this->indexWriter->save($manager, $metadata, (int)$file->getId(), $description);
         } catch (\Throwable) {
             throw new ToolFailure(Translator::t('The file description could not be saved.'));
         }

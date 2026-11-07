@@ -4,6 +4,8 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+- Find files by whole words and phrases in their saved descriptions, including descriptions written before the upgrade. Description matches respect native access, folder scope and the connection’s description-read permission.
+
 ## 2.6.4
 
 - Allow descriptions and summaries for every regular file type in the Files sidebar and through MCP, preserving existing descriptions and tool assignments.
