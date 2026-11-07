@@ -3,7 +3,7 @@
 
 # Adding a tool
 
-Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People, Logs and Mail are implemented examples
+Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People, Logs, Mail and Forms are implemented examples
 of capability-based authoring. Their tools use explicit catalogs and focused
 capabilities; see the [architecture catalog counts](architecture-specification.md#capability-ownership)
 for maximum and conditional availability. Shared MCP infrastructure now has final owners; administration remains
@@ -425,25 +425,26 @@ immutable pre-extraction fixtures live under `tests/Support/Logs`. Real Applicat
 closure tests cover access, privacy changes and audit failure. The boundary scanner
 rejects retired routes and containers.
 
-## Mail: owned account and cached mailbox reads
+## Mail and Forms: independent tool assignments
 
-`Modules/Mail` separates `Accounts/AccountLister` and `Mailboxes/MailboxLister`
-behind two thin tools. `MailToolCatalog` rejects non-read definitions and
-`MailModule` requires an exact lazy factory map. Register entries and factories
-together in `AppInfo/Application.php`; discovery must not resolve optional Mail
-services merely to publish metadata.
+Mail separates owned account/mailbox reads, cached message searches, content and
+attachment reads, Files attachment saving and local unsent draft operations.
+The explicit catalog and Application factory map must stay in sync. Native service
+resolution and version checks stay behind the module's integration owners. Never
+infer message, thread or draft permission from account/folder reading. Mail content
+reads preserve unread flags; draft mutation does not send or schedule messages.
 
-The `Contracts/MailReader` boundary is implemented by `Integration/MailGateway`.
-Keep native-service resolution and version checks there, and preserve ownership
-checks before reading mailbox metadata. The actor comes from `ToolContext`, never
-from an account-owner argument. Delegated accounts are excluded.
+Forms separates structure reads, native results reads, deterministic page summaries
+and bounded CSV export. Results require native permission independently of question
+reading. Export is a write and additionally requires Files creation, native destination
+access and its confirmation/scope/policy safeguards. Uploaded file answers are excluded.
 
-Mail only reads the existing account/folder cache. Do not introduce message-body
-reads, IMAP synchronization or mutation into this contract. `mail.read` starts
-denied even after upgrades. Unit coverage lives under `tests/Unit/Modules/Mail`;
-use the explicit [native Mail fixture](testing.md#optional-mail-acceptance) for
-real application/ownership and unchanged-cache checks. See the
-[Mail reference](../reference/tools/mail.md) for user-facing limits.
+Register each new tool with an independent assignment and connection selection.
+Do not add it to the frozen legacy catalog or grant it through an older tool's
+operation fallback. Static discovery must not resolve optional native services.
+See [Mail](../reference/tools/mail.md), [Forms](../reference/tools/forms.md) and
+[permissions](../guides/permissions.md) for public contracts. Tests mirror each
+module under `tests/Unit/Modules`; native fixtures remain explicit acceptance work.
 
 ## Shared MCP ownership
 

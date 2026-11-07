@@ -35,7 +35,8 @@ mcp/
       Notes/               note capabilities
       People/              directory lookup
       Logs/                bounded log reading and search
-      Mail/                owned accounts and cached mailbox metadata
+      Mail/                owned messages, attachments and local unsent drafts
+      Forms/               permitted structure/results, summaries and CSV export
     Db/                    persistence and native entities
     Migration/             registered database migration identities
     Listener/              native event adapters
@@ -65,12 +66,13 @@ For example, Files uses `Reading/` and `Editing/`; shared file mutation safeguar
 live in `Editing/ContentWriter.php`. Read and write handlers can be tested without
 constructing unrelated capabilities.
 
-The catalogs contain at most 84 module tools: Files 23, Deck 21, Talk 8,
-Calendar 7, Contacts 6, Tasks 7, Notes 7, People 1, Logs 2 and Mail 2. The three
-Deck dependency tools appear only on compatible NC34/35 native APIs; without
-that capability the module maximum is 81 (Deck 18). The two diagnostic tools,
-`mcp_status` and `mcp_guide`, are separate, giving at most 86 tools in total.
-Actual discovery is further narrowed by grants, app availability, Guests and
+The catalogs contain at most 110 module tools: Files 29, Deck 24, Talk 11,
+Calendar 8, Contacts 6, Tasks 7, Notes 7, People 1, Logs 2, Mail 10 and Forms 5.
+Three Deck dependency tools require compatible NC34/35 native APIs; without them
+the module maximum is 107. `mcp_status` and `mcp_guide` are separate, giving at most
+112 tools in total, or 109 without the conditional dependencies.
+Actual discovery is further narrowed by tool assignments, connection selections,
+operation prerequisites, app availability, Guests and
 resource/access checks. These maxima never promise that every tool is available
 to an account. Catalog order, definitions, plans and result rendering have
 compatibility fixtures. Do not regenerate fixtures simply to make a structural
@@ -137,6 +139,14 @@ resolved while Guests is disabled, and no container is injected into access poli
 Resource scope narrows access; it does not grant an operation or replace native
 Nextcloud ACLs. File exposure and tag exclusion follow the
 [exclusion and folder exposure contract](contracts/exclusion-and-folder-exposure.md).
+
+The 84 module tools shipped in 2.0.0 form a frozen migration baseline, not the
+current inventory. Their original operation settings provide compatibility defaults;
+new tools start unassigned and unselected. Individual tool decisions win; otherwise
+a trusted group block overrides group allowances before the catalog default.
+Each request checks the connection's selected subset. OAuth refresh preserves it;
+Basic/session clients share the separate Nextcloud profile. Unknown policy is
+unavailable rather than an allow decision.
 
 Policy commands carry an expected revision and commit through the policy
 transaction boundary. Durable events are recorded with the change; retries and

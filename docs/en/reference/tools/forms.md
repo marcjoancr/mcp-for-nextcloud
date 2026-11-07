@@ -23,3 +23,5 @@ The first call prepares a preview without writing. Show the source page, destina
 The CSV has one row per answer, with submission ID, timestamp, question ID, question and answer. Respondent identities and uploaded file answers are excluded. Cells that could be spreadsheet formulas are neutralized. The export is bounded to 1 MiB and 8,000 rows; partial results are explicitly indicated. Question and answer text cells are capped at 1,024 bytes, with truncation and omitted-row details in the preview. Files scope restrictions and native folder permissions still apply.
 
 [All tools](../tools.md) · [Permissions](../../guides/permissions.md)
+
+English · [Español](../../../es/reference/tools/forms.md) · [Català](../../../ca/reference/tools/forms.md) · [Português (Brasil)](../../../pt-BR/reference/tools/forms.md) · [Português (Portugal)](../../../pt-PT/reference/tools/forms.md)

@@ -14,17 +14,17 @@ Nextcloud MCP runs as a native Nextcloud application. It uses the existing serve
 | PHP | **8.4 or newer**, also supported by your selected Nextcloud version |
 | PHP extensions | `zip`, `mbstring` and `dom`, in addition to Nextcloud's own requirements |
 | Client access | An HTTPS URL reachable by the chosen MCP client |
-| Optional apps | Enable the corresponding apps for Notes, Deck, Talk and Mail capabilities |
+| Optional apps | Enable the corresponding apps for Notes, Tasks, Calendar, Contacts, Deck, Talk, Mail and Forms capabilities |
 
-Tools also depend on the user's grants and native resource permissions. Mail requires a known version of at least 5.0.0 and an explicit read grant; this API floor does not certify every Mail/server combination. Deck dependency tools require compatible APIs on NC34/35. See the [tool catalog](reference/tools.md).
+Tools also depend on individual tool assignments, the connection's selection and native resource permissions. Mail requires a known version of at least 5.0.0; Forms requires a known version of at least 5.3.0. Their tools need explicit assignments and selection, and these API floors do not certify every app/server combination. Deck dependency tools require compatible APIs on NC34/35. See the [tool catalog](reference/tools.md).
 
 The contributor tooling also tests PHP 8.2/8.3; those test runtimes do not lower the app's PHP 8.4 installation requirement. The native fixture matrix covers Linux x86-64/Apache with NC33/34/35 and MariaDB 10.11, plus NC35 with PostgreSQL 16 or SQLite. A separate LinuxServer/Nginx fixture exercises NC35/PostgreSQL/S3. These are test profiles, not an exhaustive deployment support guarantee.
 
 ## Choose the fork package
 
-The fork retains app ID **`mcp`** and the manifest declares **2.0.0**. It replaces an existing installation of MCP for Cloud with that same app ID. The Nextcloud App Store distributes the original project: **`occ app:install mcp` installs the store edition**.
+The fork retains app ID **`mcp`** and the manifest declares **2.7.0**. It replaces an existing installation of MCP for Cloud with that same app ID. The Nextcloud App Store distributes the original project: **`occ app:install mcp` installs the store edition**.
 
-Use `mcp-2.0.0.tar.gz` built from the reviewed fork revision, with its matching source kit and separately trusted manifest digest. A GitHub source archive or a copy of the unbuilt `mcp/` directory is not an installation package. The complete source checkout contains the packaging instructions in `docs/en/development/packaging.md` and `docs/en/development/source-delivery.md`.
+Use `mcp-2.7.0.tar.gz` built from the reviewed fork revision, with its matching source kit and separately trusted manifest digest. A GitHub source archive or a copy of the unbuilt `mcp/` directory is not an installation package. The complete source checkout contains the packaging instructions in `docs/en/development/packaging.md` and `docs/en/development/source-delivery.md`.
 
 ## New installation
 
@@ -33,8 +33,8 @@ For an instance without `mcp` installed:
 1. Verify the package and matching source kit against the trusted manifest digest.
 2. Extract the archive's single `mcp/` directory into an application root configured in your Nextcloud `apps_paths`. Set ownership and read access according to your deployment's serving and maintenance roles.
 3. As the Nextcloud maintenance user, run `php /absolute/path/to/nextcloud/occ app:enable mcp` using the PHP binary selected for that instance. Container-based deployments run the equivalent command inside their maintenance environment.
-4. Open **Administration → Nextcloud MCP**. Enable the service, allow the intended users to connect and choose their operation grants.
-5. Each user enables their connection in **Personal settings → Nextcloud MCP**, then follows [client setup](guides/clients.md).
+4. Open **Administration → Nextcloud MCP**. Enable the service, allow the intended users to connect and assign the individual tools they may use.
+5. Each user enables their connection in **Personal settings → Nextcloud MCP**, selects the tools for the client and follows [client setup](guides/clients.md).
 
 Use the endpoint shown in the administration Overview, normally:
 
@@ -42,7 +42,7 @@ Use the endpoint shown in the administration Overview, normally:
 https://cloud.example.com/apps/mcp/
 ```
 
-Include your Nextcloud installation subdirectory if it has one. The service, user eligibility and personal connection start disabled, including for administrators. Writes start denied; Mail and server-log reading also need explicit grants. See [permissions and administration](guides/permissions.md).
+Include your Nextcloud installation subdirectory if it has one. The service, user eligibility and personal connection start disabled, including for administrators. Writes start denied; Mail, Forms and server-log access also need explicit grants. Newly added tools start unassigned and unselected. See [permissions and administration](guides/permissions.md).
 
 Tool responses reach the connected AI client. Choose grants and resource restrictions for the data that client should receive; self-hosting the connector does not determine the client's own data processing or retention policy.
 

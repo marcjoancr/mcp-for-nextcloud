@@ -19,7 +19,7 @@ Search your files, prepare a meeting, update a task or catch up on Talk from an 
 
 **English** · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
-![An MCP client connects over HTTPS to Nextcloud MCP, which applies user permissions and exposes ten Nextcloud modules.](docs/assets/overview.svg)
+![An MCP client connects over HTTPS to Nextcloud MCP, which applies user permissions and exposes eleven Nextcloud modules.](docs/assets/overview.svg)
 
 ## See what you can do
 
@@ -32,31 +32,33 @@ These are example requests, not recorded client transcripts. Available actions d
 | “Which tasks and Deck cards need my attention?” | List tasks and subtasks, inspect boards and follow up on overdue cards. |
 | “Catch me up on unread Talk conversations.” | List conversations and read messages; send a reply after confirmation. |
 | “Replace this paragraph in the report.” | Preview the text change; apply the confirmed edit with the configured backup safeguards. |
-| “Show the unread counts for my mail folders.” | Read cached folder counters for your own Mail accounts, without fetching messages. |
+| “Find the email thread about the proposal and prepare a reply.” | Search cached headers, read owned messages without marking them read, then prepare a local unsent draft after confirmation. |
+| “Summarize these form responses and export this page to CSV.” | Read permitted results, count answers by question and preview a bounded CSV export to Files. |
 
-## One connection, ten modules
+## One connection, eleven modules
 
-The catalogs define up to **86 tools**, including the guide and status tools. Discovery shows only the tools the account may use; three Deck dependency tools additionally require compatible NC34/35 APIs.
+The catalogs define up to **112 tools**, including the guide and status tools, across **eleven modules**. Discovery shows only tools available to the account and selected connection; three Deck dependency tools additionally require compatible Nextcloud 34/35 and Deck APIs.
 
 | Module | Capabilities |
 | --- | --- |
-| [Files](docs/en/reference/tools/files.md) | Search, read, preview images, edit, upload, organize, share and restore versions. No file deletion tool. |
+| [Files](docs/en/reference/tools/files.md) | Search filenames, content and saved descriptions; read, edit, tag, upload, organize, share and restore versions. Includes password-protected upload-only links. No file deletion tool. |
 | [Notes](docs/en/reference/tools/notes.md) | Find, create and edit notes, including partial text changes. |
-| [Calendar](docs/en/reference/tools/calendar.md) | Read and manage events through native CalDAV, including attendees and explicit invitations. |
+| [Calendar](docs/en/reference/tools/calendar.md) | Read and manage events through native CalDAV, including explicit invitations; check busy times and common free intervals across accessible calendars. |
 | [Contacts](docs/en/reference/tools/contacts.md) | Search and manage contacts while preserving unfamiliar vCard fields. |
 | [Tasks](docs/en/reference/tools/tasks.md) | Create, update and complete tasks; manage subtasks within a task list. |
-| [Deck](docs/en/reference/tools/deck.md) | Manage boards, stacks, cards, assignees, labels, native file links and supported dependencies. |
-| [Talk](docs/en/reference/tools/talk.md) | Read conversations, send messages, share files and create group conversations. |
+| [Deck](docs/en/reference/tools/deck.md) | Search and manage cards, comments, completion, assignees, labels, native file links and supported dependencies. |
+| [Talk](docs/en/reference/tools/talk.md) | Read, search and inspect message context; send messages or caller-prepared summaries, share files and create group conversations. |
 | [People](docs/en/reference/tools/people.md) | Look up people and groups before sharing or messaging. |
-| [Mail](docs/en/reference/tools/mail.md) | List owned accounts and cached folders/counters. Read-only; no message reading or sending. |
+| [Mail](docs/en/reference/tools/mail.md) | Search owned mail, read messages/threads/attachments without marking them read, save attachments to Files and manage local unsent drafts. No sending. |
+| [Forms](docs/en/reference/tools/forms.md) | Read forms and permitted results, count answers by page and export response pages to CSV in Files after confirmation. |
 | [Server logs](docs/en/reference/tools/logs.md) | Bounded, read-only diagnostics for administrators and authorized IT groups; disabled by default. |
 
 ## Built into your Nextcloud
 
 - **A native PHP app.** Runs inside Nextcloud with one HTTPS endpoint. No separate MCP service or Node.js runtime to operate.
-- **Your permissions on every request.** Native Nextcloud access checks combine with per-user/group grants, optional resource restrictions and exclusion tags.
+- **Your permissions on every request.** Native Nextcloud access checks combine with individual tool assignments, group rules, connection-specific selections, resource restrictions and exclusion tags.
 - **Preview before changing data.** Write calls return a plan unless explicitly confirmed. The assistant must show it and obtain approval; the server does not store conversational approval.
-- **An administration interface.** Inspect effective access, choose permitted operations and resources, manage OAuth clients and revoke connections.
+- **An administration interface.** Inspect effective access, assign tools and resource restrictions, manage OAuth clients and revoke connections.
 - **OAuth or app passwords.** Published client identities, a native local client and administrator-registered clients are supported. Other compatible clients can use HTTP Basic with a Nextcloud app password.
 
 The connector runs on your server. Data returned by tools is sent to your chosen AI client, whose own processing and retention policies apply. Start with [permissions](docs/en/guides/permissions.md) and [file protection](docs/en/guides/file-protection.md) to choose what it can access.
@@ -64,8 +66,8 @@ The connector runs on your server. Data returned by tools is sent to your chosen
 ## Get connected
 
 1. **Install the fork** on Nextcloud **33–35** with PHP **8.4+**, using a package built from the reviewed source. Follow [installation and upgrades](docs/en/installation.md).
-2. **Enable access** in *Administration → Nextcloud MCP*: turn on the service, allow the user to connect and choose their permissions. Writes start denied; Mail and server-log reading also require explicit access.
-3. **Connect the user** in *Personal settings → Nextcloud MCP*, then add this server URL to the MCP client:
+2. **Enable access** in *Administration → Nextcloud MCP*: turn on the service, allow the user to connect and assign the tools they may use. Writes start denied. Mail, Forms and server-log access require explicit grants; newly added tools start unassigned.
+3. **Connect the user** in *Personal settings → Nextcloud MCP*, select the permitted tools for that client, then add this server URL to the MCP client:
 
    ```text
    https://cloud.example.com/apps/mcp/
@@ -77,7 +79,7 @@ Replace the example origin with your own Nextcloud URL, including any installati
 
 ## Project and development
 
-This is the independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) by Sintax (Jhonatan Jaworski). The application manifest declares **2.0.0** and retains app ID **`mcp`**. The Nextcloud App Store edition belongs to the original project; `occ app:install mcp` installs that edition. Use this fork's source and installation procedure when choosing this implementation.
+This is the independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) by Sintax (Jhonatan Jaworski). The application manifest declares **2.7.0** and retains app ID **`mcp`**. The Nextcloud App Store edition belongs to the original project; `occ app:install mcp` installs that edition. Use this fork's source and installation procedure when choosing this implementation.
 
 Develop on `main` and target pull requests at this fork. Start with [Contributing](CONTRIBUTING.md), [development setup](docs/en/development/setup.md) and the [architecture](docs/en/development/architecture-specification.md). Runtime requirements above differ from the PHP 8.2–8.5 contributor test matrix. Release acceptance applies to the exact tested artifact and environment.
 
