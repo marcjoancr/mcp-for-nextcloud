@@ -11,6 +11,8 @@ use OCA\Mcp\Modules\Files\Descriptions\DescriptionService;
 use OCA\Mcp\BackgroundJob\DescriptionBackfillJob;
 use OCA\Mcp\OAuth\ConnectionToolsStore;
 use OCA\Mcp\Tests\Integration\Support\Http;
+use OCA\Mcp\Tests\Integration\Support\LoginFactory;
+use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture;
 use OCP\IAppConfig;
 use OCP\BackgroundJob\IJobList;
@@ -32,8 +34,9 @@ final class FilesDescriptionSearchTest extends ExclusionTestCase {
 			foreach ([self::ALICE, self::BOB] as $uid) {
 				ToolPermissionFixture::assign($uid, array_fill_keys(self::TOOLS, 'allow'));
 			}
-			$alice = $this->mcp(self::ALICE);
-			$bob = $this->mcp(self::BOB);
+			// Select the newly granted tools even when an earlier test initialized the Basic profile.
+			$alice = new McpClient(LoginFactory::basic(self::ALICE));
+			$bob = new McpClient(LoginFactory::basic(self::BOB));
 			$file = $this->makeFile('home', 'opaque-record.txt', 'no description terms in the body');
 			$path = $this->path('home', 'opaque-record.txt');
 			$phrase = 'cobalt lighthouse archival phrase';
@@ -64,7 +67,7 @@ final class FilesDescriptionSearchTest extends ExclusionTestCase {
 			$legacy = $this->makeFile('home', 'old-opaque-record.txt', 'unrelated body');
 			$legacyPath = $this->path('home', 'old-opaque-record.txt');
 			$this->storeLegacyDescription($legacy, str_repeat('historical filler ', 90) . 'quartz observatory terminology');
-			$this->runDescriptionBackfill();
+			$this->runDescriptionBackfill($alice);
 			self::assertContains($legacyPath, $this->searchPaths($alice, 'quartz observatory'));
 			self::assertNotContains($legacyPath, $this->searchPaths($bob, 'quartz observatory'), 'private descriptions are invisible to other users');
 
@@ -92,6 +95,7 @@ final class FilesDescriptionSearchTest extends ExclusionTestCase {
 			$selected = array_values(array_filter($profile['tools'], static fn (string $tool): bool => $tool !== 'files_get_image_description'));
 			$store->save(self::ALICE, ConnectionToolsStore::BASIC_PROFILE, $selected, $profile['revision'], $profile['variants']);
 			self::assertNotContains($legacyPath, $this->searchPaths($alice, 'quartz observatory'), 'a connector without the description reader cannot search description text');
+			self::assertContains($legacyPath, $this->searchPaths($alice, 'old-opaque-record'), 'name search remains available on the same connector');
 		} finally {
 			$appConfig->setValueInt('mcp', DescriptionBackfillJob::CURSOR_KEY, $backfillCursor, true);
 			ToolPermissionFixture::restore($snapshot);
@@ -110,7 +114,7 @@ final class FilesDescriptionSearchTest extends ExclusionTestCase {
 		self::assertSame(200, $write['status'], $write['body']);
 	}
 
-	private function mcpWrite(\OCA\Mcp\Tests\Integration\Support\McpClient $client, string $path, string $description): void {
+	private function mcpWrite(McpClient $client, string $path, string $description): void {
 		$args = ['path' => $path, 'description' => $description];
 		$plan = $client->tool('files_set_image_description', $args);
 		self::assertTrue($plan->ok(), $plan->describe());
@@ -121,7 +125,7 @@ final class FilesDescriptionSearchTest extends ExclusionTestCase {
 	}
 
 	/** @return list<string> */
-	private function searchPaths(\OCA\Mcp\Tests\Integration\Support\McpClient $client, string $query, string $mode = 'auto'): array {
+	private function searchPaths(McpClient $client, string $query, string $mode = 'auto'): array {
 		$reply = $client->tool('files_search', ['query' => $query, 'mode' => $mode]);
 		self::assertTrue($reply->ok(), $reply->describe());
 		$data = $reply->structured() ?: $reply->json();
@@ -134,12 +138,12 @@ final class FilesDescriptionSearchTest extends ExclusionTestCase {
 		Server::get(IFilesMetadataManager::class)->saveMetadata($metadata);
 	}
 
-	private function runDescriptionBackfill(): void {
+	private function runDescriptionBackfill(McpClient $alice): void {
 		$job = Server::get(DescriptionBackfillJob::class);
 		// The disposable cell is small, but run bounded batches until the seeded legacy record is indexed.
 		for ($page = 0; $page < 100; $page++) {
 			$job->runBatch();
-			$reply = $this->mcp(self::ALICE)->tool('files_search', ['query' => 'quartz observatory']);
+			$reply = $alice->tool('files_search', ['query' => 'quartz observatory']);
 			if ($reply->ok() && str_contains($reply->text(), 'old-opaque-record.txt')) {
 				return;
 			}
