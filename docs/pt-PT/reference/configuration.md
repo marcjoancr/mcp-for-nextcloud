@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/configuration.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../en/reference/configuration.md).
@@ -16,7 +16,9 @@ Utilize as interfaces de administração e definições pessoais para alterar po
 | Aplicação `mcp` | `service_enabled` | `1` ativo; `0` ou ausente inativo. Altere pelo comando/interface do serviço. |
 | Utilizador, aplicação `mcp` | `eligible` | Exceção individual `1`/`0` a **Pode ligar-se**; a ausência permite herança de grupos, seguida da predefinição inativa. |
 | Utilizador, aplicação `mcp` | `connected` | `1` significa ligação pessoal ativa. É diferente de uma credencial OAuth válida. |
-| Utilizador, aplicação `mcp` | `grant_<module>_<operation>` | Exceção individual `1`/`0`. A ausência aplica herança de grupos de confiança, seguida de leitura permitida exceto registos; restantes operações recusadas. |
+| Utilizador, aplicação `mcp` | `grant_<module>_<operation>` | Exceção individual antiga de operação usada nas predefinições de compatibilidade das ferramentas originais. O acesso atual também exige atribuição da ferramenta e seleção na ligação; Mail, Forms e registos começam recusados. |
+| Regras de ferramentas | `mcp_tool_grants` | Atribuições de ferramentas individuais/de grupo: Permitir, Bloquear ou herança neutra, com a precedência descrita em permissões. |
+| Seleções de ligação | `mcp_oauth_tools` | Nomes de ferramentas selecionados por ligação OAuth; clientes Basic/sessão partilham o perfil Nextcloud separado (ID de ligação zero). |
 | Tabelas de política | `mcp_policy_state`, `mcp_policy_events` | Revisão/época global de autenticação e eventos duradouros de auditoria, limpeza e comprovativos. |
 | Tabelas de grupos | `mcp_group_grants`, `mcp_group_life` | Política apenas de concessão e identidade/ciclo de vida observados dos grupos. |
 | Tabelas de autenticação | `mcp_auth_users`, `mcp_auth_recheck` | Gerações/cortes de credenciais por utilizador e novas verificações diferidas do ciclo de vida. |
@@ -67,7 +69,7 @@ O operador configura separadamente o destino do código-fonte, na configuração
 
 ```php
 'mcp_source_offer' => [
-    'version' => '2.0.0',
+    'version' => '2.7.0',
     'sourceCommit' => 'FULL_40_CHARACTER_COMMIT_SHA',
     'manifestSha256' => 'SEPARATELY_TRUSTED_64_CHARACTER_MANIFEST_SHA256',
     'baseUrl' => 'https://sources.example.invalid/immutable-release-directory',

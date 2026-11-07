@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/installation.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../en/installation.md).
@@ -19,17 +19,17 @@ Nextcloud MCP se ejecuta como aplicación nativa de Nextcloud. Usa el PHP y el a
 | PHP | **8.4 o posterior**, también compatible con la versión de Nextcloud elegida |
 | Extensiones PHP | `zip`, `mbstring` y `dom`, además de los requisitos propios de Nextcloud |
 | Acceso del cliente | Una URL HTTPS accesible desde el cliente MCP elegido |
-| Aplicaciones opcionales | Habilita las correspondientes a Notes, Deck, Talk y Mail para usar sus funciones |
+| Aplicaciones opcionales | Habilita las correspondientes a Notes, Tasks, Calendar, Contacts, Deck, Talk, Mail y Forms para usar sus funciones |
 
-Las herramientas también dependen de los permisos del usuario y los permisos nativos sobre los recursos. Mail requiere una versión conocida de al menos 5.0.0 y permiso explícito de lectura; esa versión mínima de API no certifica todas las combinaciones de Mail y servidor. Las dependencias de Deck requieren API compatibles de NC34/35. Consulta el [catálogo de herramientas](reference/tools.md).
+Las herramientas también dependen de las asignaciones individuales, la selección de la conexión y los permisos nativos sobre los recursos. Mail requiere una versión conocida de al menos 5.0.0; Forms requiere una versión conocida de al menos 5.3.0. Sus herramientas necesitan asignación explícita y selección; esos mínimos de API no certifican todas las combinaciones de aplicación y servidor. Las dependencias de Deck requieren API compatibles de NC34/35. Consulta el [catálogo de herramientas](reference/tools.md).
 
 Las herramientas de desarrollo también prueban PHP 8.2/8.3; esos entornos no reducen el requisito de PHP 8.4 para instalar la aplicación. La matriz de pruebas nativas cubre Linux x86-64/Apache con NC33/34/35 y MariaDB 10.11, además de NC35 con PostgreSQL 16 o SQLite. Una prueba independiente de LinuxServer/Nginx usa NC35/PostgreSQL/S3. Son perfiles de prueba, no una garantía exhaustiva de compatibilidad de despliegues.
 
 ## Elige el paquete del fork
 
-El fork conserva el identificador **`mcp`** y el manifiesto declara la versión **2.0.0**. Sustituye una instalación existente de MCP for Cloud con ese mismo identificador. La tienda de Nextcloud distribuye el proyecto original: **`occ app:install mcp` instala la edición de la tienda**.
+El fork conserva el identificador **`mcp`** y el manifiesto declara la versión **2.7.0**. Sustituye una instalación existente de MCP for Cloud con ese mismo identificador. La tienda de Nextcloud distribuye el proyecto original: **`occ app:install mcp` instala la edición de la tienda**.
 
-Usa `mcp-2.0.0.tar.gz` construido desde una revisión examinada del fork, con su kit de fuentes correspondiente y el hash del manifiesto obtenido por un canal de confianza independiente. Un archivo de código fuente de GitHub o una copia del directorio `mcp/` sin construir no son paquetes de instalación. El checkout completo contiene las instrucciones de empaquetado en `docs/en/development/packaging.md` y `docs/en/development/source-delivery.md` (en inglés).
+Usa `mcp-2.7.0.tar.gz` construido desde una revisión examinada del fork, con su kit de fuentes correspondiente y el hash del manifiesto obtenido por un canal de confianza independiente. Un archivo de código fuente de GitHub o una copia del directorio `mcp/` sin construir no son paquetes de instalación. El checkout completo contiene las instrucciones de empaquetado en `docs/en/development/packaging.md` y `docs/en/development/source-delivery.md` (en inglés).
 
 ## Instalación nueva
 
@@ -38,8 +38,8 @@ Para una instancia donde `mcp` aún no esté instalada:
 1. Verifica el paquete y el kit de fuentes correspondiente con el hash de confianza del manifiesto.
 2. Extrae el único directorio `mcp/` del archivo en una raíz de aplicaciones configurada en `apps_paths` de Nextcloud. Ajusta la propiedad y el acceso de lectura según los roles de servicio y mantenimiento de tu despliegue.
 3. Como usuario de mantenimiento de Nextcloud, ejecuta `php /absolute/path/to/nextcloud/occ app:enable mcp` con el PHP seleccionado para esa instancia. En despliegues con contenedores, ejecuta el equivalente dentro de su entorno de mantenimiento.
-4. Abre **Administración → Nextcloud MCP**. Activa el servicio, permite conectarse a los usuarios previstos y elige sus permisos de operación.
-5. Cada usuario activa su conexión en **Ajustes personales → Nextcloud MCP** y sigue la [configuración de clientes](guides/clients.md).
+4. Abre **Administración → Nextcloud MCP**. Activa el servicio, permite conectarse a los usuarios previstos y asigna las herramientas individuales que puedan usar.
+5. Cada usuario activa su conexión en **Ajustes personales → Nextcloud MCP** selecciona las herramientas para el cliente y sigue la [configuración de clientes](guides/clients.md).
 
 Usa el endpoint que muestra Resumen en administración, normalmente:
 
@@ -47,7 +47,7 @@ Usa el endpoint que muestra Resumen en administración, normalmente:
 https://cloud.example.com/apps/mcp/
 ```
 
-Incluye el subdirectorio de instalación de Nextcloud si lo tiene. El servicio, la elegibilidad del usuario y la conexión personal empiezan desactivados, también para administradores. La escritura empieza denegada; leer Mail y los registros del servidor también requiere permiso explícito. Consulta [permisos y administración](guides/permissions.md).
+Incluye el subdirectorio de instalación de Nextcloud si lo tiene. El servicio, la elegibilidad del usuario y la conexión personal empiezan desactivados, también para administradores. La escritura empieza denegada; el acceso a Mail, Forms y los registros también requiere permisos explícitos. Las herramientas nuevas empiezan sin asignar ni seleccionar. Consulta [permisos y administración](guides/permissions.md).
 
 Las respuestas de las herramientas llegan al cliente de IA conectado. Elige permisos y restricciones de recursos según los datos que ese cliente deba recibir; alojar el conector en tu servidor no determina las políticas de tratamiento o conservación del cliente.
 

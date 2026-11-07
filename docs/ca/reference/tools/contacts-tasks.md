@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/contacts-tasks.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/contacts-tasks.md).
@@ -12,7 +12,7 @@
 | Mòdul | Eines | Dependència |
 |---|---|---|
 | Contactes | `contacts_list_addressbooks`, `contacts_search_contacts`, `contacts_read_contact`, `contacts_create_contact`, `contacts_edit_contact`, `contacts_delete_contact` | aplicació Contacts activada; CardDAV del nucli |
-| Tasques | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | DAV del nucli; no requereix l'aplicació Tasks ni Calendar |
+| Tasques | `tasks_list_calendars`, `tasks_list_tasks`, `tasks_read_task`, `tasks_create_task`, `tasks_edit_task`, `tasks_complete_task`, `tasks_delete_task` | aplicació Tasks habilitada i DAV del nucli |
 
 Els catàlegs de Contactes són propis o compartits i filtren explícitament qualsevol principal de sistema. Les lectures fan servir adaptadors mandrosos del dorsal natiu, després del filtre d'accés; les escriptures passen pel Sabre del nucli (un dispatcher CardDAV separat i l'`EmbeddedDavDispatcher` existent per a VTODO). La sessió ha de coincidir amb qui fa l'acció, i el principal queda fixat en executar-la. Les consultes de col·leccions de Calendar fan servir VEVENT per defecte; Tasks selecciona VTODO.
 

@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/deck.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/deck.md).
@@ -77,8 +77,24 @@ El recorregut es limita a 100 nodes llegibles inclosa l'arrel, 500 arestes llegi
 
 Després d'un resultat incert o parcial d'etiquetes/dependències/enllaç/desenllaç, inspecciona l'estat actual de Deck abans d'actuar de nou. Observar l'estat demanat després d'un error no demostra qui el va canviar ni que es completés tota la petició; no repeteixis l'escriptura automàticament.
 
+## Comentaris de targetes
+
+`deck_list_comments` llegeix una pàgina de comentaris d'una targeta visible amb `deck.read_comments`. Per publicar, crida `deck_add_comment` amb la targeta i el missatge i mostra la previsualització a l'usuari. Els lectors del tauler poden incloure persones alienes al fil de correu original. Després de l'aprovació, repeteix la crida amb `confirm: true` i el `plan_state` retornat. Un tauler compartit també requereix `confirm_shared: true`. Un pla canviat necessita una revisió nova. Publicar requereix `deck.comment` i accés natiu a la targeta. Deck permet comentar als lectors encara que no puguin editar els camps de la targeta.
+
+## Compleció de targetes
+
+Estableix `completed` a `true` a `deck_edit_card` per completar una targeta o a `false` per reobrir-la. Omet el camp per conservar l'estat actual. Repetir la compleció conserva la marca de temps original. La targeta continua a la pila actual, també en taulers amb una pila designada de completades. El canvi utilitza `deck.edit`, permisos natius del tauler i la previsualització i confirmació habituals d'edició.
+
 Consulta `mcp_guide` en viu per a l'esquema autoritatiu i les operacions disponibles.
 
 [Guies operatives](../../guides/README.md).
 
 [English](../../../en/reference/tools/deck.md) · [Español](../../../es/reference/tools/deck.md) · Català · [Português (Brasil)](../../../pt-BR/reference/tools/deck.md) · [Português (Portugal)](../../../pt-PT/reference/tools/deck.md)
+
+## Cercar targetes
+
+`deck_search_cards` requereix el permís independent `deck.search` i selecció explícita de l'eina. Cerca targetes actives en taulers que l'usuari autenticat pot llegir, inclosos els compartits de només lectura. No canvia targetes ni les marca com a vistes.
+
+Els filtres opcionals són `text` (títol i descripció), `boardId`, `assignee` (ID d'usuari), `labelIds`, `labelMatch` (`any` o `all`), `dueAfter` i `dueBefore`. Els extrems de data són inclusius a la zona horària de l'usuari. Combina filtres per delimitar el resultat. La paginació utilitza `limit` (50 per defecte, màxim 100) i `offset`.
+
+La cerca examina com a màxim 100 taulers, 500 piles i 2.000 targetes. Un resultat `truncated` significa que un límit d'exploració o resultat ha impedit una resposta completa; restringeix els filtres o utilitza un tauler concret abans de treure conclusions de resultats absents. Es comproven les ACL natives de Deck per a qui fa la crida; no es pot consultar un tauler privat d'un altre usuari endevinant-ne l'ID.

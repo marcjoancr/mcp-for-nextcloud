@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/deck.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../../en/reference/tools/deck.md).
@@ -77,8 +77,24 @@ A travessia está limitada a 100 nós legíveis incluindo a raiz, 500 arestas le
 
 Após um resultado incerto ou parcial de etiquetas/dependências/associação/remoção, consulte o estado atual do Deck antes de agir. Observar o estado pedido após um erro não prova quem o alterou nem que todo o pedido terminou; não repita automaticamente a escrita.
 
+## Comentários dos cartões
+
+`deck_list_comments` lê uma página de comentários de um cartão visível com `deck.read_comments`. Para publicar, chame `deck_add_comment` com o cartão e a mensagem e mostre a pré-visualização ao utilizador. Os leitores do quadro podem incluir pessoas fora da conversa de correio original. Após aprovação, repita a chamada com `confirm: true` e o `plan_state` devolvido. Um quadro partilhado também exige `confirm_shared: true`. Um plano alterado exige nova revisão. Publicar exige `deck.comment` e acesso nativo ao cartão. Deck permite que leitores comentem mesmo sem poderem editar campos do cartão.
+
+## Conclusão de cartões
+
+Defina `completed` como `true` em `deck_edit_card` para concluir um cartão, ou `false` para o reabrir. Omita o campo para preservar o estado atual. Repetir uma conclusão mantém a data/hora original. O cartão permanece na lista atual, incluindo em quadros com uma lista de concluídos designada. A alteração usa `deck.edit`, permissões nativas do quadro e a pré-visualização e confirmação habituais das edições.
+
 Consulte `mcp_guide` para o esquema e as operações disponíveis.
 
 [Guias de operação](../../guides/README.md).
 
 [English](../../../en/reference/tools/deck.md) · [Español](../../../es/reference/tools/deck.md) · [Català](../../../ca/reference/tools/deck.md) · [Português (Brasil)](../../../pt-BR/reference/tools/deck.md) · Português (Portugal)
+
+## Pesquisar cartões
+
+`deck_search_cards` exige a permissão independente `deck.search` e seleção explícita da ferramenta. Pesquisa cartões ativos em quadros que o utilizador autenticado pode ler, incluindo quadros partilhados apenas de leitura. Não altera cartões nem os marca como vistos.
+
+Os filtros opcionais são `text` (título e descrição), `boardId`, `assignee` (ID de utilizador), `labelIds`, `labelMatch` (`any` ou `all`), `dueAfter` e `dueBefore`. Os extremos das datas são inclusivos no fuso horário do utilizador. Combine filtros para restringir o resultado. A paginação usa `limit` (50 por predefinição, máximo 100) e `offset`.
+
+A pesquisa examina no máximo 100 quadros, 500 listas e 2.000 cartões. Um resultado `truncated` significa que um limite de análise ou resultados impediu uma resposta completa; restrinja os filtros ou use um quadro específico antes de tirar conclusões sobre resultados ausentes. As ACLs nativas Deck são verificadas para quem chama; não se pode consultar o quadro privado de outra pessoa adivinhando o ID.

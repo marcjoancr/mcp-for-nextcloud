@@ -3,23 +3,23 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/reference/tools.md).
 
 # Ferramentas
 
-Os catálogos dos módulos contêm no máximo **84 ferramentas de módulos**, mais `mcp_status` e `mcp_guide` (86 no total). Três ferramentas de dependência do Deck dependem de APIs nativas compatíveis no NC34/35; sem elas, há no máximo 81 ferramentas de módulos (83 no total). A disponibilidade dos aplicativos e o acesso de cada conta reduzem ainda mais esses números.
+Os catálogos dos módulos contêm no máximo **110 ferramentas de módulos**, mais `mcp_status` e `mcp_guide` (112 no total). Três ferramentas de dependência do Deck dependem de APIs nativas compatíveis no NC34/35; sem elas, há no máximo 107 ferramentas de módulos (109 no total). A disponibilidade dos aplicativos e o acesso de cada conta reduzem ainda mais esses números.
 
-Cada tool só aparece em `tools/list` e só pode ser chamada quando o usuário tem o grant da operação, e o app exigido está habilitado para ele. Grant e app são verificados de novo a cada chamada. Tudo roda como o usuário autenticado, pela pasta dele no Nextcloud, e as permissões e compartilhamentos do Nextcloud continuam valendo.
+Cada ferramenta só aparece em `tools/list` e só pode ser chamada quando está atribuída ao usuário, selecionada para a conexão e seus aplicativos e pré-requisitos de operação estão habilitados para ele. Grant e app são verificados de novo a cada chamada. Tudo roda como o usuário autenticado, pela pasta dele no Nextcloud, e as permissões e compartilhamentos do Nextcloud continuam valendo.
 
 ### Guia das ferramentas (`mcp_guide`)
 
 `mcp_guide` (título **Guia das ferramentas**) descreve as ferramentas ao próprio modelo, para que ele não precise adivinhar o que cada uma faz:
 
 - **sem argumento** — uma linha por módulo com os títulos das ferramentas, apenas dos módulos disponíveis **para aquele usuário** (o mesmo filtro de grant e app do `tools/list`: módulo desabilitado ou sem grant não aparece);
-- **com `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`) — cada ferramenta do módulo: descrição, se lê ou escreve, parâmetros com tipo, obrigatoriedade, descrição, `enum` e limites, e as confirmações que exige;
+- **com `module`** (`files`, `notes`, `calendar`, `contacts`, `tasks`, `deck`, `talk`, `people`, `logs`, `mail`, `forms`) — cada ferramenta do módulo: descrição, se lê ou escreve, parâmetros com tipo, obrigatoriedade, descrição, `enum` e limites, e as confirmações que exige;
 - **com `tool`** — uma só ferramenta, com o módulo a que pertence.
 
 O guia é escrito em inglês e o modelo repassa no idioma do usuário.
@@ -30,7 +30,7 @@ Módulo ou ferramenta que o usuário não pode ver é recusado com uma mensagem 
 
 E também:
 
-- **Confirmação conversacional antes de qualquer escrita (`confirm: true`)**: qualquer ferramenta que altera dados (`operation != 'read'`) só executa quando chamada com `confirm: true`. Sem isso, o servidor apenas devolve o plano (`requiresConfirmation: true`) sem modificar nada. O assistente deve apresentar o plano ao usuário e só repetir a chamada com `confirm: true` após aprovação explícita. Nenhum estado ou token de aprovação é gravado no servidor.
+- **Confirmação conversacional antes de qualquer escrita (`confirm: true`)**: qualquer ferramenta que altera dados só executa quando chamada com `confirm: true`. Sem isso, o servidor apenas devolve o plano (`requiresConfirmation: true`) sem modificar nada. O assistente deve apresentar o plano ao usuário e só repetir a chamada com `confirm: true` após aprovação explícita. Nenhum estado ou token de aprovação é gravado no servidor.
 - **OCR pelo Workflow OCR**: com o app Workflow OCR instalado, os PDFs escaneados ganham uma camada de texto que o `files_read` lê normalmente. Sem ele, um PDF ou imagem sem texto volta com `text_layer: false` e um aviso, e a página de admin mostra o status do OCR com o link para instalar. Nada fica bloqueado.
 - **Nomes amigáveis das ferramentas** no cliente ("Buscar arquivos", "Listar calendários") e anotações MCP (`readOnlyHint`, `destructiveHint`), para o cliente pedir confirmação em ações de risco.
 - **Confirmação de segurança** em recursos de outras pessoas: pastas compartilhadas, pastas de time, quadros do Deck e calendários de outro dono. O servidor recusa a primeira chamada e devolve uma mensagem pronta. O assistente precisa perguntar ao usuário antes de repetir com `confirm_shared: true`. *(Deck e Calendário desde a 0.6.6; Arquivos e Notas desde a 0.7.0)*
@@ -48,6 +48,9 @@ E também:
 - [Talk](tools/talk.md)
 - [Pessoas](tools/people.md)
 - [Mail](tools/mail.md)
+- [Forms](tools/forms.md) — `forms_list` lista formulários acessíveis. `forms_read` lê perguntas e opções de um formulário. Exige Forms 5.3.0 ou superior e a permissão separada `forms.read`. `forms_read_responses` lê páginas de envios com a permissão separada `forms.read_responses` e permissão nativa de resultados. Use os deslocamentos retornados para obter perguntas e opções seguintes. Campos de texto maiores que 1 KiB incluem uma indicação de truncamento.
+
+Para `forms_read_responses`, informe o `id` do formulário, `limit` (padrão 50, máximo 100) e `offset`. Siga `nextOffset` enquanto `hasMore` for verdadeiro. Cada envio inclui no máximo 200 respostas, com `answersTruncated` indicando respostas omitidas. Texto maior que 1 KiB inclui `textTruncated: true`. Respostas com upload de arquivos são omitidas e informadas por `fileAnswersOmitted`. Envios anônimos omitem IDs de respondentes mesmo quando a configuração de anonimato do formulário muda depois. Poder visualizar as próprias respostas não concede ao respondente acesso ao conjunto completo de resultados por essa ferramenta.
 
 `mcp_status` fornece diagnóstico sem ler dados do usuário. A identidade do servidor nos metadados de protocolo, ferramentas, prompts e recursos informa a versão instalada do aplicativo obtida do Nextcloud, em vez de um número de versão copiado do projeto original.
 

@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/oauth.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../en/reference/oauth.md).
@@ -12,6 +12,8 @@
 Os metadados do recurso protegido ficam em `/apps/mcp/.well-known/oauth-protected-resource`. O desafio `401` identifica esse documento. Os metadados do servidor de autorização ficam em `/apps/mcp/.well-known/openid-configuration` e `/apps/mcp/.well-known/oauth-authorization-server`, com emissor `https://<instance>/apps/mcp`.
 
 `oauth/authorize` oferece consentimento no navegador; `oauth/token` troca códigos de autorização com PKCE S256 e substitui os tokens de renovação. Tokens de acesso duram uma hora e os de renovação, 30 dias. A base de dados guarda hashes de credenciais, não os valores em texto simples. É autenticação de cliente público (`none`); um ID de cliente é um identificador, não um segredo nem uma concessão de permissões.
+
+Ao ligar um cliente, o ecrã de consentimento começa sem ferramentas de dados selecionadas. Expanda um catálogo para escolher ferramentas e ações individuais, ou selecione e limpe ferramentas de um catálogo ou de todos os catálogos. Selecionar tudo inclui todas as ações permitidas pelo administrador. Também pode autorizar uma ligação com zero ferramentas de dados. As escolhas aplicam-se apenas a esta ligação.
 
 ## Clientes publicados, nativos e registados
 

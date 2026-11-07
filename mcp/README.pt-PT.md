@@ -2,29 +2,29 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](README.md).
 
 # Nextcloud MCP
 
-**O seu Nextcloud, na conversa.** Pesquise ficheiros, trabalhe com notas, calendários, contactos e tarefas, gira cartões do Deck e ponha o Talk em dia através de um cliente MCP. Mail disponibiliza as contas próprias e contagens de pastas em cache; operadores autorizados podem consultar os registos do servidor.
+**O seu Nextcloud, na conversa.** Pesquise ficheiros, trabalhe com notas, calendários, contactos e tarefas, gira cartões do Deck e ponha o Talk em dia através de um cliente MCP. Mail lê mensagens e anexos próprios e gere rascunhos locais não enviados, sem enviar; Forms lê resultados permitidos e exporta páginas CSV limitadas. Operadores autorizados podem consultar os registos do servidor.
 
 [English](README.md) · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · **Português (Portugal)**
 
 ## Primeiros passos
 
-Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.0.0** e mantém o identificador `mcp`. A edição da Nextcloud App Store é a do projeto original; use o pacote revisto deste fork para instalar ou substituir a aplicação.
+Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.7.0** e mantém o identificador `mcp`. A edição da Nextcloud App Store é a do projeto original; use o pacote revisto deste fork para instalar ou substituir a aplicação.
 
 1. [Instale a aplicação](../docs/pt-PT/installation.md).
 2. [Ative o serviço, a elegibilidade do utilizador e a ligação pessoal](../docs/pt-PT/guides/permissions.md#ativar-o-acesso).
-3. [Ligue um cliente](../docs/pt-PT/guides/clients.md) a `https://cloud.example.com/apps/mcp/` com OAuth ou uma palavra-passe de aplicação.
+3. [Ligue um cliente](../docs/pt-PT/guides/clients.md) a `https://cloud.example.com/apps/mcp/` com OAuth ou uma palavra-passe de aplicação, e selecione as ferramentas permitidas.
 4. Peça o **Guia das ferramentas** e experimente «Que conversas do Talk têm mensagens por ler?» ou «Encontra a proposta do projeto e resume-a.». São pedidos de exemplo, não transcrições de sessões reais.
 
 ## O acesso continua sob o seu controlo
 
-Até **86 ferramentas** em dez módulos, incluindo as de guia/estado, são filtradas pelas aplicações disponíveis e permissões da conta. As permissões nativas do Nextcloud aplicam-se em cada pedido. Os administradores podem limitar o acesso a pastas, calendários e listas de tarefas selecionados e excluir ficheiros com determinadas etiquetas. As ferramentas de escrita devolvem uma pré-visualização salvo confirmação explícita; o assistente deve obter a aprovação do utilizador. Não existe ferramenta de eliminação de ficheiros. As ferramentas de Mail e registos são apenas de leitura e exigem permissões explícitas.
+Até **112 ferramentas** em onze módulos, incluindo as de guia/estado, são filtradas pelas aplicações disponíveis, atribuições de ferramentas e seleções da ligação. As permissões nativas do Nextcloud aplicam-se em cada pedido. Os administradores podem limitar o acesso a pastas, calendários e listas de tarefas selecionados e excluir ficheiros com determinadas etiquetas. As ferramentas de escrita devolvem uma pré-visualização salvo confirmação explícita; o assistente deve obter a aprovação do utilizador. Não existe ferramenta de eliminação de ficheiros. As ferramentas Mail, Forms e de registos exigem permissões explícitas. Rascunhos Mail, gravação de anexos e exportações Forms exigem confirmação; os registos continuam apenas de leitura e Mail nunca envia mensagens.
 
 Os resultados são enviados ao cliente de IA escolhido, sujeito às suas próprias políticas de tratamento e retenção.
 

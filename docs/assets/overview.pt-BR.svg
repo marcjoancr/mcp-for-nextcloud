@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1160" height="430" viewBox="0 0 1160 430" role="img" aria-labelledby="title description">
   <title id="title">Seu Nextcloud, na conversa</title>
-  <desc id="description">Um cliente MCP conecta-se por HTTPS com OAuth ou senha de aplicativo. Nextcloud MCP verifica permissões e oferece Arquivos, Notas, Calendário, Contatos, Tarefas, Deck, Talk, Pessoas, Mail e logs do servidor. Somente resultados permitidos retornam ao cliente. Escritas exigem plano e confirmação.</desc>
+  <desc id="description">Um cliente MCP conecta-se por HTTPS com OAuth ou senha de aplicativo. Nextcloud MCP verifica permissões e oferece Arquivos, Notas, Calendário, Contatos, Tarefas, Deck, Talk, Pessoas, Mail, Forms e logs do servidor. Somente resultados permitidos retornam ao cliente. Escritas exigem plano e confirmação.</desc>
   <defs>
     <linearGradient id="background" x2="1" y2="1">
       <stop stop-color="#0b172c"/>
@@ -50,12 +50,12 @@
     <g fill="#223f5d">
       <rect x="738" y="217" width="112" height="32" rx="7"/><rect x="860" y="217" width="112" height="32" rx="7"/><rect x="982" y="217" width="126" height="32" rx="7"/>
       <rect x="738" y="259" width="112" height="32" rx="7"/><rect x="860" y="259" width="112" height="32" rx="7"/><rect x="982" y="259" width="126" height="32" rx="7"/>
-      <rect x="738" y="301" width="76" height="32" rx="7"/><rect x="824" y="301" width="80" height="32" rx="7"/><rect x="914" y="301" width="76" height="32" rx="7"/><rect x="1000" y="301" width="108" height="32" rx="7"/>
+      <rect x="738" y="301" width="66" height="32" rx="7"/><rect x="814" y="301" width="66" height="32" rx="7"/><rect x="890" y="301" width="66" height="32" rx="7"/><rect x="966" y="301" width="66" height="32" rx="7"/><rect x="1042" y="301" width="66" height="32" rx="7"/>
     </g>
     <g fill="#e1edf8" font-size="14" text-anchor="middle">
       <text x="794" y="238">Arquivos</text><text x="916" y="238">Notas</text><text x="1045" y="238">Calendário</text>
       <text x="794" y="280">Contatos</text><text x="916" y="280">Tarefas</text><text x="1045" y="280">Deck</text>
-      <text x="776" y="322">Talk</text><text x="864" y="322">Pessoas</text><text x="952" y="322">Mail</text><text x="1054" y="322">Logs</text>
+      <text x="771" y="322">Talk</text><text x="847" y="322">Pessoas</text><text x="923" y="322">Mail</text><text x="999" y="322">Forms</text><text x="1075" y="322">Logs</text>
     </g>
     <path d="M32 379h1096" stroke="#35516d"/>
     <text x="32" y="407" fill="#bacce1" font-size="14">Só resultados permitidos retornam ao cliente. Escritas exigem prévia e confirmação explícita.</text>

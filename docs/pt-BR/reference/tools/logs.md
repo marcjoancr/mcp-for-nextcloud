@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/tools/logs.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../../en/reference/tools/logs.md).

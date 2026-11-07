@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/tools/calendar.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../../en/reference/tools/calendar.md).
@@ -43,3 +43,11 @@ Consulte `mcp_guide` para o esquema e as operações disponíveis.
 [Guias de operação](../../guides/README.md).
 
 [English](../../../en/reference/tools/calendar.md) · [Español](../../../es/reference/tools/calendar.md) · [Català](../../../ca/reference/tools/calendar.md) · Português (Brasil) · [Português (Portugal)](../../../pt-PT/reference/tools/calendar.md)
+
+## Disponibilidade e conflitos
+
+`calendar_check_availability` exige a permissão independente `calendar.availability` e seleção explícita da ferramenta. Informe `from` (inclusivo) e `to` (exclusivo), com janela máxima de 31 dias. Use `calendars` opcional para selecionar até 20 caminhos de calendários acessíveis; omita para usar todos os visíveis, sujeito ao mesmo limite. `min_duration_minutes` filtra intervalos livres (padrão 30, intervalo 5–1440).
+
+A resposta contém intervalos ocupados em UTC, conflitos de sobreposição e intervalos livres em comum. Intervalos que apenas se tocam não conflitam. Eventos recorrentes, exceções de recorrência e fusos seguem as regras existentes de expansão de calendários; eventos cancelados e transparentes não bloqueiam tempo. Argumentos somente data e valores flutuantes de dia inteiro seguem a convenção UTC existente de data civil.
+
+Nenhum título, descrição ou dado de participante de eventos é retornado. Compartilhamentos nativos, restrições de escopo Calendar e classificação de eventos se aplicam. Se eventos ocultos, dados inválidos ou limites de varredura impedem um cálculo confiável, a ferramenta retorna erro em vez de afirmar que o tempo está livre. A varredura permite até 2.000 objetos por calendário e 10.000 ocorrências no total. Eventos de duração zero também tornam a disponibilidade indisponível nesta política conservadora. A disponibilidade é um retrato dos calendários acessíveis, não uma reserva nem uma afirmação sobre calendários inacessíveis ao solicitante.

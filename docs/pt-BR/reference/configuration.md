@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/configuration.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/reference/configuration.md).
@@ -17,7 +17,9 @@ Use as interfaces de administração e configurações pessoais para alterar a p
 | Aplicativo `mcp` | `service_enabled` | `1` ativado; `0` ou ausente, desativado. Altere pelo comando/interface do serviço. |
 | Usuário, aplicativo `mcp` | `eligible` | Exceção individual `1`/`0` de **Pode conectar**; sua ausência permite herança de grupo e depois o padrão desativado. |
 | Usuário, aplicativo `mcp` | `connected` | `1` indica conexão pessoal ativa. É diferente de uma credencial OAuth válida. |
-| Usuário, aplicativo `mcp` | `grant_<module>_<operation>` | Exceção individual `1`/`0`. Ausência significa herança de grupos confiáveis e depois leitura permitida, exceto logs; outras operações negadas. |
+| Usuário, aplicativo `mcp` | `grant_<module>_<operation>` | Exceção individual legada de operação usada pelos padrões de compatibilidade das ferramentas originais. O acesso atual também exige atribuição da ferramenta e seleção na conexão; Mail, Forms e logs começam negados. |
+| Regras de ferramentas | `mcp_tool_grants` | Atribuições individuais/de grupo: Permitir, Bloquear ou herança neutra, com a precedência descrita em permissões. |
+| Seleções de conexão | `mcp_oauth_tools` | Nomes de ferramentas selecionadas por conexão OAuth; clientes Basic/sessão compartilham o perfil Nextcloud separado (ID de conexão zero). |
 | Tabelas de política | `mcp_policy_state`, `mcp_policy_events` | Revisão/época global de autenticação e eventos persistentes de auditoria, limpeza e recibos. |
 | Tabelas de grupos | `mcp_group_grants`, `mcp_group_life` | Política que somente concede permissões e identidade/ciclo de vida de grupo observados. |
 | Tabelas de autenticação | `mcp_auth_users`, `mcp_auth_recheck` | Gerações/invalidações de credenciais por usuário e verificações adiadas do ciclo de vida. |
@@ -68,7 +70,7 @@ Após preparar o kit completo, o operador configura separadamente o destino do c
 
 ```php
 'mcp_source_offer' => [
-    'version' => '2.0.0',
+    'version' => '2.7.0',
     'sourceCommit' => 'FULL_40_CHARACTER_COMMIT_SHA',
     'manifestSha256' => 'SEPARATELY_TRUSTED_64_CHARACTER_MANIFEST_SHA256',
     'baseUrl' => 'https://sources.example.invalid/immutable-release-directory',

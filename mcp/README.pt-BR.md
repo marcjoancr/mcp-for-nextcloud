@@ -3,29 +3,29 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](README.md).
 
 # Nextcloud MCP
 
-**Seu Nextcloud, na conversa.** Busque arquivos, trabalhe com notas, calendários, contatos e tarefas, gerencie cards do Deck e acompanhe o Talk por um cliente MCP. Mail oferece contas próprias e contagens de pastas em cache; operadores autorizados podem inspecionar logs do servidor.
+**Seu Nextcloud, na conversa.** Busque arquivos, trabalhe com notas, calendários, contatos e tarefas, gerencie cards do Deck e acompanhe o Talk por um cliente MCP. Mail lê mensagens e anexos próprios e gerencia rascunhos locais não enviados, sem enviar mensagens; Forms lê resultados permitidos e exporta páginas CSV limitadas. Operadores autorizados podem inspecionar logs do servidor.
 
 [English](README.md) · [Español](README.es.md) · [Català](README.ca.md) · **Português (Brasil)** · [Português (Portugal)](README.pt-PT.md)
 
 ## Primeiros passos
 
-Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork mantido independentemente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.0.0** e mantém o identificador `mcp`. A edição da loja Nextcloud é a do projeto original; use o pacote verificado deste fork para instalar ou substituir.
+Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork mantido independentemente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.7.0** e mantém o identificador `mcp`. A edição da loja Nextcloud é a do projeto original; use o pacote verificado deste fork para instalar ou substituir.
 
 1. [Instale o aplicativo](../docs/pt-BR/installation.md).
 2. [Ative o serviço, a elegibilidade do usuário e a conexão pessoal](../docs/pt-BR/guides/permissions.md#habilitar-o-acesso).
-3. [Conecte um cliente](../docs/pt-BR/guides/clients.md) a `https://cloud.example.com/apps/mcp/` usando OAuth ou senha de aplicativo.
+3. [Conecte um cliente](../docs/pt-BR/guides/clients.md) a `https://cloud.example.com/apps/mcp/` usando OAuth ou senha de aplicativo, e selecione suas ferramentas permitidas.
 4. Peça o **Guia das ferramentas** e experimente “Quais conversas do Talk têm mensagens não lidas?” ou “Encontre a proposta do projeto e faça um resumo.” São solicitações de exemplo, não transcrições gravadas.
 
 ## O acesso continua sob seu controle
 
-Até **86 ferramentas** em dez módulos, incluindo guia/status, são filtradas pelos aplicativos disponíveis e permissões da conta. Permissões nativas Nextcloud se aplicam a cada solicitação. Administradores podem limitar o acesso a pastas, calendários e listas de tarefas selecionados e excluir arquivos com etiquetas. Ferramentas de escrita retornam uma prévia, salvo confirmação explícita; o assistente deve obter aprovação do usuário. Não há ferramenta de exclusão de arquivos. Ferramentas Mail e de logs são somente leitura e exigem permissões explícitas.
+Até **112 ferramentas** em onze módulos, incluindo guia/status, são filtradas pelos aplicativos disponíveis, atribuições de ferramentas e seleções de conexão. Permissões nativas Nextcloud se aplicam a cada solicitação. Administradores podem limitar o acesso a pastas, calendários e listas de tarefas selecionados e excluir arquivos com etiquetas. Ferramentas de escrita retornam uma prévia, salvo confirmação explícita; o assistente deve obter aprovação do usuário. Não há ferramenta de exclusão de arquivos. Ferramentas Mail, Forms e de logs exigem permissões explícitas. Rascunhos Mail, salvamento de anexos e exportações Forms exigem confirmação; logs continuam somente leitura e Mail nunca envia mensagens.
 
 Resultados das ferramentas são enviados ao cliente de IA escolhido e estão sujeitos às suas políticas de processamento e retenção.
 

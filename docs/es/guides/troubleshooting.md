@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/troubleshooting.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../en/guides/troubleshooting.md).
@@ -70,3 +70,22 @@ Cualquier `FAIL` devuelve un código distinto de cero. Si falla la limpieza, `cl
 [Guías operativas](README.md).
 
 [English](../../en/guides/troubleshooting.md) · Español · [Català](../../ca/guides/troubleshooting.md) · [Português (Brasil)](../../pt-BR/guides/troubleshooting.md) · [Português (Portugal)](../../pt-PT/guides/troubleshooting.md)
+
+## Rastrear una llamada autenticada a herramientas
+
+Un administrador puede activar un rastreo privado para un ID exacto de usuario de Nextcloud y una lista explícita de herramientas. Por ejemplo, crea en el servidor un diario nuevo en un directorio controlado por el operador, fuera de la raíz web, el almacenamiento de usuarios y los registros expuestos por MCP. Da acceso al archivo solo al proceso PHP (modo 0600). Configura lo siguiente en el sistema, sustituyendo los ejemplos por una **marca Unix fija de caducidad**, la ruta visible por el proceso y la cuenta seleccionada. Calcular la caducidad desde la hora actual en la configuración prolongaría continuamente la captura.
+
+```php
+'mcp.tool_diagnostics' => [
+    'user' => '<exact Nextcloud UID>',
+    'tools' => ['files_share'],
+    'file' => '/var/log/private-mcp/tool-calls.jsonl',
+    'until' => 0, // Replace with the Unix timestamp at which capture should stop.
+],
+```
+
+Cada llamada autenticada registra una recepción UTC y un resultado con el mismo ID aleatorio de solicitud. Una vista previa que devuelve un plan y una confirmación que lo presenta comparten una referencia opaca. Si cambia el plan, cambia la referencia. El diario usa clasificaciones fijas y excluye credenciales, ID de cliente y usuario, rutas, URL públicas, argumentos sin procesar, respuestas y mensajes de excepción.
+
+Usa una vista previa controlada para verificar la captura antes de interpretar un incidente. Busca `preview_returned`, seguido de una recepción `confirmation` y su resultado. `invalid_plan_state` indica una referencia ausente o inválida, `new_preview_required` que el servidor pidió otra aprobación y `share_refused` que una regla de compartición rechazó la llamada. Una recepción aislada deja el resultado incierto. Comprueba el estado nativo antes de reintentar una escritura.
+
+La captura empieza al despachar una herramienta autenticada. Un diario vacío también puede deberse a una ventana caducada, otra cuenta o herramienta, permisos del archivo, contención de bloqueo o el límite de 1 MiB. Comprueba el estado HTTP del endpoint y los detalles de la acción del cliente para los intentos que no llegaron al despacho. Retira la configuración y elimina el diario privado tras investigar. Usa un archivo y caducidad nuevos para cada incidente.

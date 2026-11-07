@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/deck.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../../en/reference/tools/deck.md).
@@ -77,8 +77,24 @@ El recorrido se limita a 100 nodos legibles incluida la raíz, 500 aristas legib
 
 Tras un resultado incierto o parcial de etiquetas/dependencias/enlace/desvinculación, consulta el estado actual de Deck antes de seguir. Observar el estado solicitado después de un error no prueba qué actor lo cambió ni que se completara toda la solicitud; no repitas automáticamente la escritura.
 
+## Comentarios de tarjetas
+
+`deck_list_comments` lee una página de comentarios de una tarjeta visible con `deck.read_comments`. Para publicar, llama a `deck_add_comment` con la tarjeta y el mensaje y muestra la vista previa al usuario. Los lectores del tablero pueden incluir personas ajenas al hilo de correo original. Tras la aprobación, repite con `confirm: true` y el `plan_state` devuelto. Un tablero compartido también requiere `confirm_shared: true`. Si cambia el plan, se necesita otra revisión. Publicar requiere `deck.comment` y acceso nativo a la tarjeta. Deck permite comentar a los lectores aunque no puedan editar los campos de la tarjeta.
+
+## Completar tarjetas
+
+Establece `completed` en `true` en `deck_edit_card` para completar una tarjeta o en `false` para reabrirla. Omite el campo para conservar el estado. Repetir la finalización conserva su fecha/hora original. La tarjeta permanece en su lista, también en tableros con una lista designada para tarjetas terminadas. Usa `deck.edit`, los permisos nativos del tablero y la vista previa y confirmación habituales de edición.
+
 Consulta la guía `mcp_guide` activa para obtener el esquema y las operaciones disponibles como referencia definitiva.
 
 [Guías operativas](../../guides/README.md).
 
 [English](../../../en/reference/tools/deck.md) · Español · [Català](../../../ca/reference/tools/deck.md) · [Português (Brasil)](../../../pt-BR/reference/tools/deck.md) · [Português (Portugal)](../../../pt-PT/reference/tools/deck.md)
+
+## Buscar tarjetas
+
+`deck_search_cards` requiere el permiso independiente `deck.search` y selección explícita de herramienta. Busca tarjetas activas en tableros legibles por el usuario autenticado, incluidos los compartidos con acceso de solo lectura. No cambia tarjetas ni las marca como vistas.
+
+Los filtros opcionales son `text` (título y descripción), `boardId`, `assignee` (ID de usuario), `labelIds`, `labelMatch` (`any` o `all`), `dueAfter` y `dueBefore`. Los extremos de fecha son inclusivos en la zona horaria del usuario. Combina filtros para acotar resultados. La paginación usa `limit` (50 por defecto, máximo 100) y `offset`.
+
+La búsqueda examina como máximo 100 tableros, 500 listas y 2000 tarjetas. Un resultado `truncated` significa que un límite de recorrido o resultados impidió una respuesta completa; acota los filtros o usa un tablero concreto antes de sacar conclusiones de elementos ausentes. Se comprueban las ACL nativas de Deck para quien llama; no se puede consultar un tablero privado ajeno adivinando su ID.

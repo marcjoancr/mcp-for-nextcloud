@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/configuration.md -->
-<!-- translation-source-revision: 6cbeb0b5675be9b99f3a27c755cf92069f776fb8 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/reference/configuration.md).
@@ -16,7 +16,9 @@ Utilitza les interfícies d'administració i configuració personal per canviar 
 | Aplicació `mcp` | `service_enabled` | `1` activat; `0` o absent, desactivat. Canvia-ho amb l'ordre/interfície del servei. |
 | Usuari, aplicació `mcp` | `eligible` | Excepció individual `1`/`0` de **Pot connectar-se**; l'absència permet herència de grup i després el valor predeterminat desactivat. |
 | Usuari, aplicació `mcp` | `connected` | `1` indica connexió personal activa. És diferent d'una credencial OAuth vigent. |
-| Usuari, aplicació `mcp` | `grant_<module>_<operation>` | Excepció individual `1`/`0`. Absent significa herència de grups de confiança i després lectura permesa excepte registres; altres operacions denegades. |
+| Usuari, aplicació `mcp` | `grant_<module>_<operation>` | Excepció individual antiga d'operació utilitzada pels valors de compatibilitat de les eines originals. L'accés actual també requereix assignació d'eina i selecció de connexió; Mail, Forms i registres comencen denegats. |
+| Regles d'eines | `mcp_tool_grants` | Assignacions individuals/de grup: Permet, Bloqueja o herència neutra, amb la precedència descrita a permisos. |
+| Seleccions de connexió | `mcp_oauth_tools` | Noms d'eina seleccionats per connexió OAuth; els clients Basic/de sessió comparteixen el perfil Nextcloud separat (ID de connexió zero). |
 | Taules de política | `mcp_policy_state`, `mcp_policy_events` | Revisió/època global d'autenticació i esdeveniments persistents d'auditoria, neteja i rebuts. |
 | Taules de grups | `mcp_group_grants`, `mcp_group_life` | Política que només concedeix permisos i identitat/cicle de vida de grup observats. |
 | Taules d'autenticació | `mcp_auth_users`, `mcp_auth_recheck` | Generacions/invalidacions de credencials per usuari i comprovacions diferides del cicle de vida. |
@@ -67,7 +69,7 @@ Un operador configura per separat la destinació del codi font mitjançant la co
 
 ```php
 'mcp_source_offer' => [
-    'version' => '2.0.0',
+    'version' => '2.7.0',
     'sourceCommit' => 'FULL_40_CHARACTER_COMMIT_SHA',
     'manifestSha256' => 'SEPARATELY_TRUSTED_64_CHARACTER_MANIFEST_SHA256',
     'baseUrl' => 'https://sources.example.invalid/immutable-release-directory',
