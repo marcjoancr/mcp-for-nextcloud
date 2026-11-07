@@ -8,7 +8,7 @@
 - [Connecting clients](clients.md)
 - [Permissions and administration](permissions.md)
 - [File protection](file-protection.md)
-- [Server log (1.0.2)](server-logs.md)
+- [Server logs](server-logs.md)
 - [Troubleshooting](troubleshooting.md)
 - [Tools](../reference/tools.md)
 - [Resources (MCP Resources)](../reference/resources.md)

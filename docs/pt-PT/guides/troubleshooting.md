@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/troubleshooting.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../en/guides/troubleshooting.md).
@@ -70,3 +70,22 @@ Qualquer `FAIL` devolve um código diferente de zero. Se a limpeza falhar, `clea
 [Guias de operação](README.md).
 
 [English](../../en/guides/troubleshooting.md) · [Español](../../es/guides/troubleshooting.md) · [Català](../../ca/guides/troubleshooting.md) · [Português (Brasil)](../../pt-BR/guides/troubleshooting.md) · Português (Portugal)
+
+## Rastrear uma chamada autenticada de ferramenta
+
+O administrador da instância pode ativar um rastreio privado para um ID exato de utilizador Nextcloud e uma lista explícita de nomes de ferramentas. Por exemplo, no servidor Nextcloud, crie um novo diário num diretório controlado pelo operador fora da raiz Web, armazenamento dos utilizadores e quaisquer registos expostos pelo MCP. Dê apenas ao processo PHP acesso ao ficheiro (modo 0600). Defina a configuração de sistema seguinte, substituindo os valores de exemplo por uma **data de expiração Unix fixa** absoluta, o caminho visível pelo processo e a conta selecionada. Calcular a expiração a partir da hora atual na configuração prolongaria continuamente a captura.
+
+```php
+'mcp.tool_diagnostics' => [
+    'user' => '<exact Nextcloud UID>',
+    'tools' => ['files_share'],
+    'file' => '/var/log/private-mcp/tool-calls.jsonl',
+    'until' => 0, // Replace with the Unix timestamp at which capture should stop.
+],
+```
+
+Cada chamada autenticada regista um comprovativo UTC e um resultado com o mesmo ID aleatório de pedido. Uma pré-visualização que devolva um plano e uma confirmação que o apresente partilham uma referência opaca de plano. Um plano alterado tem uma nova referência. O diário contém classificações fixas e exclui credenciais, IDs de clientes e utilizadores, caminhos, URLs públicos, argumentos em bruto, respostas e mensagens de exceção.
+
+Use uma pré-visualização controlada para verificar a captura antes de interpretar um incidente. Procure `preview_returned`, seguido de um comprovativo `confirmation` e respetivo resultado. Por exemplo, `invalid_plan_state` identifica uma referência de confirmação ausente ou inválida, `new_preview_required` indica que o servidor pediu nova aprovação e `share_refused` indica recusa pela regra de partilha. Um comprovativo isolado deixa o resultado incerto. Consulte o estado nativo antes de repetir uma escrita.
+
+A captura começa no encaminhamento autenticado de ferramentas. Um diário vazio também pode resultar de janela expirada, conta ou ferramenta diferente, permissões do ficheiro, contenção de bloqueios ou limite de 1 MiB. Verifique o estado HTTP do ponto de acesso e os detalhes da ação do cliente para tentativas que não chegaram ao encaminhamento. Remova a configuração e elimine o diário privado após a investigação. Use um ficheiro e expiração novos em cada incidente.

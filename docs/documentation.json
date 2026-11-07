@@ -123,6 +123,10 @@
     "docs/pt-PT/reference/tools/people.md",
     "docs/pt-PT/reference/tools/talk.md",
     "docs/pt-PT/reference/tools/tasks.md",
-    "docs/pt-PT/reference/tools.md"
+    "docs/pt-PT/reference/tools.md",
+    "docs/es/reference/tools/forms.md",
+    "docs/ca/reference/tools/forms.md",
+    "docs/pt-BR/reference/tools/forms.md",
+    "docs/pt-PT/reference/tools/forms.md"
   ]
 }

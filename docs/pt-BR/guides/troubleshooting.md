@@ -3,10 +3,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/guides/troubleshooting.md -->
-<!-- translation-source-revision: a527ea9ff481a7a1f060b3162496bcfaadd2d928 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../en/guides/troubleshooting.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/guides/troubleshooting.md).
 
 # Diagnóstico
 
@@ -73,3 +73,22 @@ Qualquer `FAIL` retorna código não zero. Se a limpeza falhar, `cleanup-resourc
 [Guias de operação](README.md).
 
 [English](../../en/guides/troubleshooting.md) · [Español](../../es/guides/troubleshooting.md) · [Català](../../ca/guides/troubleshooting.md) · Português (Brasil) · [Português (Portugal)](../../pt-PT/guides/troubleshooting.md)
+
+## Rastrear uma chamada autenticada de ferramenta
+
+O administrador da instância pode ativar rastreamento privado para um ID exato de usuário Nextcloud e uma lista explícita de nomes de ferramentas. Por exemplo, no servidor Nextcloud, crie um novo registro em um diretório controlado pelo operador fora da raiz web, do armazenamento dos usuários e de quaisquer logs expostos pelo MCP. Dê acesso ao arquivo apenas ao processo PHP (modo 0600). Defina a configuração de sistema abaixo, substituindo os exemplos por um **timestamp Unix fixo de expiração** absoluto, o caminho visível ao processo e a conta selecionada. Calcular a expiração a partir da hora atual na configuração estenderia a captura continuamente.
+
+```php
+'mcp.tool_diagnostics' => [
+    'user' => '<exact Nextcloud UID>',
+    'tools' => ['files_share'],
+    'file' => '/var/log/private-mcp/tool-calls.jsonl',
+    'until' => 0, // Replace with the Unix timestamp at which capture should stop.
+],
+```
+
+Cada chamada autenticada registra um recibo UTC e um resultado com o mesmo ID aleatório de solicitação. Uma prévia que retorna um plano e uma confirmação que apresenta esse plano compartilham referência opaca ao plano. Plano alterado recebe nova referência. O registro contém classificações fixas e exclui credenciais, IDs de clientes, IDs de usuários, caminhos, URLs públicas, argumentos brutos, respostas e mensagens de exceção.
+
+Use uma prévia controlada para verificar a captura antes de interpretar um incidente. Procure `preview_returned`, seguido por recibo `confirmation` e seu resultado. Por exemplo, `invalid_plan_state` identifica referência de confirmação ausente ou inválida, `new_preview_required` indica que o servidor pediu nova aprovação e `share_refused` indica recusa por regra de compartilhamento. Um recibo isolado deixa o resultado incerto. Confira o estado nativo antes de repetir uma escrita.
+
+A captura começa no despacho autenticado da ferramenta. Um registro vazio também pode resultar de janela expirada, conta ou ferramenta diferente, permissões de arquivo, contenção de trava ou limite de 1 MiB. Confira o status HTTP do endpoint e os detalhes da ação no cliente para tentativas que nunca chegaram ao despacho. Remova a configuração e exclua o registro privado após investigar. Use arquivo e expiração novos para cada incidente.

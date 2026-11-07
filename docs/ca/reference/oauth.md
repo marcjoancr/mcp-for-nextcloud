@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/oauth.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/reference/oauth.md).
@@ -12,6 +12,8 @@
 Les metadades del recurs protegit són a `/apps/mcp/.well-known/oauth-protected-resource`. El repte `401` identifica aquest document. Les metadades del servidor d'autorització són a `/apps/mcp/.well-known/openid-configuration` i `/apps/mcp/.well-known/oauth-authorization-server`, amb emissor `https://<instance>/apps/mcp`.
 
 `oauth/authorize` ofereix consentiment al navegador; `oauth/token` intercanvia codis d'autorització amb PKCE S256 i rota tokens de renovació. Els tokens d'accés duren una hora i els de renovació, 30 dies. La base de dades emmagatzema hashes de credencials, no els valors en clar. És autenticació de client públic (`none`); un ID de client és un identificador, no un secret ni una concessió de permisos.
+
+En connectar un client, la pantalla de consentiment comença sense cap eina de dades seleccionada. Desplega un catàleg per triar eines i accions individuals, o selecciona i desmarca eines d'un catàleg o de tots. Seleccionar-les totes inclou totes les accions que permet l'administrador. També pots autoritzar una connexió sense cap eina de dades. Les opcions només s'apliquen a aquesta connexió.
 
 ## Clients publicats, natius i registrats
 

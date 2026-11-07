@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/calendar.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/calendar.md).
@@ -23,7 +23,7 @@
 | `calendar_delete_event` | calendar.delete | Suprimeix la sèrie a la paperera; requereix retenció activa. |
 | `calendar_transfer_event` | calendar.transfer | MOVE a un calendari d'un altre propietari que s'hagi compartit amb permís d'escriptura; rebutja esdeveniments amb participants. |
 
-Calendar ofereix lectura i cinc operacions d'escriptura sense passar pel terminal. Les escriptures comencen desactivades a la matriu d'administració (Administració → MCP) i només apareixen als usuaris que tenen el permís concedit. Cada escriptura també requereix `confirm: true`, l'ACL de Nextcloud (i `confirm_shared` per als calendaris d'una altra persona) i, opcionalment, l'ETag. Compatibilitat: a `info.xml`, l'aplicació declara `min-version` 32 i `max-version` 35; els components interns (el `EmbeddedCalDavServer` del nucli) estan coberts per les proves i aquest interval, i una nova versió de Nextcloud requereix una nova versió de l'aplicació. Calendar ha d'estar activada per a l'usuari. Sabre i Symfony Console provenen del nucli Nextcloud i no s'inclouen a `vendor/` del paquet.
+Calendar ofereix lectura i cinc operacions d'escriptura sense passar pel terminal. Les escriptures comencen desactivades a la matriu d'administració (Administració → MCP) i només apareixen als usuaris que tenen el permís concedit. Cada escriptura també requereix `confirm: true`, l'ACL de Nextcloud (i `confirm_shared` per als calendaris d'una altra persona) i, opcionalment, l'ETag. Compatibilitat: a `info.xml`, l'aplicació declara `min-version` 33 i `max-version` 35; els components interns (el `EmbeddedCalDavServer` del nucli) estan coberts per les proves i aquest interval, i una nova versió de Nextcloud requereix una nova versió de l'aplicació. Calendar ha d'estar activada per a l'usuari. Sabre i Symfony Console provenen del nucli Nextcloud i no s'inclouen a `vendor/` del paquet.
 
 | Eina d'escriptura | Permís | Comportament |
 | --- | --- | --- |
@@ -42,3 +42,11 @@ Consulta `mcp_guide` en viu per a l'esquema autoritatiu i les operacions disponi
 [Guies operatives](../../guides/README.md).
 
 [English](../../../en/reference/tools/calendar.md) · [Español](../../../es/reference/tools/calendar.md) · Català · [Português (Brasil)](../../../pt-BR/reference/tools/calendar.md) · [Português (Portugal)](../../../pt-PT/reference/tools/calendar.md)
+
+## Disponibilitat i conflictes
+
+`calendar_check_availability` requereix el permís independent `calendar.availability` i selecció explícita de l'eina. Proporciona `from` (inclusiu) i `to` (exclusiu), amb una finestra màxima de 31 dies. Utilitza `calendars` opcional per seleccionar fins a 20 camins de calendaris accessibles; omet-lo per utilitzar tots els calendaris visibles, amb el mateix límit. `min_duration_minutes` filtra intervals lliures (30 per defecte, interval 5–1440).
+
+La resposta conté intervals ocupats UTC, conflictes de superposició i intervals lliures comuns. Els intervals que només es toquen no entren en conflicte. Els esdeveniments recurrents, excepcions i zones horàries segueixen les regles existents d'expansió de calendaris; els cancel·lats i transparents no bloquegen temps. Els arguments només de data i els valors flotants de dia sencer segueixen la convenció existent de data civil UTC.
+
+No es retorna títol, descripció ni dades dels participants. S'apliquen comparticions natives, restriccions d'àmbit de Calendar i classificació d'esdeveniments. Si esdeveniments ocults, dades no vàlides o límits d'exploració impedeixen un càlcul fiable, l'eina retorna un error en lloc d'afirmar que el temps és lliure. S'admeten fins a 2.000 objectes de calendari per calendari i 10.000 ocurrències en total. Amb aquesta política conservadora, els esdeveniments de durada zero també fan que la disponibilitat no estigui disponible. La disponibilitat és una instantània dels calendaris accessibles, no una reserva ni una afirmació sobre calendaris inaccessibles per a qui fa la crida.

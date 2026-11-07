@@ -2,29 +2,33 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: b93ec95263f3db1d7b208b7cb3c17cef2e1f3f20 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](README.md).
 
 # Nextcloud MCP
 
+**Tu Nextcloud, dentro de la conversación.** Busca archivos, trabaja con notas, calendarios, contactos y tareas, gestiona tarjetas de Deck y ponte al día en Talk desde un cliente MCP. Mail lee mensajes y adjuntos propios y gestiona borradores locales sin enviar correo; Forms lee resultados permitidos y exporta páginas CSV acotadas. Los operadores autorizados pueden consultar los registros del servidor.
+
 [English](README.md) · **Español** · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
-
-Conecta un cliente MCP a tu Nextcloud. Busca archivos, lee notas, sigue conversaciones de Talk o gestiona tareas desde un único punto de acceso. Cada petición respeta los permisos de la persona que ha iniciado sesión.
-
-Nextcloud MCP es un fork independiente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). El desarrollo se realiza en [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
-
-La **versión 2.7.0** conserva el identificador `mcp`. La tienda de aplicaciones de Nextcloud distribuye el proyecto original. Consulta la guía de instalación antes de sustituir una instalación existente.
 
 ## Primeros pasos
 
-URL del servidor · `https://cloud.example.com/apps/mcp/`
+Requiere **Nextcloud 33–35** y **PHP 8.4+**. Este fork independiente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versión **2.7.0** y conserva el identificador `mcp`. La edición de la tienda de Nextcloud corresponde al proyecto original; usa el paquete revisado de este fork para instalarlo o sustituir otra instalación.
 
-- [Instalar el fork](../docs/es/installation.md)
-- [Conectar un cliente](../docs/es/guides/clients.md)
-- [Explorar las herramientas](../docs/es/reference/tools.md)
-- [Configurar los permisos](../docs/es/guides/permissions.md)
+1. [Instala la aplicación](../docs/es/installation.md).
+2. [Activa el servicio, la elegibilidad del usuario y la conexión personal](../docs/es/guides/permissions.md#habilitar-el-acceso).
+3. [Conecta un cliente](../docs/es/guides/clients.md) a `https://cloud.example.com/apps/mcp/` mediante OAuth o una contraseña de aplicación y selecciona sus herramientas permitidas.
+4. Pide la **Guía de herramientas** y prueba «¿Qué conversaciones de Talk tienen mensajes sin leer?» o «Busca la propuesta del proyecto y resúmela». Son ejemplos, no transcripciones de sesiones reales.
+
+## El acceso sigue bajo tu control
+
+Hasta **112 herramientas** de once módulos, incluidas las de guía y estado, se filtran según las aplicaciones disponibles, las asignaciones de herramientas y las selecciones de la conexión. Los permisos nativos de Nextcloud se aplican en cada petición. La administración puede limitar el acceso a carpetas, calendarios y listas de tareas seleccionados y excluir archivos etiquetados. Las herramientas de escritura devuelven una vista previa salvo confirmación explícita; el asistente debe obtener la aprobación del usuario. No hay herramienta para eliminar archivos. Mail, Forms y los registros requieren permisos explícitos. Los borradores y el guardado de adjuntos de Mail, así como las exportaciones de Forms, requieren confirmación; los registros siguen siendo de solo lectura y Mail nunca envía mensajes.
+
+Los resultados se envían al cliente de IA elegido y quedan sujetos a sus políticas de tratamiento y conservación.
+
+[Herramientas](../docs/es/reference/tools.md) · [Permisos](../docs/es/guides/permissions.md) · [Protección de archivos](../docs/es/guides/file-protection.md) · [Solución de problemas](../docs/es/guides/troubleshooting.md)
 
 ## Licencia
 
@@ -39,6 +43,6 @@ Se incluyen Smalot PdfParser, Symfony Polyfill Mbstring y el cargador automátic
 
 Jerarquía de tareas: [@mturgeonferland](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18).
 
-Sintax / Jhonatan Jaworski · [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw).
+Sintax / Jhonatan Jaworski · [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). Este crédito histórico se conserva sin implicar que XERJ haya revisado este fork.
 
 Developed by Sintax — https://sintax.tech

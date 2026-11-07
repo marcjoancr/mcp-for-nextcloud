@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/troubleshooting.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/guides/troubleshooting.md).
@@ -70,3 +70,22 @@ Qualsevol `FAIL` retorna un codi diferent de zero. Si falla la neteja, `cleanup-
 [Guies operatives](README.md).
 
 [English](../../en/guides/troubleshooting.md) · [Español](../../es/guides/troubleshooting.md) · Català · [Português (Brasil)](../../pt-BR/guides/troubleshooting.md) · [Português (Portugal)](../../pt-PT/guides/troubleshooting.md)
+
+## Traçar una crida autenticada d'eina
+
+Un administrador de la instància pot habilitar una traça privada per a un ID d'usuari exacte de Nextcloud i una llista explícita de noms d'eina. Per exemple, al host de Nextcloud crea un diari nou en un directori controlat per l'operador fora de l'arrel web, l'emmagatzematge d'usuaris i qualsevol registre exposat per MCP. Dona accés al fitxer només al procés PHP (mode 0600). Estableix la configuració de sistema següent, substituint els valors d'exemple per una **marca de temps Unix de caducitat fixa** absoluta, el camí visible pel procés i el compte seleccionat. Calcular la caducitat a partir de l'hora actual a la configuració allargaria contínuament la captura.
+
+```php
+'mcp.tool_diagnostics' => [
+    'user' => '<exact Nextcloud UID>',
+    'tools' => ['files_share'],
+    'file' => '/var/log/private-mcp/tool-calls.jsonl',
+    'until' => 0, // Replace with the Unix timestamp at which capture should stop.
+],
+```
+
+Cada crida autenticada registra un rebut UTC i un resultat amb el mateix ID aleatori de petició. Una previsualització que retorna un pla i una confirmació que el presenta comparteixen una referència de pla opaca. Un pla canviat té una referència nova. El diari conté classificacions fixes i exclou credencials, ID de client i usuari, camins, URL públics, arguments en brut, respostes i missatges d'excepció.
+
+Utilitza una previsualització controlada per verificar la captura abans d'interpretar un incident. Cerca `preview_returned`, seguit d'un rebut `confirmation` i el resultat. Per exemple, `invalid_plan_state` identifica una referència de confirmació absent o no vàlida; `new_preview_required` indica que el servidor ha demanat una aprovació nova i `share_refused` que una regla de compartició ha rebutjat la crida. Un rebut sol deixa el resultat incert. Comprova l'estat natiu abans de reintentar una escriptura.
+
+La captura comença al despatx autenticat de l'eina. Un diari buit també pot resultar d'una finestra caducada, un compte o eina diferent, permisos de fitxer, contenció de bloqueig o el límit d'1 MiB. Comprova l'estat HTTP del punt d'accés i els detalls de l'acció del client per als intents que no han arribat al despatx. Retira la configuració i elimina el diari privat després de la investigació. Utilitza fitxer i caducitat nous per a cada incident.

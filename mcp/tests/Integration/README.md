@@ -48,13 +48,13 @@ its capability owners. Its baseline must be reachable from candidate history; no
 upstream fetch can substitute for a missing fork baseline. This replaces the old
 local-only 1.0.8 preparation commit, which was absent from public clones. The
 separate `upgrade` cells retain the real 1.0.8 schema/OAuth migration coverage. `upgrade-upstream` installs 1.1.0 and runs `occ upgrade` to
-the candidate 2.0.0; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
+the candidate version; `upgrade-upstream-111` separately upgrades upstream 1.1.1.
 `upgrade-upstream-120` pins upstream 1.2.0 and uses the same state/credential
 probe on NC35/MariaDB. It does not replace the LinuxServer/Nginx rehearsal.
 `upgrade-upstream-112` installs the pinned upstream 1.1.2 and runs a real
 `occ upgrade` to the newer candidate. The fixture verifies policy, scopes, clients,
 credentials and migration state. The historical same-version replacement remains
-recorded at revision `5ff6672`; it is not a valid mode for a 2.0.0 candidate and has
+recorded at revision `5ff6672`; it is not a valid mode for a newer candidate and has
 not been retained as a bypass. NC32 native cells likewise belong to that historical
 revision, whose manifest admitted NC32; current candidate cells start at NC33.
 
@@ -63,13 +63,13 @@ throwaway Nextcloud instance and verifies the boolean setting. `occ upgrade`
 still runs the real local migrations; its subsequent App Store check cannot
 replace the pinned candidate with a newer published release. Archive hashes and
 exact installed-version assertions remain required. This disposable test setting
-does not qualify production update controls, which remain a separate F3 review.
+does not qualify production update controls; test the serving and maintenance
+roles separately as described in [LinuxServer testing](../../../docs/en/development/linuxserver-testing.md).
 
 The matrix pins NC33.0.10, NC34.0.5 and NC35.0.2 amd64 images. Pin validation
-alone does not qualify these newer patches or the final candidate; the 15-cell
-campaign, including the explicit `upgrade-upstream-120` origin, must pass. F3/F4
-must bind final source and artifact evidence to the approved release profiles and
-the intended host before deployment. Deck is pinned to 1.16.8/1.17.7/1.18.5/1.19.0 for
+alone does not qualify a candidate. Run the selected cells, including the explicit
+upgrade origins, against the reviewed artifact and retain their results. Bind
+release evidence to the exact source, package and target environments before deployment. Deck is pinned to 1.16.8/1.17.7/1.18.5/1.19.0 for
 NC32/33/34/35; Contacts is pinned to 8.3.21 for NC32 and 8.9.2 for NC33–35.
 Archive hashes and identity/version/server-bound checks precede provisioning.
 The three dependency tools are present only for verified NC34/35 Deck APIs;
@@ -121,8 +121,9 @@ retained baseline archive and its separately reviewed digest, checked against th
 tracked `ci/baseline-packages.json` mode/commit/hash mapping; there is no network
 fetch/rebuild fallback. Its association with the selected historical commit comes
 from that reviewed build provenance, not an identity field invented for older packages.
-The [M0 record](../../../docs/en/development/fork-platform-m0.md) identifies those
-inputs and their limits.
+The [tracked baseline mapping](ci/baseline-packages.json) owns the admitted
+mode/commit/archive combinations; the separately trusted kit manifest identifies
+the candidate. Neither filename nor version equality is proof of file identity.
 
 A run copies the verified kit into its own directory and records candidate SHA,
 manifest/archive digests, runner SHA, dirty state and runner-file hashes separately.
@@ -142,12 +143,22 @@ runtime. Final candidate acceptance should use the reviewed retained baseline
 option above; historical reconstruction is not a claim that its old tooling is
 security-current. The private-TLS Inspector fixture is also still historical.
 
-## Verify the 1.2.1 upgrade fixture
+## LinuxServer baseline admission
 
 `upgrade-upstream-121` selects the published 1.2.1 archive on NC35/MariaDB.
 It requires `--candidate-kit` and `--baseline-package`. The default CI matrix
 continues to cover its 15 existing cells. The LinuxServer origin uses the
-separate [1.2.1 fixture profile](ci/linuxserver/profile-121.json).
+separate [`ci/linuxserver/profile-121.json`](ci/linuxserver/profile-121.json) profile.
+Its `baseline` object owns the source commit, published archive SHA-256, byte/file
+counts and inventory digest. The standard [`profile.json`](ci/linuxserver/profile.json)
+retains the 1.2.0 origin. These frozen profiles do not follow the current checkout.
+
+For the retained baseline archive, construct `baseline-inventory.json` by keying
+each regular member by its full `mcp/` path, sorting paths lexically, and storing
+fields `sha256` then `bytes` for each entry. Serialize with Python
+`json.dumps(mapping, indent=2)` followed by one LF in UTF-8. The measured archive,
+supplied inventory and profile digest must all agree. Download the published
+runtime release asset for the pinned version, not GitHub's source-code archive.
 
 Run these commands from the repository root with the pinned Node runtime and the
 verified input directory. That directory contains `mcp-1.2.1.tar.gz` and
@@ -197,18 +208,21 @@ composer --working-dir=mcp test:integration:linuxserver -- --phase L4 --inputs "
 ```
 
 L4 records recovery cases and protection checks independently. An unresolved
-update-control check makes the overall command exit nonzero.
+update-control check makes the overall command exit nonzero. Record both kinds
+of result; passed recovery subcases do not override a failed protection check.
 
 For a B1 checkpoint from this 1.2.1 origin, `--check-mount` reproduces the
 single-directory bypass and `--check-operator-paths` qualifies the separate
 serving and maintenance roles. Both take the same profile, kit, inputs and two
 checkpoint trust pairs as L4. The modes are mutually exclusive. The first must
 report the substitution and exit nonzero. The operator trial must pass.
+See [update controls and operator-owned paths](../../../docs/en/development/linuxserver-testing.md#update-controls-and-operator-owned-paths)
+for the bypass mechanism and the separate serving/maintenance layout.
 
 Use `--host-startup-inputs /absolute/private/inputs` only with
-`--check-operator-paths` to test startup with the pinned OCR hook. Supply
+`--check-operator-paths` to replay the fixed OCR startup profile. Supply
 `hook.sh` and the two signed APK repository views as
 `{main,community}/x86_64/{APKINDEX.tar.gz,*.apk}`. The runner stages only
 verified bytes for the fixed hook, indexes and archives. Docker mounts the
 staged mirror read-only and the fixture retains its internal network.
-[OCR package inventory](ci/linuxserver/alpine-ocr-packages.json)
+[Public package inventory](ci/linuxserver/alpine-ocr-packages.json) · [LinuxServer procedure and limits](../../../docs/en/development/linuxserver-testing.md)

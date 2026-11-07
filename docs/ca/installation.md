@@ -2,36 +2,62 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/installation.md -->
-<!-- translation-source-revision: b93ec95263f3db1d7b208b7cb3c17cef2e1f3f20 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../en/installation.md).
 
 # Instal·lació
 
+Nextcloud MCP s'executa com una aplicació nativa de Nextcloud. Utilitza el PHP i l'emmagatzematge del servidor existent; no necessita cap dimoni MCP separat ni entorn Node.js.
+
 ## Requisits
 
-Nextcloud MCP 2.7.0 fa servir l’identificador `mcp` i substitueix qualsevol instal·lació prèvia de MCP for Cloud. La botiga del Nextcloud distribueix l’aplicació original. Per instal·lar el fork, fes servir el paquet compilat a partir de la revisió de codi verificada.
+| Component | Requisit |
+| --- | --- |
+| Nextcloud | **33–35**, segons el manifest de l'aplicació |
+| PHP | **8.4 o posterior**, també compatible amb la versió de Nextcloud triada |
+| Extensions PHP | `zip`, `mbstring` i `dom`, a més dels requisits de Nextcloud |
+| Accés del client | Un URL HTTPS accessible pel client MCP triat |
+| Aplicacions opcionals | Habilita les aplicacions corresponents per a Notes, Tasks, Calendar, Contacts, Deck, Talk, Mail i Forms |
 
-L’entorn de referència és Linux x86-64 amb Apache. Fes servir versions amb manteniment de seguretat i les extensions PHP `zip`, `mbstring` i `dom`. SQLite es fa servir en proves locals i assajos de recuperació.
+Les eines també depenen d'assignacions individuals, la selecció de la connexió i els permisos natius dels recursos. Mail necessita una versió coneguda d'almenys 5.0.0; Forms necessita una versió coneguda d'almenys 5.3.0. Les seves eines necessiten assignació i selecció explícites, i aquests mínims d'API no certifiquen totes les combinacions d'aplicació/servidor. Les eines de dependències de Deck necessiten API compatibles a NC34/35. Consulta el [catàleg d'eines](reference/tools.md).
 
-| Nextcloud | PHP | Base de dades |
-| --- | --- | --- |
-| 35 | 8.5 | MariaDB 10.11 o PostgreSQL 16 |
-| 34 | 8.5 | MariaDB 10.11 |
-| 33 | 8.4 | MariaDB 10.11 |
+Les eines de col·laboració també proven PHP 8.2/8.3; aquests entorns de prova no redueixen el requisit d'instal·lació de PHP 8.4. La matriu nativa cobreix Linux x86-64/Apache amb NC33/34/35 i MariaDB 10.11, i NC35 amb PostgreSQL 16 o SQLite. Un perfil LinuxServer/Nginx separat prova NC35/PostgreSQL/S3. Són perfils de prova, no una garantia exhaustiva de compatibilitat de desplegament.
 
-Les eines disponibles depenen de les aplicacions del Nextcloud i dels permisos del compte. Les operacions de dependències del Deck necessiten API compatibles a NC34/35. Consulta el [catàleg d’eines](reference/tools.md).
+## Tria el paquet del fork
 
-### Instal·lar per SSH
+El fork conserva l'identificador **`mcp`** i el manifest declara **2.7.0**. Substitueix una instal·lació existent de MCP for Cloud amb aquest mateix identificador. La botiga de Nextcloud distribueix el projecte original: **`occ app:install mcp` instal·la l'edició de la botiga**.
 
-Verifica `mcp-2.7.0.tar.gz` i el kit de codi font corresponent amb el resum de confiança del manifest. Assaja l’actualització i la recuperació en un entorn com el del teu servidor i comprova que les actualitzacions automàtiques conserven el fork. L’ordre `occ app:install mcp` instal·la el paquet original de la botiga.
+Utilitza `mcp-2.7.0.tar.gz` construït a partir de la revisió revisada del fork, amb el kit de codi font corresponent i el resum del manifest de confiança independent. Un arxiu de codi font de GitHub o una còpia del directori `mcp/` sense construir no són paquets d'instal·lació. El repositori complet conté les instruccions d'empaquetament a `docs/en/development/packaging.md` i `docs/en/development/source-delivery.md` (en anglès).
 
-Abans del desplegament, fes servir MCP Inspector per comprovar l’accés HTTPS, l’autorització i la revocació del client. Després, comprova que un client pot llegir la guia d’eines en una instància de prova d’un sol ús.
+## Instal·lació nova
+
+Per a una instància sense `mcp` instal·lat:
+
+1. Verifica el paquet i el kit de codi font corresponent amb el resum de confiança del manifest.
+2. Extreu l'únic directori `mcp/` de l'arxiu en una arrel d'aplicacions configurada a `apps_paths` de Nextcloud. Configura propietat i accés de lectura segons els rols de servei i manteniment del teu desplegament.
+3. Com a usuari de manteniment de Nextcloud, executa `php /absolute/path/to/nextcloud/occ app:enable mcp` amb el binari PHP triat per a aquella instància. Els desplegaments amb contenidors executen l'ordre equivalent dins del seu entorn de manteniment.
+4. Obre **Administració → Nextcloud MCP**. Habilita el servei, permet que els usuaris previstos es connectin i assigna les eines individuals que poden fer servir.
+5. Cada usuari habilita la connexió a **Configuració personal → Nextcloud MCP**, selecciona les eines per al client i segueix la [configuració de clients](guides/clients.md).
+
+Fes servir el punt d'accés mostrat a la Visió general d'administració, normalment:
+
+```text
+https://cloud.example.com/apps/mcp/
+```
+
+Inclou el subdirectori d'instal·lació de Nextcloud si n'hi ha. El servei, l'elegibilitat de l'usuari i la connexió personal comencen desactivats, també per als administradors. Les escriptures comencen denegades; Mail, Forms i els registres del servidor també necessiten permisos explícits. Les eines noves comencen sense assignació ni selecció. Consulta [permisos i administració](guides/permissions.md).
+
+Les respostes de les eines arriben al client d'IA connectat. Tria permisos i restriccions de recursos segons les dades que aquell client ha de rebre; allotjar el connector no determina la política de tractament o retenció de dades del client.
 
 ## Actualització i recuperació
 
-Abans d'actualitzar, prepara una còpia coherent de l'aplicació, base de dades i configuració/dades necessàries de Nextcloud, seguint el procediment de l'operador. El mode de manteniment impedeix trànsit durant la substitució sense canviar la política de servei MCP ni revocar credencials per una actualització rutinària. Substitueix tot el directori de l'aplicació, executa l'actualització nativa necessària, neteja/reinicia les memòries cau PHP quan calgui i comprova historial de migracions, recursos d'interfície, permisos i connexions existents abans de reobrir el trànsit.
+Abans d'actualitzar, prepara una còpia coherent de l'aplicació, base de dades i configuració/dades necessàries de Nextcloud, seguint el procediment de còpies de l'operador. Assaja la substitució i recuperació en un perfil aïllat equivalent i impedeix que les actualitzacions automàtiques de la botiga substitueixin el fork.
+
+El mode de manteniment impedeix trànsit durant la substitució sense canviar la política de servei MCP ni revocar credencials per una actualització rutinària. Substitueix tot el directori de l'aplicació, executa l'actualització nativa `occ upgrade`, neteja/reinicia les memòries cau PHP quan calgui i comprova historial de migracions, recursos d'interfície, permisos i connexions existents abans de reobrir el trànsit. Mantén les metadades de lliurament del codi font alineades amb el kit instal·lat.
+
+Protegeix l'arrel efectiva de l'aplicació, els seus avantpassats modificables i la configuració que selecciona `apps_paths`. Un muntatge de només lectura a `mcp/` no impedeix que un procés seleccioni codi substitutiu si el pare o la configuració continuen sent modificables. Separa l'accés del servei del manteniment de l'operador quan el desplegament ho requereixi.
 
 Prioritza reparar cap endavant després d'una actualització fallida. Revertir només els fitxers d'aplicació a 1.0.8 és insegur: aquell codi no aplica les noves revocacions per època/generació ni restriccions de recursos. Una còpia de base de dades també pot contenir credencials revocades després de crear-la.
 

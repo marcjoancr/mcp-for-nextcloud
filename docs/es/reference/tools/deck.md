@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/deck.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../../en/reference/tools/deck.md).
@@ -30,16 +30,71 @@ Después de un error de Deck, todas las escrituras vuelven a leer el estado real
 
 La regla de eliminar «solo si está vacío» no es atómica: Deck no consulta `deleted_at` de la lista al crear una tarjeta. Por tanto, una tarjeta creada por otra solicitud justo después del segundo recuento puede ir a la papelera junto con la lista o el tablero, desde donde se puede recuperar. Esto figura en la descripción de la herramienta y en el gateway.
 
+## Vencimientos
+
+Crear y editar tarjetas admite `duedate` como `YYYY-MM-DD` o `YYYY-MM-DDTHH:MM[:SS]`, con `Z` o desplazamiento numérico opcionales. Sin desplazamiento se usa la zona horaria de la cuenta; una fecha sin hora significa la medianoche local de ese día. Se rechazan horas locales explícitas que no existan por una transición de zona horaria. Si una hora se repite, se elige el primer instante salvo que el desplazamiento proporcionado resuelva la ambigüedad. Al guardar se convierte a UTC antes de llamar a Deck. Las respuestas conservan `duedate` por día, el estado vencido y `dueBefore`, y añaden `dueAt` con el desplazamiento de la cuenta. Las ediciones no relacionadas conservan el instante existente.
+
+Las escrituras MCP anteriores afectadas pueden haber guardado el día equivocado. Revisa esas tarjetas frente a la fecha prevista y corrígelas explícitamente en Deck o con una nueva edición confirmada. No desplaces todos los vencimientos: los introducidos por otros clientes pueden ser correctos. No se reescriben automáticamente las fechas históricas.
+
+## Etiquetas y archivos visibles de las tarjetas
+
+| Herramienta | Permiso | Comportamiento |
+| --- | --- | --- |
+| `deck_list_labels` `{boardId, limit=50, offset=0}` | deck.read | Etiquetas de un tablero legible, hasta 200 por página. |
+| `deck_edit_card_labels` `{cardId, add?, remove?}` | deck.edit | ID de etiquetas añadidas o retiradas, hasta 100 por lista. Conserva las no afectadas; los duplicados y cambios ya satisfechos no modifican nada. Rechaza etiquetas de otros tableros y solicitudes que añadan y retiren la misma etiqueta. |
+| `deck_list_card_files` `{cardId}` | deck.read y files.read | Solo asociaciones nativas existentes a archivos visibles, ordenadas por `attachmentId`. Este ID de asociación/recurso compartido difiere del `fileId` original. |
+| `deck_unlink_card_file` `{cardId, attachmentId}` | deck.edit y files.read | Retira una asociación nativa visible tras la aprobación, devolviendo el recibo `file_state` exacto y `plan_state` del plan. Conserva el archivo original y los recursos compartidos independientes; no requiere files.share. |
+
+Las escrituras de etiquetas y desvinculación exigen un plan nuevo, `confirm: true`, `plan_state` y, cuando corresponda, aprobación de tablero compartido. Las lecturas y escrituras vuelven a comprobar el acceso nativo. Las referencias de archivos también requieren el ámbito de Files, las comprobaciones de etiquetas de exclusión, las restricciones de Guests y READ nativo del nodo a través de los alias del usuario. Las referencias invisibles se omiten o responden como inexistentes, sin recuentos ni identificadores; la respuesta de tarjeta ya no expone `attachmentCount` nativo. No se admiten aquí las cargas antiguas `deck_file` ni carpetas. Crear una asociación nativa nueva usa la operación de enlace autorizada por separado que se explica a continuación.
+
+Desvincular revoca esa asociación para todos los miembros actuales y futuros de la tarjeta, aunque la creara otro editor. Los recursos compartidos independientes pueden conservar el acceso; puedes perder tu último montaje de Deck. No hay recuperación automática; restaurar la asociación puede requerir la interfaz nativa de Deck. Se rechaza un recibo obsoleto o inválido. Confirmar una asociación ya ausente solo no hace nada si el recibo original es válido y el archivo original sigue visible.
+
+## Enlace nativo de archivos
+
+`deck_link_card_file` enlaza un archivo normal existente y visible a una tarjeta activa de Deck. Requiere `deck.edit`, `files.read` y `files.share`, EDIT nativo de la tarjeta y READ/SHARE del archivo. La vista previa identifica al propietario, si se vuelve a compartir, el total actual de destinatarios y hasta diez nombres (80 caracteres Unicode cada uno). Debe aprobarse con `confirm: true`, el `plan_state` exacto y `confirm_shared` cuando lo exijan las reglas de escritura compartida existentes.
+
+La asociación nativa da acceso READ a los miembros actuales y futuros del tablero, incluidos los heredados de grupos/Teams. No sube ni copia el archivo. No modifica los recursos compartidos independientes existentes. Si cambia el archivo, el origen, los destinatarios, la política de compartición o un permiso, se invalida la confirmación antes de escribir. Las comprobaciones de política del núcleo y del actor preceden a la expansión privilegiada de Teams; los privilegios nativos temporales de Circles se retiran antes de las autorizaciones y escrituras posteriores y en los límites de operación, incluidas las rutas de error. Un fallo de limpieza rechaza la operación antes de escribir o informa de un efecto incierto tras un intento de escritura.
+
+La operación rechaza invitados, carpetas, orígenes archivados, destinatarios sin resolver o no compatibles, uso compartido desactivado, compartición solo entre miembros de grupos, caducidad interna obligatoria, prohibición de volver a compartir y destinatarios de grupo/Team cuando la compartición con grupos está desactivada. También rechaza si no puede determinar identidad o política. No propone desactivar esas protecciones. Pueden ejecutarse hooks y notificaciones nativos. La caducidad interna predeterminada opcional no se aplica a este tipo nativo de recurso compartido; la caducidad interna obligatoria se rechaza.
+
+Se requiere el conjunto completo de destinatarios: hasta 128 entradas ACL, 1000 personas locales distintas, 5000 pasos de trabajo cooperativo y dos segundos comprobados entre llamadas nativas. No hay éxito con destinatarios parciales. La asignación nativa de miembros y la E/S bloqueante quedan fuera de esos límites cooperativos. Mostrar pocos nombres en la vista previa no limita el recurso compartido: la asociación alcanza a todos los destinatarios nativos y sus miembros futuros.
+
+Los cambios posteriores de miembros o política no desencadenan revocación automática por MCP; la validación y la compartición nativa no son una transacción atómica. Estos límites también importan al interpretar resultados de escritura inciertos. Consulta el estado antes de reintentar; observar un recurso compartido después de un error no demuestra qué actor lo creó. A la inversa, que no exista una asociación después de intentar crearla no demuestra que no pasara nada: un hook u otro actor pudo retirarla después de conceder acceso o generar notificaciones. Esos fallos siguen siendo inciertos y no autorizan repetir a ciegas. Desvincular retira solo la asociación nativa y el acceso resultante; el archivo y los recursos compartidos independientes permanecen.
+
+La política de nombres rige las escrituras de contenido y destinos de Files/Notes cubiertos; una asociación nativa de Deck no es una nueva escritura de contenido. Siguen aplicándose la visibilidad, el ámbito, las exclusiones de Files y la política nativa de compartición.
+
+## Dependencias nativas condicionales
+
+Las tres herramientas de dependencias solo aparecen y se ejecutan con API nativas compatibles: NC34 con Deck >=1.18.5 y <1.19.0, o NC35 con Deck >=1.19.0 y <1.20.0, y los métodos/propiedades nativos necesarios. Los objetivos fijados de validación son Deck 1.18.5 y 1.19.0; admitir un intervalo no certifica cada revisión. NC32/33 y las API no compatibles omiten las tres herramientas y rechazan las llamadas directas.
+
+- `deck_read_card_dependencies` lee el subgrafo legible completo de relaciones salientes.
+- `deck_add_card_dependency` añade `cardId` → `targetId`.
+- `deck_remove_card_dependency` retira solo esa relación dirigida.
+
+En `assignDependentCard(A,B)` nativo, B aparece en `dependentCards` de A; estas relaciones no bloquean automáticamente el progreso de las tareas. Las lecturas requieren deck.read; las escrituras, deck.edit, EDIT del origen y READ del destino, incluso para eliminar la relación. Las escrituras necesitan aprobación y el `plan_state` devuelto. Las demás relaciones se conservan; una incorporación duplicada o una retirada inexistente no hacen nada.
+
+El recorrido se limita a 100 nodos legibles incluida la raíz, 500 aristas legibles y profundidad de camino mínimo 20. Superar un límite rechaza el resultado en vez de devolver un grafo incompleto. Los mismos límites de nodos/aristas legibles se aplican a la instantánea completa de adyacencias del origen necesaria para añadir, retirar y verificar resultados; los orígenes que los superen deben modificarse en la interfaz nativa de Deck. Una relación nueva también debe respetar los límites antes de aprobar su plan o escritura. La autorización de destinos y las consultas de entidades se detienen en el primer exceso legible. Deck sigue materializando cada adyacencia nativa antes de filtrarla, y filtrar relaciones ilegibles puede requerir consultas adicionales; estos límites no acotan el trabajo ni la memoria totales. Las tarjetas ilegibles no consumen presupuesto legible ni revelan ID, recuentos, identificadores o indicadores de límites ocultos. Se rechazan las autorrelaciones y los ciclos detectables mediante tarjetas legibles; no se pueden excluir ciclos ocultos ni cambios concurrentes entre la última comprobación y la escritura nativa. No garantiza la ausencia global de ciclos.
+
+Tras un resultado incierto o parcial de etiquetas/dependencias/enlace/desvinculación, consulta el estado actual de Deck antes de seguir. Observar el estado solicitado después de un error no prueba qué actor lo cambió ni que se completara toda la solicitud; no repitas automáticamente la escritura.
+
 ## Comentarios de tarjetas
 
-`deck_list_comments` consulta comentarios de una tarjeta visible con `deck.read_comments`. Para publicar, llama a `deck_add_comment` con la tarjeta y el texto y muestra la vista previa al usuario. El tablero puede tener lectores que no participaban en el hilo de correo. Tras la aprobación, repite la llamada con `confirm: true` y el `plan_state` recibido. Un tablero compartido requiere además `confirm_shared: true`. Si el plan cambia, vuelve a mostrarlo. Publicar requiere `deck.comment` y acceso nativo a la tarjeta. Deck permite comentar a quienes pueden leerla, aunque no puedan editar sus campos.
+`deck_list_comments` lee una página de comentarios de una tarjeta visible con `deck.read_comments`. Para publicar, llama a `deck_add_comment` con la tarjeta y el mensaje y muestra la vista previa al usuario. Los lectores del tablero pueden incluir personas ajenas al hilo de correo original. Tras la aprobación, repite con `confirm: true` y el `plan_state` devuelto. Un tablero compartido también requiere `confirm_shared: true`. Si cambia el plan, se necesita otra revisión. Publicar requiere `deck.comment` y acceso nativo a la tarjeta. Deck permite comentar a los lectores aunque no puedan editar los campos de la tarjeta.
 
-## Completar y reabrir tarjetas
+## Completar tarjetas
 
-En `deck_edit_card`, usa `completed: true` para completar una tarjeta y `completed: false` para reabrirla. Omite el campo para conservar el estado actual. Repetir la operación de completar conserva la fecha de finalización original. La tarjeta permanece en su lista, incluso si el tablero tiene una lista de tarjetas completadas. Se aplican `deck.edit`, los permisos del tablero y la vista previa y confirmación habituales.
+Establece `completed` en `true` en `deck_edit_card` para completar una tarjeta o en `false` para reabrirla. Omite el campo para conservar el estado. Repetir la finalización conserva su fecha/hora original. La tarjeta permanece en su lista, también en tableros con una lista designada para tarjetas terminadas. Usa `deck.edit`, los permisos nativos del tablero y la vista previa y confirmación habituales de edición.
 
 Consulta la guía `mcp_guide` activa para obtener el esquema y las operaciones disponibles como referencia definitiva.
 
 [Guías operativas](../../guides/README.md).
 
 [English](../../../en/reference/tools/deck.md) · Español · [Català](../../../ca/reference/tools/deck.md) · [Português (Brasil)](../../../pt-BR/reference/tools/deck.md) · [Português (Portugal)](../../../pt-PT/reference/tools/deck.md)
+
+## Buscar tarjetas
+
+`deck_search_cards` requiere el permiso independiente `deck.search` y selección explícita de herramienta. Busca tarjetas activas en tableros legibles por el usuario autenticado, incluidos los compartidos con acceso de solo lectura. No cambia tarjetas ni las marca como vistas.
+
+Los filtros opcionales son `text` (título y descripción), `boardId`, `assignee` (ID de usuario), `labelIds`, `labelMatch` (`any` o `all`), `dueAfter` y `dueBefore`. Los extremos de fecha son inclusivos en la zona horaria del usuario. Combina filtros para acotar resultados. La paginación usa `limit` (50 por defecto, máximo 100) y `offset`.
+
+La búsqueda examina como máximo 100 tableros, 500 listas y 2000 tarjetas. Un resultado `truncated` significa que un límite de recorrido o resultados impidió una respuesta completa; acota los filtros o usa un tablero concreto antes de sacar conclusiones de elementos ausentes. Se comprueban las ACL nativas de Deck para quien llama; no se puede consultar un tablero privado ajeno adivinando su ID.

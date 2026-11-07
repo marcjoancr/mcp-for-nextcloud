@@ -4,22 +4,26 @@
 
 # Nextcloud MCP
 
+**Your Nextcloud, in the conversation.** Search files, work with notes, calendars, contacts and tasks, manage Deck cards and catch up on Talk from an MCP client. Mail reads owned messages and attachments and manages local unsent drafts without sending; Forms reads permitted results and exports bounded CSV pages. Authorized operators can inspect server logs.
+
 **English** · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
-Connect an MCP client to your own Nextcloud. Search files, read notes, follow Talk conversations or manage tasks through one endpoint. Each request runs with the permissions of the signed-in user.
+## Get started
 
-Nextcloud MCP is an independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) by Sintax (Jhonatan Jaworski). Development takes place on [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
+Requires **Nextcloud 33–35** and **PHP 8.4+**. This independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declares version **2.7.0** and retains app ID `mcp`. The Nextcloud App Store edition is the original project; use this fork's reviewed package for installation or replacement.
 
-**Version 2.7.0** retains the app ID `mcp`. The Nextcloud App Store provides the original project. Review the installation guide before replacing an existing instance.
+1. [Install the application](../docs/en/installation.md).
+2. [Enable the service, user eligibility and personal connection](../docs/en/guides/permissions.md#enable-access).
+3. [Connect a client](../docs/en/guides/clients.md) to `https://cloud.example.com/apps/mcp/` using OAuth or an app password, and select its permitted tools.
+4. Ask for the **Tool guide**, then try “Which Talk conversations have unread messages?” or “Find the project proposal and summarize it.” These are example requests, not recorded transcripts.
 
-## Start here
+## Access stays under your control
 
-Server URL · `https://cloud.example.com/apps/mcp/`
+Up to **112 tools** across eleven modules, including guide/status tools, are filtered by available apps, tool assignments and connection selections. Native Nextcloud permissions apply on every request. Administrators can narrow access to selected folders, calendars and task lists and exclude tagged files. Write tools return a preview unless explicitly confirmed; the assistant must obtain the user's approval. There is no file deletion tool. Mail, Forms and log tools require explicit grants. Mail drafts, attachment saving and Forms exports require confirmation; logs remain read-only and Mail never sends messages.
 
-- [Install the fork](../docs/en/installation.md)
-- [Connect a client](../docs/en/guides/clients.md)
-- [Explore the tools](../docs/en/reference/tools.md)
-- [Configure permissions](../docs/en/guides/permissions.md)
+Tool results are sent to the chosen AI client and are subject to its processing and retention policies.
+
+[Tools](../docs/en/reference/tools.md) · [Permissions](../docs/en/guides/permissions.md) · [File protection](../docs/en/guides/file-protection.md) · [Troubleshooting](../docs/en/guides/troubleshooting.md)
 
 ## License
 

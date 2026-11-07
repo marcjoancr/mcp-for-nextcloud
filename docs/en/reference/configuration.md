@@ -11,7 +11,9 @@ Use the administration and personal settings interfaces for policy changes. Dire
 | App `mcp` | `service_enabled` | `1` on; `0` or absent off. Change through the service command/UI. |
 | User, app `mcp` | `eligible` | Individual `1`/`0` override of **Can connect**; absence allows group inheritance, then the off default. |
 | User, app `mcp` | `connected` | `1` means the personal connection is active. This is distinct from a live OAuth credential. |
-| User, app `mcp` | `grant_<module>_<operation>` | Individual `1`/`0` override. Absence means trusted group inheritance, then read allowed except logs; other operations denied. |
+| User, app `mcp` | `grant_<module>_<operation>` | Legacy individual operation override used by the original-tool compatibility defaults. Current access also requires the tool assignment and connection selection; Mail, Forms and logs default denied. |
+| Tool rules | `mcp_tool_grants` | Individual/group tool assignments: Allow, Block or neutral inheritance, with the precedence described in permissions. |
+| Connection selections | `mcp_oauth_tools` | Selected tool names per OAuth connection; Basic/session clients share the separate Nextcloud profile (connection ID zero). |
 | Policy tables | `mcp_policy_state`, `mcp_policy_events` | Revision/global authentication epoch and durable audit, cleanup and receipt events. |
 | Group tables | `mcp_group_grants`, `mcp_group_life` | Grant-only policy and observed group identity/lifecycle. |
 | Authentication tables | `mcp_auth_users`, `mcp_auth_recheck` | Per-user credential generations/cuts and deferred lifecycle rechecks. |
@@ -120,7 +122,7 @@ system configuration (`config.php`), after staging the complete kit:
 
 ```php
 'mcp_source_offer' => [
-    'version' => '2.0.0',
+    'version' => '2.7.0',
     'sourceCommit' => 'FULL_40_CHARACTER_COMMIT_SHA',
     'manifestSha256' => 'SEPARATELY_TRUSTED_64_CHARACTER_MANIFEST_SHA256',
     'baseUrl' => 'https://sources.example.invalid/immutable-release-directory',

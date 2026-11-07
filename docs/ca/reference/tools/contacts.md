@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/contacts.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/contacts.md).
@@ -11,7 +11,9 @@
 
 | Mòdul | Lectura | Escriptura |
 | --- | --- | --- |
-| **Contactes** | llista llibretes d'adreces pròpies o compartides, cerca i llegeix contactes, inclòs el catàleg de comptes de només lectura de la instància (companys, amb `accountId` per a invitacions) segons la configuració d'enumeració d'usuaris de l'administrador | crea i edita preservant els camps vCard desconeguts; suprimeix definitivament només després d'una còpia `.vcf` verificada a `/MCP backups/Contacts` |
+| **Contactes** | llista llibretes d'adreces pròpies o compartides, cerca i llegeix contactes, inclòs el catàleg de comptes de només lectura de la instància (companys, amb `accountId` per a invitacions) segons la configuració d'enumeració d'usuaris de l'administrador | crea i edita preservant els camps vCard desconeguts; suprimeix definitivament només després d'una còpia `.vcf` verificada sota `Contacts` a la carpeta de còpies configurada (predeterminada `/MCP backups/Contacts`; obligatòria encara que se suspenguin les còpies de Files) |
+
+[Funcionament de Contactes i Tasques](contacts-tasks.md).
 
 Consulta `mcp_guide` per obtenir l'esquema autoritatiu i les operacions disponibles.
 
