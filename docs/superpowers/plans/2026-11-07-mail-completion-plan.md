@@ -1,165 +1,213 @@
-# Mail Reply, Files Attachments and Write Status Implementation Plan
+# Mail Completion Without Sending — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans or superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Complete reliable daily Mail composition, mailbox management and owned-account configuration in stages, starting with threaded reply drafts, Files attachments and observable write outcomes.
-**Architecture:** Extend the existing lazy native Mail adapters. Add a small reusable MCP operation journal, a Files attachment-source contract and Mail-specific composition/sending services. Native Mail owns mail data, credentials and transmission.
-**Tech Stack:** PHP 8.4+, Nextcloud 33-35, native Nextcloud Mail services, Nextcloud database abstractions, PHPUnit and disposable IMAP/SMTP fixtures.
-**Spec:** ../specs/2026-11-07-mail-completion-design.md
-**Status:** Release A implemented separately on 2.7.0; B/C pending. On 2026-11-08 the user requested the D planning extension and chose native Mail credential entry. This document update does not implement D.
+**Goal:** Complete owned-account Mail reading, unsent composition and everyday organization on top of A/D, with sending disabled.
+**Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
+**Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
+**Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
+**Status:** Planning update only. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. None of C0–C7 or D+ below has been implemented. Release B is frozen, outside this plan's completion criteria.
 
-## Delivery record and added subplan
+## Implementation baseline and evidence
 
-The A worktree reported a passing complete check (9,761 PHP tests, 834 browser cases) and 8 native Mail tests/207 assertions. Preserve its reviewed changes when continuing; do not reimplement A from this old documentation checkout. The task checkboxes below remain the original acceptance checklist, not a claim that every broader native/send/forward gate has passed. The local reply hold and native UI/IMAP limitation are recorded in the design.
+The current `MailToolCatalog::definitions()` contains **23 tools**, read from executable definitions at `f59d5fc1`:
 
-[Release D: accounts, signatures and connection settings](2026-11-08-mail-settings-plan.md) is a separate, implementation-ready subplan linked to its own design. It depends on A's journal/permissions but can precede B/C. It specifies native credential entry, independent grants, exact owned-account result binding and reuse of the existing status tools.
+| Area | Implemented tools / boundary |
+| --- | --- |
+| Accounts, folders and cached header search | `mail_list_accounts`, `mail_list_mailboxes`, `mail_search_messages` |
+| Message/thread/attachment reading and Files saving | `mail_read_message`, `mail_read_thread`, `mail_read_attachment`, `mail_save_attachment` |
+| Local unsent composition | `mail_read_drafts`, `mail_write_draft`, `mail_delete_draft`, `mail_attach_files` |
+| Durable status | `mail_get_operation`, `mail_list_operations` |
+| Preferences/signatures | `mail_read_account_settings`, `mail_write_account_settings`, `mail_read_signature`, `mail_write_signature` |
+| Native account setup/diagnostics/removal | `mail_read_connection`, `mail_configure_connection`, `mail_test_connection`, `mail_add_account`, `mail_complete_account_setup`, `mail_delete_account` |
 
-## Global Constraints
+Implementation anchors, rather than the old checklist, establish what is delivered:
 
-- Implementation baseline: Nextcloud MCP 2.7.0, commit 53277ea8eb27189c1a345df42ee7720c957aa96e.
-- The documentation branch starts at harness main 79c5971b. Start implementation in a new native worktree at the approved release baseline; do not implement against this older tree.
-- Optional native Mail must remain lazily resolved; per-capability compatibility is proven, not inferred from one minimum version.
-- No direct SMTP implementation, controller-to-controller calls, native table SQL mutations or real delivery tests.
-- Keep actor/connection selection, original action permission, Files scope/tags/Guests/download controls and confirmation checks.
-- Proposal defaults: 10 attachments, 25 MiB raw attachment content, further bounded by native MIME/server limits; current body/recipient defaults remain unchanged.
-- Preview performs no native write or attachment staging.
-- All new privileges start denied. Status reads never dispatch a write. Never automatically replay uncertain writes.
-- No external test delivery; preview/published Docker ports remain on 127.0.0.1.
-- No blanket exactly-once SMTP guarantee.
-- D uses the native Mail assistant for credentials; no secret inputs or automatic retries of native-UI setup. See the D subplan for its separate awaiting-user/completion contract.
+- `mcp/lib/Modules/Mail/Composition/ReplyComposer.php` derives reply/reply-all recipients and validates owned aliases. `Tools/WriteDraft.php` has **no forwarding fields**; there is no published alias-list/alias-management tool.
+- `Drafts/MailDraftOperations.php` saves a real native parent locally and sets `failed=true` to hold lossy native draft-to-IMAP synchronization. Native UI edits can release that hold. This is **local threading**, not a proven native UI/IMAP lifecycle guarantee.
+- `Files/MailFilesSource.php` snapshots authorized Files bytes, preserves retained attachments and supports reviewed partial repair. Limits remain 10 attachments / 25 MiB raw, 20,000 characters per body and 50 recipients per address field.
+- `Integration/MailBodyPreflight.php` checks server-reported whole-message size (1 MiB). It is **not a hard streaming byte cap** against an IMAP server that lies about size. Search is cached header search; draft listing is local-only, with no account/search filters in its schema.
+- `Settings/MailSettings.php` supports exactly `editor_mode`, `signature_above_quote`, `show_subscribed_only`. D does not yet assign special folders or expose alias CRUD.
+- `Accounts/MailAccountSetup.php` admits a 24-hour native UI workflow and binds a specifically selected account. An unchanged connection profile refuses completion, including credential-only changes. The fixed native link does not prefill fields or capture credentials.
+- `Connection/MailConnection.php` checkpoints sanitized per-protocol results. `Mcp/Operations/OperationJournal.php` exposes them in `operation.protocols`, rechecks guarded completion replays and serializes writes by account where `account_id` is supplied.
+- `Operations/MailOperationCleanup.php` preserves uncertain/repairing claims. There is no published reconciliation/release-of-uncertainty tool. Native account deletion does not erase the journal.
+- There are **no** published flag/move/archive/trash/restore, tag, folder-mutation, refresh, forwarding, send, schedule or outbox tools.
 
-## Review Focus
+Recorded implementation validation at `f59d5fc1`: full check 9,924 PHP tests / 89,235 assertions, 837 browser tests, both static scopes and packaging; native NC35/MariaDB/Mail5.12.5: 10 tests / 319 assertions. These are baseline results, **not evidence that the pending capabilities work**, nor a deployment record.
 
-1. Native draft auto-flush can lose reply headers; verify local and IMAP/UI lifecycle in Task 1/4.
-2. Native attachment import may silently omit one file; verify a complete manifest in Task 3/4.
-3. A process can die after native effects but before the journal result commits; Task 2/6 must preserve uncertainty without replay.
-4. Mail's worker can dispatch outside an MCP request or race cancellation; Task 1/6 gates this behavior.
-5. Reply-all and alias selection can misaddress mail or expose original Bcc; Task 4 validates exact recipients and preserves security settings.
+## Global constraints and definition of complete
 
-## Shared proposed interfaces
+- Keep all 23 tools and A/D behavior. Read the worktree identity/status before changes and preserve the existing implementation line.
+- **Sending stays disabled:** add no send, enqueue, schedule, cancellation or receipt/MDN transmission tool. Do not call native `OutboxService.convertDraft/sendMessage`, a send chain, or any SMTP submission/envelope/DATA API. D authentication diagnostics remain allowed.
+- New refresh/organization paths must not flush held reply drafts, dispatch outbox workers or activate cron jobs. Native Mail actions independently performed by the person remain outside MCP control.
+- Every new capability is denied by default and explicitly selected per connection. Current ownership, source permissions, Files scope/download/tags/Guests controls and approval proofs remain enforced.
+- Each mutation previews without side effects, uses a fresh `plan_state` plus the existing `operation_id`, reserves before effects and returns a minimal durable receipt. Status never writes, connects to IMAP/SMTP, opens UI or retries.
+- Require explicit `account_id` on new mutation schemas, validate all referenced messages/folders against it and reuse account-level serialization. Do not weaken A/D account-removal exclusions.
+- Bind IMAP mutations to the **actual selected native client**, account, mailbox identity, UIDVALIDITY and UID. A successful preflight followed by `MailManager.flagMessage/moveMessage` creating another client is insufficient. Preserve native cache/events using supported native boundaries; otherwise report unsupported and direct the person to Mail.
+- No new IMAP/SMTP implementation, native SQL writes, controller calls in production code, protected-method reflection or secret schema/URL/log/receipt fields. Native controllers may be exercised by disposable tests only.
+- Retain non-replay keys and uncertain history. A timeout, missing local row, matching Message-ID or vanished source is not proof of success or safe retry.
+- No remote permanent deletion: reject trashing an already-trashed item, `\\Deleted` as a general flag, expunge, empty-trash and folder deletion.
+- Preserve current body/attachment/recipient limits until a separately verified bounded native reader supports a change. Never silently truncate an effect or weaken S/MIME/signing/encryption settings.
+- "Complete without sending" means A/D plus verified unsent composition/identity discovery, daily message/folder/tag organization, explicit bounded freshness and understandable operation recovery. Optional advanced parity is listed separately below. Unsupported native capabilities remain visible as explicit limitations, not false completion claims.
 
-- OperationJournal.reserve(actorId, connectionId, tool, operationId, effectDigest): OperationClaim.
-- OperationJournal.finish(claim, receipt): OperationReceipt.
-- OperationJournal.get(actorId, connectionId, operationId): OperationReceipt.
-- OperationReceipt fields: operation_id, tool, state, native_state, resource_refs, replayed, safe_to_retry, warnings, updated_at. No body/recipient payload.
-- MailFilesSource.preview(actorId, paths): AttachmentManifest; stage(actorId, manifest): StagedAttachments.
-- AttachmentManifest items: source_file_id, source_path, etag, name, mime_type, size, integrity_digest.
-- MailDraftGateway.readOwned(actorId, draftId): DraftSnapshot; save(actorId, DraftEffect, StagedAttachments, claim): DraftSnapshot.
-- DraftSnapshot includes account/alias, parent identity, exact recipients, bodies, existing native attachments, revision and security settings; it stays inside Mail services, not the journal.
-- MailSubmissionGateway.enqueueOwnedDraft(actorId, draftId, revision, claim): NativeSubmissionRef.
-- MailSubmissionGateway.inspect(actorId, ref): NativeSubmissionState. Inspection never sends.
-- Use normal PHP parameter types and value objects when implementing these proposed signatures; keep native optional object types inside Integration.
+## Native findings that constrain the next deliveries
 
-### Task 1: Establish native contracts and close lifecycle decisions
+Read from the pinned official Mail5.12.5 archive, not inferred from documentation:
 
-**Files:** Extend mcp/tests/fixtures/nextcloud-api/generate-mail.php and mail-sources.json; add mcp/tests/Integration/Mail/NativeComposeContractTest.php; extend mcp/tests/Integration/ci/mail-cell.sh, mail-pins.json and mail fixture configuration. Add mcp/lib/Modules/Mail/Integration/MailCapabilities.php after evidence is available.
-**Consumes:** Existing native Mail pins and owned disposable integration cell.
-**Produces:** A committed capability matrix and a fixed draft/outbox lifecycle mapping for Tasks 3-6.
+- `MailManager.flagMessage` creates its own client, delegates to `IMAP/MessageMapper.addFlag/removeFlag`, then dispatches a cache-related native event. The IMAP mapper accepts an existing client; using it alone without cache/event semantics is incomplete.
+- `MailManager.moveMessage` allows only same-account moves and returns a nullable new UID. Native `IMAP/MessageMapper.move` uses `copy(..., move=true, force_map=true)` and can return no mapping. A repeated move or a Message-ID match cannot resolve that uncertainty.
+- `MailManager.deleteMessageWithClient` can **expunge inside Trash**. Its existence does not authorize a generic safe-delete wrapper.
+- Folder rename/subscription methods perform native synchronization and rename may return a different cached folder ID. Preview must account for descendants, roles and outstanding operations rather than binding only the displayed name.
+- `AliasesService.findAll/create/update/delete` exists, but alias updates also accept an S/MIME certificate ID and protect provisioned addresses. Identity discovery is the first slice; mutation needs its own preservation contract.
+- Existing `MailBodyPreflight` is a **read** guard, not a validated read-write selection/mutation primitive. Existing signed `mcp:mail-connection-probe` is an **authentication-only** child, not a generic writer/refresh runner.
 
-- [ ] Add failing native tests for parent/alias across local save, auto-flush, UI reopening and captured outgoing MIME; assert parent Message-ID survives or capability is refused.
-- [ ] Verify AttachmentService cloud import, retained local attachment IDs and silent omission behavior.
-- [ ] Add a pinned SMTP capture/failure fixture and count deliveries in isolation. Exercise disconnect before acceptance, disconnect after acceptance and Sent-copy failure separately.
-- [ ] Inspect/verify outbox worker concurrency and queued revocation/cancellation. Decide one dispatcher and document its exact claim boundary. If unsupported, leave enqueue/send/cancel capability disabled and deliver Release A.
-- [ ] Extend static fixtures only for the exact native symbols used. Run the focused native/contract tests and record supported combinations; do not bless every version in an admitted range.
+## Review focus
 
-### Task 2: Add durable operation receipts and one-time admission
+1. A native UI edit/auto-flush releases A's reply hold: C0/C4 must preserve or explicitly refuse the unsupported lifecycle; never silently clear `failed`.
+2. UID generation changes between preview and actual mutation, or two messages share Message-ID: C0/C1/C3 must refuse the wrong generation and never mutate a guessed target.
+3. A move succeeds remotely before process death, lacks a destination UID mapping, or races an external folder rename: C3/C7 must retain uncertainty and prevent a second move.
+4. A credential-only native change leaves the profile unchanged, or permission/selection is revoked before status/replay: D+ must distinguish current authentication from proof of changed credentials and preserve authorization checks.
+5. Refresh/tag/folder helpers have hidden write/worker side effects or incomplete resource budgets: C0/C2/C5/C6 must prove zero send/held-draft flushing and refuse unsafe native paths.
 
-**Files:** Create mcp/lib/Mcp/Operations/{OperationJournal,OperationClaim,OperationReceipt}.php; mcp/lib/Db/OperationsMapper.php; next ordered migration; mcp/tests/Unit/Mcp/Operations/OperationJournalTest.php; mcp/tests/Integration/Mail/MailOperationConcurrencyTest.php.
-**Consumes:** Actor/connection identity and Task 1 correlation evidence.
-**Produces:** OperationJournal and OperationReceipt from Shared interfaces.
+## Execution pattern and shared interfaces
 
-- [ ] Write tests testSameKeySameEffectReturnsReceipt, testChangedEffectConflicts and testConcurrentConfirmationsAdmitOneEffect. Assert one admitted side effect. The unique key is actor/connection/operation_id, with tool and digest bound as immutable fields; a cross-tool reuse also conflicts.
-- [ ] Write testCrashAfterNativeEffectDoesNotReplay and testExpiredRunningClaimRequiresReadOnlyReconciliation. Assert uncertain, safe_to_retry=false and no second adapter call.
-- [ ] Implement unique actor/connection/tool/operation identity, effect fingerprint, persistent target claims, state transitions and receipt retention/tombstones.
-- [ ] Write testForeignOrRevokedOperationIsNotReadable; integrate original-action authorization and minimal receipt output.
-- [ ] Run the unit boundary tests and real database concurrency test. Commit this independent infrastructure slice after checks pass.
+Paths beginning `Mail/` are relative to `mcp/lib/Modules/`; bare `Tools/`, `Accounts/`, `Composition/`, `Connection/`, `Drafts/`, `Integration/`, `Operations/`, `Presentation/`, `Settings/`, `Signatures/` and `Search/` are relative to `mcp/lib/Modules/Mail/`. `Mcp/Operations/` is under `mcp/lib/`; unprefixed test paths are under `mcp/`. Existing shared registration files retain their repository locations. Each numbered task is an independent delivery slice. For **each slice**: write the named regression/native tests first; run the narrow command below and observe the intended failure; implement the named boundaries; rerun the slice and affected A/D tests; update capability evidence, then make a local commit. No future phase is implicitly authorized for implementation by this document update.
 
-### Task 3: Add authorized Files attachment snapshots
+Retain actual interfaces rather than the superseded speculative DTO API:
 
-**Files:** Create mcp/lib/Modules/Files/Contracts/MailAttachmentSource.php; mcp/lib/Modules/Mail/Files/{MailFilesSource,AttachmentManifest,StagedAttachments}.php; extend MailServices.php; add mcp/tests/Unit/Modules/Mail/Files/MailFilesSourceTest.php and native attachment cases.
-**Consumes:** FilesAccessGuard, native download policy, Mail attachment API, OperationClaim.
-**Produces:** MailFilesSource preview/stage and a complete verified native attachment manifest.
+- `OperationJournal::plan(string $tool, string $uid, array $args, array $plan): array`.
+- `OperationJournal::execute(string $tool, string $uid, array $args, Closure $effect, ?Closure $authorizeReplay = null): array`; `checkpoint(array $refs): void`; `get(string $uid, string $id): ?array`.
+- `MailMessageLocator::locate(string $uid, int $messageId): array` returns owned native `message`, `mailbox`, `account` objects internally. Extend `MailBodyPreflight` only where its existing read contract remains intact.
+- Existing Files `MailFilesSource::preview/stage`, `MailDraftOperations::previewWrite/write`, D `preview/begin/previewCompletion/complete` and `MailOperationReader` remain the service boundaries. No second receipt database.
+- C0 produces `MailCapabilities::forUser(string $uid): array` and `MailMutationSession::run(string $uid, int $accountId, int $mailboxId, string $expectedUidValidity, Closure $effect): array`. The session resolves/checks a native **read-write selection on the same client** and invokes `Closure(object $client, object $account, object $mailbox): array` with the validated objects. Implement only after native event/cache and timeout semantics are proven.
+- Future receipt additions are explicit allowlisted identifiers/statuses: source/destination mailbox references, destination cached message ID only when verified, and per-item results if a later batch is admitted. Opaque revisions/correlation data stay private; no message content or heuristic account matching.
+- Every new tool additionally updates `MailToolCatalog.php`, `AppInfo/Application.php`, `GrantPolicy.php`, `WriteGate.php`, `ToolPresentation.php`, admin access/group/inspection labels and tiers, l10n, guide and relevant permission/selection/publication contracts. Existing grants/selections must grant **none** of the new tools.
 
-- [ ] Test hidden/out-of-scope/download-disabled sources and changed ETags; assert no attachment staging or sendable draft.
-- [ ] Test 10-file/25-MiB limits, UTF-8 names and complete content hashes; enforce lower native/server limits too.
-- [ ] Test one silently omitted native import; assert partial receipt and send eligibility=false.
-- [ ] Implement bounded snapshot staging through native Mail storage, explicit source receipts and no Files public-link creation. Complete staging precedes existing draft mutation; partial artifacts are private, operation-owned resources.
-- [ ] Add testPartialStagingPreservesOriginalDraft and testCleanupNeverDeletesReferencedOrUncertainArtifacts; assert the spec's 24-hour conservative cleanup boundary.
-- [ ] Run focused tests plus actual byte-preservation native tests. Commit after checks pass.
+### C0 — Capability and lifecycle foundation (next recommended delivery)
 
-### Task 4: Extend draft composition without losing state
+**Files:** Create `mcp/lib/Modules/Mail/Integration/{MailCapabilities,MailMutationSession}.php`; extend `MailServices.php`, `MailBodyPreflight.php` only as necessary, `mcp/tests/fixtures/nextcloud-api/{generate-mail.php,mail-sources.json}`, `mcp/tests/Integration/ci/mail-cell.sh`; create `mcp/tests/Unit/Modules/Mail/MailMutationSessionTest.php` and `mcp/tests/Integration/Mail/McpMailLifecycleTest.php`.
+**Consumes:** A/D native adapters, account claims, existing disposable IMAP and authentication-only SMTP fixtures.
+**Produces:** A tested per-native-pair capability matrix and same-client selection contract for C1/C3; no new user mutation tool yet.
 
-**Files:** Modify Mail/Drafts/MailDraftOperations.php, Mail/Tools/{WriteDraft,ReadDrafts,DeleteDraft}.php, Mail/Presentation/MailPlanRenderer.php; create Mail/Composition/{ReplyComposer,DraftEffect,DraftSnapshot}.php and Mail/Integration/MailDraftGateway.php; extend mcp/tests/Unit/Modules/Mail and Integration/Mail/McpMailAttachmentsDraftsTest.php.
-**Consumes:** OperationJournal, MailFilesSource and Task 1 lifecycle contracts.
-**Produces:** Extended mail_write_draft/read_drafts/delete_draft and operation receipts.
+- [ ] Add `testReplyParentAcrossNativeUiEditAndImapFlush`: check local parent, native UI update, hold release and actual IMAP draft headers. Keep the existing local-only guarantee until the complete path is proven; a required native Mail fix is a separately authorized upstream task.
+- [ ] Add `testUidValidityChangeBeforeReadWriteSelectionRefusesMutation`, `testSameMessageIdDoesNotAuthorizeAnotherUid`, `testReconnectOrReselectRevalidatesGenerationBeforeStore`, `testUnsupportedVersionDoesNotHideExistingReadTools`, `testNoLifecycleProbeDispatchesOutboxOrSmtpSubmission`.
+- [ ] Verify public native client/mapper/event/cache APIs, including implicit reconnect/reselection behavior, and record whether each of flags/move/labels/folder actions is supported. A reused client object alone is not proof if it silently reconnects before mutation. Do not create unused mutation wrappers to satisfy a diagram. If the same-client/event contract fails, publish an explicit native-UI fallback for that capability.
+- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailMutationSession|MailCacheGeneration|MailBodyPreflight'` (expected: focused cases green); run the native Mail cell with lifecycle scenarios (expected: no SMTP delivery and no wrong-generation mutation).
 
-- [ ] Test reply/reply-all against Reply-To, account aliases, self-sent mail, duplicate recipients and absent Message-ID. Assert exact To/Cc and no inherited Bcc.
-- [ ] Test forwarding separately from replying; assert source quote is bounded and parent relation is not fabricated.
-- [ ] Test edit-body-only preserves attachments, parent, alias and security properties; explicit attachment removal affects only named draft associations.
-- [ ] Test a changed draft/recipient/file manifest invalidates confirmation and a repeated create yields the same native draft ID.
-- [ ] Implement proposed schema extensions, snapshot revisions, repair_of_operation_id resolution, full confirmation rendering and native read-back; unsupported flush/UI lifecycle is refused rather than advertised as threaded.
-- [ ] Add testFreshRepairReusesOwnedSnapshots and testPostPersistenceFailureRetainsObservedDraft; assert a new approved operation repairs only missing work and never replays or deletes the old draft.
-- [ ] Run unit tests and native local-to-IMAP MIME/attachment cases. Commit after checks pass.
+### C1 — Explicit message flags
 
-### Task 5: Expose operation lookup and integrate existing Mail writes
+**Files:** Create `Mail/Messages/MailMessageFlags.php`, `Mail/Tools/SetMessageFlag.php`, `tests/Unit/Modules/Mail/MailMessageFlagsTest.php`, `tests/Integration/Mail/McpMailMessageFlagsTest.php` under `mcp/`; integrate shared registration/presentation files above.
+**Consumes:** C0 validated selection, existing message locator, journal/account claim.
+**Produces:** Proposed `mail_set_message_flag`, independent operation `set_flags`, arguments `account_id`, `message_id`, `flag` (`seen`/`flagged`), `value` (boolean), plus standard confirmation proofs. No toggle or arbitrary raw flag.
 
-**Files:** Create Mail/Tools/{GetOperation,ListOperations}.php and Mail/Operations/MailOperationReader.php; modify MailToolCatalog.php, MailModule.php, Mail/Files/MailAttachmentSaver.php, AppInfo/Application.php, Access/Grants/{GrantMatrix,GrantPolicy}.php, Mcp/Tools/Discovery/ToolPresentation.php, Mcp/Confirmation/WriteGate.php and per-tool/connection catalogs as needed.
-**Consumes:** OperationJournal and existing grant/connection filters.
-**Produces:** mail_get_operation, mail_list_operations and receipts for all Release A mutations.
+- [ ] Add `testSetSeenAndFlaggedUseDesiredState`, `testRevokedOrForeignMessageHasNoEffect`, `testCachedGenerationChangeRefusesStore`, `testRepeatedOperationDoesNotIssueAnotherStore`, `testNativeCacheAndUnreadCountsFollowVerifiedState`.
+- [ ] Preview the single requested field and current state; mutate/read back through C0 and supported native cache/event behavior. Checkpoint evidence so an interrupted write never becomes an automatic replay. Distinguish proven pre-effect refusal from possible IMAP effects.
+- [ ] Run focused `--filter MailMessageFlags` unit/native tests (expected: only the selected UID/flag changes; neighboring flags and SMTP capture unchanged), then commit.
 
-- [ ] Test lookup by operation_id after losing the create response; assert the same draft reference and zero extra writes.
-- [ ] Test bounded listing and original-action permission revocation; assert no foreign connection or hidden draft content.
-- [ ] Add the status operation to read-only classification; test both new lookup tools never enter WriteGate mutation dispatch.
-- [ ] Integrate mail_save_attachment and delete/update draft receipts. Verify retries with different payloads conflict, not overwrite.
-- [ ] Test defaults, discovery, guide, personal connection selection and disabled-Mail behavior. Commit after checks pass.
+### C2 — Folder organization and special-folder settings
 
-### Task 6: Add sending only after native dispatch gates pass
+**Files:** Create `Mail/Mailboxes/MailboxMutations.php`, `Tools/{CreateMailbox,RenameMailbox,SetMailboxSubscription,ConfigureMailboxes}.php`, `Mail/Mailboxes/MailboxRoles.php`, related unit/native cases; extend `Integration/MailSettingsGateway.php` only for explicit loaded-entity special-folder patches.
+**Consumes:** C0 capabilities, owned account/folder inventory, A/D journal and revision proofs.
+**Produces:** Proposed `mail_create_mailbox` / `create_mailboxes`, `mail_rename_mailbox` / `rename_mailboxes`, `mail_set_mailbox_subscription` / `subscribe_mailboxes`; `mail_configure_mailboxes` / `configure_mailboxes` with `account_id`, nonempty `roles` containing only positive owned `drafts_mailbox_id`, `sent_mailbox_id`, `trash_mailbox_id`, `archive_mailbox_id` values, and confirmation proofs. `MailboxRoles::preview/write(array $args, string $uid): array` validates same-account native folders and delegates a dirty-field patch/read-back. Omitted roles are preserved; clearing roles is not part of this slice. Do not expand existing `write_settings` implicitly.
 
-**Files:** Create Mail/Sending/{MailSubmission,NativeSubmissionRef,NativeSubmissionState,SubmissionReconciler}.php, Mail/Integration/MailSubmissionGateway.php, Mail/Tools/{SendDraft,ReadOutbox}.php; extend catalogs/permissions/presentation and Mail operation tests; add Integration/Mail/McpMailSendTest.php and SMTP-fault scenarios.
-**Consumes:** Tasks 1-5, an approved draft revision and proven native dispatcher behavior.
-**Produces:** Deliberate send/outbox tools, explicit native progress, no MCP replay on uncertain send.
+- [ ] Test account/role ownership, hierarchy delimiters, invalid names, rename collisions, protected/reserved folders, changed descendant sets, active-operation references and already-correct subscription. Bound previews to 100 descendants; refuse larger renames.
+- [ ] Test `testRenameReturnsVerifiedNewFolderIdentity` and `testInterruptedCreateIsNotRepeatedByNameGuessing`. Re-resolve native IDs/roles after read-back; do not assume rename preserves IDs. Preserve omitted account/auth/security fields.
+- [ ] Prove native sync called by these methods does not flush held drafts, enqueue SMTP or exceed the supported resource boundary; otherwise keep the affected action unsupported. Folder deletion/emptying remains absent.
+- [ ] Run `--filter 'MailMailboxMutations|MailSettings'` unit/native tests (expected: only approved hierarchy/subscription/role changes; existing A/D checks green), then commit.
 
-- [ ] Test enqueue once under concurrent repeated confirms. Assert one native outgoing admission per operation.
-- [ ] Test wrong alias, changed body/recipients/attachments and revoked Files origin access; assert no outgoing admission.
-- [ ] Capture MIME and assert In-Reply-To/References, approved attachment hashes, envelope recipients and absence of transmitted Bcc header.
-- [ ] Inject SMTP acceptance plus Sent-copy failure and crash before receipt persistence. Assert no automatic MCP resend, no false delivery claim and observable uncertain/sent_copy_failed states.
-- [ ] Test native background retries and queued revocation under the Task 1 mapping. If unsafe or uncorrelatable, keep affected send capability disabled and publish the precise limitation.
-- [ ] Expose cancel/schedule only if atomic native worker exclusion is proven; test that cancellation cannot claim success after sending starts.
-- [ ] Run the pinned IMAP+SMTP native cell and supported compatibility matrix. Commit after checks pass.
+### C3 — Same-account move, archive, recoverable trash and restore
 
-### Task 7: Complete everyday mailbox operations as a separate release
+**Files:** Create `Mail/Messages/MailMessageMoves.php`, `Tools/{MoveMessage,ArchiveMessage,TrashMessage,RestoreMessage}.php`, `tests/Unit/Modules/Mail/MailMessageMovesTest.php` and native equivalent; extend `Mcp/Operations` receipt allowlists / `OperationsMapper.php` only for explicit correlation fields.
+**Consumes:** C0 session, C2 verified role destinations (or previously configured native roles), existing account claims/status.
+**Produces:** Proposed `mail_move_message` / `move_messages`, `mail_archive_message` / `archive_messages`, `mail_trash_message` / `trash_messages`, `mail_restore_message` / `restore_messages` tools with `account_id`, `message_id`, and explicit destination ID where needed. A restore always previews its destination; it does not guess the historical folder.
 
-**Files:** Create Mail/Messages/MailMessageMutations.php, Mail/Mailboxes/MailboxMutations.php and narrowly scoped Tools for flags, moves, archive/trash/restore, labels and folder management; extend MailMessageGateway.php and capabilities.
-**Consumes:** Existing message locator/preflight and the journal/status contract.
-**Produces:** Daily organization capabilities described in Release C.
+- [ ] Add `testSameClientSourceGenerationIsUsed`, `testCrossAccountMoveRefused`, `testMissingRoleDoesNotGuessFolder`, `testTrashAlreadyInTrashNeverExpunges`, `testRestoreNeedsOwnedDestination`.
+- [ ] Add `testMoveSuccessWithoutUidMappingRemainsUncertain`, `testCrashAfterMoveDoesNotMoveAgain`, `testDuplicateMessageIdsCannotResolveMove`, `testOldMessageIdAfterCacheRefreshDoesNotAddressAnotherMessage`.
+- [ ] Use only proven native move primitives. Reject heuristic `force_map` correspondence: require native UIDPLUS/COPYUID or an equivalently proven UID mapping, otherwise refuse the capability before mutation. A missing mapping despite admitted support still remains uncertain. Bind both mailbox generations; verify returned mapping and destination where available, preserve cache/events and persist minimal evidence. A nullable mapping or vanished source remains uncertain; source disappearance alone is insufficient.
+- [ ] Run `--filter MailMessageMoves` unit/native cases (expected: one approved move, recoverable trash, no expunge or SMTP command), then commit.
 
-- [ ] Add explicit desired-state flag tests: repeating seen=true is harmless; avoid toggle semantics.
-- [ ] Verify mutation-time UIDVALIDITY on the actual IMAP selection/connection used for flags and moves; a successful preflight on another connection is not authorization to mutate. Test same-account moves with changed UID/UIDVALIDITY and two messages sharing Message-ID; only verified source/destination correspondence can complete a receipt.
-- [ ] Test trash from a normal folder is recoverable and trashing an already-trashed item refuses instead of expunging.
-- [ ] Test label capability absence, reserved folder rename and unavailable archive destination; do not guess a system folder.
-- [ ] Add bounded freshness/refresh and batch receipts only with their own grants and native budgets.
-- [ ] Run targeted native tests, preserve existing read contracts, and commit each independently working capability. Advanced backlog requires its own design.
+### C4 — Sender discovery and complete unsent composition
 
-### Task 8: Validate release boundaries and update user-facing contracts
+**Files:** Create `Mail/Accounts/MailIdentities.php`, `Tools/ListAliases.php`, `Composition/ForwardComposer.php`; extend `Tools/WriteDraft.php`, `Drafts/MailDraftOperations.php`, `Presentation/MailPlanRenderer.php`; add unit/native forwarding/identity cases.
+**Consumes:** A reply/Files/draft pipeline and D signatures; C0 lifecycle findings.
+**Produces:** Proposed `mail_list_aliases` with independent `read_identities`; explicit forwarding through the existing draft writer, not a second draft store or sender.
 
-**Files:** Relevant Mail/Files PHP and native tests, permissions/connection JavaScript tests, mcp/l10n catalogs, docs/en/reference/tools/mail.md and the repository translation workflow.
-**Consumes:** The actual delivered capability matrix and receipts.
-**Produces:** A reviewable release with exact support/limitations and backward compatibility.
+- [ ] List bounded (maximum 100/page) owned account/alias IDs, names and addresses; reject foreign/delegated identities. Return no certificate private material. Existing alias selection and signature reads must continue to work.
+- [ ] Propose `forward_message_id` for **new** local drafts only, mutually exclusive with `reply_to_message_id` and `draft_id`; source requires current `mail_read_message`. Show the exact bounded attributed quote, subject, recipients and sender before confirmation. Refuse unavailable/truncated source material unless the person explicitly supplies the final body; never invent a reply parent or inherit Bcc.
+- [ ] Copy no original MIME attachment implicitly. An explicit `forward_attachment_ids` selection additionally requires `mail_read_attachment`, verified source bytes, combined A limits and native snapshot/read-back evidence. Unsupported/oversized parts remain refused, with Files/manual native Mail as the fallback.
+- [ ] Add `testForwardIsNotReply`, `testNoImplicitRecipientsBccOrSignature`, `testForwardAttachmentSelectionIsExact`, `testForwardRepeatCreatesOneDraft`, `testNativeEditDoesNotBecomeAnAdvertisedThreadGuarantee`.
+- [ ] Keep signature insertion an explicit reviewed composition choice; default behavior remains the exact approved body. Preserve existing aliases/attachments/reply metadata and S/MIME state during ordinary edits.
+- [ ] Run `--filter 'MailIdentities|MailForward|MailDraftComposition|ReplyRecipients'` unit/native tests (expected: one unsent draft, approved bytes/identities, no outgoing admission), then commit.
 
-- [ ] Run focused PHP cases before broad checks: composer test -- tests/Unit/Modules/Mail; composer test -- tests/Unit/Mcp/Operations; composer test:api from mcp/.
-- [ ] Run native capture scenarios via the existing integration runner with Mail enabled; use its --plan output first and the pinned NC/DB/mode matrix. Never target production.
-- [ ] Run devbox run check --cwd IMPLEMENTATION_WORKTREE --json once the focused checks pass.
-- [ ] Verify all existing ten tools and old connection choices, absence of credentials/content in journal errors and full package inclusion.
-- [ ] Update guide/permissions/localization and explicitly document queued vs SMTP accepted vs delivered, receipt retention and native-worker limits.
-- [ ] Review the final implementation before a release. Pushing, PR creation and deployment require their own explicit request.
+### C5 — Mail labels/tags
 
-## Release D extension
+**Files:** Create `Mail/Tags/MailTags.php`, `Tools/{ListTags,CreateTag,SetMessageTag}.php`; add related unit/native cases and optional tag filtering to `Search/MailSearchCriteria.php` only after native query support is proven.
+**Consumes:** C0 selection/cache semantics, message ownership and native Mail tag APIs; no relation to Files SystemTags.
+**Produces:** Proposed `mail_list_tags` / `read_tags`, `mail_create_tag` / `create_tags`, `mail_set_message_tag` / `tag_messages` capabilities. Assignment uses an owned native tag ID and desired boolean state; no arbitrary IMAP command/flag input.
 
-Follow [the dedicated D implementation plan](2026-11-08-mail-settings-plan.md): D1 native contracts/redacted reads; D2 preferences/signatures; D3 workflow/status/CAS; D4 native assistant and connection configuration; D5 separate IMAP/SMTP diagnostics; D6 measured account removal, permissions and complete checks. Those tasks extend the current journal instead of introducing a second status mechanism. No D implementation or real account change is authorized by this planning update.
+- [ ] Test native PERMANENTFLAGS/keyword support, unsupported server refusal, owned tag/message checks, stable canonical IMAP label, idempotent assignment and private cache consistency. Reject system flags masquerading as tags.
+- [ ] Test creation interrupted before native ID recording; retain uncertainty, never deduplicate/create again merely by display name. Tag deletion/global renaming and bulk effects need a later reviewed design.
+- [ ] Run `--filter MailTags` unit/native tests (expected: only selected label association changes, no other flags/SMTP effects), then commit.
+
+### C6 — Explicit freshness and practical draft reading
+
+**Files:** Create `Mail/Sync/MailRefresh.php`, `Tools/RefreshMailbox.php`; extend `Presentation/MailRows.php` / existing Mailbox presentation, `Tools/ReadDrafts.php`, `Drafts/MailDraftOperations.php`, `Search/MailMessagePager.php` as needed; add unit/native freshness cases.
+**Consumes:** Native `Service/Sync/SyncService.syncMailbox`, C0 capability evidence and A/D status; ordinary reads remain cache-only or read-only peek.
+**Produces:** Proposed `mail_refresh_mailbox` / `refresh`, freshness metadata and local draft account/subject filters. No automatic refresh inside status, search or listing.
+
+- [ ] Test `testReadNeverRefreshes`, `testFreshnessUnknownIsNotFresh`, `testExplicitRefreshPreservesSeenAndReplyHolds`, `testRefreshCannotDispatchWorkersOrOutbox`, `testRepeatedRefreshOperationDoesNotRunAgain`.
+- [ ] Admit one owned mailbox per operation, five operations/user/account/minute maximum and a 20-second wall-clock budget. Support this only if the native boundary/isolated runner can enforce the budget without unsafe replay; a socket timeout alone is insufficient. Do not repurpose D's authentication-only helper for arbitrary effects. Persist any partial/uncertain synchronization result and do not promise an unsupported native message-count cap.
+- [ ] Filter local drafts by owned `account_id` / subject while retaining max 50/page and full-read truncation flags. A cached IMAP Drafts mailbox is **not** a local draft; import needs its own future reviewed operation.
+- [ ] Run `--filter 'MailRefresh|MailDraftOperations|MailMessagePager'` unit/native tests (expected: bounded requested work only; old cursor/cache-generation tests and SMTP capture unchanged), then commit.
+
+### D+1 — Observe credential-only native work accurately
+
+**Files:** Extend `Accounts/MailAccountSetup.php`, `Connection/MailConnection.php`, `Mcp/Operations/ProtocolDiagnostics.php`, relevant workflow/operation mappers and `Operations/MailOperationReader.php`; corresponding unit/native tests.
+**Consumes:** Delivered D workflows, scoped diagnostic receipts, immutable setup intent and A repair claims.
+**Produces:** Optional reviewed native authorization evidence within existing ownership/permission boundaries, or a precisely documented blocker. This extends the delivered D; unchanged-profile refusal stays in place until evidence is proven.
+
+- [ ] Test credential-only native edits, OAuth consent without profile change, unchanged old credentials still authenticating and native UI abandonment. Evaluate a correlated, fresh successful per-protocol diagnostic or native authorization revision under current probe/source/read permissions. Describe it as **observed current authentication**, never proof that a password changed. If no trustworthy native change evidence exists, keep credential-change completion unverified; successful connectivity alone must not claim a credential update.
+- [ ] Require explicit workflow/account IDs, same actor/connection, current source permissions, intent equality and fresh revision for any evidence link. Status must not initiate the probe. Expose unsupported consent/deep-link capabilities honestly; never add secret inputs or fake prefill parameters.
+- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailAccountSetup|MailConnection|MailSetupOperation'` plus native scenarios (expected: original source revocation honored on status/replay, no false credential-change proof and no extra probes), then commit supported improvements or record the native blocker.
+
+### D+2 — Explicit operation reconciliation
+
+**Files:** Add `Mail/Operations/MailOperationReconciler.php` only for proven observations; extend existing operation/workflow mappers and receipt readers. Any proposed `mail_reconcile_operation` tool has its own denied-by-default `reconcile_operations` grant and still requires original-action access/connection selection. Tests: `Unit/Modules/Mail/MailOperationReconcilerTest.php`, `Unit/Db/OperationsMapperTest.php` and native crash cases under `mcp/tests/`.
+**Consumes:** A/D exact stored resource identities, keyed integrity proofs, account claims and protected repair/workflow phases; no dependence on D+1.
+**Produces:** A separately reviewed, approved metadata reconciliation path or an operator inspection procedure where a safe result cannot be proven.
+
+- [ ] Test a crash during partial repair/setup binding and a native write succeeding before receipt persistence. Reconcile only exact stored native IDs/integrity evidence in a **separate approved operation**. Status continues to make no native call or metadata transition.
+- [ ] Never claim the effect failed, unlock an uncertain target or clean artifacts from absence/age/subject/Message-ID matching. Preserve the old non-replay tombstone and use compare-and-set transitions. A human acknowledgment is not proof of the native outcome. If safe resolution cannot be proven, document native/admin inspection rather than ship a force-unlock tool.
+- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailOperationReconciler|MailOperation|OperationsMapper'` plus native interruption cases (expected: zero repeated effects, no unauthorized receipt, unresolved cases retained), then commit.
+
+### D+3 — Optional alias administration and additional settings
+
+**Files:** Extend `Mail/Accounts/MailIdentities.php` from C4; proposed `Tools/{AddAlias,UpdateAlias,DeleteAlias}.php` and alias mutation tests. Other account preferences need a separate explicit allowlist after their native contracts are inspected.
+**Consumes:** C4 owned alias inventory, D signature/native account adapters and journal; C2 already owns special-folder roles.
+**Produces:** Proposed independent `create_identities`, `edit_identities`, `delete_identities` grants for `mail_add_alias`, `mail_update_alias`, `mail_delete_alias`; not generic native object patching. This is a later parity slice, not a blocker for daily no-send composition.
+
+- [ ] Preview account/alias IDs, exact address/name and current revision. Preserve omitted signatures, account membership and S/MIME certificate bindings; refuse edits to provisioned addresses and removal while a local draft or active/uncertain operation references the alias. Never accept crypto private material.
+- [ ] Test unknown-key rejection, foreign alias membership, provisioned identities, retained certificate/signature fields, interrupted creation and lost delete responses. No guessed deduplication by email/name.
+- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailIdentities|MailSettings|MailSignatures'` plus native identity cases (expected: only approved fields change; no outgoing admission), then commit. Ordering/background sync or other preferences require separately named fields, preservation tests and appropriate grants before admission.
+
+### C7 — Acceptance of the no-send module
+
+**Files:** Affected unit/native/browser tests, `MailToolCatalog.php`, guide/presentation/l10n, `docs/en/reference/tools/mail.md`, translation workflow and capability evidence from C0.
+**Consumes:** Only actually implemented slices, not every proposed tool in this document.
+**Produces:** A reviewable no-send release with precise remaining limitations.
+
+- [ ] Run affected feature tests first and existing A/D regression cases. Pin read/write/restore receipt authorization, concurrency, native cache effects, partial failures, ownership and unchanged Files originals.
+- [ ] Preview then execute the existing disposable native runner: `PATH=/home/dev/.local/share/mise/installs/node/24.22.1/bin:$PATH sh mcp/tests/Integration/ci/run-local.sh --plan 35 mariadb fresh --mail`, then `PATH=/home/dev/.local/share/mise/installs/node/24.22.1/bin:$PATH MCP_IT_PHPUNIT_ARGS='--filter Mail' sh mcp/tests/Integration/ci/run-local.sh 35 mariadb fresh --mail`. Add NC33/34 native cells or label those capability/native-version pairs unverified; static fixtures alone are insufficient.
+- [ ] Run `devbox run check --cwd IMPLEMENTATION_WORKTREE --json` after focused checks pass. Expected: syntax, both static scopes, PHP/browser/docs tests and package all pass. Append new raw catalog entries intentionally; preserve prior tool/protocol/results contracts except reviewed schema extensions.
+- [ ] Assert no send/schedule/enqueue tool or grant, no SMTP envelope/DATA, no outbox/MDN dispatch and no release of held reply drafts through new paths. Existing D auth probes remain separately permitted.
+- [ ] Update user docs with actual tool names, budgets, local-vs-IMAP draft limits, explicit freshness, reversible-trash behavior, unsupported pairs and manual inspection steps. Review the final implementation; publishing/PR/deployment requires its own explicit request.
+
+## Frozen B and optional later parity
+
+B remains **unimplemented and disabled**, even if a future native API makes sending easier. Sending/scheduling/cancellation, dispatch workers and SMTP acceptance/fault testing need a separately approved design and explicit reauthorization. A read-only outbox viewer may be designed independently but must never dispatch or infer successful delivery from missing rows.
+
+Optional later slices, not blockers for the daily no-send workflow: IMAP draft import/search, raw `.eml` export, genuinely bounded larger incoming attachment reads, account/folder resource scopes, bounded item batches, full-body indexed search, snooze/filter/out-of-office management and advanced alias administration. Delegated/global account management, cryptographic key handling and destructive deletion remain separately designed work. No implicit S/MIME/PGP downgrade.
 
 ## Plan self-review
 
-Scope, exact component ownership, shared contracts, irreversible-boundary tests and native release gates are recorded.
-Release A is independently useful if native sending gates fail. Releases B/C/D must not be described as implemented until their tests pass.
-The plan intentionally does not promise complete RFC References ancestry, universal Mail compatibility, exactly-once SMTP, recall after native enqueue or global account provisioning/administration. Owned-account configuration is specified in D with native credential entry.
-A has been implemented separately; execution of B/C/D has not started.
+A/D completed capabilities map to their real files and 23 executable definitions; speculative A-era DTOs/outbox infrastructure are removed from active tasks. Each missing daily capability has one owner, a concrete boundary, failure-oriented tests and an acceptance command. C0 gates native same-client/cache/lifecycle safety before C1/C3; C2 establishes explicit role destinations; C4 reuses A rather than introducing another writer; D+ cannot use connectivity as proof of credential modification. All five review risks are assigned tests. Sending is excluded from both implementation tasks and the definition of complete. This planning update changes no product code or privileges and authorizes no new native action.

@@ -6,11 +6,28 @@
 **Architecture:** Reuse A's operation journal and lazy native Mail adapters. MCP writes allowlisted preferences/signatures and admits native-UI setup workflows; native Mail alone captures credentials and performs account setup. Explicit result binding verifies observed state without claiming control over independent native UI submissions.
 **Tech Stack:** Existing PHP/Nextcloud app, native Mail services/UI, Nextcloud DB abstractions, PHPUnit and the existing browser/native test harness.
 **Spec:** [Mail accounts, signatures and connection settings](../specs/2026-11-08-mail-settings-design.md).
-**Status:** Plan update requested 2026-11-08; none of the tasks below are implemented by this document.
+**Status:** D implemented in `f59d5fc1` on top of A `90fe762d`; sending remains disabled. This document retains the original acceptance checklist; the implementation record below is authoritative for actual file placement/interfaces. Remaining D+ work is in the master completion plan.
+
+## Implementation record
+
+All D1–D6 feature slices are delivered, with the conservative limits below. The original checkboxes are historical acceptance intentions, not an instruction to rebuild D or a claim that every proposed filename was created.
+
+| Slice | Actual implementation |
+| --- | --- |
+| D1/D2 | `Integration/MailSettingsGateway.php`, `Settings/MailSettings.php`, `Signatures/MailSignatures.php`; explicit projections and loaded-entity patches preserve omitted credentials/security. |
+| D3/D4 | `Accounts/MailAccountSetup.php`, `Integration/NativeAccountSetupLinks.php`, `Db/MailSetupWorkflowsMapper.php`, shared journal/CAS/status; explicit account selection and native credential handoff. |
+| D5 | `Connection/{MailConnection,NativeConnectionProbe,NativeConnectionProbeWorker,ProbeTicket}.php`, `Platform/Process/NativeProbeProcess.php`, `Command/MailConnectionProbe.php`, `Db/MailProbeSlotsMapper.php`, `Mcp/Operations/ProtocolDiagnostics.php`; separate bounded auth with durable sanitized results. |
+| D6 | `Accounts/MailAccountRemoval.php`, ten tools/catalog/DI/grants/connection/admin/l10n/guide integration and maintenance; account-wide admission shares A's exclusion. |
+
+Final recorded checks at `f59d5fc1`: 9,924 PHP tests / 89,235 assertions, 837 browser cases, both static scopes and packaging; native NC35/MariaDB/Mail5.12.5 10 tests / 319 assertions. Three independent review findings were fixed with RED→GREEN regressions: pre-effect refusal/lock release, source authorization on replay (including concurrent reservation), and durable per-protocol results after response loss/compaction. No sending was enabled.
+
+Actual interfaces are bounded arrays. Preference/connection reads are `MailSettingsGateway::readSettings/readConnection`; signature reading is `MailSignatures::read(array $args, string $uid): array`; existing service `preview/write`, setup and probe contracts are used. No `AccountSettingsSnapshot`, `SignatureSnapshot` or `ConnectionSnapshot` class was required. The interface sketch below remains a record of the original proposal.
+
+Limits retained: unchanged-profile credential-only work remains unverified; native UI submissions are not globally exactly-once; provisioned/delegated server settings are refused; missing safe CLI/process/TLS capability reports unsupported; pending/uncertain/local outgoing or draft work blocks account removal; automatic cleanup never resolves uncertain/repairing claims. Follow the [updated master plan](2026-11-07-mail-completion-plan.md) for D+ and C work. This status update authorizes no new native action.
 
 ## Global Constraints
 
-- Start from MCP 2.7.0 plus the reviewed Release A implementation; the planning checkout is based on older source and is not an implementation base.
+- Continue from MCP 2.7.0 plus A/D in the existing implementation worktree. Do not restart from the obsolete pre-A planning checkout.
 - Reuse the native Mail assistant for passwords and OAuth; never add secret input fields to MCP schemas, logs, URLs or receipts.
 - Support only owned accounts. All new tools start denied and require explicit connection selection. Respect administrator creation policy and native provisioned/delegated editability.
 - All write previews are effect-free. Confirmation binds the same `operation_id`, approved effect and fresh `plan_state`; status lookup never writes, probes, opens UI or retries.
@@ -118,4 +135,4 @@ Proposed service interfaces, with ordinary typed value objects for the named DTO
 
 ## Plan self-review
 
-The five review risks each have named owner tests. Every new permission and proposed tool in the design has an owning task; D6 integrates their admin/connection presentation. D3 distinguishes approved MCP actions from independently completed native UI work and does not promise native exactly-once creation. D5 proves both protocols separately; D6 gates removal instead of assuming its local impact. D adds no sending, global administration or new credential entry UI. This document is a plan, not evidence that D has run or passed.
+The five review risks each have named owner tests. Every new permission and proposed tool in the design has an owning task; D6 integrates their admin/connection presentation. D3 distinguishes approved MCP actions from independently completed native UI work and does not promise native exactly-once creation. D5 proves both protocols separately; D6 gates removal instead of assuming its local impact. D adds no sending, global administration or new credential entry UI. The historical checklist alone is not execution evidence; the implementation record above identifies the delivered commit, actual boundaries and passing baseline checks. Remaining C/D+ work follows the updated master plan.

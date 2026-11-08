@@ -1,8 +1,8 @@
 # Mail accounts, signatures and connection settings
 
-Status: Planning extension requested on 2026-11-08; not implemented.
+Status: Implemented in `f59d5fc1` on MCP 2.7.0 after A; current limitations and follow-ups are tracked by the master no-send completion plan.
 Parent design: [Mail completion](2026-11-07-mail-completion-design.md).
-Implementation baseline: MCP 2.7.0 plus the reviewed Release A changes; start from that implementation line, not this older documentation checkout.
+Implementation baseline: A `90fe762d`, D `f59d5fc1`, existing `feat/mail-release-a` worktree.
 Native reference: nextcloud/mail v5.12.5. Support for other pinned pairs needs separate capability evidence.
 
 ## Intent and decisions
@@ -13,7 +13,17 @@ The user chose to reuse the native Mail assistant for credentials. Passwords, OA
 
 The selected approach is a native-service adapter for ordinary settings plus a native-UI handoff for account setup and connection/authentication changes. A fully MCP-owned setup API was considered and rejected because it would put credential handling into the model/tool path. Returning an untracked Mail link alone was rejected because it would not provide observable completion or protection against blind repeats.
 
-This is Release D of the master plan. It depends on Release A's journal and authorization boundaries, not on Release B sending or Release C mailbox mutations, and may be implemented before either of those releases. The current request updates planning only.
+This is Release D of the master plan. It depends on Release A's journal and authorization boundaries, not on Release B sending or Release C mailbox mutations, and may be implemented before either of those releases. The original request was planning; D was subsequently authorized and implemented. The latest request updates only the remaining completion plan and keeps sending disabled.
+
+## Implementation record and remaining limits
+
+The final check at `f59d5fc1` passed 9,924 PHP tests / 89,235 assertions, 837 browser cases, both static scopes and packaging; native NC35/MariaDB/Mail5.12.5 passed 10 tests / 319 assertions. The whole Mail catalog now contains 23 tools. This is recorded baseline evidence, not a new run of pending features.
+
+Actual boundaries use `Integration/MailSettingsGateway`, `Settings/MailSettings`, `Signatures/MailSignatures`, `Accounts/MailAccountSetup` / `MailAccountRemoval`, and `Connection/{MailConnection,NativeConnectionProbe,NativeConnectionProbeWorker,ProbeTicket}`. A signed native `Command/MailConnectionProbe` child bounds full authentication handshakes; unsafe/debug/TLS-disabled or missing CLI/process capability reports unsupported. No new credential UI or sender exists.
+
+Read/write contracts remain bounded arrays with strict schemas, not the initially suggested DTO wrappers. The existing journal records awaiting-user state, account references, current source checks on both completion replay paths, and durable allowlisted `operation.protocols` results. Proven pre-effect D refusals release their claims; possible native effects remain uncertain.
+
+Credential-only changes with an unchanged profile cannot currently complete observation; provider consent is not inferred from opening a form. Aliases can be selected and have signatures edited, but alias listing/CRUD and extra account preferences are not published. Account removal blocks local drafts/outgoing and pending/uncertain operations; it preserves remote messages, Files and journal history. The [master plan](../plans/2026-11-07-mail-completion-plan.md) owns follow-up D+ work without reopening the implemented D core or enabling sending.
 
 ## Verified implementation facts
 
@@ -42,11 +52,11 @@ Primary implementation references:
 
 ## Capabilities and independent permissions
 
-All names below are proposed. Every new tool needs an explicit, denied-by-default assignment and current connection selection. Existing `mail.read`, draft, send and status grants do not grant configuration access.
+The ten tool names below are published by the current executable catalog. Every tool requires an explicit, denied-by-default assignment and current connection selection. Existing `mail.read`, draft and status grants do not grant configuration access.
 
-| Proposed tool | Permission | Effect |
+| Published tool | Permission | Effect |
 | --- | --- | --- |
-| `mail_read_account_settings` | `read_settings` | Read allowlisted preferences, native editability and an opaque revision. |
+| `mail_read_account_settings` | `read_settings` | Read the three allowlisted preferences and an opaque revision; editability belongs to the separately permitted connection projection. |
 | `mail_write_account_settings` | `write_settings` | Confirmed patch of allowlisted preferences; preserve omitted fields. |
 | `mail_read_signature` | `read_signatures` | Read the selected account or owned alias signature. |
 | `mail_write_signature` | `write_signatures` | Confirmed replacement or explicit removal of that signature. |
