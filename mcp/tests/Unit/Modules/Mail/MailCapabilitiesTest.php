@@ -33,6 +33,8 @@ final class MailCapabilitiesTest extends TestCase {
         self::assertSame('unsupported',$r['capabilities']['reply_parent_imap']['status']);
         self::assertSame('unsupported',$r['capabilities']['sender_alias_imap']['status']);
         self::assertSame('unsupported',$r['capabilities']['mutation_session']['status']);
+        self::assertSame('native_tag_cache_identity_and_creation_correlation_missing',$r['capabilities']['tags']['reason']);
+        self::assertSame('native_sync_owner_lease_and_budget_not_verified',$r['capabilities']['refresh']['reason']);
         self::assertSame('disabled',$r['capabilities']['send']['status']);
     }
     public function testUnsupportedMutationCannotBeAdmittedByARecognizedVersion(): void {

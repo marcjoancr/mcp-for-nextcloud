@@ -56,6 +56,12 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'c2-protocol':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailMailboxActor::protocol($uid,(int)$in['account_id'],$in['mode']);break;
+    case 'c2-fault':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailMailboxActor::fault($uid,(int)$in['account_id'],$in['mode']);break;
+    case 'c2-native':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailMailboxActor::native($uid,(int)$in['account_id']);break;
     case 'c3-role':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::role($uid,$in['fixture'],$in['role'],(int)$in['mailbox_id']);break;
     case 'c3-boundary':

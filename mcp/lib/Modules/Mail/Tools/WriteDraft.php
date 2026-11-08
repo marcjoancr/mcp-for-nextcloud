@@ -26,6 +26,8 @@ final class WriteDraft implements WriteTool {
 				'account_id' => ['type' => 'integer', 'minimum' => 1],
 				'draft_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Omit to create a draft; supply a draft id to update that draft.'],
 				'subject' => ['type' => 'string', 'maxLength' => 1000],
+                'forward_message_id' => ['type'=>'integer','minimum'=>1,'description'=>'Forward an owned source into a new local draft; mutually exclusive with reply and draft_id. Requires mail_read_message. Omit body to derive a complete attributed plain quote; explicit body is kept exactly.'],
+                'forward_attachment_ids' => ['type'=>'array','maxItems'=>10,'items'=>['type'=>'string','pattern'=>'^[0-9]+(?:\\.[0-9]+)*$'],'description'=>'Explicit source MIME part IDs to snapshot. Requires mail_read_attachment; no original attachment is inherited by default. Existing source read and combined draft limits apply.'],
                 'reply_to_message_id' => ['type'=>'integer','minimum'=>1,'description'=>'An owned message ID. Its actual Message-ID establishes the reply thread. Requires mail_read_message access.'],
                 'reply_mode' => ['type'=>'string','enum'=>['reply','reply_all'],'description'=>'Derive visible recipients when replying; original Bcc is never copied.'],
                 'alias_id' => ['type'=>['integer','null'],'minimum'=>1,'description'=>'An existing owned sender alias; null chooses the account identity. Omit to preserve.'],

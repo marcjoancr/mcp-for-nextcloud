@@ -79,7 +79,13 @@ final class MailDraftCompositionTest extends TestCase {
         $plan=$ops->previewWrite(['account_id'=>4,'draft_id'=>77,'subject'=>'Repaired','add_files'=>$paths,'repair_of_operation_id'=>'partial'],'alice');
         self::assertCount(10,$plan['after']['attachments']);
     }
-    private function ops(CompositionDraft $draft, ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files=null, ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal=null): array {
+    public function testForwardCreatesANewThreadWithReviewedBodyAndNoInheritedRecipients():void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'','bodyPlain'=>'','bodyHtml'=>'','html'=>false,'attachments'=>[],'recipients'=>[]]);
+        $forward=$this->createMock(\OCA\Mcp\Modules\Mail\Composition\ForwardComposer::class);$forward->method('prepare')->willReturn(['source'=>['message_id'=>7],'body_plain'=>'Reviewed forwarded quote','attachments'=>[]]);$forward->method('stage')->willReturn([]);
+        [$ops]=$this->ops($draft,null,null,$forward);$a=['account_id'=>4,'subject'=>'Fwd: Source','forward_message_id'=>7];$p=$ops->previewWrite($a,'alice');self::assertSame('Reviewed forwarded quote',$p['after']['body_plain']);self::assertSame([],$p['after']['to']);self::assertSame([],$p['after']['bcc']);$r=$ops->write($a+['plan_state'=>$p['plan_state']],'alice');self::assertNull($r['draft']['in_reply_to']);
+        $this->expectException(\InvalidArgumentException::class);$ops->previewWrite($a+['draft_id'=>77],'alice');
+    }
+    private function ops(CompositionDraft $draft, ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files=null, ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal=null, ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward=null): array {
         $service=new class($draft) {
             public array $lastAttachments=[];
             public function __construct(private CompositionDraft $draft){}
@@ -108,7 +114,7 @@ final class MailDraftCompositionTest extends TestCase {
             'replyTo'=>['count'=>0,'addresses'=>[]],'to'=>['count'=>1,'addresses'=>[['email'=>'alice@example.test','name'=>'Alice']]],'cc'=>['count'=>0,'addresses'=>[]]]);
         $tools=$this->createMock(\OCA\Mcp\Mcp\Tools\ToolRegistry::class);$tools->method('allowsTool')->willReturn(true);
         $composer=new ReplyComposer($locator,static fn(string $uid)=>$reader,$services,$tools->allowsTool(...));
-        $ops=new MailDraftOperations($services,$accounts,new PlanState((new InMemoryConfig())->mock($this)),$composer,$files,$journal);
+        $ops=new MailDraftOperations($services,$accounts,new PlanState((new InMemoryConfig())->mock($this)),$composer,$files,$journal,$forward);
         return [$ops,$service];
     }
 }

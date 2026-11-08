@@ -52,6 +52,7 @@ final class NextcloudApiUsage {
         'OCA\\Mail\\Db\\LocalAttachment',
         'OCA\\Mail\\Db\\Recipient',
         'OCA\\Mail\\Db\\Mailbox',
+        'OCA\\Mail\\Db\\Tag',
         'OCA\\Circles\\Model\\Circle',
         'OCA\\Talk\\Participant',
         'OCP\\FilesMetadata\\Model\\IFilesMetadata',
@@ -66,6 +67,7 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Mail\\Db\\TagMapper::getAllTagsForUser' => ['userId'],
         'OCA\\Deck\\Db\\LabelMapper::findAssignedLabelsForCards' => ['cardIds', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::list' => ['cardId', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::create' => ['cardId', 'message'],
@@ -362,6 +364,11 @@ final class NextcloudApiUsage {
      */
     public const VERSION_GATED = [
         // Custom dependency, absent from every pinned stock Mail. Fingerprints admit the separately tested native artifact.
+        'OCA\\Mail\\Service\\GuardedMailboxMutations' => [
+            'missing' => ['31','32','33','34','35'],
+            'fallback' => 'OCP\\App\\IAppManager::isEnabledForUser',
+            'by' => \OCA\Mcp\Modules\Mail\Integration\MailServices::class,
+        ],
         'OCA\\Mail\\Service\\GuardedMessageMutations' => [
             'missing' => ['31','32','33','34','35'],
             'fallback' => 'OCP\\App\\IAppManager::isEnabledForUser',
@@ -424,7 +431,7 @@ final class NextcloudApiUsage {
             'missing' => ['31', '32', '33'],
             'fallback' => 'OCA\\Deck\\Service\\CardService::update',
             'by' => \OCA\Mcp\Modules\Deck\Cards\CardUpdateArguments::class,
-            'elsewhere' => ['Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor', 'Modules/Deck/Labels/LabelListing.php' => 'OCA\\Deck\\Db\\Label::getColor', 'Modules/Deck/Labels/NativeLabels.php' => 'OCA\\Deck\\Db\\Label::getColor'],
+            'elsewhere' => ['Modules/Mail/Tags/MailTags.php' => 'OCA\\Mail\\Db\\Tag::getColor', 'Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor', 'Modules/Deck/Labels/LabelListing.php' => 'OCA\\Deck\\Db\\Label::getColor', 'Modules/Deck/Labels/NativeLabels.php' => 'OCA\\Deck\\Db\\Label::getColor'],
         ],
         // Up to Talk 23 Room::getLobbyState() opens a lobby whose timer has passed by itself.
         'OCA\\Talk\\Service\\RoomService::validateLobbyTimer' => [

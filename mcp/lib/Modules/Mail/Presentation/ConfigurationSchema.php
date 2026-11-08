@@ -20,6 +20,6 @@ class ConfigurationSchema {
     }
     public static function object(array $properties,array $required,bool $write=false):array {
         if($write){$properties['operation_id']=OperationJournal::property();$properties['plan_state']=PlanState::property();}
-        return ['type'=>'object','properties'=>$properties,'required'=>$required,'additionalProperties'=>false];
+        return ['type'=>'object','properties'=>$properties]+($required===[]?[]:['required'=>$required])+['additionalProperties'=>false];
     }
 }

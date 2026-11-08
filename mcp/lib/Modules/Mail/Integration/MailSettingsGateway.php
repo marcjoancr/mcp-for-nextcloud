@@ -65,6 +65,18 @@ class MailSettingsGateway {
         if((int)$alias->getAccountId()!==$id)throw new ToolFailure('Mail identity not found.');
         return $alias;
     }
+    public const MAILBOX_ROLES=['drafts_mailbox_id'=>'DraftsMailboxId','sent_mailbox_id'=>'SentMailboxId','trash_mailbox_id'=>'TrashMailboxId','archive_mailbox_id'=>'ArchiveMailboxId'];
+    public function mailboxRoles(string $uid,int $id):array {
+        $e=$this->account($uid,$id)->getMailAccount();
+        return ['drafts_mailbox_id'=>$e->getDraftsMailboxId(),'sent_mailbox_id'=>$e->getSentMailboxId(),'trash_mailbox_id'=>$e->getTrashMailboxId(),'archive_mailbox_id'=>$e->getArchiveMailboxId()];
+    }
+    public function writeMailboxRoles(string $uid,int $id,array $changes):array {
+        if($changes===[]||array_diff(array_keys($changes),array_keys(self::MAILBOX_ROLES))!==[])throw new \InvalidArgumentException('Choose supported special-folder roles.');
+        $e=$this->account($uid,$id)->getMailAccount();
+        foreach($changes as $key=>$value){if(!is_int($value)||$value<1)throw new \InvalidArgumentException('A role requires an owned existing folder.');match($key){'drafts_mailbox_id'=>$e->setDraftsMailboxId($value),'sent_mailbox_id'=>$e->setSentMailboxId($value),'trash_mailbox_id'=>$e->setTrashMailboxId($value),'archive_mailbox_id'=>$e->setArchiveMailboxId($value)};}
+        $this->native->accountService($uid)->update($e);
+        return $this->mailboxRoles($uid,$id);
+    }
     public function creationAllowed(): bool{return $this->config->getValueBool('mail','allow_new_mail_accounts',true);}
     public function ownedIds(string $uid): array {
         $ids=array_column($this->accounts->accounts($uid),'id');sort($ids);

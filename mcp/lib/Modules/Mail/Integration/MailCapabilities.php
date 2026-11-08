@@ -53,6 +53,11 @@ final class MailCapabilities {
             $capabilities['mutation_session']=['status'=>'verified','reason'=>'native_guarded_mutations_v2'];
             $capabilities['move']=['status'=>'verified','reason'=>'native_command_bound_copyuid_and_cache_v2'];
         }
+        if($known && $this->boundary?->foldersVerified()){foreach(['create_mailbox','rename_mailbox','subscribe_mailbox'] as $key)$capabilities[$key]=['status'=>'verified','reason'=>'native_targeted_folder_mutations_v3'];}
+        if($known){
+            $capabilities['tags']=['status'=>'blocked','reason'=>'native_tag_cache_identity_and_creation_correlation_missing'];
+            $capabilities['refresh']=['status'=>'unverified','reason'=>'native_sync_owner_lease_and_budget_not_verified'];
+        }
         $capabilities['send'] = ['status' => 'disabled', 'reason' => 'sending_not_authorized'];
         return ['native_pair' => ['nextcloud' => $server, 'mail' => $mail], 'evidence' => $evidence,
             'capabilities' => $capabilities];

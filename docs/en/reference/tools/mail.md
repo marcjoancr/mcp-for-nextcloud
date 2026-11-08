@@ -43,7 +43,7 @@ artifact below also admits qualified moves.
 
 Each action changes one `message_id` in one explicitly selected owned `account_id`.
 Both folders must already exist, be selectable, have verified cache generations and
-belong to that same account. Configure missing special folders in native Mail first.
+belong to that same account. Configure missing special folders using `mail_configure_mailboxes` or native Mail first.
 Same-folder moves, cross-account moves and trashing an already-trashed message are
 refused. The general move permission covers any eligible existing folder, including
 Trash; archive/trash/restore permissions are narrower action-specific alternatives.
@@ -55,7 +55,7 @@ folder generation/cache revision or Archive/Trash role requires a new preview.
 Restoration does not guess the old folder. Each tool requires its own assignment
 and current connection selection; existing read/flag grants do not enable moves.
 
-These tools require the exact custom **mcp-mail-mutations-v2** native dependency,
+These tools require the exact custom **mcp-mail-mutations-v2** or **mcp-mail-mutations-v3** native dependency,
 qualified on **Nextcloud35.0.2/Mail5.12.5**, and server support for **MOVE + UIDPLUS**.
 Stock Mail, the flags-only C1 artifact and altered/unknown native builds refuse
 moves. The native client sends at most one UID MOVE, retaining the complete
@@ -73,6 +73,45 @@ and source cache/event completion, not destination cache freshness. Cache or eve
 failure keeps the earlier proof and an uncertain state; replay/status never reruns
 MOVE, hooks, events or synchronization. The existing 20-second worker budget and
 five admissions per owner/account/minute apply. Sending remains disabled.
+
+## Folders and special roles
+
+| Tool | Independent permission | Reviewed effect |
+| --- | --- | --- |
+| `mail_create_mailbox` | `mail.create_mailboxes` | Create a literal leaf at the personal root or under an explicit existing `parent_mailbox_id`. |
+| `mail_rename_mailbox` | `mail.rename_mailboxes` | Rename a folder in the same parent, including at most 100 descendants and preserving their subscriptions. |
+| `mail_set_mailbox_subscription` | `mail.subscribe_mailboxes` | Set `subscribed` explicitly to true or false. |
+| `mail_configure_mailboxes` | `mail.configure_mailboxes` | Patch owned selectable Drafts, Sent, Trash or Archive folder IDs; omitted roles are preserved. |
+
+The three remote folder actions require the exact **v3** custom native dependency
+on **NC35.0.2/Mail5.12.5**. v1/v2, stock and unknown builds refuse them.
+Special-role configuration is a local native account update and does not require
+v3 or contact IMAP. Roles cannot be cleared or assigned to foreign/shared folders.
+Credentials, TLS policy, signatures and omitted account fields are preserved.
+
+All four writes use full preview, current independent permission/selection,
+`plan_state`, `operation_id` and the existing operation status tools. Remote folder
+work shares the 20-second worker and five admissions per owner/account/minute.
+Inventory is bounded to 1,000 cached folders. Names must be literal leaf names;
+wildcards, controls, reserved names and implicit path creation are refused. Rename
+also refuses shared, reserved, native special-use and configured role folders,
+including any protected descendant. Cross-parent movement and folder deletion are
+unavailable. Native personal namespace, known source generations, complete
+subtree, subscriptions and approved profile are checked again.
+
+The native boundary verifies acknowledgements and exact readback before targeted
+cache updates. Rename preserves cached folder/message IDs and sync tokens. A new
+folder has NULL sync tokens: its initial zero counters do not promise message
+freshness. Normal native Mail synchronization owns message caching. Existing targets and
+every renamed descendant require a known, consistent preview generation. Newly
+created folders must first be synchronized in native Mail before renaming, changing
+subscription or creating children; unknown/conflicting generations are refused. No whole-account
+sync, draft flushing, SMTP or automatic special-role guessing runs here.
+A lost acknowledgement, external namespace race, cache or event failure retains
+uncertainty and the account claim. Creation is never deduplicated by folder name.
+Status/replay never repeats CREATE, RENAME, subscriptions, events or synchronization.
+Inspect native Mail and the receipt; no force-unlock or automatic reconciliation
+is provided.
 
 ## Attachments and drafts
 
@@ -100,7 +139,9 @@ server-reported size of the entire message before fetching it (maximum 1 MiB),
 and refuses messages with more than 100 attachments.
 
 Draft listing accepts `limit` (default 20, maximum 50) and `offset` (maximum 10,000),
-and returns `next_offset` when another page is available. The native Mail API loads
+and returns `next_offset` when another page is available. Optional `account_id` and
+case-insensitive `subject_contains` filters apply before pagination; they cannot be
+combined with `draft_id`. These are local filters, without remote refresh. The native Mail API loads
 the user's local draft list before response pagination. Drafts already synchronized
 to IMAP are outside this local draft interface. Updates preserve omitted bodies and
 recipient lists; explicit empty values clear them.
@@ -120,6 +161,38 @@ those values again. The combined limit is 10 attachments and 25 MiB of raw bytes
 This composition limit is separate from the 1 MiB incoming-message read limit.
 Draft operations never invoke a mail send or scheduling API. For exact parameters
 and current limits, consult the live `mcp_guide` schema.
+
+## Sender identities, forwarding and tags
+
+`mail_list_aliases` requires the independent `mail.read_identities` permission and
+an owned `account_id`. It lists the primary identity (`alias_id: null`) and native
+aliases, without signatures, certificates or credentials. Use an owned `alias_id`
+in draft composition. Creating, changing and removing aliases remains unavailable.
+
+`forward_message_id` on `mail_write_draft` creates a **new local draft**, mutually
+exclusive with draft editing and replying. It defaults to a complete attributed
+plain-text quote; truncated, encrypted or signed automatic sources are refused.
+Supply an explicit final `body` to compose instead. The approved body is not changed
+by signature insertion. Original recipients, Bcc, attachments and reply parent are
+never inherited. Explicit To/Cc/Bcc fields remain visible in the preview.
+
+Choose source MIME parts explicitly with `forward_attachment_ids`; each requires
+current message/attachment-read and draft-write access. Selected bytes are re-read,
+hashed and copied into native Mail attachment storage with readback verification.
+They can be combined with Files snapshots within the existing 10-attachment/25-MiB
+composition limit; incoming whole-message and individual-part limits remain 1 MiB.
+Source generation/UID and current authorization are rechecked before the local save.
+Lost responses use the same journal/status/partial-repair path as other drafts.
+Local alias selection is preserved, but native IMAP draft conversion may use the
+primary account sender; review the sender in native Mail before further action.
+
+`mail_list_tags` requires `mail.read_tags` and lists bounded, user-owned native tag
+IDs, names and colors without contacting IMAP. Tag creation and assignment remain
+blocked: the native cache keys associations by header Message-ID, shared by duplicate
+messages, and native creation may return an existing tag by display-name-derived
+label. Neither proves exact-target mutation or safe interrupted creation. Remote
+refresh also remains unavailable: native timestamp locks lack a unique-owner unlock
+contract. Ordinary cached reads and status never initiate refresh.
 
 ## Reply drafts and write outcomes
 

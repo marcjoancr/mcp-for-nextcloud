@@ -9,6 +9,7 @@ namespace OCA\Mcp\Modules\Mail\Mutations;
 /** Strict internal effect schema; no arbitrary native options, credentials or content. */
 final class MutationRequest {
     public static function valid(array $r):bool {
+        if(isset($r['kind']))return MailboxMutationRequest::valid($r);
         $move=isset($r['action']);
         $keys=['account_id','message_id','mailbox_id','mailbox','generation','uid','profile_revision','cache_revision'];
         $keys=array_merge($keys,$move?['action','destination_mailbox_id','destination_mailbox','destination_generation','destination_cache_revision','roles_revision','requires_trash_hook']:['flag','value']);
@@ -20,6 +21,6 @@ final class MutationRequest {
         return in_array($r['flag'],['seen','flagged'],true)&&is_bool($r['value']);
     }
     public static function tool(array $r):string {
-        return match($r['action']??null){null=>'mail_set_message_flag','move'=>'mail_move_message','archive'=>'mail_archive_message','trash'=>'mail_trash_message','restore'=>'mail_restore_message',default=>throw new \InvalidArgumentException('Invalid mutation action.')};
+        return match($r['action']??null){'create_mailbox'=>'mail_create_mailbox','rename_mailbox'=>'mail_rename_mailbox','subscribe_mailbox'=>'mail_set_mailbox_subscription',null=>'mail_set_message_flag','move'=>'mail_move_message','archive'=>'mail_archive_message','trash'=>'mail_trash_message','restore'=>'mail_restore_message',default=>throw new \InvalidArgumentException('Invalid mutation action.')};
     }
 }

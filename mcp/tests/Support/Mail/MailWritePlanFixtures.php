@@ -37,6 +37,10 @@ final class MailWritePlanFixtures {
             'mail_archive_message' => ['account_id'=>1,'message_id'=>42,'source'=>['id'=>3,'name'=>'INBOX'],'destination'=>['id'=>4,'name'=>'Reviewed']],
             'mail_trash_message' => ['account_id'=>1,'message_id'=>42,'source'=>['id'=>3,'name'=>'INBOX'],'destination'=>['id'=>4,'name'=>'Reviewed']],
             'mail_restore_message' => ['account_id'=>1,'message_id'=>42,'source'=>['id'=>3,'name'=>'INBOX'],'destination'=>['id'=>4,'name'=>'Reviewed']],
+            'mail_create_mailbox' => ['account_id'=>1,'before'=>['name'=>''],'after'=>['name'=>'Reviewed']],
+            'mail_rename_mailbox' => ['account_id'=>1,'mailbox_id'=>3,'before'=>['name'=>'Before'],'after'=>['name'=>'Reviewed']],
+            'mail_set_mailbox_subscription' => ['account_id'=>1,'mailbox_id'=>3,'before'=>['name'=>'Reviewed','subscribed'=>false],'after'=>['name'=>'Reviewed','subscribed'=>true]],
+            'mail_configure_mailboxes' => ['account_id'=>1,'before'=>['archive_mailbox_id'=>3],'after'=>['archive_mailbox_id'=>4],'folders'=>['archive_mailbox_id'=>['id'=>4,'name'=>'Reviewed']]],
             'mail_test_connection' => ['account_id'=>1,'profile'=>['imap'=>['host'=>'imap.example.test']],'protocols'=>['imap','smtp']],
             'mail_delete_account' => ['account_id'=>1,'account'=>['email'=>'alice@example.test'],'impact'=>['cache_and_workers'=>'Native Mail controls local cache and workers.']],
 

@@ -10,8 +10,9 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
     public function testOnlyQualifiedV2AdmitsMovesAndLegacyStillAdmitsFlagsAndTamperAdmitsNeither():void {
         if(getenv('MCP_IT_WITH_MAIL')!=='1')self::markTestSkipped('Mail fixture only');
         $r=MailActor::run(MailActor::ALICE,'c3-boundary');$guard=getenv('MCP_IT_MAIL_GUARD');
-        self::assertSame(in_array($guard,['1','legacy'],true)?'verified':'blocked',$r['before']['capabilities']['flags']['status']);
-        self::assertSame($guard==='1'?'verified':'blocked',$r['before']['capabilities']['move']['status']);
+        self::assertSame(in_array($guard,['1','legacy','v2'],true)?'verified':'blocked',$r['before']['capabilities']['flags']['status']);
+        self::assertSame(in_array($guard,['1','v2'],true)?'verified':'blocked',$r['before']['capabilities']['move']['status']);
+        self::assertSame($guard==='1'?'verified':'unverified',$r['before']['capabilities']['create_mailbox']['status']);
         self::assertSame('blocked',$r['tampered']['capabilities']['move']['status']);self::assertSame('blocked',$r['tampered']['capabilities']['flags']['status']);self::assertSame($r['before'],$r['restored']);
         self::assertSame('disabled',$r['before']['capabilities']['send']['status']);self::assertTrue($r['no_send']);
     }

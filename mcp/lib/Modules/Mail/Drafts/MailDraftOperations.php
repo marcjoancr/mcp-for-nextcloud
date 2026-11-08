@@ -29,10 +29,13 @@ final class MailDraftOperations {
 	public function __construct(private MailServices $services, private MailGateway $accounts, private PlanState $states,
         private ?\OCA\Mcp\Modules\Mail\Composition\ReplyComposer $composer = null,
         private ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files = null,
-        private ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal = null) {}
+        private ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal = null,
+        private ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward = null) {}
 
 	/** @return array<string,mixed> a bounded list or one locally stored draft */
 	public function read(array $arguments, string $userId): array {
+        if(isset($arguments['draft_id'])&&(isset($arguments['account_id'])||isset($arguments['subject_contains'])))throw new \InvalidArgumentException('Draft list filters cannot be combined with draft_id.');
+        if(isset($arguments['account_id'])&&$this->accounts->ownedAccount($userId,(int)$arguments['account_id'])===null)throw new ToolFailure(MailMessages::accountNotFound());
 		$service = $this->services->draftsService($userId);
 		if (isset($arguments['draft_id'])) {
 			$draft = $this->draft($service, $userId, (int)$arguments['draft_id']);
@@ -50,7 +53,7 @@ final class MailDraftOperations {
 		$visible = [];
 		foreach ($all as $draft) {
 			$account = $this->accounts->ownedAccount($userId, (int)$draft->getAccountId());
-			if ($account !== null) {
+			if ($account !== null && (!isset($arguments['account_id'])||(int)$draft->getAccountId()===(int)$arguments['account_id']) && (!isset($arguments['subject_contains'])||mb_stripos((string)$draft->getSubject(),$arguments['subject_contains'])!==false)) {
 				$visible[] = ['draft' => $draft, 'account' => $account];
 			}
 		}
@@ -74,14 +77,14 @@ final class MailDraftOperations {
 			'after' => $prepared['fields'],
 			PlanState::ARGUMENT => $this->states->of(self::WRITE_TOOL, $userId, $this->writeState($prepared)),
 			'message' => MailMessages::draftPlan(),
-            'warnings' => $prepared['fields']['in_reply_to'] === null ? [] : [['message' => 'This reply stays local in Mail to preserve its thread; IMAP auto-sync is held. Editing it in the native UI may change that state.']],
+            'warnings' => array_merge($prepared['fields']['in_reply_to'] === null ? [] : [['message' => 'This reply stays local in Mail to preserve its thread; IMAP auto-sync is held. Editing it in the native UI may change that state.']],$prepared['fields']['alias_id'] === null ? [] : [['message'=>'Native Mail may use the account sender when synchronizing this alias draft. Review the sender in Mail.']]),
 		];
 	}
 
 	/** Writes only a local draft, after the plan still matches current Mail state. */
 	public function write(array $arguments, string $userId): array {
 		PlanState::require($arguments);
-		$prepared = $this->prepareWrite($arguments, $userId);
+		$prepared = isset($arguments['forward_message_id'])?\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->prepareWrite($arguments,$userId)):$this->prepareWrite($arguments, $userId);
 		if (!PlanState::matches($this->states->of(self::WRITE_TOOL, $userId, $this->writeState($prepared)), $arguments)) {
 			$plan = $this->previewWrite($arguments, $userId);
 			throw new PlanChanged($plan + ['warnings' => [['message' => MailMessages::draftPlanChanged()]]]);
@@ -89,6 +92,9 @@ final class MailDraftOperations {
         if (isset($arguments['repair_of_operation_id'])) $this->journal?->claimRepair($userId, $arguments['repair_of_operation_id']);
 		$fields = $prepared['fields'];
         $added = $prepared['add_manifest'] === [] ? [] : $this->files->stage($userId, $prepared['add_manifest'], $prepared['reusable'], $prepared['draft'] === null ? null : (int)$prepared['draft']->getId());
+        $fileResources=[];foreach($added as $i=>$a)$fileResources[]=['attachment_id'=>$a['id'],'file_id'=>$prepared['add_manifest'][$i]['file_id'],'sha256'=>$prepared['add_manifest'][$i]['sha256']];
+        $forwardAdded=$prepared['forward_manifest']===[]?[]:$this->forward->stage($userId,$prepared['accountId'],$prepared['forward_manifest'],$prepared['reusable'],$fileResources);
+        $added=array_merge($added,$forwardAdded);
         $attachments = array_values(array_column(array_merge(array_map(static fn(array $a): array => ['type' => 'local', 'id' => $a['id']], $prepared['retained']), $added), null, 'id'));
 		$draft = $prepared['draft'] ?? $this->services->newLocalDraft($userId);
 		$draft->setType($this->services->localDraftType($userId));
@@ -103,6 +109,7 @@ final class MailDraftOperations {
         if (is_callable([$draft, 'setAliasId'])) $draft->setAliasId($fields['alias_id']);
         // Preserve the parent against Mail's lossy draft-to-IMAP auto-flush.
         if ($fields['in_reply_to'] !== null) $draft->setFailed(true);
+        if(isset($fields['forward_source']))$this->forward->verify($userId,$prepared['accountId'],$fields['forward_source']);
 		$service = $this->services->draftsService($userId);
         $this->journal?->checkpoint(['native_write_started' => true]);
         try {
@@ -166,6 +173,13 @@ final class MailDraftOperations {
 			'cc' => array_key_exists('cc', $arguments) ? $this->recipients($arguments['cc']) : $currentRecipients['cc'],
 			'bcc' => array_key_exists('bcc', $arguments) ? $this->recipients($arguments['bcc']) : $currentRecipients['bcc'],
 		];
+        $forward_manifest=[];
+        if(isset($arguments['forward_attachment_ids'])&&!isset($arguments['forward_message_id']))throw new \InvalidArgumentException('Forward MIME parts require a forward source.');
+        if(isset($arguments['forward_message_id'])){
+            if($draft!==null||isset($arguments['reply_to_message_id'])||isset($arguments['reply_mode'])||$this->forward===null)throw new \InvalidArgumentException('Forwarding is for new drafts and cannot be combined with a reply or draft update.');
+            $f=$this->forward->prepare($userId,$accountId,(int)$arguments['forward_message_id'],$arguments['forward_attachment_ids']??[],array_key_exists('body_plain',$arguments)||array_key_exists('body_html',$arguments));
+            $forward_manifest=$f['attachments'];$fields['forward_source']=$f['source'];if($f['body_plain']!==null){$fields['body_plain']=$f['body_plain'];$fields['body_html']='';$fields['is_html']=false;}
+        }
         if (preg_match('/[\r\n\x00]/', $fields['subject'])) throw new \InvalidArgumentException('Invalid mail subject.');
         $alias = array_key_exists('alias_id', $arguments) ? $arguments['alias_id'] : self::native($draft, 'getAliasId');
         $identity = $this->composer?->identities($userId, $account, $alias);
@@ -207,9 +221,9 @@ final class MailDraftOperations {
             }
             return true;
         }));
-        if (count($retained)+count($newAttachments)>10 || array_sum(array_column($retained,'size'))+array_sum(array_column($newAttachments,'size'))>26214400) throw new ToolFailure('Draft attachment limit exceeded.');
-        $fields['attachments']=array_merge($retained,$newAttachments);
-        return compact('account', 'accountId', 'draft', 'fields', 'retained', 'add_manifest', 'reusable');
+        if (count($retained)+count($newAttachments)+count($forward_manifest)>10 || array_sum(array_column($retained,'size'))+array_sum(array_column($newAttachments,'size'))+array_sum(array_column($forward_manifest,'size'))>26214400) throw new ToolFailure('Draft attachment limit exceeded.');
+        $fields['attachments']=array_merge($retained,$newAttachments,$forward_manifest);
+        return compact('account', 'accountId', 'draft', 'fields', 'retained', 'add_manifest', 'reusable', 'forward_manifest');
 	}
 
 	/** @return array{draft:object,account:object} */

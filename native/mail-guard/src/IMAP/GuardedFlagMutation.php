@@ -60,6 +60,7 @@ trait GuardedFlagMutation {
     }
     protected function _processCmd($pipeline,$cmd,$data) {
         $this->guardMoveCommand($pipeline,$cmd,$data);
+        $this->guardMailboxCommand($cmd,$data);
         if($this->mutationSelection!==null&&$cmd===$data){
             $this->assertMutationSelection();
             if((string)$cmd->getCommand()!==$this->mutationCommand)throw new \RuntimeException('Unexpected guarded command.');
@@ -70,6 +71,7 @@ trait GuardedFlagMutation {
     protected function _logout() {
         $this->mutationSelection?->invalidate();
         $this->moveSelection?->invalidate();
+        $this->invalidateMailboxMutation();
         return parent::_logout();
     }
 }

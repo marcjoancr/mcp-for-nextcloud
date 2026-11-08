@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('mail')]
 final class McpMailMutationJournalTest extends IntegrationTestCase {
     public function testChildProofWinsOverStaleParentAndUncertainClaimBlocksAnotherOperation():void {
-        if(getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Guard native fixture only');
+        if(!in_array(getenv('MCP_IT_MAIL_GUARD'),['1','v2'],true))self::markTestSkipped('Guard native fixture only');
         $j=Server::get(OperationJournal::class);$s=Server::get(OperationStore::class);$uid=MailActor::ALICE;$account=random_int(1000000000,2000000000);
         $r=['account_id'=>$account,'message_id'=>17,'mailbox_id'=>5,'mailbox'=>'INBOX','generation'=>'42','uid'=>'9','flag'=>'seen','value'=>true,'profile_revision'=>'fixture','cache_revision'=>'fixture'];
         $args=['account_id'=>$account,'message_id'=>17,'flag'=>'seen','value'=>true];$plan=$j->plan('mail_set_message_flag',$uid,$args,['plan_state'=>'fixture']);$approved=$args+['plan_state'=>'fixture','operation_id'=>$plan['operation_id']];$lease=null;

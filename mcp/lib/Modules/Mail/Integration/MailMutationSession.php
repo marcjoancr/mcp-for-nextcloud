@@ -20,5 +20,6 @@ class MailMutationSession {
         if(!$this->slots->reserve(hash('sha256',"mutation\0".$uid."\0".$request['account_id']),$id,$this->clock->getTime()))throw new BeforeEffectFailure('Mail mutation rate limit reached.');
         return $this->runner->run($uid,$this->journal->delegateNative($uid,$request),$request);
     }
+    public function mailbox(string $uid,array $request):array {return $this->admit($uid,$request);}
     public function move(string $uid,array $request):array {return $this->admit($uid,$request);}
 }

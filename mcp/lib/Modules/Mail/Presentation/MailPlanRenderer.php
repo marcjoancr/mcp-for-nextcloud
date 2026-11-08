@@ -17,7 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
-		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message'], true)) {
+		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes'], true)) {
 			return null;
 		}
 		return match ($tool) {
@@ -35,6 +35,7 @@ final class MailPlanRenderer {
             'mail_configure_connection', 'mail_add_account' => Translator::t('Open the native Mail assistant. Enter credentials there and review completion separately.'),
             'mail_complete_account_setup' => Translator::t('Confirm the observed native Mail configuration. This does not prove message delivery.'),
             'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message' => Translator::t('Move this Mail message between the reviewed folders. Sending stays disabled.'),
+            'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes' => Translator::t('Apply these reviewed Mail folder changes. Sending stays disabled.'),
             'mail_set_message_flag' => Translator::t('Set this Mail message flag to the reviewed value.'),
             'mail_test_connection' => Translator::t('Authenticate with the selected Mail servers. No message will be sent.'),
             'mail_delete_account' => Translator::t('Remove this Mail account from Nextcloud. Remote messages and Files are retained.'),
@@ -45,7 +46,7 @@ final class MailPlanRenderer {
             'setup_operation_id' => Translator::t('Setup operation'), 'source_tool' => Translator::t('Source tool')] as $key => $label) {
             if (array_key_exists($key, $plan)) $lines[] = '- ' . $label . ': ' . PlanText::quoted(self::value($plan[$key]));
         }
-        foreach (['source' => Translator::t('Source folder'), 'destination' => Translator::t('Destination folder'), 'account' => Translator::t('Mail account'), 'before' => Translator::t('Current values'),
+        foreach (['folders' => Translator::t('Role folders'), 'source' => Translator::t('Source folder'), 'destination' => Translator::t('Destination folder'), 'account' => Translator::t('Mail account'), 'before' => Translator::t('Current values'),
             'after' => Translator::t('Values after this change'), 'requested' => Translator::t('Requested configuration'),
             'observed' => Translator::t('Observed configuration'), 'profile' => Translator::t('Mail connection'),
             'protocols' => Translator::t('Protocols'), 'impact' => Translator::t('Removal impact')] as $key => $label) {
@@ -101,6 +102,7 @@ final class MailPlanRenderer {
 			'- ' . Translator::t('Mail account: %s', [PlanText::quoted((string)($plan['account']['email'] ?? ''))]),
 		];
         if (isset($after['sender']['email'])) $lines[] = '- ' . Translator::t('Sender: %s', [PlanText::quoted((string)$after['sender']['email'])]);
+        if (isset($after['forward_source']['message_id'])) $lines[] = '- ' . Translator::t('Forward source message: %s', [(int)$after['forward_source']['message_id']]);
         if (isset($after['in_reply_to'])) $lines[] = '- ' . Translator::t('Reply parent: %s', [PlanText::quoted((string)$after['in_reply_to'])]);
 		if (isset($plan['draft_id'])) {
 			$lines[] = '- ' . Translator::t('Draft id: %s', [(int)$plan['draft_id']]);

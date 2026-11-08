@@ -91,8 +91,8 @@ final class McpMailLifecycleTest extends IntegrationTestCase {
         self::assertTrue($p['generation_changed']);self::assertTrue($p['same_uid']);self::assertTrue($p['same_message_id']);
         self::assertTrue($p['native_store_after_reconnect']);self::assertTrue($p['duplicate_message_id_different_uid']);self::assertTrue($p['mcp_admission_refused']);
         self::assertTrue($p['outgoing_unchanged']);self::assertTrue($p['smtp_unchanged']);
-        self::assertSame(in_array(getenv('MCP_IT_MAIL_GUARD'),['1','legacy'],true)?'verified':'unsupported',$p['capabilities']['capabilities']['mutation_session']['status']);
-        self::assertSame(getenv('MCP_IT_MAIL_GUARD')==='1'?'verified':'blocked',$p['capabilities']['capabilities']['move']['status']);
+        self::assertSame(in_array(getenv('MCP_IT_MAIL_GUARD'),['1','legacy','v2'],true)?'verified':'unsupported',$p['capabilities']['capabilities']['mutation_session']['status']);
+        self::assertSame(in_array(getenv('MCP_IT_MAIL_GUARD'),['1','v2'],true)?'verified':'blocked',$p['capabilities']['capabilities']['move']['status']);
         self::assertSame('disabled',$p['capabilities']['capabilities']['send']['status']);
     }
     public function testNativeCacheEventIsRequiredAndNoLifecycleProbeDispatchesOutboxOrSmtpSubmission():void {

@@ -8,7 +8,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('mail')]
 final class McpMailNativeMovesTest extends IntegrationTestCase {
     public function testCacheRevocationGenerationResetAndListenerFailureRetainProofAndNeverRepeat():void {
-        if(getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Custom native boundary fixture only');
+        if(!in_array(getenv('MCP_IT_MAIL_GUARD'),['1','v2'],true))self::markTestSkipped('Custom native boundary fixture only');
         $id=MailActor::run(MailActor::ALICE,'accounts')['accounts'][0]['id'];
         foreach(['cache_reset','source_cache_reset','cache_revoked','event_failure','hook_failure'] as $mode){
             $r=MailActor::run(MailActor::ALICE,'c3-fault',['account_id'=>$id,'mode'=>$mode]);self::assertSame('uncertain',$r['operation']['state']);self::assertTrue($r['replayed']);self::assertTrue($r['no_redispatch']);self::assertTrue($r['no_send']);
@@ -20,13 +20,13 @@ final class McpMailNativeMovesTest extends IntegrationTestCase {
         }
     }
     public function testNativeMovePreservesDuplicateMessageIdsAndRemovesOnlyProvenSourceCache():void {
-        if(getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Custom native boundary fixture only');
+        if(!in_array(getenv('MCP_IT_MAIL_GUARD'),['1','v2'],true))self::markTestSkipped('Custom native boundary fixture only');
         $id=MailActor::run(MailActor::ALICE,'accounts')['accounts'][0]['id'];$r=MailActor::run(MailActor::ALICE,'c3-service',['account_id'=>$id]);
         self::assertTrue($r['source_cache_gone']);self::assertSame(4,$r['source_count']);self::assertSame(2,$r['destination_count']);self::assertSame(1,$r['destination_cached_count']);
         self::assertSame('moved',$r['proof']['outcome']);self::assertSame('source_removed',$r['cache']['state']);self::assertSame('native_sync_pending',$r['cache']['destination_state']);self::assertTrue($r['no_send']);
     }
     public function testCommandBoundMoveMappingAndFaultsNeverUseCopyDeleteOrHeuristics():void {
-        if(getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Custom native boundary fixture only');
+        if(!in_array(getenv('MCP_IT_MAIL_GUARD'),['1','v2'],true))self::markTestSkipped('Custom native boundary fixture only');
         $account=MailActor::run(MailActor::ALICE,'accounts')['accounts'][0]['id'];
         $before=['no_move','no_uidplus','nonsticky','source_generation','source_gone','destination_generation_before','destination_missing','destination_nonsticky','read_only_source','unexpected_copyuid'];
         foreach(['normal',...$before,'no','lost_ack','missing_map','wrong_source','wrong_destination','multiple','malformed','zero','duplicate_map','destination_generation_after'] as $mode){

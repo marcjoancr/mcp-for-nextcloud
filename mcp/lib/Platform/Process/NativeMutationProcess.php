@@ -8,9 +8,10 @@ declare(strict_types=1);
 namespace OCA\Mcp\Platform\Process;
 /** Dedicated writer process: fixed acknowledgements only; durable proof lives in the operation table. */
 class NativeMutationProcess {
+    public const MAX_INPUT_BYTES=65536;
     public function run(array $command,string $cwd,array $payload,int $budgetMs=20000):array {
         $unknown=['status'=>'unknown'];$bytes=json_encode($payload,JSON_THROW_ON_ERROR);
-        if(strlen($bytes)>8192||!function_exists('proc_open')||!function_exists('proc_terminate'))return $unknown;
+        if(strlen($bytes)>self::MAX_INPUT_BYTES||!function_exists('proc_open')||!function_exists('proc_terminate'))return $unknown;
         $deadline=hrtime(true)+max(1,min(20000,$budgetMs))*1000000;
         $p=@proc_open($command,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,$cwd,null,['bypass_shell'=>true]);
         if(!is_resource($p))return $unknown;

@@ -141,6 +141,8 @@ class MailServices {
         return $class::TYPE_OUTGOING;
     }
 
+    public function tagMapper(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\TagMapper',$uid);}
+    public function guardedMailboxes(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxMutations',$uid);}
     public function guardedMutations(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\GuardedMessageMutations',$uid);}
 
     public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}

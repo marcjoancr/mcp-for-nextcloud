@@ -27,7 +27,7 @@ final class WriteGate {
     /** Argument every writing tool accepts, and the only thing that lets it run. */
     public const CONFIRM = 'confirm';
     /** Sensitive reads use separate grant keys. */
-    private const READ_OPERATIONS = ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'summarize_responses', 'availability', 'description_read', 'tags_read'];
+    private const READ_OPERATIONS = ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'];
 
     private function __construct() {
     }

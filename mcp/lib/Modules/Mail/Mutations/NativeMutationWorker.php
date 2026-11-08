@@ -23,8 +23,9 @@ class NativeMutationWorker {
                 ||($row['resource_refs']['mutation']['phase']??null)!=='prepared'||!hash_equals($row['resource_refs']['mutation']['token_hash']??'',hash('sha256',$lease['token'])))return ['status'=>'refused'];
             $live=function()use($ticket,$uid,$request):bool{return $this->tickets->verify($ticket)&&($this->authorize)($uid,$ticket['connection_id'],MutationRequest::tool($request))&&$this->targets->snapshot($uid,$request)['request']===$request;};
             if(!$live())return ['status'=>'refused'];
-            $fence=new NativeOperationFence($this->store,$lease,$request,$live);
-            $service=$this->native->guardedMutations($uid);if(isset($request['action']))$service->move($uid,$request,$service->fence($fence));else $service->setFlag($uid,$request,$service->fence($fence));
+            $folder=($request['kind']??null)==='mailbox';
+            $fence=new NativeOperationFence($this->store,$lease,$request,$live,$folder?MailboxMutationRequest::remote(...):null,$folder?MailboxMutationRequest::cache(...):null);
+            $service=$this->native->guardedMutations($uid);if(($request['kind']??null)==='mailbox')$this->native->guardedMailboxes($uid)->mutate($uid,$request,$service->fence($fence));elseif(isset($request['action']))$service->move($uid,$request,$service->fence($fence));else $service->setFlag($uid,$request,$service->fence($fence));
             return ['status'=>$this->store->finishNative($lease['scope'],$lease['id'],$lease['token'],'completed','succeeded',[],$this->clock->getTime())?'completed':'unknown'];
         }catch(\Throwable){return ['status'=>'unknown'];}
     }

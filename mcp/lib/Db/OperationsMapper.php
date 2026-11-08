@@ -76,7 +76,7 @@ final class OperationsMapper implements OperationStore {
         if($row===null||$row['state']!=='running')return false;
         $old=$row['resource_refs'];$mutation=$old['mutation']??null;
         if($expectedPhase==='') {
-            if($mutation!==null||($refs['phase']??null)!=='prepared'||!in_array($row['tool_name'],['mail_set_message_flag','mail_move_message','mail_archive_message','mail_trash_message','mail_restore_message'],true)||!\OCA\Mcp\Modules\Mail\Mutations\MutationRequest::valid($refs['descriptor']??[])||\OCA\Mcp\Modules\Mail\Mutations\MutationRequest::tool($refs['descriptor'])!==$row['tool_name'])return false;
+            if($mutation!==null||($refs['phase']??null)!=='prepared'||!in_array($row['tool_name'],['mail_set_message_flag','mail_move_message','mail_archive_message','mail_trash_message','mail_restore_message','mail_create_mailbox','mail_rename_mailbox','mail_set_mailbox_subscription'],true)||!\OCA\Mcp\Modules\Mail\Mutations\MutationRequest::valid($refs['descriptor']??[])||\OCA\Mcp\Modules\Mail\Mutations\MutationRequest::tool($refs['descriptor'])!==$row['tool_name'])return false;
             $mutation=['token_hash'=>hash('sha256',$token)];
         } elseif(!is_array($mutation)||!hash_equals($mutation['token_hash']??'',hash('sha256',$token))||($mutation['phase']??null)!==$expectedPhase)return false;
         $next=['prepared'=>(($mutation['descriptor']['requires_trash_hook']??false)?'preconditions_may_start':'wire_may_start'),'preconditions_may_start'=>'wire_may_start','wire_may_start'=>'remote_verified','remote_verified'=>'cache_pending','cache_pending'=>'completed'];

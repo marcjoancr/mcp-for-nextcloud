@@ -27,7 +27,7 @@ final class McpMailMessageMovesTest extends IntegrationTestCase {
 
     protected function setUp(): void {
         parent::setUp();
-        if (getenv('MCP_IT_WITH_MAIL') !== '1' || getenv('MCP_IT_MAIL_GUARD') !== '1') { self::markTestSkipped('Mail cell only'); }
+        if (getenv('MCP_IT_WITH_MAIL') !== '1' || !in_array(getenv('MCP_IT_MAIL_GUARD'), ['1', 'v2'], true)) { self::markTestSkipped('Mail cell only'); }
         $config = Server::get(IConfig::class);
         $this->serviceBefore = $config->getAppValue('mcp', GrantPolicy::SERVICE_KEY, '__missing__');
         $this->toolSnapshot = ToolPermissionFixture::capture([MailActor::ALICE, MailActor::BOB], self::TOOLS);

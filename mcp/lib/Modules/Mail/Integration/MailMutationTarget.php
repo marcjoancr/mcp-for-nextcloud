@@ -10,8 +10,9 @@ use OCA\Mcp\Mcp\Operations\BeforeEffectFailure;
 use OCA\Mcp\Modules\Mail\Mutations\MutationRequest;
 /** Owned cache metadata only: no IMAP preflight/client escapes into preview or callers. */
 class MailMutationTarget {
-    public function __construct(private MailMessageLocator $locator,private MailSettingsGateway $settings,private MailCapabilities $capabilities,private ?MailMoveTarget $moves=null){}
+    public function __construct(private MailMessageLocator $locator,private MailSettingsGateway $settings,private MailCapabilities $capabilities,private ?MailMoveTarget $moves=null,private ?MailboxMutationTarget $mailboxes=null){}
     public function snapshot(string $uid,array $args):array {
+        if(($args['kind']??null)==='mailbox'||in_array($args['action']??null,['create_mailbox','rename_mailbox','subscribe_mailbox'],true)){if($this->mailboxes===null)throw new BeforeEffectFailure('Native folder target unavailable.');return $this->mailboxes->snapshot($uid,$args);}
         if(isset($args['action'])){if($this->moves===null)throw new BeforeEffectFailure('Native move target unavailable.');return $this->moves->snapshot($uid,$args);}
         $this->capabilities->requireSupported($uid,'flags');$located=$this->locator->locate($uid,(int)$args['message_id']);
         $message=$located['message'];$mailbox=$located['mailbox'];$account=$located['account'];

@@ -132,10 +132,12 @@ install_mail() {
 	# The archive is public source; www-data must read it across the tools mount.
 	chmod 0644 "$archive"
 	docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/mail.tar.gz -C /var/www/html/custom_apps
-	if [ "${MCP_IT_MAIL_GUARD:-0}" = legacy ]; then
+	if [ "${MCP_IT_MAIL_GUARD:-0}" = legacy ] || [ "${MCP_IT_MAIL_GUARD:-0}" = v2 ]; then
         # Explicit local regression only: accept the immutable original C1 overlay, never an arbitrary native build.
-        legacy=${MCP_IT_MAIL_LEGACY_ARCHIVE:?Original C1 overlay required}
-        echo "01e2475f324e67440cc75e59c33e714b14eda22a1e9a612a2b771e180b003f6a  $legacy" | sha256_check
+        legacy=${MCP_IT_MAIL_LEGACY_ARCHIVE:?Immutable legacy overlay required}
+        digest=01e2475f324e67440cc75e59c33e714b14eda22a1e9a612a2b771e180b003f6a
+        if [ "$MCP_IT_MAIL_GUARD" = v2 ]; then digest=3c42624bf41deafce9429f7e02d2fdb4442e71285264309091e8dac6c41175fc; fi
+        echo "$digest  $legacy" | sha256_check
         cp "$legacy" "$TOOLS_DIR/mail-guard-overlay.tar.gz"
         chmod 0644 "$TOOLS_DIR/mail-guard-overlay.tar.gz"
         docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/mail-guard-overlay.tar.gz -C /var/www/html/custom_apps
