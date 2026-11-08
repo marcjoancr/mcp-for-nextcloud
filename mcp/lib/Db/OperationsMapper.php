@@ -112,18 +112,39 @@ final class OperationsMapper implements OperationStore {
         $q=$this->db->getQueryBuilder();
         $r=$q->select('*')->from(self::TABLE)
             ->where($q->expr()->lt('updated_at',$q->createNamedParameter($before,IQueryBuilder::PARAM_INT)))
-            ->andWhere($q->expr()->in('state',$q->createNamedParameter(['succeeded','failed_before_effect','expired'],IQueryBuilder::PARAM_STR_ARRAY)))
+            ->andWhere($q->expr()->in('state',$q->createNamedParameter(['succeeded','failed_before_effect','expired','awaiting_user'],IQueryBuilder::PARAM_STR_ARRAY)))
             ->andWhere($q->expr()->neq('actor_uid',$q->createNamedParameter('')))->setMaxResults(100)->executeQuery();
         try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         foreach($rows as $row){
-            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id']));
+            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id','account_id','source_tool','native_state','source','user_expires_at','protocols']));
             $u=$this->db->getQueryBuilder();
-            $u->update(self::TABLE)->set('actor_uid',$u->createNamedParameter(''))
+            $u->update(self::TABLE)->set('state',$u->createNamedParameter($row['state']==='awaiting_user'?'expired':$row['state']))->set('actor_uid',$u->createNamedParameter(''))
                 ->set('effect_digest',$u->createNamedParameter(''))
                 ->set('resource_refs',$u->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)))
                 ->where($u->expr()->eq('scope_key',$u->createNamedParameter($row['scope_key'])))
                 ->andWhere($u->expr()->eq('operation_id',$u->createNamedParameter($row['operation_id'])))->executeStatement();
         }
+    }
+
+    public function unresolvedAccount(string $uid,int $account,string $except=''): bool {
+        $q=$this->db->getQueryBuilder();$r=$q->select('operation_id','tool_name','target_key','resource_refs')->from(self::TABLE)
+            ->where($q->expr()->eq('actor_uid',$q->createNamedParameter($uid)))
+            ->andWhere($q->expr()->neq('operation_id',$q->createNamedParameter($except)))
+            ->andWhere($q->expr()->in('state',$q->createNamedParameter(['running','uncertain','partial','repairing'],IQueryBuilder::PARAM_STR_ARRAY)))->setMaxResults(1001)->executeQuery();
+        try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
+        if(count($rows)>1000)return true;
+        foreach($rows as $row){$refs=$this->decode($row)['resource_refs'];
+            if(($refs['account_id']??null)===$account || $row['target_key']===hash('sha256',$uid."\0account:".$account))return true;
+            if(!isset($refs['account_id'])&&in_array($row['tool_name'],['mail_write_draft','mail_attach_files'],true))return true;
+        }
+        return false;
+    }
+
+    public function resolveAwaiting(string $scope,string $id,array $refs,int $time): bool {
+        $q=$this->db->getQueryBuilder();return $q->update(self::TABLE)->set('state',$q->createNamedParameter('succeeded'))
+            ->set('resource_refs',$q->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)))->set('updated_at',$q->createNamedParameter($time,IQueryBuilder::PARAM_INT))
+            ->where($q->expr()->eq('scope_key',$q->createNamedParameter($scope)))->andWhere($q->expr()->eq('operation_id',$q->createNamedParameter($id)))
+            ->andWhere($q->expr()->eq('state',$q->createNamedParameter('awaiting_user')))->executeStatement()===1;
     }
 
     public function list(string $scope, int $limit, int $offset): array {

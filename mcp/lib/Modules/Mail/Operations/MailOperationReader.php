@@ -15,12 +15,16 @@ final class MailOperationReader {
     public function __construct(private OperationJournal $journal, private \Closure $allowsTool) {}
     public function get(string $uid, string $id): array {
         $receipt = $this->journal->get($uid, $id);
-        if ($receipt === null || !($this->allowsTool)($uid, $receipt['tool'])) throw new ToolFailure('Operation not found.');
+        if ($receipt === null || !$this->allowed($uid,$receipt)) throw new ToolFailure('Operation not found.');
         return ['operation' => $receipt];
     }
+    public function assertAccess(string $uid,array $receipt): void {
+        if (!$this->allowed($uid,$receipt)) throw new ToolFailure('Operation not found.');
+    }
+    private function allowed(string $uid,array $receipt):bool {return ($this->allowsTool)($uid,$receipt['tool']) && (!isset($receipt['source_tool']) || ($this->allowsTool)($uid,$receipt['source_tool']));}
     public function list(string $uid, int $limit, int $offset): array {
         $rows = $this->journal->list($uid, $limit, $offset);
-        $visible = array_values(array_filter($rows, fn(array $r): bool => ($this->allowsTool)($uid, $r['tool'])));
+        $visible = array_values(array_filter($rows, fn(array $r): bool => $this->allowed($uid,$r)));
         return ['operations' => $visible, 'next_offset' => count($rows) === $limit ? $offset + $limit : null];
     }
 }

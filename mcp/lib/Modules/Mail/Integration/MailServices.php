@@ -136,6 +136,13 @@ class MailServices {
         return $this->resolve('OCA\\Mail\\Service\\Attachment\\AttachmentService', $userId);
     }
 
+    public function localOutgoingType(string $userId): int {
+        $class=self::LOCAL_MESSAGE_CLASS;if(!$this->isEnabledFor($userId)||!class_exists($class))throw new MailUnavailableException();
+        return $class::TYPE_OUTGOING;
+    }
+
+    public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}
+
     public function aliasesService(string $userId): object {
         return $this->resolve('OCA\\Mail\\Service\\AliasesService', $userId);
     }

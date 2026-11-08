@@ -91,4 +91,36 @@ final class OperationsMapperTest extends TestCase {
         self::assertTrue($result['operation']['replayed']);
         self::assertSame(77,$result['operation']['resource_refs']['draft_id']);
     }
+    public function testAccountRemovalAndDraftUpdatesShareAnAccountReservation(): void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);
+        $store=new OperationsMapper($db->connection());$context=new ConnectionContext();
+        $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
+        $proof=new PlanState((new InMemoryConfig())->mock($this));
+        $remove=new OperationJournal($store,$proof,$context,$clock);$draft=new OperationJournal($store,$proof,$context,$clock);
+        $a=['account_id'=>4];$p=$remove->plan('mail_delete_account','alice',$a,['plan_state'=>'delete']);
+        $b=['account_id'=>4,'draft_id'=>7];$q=$draft->plan('mail_write_draft','alice',$b,['plan_state'=>'draft']);
+        $blocked=false;$writes=0;
+        $remove->execute('mail_delete_account','alice',$a+['operation_id'=>$p['operation_id'],'plan_state'=>'delete'],function()use($draft,$b,$q,&$blocked,&$writes):array{
+            try{$draft->execute('mail_write_draft','alice',$b+['operation_id'=>$q['operation_id'],'plan_state'=>'draft'],function()use(&$writes):array{$writes++;return [];});}
+            catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){$blocked=true;}
+            return ['account_id'=>4];
+        });
+        self::assertTrue($blocked);self::assertSame(0,$writes);
+    }
+
+    public function testReplayAuthorizationAlsoRunsWhenAConcurrentReservationWins(): void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
+        $proof=new PlanState((new InMemoryConfig())->mock($this));$context=new ConnectionContext();
+        $a=new OperationJournal($store,$proof,$context,$clock);$b=new OperationJournal($store,$proof,$context,$clock);
+        $args=['account_id'=>4];$p=$a->plan('mail_complete_account_setup','alice',$args,['plan_state'=>'proof']);
+        $args+=['operation_id'=>$p['operation_id'],'plan_state'=>'proof'];$effects=0;$guards=0;
+        $native=function()use($b,&$effects):array{$effects++;$b->checkpoint(['source_tool'=>'mail_add_account']);return ['account_id'=>4];};
+        $db->beforeStatement=function()use($b,$args,$native):void{$b->execute('mail_complete_account_setup','alice',$args,$native);};
+        try{$a->execute('mail_complete_account_setup','alice',$args,static fn():array=>throw new \LogicException('Duplicate effect'),function(array $receipt)use(&$guards):void{
+            $guards++;self::assertSame('mail_add_account',$receipt['source_tool']);throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Revoked');
+        });self::fail('Concurrent replay bypassed its current authorization');}catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){}
+        self::assertSame(1,$effects);self::assertSame(1,$guards);
+    }
+
 }

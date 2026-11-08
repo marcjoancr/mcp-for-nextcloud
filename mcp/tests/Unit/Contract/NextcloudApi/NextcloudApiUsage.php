@@ -47,6 +47,7 @@ final class NextcloudApiUsage {
     public const EXTRA_CLASSES = [
         'OCP\\User\\Events\\BeforeUserCreatedEvent',
         'OCA\\Mail\\Account',
+        'OCA\\Mail\\Db\\MailAccount',
         'OCA\\Mail\\Attachment',
         'OCA\\Mail\\Db\\LocalAttachment',
         'OCA\\Mail\\Db\\Recipient',

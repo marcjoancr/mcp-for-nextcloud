@@ -109,6 +109,70 @@ Failed cleanups keep their private references for a later cleanup attempt;
 completed cleanup leaves an `expired` receipt. After 30 days, terminal private
 metadata is compacted; minimal non-replay operation keys remain.
 
+## Account settings and native setup
+
+The following tools each require a separate, explicitly selected permission. Old
+Mail grants and connection selections grant none of them.
+
+| Tool | Operation and behavior |
+| --- | --- |
+| `mail_read_account_settings` | `read_settings`: read editor mode, signature placement and subscribed-folder filtering. |
+| `mail_write_account_settings` | `write_settings`: patch `editor_mode` (`plaintext` or `html`), `signature_above_quote`, `show_subscribed_only`. |
+| `mail_read_signature` | `read_signatures`: read the account signature or an existing owned `alias_id`. |
+| `mail_write_signature` | `write_signatures`: set up to 20,000 characters, or explicit `null` to remove the signature. |
+| `mail_read_connection` | `read_connection`: read bounded IMAP/SMTP host, port, TLS mode, user and authentication-method label. No passwords or tokens. |
+| `mail_add_account` | `create_accounts`: review a non-secret intent and open Mail's native setup assistant. |
+| `mail_configure_connection` | `configure_connection`: review a non-secret change and open native Mail; select the approved account and its Mail server settings there. |
+| `mail_complete_account_setup` | `complete_setup`: bind one explicitly selected owned account to a pending setup, after fresh review. |
+| `mail_test_connection` | `test_connection`: separately authenticate IMAP, SMTP or both, without mailbox selection or message submission. |
+| `mail_delete_account` | `delete_accounts`: remove an owned, non-provisioned account through native Mail after reviewing local impact. |
+
+Writes use the same preview, `plan_state`, `operation_id` and receipt mechanism as
+drafts. Settings updates preserve omitted preferences, credentials and server
+security. Signatures are untrusted content and appear in full as inert confirmation
+text. Native Mail owns signature insertion; MCP draft bodies remain exactly the
+approved text and never silently append a signature.
+
+Setup accepts only non-secret `intent` fields: name, email, authentication method
+(`password` or `xoauth2`), and IMAP/SMTP host, port, TLS (`ssl` or `tls`) and user.
+Mail's native form alone handles passwords and OAuth consent. The generated link
+has no credential or prefill query parameters. Administrator-disabled creation and
+provisioned connections are refused. Opening a link creates only an
+`awaiting_user` receipt, valid for 24 hours; it does not create an account or prove
+successful authorization. The initial confirmation plan lasts 15 minutes.
+
+After finishing native setup, select its exact `account_id`, repeat the original
+`intent`, preview completion and confirm the fresh observed profile. New-account
+completion refuses pre-existing IDs; reconfiguration requires the original account
+and a changed, matching non-secret profile. Credential-only changes with an unchanged
+profile remain unverified. Completion rechecks its own permission, the original
+setup tool, connection-read access and the same user/connection. `observed_in_mail`
+means only that the reviewed native configuration was observed, not that delivery
+works or that independently submitted native forms created only one account.
+Revocation prevents future MCP calls but cannot revoke native Mail permissions or
+close a form already opened there. Expiry remains unverified, even if the native
+user completed work independently. Status calls never open a form, authenticate,
+write, match accounts automatically or retry an effect.
+
+Connection probes have independent per-protocol results, a hard 10-second budget
+per protocol (20 seconds for both), and five operations per user/account per minute
+across connections. Native host policy, TLS certificate verification and native
+authentication remain in force. Unsafe/debug transports or unavailable PHP CLI
+process isolation return `unsupported`; failures expose categories, never provider
+transcripts or credentials. Repeated operations and status lookup never probe again.
+Per-protocol status/category results are retained in `operation.protocols`, including
+on status lookup and replay after a lost response. Unfinished results remain
+`unknown`; neither lookup nor replay performs authentication again.
+No SMTP envelope, DATA, scheduling or send/outbox API is used.
+
+Account removal is refused for provisioned accounts, local drafts, outgoing items,
+pending setup or active/uncertain account operations. The preview shows alias and
+cached-mailbox counts. Native Mail removes the account and aliases and controls
+remaining cache/background work; MCP does not purge remote messages, original Files
+or operation history. Native UI activity can still race with MCP; review local work
+in Mail before removal. Expired/completed setup metadata is compacted after 30 days;
+uncertain binding claims and minimal non-replay receipt keys are retained.
+
 ## Messages and threads
 
 Thread pages are ordered newest first. Pass the same seed `message_id` and the returned `next_before_message_id` as `before_message_id` for older messages. The default page size is 5 and the maximum is 10. Each body returns at most 8,000 characters. A visible message over the server-reported 1 MiB size limit returns `bodyStatus: too_large` and the other messages can still be read. Threads with more than 500 cached messages are refused. A message without a thread root is read on its own.

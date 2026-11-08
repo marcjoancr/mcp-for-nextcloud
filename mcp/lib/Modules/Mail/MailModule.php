@@ -19,7 +19,7 @@ use OCA\Mcp\Mcp\Tools\ToolModule;
 /** Static publication and lazy dispatch for the Mail feature. */
 final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, RendersPlans {
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null) {
+    public function __construct(private array $factories, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null, private ?Operations\MailOperationReader $receipts = null) {
         $expected = array_keys(MailToolCatalog::definitions());
         if (array_diff($expected, array_keys($factories)) !== [] || array_diff(array_keys($factories), $expected) !== []) {
             throw new \LogicException('Factories must match the catalog exactly');
@@ -45,6 +45,11 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
                 $result = $tool->execute($arguments, new ToolContext($userId));
                 if (($result['isError'] ?? false) === true) throw new \RuntimeException('Mail write did not confirm its result.');
                 return $result['structuredContent'] ?? json_decode($result['content'][0]['text'], true, 32, JSON_THROW_ON_ERROR);
+            }, function(array $receipt) use ($userId): void {
+                if (isset($receipt['source_tool'])) {
+                    if ($this->receipts===null) throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Operation not found.');
+                    $this->receipts->assertAccess($userId,$receipt);
+                }
             });
             return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($data);
         } catch (\OCA\Mcp\Mcp\Confirmation\PlanChanged $e) {

@@ -56,6 +56,38 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'probe-fault':
+        if(!in_array($in['mode'],['normal','reject','delay'],true))throw new RuntimeException('Unsupported fixture mode');
+        file_put_contents('/tmp/mcp-mail-probe-mode',$in['mode']);$out=['updated'=>true];break;
+    case 'native-alias-fixture':
+        $aliases=Server::get('OCA\\Mail\\Service\\AliasesService');
+        if(isset($in['alias_id'])){$aliases->delete($uid,(int)$in['alias_id']);$out=['removed'=>true];}
+        else {$alias=$aliases->create($uid,(int)$in['account_id'],'d-alias@example.test','D alias');$out=['alias_id'=>(int)$alias->getId()];}
+        break;
+    case 'native-settings-proof':
+        $entity=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,(int)$in['account_id'])->getMailAccount();
+        $out=['auth_digest'=>hash('sha256',serialize([$entity->getInboundPassword(),$entity->getOutboundPassword(),$entity->getOauthAccessToken(),$entity->getOauthRefreshToken()])),
+            'security'=>[$entity->getInboundSslMode(),$entity->getOutboundSslMode(),$entity->getAuthMethod()],
+            'signature'=>$entity->getSignature(),'editor'=>$entity->getEditorMode()];
+        break;
+    case 'native-setup-form':
+        // Same native controller as AccountForm. Fixture credentials exist only here, never in any MCP argument.
+        $controller=Server::get('OCA\\Mail\\Controller\\AccountsController');
+        $args=['accountName'=>'D fixture','emailAddress'=>$in['email'],'imapHost'=>'127.0.0.1','imapPort'=>33493,'imapSslMode'=>'ssl','imapUser'=>'fixture',
+            'smtpHost'=>'127.0.0.1','smtpPort'=>33465,'smtpSslMode'=>'ssl','smtpUser'=>'fixture',
+            'imapPassword'=>'mcp-it-probe-password','smtpPassword'=>'mcp-it-probe-password','authMethod'=>'password'];
+        $response=isset($in['account_id'])?$controller->update(...(['id'=>(int)$in['account_id']]+$args)):$controller->create(...$args);
+        if(!in_array($response->getStatus(),[200,201],true))throw new RuntimeException('Native setup form failed with status '.$response->getStatus());
+        $accounts=Server::get('OCA\\Mail\\Service\\AccountService')->findByUserId($uid);
+        $ids=[];foreach($accounts as $account)if($account->getEmail()===$in['email'])$ids[]=(int)$account->getId();
+        if($ids===[])throw new RuntimeException('Native form did not create the fixture account');
+        $out=['account_id'=>max($ids)];
+        break;
+    case 'native-remove-fixture':
+        Server::get('OCA\\Mail\\Service\\AccountService')->delete($uid,(int)$in['account_id']);$out=['removed'=>true];break;
+    case 'probe-capture':
+        $out=[];foreach(['imap','smtp'] as $protocol)$out[$protocol]=is_file('/tmp/mcp-mail-probe-'.$protocol.'.log')?file('/tmp/mcp-mail-probe-'.$protocol.'.log',FILE_IGNORE_NEW_LINES):[];
+        break;
     case 'draft-lifecycle':
         $service = Server::get('OCA\\Mail\\Service\\DraftsService');
         $draft = $service->getMessage((int)$in['draft_id'], $uid);
@@ -110,6 +142,10 @@ switch ($action) {
                 'uncertain_attachment_exists'=>$uncertain->getId()===$orphans['uncertain']];
         } finally {
             foreach ($orphans as $id) $native->deleteAttachment($uid,$id);
+            // These are synthetic cleanup-contract rows, never admissions for real writes. Keep fixture scenarios isolated.
+            $q=Server::get(\OCP\IDBConnection::class)->getQueryBuilder();
+            $q->delete('mcp_operations')->where($q->expr()->eq('scope_key',$q->createNamedParameter($scope)))
+                ->andWhere($q->expr()->eq('actor_uid',$q->createNamedParameter($uid)))->executeStatement();
         }
         break;
     case 'composition-contract':

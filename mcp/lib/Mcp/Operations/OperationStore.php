@@ -14,5 +14,6 @@ interface OperationStore {
     public function finish(string $scope, string $id, string $state, array $refs, int $time): void;
     public function claimPartial(string $scope, string $id, string $state): bool;
     public function settleRepair(string $scope, string $id, array $adopted = []): void;
+    public function resolveAwaiting(string $scope,string $id,array $refs,int $time): bool;
     public function list(string $scope, int $limit, int $offset): array;
 }

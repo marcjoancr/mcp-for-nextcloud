@@ -101,3 +101,15 @@ test('the origin of a module: invalid, then individual, then unknown group, then
 })
 
 /* The level cell of js/admin-grants.js. */
+
+
+test('Mail account management stays outside the legacy inventory read tier', () => {
+    const operations = catalog().mail
+    const settings = ['read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts']
+    assert.deepEqual(Levels.operationsFor('mail', operations, 'read'), ['read'])
+    for (const operation of settings) {
+        assert.ok(Levels.operationsFor('mail', operations, 'full').includes(operation))
+        const values = Object.fromEntries(operations.map(key => [key, key === operation]))
+        assert.equal(Levels.levelOf('mail', operations, values), 'custom')
+    }
+})

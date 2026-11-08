@@ -130,3 +130,10 @@ catalogs. Mail remains unpublished in this historical unknown-version capture;
 protocol and result captures remain unchanged. Behavioral tests independently
 exercise scoped receipts, repeat confirmation, native reply retention and Files
 attachment preservation. The complete captures were not regenerated.
+
+
+Mail delivery D appends ten raw definitions to the existing 13-tool Mail catalog
+in each frozen locale. All prior tool objects are byte-equivalent after JSON
+normalization. Historical publication/results remain unchanged because that
+capture has no supported Mail version. Native settings/probes and permission
+contracts exercise explicitly enabled Mail separately.

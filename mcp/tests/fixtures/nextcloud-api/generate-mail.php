@@ -84,7 +84,7 @@ try {
 	$classes = array_values(array_unique(array_filter([
 		...array_keys((new LibScanner(dirname(__DIR__, 3) . '/lib'))->classes()),
 		...NextcloudApiUsage::EXTRA_CLASSES,
-	], $isMail)));
+	], static fn(string $class):bool=>$isMail($class)||$class==='OCP\\Security\\IRemoteHostValidator')));
 	$fixture = require __DIR__ . '/' . $major . '.php';
 	$fixture['classes'] = array_filter($fixture['classes'], static fn (string $class): bool => !$isMail($class), ARRAY_FILTER_USE_KEY);
 	$parser = new SourceParser($tree);

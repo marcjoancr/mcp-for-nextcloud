@@ -26,6 +26,15 @@ final class MailWritePlanFixtures {
 		}
 
 		return [new MailModule($factories), [
+
+            'mail_write_account_settings' => ['account_id'=>1,'before'=>['settings'=>['editor_mode'=>'plaintext']], 'after'=>['settings'=>['editor_mode'=>'html']]],
+            'mail_write_signature' => ['account_id'=>1,'alias_id'=>null,'before'=>['signature'=>'Old signature'],'after'=>['signature'=>'New signature']],
+            'mail_configure_connection' => ['account_id'=>1,'before'=>['imap'=>['host'=>'old.example.test']], 'requested'=>['imap'=>['host'=>'imap.example.test']]],
+            'mail_add_account' => ['requested'=>['email'=>'alice@example.test']],
+            'mail_complete_account_setup' => ['account_id'=>2,'setup_operation_id'=>'setup-1','requested'=>['email'=>'alice@example.test'],'observed'=>['imap'=>['host'=>'imap.example.test']]],
+            'mail_test_connection' => ['account_id'=>1,'profile'=>['imap'=>['host'=>'imap.example.test']],'protocols'=>['imap','smtp']],
+            'mail_delete_account' => ['account_id'=>1,'account'=>['email'=>'alice@example.test'],'impact'=>['cache_and_workers'=>'Native Mail controls local cache and workers.']],
+
 			'mail_save_attachment' => [
 				'attachment' => ['name' => 'Quarterly report.pdf', 'message_id' => 42, 'mimeType' => 'application/pdf', 'size' => 2048],
 				'destination' => ['path' => '/Shared/Quarterly report.pdf', 'folder' => '/Shared',

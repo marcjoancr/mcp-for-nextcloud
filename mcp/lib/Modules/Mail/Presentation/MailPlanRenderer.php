@@ -17,16 +17,59 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
-		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files'], true)) {
+		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account'], true)) {
 			return null;
 		}
 		return match ($tool) {
 			'mail_save_attachment' => self::attachment($plan),
 			'mail_write_draft', 'mail_attach_files' => self::draft($plan),
 			'mail_delete_draft' => self::deleteDraft($plan),
-			default => null,
+			default => self::configuration($tool, $plan),
 		};
 	}
+
+    private static function configuration(string $tool, array $plan): string {
+        $heading = match ($tool) {
+            'mail_write_account_settings' => Translator::t('Update these Mail preferences.'),
+            'mail_write_signature' => Translator::t('Update this Mail signature. A null value removes it.'),
+            'mail_configure_connection', 'mail_add_account' => Translator::t('Open the native Mail assistant. Enter credentials there and review completion separately.'),
+            'mail_complete_account_setup' => Translator::t('Confirm the observed native Mail configuration. This does not prove message delivery.'),
+            'mail_test_connection' => Translator::t('Authenticate with the selected Mail servers. No message will be sent.'),
+            'mail_delete_account' => Translator::t('Remove this Mail account from Nextcloud. Remote messages and Files are retained.'),
+            default => throw new \LogicException('Unknown Mail configuration plan'),
+        };
+        $lines = [$heading, ''];
+        foreach (['account_id' => Translator::t('Account id'), 'alias_id' => Translator::t('Alias id'),
+            'setup_operation_id' => Translator::t('Setup operation'), 'source_tool' => Translator::t('Source tool')] as $key => $label) {
+            if (array_key_exists($key, $plan)) $lines[] = '- ' . $label . ': ' . PlanText::quoted(self::value($plan[$key]));
+        }
+        foreach (['account' => Translator::t('Mail account'), 'before' => Translator::t('Current values'),
+            'after' => Translator::t('Values after this change'), 'requested' => Translator::t('Requested configuration'),
+            'observed' => Translator::t('Observed configuration'), 'profile' => Translator::t('Mail connection'),
+            'protocols' => Translator::t('Protocols'), 'impact' => Translator::t('Removal impact')] as $key => $label) {
+            if (array_key_exists($key, $plan)) $lines = array_merge($lines, ['', $label . ':', ...self::configurationFields($plan[$key])]);
+        }
+        if (isset($plan['message'])) $lines[] = PlanText::quoted((string)$plan['message']);
+        return implode("\n", $lines);
+    }
+
+    /** Complete values, including signature HTML, are quoted as inert text. */
+    private static function configurationFields(mixed $value, string $prefix = ''): array {
+        if (!is_array($value)) return ['- ' . PlanText::quoted(self::value($value))];
+        $lines = [];
+        foreach ($value as $key => $entry) {
+            if ($key === 'revision') continue; // Opaque proof, not a setting a person can change.
+            $path = $prefix === '' ? (string)$key : $prefix . '.' . $key;
+            if (is_array($entry)) $lines = array_merge($lines, self::configurationFields($entry, $path));
+            else $lines[] = '- ' . PlanText::inline($path) . ': ' . PlanText::quoted(self::value($entry));
+        }
+        return $lines;
+    }
+    private static function value(mixed $value): string {
+        if ($value === null) return 'null';
+        if (is_bool($value)) return $value ? 'true' : 'false';
+        return is_scalar($value) ? (string)$value : '';
+    }
 
 	private static function attachment(array $plan): string {
 		$a = (array)($plan['attachment'] ?? []);

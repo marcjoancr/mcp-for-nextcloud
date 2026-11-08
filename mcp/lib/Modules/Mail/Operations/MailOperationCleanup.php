@@ -14,7 +14,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 
 /** Never touches active/uncertain repairs or native attachments associated with any local message. */
 class MailOperationCleanup {
-    public function __construct(private OperationsMapper $store, private MailServices $mail, private ITimeFactory $clock) {}
+    public function __construct(private OperationsMapper $store, private MailServices $mail, private ITimeFactory $clock, private ?\OCA\Mcp\Db\MailSetupWorkflowsMapper $workflows = null, private ?\OCA\Mcp\Db\MailProbeSlotsMapper $slots = null) {}
     public function run(): void {
         foreach ($this->store->cleanupCandidates($this->clock->getTime()-86400,100) as $row) {
             if ($row['state']==='partial' && !$this->store->claimPartial($row['scope_key'],$row['operation_id'],'cleaning')) continue;
@@ -39,5 +39,7 @@ class MailOperationCleanup {
             }
         }
         $this->store->compact($this->clock->getTime()-30*86400);
+        $this->workflows?->compact($this->clock->getTime()-30*86400);
+        $this->slots?->compact($this->clock->getTime());
     }
 }

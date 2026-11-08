@@ -22,6 +22,40 @@ garantiza la compatibilidad de todas las combinaciones de Mail y servidor.
 | `mail_read_message` | Lee un mensaje propio como texto con el permiso `mail.read_message`. Conserva el estado de no leído. |
 | `mail_read_thread` | Lee una página del hilo de un `message_id` visible, limitada a la misma cuenta propia y con `mail.read_message`. Conserva el estado de no leído. |
 
+## Cuentas, firmas y ajustes
+
+La entrega D añade lectura y modificación de preferencias (`editor_mode`,
+`signature_above_quote`, `show_subscribed_only`), firmas de cuenta o alias (hasta
+20.000 caracteres; `null` para eliminarlas), consulta de conexión, alta y
+reconfiguración con el asistente nativo, finalización explícita, comprobación
+independiente de IMAP/SMTP y eliminación de cuentas. Cada herramienta tiene un
+permiso propio y exige seleccionarla en la conexión; los permisos anteriores no
+las conceden. Consulta los nombres y contratos en la [referencia completa](../../../en/reference/tools/mail.md#account-settings-and-native-setup).
+
+Las contraseñas y el consentimiento OAuth se introducen únicamente en Mail.
+El MCP devuelve un enlace sin credenciales ni parámetros de relleno y registra
+`awaiting_user` durante 24 horas. Abrirlo no acredita un alta. Para finalizar,
+selecciona el ID exacto de la cuenta propia, repite la intención original y aprueba
+la configuración observada. Se comprueban de nuevo los permisos de origen,
+finalización y lectura de conexión. Una modificación solo de credenciales, sin
+cambio observable del perfil, permanece sin verificar. La interfaz nativa puede
+crear cuentas independientes; no se promete un alta globalmente única.
+
+Las pruebas de conexión solo autentican: 10 segundos por protocolo y cinco
+operaciones por usuario/cuenta por minuto. Conservan TLS y las restricciones de
+Mail; devuelven resultados separados y errores sin credenciales. Si no existe un
+proceso PHP seguro o el transporte no cumple las condiciones, indican
+`unsupported`. Consultar o repetir una operación no vuelve a probar ni escribir.
+Los resultados de cada protocolo se conservan en `operation.protocols`, también
+al consultar o repetir una operación tras perder la respuesta.
+El envío continúa desactivado. Las firmas no se añaden silenciosamente a los
+borradores creados por MCP.
+
+La eliminación requiere una vista previa y aprobación. Se bloquea si hay
+borradores locales, elementos de salida u operaciones pendientes o inciertas.
+Mail elimina cuenta y alias y controla su caché y tareas; se conservan los
+mensajes remotos, los originales de Files y el historial de operaciones.
+
 Las páginas del hilo van del mensaje más reciente al más antiguo. Para retroceder, conserva el `message_id` inicial y pasa el `next_before_message_id` recibido como `before_message_id`. Se devuelven 5 mensajes por defecto y hasta 10 por página, con hasta 8.000 caracteres por cuerpo. Si el servidor indica que un mensaje supera 1 MiB, aparece con `bodyStatus: too_large` y se continúa con los demás. El límite por hilo es de 500 mensajes en caché. Un mensaje sin raíz de hilo se lee por separado.
 
 Las carpetas se ordenan con la bandeja de entrada primero, después por ruta sin

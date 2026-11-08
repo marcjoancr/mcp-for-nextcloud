@@ -170,9 +170,28 @@ cmd_provision() {
 	install_forms
 	# The IMAP server has a private address on the run's network; Nextcloud refuses local remote hosts by default.
 	occ config:system:set allow_local_remote_servers --value=true --type=boolean
+	start_probe_servers
 	alice=$(create_account mcp-it-alice alice)
 	bob=$(create_account mcp-it-bob bob)
 	echo "Mail accounts: mcp-it-alice=$alice mcp-it-bob=$bob"
+}
+
+# Authentication-only TLS endpoints inside the disposable Nextcloud container, with a run-local trusted certificate.
+start_probe_servers() {
+    assert_owner "$NC"
+    openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=127.0.0.1' \
+        -addext 'subjectAltName=IP:127.0.0.1' -keyout "$WORK/mcp-mail-probe.key" -out "$WORK/mcp-mail-probe.crt" >/dev/null 2>&1
+    docker cp "$WORK/mcp-mail-probe.crt" "$NC:/usr/local/share/ca-certificates/mcp-mail-probe.crt"
+    docker cp "$WORK/mcp-mail-probe.crt" "$NC:/tmp/mcp-mail-probe.crt"
+    docker cp "$WORK/mcp-mail-probe.key" "$NC:/tmp/mcp-mail-probe.key"
+    docker cp "$HERE/mail/probe-server.php" "$NC:/tmp/mcp-mail-probe-server.php"
+    docker exec "$NC" update-ca-certificates >/dev/null
+    docker exec "$NC" chown www-data:www-data /tmp/mcp-mail-probe.key
+    docker exec "$NC" chmod 600 /tmp/mcp-mail-probe.key
+    docker exec "$NC" chmod 644 /tmp/mcp-mail-probe.crt /tmp/mcp-mail-probe-server.php
+    docker exec -d -u www-data "$NC" sh -c 'php /tmp/mcp-mail-probe-server.php imap > /tmp/mcp-mail-probe-imap-errors.log 2>&1'
+    docker exec -d -u www-data "$NC" sh -c 'php /tmp/mcp-mail-probe-server.php smtp > /tmp/mcp-mail-probe-smtp-errors.log 2>&1'
+    docker exec -u www-data "$NC" php -r 'foreach ([33493,33465] as $port) { $ready=false; for($attempt=0;$attempt<30;$attempt++) { $s=@stream_socket_client("tls://127.0.0.1:".$port,$code,$message,1); if($s) {fclose($s);$ready=true;break;} usleep(100000); } if(!$ready) {fwrite(STDERR,"TLS fixture unavailable: ".$message." ".json_encode(error_get_last())."\n");exit(2);} }'
 }
 
 # cmd_collect: the IMAP server log, which lists every login and every flag change (mail_log), into the artifacts.
@@ -180,6 +199,7 @@ cmd_collect() {
 	mkdir -p "$ARTIFACTS"
 	assert_owner "$IMAP"
 	docker logs "$IMAP" > "$ARTIFACTS/imap-container.log" 2>&1 || true
+    for protocol in imap smtp; do docker cp "$NC:/tmp/mcp-mail-probe-$protocol-errors.log" "$ARTIFACTS/probe-$protocol-errors.log" >/dev/null 2>&1 || true; docker cp "$NC:/tmp/mcp-mail-probe-$protocol.log" "$ARTIFACTS/probe-$protocol.log" >/dev/null 2>&1 || true; done
 }
 
 # Cleanup is owned by run-local.sh and guarded by this run's resource label.

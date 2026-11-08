@@ -35,7 +35,7 @@ final class OperationJournal {
         return $plan + ['operation_id' => $id, 'operation_expires_at' => $expires];
     }
 
-    public function execute(string $tool, string $uid, array $args, \Closure $effect): array {
+    public function execute(string $tool, string $uid, array $args, \Closure $effect, ?\Closure $authorizeReplay = null): array {
         $id = $args['operation_id'] ?? '';
         if (!is_string($id) || !preg_match('/^([0-9a-f]{32}\.([0-9]{1,12}))\.([0-9a-f]{64})$/D', $id, $parts)) {
             throw new \InvalidArgumentException('Repeat the operation_id from the approved plan.');
@@ -46,22 +46,22 @@ final class OperationJournal {
         }
         $scope = $this->scope($uid);
         $old = $this->store->get($scope, $id);
-        if ($old !== null) return ['operation' => $this->receipt($old, true)];
+        if ($old !== null) return $this->replay($old, $authorizeReplay);
         if ((int)$parts[2] < $this->clock->getTime()) throw new \InvalidArgumentException('Operation plan expired; preview again.');
-        $target = isset($args['draft_id']) ? 'draft:' . $args['draft_id'] : (isset($args['path']) ? 'file:' . $args['path'] : null);
+        $target = isset($args['account_id']) ? 'account:' . (int)$args['account_id'] : (isset($args['draft_id']) ? 'draft:' . $args['draft_id'] : (isset($args['path']) ? 'file:' . $args['path'] : null));
         $row = ['scope_key' => $scope, 'actor_uid' => $uid, 'operation_id' => $id, 'tool_name' => $tool, 'effect_digest' => $fingerprint,
             'target_key' => $target === null ? null : hash('sha256', $uid . "\0" . $target),
-            'state' => 'running', 'resource_refs' => [], 'created_at' => $this->clock->getTime(), 'updated_at' => $this->clock->getTime()];
+            'state' => 'running', 'resource_refs' => isset($args['account_id']) ? ['account_id'=>(int)$args['account_id']] : [], 'created_at' => $this->clock->getTime(), 'updated_at' => $this->clock->getTime()];
         if (!$this->store->reserve($row)) {
             $existing = $this->store->get($scope, $id);
-            if ($existing !== null) return ['operation' => $this->receipt($existing, true)];
+            if ($existing !== null) return $this->replay($existing, $authorizeReplay);
             throw new ToolFailure('Another write owns this target; inspect its operation before changing it.');
         }
-        $this->active = ['scope' => $scope, 'id' => $id, 'refs' => []];
+        $this->active = ['scope' => $scope, 'id' => $id, 'refs' => $row['resource_refs']];
         $repair = null;
         try {
             $result = $effect();
-        } catch (PlanChanged $e) {
+        } catch (PlanChanged|BeforeEffectFailure $e) {
             $this->active = null;
             $this->store->finish($scope, $id, 'failed_before_effect', [], $this->clock->getTime());
             throw $e;
@@ -69,22 +69,39 @@ final class OperationJournal {
             $repair = $this->active['repair_of'] ?? null;
             $refs = $this->active['refs'];
             $this->active = null;
-            $state = $refs === [] || (($refs['native_write_started'] ?? false) && !isset($refs['draft_id'])) ? 'uncertain' : 'partial';
+            $knownEffect=isset($refs['draft_id'])||isset($refs['file_id'])||!empty($refs['staged']);
+            $state = !$knownEffect || (($refs['native_write_started'] ?? false) && !isset($refs['draft_id'])) ? 'uncertain' : 'partial';
             $this->store->finish($scope, $id, $state, $refs, $this->clock->getTime());
             if ($repair !== null && $state !== 'uncertain') $this->store->settleRepair($scope, $repair, $refs['staged'] ?? []);
             return ['operation' => $this->get($uid, $id),
                 'message' => 'The native write could not be verified. Inspect its state; do not repeat the write.'];
         }
+        $deferred=$this->active['awaiting_user']??false;
         $repair = $this->active['repair_of'] ?? null;
         $refs = $this->active['refs'];
         $this->active = null;
         if (isset($result['draft']['id'])) $refs['draft_id'] = (int)$result['draft']['id'];
         if (isset($result['deleted_draft_id'])) $refs['draft_id'] = (int)$result['deleted_draft_id'];
         if (isset($result['file']['fileId'])) $refs['file_id'] = (int)$result['file']['fileId'];
-        $state = ($result['requiresConfirmation'] ?? false) ? 'failed_before_effect' : (($result['partial'] ?? false) ? 'partial' : 'succeeded');
+        if(isset($result['account_id']))$refs['account_id']=(int)$result['account_id'];
+        $state = $deferred ? 'awaiting_user' : (($result['requiresConfirmation'] ?? false) ? 'failed_before_effect' : (($result['partial'] ?? false) ? 'partial' : 'succeeded'));
         $this->store->finish($scope, $id, $state, $refs, $this->clock->getTime());
         if ($repair !== null) $this->store->settleRepair($scope, $repair, $refs['staged'] ?? []);
         return $result + ['operation' => $this->get($uid, $id)];
+    }
+
+    public function scopeKey(string $uid): string {return $this->scope($uid);}
+    public function activeId(string $uid): string {
+        if($this->active===null || $this->active['scope']!==$this->scope($uid))throw new ToolFailure('A confirmed operation reservation is required.');
+        return $this->active['id'];
+    }
+    public function awaitingUser(int $expires): void {
+        if($this->active===null)throw new ToolFailure('A confirmed operation reservation is required.');
+        $this->active['awaiting_user']=true;$this->checkpoint(['user_expires_at'=>$expires,'native_state'=>'unverified','source'=>'native_ui']);
+    }
+    public function completeExternal(string $uid,string $id,int $account): void {
+        $this->activeId($uid);
+        if(!$this->store->resolveAwaiting($this->scope($uid),$id,['account_id'=>$account,'native_state'=>'observed_in_mail','source'=>'native_ui'],$this->clock->getTime()))throw new ToolFailure('Setup state changed; inspect its outcome.');
     }
 
     /** Checkpoint only opaque native identities and integrity digests, never message or file content. */
@@ -121,11 +138,20 @@ final class OperationJournal {
             $this->store->list($this->scope($uid), max(1, min(50, $limit)), max(0, min(10000, $offset))));
     }
 
+    private function replay(array $row, ?\Closure $authorize): array {
+        $receipt = $this->receipt($row, true);
+        if ($authorize !== null) $authorize($receipt);
+        return ['operation' => $receipt];
+    }
+
     private function receipt(array $row, bool $replayed): array {
         $state = $row['state'];
         if ($state === 'running' && $this->clock->getTime() - (int)$row['updated_at'] > self::TTL) $state = 'uncertain';
-        return ['operation_id' => $row['operation_id'], 'tool' => $row['tool_name'], 'state' => $state,
-            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(['draft_id', 'file_id'])), 'replayed' => $replayed, 'safe_to_retry' => false,
+        if($state==='awaiting_user' && $this->clock->getTime()>(int)($row['resource_refs']['user_expires_at']??0))$state='expired';
+        $extra=array_intersect_key($row['resource_refs'],array_flip(['native_state','source','source_tool']));
+        if ($row['tool_name']==='mail_test_connection' && isset($row['resource_refs']['protocols'])) $extra['protocols']=ProtocolDiagnostics::sanitize($row['resource_refs']['protocols']);
+        return $extra+['operation_id' => $row['operation_id'], 'tool' => $row['tool_name'], 'state' => $state,
+            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(['draft_id', 'file_id','account_id'])), 'replayed' => $replayed, 'safe_to_retry' => false,
             'updated_at' => (int)$row['updated_at']];
     }
 
