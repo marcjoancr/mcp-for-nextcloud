@@ -194,7 +194,7 @@ final class WriteGateContractTest extends TestCase {
     }
 
     public function testMailAttachmentsAndDraftsSeparateReadsFromConfirmedWrites(): void {
-        foreach (['read_attachment', 'read_drafts'] as $operation) {
+        foreach (['read_attachment', 'read_drafts', 'read_operations'] as $operation) {
             self::assertFalse(WriteGate::isWrite(['module' => 'mail', 'operation' => $operation]));
         }
         foreach (['save_attachment', 'write_drafts', 'delete_drafts'] as $operation) {
@@ -218,7 +218,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 

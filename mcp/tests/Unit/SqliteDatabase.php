@@ -89,7 +89,7 @@ final class SqliteDatabase {
                 return $qb;
             });
         };
-        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'orderBy', 'addOrderBy', 'leftJoin', 'groupBy'] as $method) {
+        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'setFirstResult', 'orderBy', 'addOrderBy', 'leftJoin', 'groupBy'] as $method) {
             $chain($method);
         }
         $qb->method('selectDistinct')->willReturnCallback(function ($columns) use ($qb, $inner): IQueryBuilder {

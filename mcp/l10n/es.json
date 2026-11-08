@@ -1,4 +1,13 @@
 { "translations": {
+    "Source file: %s" : "Archivo de origen: %s",
+    "Attach Files to a mail draft" : "Adjuntar archivos a un borrador de correo",
+    "Read a mail write outcome" : "Consultar el resultado de una escritura de correo",
+    "List mail write outcomes" : "Listar resultados de escrituras de correo",
+    "Sender: %s" : "Remitente: %s",
+    "Reply parent: %s" : "Mensaje al que responde: %s",
+    "attach_files" : "Adjuntar archivos",
+    "read_operations" : "Consultar escrituras",
+
     "The link will use the password you supplied." : "El enlace usará la contraseña que has indicado.",
     "Choose another link password that meets the server password policy." : "Elige otra contraseña para el enlace que cumpla la política del servidor.",
     "File description" : "Descripción de archivo",

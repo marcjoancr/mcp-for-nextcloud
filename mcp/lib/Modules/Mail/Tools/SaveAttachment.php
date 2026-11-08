@@ -26,7 +26,8 @@ final class SaveAttachment implements WriteTool {
 				'attachment_id' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 100],
 				'path' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 2048, 'description' => 'Full path of the new file in your Files area.'],
 				'confirm_shared' => ['type' => 'boolean', 'description' => 'Acknowledge saving in a shared destination after showing the shared access details.'],
-				PlanState::ARGUMENT => PlanState::property(),
+				'operation_id' => \OCA\Mcp\Mcp\Operations\OperationJournal::property(),
+                PlanState::ARGUMENT => PlanState::property(),
 			], 'required' => ['message_id', 'attachment_id', 'path'], 'additionalProperties' => false,
 		], app: 'mail', grantAllOf: ['files' => ['create']]);
 	}

@@ -16860,7 +16860,7 @@
                             "create"
                         ]
                     },
-                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments and plan_state. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
+                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -16882,6 +16882,12 @@
                             "confirm_shared": {
                                 "type": "boolean",
                                 "description": "Acknowledge saving in a shared destination after showing the shared access details."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -16930,7 +16936,7 @@
                     "module": "mail",
                     "operation": "write_drafts",
                     "app": "mail",
-                    "description": "Creates or updates a local unsent Mail draft. This tool never sends. First call without confirm to see the full content and recipient plan; show it to the user and get explicit approval, then repeat with confirm=true and the same plan_state. Existing drafts with attachments cannot be edited because the supported Mail API would remove those attachments.",
+                    "description": "Creates or updates a local unsent Mail draft. This tool never sends. First call without confirm to see the full content and recipient plan; show it to the user and get explicit approval, then repeat with confirm=true and the same plan_state and operation_id. Omitted attachments, reply parent and sender alias are preserved. reply_to_message_id derives a reply or reply_all from an owned message; no original Bcc is copied. add_files snapshots readable Files content and requires explicit mail_attach_files and files_read access. Threaded drafts are held locally against lossy native IMAP synchronization and may show a sync failure in Mail. Inspect mail_get_operation after a lost response; never repeat an uncertain write under a new operation_id.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -16946,6 +16952,50 @@
                             "subject": {
                                 "type": "string",
                                 "maxLength": 1000
+                            },
+                            "reply_to_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "An owned message ID. Its actual Message-ID establishes the reply thread. Requires mail_read_message access."
+                            },
+                            "reply_mode": {
+                                "type": "string",
+                                "enum": [
+                                    "reply",
+                                    "reply_all"
+                                ],
+                                "description": "Derive visible recipients when replying; original Bcc is never copied."
+                            },
+                            "alias_id": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 1,
+                                "description": "An existing owned sender alias; null chooses the account identity. Omit to preserve."
+                            },
+                            "add_files": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "description": "Existing Files paths to snapshot as attachments; also requires mail_attach_files and files_read. Omission preserves attachments."
+                            },
+                            "remove_attachment_ids": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Only native attachment IDs returned by this draft. Omission preserves them."
+                            },
+                            "repair_of_operation_id": {
+                                "type": "string",
+                                "maxLength": 128,
+                                "description": "A partial operation in this connection whose verified snapshots may be reused after a fresh preview."
                             },
                             "body_plain": {
                                 "type": "string",
@@ -17024,6 +17074,12 @@
                                     "additionalProperties": false
                                 }
                             },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
                             "plan_state": {
                                 "type": "string",
                                 "minLength": 1,
@@ -17043,13 +17099,19 @@
                     "module": "mail",
                     "operation": "delete_drafts",
                     "app": "mail",
-                    "description": "Deletes one local unsent Mail draft and its local draft attachments. First call without confirm to see the draft; show the plan and get explicit approval, then repeat with confirm=true and the same plan_state. This tool never sends a draft.",
+                    "description": "Deletes one local unsent Mail draft and its local draft attachments. First call without confirm to see the draft; show the plan and get explicit approval, then repeat with confirm=true and the same plan_state and operation_id. This tool never sends a draft.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "draft_id": {
                                 "type": "integer",
                                 "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -17061,6 +17123,113 @@
                         "required": [
                             "draft_id"
                         ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_attach_files",
+                    "module": "mail",
+                    "operation": "attach_files",
+                    "app": "mail",
+                    "description": "Adds Files snapshots to, or removes named attachments from, an existing local unsent draft. Omitted attachments are preserved. Requires Files read access for this connection; no sharing link is created and nothing is sent.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Omit to create a draft; supply a draft id to update that draft."
+                            },
+                            "add_files": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "description": "Existing Files paths to snapshot as attachments; also requires mail_attach_files and files_read. Omission preserves attachments."
+                            },
+                            "remove_attachment_ids": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Only native attachment IDs returned by this draft. Omission preserves them."
+                            },
+                            "repair_of_operation_id": {
+                                "type": "string",
+                                "maxLength": 128,
+                                "description": "A partial operation in this connection whose verified snapshots may be reused after a fresh preview."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "draft_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_get_operation",
+                    "module": "mail",
+                    "operation": "read_operations",
+                    "app": "mail",
+                    "description": "Reads the persisted outcome of one Mail write for this user and connection. Never retries or sends. Resource references are minimal; read the draft separately if permitted.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            }
+                        },
+                        "required": [
+                            "operation_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_list_operations",
+                    "module": "mail",
+                    "operation": "read_operations",
+                    "app": "mail",
+                    "description": "Lists bounded write receipts belonging to this user and connection, filtered by current original-tool permissions. No mail is sent and no operation is repeated.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
                         "additionalProperties": false
                     }
                 }
@@ -38482,7 +38651,7 @@
                             "create"
                         ]
                     },
-                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments and plan_state. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
+                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -38504,6 +38673,12 @@
                             "confirm_shared": {
                                 "type": "boolean",
                                 "description": "Acknowledge saving in a shared destination after showing the shared access details."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -38552,7 +38727,7 @@
                     "module": "mail",
                     "operation": "write_drafts",
                     "app": "mail",
-                    "description": "Creates or updates a local unsent Mail draft. This tool never sends. First call without confirm to see the full content and recipient plan; show it to the user and get explicit approval, then repeat with confirm=true and the same plan_state. Existing drafts with attachments cannot be edited because the supported Mail API would remove those attachments.",
+                    "description": "Creates or updates a local unsent Mail draft. This tool never sends. First call without confirm to see the full content and recipient plan; show it to the user and get explicit approval, then repeat with confirm=true and the same plan_state and operation_id. Omitted attachments, reply parent and sender alias are preserved. reply_to_message_id derives a reply or reply_all from an owned message; no original Bcc is copied. add_files snapshots readable Files content and requires explicit mail_attach_files and files_read access. Threaded drafts are held locally against lossy native IMAP synchronization and may show a sync failure in Mail. Inspect mail_get_operation after a lost response; never repeat an uncertain write under a new operation_id.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -38568,6 +38743,50 @@
                             "subject": {
                                 "type": "string",
                                 "maxLength": 1000
+                            },
+                            "reply_to_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "An owned message ID. Its actual Message-ID establishes the reply thread. Requires mail_read_message access."
+                            },
+                            "reply_mode": {
+                                "type": "string",
+                                "enum": [
+                                    "reply",
+                                    "reply_all"
+                                ],
+                                "description": "Derive visible recipients when replying; original Bcc is never copied."
+                            },
+                            "alias_id": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 1,
+                                "description": "An existing owned sender alias; null chooses the account identity. Omit to preserve."
+                            },
+                            "add_files": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "description": "Existing Files paths to snapshot as attachments; also requires mail_attach_files and files_read. Omission preserves attachments."
+                            },
+                            "remove_attachment_ids": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Only native attachment IDs returned by this draft. Omission preserves them."
+                            },
+                            "repair_of_operation_id": {
+                                "type": "string",
+                                "maxLength": 128,
+                                "description": "A partial operation in this connection whose verified snapshots may be reused after a fresh preview."
                             },
                             "body_plain": {
                                 "type": "string",
@@ -38646,6 +38865,12 @@
                                     "additionalProperties": false
                                 }
                             },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
                             "plan_state": {
                                 "type": "string",
                                 "minLength": 1,
@@ -38665,13 +38890,19 @@
                     "module": "mail",
                     "operation": "delete_drafts",
                     "app": "mail",
-                    "description": "Deletes one local unsent Mail draft and its local draft attachments. First call without confirm to see the draft; show the plan and get explicit approval, then repeat with confirm=true and the same plan_state. This tool never sends a draft.",
+                    "description": "Deletes one local unsent Mail draft and its local draft attachments. First call without confirm to see the draft; show the plan and get explicit approval, then repeat with confirm=true and the same plan_state and operation_id. This tool never sends a draft.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "draft_id": {
                                 "type": "integer",
                                 "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -38683,6 +38914,113 @@
                         "required": [
                             "draft_id"
                         ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_attach_files",
+                    "module": "mail",
+                    "operation": "attach_files",
+                    "app": "mail",
+                    "description": "Adds Files snapshots to, or removes named attachments from, an existing local unsent draft. Omitted attachments are preserved. Requires Files read access for this connection; no sharing link is created and nothing is sent.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Omit to create a draft; supply a draft id to update that draft."
+                            },
+                            "add_files": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "description": "Existing Files paths to snapshot as attachments; also requires mail_attach_files and files_read. Omission preserves attachments."
+                            },
+                            "remove_attachment_ids": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Only native attachment IDs returned by this draft. Omission preserves them."
+                            },
+                            "repair_of_operation_id": {
+                                "type": "string",
+                                "maxLength": 128,
+                                "description": "A partial operation in this connection whose verified snapshots may be reused after a fresh preview."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "draft_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_get_operation",
+                    "module": "mail",
+                    "operation": "read_operations",
+                    "app": "mail",
+                    "description": "Reads the persisted outcome of one Mail write for this user and connection. Never retries or sends. Resource references are minimal; read the draft separately if permitted.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            }
+                        },
+                        "required": [
+                            "operation_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_list_operations",
+                    "module": "mail",
+                    "operation": "read_operations",
+                    "app": "mail",
+                    "description": "Lists bounded write receipts belonging to this user and connection, filtered by current original-tool permissions. No mail is sent and no operation is repeated.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
                         "additionalProperties": false
                     }
                 }
@@ -60104,7 +60442,7 @@
                             "create"
                         ]
                     },
-                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments and plan_state. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
+                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -60126,6 +60464,12 @@
                             "confirm_shared": {
                                 "type": "boolean",
                                 "description": "Acknowledge saving in a shared destination after showing the shared access details."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -60174,7 +60518,7 @@
                     "module": "mail",
                     "operation": "write_drafts",
                     "app": "mail",
-                    "description": "Creates or updates a local unsent Mail draft. This tool never sends. First call without confirm to see the full content and recipient plan; show it to the user and get explicit approval, then repeat with confirm=true and the same plan_state. Existing drafts with attachments cannot be edited because the supported Mail API would remove those attachments.",
+                    "description": "Creates or updates a local unsent Mail draft. This tool never sends. First call without confirm to see the full content and recipient plan; show it to the user and get explicit approval, then repeat with confirm=true and the same plan_state and operation_id. Omitted attachments, reply parent and sender alias are preserved. reply_to_message_id derives a reply or reply_all from an owned message; no original Bcc is copied. add_files snapshots readable Files content and requires explicit mail_attach_files and files_read access. Threaded drafts are held locally against lossy native IMAP synchronization and may show a sync failure in Mail. Inspect mail_get_operation after a lost response; never repeat an uncertain write under a new operation_id.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -60190,6 +60534,50 @@
                             "subject": {
                                 "type": "string",
                                 "maxLength": 1000
+                            },
+                            "reply_to_message_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "An owned message ID. Its actual Message-ID establishes the reply thread. Requires mail_read_message access."
+                            },
+                            "reply_mode": {
+                                "type": "string",
+                                "enum": [
+                                    "reply",
+                                    "reply_all"
+                                ],
+                                "description": "Derive visible recipients when replying; original Bcc is never copied."
+                            },
+                            "alias_id": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 1,
+                                "description": "An existing owned sender alias; null chooses the account identity. Omit to preserve."
+                            },
+                            "add_files": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "description": "Existing Files paths to snapshot as attachments; also requires mail_attach_files and files_read. Omission preserves attachments."
+                            },
+                            "remove_attachment_ids": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Only native attachment IDs returned by this draft. Omission preserves them."
+                            },
+                            "repair_of_operation_id": {
+                                "type": "string",
+                                "maxLength": 128,
+                                "description": "A partial operation in this connection whose verified snapshots may be reused after a fresh preview."
                             },
                             "body_plain": {
                                 "type": "string",
@@ -60268,6 +60656,12 @@
                                     "additionalProperties": false
                                 }
                             },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
                             "plan_state": {
                                 "type": "string",
                                 "minLength": 1,
@@ -60287,13 +60681,19 @@
                     "module": "mail",
                     "operation": "delete_drafts",
                     "app": "mail",
-                    "description": "Deletes one local unsent Mail draft and its local draft attachments. First call without confirm to see the draft; show the plan and get explicit approval, then repeat with confirm=true and the same plan_state. This tool never sends a draft.",
+                    "description": "Deletes one local unsent Mail draft and its local draft attachments. First call without confirm to see the draft; show the plan and get explicit approval, then repeat with confirm=true and the same plan_state and operation_id. This tool never sends a draft.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "draft_id": {
                                 "type": "integer",
                                 "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
                             },
                             "plan_state": {
                                 "type": "string",
@@ -60305,6 +60705,113 @@
                         "required": [
                             "draft_id"
                         ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_attach_files",
+                    "module": "mail",
+                    "operation": "attach_files",
+                    "app": "mail",
+                    "description": "Adds Files snapshots to, or removes named attachments from, an existing local unsent draft. Omitted attachments are preserved. Requires Files read access for this connection; no sharing link is created and nothing is sent.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Omit to create a draft; supply a draft id to update that draft."
+                            },
+                            "add_files": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "description": "Existing Files paths to snapshot as attachments; also requires mail_attach_files and files_read. Omission preserves attachments."
+                            },
+                            "remove_attachment_ids": {
+                                "type": "array",
+                                "maxItems": 10,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "description": "Only native attachment IDs returned by this draft. Omission preserves them."
+                            },
+                            "repair_of_operation_id": {
+                                "type": "string",
+                                "maxLength": 128,
+                                "description": "A partial operation in this connection whose verified snapshots may be reused after a fresh preview."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "draft_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_get_operation",
+                    "module": "mail",
+                    "operation": "read_operations",
+                    "app": "mail",
+                    "description": "Reads the persisted outcome of one Mail write for this user and connection. Never retries or sends. Resource references are minimal; read the draft separately if permitted.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            }
+                        },
+                        "required": [
+                            "operation_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_list_operations",
+                    "module": "mail",
+                    "operation": "read_operations",
+                    "app": "mail",
+                    "description": "Lists bounded write receipts belonging to this user and connection, filtered by current original-tool permissions. No mail is sent and no operation is repeated.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "offset": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "default": 0
+                            }
+                        },
                         "additionalProperties": false
                     }
                 }

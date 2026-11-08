@@ -61,7 +61,14 @@ try {
 	$verify($archive, $pin['mail']['sha256']);
 	$unpack = $tree . '/unpack';
 	mkdir($unpack);
-	(new PharData($archive))->extractTo($unpack);
+	// Only app source is parsed. Bundled binaries and vendor trees can exhaust a bounded tmpfs.
+	$process = proc_open(['tar', '-xzf', $archive, '-C', $unpack, '--wildcards', '*/lib/*', '*/appinfo/info.xml'],
+		[0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+	if (!is_resource($process)) throw new RuntimeException('Cannot extract verified source archive');
+	fclose($pipes[0]);
+	stream_get_contents($pipes[1]); fclose($pipes[1]);
+	$error = stream_get_contents($pipes[2]); fclose($pipes[2]);
+	if (proc_close($process) !== 0) throw new RuntimeException('Cannot extract verified source archive: ' . $error);
 	$roots = glob($unpack . '/*', GLOB_ONLYDIR) ?: [];
 	if (count($roots) !== 1) {
 		throw new RuntimeException('Expected one official app root');

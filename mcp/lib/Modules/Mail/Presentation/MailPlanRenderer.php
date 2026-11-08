@@ -17,12 +17,12 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
-		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft'], true)) {
+		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files'], true)) {
 			return null;
 		}
 		return match ($tool) {
 			'mail_save_attachment' => self::attachment($plan),
-			'mail_write_draft' => self::draft($plan),
+			'mail_write_draft', 'mail_attach_files' => self::draft($plan),
 			'mail_delete_draft' => self::deleteDraft($plan),
 			default => null,
 		};
@@ -55,6 +55,8 @@ final class MailPlanRenderer {
 			'- ' . Translator::t('Action: %s', [PlanText::inline(match ($plan['action'] ?? null) { 'create' => Translator::t('create'), 'update' => Translator::t('update'), default => Translator::t('change') })]),
 			'- ' . Translator::t('Mail account: %s', [PlanText::quoted((string)($plan['account']['email'] ?? ''))]),
 		];
+        if (isset($after['sender']['email'])) $lines[] = '- ' . Translator::t('Sender: %s', [PlanText::quoted((string)$after['sender']['email'])]);
+        if (isset($after['in_reply_to'])) $lines[] = '- ' . Translator::t('Reply parent: %s', [PlanText::quoted((string)$after['in_reply_to'])]);
 		if (isset($plan['draft_id'])) {
 			$lines[] = '- ' . Translator::t('Draft id: %s', [(int)$plan['draft_id']]);
 		}
@@ -118,7 +120,9 @@ final class MailPlanRenderer {
 		$lines = [];
 		foreach (array_slice($attachments, 0, 100) as $attachment) {
 			if (is_array($attachment)) {
-				$lines[] = '- ' . Translator::t('Draft attachment: %s (%s)', [PlanText::quoted((string)($attachment['name'] ?? '')), PlanText::quoted((string)($attachment['mimeType'] ?? ''))]);
+				$lines[] = '- ' . Translator::t('Draft attachment: %s (%s)', [PlanText::quoted((string)($attachment['name'] ?? '')), PlanText::quoted((string)($attachment['mimeType'] ?? $attachment['mime_type'] ?? ''))]);
+                if (isset($attachment['path'])) $lines[] = '  - ' . Translator::t('Source file: %s', [PlanText::quoted((string)$attachment['path'])]);
+                if (isset($attachment['size'])) $lines[] = '  - ' . Translator::t('Size: %s bytes', [(int)$attachment['size']]);
 			}
 		}
 		return $lines;

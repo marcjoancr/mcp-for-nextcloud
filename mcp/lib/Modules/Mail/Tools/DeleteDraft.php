@@ -21,7 +21,7 @@ final class DeleteDraft implements WriteTool {
 
 	public static function definition(): ToolDefinition {
 		return new ToolDefinition('mail_delete_draft', 'mail', 'delete_drafts', MailMessages::TOOL_DELETE_DRAFT, [
-			'type' => 'object', 'properties' => ['draft_id' => ['type' => 'integer', 'minimum' => 1], PlanState::ARGUMENT => PlanState::property()],
+			'type' => 'object', 'properties' => ['draft_id' => ['type' => 'integer', 'minimum' => 1], 'operation_id' => \OCA\Mcp\Mcp\Operations\OperationJournal::property(), PlanState::ARGUMENT => PlanState::property()],
 			'required' => ['draft_id'], 'additionalProperties' => false,
 		], app: 'mail');
 	}

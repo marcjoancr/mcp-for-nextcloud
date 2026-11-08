@@ -56,6 +56,77 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'draft-lifecycle':
+        $service = Server::get('OCA\\Mail\\Service\\DraftsService');
+        $draft = $service->getMessage((int)$in['draft_id'], $uid);
+        $mapper = Server::get('OCA\\Mail\\Db\\LocalMessageMapper');
+        $due = array_map(static fn(object $d): int => (int)$d->getId(), $mapper->findDueDrafts(time() + 600));
+        $attachmentService = Server::get('OCA\\Mail\\Service\\Attachment\\AttachmentService');
+        $bytes = [];
+        foreach ($draft->getAttachments() as $a) { [, $file] = $attachmentService->getAttachment($uid, $a->getId()); $bytes[] = base64_encode($file->getContent()); }
+        $out = ['in_reply_to' => $draft->getInReplyToMessageId(), 'due_for_sync' => in_array((int)$draft->getId(), $due, true), 'attachment_bytes' => $bytes];
+        break;
+    case 'native-draft-update':
+        $draftService = Server::get('OCA\\Mail\\Service\\DraftsService');
+        $draft = $draftService->getMessage((int)$in['draft_id'], $uid);
+        $payload = json_decode(json_encode($draft, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        $controller = Server::get('OCA\\Mail\\Controller\\DraftsController');
+        $controller->update(id: $draft->getId(), accountId: $draft->getAccountId(), subject: $draft->getSubject(),
+            bodyPlain: $draft->getBodyPlain(), bodyHtml: $draft->getBodyHtml(), editorBody: $draft->getEditorBody(),
+            isHtml: $draft->isHtml(), smimeSign: $draft->getSmimeSign(), smimeEncrypt: $draft->getSmimeEncrypt(),
+            to: $payload['to'], cc: $payload['cc'], bcc: $payload['bcc'], attachments: $payload['attachments'],
+            aliasId: $draft->getAliasId(), inReplyToMessageId: $draft->getInReplyToMessageId());
+        $reopened = $draftService->getMessage($draft->getId(), $uid);
+        $due = Server::get('OCA\\Mail\\Db\\LocalMessageMapper')->findDueDrafts(time()+600);
+        $out = ['in_reply_to' => $reopened->getInReplyToMessageId(), 'sync_held' => $reopened->isFailed(),
+            'due_for_sync' => in_array((int)$draft->getId(), array_map(static fn(object $d): int => (int)$d->getId(), $due), true)];
+        break;
+    case 'cleanup-contract':
+        $native = Server::get('OCA\\Mail\\Service\\Attachment\\AttachmentService');
+        $store = Server::get(\OCA\Mcp\Db\OperationsMapper::class);
+        $orphans=[]; $ids=[]; $scope=hash('sha256','cleanup-fixture-'.$uid.'-'.bin2hex(random_bytes(8)));
+        try {
+            foreach (['orphan','already_removed','uncertain'] as $kind) {
+                $a=$native->addFileFromString($uid,'cleanup-fixture.txt','text/plain','fixture bytes',null,'attachment');
+                $orphans[$kind]=(int)$a->getId();
+            }
+            $native->deleteAttachment($uid,$orphans['already_removed']);
+            foreach ($orphans+['associated'=>(int)$in['attachment_id']] as $kind=>$attachmentId) {
+                $id=bin2hex(random_bytes(12)); $ids[$kind]=$id;
+                $store->reserve(['scope_key'=>$scope,'operation_id'=>$id,'actor_uid'=>$uid,'tool_name'=>'mail_write_draft',
+                    'effect_digest'=>'fixture','target_key'=>null,'state'=>'running','resource_refs'=>[],
+                    'created_at'=>time()-172800,'updated_at'=>time()-172800]);
+                $store->finish($scope,$id,$kind==='uncertain'?'uncertain':'partial',['staged'=>[['attachment_id'=>$attachmentId]]],time()-172800);
+            }
+            Server::get(\OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup::class)->run();
+            $states=[];
+            foreach ($ids as $kind=>$id) $states[$kind]=$store->get($scope,$id)['state'];
+            $missing=false;
+            try {$native->getAttachment($uid,$orphans['orphan']);}
+            catch (\OCA\Mail\Exception\AttachmentNotFoundException) {$missing=true;}
+            [$associated]=$native->getAttachment($uid,(int)$in['attachment_id']);
+            [$uncertain]=$native->getAttachment($uid,$orphans['uncertain']);
+            $out=['states'=>$states,'orphan_missing'=>$missing,'associated_draft_id'=>$associated->getLocalMessageId(),
+                'uncertain_attachment_exists'=>$uncertain->getId()===$orphans['uncertain']];
+        } finally {
+            foreach ($orphans as $id) $native->deleteAttachment($uid,$id);
+        }
+        break;
+    case 'composition-contract':
+        Server::get(ConnectionContext::class)->setSelection(['mail_write_draft','mail_attach_files','mail_read_message','files_read']);
+        $errors=[];
+        try {
+            $plan=Server::get(GrantPolicy::class)->within($uid, static fn(): array =>
+                Server::get(\OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations::class)->previewWrite($in['arguments'],$uid));
+        } catch (\Throwable $e) {
+            do {
+                preg_match_all('/(?:OCA|OCP|Psr)\\\\[A-Za-z0-9_\\\\]+/', $e->getMessage(), $classes);
+                $errors[]=['class'=>get_class($e),'services'=>$classes[0], 'site'=>basename($e->getFile()).':'.$e->getLine(),
+                    'trace'=>array_map(static fn(array $frame): string=>($frame['class']??'').'::'.($frame['function']??'').'@'.basename($frame['file']??'').':'.($frame['line']??0),array_slice($e->getTrace(),0,12))];
+            } while (($e=$e->getPrevious())!==null);
+        }
+        $out=['errors'=>$errors];
+        break;
 	case 'accounts':
 		$service = Server::get('OCA\\Mail\\Service\\AccountService');
 		$out = ['accounts' => array_map(static fn (object $account): array => ['id' => (int)$account->getId(), 'email' => (string)$account->getEmail()],

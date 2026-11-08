@@ -16,10 +16,10 @@ use OCA\Mcp\Mcp\Confirmation\RendersPlans;
 use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use OCA\Mcp\Mcp\Tools\ToolModule;
 
-/** Static publication and lazy dispatch for the read-only Mail feature. */
+/** Static publication and lazy dispatch for the Mail feature. */
 final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, RendersPlans {
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories) {
+    public function __construct(private array $factories, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null) {
         $expected = array_keys(MailToolCatalog::definitions());
         if (array_diff($expected, array_keys($factories)) !== [] || array_diff(array_keys($factories), $expected) !== []) {
             throw new \LogicException('Factories must match the catalog exactly');
@@ -36,7 +36,20 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function call(string $name, array $arguments, string $userId): array {
-        return $this->resolve($name)->execute($arguments, new ToolContext($userId));
+        $tool = $this->resolve($name);
+        if ($this->operations === null || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
+            return $tool->execute($arguments, new ToolContext($userId));
+        }
+        try {
+            $data = $this->operations->execute($name, $userId, $arguments, static function () use ($tool, $arguments, $userId): array {
+                $result = $tool->execute($arguments, new ToolContext($userId));
+                if (($result['isError'] ?? false) === true) throw new \RuntimeException('Mail write did not confirm its result.');
+                return $result['structuredContent'] ?? json_decode($result['content'][0]['text'], true, 32, JSON_THROW_ON_ERROR);
+            });
+            return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($data);
+        } catch (\OCA\Mcp\Mcp\Confirmation\PlanChanged $e) {
+            throw new \OCA\Mcp\Mcp\Confirmation\PlanChanged($this->operations->plan($name, $userId, $arguments, $e->plan));
+        }
     }
 
     public function preview(string $name, array $arguments, string $userId): array {
@@ -44,7 +57,8 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
         if (!$tool instanceof WriteTool || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
             throw new \InvalidArgumentException('Unknown tool');
         }
-        return $tool->preview($arguments, new ToolContext($userId));
+        $plan = $tool->preview($arguments, new ToolContext($userId));
+        return $this->operations?->plan($name, $userId, $arguments, $plan) ?? $plan;
     }
 
     public function renderPlan(string $tool, array $plan): ?string {

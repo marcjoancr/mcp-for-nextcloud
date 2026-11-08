@@ -26,7 +26,10 @@ final class MailDraftOperations {
 	public const MAX_RECIPIENTS = 50;
 	public const MAX_VISIBLE_RECIPIENTS = 3 * self::MAX_RECIPIENTS;
 
-	public function __construct(private MailServices $services, private MailGateway $accounts, private PlanState $states) {}
+	public function __construct(private MailServices $services, private MailGateway $accounts, private PlanState $states,
+        private ?\OCA\Mcp\Modules\Mail\Composition\ReplyComposer $composer = null,
+        private ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files = null,
+        private ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal = null) {}
 
 	/** @return array<string,mixed> a bounded list or one locally stored draft */
 	public function read(array $arguments, string $userId): array {
@@ -71,6 +74,7 @@ final class MailDraftOperations {
 			'after' => $prepared['fields'],
 			PlanState::ARGUMENT => $this->states->of(self::WRITE_TOOL, $userId, $this->writeState($prepared)),
 			'message' => MailMessages::draftPlan(),
+            'warnings' => $prepared['fields']['in_reply_to'] === null ? [] : [['message' => 'This reply stays local in Mail to preserve its thread; IMAP auto-sync is held. Editing it in the native UI may change that state.']],
 		];
 	}
 
@@ -82,7 +86,10 @@ final class MailDraftOperations {
 			$plan = $this->previewWrite($arguments, $userId);
 			throw new PlanChanged($plan + ['warnings' => [['message' => MailMessages::draftPlanChanged()]]]);
 		}
+        if (isset($arguments['repair_of_operation_id'])) $this->journal?->claimRepair($userId, $arguments['repair_of_operation_id']);
 		$fields = $prepared['fields'];
+        $added = $prepared['add_manifest'] === [] ? [] : $this->files->stage($userId, $prepared['add_manifest'], $prepared['reusable'], $prepared['draft'] === null ? null : (int)$prepared['draft']->getId());
+        $attachments = array_values(array_column(array_merge(array_map(static fn(array $a): array => ['type' => 'local', 'id' => $a['id']], $prepared['retained']), $added), null, 'id'));
 		$draft = $prepared['draft'] ?? $this->services->newLocalDraft($userId);
 		$draft->setType($this->services->localDraftType($userId));
 		$draft->setAccountId($prepared['accountId']);
@@ -92,10 +99,25 @@ final class MailDraftOperations {
 		$draft->setHtml($fields['is_html']);
 		$draft->setEditorBody($fields['is_html'] ? $fields['body_html'] : $fields['body_plain']);
 		$draft->setUpdatedAt(time());
+        if (is_callable([$draft, 'setInReplyToMessageId'])) $draft->setInReplyToMessageId($fields['in_reply_to']);
+        if (is_callable([$draft, 'setAliasId'])) $draft->setAliasId($fields['alias_id']);
+        // Preserve the parent against Mail's lossy draft-to-IMAP auto-flush.
+        if ($fields['in_reply_to'] !== null) $draft->setFailed(true);
 		$service = $this->services->draftsService($userId);
-		$saved = $prepared['draft'] === null
-			? $service->saveMessage($prepared['account'], $draft, $fields['to'], $fields['cc'], $fields['bcc'], [])
-			: $service->updateMessage($prepared['account'], $draft, $fields['to'], $fields['cc'], $fields['bcc'], []);
+        $this->journal?->checkpoint(['native_write_started' => true]);
+        try {
+            $saved = $prepared['draft'] === null
+                ? $service->saveMessage($prepared['account'], $draft, $fields['to'], $fields['cc'], $fields['bcc'], $attachments)
+                : $service->updateMessage($prepared['account'], $draft, $fields['to'], $fields['cc'], $fields['bcc'], $attachments);
+        } catch (\Throwable $e) {
+            if ($draft->getId() !== null) $this->journal?->checkpoint(['draft_id' => (int)$draft->getId()]);
+            throw $e;
+        }
+        $this->journal?->checkpoint(['draft_id' => (int)$saved->getId()]);
+        $actualIds = array_map(static fn(object $a): int => (int)$a->getId(), (array)($saved->getAttachments() ?? []));
+        $expectedIds = array_column($attachments, 'id');
+        sort($actualIds); sort($expectedIds);
+        if ($actualIds !== $expectedIds) throw new ToolFailure('Draft attachment associations could not be verified.');
 		return ['draft' => $this->row($saved, true), 'message' => MailMessages::draftSaved()];
 	}
 
@@ -130,15 +152,13 @@ final class MailDraftOperations {
 		if ($draft !== null && (int)$draft->getAccountId() !== $accountId) {
 			throw new ToolFailure(MailMessages::draftNotFound());
 		}
-		if ($draft !== null && (array)($draft->getAttachments() ?? []) !== []) {
-			throw new ToolFailure(MailMessages::draftAttachmentsCannotEdit());
-		}
+
 		if ($draft !== null && (mb_strlen((string)($draft->getBodyPlain() ?? '')) > self::MAX_BODY_CHARS || mb_strlen((string)($draft->getBodyHtml() ?? '')) > self::MAX_BODY_CHARS)) {
 			throw new ToolFailure(MailMessages::draftTooLarge(self::MAX_BODY_CHARS));
 		}
 		$currentRecipients = $draft === null ? ['to' => [], 'cc' => [], 'bcc' => []] : $this->recipientFields($draft);
 		$fields = [
-			'subject' => (string)$arguments['subject'],
+			'subject' => (string)($arguments['subject'] ?? $draft?->getSubject() ?? ''),
 			'body_plain' => (string)(array_key_exists('body_plain', $arguments) ? $arguments['body_plain'] : ($draft?->getBodyPlain() ?? '')),
 			'body_html' => (string)(array_key_exists('body_html', $arguments) ? $arguments['body_html'] : ($draft?->getBodyHtml() ?? '')),
 			'is_html' => (bool)(array_key_exists('is_html', $arguments) ? $arguments['is_html'] : ($draft?->isHtml() ?? false)),
@@ -146,7 +166,50 @@ final class MailDraftOperations {
 			'cc' => array_key_exists('cc', $arguments) ? $this->recipients($arguments['cc']) : $currentRecipients['cc'],
 			'bcc' => array_key_exists('bcc', $arguments) ? $this->recipients($arguments['bcc']) : $currentRecipients['bcc'],
 		];
-		return compact('account', 'accountId', 'draft', 'fields');
+        if (preg_match('/[\r\n\x00]/', $fields['subject'])) throw new \InvalidArgumentException('Invalid mail subject.');
+        $alias = array_key_exists('alias_id', $arguments) ? $arguments['alias_id'] : self::native($draft, 'getAliasId');
+        $identity = $this->composer?->identities($userId, $account, $alias);
+        if ($identity === null && (isset($arguments['alias_id']) || isset($arguments['reply_to_message_id']))) throw new ToolFailure('Mail composition is unavailable.');
+        $fields['alias_id'] = $alias;
+        $fields['sender'] = $identity['sender'] ?? ['email' => (string)$account->getEmail(), 'alias_id' => $alias];
+        $fields['in_reply_to'] = self::native($draft, 'getInReplyToMessageId');
+        if (isset($arguments['reply_to_message_id'])) {
+            $reply = $this->composer->reply($userId, $accountId, (int)$arguments['reply_to_message_id'], ($arguments['reply_mode'] ?? 'reply') === 'reply_all', $identity['own']);
+            $fields['in_reply_to'] = $reply['in_reply_to'];
+            foreach (['to', 'cc', 'bcc'] as $field) if (!array_key_exists($field, $arguments)) $fields[$field] = $reply[$field];
+        }
+        foreach (['to', 'cc', 'bcc'] as $field) if (count($fields[$field]) > self::MAX_RECIPIENTS) throw new ToolFailure(MailMessages::draftTooManyRecipients(self::MAX_RECIPIENTS));
+        $existing = $this->attachmentManifest($userId, $draft);
+        $remove = array_map('intval', $arguments['remove_attachment_ids'] ?? []);
+        if (array_diff($remove, array_column($existing, 'id')) !== []) throw new ToolFailure('Draft attachment not found.');
+        if ($remove !== []) {
+            if ($this->files === null) throw new ToolFailure('Files attachment operations are unavailable.');
+            $this->files->authorize($userId);
+        }
+        $retained = array_values(array_filter($existing, static fn(array $a): bool => !in_array($a['id'], $remove, true)));
+        $paths = $arguments['add_files'] ?? [];
+        if ($paths !== [] && $this->files === null) throw new ToolFailure('Files attachment operations are unavailable.');
+        $add_manifest = $paths === [] ? [] : $this->files->preview($userId, $paths);
+        $reusable = [];
+        if (isset($arguments['repair_of_operation_id'])) {
+            if ($this->journal === null) throw new ToolFailure('Operation repair is unavailable.');
+            $repair = $this->journal->repairResources($userId, $arguments['repair_of_operation_id']);
+            if (isset($repair['draft_id']) && (int)$repair['draft_id'] !== ($draft === null ? null : (int)$draft->getId())) throw new ToolFailure('Repair requires the observed draft.');
+            $reusable = $repair['staged'] ?? [];
+        }
+        $newAttachments=array_values(array_filter($add_manifest, static function(array $source) use ($retained,$reusable): bool {
+            foreach ($reusable as $snapshot) {
+                if ($snapshot['file_id']!==$source['file_id'] || $snapshot['sha256']!==$source['sha256']) continue;
+                foreach ($retained as $existing) {
+                    if ($existing['id']===$snapshot['attachment_id'] && $existing['sha256']===$source['sha256']
+                        && $existing['name']===$source['name'] && $existing['mimeType']===$source['mime_type']) return false;
+                }
+            }
+            return true;
+        }));
+        if (count($retained)+count($newAttachments)>10 || array_sum(array_column($retained,'size'))+array_sum(array_column($newAttachments,'size'))>26214400) throw new ToolFailure('Draft attachment limit exceeded.');
+        $fields['attachments']=array_merge($retained,$newAttachments);
+        return compact('account', 'accountId', 'draft', 'fields', 'retained', 'add_manifest', 'reusable');
 	}
 
 	/** @return array{draft:object,account:object} */
@@ -169,7 +232,7 @@ final class MailDraftOperations {
 
 	private function writeState(array $prepared): array {
 		return ['accountId' => $prepared['accountId'], 'draftId' => $prepared['draft'] === null ? null : (int)$prepared['draft']->getId(),
-			'before' => $prepared['draft'] === null ? null : $this->snapshot($prepared['draft']), 'after' => $prepared['fields']];
+			'before' => $prepared['draft'] === null ? null : $this->snapshot($prepared['draft']), 'after' => $prepared['fields'], 'sources' => $prepared['add_manifest']];
 	}
 
 	private function deleteState(array $prepared): array {
@@ -178,12 +241,15 @@ final class MailDraftOperations {
 
 	private function snapshot(object $draft): array {
 		return ['updatedAt' => $draft->getUpdatedAt(), 'subject' => $draft->getSubject(), 'bodyPlain' => $draft->getBodyPlain(),
-			'bodyHtml' => $draft->getBodyHtml(), 'attachments' => $this->attachmentRows($draft), 'recipientFingerprint' => $this->recipientFingerprint($draft)];
+			'bodyHtml' => $draft->getBodyHtml(), 'parent' => self::native($draft, 'getInReplyToMessageId'), 'alias' => self::native($draft, 'getAliasId'),
+            'failed' => self::native($draft, 'isFailed'), 'attachments' => $this->attachmentRows($draft), 'recipientFingerprint' => $this->recipientFingerprint($draft)];
 	}
 
 	private function row(object $draft, bool $includeBody): array {
 		$row = ['id' => (int)$draft->getId(), 'account_id' => (int)$draft->getAccountId(), 'subject' => MailRows::text((string)$draft->getSubject()),
-			'is_html' => (bool)$draft->isHtml(), 'updated_at' => $draft->getUpdatedAt(), 'recipients' => $this->recipientRows($draft),
+			'is_html' => (bool)$draft->isHtml(), 'updated_at' => $draft->getUpdatedAt(),
+            'in_reply_to' => self::native($draft, 'getInReplyToMessageId'), 'alias_id' => self::native($draft, 'getAliasId'),
+            'sync_held' => self::native($draft, 'getInReplyToMessageId') !== null && self::native($draft, 'isFailed') === true, 'recipients' => $this->recipientRows($draft),
 			'recipientCount' => count((array)($draft->getRecipients() ?? [])),
 			'attachments' => $this->attachmentRows($draft),
 			'recipientsTruncated' => count((array)($draft->getRecipients() ?? [])) > self::MAX_VISIBLE_RECIPIENTS,
@@ -239,11 +305,36 @@ final class MailDraftOperations {
 	}
 
 	private function attachmentRows(object $draft): array {
-		return array_slice(array_map(static fn (object $a): array => ['name' => MailRows::text((string)$a->getFileName()), 'mimeType' => MailRows::text((string)$a->getMimeType())], (array)($draft->getAttachments() ?? [])), 0, 100);
+		return array_slice(array_map(static fn (object $a): array => ['id' => self::native($a, 'getId'), 'name' => MailRows::text((string)$a->getFileName()), 'mimeType' => MailRows::text((string)$a->getMimeType())], (array)($draft->getAttachments() ?? [])), 0, 100);
 	}
+
+    private static function native(?object $value, string $method): mixed {
+        if ($value === null || !is_callable([$value, $method])) return null;
+        return match ($method) {
+            'getId' => $value->getId(), 'getAliasId' => $value->getAliasId(),
+            'getInReplyToMessageId' => $value->getInReplyToMessageId(), 'isFailed' => $value->isFailed(),
+            default => throw new \LogicException('Unsupported native draft field.'),
+        };
+    }
+
+    private function attachmentManifest(string $uid, ?object $draft): array {
+        $out = []; $size = 0;
+        foreach ((array)($draft?->getAttachments() ?? []) as $a) {
+            $id = self::native($a, 'getId');
+            if (!is_int($id) || $id < 1) throw new ToolFailure(MailMessages::draftAttachmentsCannotEdit());
+            [, $file] = $this->services->attachmentService($uid)->getAttachment($uid, $id);
+            $size += (int)$file->getSize();
+            if (count($out) >= 10 || $size > 26214400) throw new ToolFailure('Draft attachment limit exceeded.');
+            $bytes = $file->getContent();
+            if (strlen($bytes) !== (int)$file->getSize() || strlen($bytes) > 26214400) throw new ToolFailure('Draft attachment limit exceeded.');
+            $out[] = ['id' => $id, 'name' => (string)$a->getFileName(), 'mimeType' => (string)$a->getMimeType(), 'size' => strlen($bytes), 'sha256' => hash('sha256', $bytes)];
+        }
+        return $out;
+    }
 
 	/** @return list<array{label?:string,email:string}> */
 	private function recipients(array $items): array {
-		return array_values(array_map(static fn (array $item): array => ['email' => trim((string)$item['email'])] + (isset($item['label']) ? ['label' => trim((string)$item['label'])] : []), $items));
+		foreach ($items as $item) { if (!filter_var(trim((string)$item['email']), FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n\x00]/', (string)$item['email'] . (string)($item['label'] ?? ''))) throw new \InvalidArgumentException('Invalid mail recipient.'); }
+        return array_values(array_map(static fn (array $item): array => ['email' => trim((string)$item['email'])] + (isset($item['label']) ? ['label' => trim((string)$item['label'])] : []), $items));
 	}
 }

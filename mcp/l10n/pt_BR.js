@@ -1,6 +1,15 @@
 OC.L10N.register(
     "mcp",
     {
+    "Source file: %s" : "Arquivo de origem: %s",
+    "Attach Files to a mail draft" : "Anexar arquivos a um rascunho de e-mail",
+    "Read a mail write outcome" : "Consultar o resultado de uma gravação de e-mail",
+    "List mail write outcomes" : "Listar resultados de gravações de e-mail",
+    "Sender: %s" : "Remetente: %s",
+    "Reply parent: %s" : "Mensagem respondida: %s",
+    "attach_files" : "Anexar arquivos",
+    "read_operations" : "Consultar gravações",
+
     "The link will use the password you supplied." : "O link usará a senha que você forneceu.",
     "Choose another link password that meets the server password policy." : "Escolha outra senha para o link que atenda à política de senhas do servidor.",
     "File description" : "Descrição do arquivo",

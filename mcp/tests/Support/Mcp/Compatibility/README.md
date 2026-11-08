@@ -121,3 +121,12 @@ line and count from nine to eleven. The metadata-only app-version fixture keeps
 Mail unpublished; supported Mail publication has separate contract coverage.
 Protocol changes contain only the two additive Talk tools. All other protocol
 fields and the complete result capture remain unchanged.
+
+Mail delivery A on the 2.7.0 base updates only the three existing raw Mail write
+schemas/descriptions (operation IDs and draft composition inputs) and appends the
+attachment action plus two receipt readers. A guarded, explicit patch verified
+every other existing definition unchanged before updating those three raw
+catalogs. Mail remains unpublished in this historical unknown-version capture;
+protocol and result captures remain unchanged. Behavioral tests independently
+exercise scoped receipts, repeat confirmation, native reply retention and Files
+attachment preservation. The complete captures were not regenerated.

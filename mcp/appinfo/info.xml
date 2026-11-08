@@ -180,6 +180,7 @@ Nextcloud 33–35, PHP 8.4+. Forms, Mail, Deck und Talk sind optional. Der Admin
         <job>OCA\Mcp\BackgroundJob\DescriptionBackfillJob</job>
         <job>OCA\Mcp\BackgroundJob\PolicyCleanupJob</job>
         <job>OCA\Mcp\BackgroundJob\ReconcileJob</job>
+        <job>OCA\Mcp\BackgroundJob\MailOperationCleanupJob</job>
     </background-jobs>
     <repair-steps>
         <post-migration>

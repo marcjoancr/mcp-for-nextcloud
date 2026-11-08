@@ -25,9 +25,13 @@ is not a promise that every Mail/server version combination is supported.
 | `mail_read_drafts` | List or read the authenticated user's unsent local Mail drafts. Requires `mail.read_drafts`. |
 | `mail_write_draft` | Create or update a draft after preview and confirmation. Requires `mail.write_drafts`; it does not send mail. |
 | `mail_delete_draft` | Delete an owned draft after preview and confirmation. Requires `mail.delete_drafts`. |
+| `mail_attach_files` | Add Files snapshots or explicitly remove draft attachments. Requires an explicit tool assignment and Files read access for the current connection. |
+| `mail_get_operation` | Read one minimal write receipt for this user and connection, subject to current original-action permission. |
+| `mail_list_operations` | List a bounded page of those receipts. Requires an explicit assignment for this status tool. |
 
 For each write, show the preview and repeat the same arguments with `confirm: true`
-and the returned `plan_state`. Changed content or destinations require a new preview.
+and the returned `plan_state` and `operation_id`. The server generates both values;
+keep the same operation ID if the response is lost. Changed content or destinations require a new preview.
 Saving into a shared destination also requires `confirm_shared: true` after reviewing
 who can access the saved file. The destination remains subject to Files scope,
 exclusions, file type policy, native permissions and size limits.
@@ -48,10 +52,62 @@ or more than 50 recipients in any To/Cc/Bcc group, so confirmation can show the 
 proposed content. Draft reads show up to 150 recipients and 100 attachments, with
 explicit flags when a native draft exceeds those limits. Deletion previews include
 the body and flag any truncation.
-Editing a draft with attachments is refused when
-the native update API cannot preserve those attachments; edit that draft in Mail.
+Draft edits preserve omitted attachments, sender aliases and reply parents. Supply
+`remove_attachment_ids` only for attachments explicitly approved for removal.
+`add_files` copies readable file bytes into native Mail storage, without a public
+share link. It also requires current `files_read` and `mail_attach_files` access,
+Files scope/visibility and native download permission. The preview includes file
+identity, path, name, MIME type, byte size and content hash; confirmation checks
+those values again. The combined limit is 10 attachments and 25 MiB of raw bytes.
+This composition limit is separate from the 1 MiB incoming-message read limit.
 Draft operations never invoke a mail send or scheduling API. For exact parameters
 and current limits, consult the live `mcp_guide` schema.
+
+## Reply drafts and write outcomes
+
+Use `reply_to_message_id` with `reply_mode: "reply"` or `"reply_all"` when writing
+a draft. The source must belong to the same owned account and be readable by the
+current connection. Mail's actual Message-ID becomes the native draft parent;
+a missing or unusable Message-ID is refused. Visible reply recipients are derived
+from Reply-To/From and, for reply-all, To/Cc. Own account/alias addresses and
+duplicates are excluded; original Bcc recipients are never copied. Explicit recipient
+arguments override the corresponding derived list and appear in the approval plan.
+`alias_id` selects an existing alias owned by that account; omission preserves it.
+
+This delivery guarantees the parent on the **local draft only**. Native Mail 5.12.5
+loses that parent when converting a local draft into an IMAP draft. Reply drafts
+therefore use native `failed=true` to hold automatic synchronization and return
+`sync_held: true`. Mail can display this as a synchronization failure. A native
+Mail UI/controller edit defaults that flag to false, releasing the hold. Opening,
+editing, synchronizing or sending in native Mail is outside this guarantee. No
+sending tool is included in this delivery.
+
+Write admission is recorded before native effects. Repeating the same approved
+operation returns a minimal receipt and never executes the write again. Changed
+arguments or a different user/connection cannot reuse its ID. Newly confirmed plans
+expire after 15 minutes; existing receipts remain readable after that deadline.
+After a lost response, consult `mail_get_operation` or `mail_list_operations`
+before making another write. Receipts include the state, update time and opaque
+draft/file IDs, without bodies, recipients, filenames or attachment download handles.
+Current original-tool permission is checked again when reading a receipt.
+
+States include `running`, `succeeded`, `failed_before_effect`, `partial` and
+`uncertain`. A stale running claim is reported as uncertain. Neither state permits
+a blind retry; `safe_to_retry` remains false. `repair_of_operation_id` can reuse
+verified snapshots from a partial operation only after a fresh preview, approval
+and exclusive repair claim. If a draft was observed, repair must target that draft.
+An uncertain creation is never treated as a safe attachment-only repair.
+A failure after acquiring a repair claim can leave it protected indefinitely;
+automatic cleanup never reclaims that claim. Such cases require native inspection
+and administrator reconciliation.
+
+The hourly cleanup processes at most 100 abandoned partial/repaired operations
+older than 24 hours. It competes atomically with repair, skips active, uncertain
+and repairing operations, and deletes only recorded native Mail attachments that
+still have no local-message association. It never deletes original Files content.
+Failed cleanups keep their private references for a later cleanup attempt;
+completed cleanup leaves an `expired` receipt. After 30 days, terminal private
+metadata is compacted; minimal non-replay operation keys remain.
 
 ## Messages and threads
 

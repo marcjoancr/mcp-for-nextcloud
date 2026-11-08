@@ -36,6 +36,8 @@ final class MailWritePlanFixtures {
 				'after' => ['subject' => 'Project update', 'body_plain' => 'The review is ready.', 'body_html' => '', 'is_html' => false,
 					'to' => [['label' => 'Morgan', 'email' => 'morgan@example.test']], 'cc' => [], 'bcc' => [], 'attachments' => []],
 			],
+            'mail_attach_files' => ['action' => 'update', 'account' => ['email' => 'alice@example.test'], 'draft_id' => 73,
+                'after' => ['subject' => 'Draft', 'body_plain' => 'Body', 'attachments' => [['name' => 'budget.pdf', 'mimeType' => 'application/pdf']]]],
 			'mail_delete_draft' => [
 				'action' => 'delete', 'draft' => ['id' => 73, 'subject' => 'Old proposal',
 					'body_plain' => 'This local draft is no longer needed.', 'body_html' => '', 'is_html' => false,

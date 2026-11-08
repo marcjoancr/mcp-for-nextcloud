@@ -9,7 +9,7 @@
 # Mail
 
 Mail debe estar activado para la cuenta y tener una versión conocida de al menos 5.0.0.
-Los tres permisos empiezan denegados, también en instalaciones existentes.
+Los permisos empiezan denegados, también en instalaciones existentes.
 `mail.read` solo concede acceso al inventario de cuentas y carpetas.
 La prueba nativa usa Mail 5.12.5 en Nextcloud 35; la versión mínima de la API no
 garantiza la compatibilidad de todas las combinaciones de Mail y servidor.
@@ -42,6 +42,53 @@ OAuth usa el ámbito existente `mcp`; no concede Mail al margen de la política 
 administración. Revocar cualquiera de estos permisos afecta a las llamadas posteriores con contraseñas
 de aplicación y credenciales OAuth existentes. No hay selección de recursos por
 cuenta de Mail: el permiso abarca todas las cuentas propias del usuario.
+
+## Respuestas locales, adjuntos y estado de escrituras
+
+`mail_read_attachment` lee adjuntos sin marcar el mensaje como leído.
+`mail_save_attachment` los copia a Files tras la confirmación y con permiso de
+creación de archivos. `mail_read_drafts`, `mail_write_draft` y `mail_delete_draft`
+permiten consultar, crear, editar y eliminar borradores locales propios.
+Cada capacidad requiere su permiso específico.
+
+Al escribir un borrador, `reply_to_message_id` conserva la referencia nativa al
+mensaje original; `reply_mode` permite responder o responder a todos. La cuenta
+debe ser propia y coincidir con la del mensaje. Se deduplican los destinatarios
+visibles y se excluyen las identidades propias; nunca se copian los Bcc originales.
+`alias_id` permite elegir un alias propio. El plan muestra el contenido completo.
+
+`add_files` copia archivos de Files al almacenamiento nativo de Mail. Requiere
+acceso vigente a `files_read` y `mail_attach_files`, el ámbito de Files,
+visibilidad y permiso nativo de descarga. Conserva los adjuntos omitidos y solo
+elimina los indicados en `remove_attachment_ids`. El límite combinado es de diez
+adjuntos y 25 MiB. Se verifican identidad, metadatos y hash del contenido al
+confirmar. `mail_attach_files` gestiona los adjuntos de un borrador existente.
+
+Cada escritura exige repetir el `operation_id` y el `plan_state` del plan aprobado.
+`mail_get_operation` y `mail_list_operations` consultan los resultados del mismo
+usuario y conexión, comprobando el permiso actual de la acción original.
+Repetir la misma operación devuelve su recibo sin volver a escribir. Ante una
+respuesta perdida o un estado incierto, consulta el estado antes de crear otra
+operación. Los recibos contienen estados e identificadores mínimos, sin cuerpos
+ni destinatarios. Una reparación requiere un nuevo plan aprobado y una reserva
+exclusiva; no se reintentan escrituras inciertas automáticamente. Un fallo tras
+reservar la reparación puede dejarla protegida indefinidamente: requiere
+inspección nativa y reconciliación por parte de administración.
+
+La garantía de hilo se limita al **borrador local**. Mail 5.12.5 pierde el mensaje
+padre al convertirlo en borrador IMAP; por ello se retiene la sincronización con
+el indicador nativo `failed=true` y se devuelve `sync_held: true`. Mail puede
+mostrar un fallo de sincronización. Una edición desde la interfaz o controlador
+nativos puede liberar esa retención. Esta entrega no garantiza el ciclo de
+edición, sincronización ni envío de Mail y no añade herramientas de envío.
+
+La limpieza interna comprueba cada hora hasta cien operaciones parciales o
+reparadas abandonadas durante más de 24 horas. Solo borra adjuntos creados por
+estas operaciones que sigan sin asociar; conserva los de operaciones activas,
+inciertas o en reparación y todos los originales de Files. Reparación y limpieza
+compiten mediante una reserva atómica. Los fallos conservan las referencias para
+reintentar la limpieza; a los treinta días se compactan metadatos privados de
+recibos terminales, conservando sus claves para impedir repeticiones.
 
 [Todas las herramientas](../tools.md) · [Permisos](../../guides/permissions.md)
 

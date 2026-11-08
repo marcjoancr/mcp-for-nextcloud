@@ -648,6 +648,31 @@ class Application extends App implements IBootstrap {
                 $c->get(\OCA\Mcp\Modules\Mail\Presentation\Link\MailLinks::class),
             ));
         }
+        $context->registerService(\OCA\Mcp\Mcp\Operations\OperationStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\OperationsMapper::class));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
+            $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ReplyComposer::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Files\MailFilesSource(
+            $c->get(IRootFolder::class), $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class), $c->get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
+                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Composition\ReplyComposer::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Composition\ReplyComposer(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class), static function(string $uid) use ($c): \OCA\Mcp\Modules\Mail\Handlers\ReadMessageHandler {
+                $rows = new \OCA\Mcp\Modules\Mail\Presentation\MailMessageRows($c->get(UserTimezone::class)->forUser($uid), $c->get(\OCA\Mcp\Modules\Mail\Presentation\Link\MailLinks::class));
+                return new \OCA\Mcp\Modules\Mail\Handlers\ReadMessageHandler($c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),
+                    new \OCA\Mcp\Modules\Mail\Integration\MailBodyReader($c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class)), $rows,
+                    new \OCA\Mcp\Modules\Mail\Presentation\MailMessageAnswer($rows));
+            },
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
+                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader(
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
+                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid)
+        ));
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
@@ -659,7 +684,10 @@ class Application extends App implements IBootstrap {
             'mail_read_drafts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadDrafts::class),
             'mail_write_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteDraft::class),
             'mail_delete_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteDraft::class),
-        ]));
+            'mail_attach_files' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AttachFiles::class),
+            'mail_get_operation' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\GetOperation::class),
+            'mail_list_operations' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListOperations::class),
+        ], $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes($c->get(\OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Files\Creation\IncomingFileCreation::class));

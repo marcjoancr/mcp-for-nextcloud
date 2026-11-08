@@ -58,7 +58,7 @@ class GrantPolicy implements ScopeReader {
         'talk' => ['read', 'reply', 'attach', 'quote', 'create', 'publish_summary', 'search'],
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
-        'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'],
+        'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations'],
         'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses'],
     ];
 

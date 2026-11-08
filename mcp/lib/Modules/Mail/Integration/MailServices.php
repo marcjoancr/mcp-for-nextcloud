@@ -132,7 +132,15 @@ class MailServices {
 		return $class::TYPE_DRAFT;
 	}
 
-	public function clientFactory(string $userId): object {
+	public function attachmentService(string $userId): object {
+        return $this->resolve('OCA\\Mail\\Service\\Attachment\\AttachmentService', $userId);
+    }
+
+    public function aliasesService(string $userId): object {
+        return $this->resolve('OCA\\Mail\\Service\\AliasesService', $userId);
+    }
+
+    public function clientFactory(string $userId): object {
 		return $this->resolve(self::CLIENT_FACTORY_CLASS, $userId);
 	}
 
