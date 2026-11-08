@@ -60,7 +60,7 @@ final class MailNativeMutationActor {
     public static function read(string $uid,int $messageId):array {
         $manager=Server::get('OCA\\Mail\\Service\\MailManager');$m=$manager->getMessage($uid,$messageId);$b=$manager->getMailbox($uid,$m->getMailboxId());$account=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$b->getAccountId());
         $client=Server::get('OCA\\Mail\\IMAP\\IMAPClientFactory')->getClient($account,false);
-        try{$q=new \Horde_Imap_Client_Fetch_Query();$q->flags();$flags=$client->fetch($b->getName(),$q,['ids'=>new \Horde_Imap_Client_Ids([$m->getUid()])])->first()->getFlags();return ['remote'=>in_array(\Horde_Imap_Client::FLAG_FLAGGED,$flags,true),'cached'=>(bool)$m->getFlagFlagged()];}
+        try{$q=new \Horde_Imap_Client_Fetch_Query();$q->flags();$flags=$client->fetch($b->getName(),$q,['ids'=>new \Horde_Imap_Client_Ids([$m->getUid()])])->first()->getFlags();return ['remote'=>in_array(\Horde_Imap_Client::FLAG_FLAGGED,$flags,true),'cached'=>(bool)$m->getFlagFlagged(),'seen_remote'=>in_array(\Horde_Imap_Client::FLAG_SEEN,$flags,true),'seen_cached'=>(bool)$m->getFlagSeen()];}
         finally{$client->logout();}
     }
     public static function proof(string $uid,int $accountId): array {

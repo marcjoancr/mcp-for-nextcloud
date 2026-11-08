@@ -9,6 +9,7 @@ trait GuardedFlagMutation {
     private ?MutationSelection $mutationSelection=null;
     private string $mutationCommand='';
     private int $mutationUid=0;
+    private string $mutationFlag='';
     /** This method never exposes the private client to a caller's callback. */
     public function setFlagGuarded(array $request,MutationFence $fence): array {
         if($this->mutationSelection!==null)throw new \LogicException('Mutation already armed.');
@@ -18,9 +19,10 @@ trait GuardedFlagMutation {
         $this->openMailbox($name,\Horde_Imap_Client::OPEN_READWRITE);
         $generation=(string)$this->_mailboxOb()->getStatus(\Horde_Imap_Client::STATUS_UIDVALIDITY);
         if($generation!==$request['generation']||$this->_mode!==\Horde_Imap_Client::OPEN_READWRITE||!is_object($this->_connection))throw new \RuntimeException('Selection changed before mutation.');
-        $permit=new MutationSelection();$permit->arm($this->_connection,$name,$generation,$this->_mode,$uid);
-        $this->mutationSelection=$permit;$this->mutationUid=$uid;
         $flag=$request['flag']==='seen'?\Horde_Imap_Client::FLAG_SEEN:\Horde_Imap_Client::FLAG_FLAGGED;
+        $this->requirePermanentFlag($flag);
+        $permit=new MutationSelection();$permit->arm($this->_connection,$name,$generation,$this->_mode,$uid);
+        $this->mutationSelection=$permit;$this->mutationUid=$uid;$this->mutationFlag=$flag;
         try {
             $old=$this->guardedFlagRead($name,$uid,$flag);
             if(!$fence->beforeWire($request))throw new \RuntimeException('Mutation admission revoked.');
@@ -37,7 +39,7 @@ trait GuardedFlagMutation {
                 'mailbox_id'=>$request['mailbox_id'],'generation'=>$generation,'uid'=>$request['uid'],'flag'=>$request['flag'],'value'=>$request['value']];
             if(!$fence->recordRemote($proof))throw new \RuntimeException('Remote proof could not be recorded.');
             return $proof;
-        } finally {$permit->invalidate();$this->mutationSelection=null;$this->mutationCommand='';$this->mutationUid=0;}
+        } finally {$permit->invalidate();$this->mutationSelection=null;$this->mutationCommand='';$this->mutationUid=0;$this->mutationFlag='';}
     }
     private function guardedFlagRead(string $name,int $uid,string $flag): bool {
         $this->mutationCommand='UID FETCH';
@@ -47,7 +49,13 @@ trait GuardedFlagMutation {
         if($m===null||$m->getUid()!==$uid)throw new \RuntimeException('Exact UID unavailable.');
         return in_array(strtolower($flag),array_map('strtolower',$m->getFlags()),true);
     }
+    private function requirePermanentFlag(string $flag): void {
+        $permanent=$this->_mailboxOb()->getStatus(\Horde_Imap_Client::STATUS_PERMFLAGS);
+        // The wildcard permits new keywords; it does not prove persistence of this system flag.
+        if(!is_array($permanent)||!in_array(strtolower($flag),array_map('strtolower',$permanent),true))throw new \RuntimeException('The selected system flag is not proven permanent.');
+    }
     private function assertMutationSelection(): void {
+        $this->requirePermanentFlag($this->mutationFlag);
         if(!$this->_isAuthenticated||!is_object($this->_connection)||$this->mutationSelection===null||!$this->mutationSelection->check($this->_connection,(string)$this->_selected,(string)$this->_mailboxOb()->getStatus(\Horde_Imap_Client::STATUS_UIDVALIDITY),$this->_mode,$this->mutationUid))throw new \RuntimeException('Mutation selection invalidated.');
     }
     protected function _processCmd($pipeline,$cmd,$data) {

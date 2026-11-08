@@ -16,7 +16,7 @@ final class NativeGuardManifest {
     'lib/Db/MailboxMapper.php' => '560bc77370a8cfb39c80d740203a721b4d87b3338470a7b79d855c2f36dd6ec9',
     'lib/Db/MessageMapper.php' => 'cbdbc9ca9fab3ab51f1da934743c2e1db56180e5399d1abad0609ea10f57af51',
     'lib/Events/GuardedMessageFlaggedEvent.php' => '7a534a74fdddd18813ee59e2577a16cc2f93943c3697a97d3c454b1b1dccfc27',
-    'lib/IMAP/GuardedFlagMutation.php' => 'f3c418d7c0d1535cbff57a1bf6b7286c55ce9c8fd8e3a993989d3cb20148328d',
+    'lib/IMAP/GuardedFlagMutation.php' => 'a6db505417a0f055fe0acabfe1e0be05dfe7c10687a21d3b80dfb06adf5bba0b',
     'lib/IMAP/HordeImapClient.php' => '10a290e35e1a8a5615389e57c97021e5b6932ef16ad8299e1e54a1ad8022dd4c',
     'lib/IMAP/IMAPClientFactory.php' => 'b4cba0247ea64b8ff65aed41f83708e50d1f9129fe787371719d7e6dc1986a9f',
     'lib/IMAP/MutationSelection.php' => 'ea94f8f7dfe226497ba8c269e8b69ef5fa6f6986310ab19d8630cc221fa0ca69',

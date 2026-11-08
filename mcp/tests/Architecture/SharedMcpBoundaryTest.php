@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /** Enforces the final shared owners, including string service IDs and loaders. */
 final class SharedMcpBoundaryTest extends TestCase {
-    private static function retired(string $source): array {
+    private static function retired(string $source,string $file=''): array {
         // Inspect each PHP token separately: deliberate negative fragments are not executable routes.
         // Comments may cite a third-party app's Service directory; they are not our loaders.
         $parts = str_starts_with($source, '<?php')
@@ -18,6 +18,8 @@ final class SharedMcpBoundaryTest extends TestCase {
                 static fn ($t) => !in_array($t->id, [T_COMMENT, T_DOC_COMMENT], true))) : [$source];
         $bad = [];
         foreach ($parts as $part) {
+            // These exact values are hash inputs in the optional Mail artifact, not MCP loaders.
+            if($file==='lib/Modules/Mail/Integration/NativeGuardManifest.php' && in_array(trim($part,"'\""),['lib/'.'Service/GuardedMessageMutations.php','lib/'.'Service/MutationFence.php'],true))continue;
             $part = str_replace('\\\\', '\\', $part);
             if (preg_match('~OCA\\\\Mcp\\\\(?:Tests\\\\Unit\\\\)?(?:Tools|Service)\\\\[A-Za-z_]~', $part)
                 || preg_match('~(?:lib|tests/Unit)/(?:Tools|Service)/[A-Za-z_]~', $part)) {
@@ -82,6 +84,13 @@ final class SharedMcpBoundaryTest extends TestCase {
         self::assertSame([], self::dependencies('<?php use OCA\Mcp\Mcp\Tools\Results\ToolFailure;', 'Access/Visibility/VisibilityGuard.php'));
     }
 
+    public function testNativeFingerprintDataDoesNotPermitRetiredMcpLoadersElsewhere():void {
+        $native="<?php const FILE = ".var_export('lib/'.'Service/GuardedMessageMutations.php',true).";";
+        $manifest='lib/Modules/Mail/Integration/NativeGuardManifest.php';
+        self::assertSame([],self::retired($native,$manifest));
+        self::assertNotEmpty(self::retired($native,'lib/Modules/Mail/Other.php'));
+        self::assertNotEmpty(self::retired('<?php require '.var_export('lib/'.'Service/GrantPolicy.php',true).';',$manifest));
+    }
     public function testNoRetiredRuntimeSupportOrLoaderRemains(): void {
         $app = dirname(__DIR__, 2);
         foreach (['lib/'.'Tools', 'lib/'.'Service', 'tests/Unit/'.'Tools', 'tests/Unit/'.'Service'] as $path) {
@@ -104,7 +113,7 @@ final class SharedMcpBoundaryTest extends TestCase {
                 foreach ($baselineIds[$relative] ?? [] as $id) {
                     $source = str_replace([var_export($id, true), "'" . $id . "'"], "'PinnedBaselineClass'", $source);
                 }
-                self::assertSame([], self::retired($source), $file->getPathname());
+                self::assertSame([], self::retired($source,$relative), $file->getPathname());
                 $path = substr($file->getPathname(), strlen($app.'/lib/'));
                 if ($subtree === 'lib' && preg_match('~^(?:Mcp/|Access/|Platform/(?:FileAccess|Time|Logging|Text)/|OAuth/Connections/|Modules/)~', $path)) {
                     self::assertSame([], self::dependencies($source, $path), $path);

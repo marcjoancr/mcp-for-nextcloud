@@ -25,7 +25,31 @@ The parent has a 20-second process budget and bounded stdin/stdout/stderr handli
 
 The recorded runs cover the real NC35.0.2/MariaDB10.11.19/Mail5.12.5 custom artifact, native Dovecot2.4.5 and A/D/C0 regression paths. Ordinary unit tests exercise actual journal SQL through SQLite, one-shot permits, signed tickets, process bounds, stale approval, strict flags and grant/catalog contracts. Native protocol fault tests use Mail's real factory/client against a loopback scripted endpoint and record command kinds only, never authentication payloads.
 
-Latest native run: **15 tests / 374 assertions**, including server NO, lost acknowledgement after a simulated remote effect, and unsolicited generation replacement. Each fault returns the appropriate failed-before-effect/uncertain receipt, no fabricated proof and no replayed STORE. Native boundary manifest digest: `e439e27ce5bf3d4585b556c09dc22008a043d6030aa550d924d220a88f62cac4`. Final full-check/review results are recorded after verification. Earlier intermediate evidence: native suite 14 tests/356 assertions; focused guard/journal/tool suite 35 tests/154 assertions; API/licensing/l10n subset 3,124 tests/19,285 assertions. These intermediate results are not substituted for the final gate.
+Final verification after the review corrections:
+
+| Gate | Result |
+| --- | --- |
+| Full `composer --working-dir=mcp check` | Passed: 9,965 PHP tests / 89,900 assertions; 837 browser tests; both static scopes; documentation and production package. |
+| Custom native dependency, NC35.0.2 / MariaDB10.11.19 / Mail5.12.5 / Dovecot2.4.5 | Passed: 16 tests / 406 assertions. Includes both flags true/false through HTTP, remote/cache durability, no-send capture, two DB actors, generation/cache races, NO/lost acknowledgement and permanent-flag faults. |
+| Stock Mail regression, same native platform | Passed: 12 executed tests / 326 assertions; 4 guard-only tests intentionally skipped. Existing A/D/C0 paths remain available; the stock mutation boundary remains blocked. |
+| Focused guard/journal/tool/architecture cases | Passed: 42 tests / 2,663 assertions. |
+
+The native boundary manifest digest is `7676d541b440b989e2e961fa3904a45de048d803ca1dcf78c2f4902c286320a3`. The reproducible overlay archive is generated at `mcp/build/native-mail-guard/mail-guard-overlay.tar.gz`, SHA256 `809b3df9bb0c82bc3ecd20584f14861b2a648fefe1d102eaeefb1670b34098ee`. Its source files must match the committed `NativeGuardManifest::DATA`; the build tool also emits the matching PHP manifest. The full native artifact is derived from the original pinned archive and the seven overlay files, not an invented upstream version.
+
+Independent read-only review of `c6b99fed..0110d53d` identified three issues. Each was reproduced before correction and fixed in one pass: the dispatched request now retains the exact approved snapshot; native guards require the chosen system flag in PERMANENTFLAGS at admission and every guarded command/readback; and the retired-path scanner exempts only the two exact native fingerprint data strings in this generated manifest. Other files and retired MCP loaders remain rejected. The permanent-flag tests also withdraw support during the session and prove zero STORE commands. The complete suite above passed after these fixes; no second independent review was substituted for those regression tests.
+
+The permanent/session distinction is defined by [RFC3501 sections 2.3.2 and 7.1](https://www.rfc-editor.org/rfc/rfc3501). Missing permanent support or a wildcard alone is refused for these system flags, even if a server could otherwise accept a session-only STORE. This is a conservative unsupported path, never fabricated durable success.
+
+A source audit of the pinned native `lib/AppInfo/Application.php` and `SpamReportListener`, `HamReportListener`, `MoveJunkListener` confirms that their email-report/move paths require `$junk`/`$notjunk`. The new closed primitive accepts only `seen`/`flagged`, so it cannot enter those paths. This is also a reason not to broaden the primitive into arbitrary labels as part of C1.
+
+## Architectural choices and operational limits
+
+- The native dependency is a source overlay in this project; no other registered repository or shared Nextcloud was modified. Installation of this custom build remains a separate deployment action.
+- Native cache admission uses short row locks on immutable message/mailbox IDs and sync-token revalidation, without timestamp lease acquisition or IMAP inside a DB transaction. The cache commits before one guarded native event; uncertain event completion is never redispatched automatically.
+- The shared journal uses token/phase plus whole-receipt CAS, with no schema expansion. The optional native typed fence adapter wraps a DB-only implementation; parent launcher and child writer remain separate from D's authentication runner.
+- Worker expiry is reported uncertain after its 25-second admission window without releasing the claim. Once bytes may have begun, interruption never proves cancellation or authorizes another write.
+- The builder streams bounded fixed source members; it does not expand the complete release into the shared temporary filesystem. A prior full-archive expansion hit ENOSPC and was replaced without cleaning unrelated files.
+- Qualification covers the exact native boundary above. Broader platform/database/server combinations, production installation and upstream acceptance are not claimed. Installed PHP/listeners are trusted; this feature is not a containment boundary for a compromised host.
 
 ## Remaining gates
 

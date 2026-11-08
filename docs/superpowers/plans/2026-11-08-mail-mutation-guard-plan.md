@@ -12,6 +12,16 @@
 
 **Status:** C1 implementation and custom native dependency delivered for validation; see [delivery evidence](../specs/2026-11-08-mail-c1-guard-evidence.md). C3 remains blocked. The proposed native repository route was replaced with a reproducible source overlay in this selected project, installed only in disposable fixtures. Stock Mail5.12.5 remains blocked. The native repository task needs separate authorization/session; do not edit another project from this session. This supersedes the master plan's raw-client `run(..., Closure)` sketch, not A/D APIs.
 
+## Execution outcome
+
+- [x] Native flags dispatch/cache dependency supplied and qualified as a reproducible overlay; source artifact and fingerprints are in the delivery record.
+- [x] Authoritative delegated journal and bounded signed worker implemented, with stale-parent/child and expiry tests.
+- [x] C1 desired-state seen/flagged, separate permission/selection, readable preview and durable status implemented.
+- [x] Review findings reproduced and fixed; full check, custom native fixture and stock regression passed.
+- [ ] Native MOVE/COPYUID and destination-cache contract remains unimplemented/unverified; C3 stays blocked.
+
+The detailed original two-action task checklist below remains the proposed work breakdown; completed C1 interfaces, actual tests, deviations and counts are recorded in the linked delivery evidence. There is no claim that the MOVE-specific steps have been executed.
+
 ## Global Constraints
 
 - Sending stays disabled. Add no send/enqueue/schedule/MDN tool, SMTP submission, outbox dispatch, cron activation or held-draft flush. Preserve D authentication-only diagnostics.

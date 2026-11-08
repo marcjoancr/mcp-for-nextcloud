@@ -12,10 +12,10 @@ final class McpMailNativeMutationTest extends IntegrationTestCase {
     public function testServerNoLostAcknowledgementAndUnsolicitedGenerationNeverReplay():void {
         if(getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Guard dependency fixture only');
         $account=MailActor::run(MailActor::ALICE,'accounts')['accounts'][0]['id'];
-        foreach(['no','lost_ack','generation'] as $mode){
+        foreach(['no','lost_ack','generation','session_only','permanent_revoked'] as $mode){
             $r=MailActor::run(MailActor::ALICE,'c1-protocol-fault',['account_id'=>$account,'mode'=>$mode]);
-            self::assertSame($mode==='generation'?'failed_before_effect':'uncertain',$r['operation']['state'],json_encode($r));
-            self::assertSame($mode==='generation'?0:1,$r['stores']);self::assertTrue($r['replayed']);self::assertFalse($r['operation']['safe_to_retry']);
+            self::assertSame(in_array($mode,['generation','session_only','permanent_revoked'],true)?'failed_before_effect':'uncertain',$r['operation']['state'],json_encode($r));
+            self::assertSame(in_array($mode,['generation','session_only','permanent_revoked'],true)?0:1,$r['stores']);self::assertTrue($r['replayed']);self::assertFalse($r['operation']['safe_to_retry']);
             self::assertArrayNotHasKey('remote',$r['operation']['mutation']);self::assertSame($mode==='lost_ack',$r['server_applied']);
         }
     }

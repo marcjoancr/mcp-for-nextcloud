@@ -93,6 +93,14 @@ final class McpMailMessageFlagsTest extends IntegrationTestCase {
             ToolPermissionFixture::assign(MailActor::ALICE,['mail_set_message_flag'=>'allow']);$this->alice=new McpClient(LoginFactory::basic(MailActor::ALICE));
             $restore=array_replace($args,['value'=>$before['remote']]);$p=$this->data($this->alice->tool('mail_set_message_flag',$restore));
             $this->data($this->alice->tool('mail_set_message_flag',$restore+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]));
+            foreach([false,true] as $seen){
+                $seenArgs=array_replace($args,['flag'=>'seen','value'=>$seen]);$p=$this->data($this->alice->tool('mail_set_message_flag',$seenArgs));
+                $changed=$this->data($this->alice->tool('mail_set_message_flag',$seenArgs+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]));
+                self::assertSame('succeeded',$changed['operation']['state']);$observed=MailActor::run(MailActor::ALICE,'c1-read-flag',['message_id'=>$message]);
+                self::assertSame($seen,$observed['seen_remote']);self::assertSame($seen,$observed['seen_cached']);
+            }
+            self::assertSame($safety,MailActor::run(MailActor::ALICE,'c1-safety'));
+
         }
     }
     private function data(ToolReply $reply):array {self::assertTrue($reply->ok(),$reply->describe());return $reply->structured()!==[]?$reply->structured():$reply->json();}
