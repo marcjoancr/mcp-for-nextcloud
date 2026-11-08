@@ -8,6 +8,10 @@
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
 **Status:** Planning update only. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1–C7 and D+ remain pending. Release B is frozen, outside this plan's completion criteria.
 
+## Follow-up: safe mutation guard
+
+The [2026-11-08 guard design](../specs/2026-11-08-mail-mutation-guard-design.md) and [implementation plan](2026-11-08-mail-mutation-guard-plan.md) propose the native dependency, closed actions, delegated journal and independent C1/C3 gates. They supersede the raw-client callback sketch below. This is a planning update, not a capability unblock: stock Mail5.12.5 remains blocked and sending stays disabled.
+
 ## Implementation baseline and evidence
 
 The current `MailToolCatalog::definitions()` contains **23 tools**, read from executable definitions at `f59d5fc1`:
@@ -79,7 +83,7 @@ Retain actual interfaces rather than the superseded speculative DTO API:
 - `OperationJournal::execute(string $tool, string $uid, array $args, Closure $effect, ?Closure $authorizeReplay = null): array`; `checkpoint(array $refs): void`; `get(string $uid, string $id): ?array`.
 - `MailMessageLocator::locate(string $uid, int $messageId): array` returns owned native `message`, `mailbox`, `account` objects internally. Extend `MailBodyPreflight` only where its existing read contract remains intact.
 - Existing Files `MailFilesSource::preview/stage`, `MailDraftOperations::previewWrite/write`, D `preview/begin/previewCompletion/complete` and `MailOperationReader` remain the service boundaries. No second receipt database.
-- C0 delivers `MailCapabilities::forUser(string $uid): array` and `requireSupported(string $uid, string $capability): void`. The originally proposed, not implemented session interface is `MailMutationSession::run(string $uid, int $accountId, int $mailboxId, string $expectedUidValidity, Closure $effect): array`. The session resolves/checks a native **read-write selection on the same client** and invokes `Closure(object $client, object $account, object $mailbox): array` with the validated objects. Implement only after native event/cache and timeout semantics are proven.
+- C0 delivers `MailCapabilities::forUser(string $uid): array` and `requireSupported(string $uid, string $capability): void`. The original raw-client `MailMutationSession::run(..., Closure)` proposal is superseded, not implemented. The [guard plan](2026-11-08-mail-mutation-guard-plan.md) proposes closed `setFlag(string $uid, array $request): array` and `move(string $uid, array $request): array`, backed by a verified native dispatch/proof/cache boundary and authoritative delegated journal. Neither method is currently available; C1 and C3 remain gated independently.
 - Future receipt additions are explicit allowlisted identifiers/statuses: source/destination mailbox references, destination cached message ID only when verified, and per-item results if a later batch is admitted. Opaque revisions/correlation data stay private; no message content or heuristic account matching.
 - Every new tool additionally updates `MailToolCatalog.php`, `AppInfo/Application.php`, `GrantPolicy.php`, `WriteGate.php`, `ToolPresentation.php`, admin access/group/inspection labels and tiers, l10n, guide and relevant permission/selection/publication contracts. Existing grants/selections must grant **none** of the new tools.
 

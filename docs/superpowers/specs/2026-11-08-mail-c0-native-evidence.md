@@ -55,3 +55,7 @@ Read from the exact pinned official Mail archive, and exercised in the native fi
 No additional production native symbol is used by the C0 metadata service, so there is no reason to regenerate or broaden static API surfaces merely to change fixture files. Existing generator/pins, read-generation tests and A/D native fixtures remain the verification base.
 
 C0 test/operational evidence is kept with the delivery's execution log and committed tests. Recharacterize before changing a supported-pair claim or enabling a blocked capability. Sending remains outside the current completion plan.
+
+## Proposed follow-up (2026-11-08)
+
+The [safe mutation guard design](2026-11-08-mail-mutation-guard-design.md) and [plan](../plans/2026-11-08-mail-mutation-guard-plan.md) replace the unimplemented raw-client callback proposal with closed operations and identify native dispatch, COPYUID generation and cache-fence dependencies. They do not change this executed matrix: C1/C3 remain blocked, and sending remains disabled by user instruction.
