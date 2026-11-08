@@ -173,6 +173,22 @@ or operation history. Native UI activity can still race with MCP; review local w
 in Mail before removal. Expired/completed setup metadata is compacted after 30 days;
 uncertain binding claims and minimal non-replay receipt keys are retained.
 
+## C0 compatibility foundation
+
+C0 adds a native capability/evidence service and lifecycle regression tests; it adds
+no user mutation or send tool. The characterized NC35.0.2/Mail5.12.5 path can
+reselect another UID generation using the same client, so a generic raw-client
+mutation callback remains unsupported. Flags/move/tag tools await a verified
+execution boundary; other native pairs remain unverified for these new paths.
+The existing 23 tools and their permissions continue to work under their existing
+availability rules.
+
+Native IMAP draft conversion also uses the account sender instead of the selected
+local alias and omits reply parent headers. The local alias/parent remain present
+before conversion; editing in native Mail can release the hold. Review the sender
+and threading independently in Mail rather than infer an IMAP/UI guarantee from
+an MCP local draft. C0 never initiates SMTP submission.
+
 ## Messages and threads
 
 Thread pages are ordered newest first. Pass the same seed `message_id` and the returned `next_before_message_id` as `before_message_id` for older messages. The default page size is 5 and the maximum is 10. Each body returns at most 8,000 characters. A visible message over the server-reported 1 MiB size limit returns `bodyStatus: too_large` and the other messages can still be read. Threads with more than 500 cached messages are refused. A message without a thread root is read on its own.

@@ -56,6 +56,12 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'c0-selection-proof':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailLifecycleActor::selection($uid,(int)$in['account_id']);break;
+    case 'c0-cache-proof':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailLifecycleActor::cache($uid,(int)$in['message_id']);break;
+    case 'c0-draft-proof':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailLifecycleActor::draft($uid,(int)$in['draft_id']);break;
     case 'probe-fault':
         if(!in_array($in['mode'],['normal','reject','delay'],true))throw new RuntimeException('Unsupported fixture mode');
         file_put_contents('/tmp/mcp-mail-probe-mode',$in['mode']);$out=['updated'=>true];break;

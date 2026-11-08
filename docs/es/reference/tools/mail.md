@@ -56,6 +56,20 @@ borradores locales, elementos de salida u operaciones pendientes o inciertas.
 Mail elimina cuenta y alias y controla su caché y tareas; se conservan los
 mensajes remotos, los originales de Files y el historial de operaciones.
 
+## Base de compatibilidad C0
+
+C0 añade la matriz de capacidades y pruebas del ciclo nativo, sin nuevas herramientas
+de mutación o envío. En NC35.0.2/Mail5.12.5, el mismo cliente puede volver a
+seleccionar otra generación de UID; la sesión genérica de mutación queda sin
+habilitar hasta disponer de una guarda verificada. Se mantienen las 23 herramientas
+y permisos de A/D. Las demás combinaciones siguen sin verificar para estas
+capacidades nuevas.
+
+Al convertir el borrador a IMAP, Mail utiliza el remitente de la cuenta y omite las
+cabeceras del hilo. El alias y el padre se conservan en el borrador local; una
+edición nativa puede liberar su retención. Revisa remitente e hilo en Mail antes
+de continuar allí. El envío por MCP sigue desactivado.
+
 Las páginas del hilo van del mensaje más reciente al más antiguo. Para retroceder, conserva el `message_id` inicial y pasa el `next_before_message_id` recibido como `before_message_id`. Se devuelven 5 mensajes por defecto y hasta 10 por página, con hasta 8.000 caracteres por cuerpo. Si el servidor indica que un mensaje supera 1 MiB, aparece con `bodyStatus: too_large` y se continúa con los demás. El límite por hilo es de 500 mensajes en caché. Un mensaje sin raíz de hilo se lee por separado.
 
 Las carpetas se ordenan con la bandeja de entrada primero, después por ruta sin
