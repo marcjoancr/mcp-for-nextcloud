@@ -76,10 +76,10 @@ final class OperationsMapper implements OperationStore {
         if($row===null||$row['state']!=='running')return false;
         $old=$row['resource_refs'];$mutation=$old['mutation']??null;
         if($expectedPhase==='') {
-            if($mutation!==null||($refs['phase']??null)!=='prepared'||$row['tool_name']!=='mail_set_message_flag')return false;
+            if($mutation!==null||($refs['phase']??null)!=='prepared'||!in_array($row['tool_name'],['mail_set_message_flag','mail_move_message','mail_archive_message','mail_trash_message','mail_restore_message'],true)||!\OCA\Mcp\Modules\Mail\Mutations\MutationRequest::valid($refs['descriptor']??[])||\OCA\Mcp\Modules\Mail\Mutations\MutationRequest::tool($refs['descriptor'])!==$row['tool_name'])return false;
             $mutation=['token_hash'=>hash('sha256',$token)];
         } elseif(!is_array($mutation)||!hash_equals($mutation['token_hash']??'',hash('sha256',$token))||($mutation['phase']??null)!==$expectedPhase)return false;
-        $next=['prepared'=>'wire_may_start','wire_may_start'=>'remote_verified','remote_verified'=>'cache_pending','cache_pending'=>'completed'];
+        $next=['prepared'=>(($mutation['descriptor']['requires_trash_hook']??false)?'preconditions_may_start':'wire_may_start'),'preconditions_may_start'=>'wire_may_start','wire_may_start'=>'remote_verified','remote_verified'=>'cache_pending','cache_pending'=>'completed'];
         if($expectedPhase!==''&&($next[$expectedPhase]??null)!==($refs['phase']??null))return false;
         if(array_diff(array_keys($refs),['phase','descriptor','remote','cache','expires_at'])!==[]||($expectedPhase!==''&&(isset($refs['descriptor'])||isset($refs['expires_at']))))return false;
         $mutation=array_replace($mutation,$refs);

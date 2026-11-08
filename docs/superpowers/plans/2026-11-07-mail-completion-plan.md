@@ -6,17 +6,17 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** A/D/C0 plus conditional C1 delivery; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2–C7 and D+ remain pending. Release B is frozen, outside this plan's completion criteria.
+**Status:** A/D/C0 plus conditional C1/C3 delivery; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2/C4–C7 and D+ remain pending. C3 is implemented conditionally on the native v2 artifact. Release B is frozen, outside this plan's completion criteria.
 
 ## Follow-up: safe mutation guard and C1 delivery
 
 The [2026-11-08 guard design](../specs/2026-11-08-mail-mutation-guard-design.md) and [implementation plan](2026-11-08-mail-mutation-guard-plan.md) propose the native dependency, closed actions, delegated journal and independent C1/C3 gates. They supersede the raw-client callback sketch below. This is a planning update, not a capability unblock: stock Mail5.12.5 remains blocked and sending stays disabled.
 
-The [C1 delivery record](../specs/2026-11-08-mail-c1-guard-evidence.md) records the implemented closed flag boundary, custom native dependency and delegated journal. C1 is conditional on that verified native artifact; stock Mail remains blocked. C3 and sending remain closed. The baseline table below records the preceding A/D tool set.
+The [C1 delivery record](../specs/2026-11-08-mail-c1-guard-evidence.md) records the implemented closed flag boundary, custom native dependency and delegated journal. C1 is conditional on that verified native artifact; stock Mail remains blocked. The [C3 delivery record](../specs/2026-11-08-mail-c3-guard-evidence.md) adds four qualified single-message movement actions on the same journal/runner; stock and C1-only Mail builds still refuse moves. Sending remains closed. The baseline table below records the preceding A/D tool set.
 
 ## Implementation baseline and evidence
 
-The current `MailToolCatalog::definitions()` contains **23 tools**, read from executable definitions at `f59d5fc1`:
+The A/D baseline `MailToolCatalog::definitions()` contained **23 tools** at `f59d5fc1`; C1 added one flag tool and C3 adds four move/archive/trash/restore tools, for **28 current tools**. The historical baseline follows:
 
 | Area | Implemented tools / boundary |
 | --- | --- |

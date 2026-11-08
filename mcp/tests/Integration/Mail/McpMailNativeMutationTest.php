@@ -10,7 +10,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('mail')]
 final class McpMailNativeMutationTest extends IntegrationTestCase {
     public function testServerNoLostAcknowledgementAndUnsolicitedGenerationNeverReplay():void {
-        if(getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Guard dependency fixture only');
+        if(!in_array(getenv('MCP_IT_MAIL_GUARD'),['1','legacy'],true))self::markTestSkipped('Guard dependency fixture only');
         $account=MailActor::run(MailActor::ALICE,'accounts')['accounts'][0]['id'];
         foreach(['no','lost_ack','generation','session_only','permanent_revoked'] as $mode){
             $r=MailActor::run(MailActor::ALICE,'c1-protocol-fault',['account_id'=>$account,'mode'=>$mode]);
@@ -20,7 +20,7 @@ final class McpMailNativeMutationTest extends IntegrationTestCase {
         }
     }
     public function testGuardedStoreUsesOneSelectionAndRefusesReconnectAndNewGeneration(): void {
-        if(getenv('MCP_IT_WITH_MAIL')!=='1'||getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Mail fixture only');
+        if(getenv('MCP_IT_WITH_MAIL')!=='1'||!in_array(getenv('MCP_IT_MAIL_GUARD'),['1','legacy'],true))self::markTestSkipped('Mail fixture only');
         $q=Server::get(IDBConnection::class)->getQueryBuilder();
         $r=$q->select('id')->from('mail_accounts')->where($q->expr()->eq('user_id',$q->createNamedParameter(MailActor::ALICE)))->executeQuery();
         try{$id=(int)$r->fetchOne();}finally{$r->closeCursor();}

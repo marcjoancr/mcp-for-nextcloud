@@ -36,6 +36,7 @@ final class MailNativeMutationActor {
         $f=new class($b,$map) implements \OCA\Mail\Service\MutationFence {
             public array $remote=[];public bool $completed=false;
             public function __construct(private object $mailbox,private object $mapper){}
+            public function beforePreconditions(array $binding):bool{return true;}
             public function beforeWire(array $binding):bool{return true;}
             public function recordRemote(array $proof):bool{$this->remote=$proof;return true;}
             public function beforeCache(array $binding):bool{
@@ -74,6 +75,7 @@ final class MailNativeMutationActor {
         $fence=static function(?\Closure $before=null):object{return new class($before) implements \OCA\Mail\Service\MutationFence {
             public array $proof=[];
             public function __construct(private ?\Closure $before){}
+            public function beforePreconditions(array $binding):bool{return true;}
             public function beforeWire(array $binding):bool{return $this->before===null?true:($this->before)();}
             public function recordRemote(array $proof):bool{$this->proof=$proof;return true;}
             public function beforeCache(array $binding):bool{return true;}

@@ -62,7 +62,7 @@ final class MailMessages {
 
 	/** Guide notes of the module. */
 	public const GUIDE_NOTES = [
-        'Message flags have a separate permission and connection selection. Set seen or flagged to an explicit boolean after reviewing the plan. A supported native Mail build is required; unsupported builds refuse before writing. Inspect the operation after a lost response: status never retries, and an uncertain result blocks further writes on that account. Sending and message moves remain disabled.',
+        'Message flags have a separate permission and connection selection. Set seen or flagged to an explicit boolean after reviewing the plan. A supported native Mail build is required; unsupported builds refuse before writing. Inspect the operation after a lost response: status never retries, and an uncertain result blocks further writes on that account. Single-message moves, archive, recoverable Trash and restore use separate permissions and the qualified native v2 MOVE/COPYUID guard. Restore requires an explicit destination. Only same-account existing folders are supported. Destination cache entries are populated by normal native Mail sync. Sending remains disabled.',
 		'Message results can include a direct link into the Nextcloud Mail app; a '
 			. 'message the Mail app has not threaded yet has url null. Accounts have no link. Opening a message in the Mail app '
 			. 'marks it read there, as Mail always does; reading it through these tools does not.',

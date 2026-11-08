@@ -18,4 +18,13 @@ final class MailMutationTicketTest extends TestCase {
         $bad=$ticket;$bad['password']='secret';self::assertFalse($t->verify($bad));
         $now=1026;self::assertFalse($t->verify($ticket));self::assertStringNotContainsString('password',json_encode($ticket));
     }
+    public function testMoveTicketSignsBothGenerationsRolesAndOriginalActionAndRejectsNativeOptions():void {
+        $clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);$t=new MutationTicket(new PlanState((new InMemoryConfig())->mock($this)),$clock);
+        $r=['account_id'=>4,'message_id'=>17,'mailbox_id'=>5,'mailbox'=>'INBOX','generation'=>'42','uid'=>'9','profile_revision'=>'p','cache_revision'=>'c','action'=>'move','destination_mailbox_id'=>6,'destination_mailbox'=>'Reviewed','destination_generation'=>'43','destination_cache_revision'=>'d','roles_revision'=>'roles','requires_trash_hook'=>false];
+        $ticket=$t->create('alice',7,['scope'=>str_repeat('a',64),'id'=>'operation','token'=>str_repeat('b',64)],$r);self::assertTrue($t->verify($ticket));
+        foreach(['generation','destination_generation','roles_revision','profile_revision','action','destination_mailbox_id','requires_trash_hook'] as $key){$bad=$ticket;$bad['request'][$key]=match($key){'destination_mailbox_id'=>7,'requires_trash_hook'=>true,'action'=>'trash',default=>'changed'};self::assertFalse($t->verify($bad));}
+        foreach(['force_map'=>true,'create'=>true,'command'=>'EXPUNGE','password'=>'fixture-not-secret'] as $key=>$value){$bad=$ticket;$bad['request'][$key]=$value;self::assertFalse($t->verify($bad));}
+        self::assertSame('mail_move_message',\OCA\Mcp\Modules\Mail\Mutations\MutationRequest::tool($r));
+    }
+
 }

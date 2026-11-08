@@ -10,7 +10,7 @@
 
 **Spec:** [Safe Mail mutation guard design](../specs/2026-11-08-mail-mutation-guard-design.md).
 
-**Status:** C1 implementation and custom native dependency delivered for validation; see [delivery evidence](../specs/2026-11-08-mail-c1-guard-evidence.md). C3 remains blocked. The proposed native repository route was replaced with a reproducible source overlay in this selected project, installed only in disposable fixtures. Stock Mail5.12.5 remains blocked. The native repository task needs separate authorization/session; do not edit another project from this session. This supersedes the master plan's raw-client `run(..., Closure)` sketch, not A/D APIs.
+**Status:** C1 implementation and custom native dependency delivered for validation; see [delivery evidence](../specs/2026-11-08-mail-c1-guard-evidence.md). C3 is implemented conditionally on the qualified v2 artifact; see [C3 delivery evidence](../specs/2026-11-08-mail-c3-guard-evidence.md). The proposed native repository route was replaced with a reproducible source overlay in this selected project, installed only in disposable fixtures. Stock Mail5.12.5 remains blocked. The native repository task needs separate authorization/session; do not edit another project from this session. This supersedes the master plan's raw-client `run(..., Closure)` sketch, not A/D APIs.
 
 ## Execution outcome
 
@@ -18,9 +18,9 @@
 - [x] Authoritative delegated journal and bounded signed worker implemented, with stale-parent/child and expiry tests.
 - [x] C1 desired-state seen/flagged, separate permission/selection, readable preview and durable status implemented.
 - [x] Review findings reproduced and fixed; full check, custom native fixture and stock regression passed.
-- [ ] Native MOVE/COPYUID and destination-cache contract remains unimplemented/unverified; C3 stays blocked.
+- [x] Native v2 command-bound MOVE/COPYUID and generation-fenced source cache/event contract supplied; destination incorporation stays with native sync. Four C3 actions, independent grants and hook-phase fencing implemented.
 
-The detailed original two-action task checklist below remains the proposed work breakdown; completed C1 interfaces, actual tests, deviations and counts are recorded in the linked delivery evidence. There is no claim that the MOVE-specific steps have been executed.
+The detailed original two-action task checklist below remains the proposed work breakdown; completed C1 interfaces, actual tests, deviations and counts are recorded in the linked delivery evidence. The C3 evidence records the actual MOVE-specific qualification and the conservative uncertainty boundaries.
 
 ## Global Constraints
 
@@ -111,11 +111,11 @@ The spec defines all proposed native request/result and `MutationFence` semantic
 **Consumes:** `MailMutationSession::move` and the complete Task 1 MOVE proof/cache artifact, independently of C1 success.
 **Produces:** `MailMessageMoves::preview(string $uid, string $action, array $args): array`, `move(string $uid, string $action, array $args): array`; four catalog tools `mail_move_message`, `mail_archive_message`, `mail_trash_message`, `mail_restore_message`, each separately granted/selected and using existing confirmation/journal protocol.
 
-- [ ] Add failing tests for missing MOVE/UIDPLUS before wire, malformed/missing/cardinality-mismatched COPYUID after wire, duplicate Message-ID, destination generation mismatch, rename/delete/recreation, cross-account destination, source already Trash, same source/destination, role changed after preview and restore without a proven destination. Assert no guessed UID, no destination auto-create and no generic delete/expunge path.
-- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailMessageMoves|MailCapabilities|WriteGateContract|GrantPolicy'`; observe intended failures.
-- [ ] Implement same-account existing-destination role resolution, including necessary native precondition hooks before final selection and revalidation afterward. Reject the already-Trash path; restore binds an explicit reviewed destination or proven prior-operation provenance. Use complete command-bound proof and generation-fenced native cache/events. No operation timeout, source disappearance, Message-ID match or read-status request can retry a move.
-- [ ] Run native complete mapping and failure/race scenarios, including source/destination cache generation rollover, concurrent sync/clear-cache and process death between remote/cache/checkpoint. Assert exactly one MOVE at most, no fallback/expunge/SMTP command, cache_pending/uncertain retention and safe cache-only refusal. Enable `move` only for its proven artifact/pair; otherwise ship C1 alone.
-- [ ] Rerun focused tests and affected A/D tests; commit `feat: add guarded recoverable Mail moves` when green.
+- [x] Add failing tests for missing MOVE/UIDPLUS before wire, malformed/missing/cardinality-mismatched COPYUID after wire, duplicate Message-ID, destination generation mismatch, rename/delete/recreation, cross-account destination, source already Trash, same source/destination, role changed after preview and restore without a proven destination. Assert no guessed UID, no destination auto-create and no generic delete/expunge path.
+- [x] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailMessageMoves|MailCapabilities|WriteGateContract|GrantPolicy'`; observe intended failures.
+- [x] Implement same-account existing-destination role resolution, including necessary native precondition hooks before final selection and revalidation afterward. Reject the already-Trash path; restore binds an explicit reviewed destination or proven prior-operation provenance. Use complete command-bound proof and generation-fenced native cache/events. No operation timeout, source disappearance, Message-ID match or read-status request can retry a move.
+- [x] Run native complete mapping and failure/race scenarios, including source/destination cache generation rollover, concurrent sync/clear-cache and process death between remote/cache/checkpoint. Assert exactly one MOVE at most, no fallback/expunge/SMTP command, cache_pending/uncertain retention and safe cache-only refusal. Enable `move` only for its proven artifact/pair; otherwise ship C1 alone.
+- [x] Rerun focused tests and affected A/D tests; commit `feat: add guarded recoverable Mail moves` when green.
 
 ## Task 6: Integration evidence and release gate
 

@@ -49,6 +49,10 @@ final class MailCapabilities {
             $capabilities['flags']=['status'=>'verified','reason'=>'native_guarded_flags_v1'];
             $capabilities['move']=['status'=>'blocked','reason'=>'complete_copyuid_and_cache_contract_not_verified'];
         }
+        if($known && $this->boundary?->movesVerified()){
+            $capabilities['mutation_session']=['status'=>'verified','reason'=>'native_guarded_mutations_v2'];
+            $capabilities['move']=['status'=>'verified','reason'=>'native_command_bound_copyuid_and_cache_v2'];
+        }
         $capabilities['send'] = ['status' => 'disabled', 'reason' => 'sending_not_authorized'];
         return ['native_pair' => ['nextcloud' => $server, 'mail' => $mail], 'evidence' => $evidence,
             'capabilities' => $capabilities];

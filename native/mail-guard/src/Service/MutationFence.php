@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\Mail\Service;
 /** Narrow durable stage admission. Implementations must do DB work only and never receive an IMAP client. */
 interface MutationFence {
+    public function beforePreconditions(array $binding): bool;
     public function beforeWire(array $binding): bool;
     public function recordRemote(array $proof): bool;
     public function beforeCache(array $binding): bool;

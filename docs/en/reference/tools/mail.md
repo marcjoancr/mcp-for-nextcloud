@@ -29,8 +29,50 @@ there. Review the preview and repeat its plan_state and operation_id with
 confirmation. The operation reports separate remote/cache phases. After a lost
 response, inspect that operation; an uncertain result retains the account's write
 claim. Status and repeated confirmations never retry the write. The action has a
-20-second worker budget and five admissions per owner/account/minute. Moves,
-trash/restore and sending remain unavailable through these tools.
+20-second worker budget and five admissions per owner/account/minute. Sending remains disabled. The original C1 artifact still admits flags only; the v2
+artifact below also admits qualified moves.
+
+## Moves, archive, recoverable Trash and restore
+
+| Tool | Required independent permission | Destination |
+| --- | --- | --- |
+| `mail_move_message` | `mail.move_messages` | Explicit `destination_mailbox_id` |
+| `mail_archive_message` | `mail.archive_messages` | Account's configured Archive |
+| `mail_trash_message` | `mail.trash_messages` | Account's configured Trash |
+| `mail_restore_message` | `mail.restore_messages` | Explicit destination, with source in configured Trash |
+
+Each action changes one `message_id` in one explicitly selected owned `account_id`.
+Both folders must already exist, be selectable, have verified cache generations and
+belong to that same account. Configure missing special folders in native Mail first.
+Same-folder moves, cross-account moves and trashing an already-trashed message are
+refused. The general move permission covers any eligible existing folder, including
+Trash; archive/trash/restore permissions are narrower action-specific alternatives.
+There is no permanent deletion, expunge, empty-trash or destination auto-creation.
+
+Review source and destination in the preview, then repeat the approved arguments,
+`plan_state` and `operation_id` with `confirm: true`. A changed connection profile,
+folder generation/cache revision or Archive/Trash role requires a new preview.
+Restoration does not guess the old folder. Each tool requires its own assignment
+and current connection selection; existing read/flag grants do not enable moves.
+
+These tools require the exact custom **mcp-mail-mutations-v2** native dependency,
+qualified on **Nextcloud35.0.2/Mail5.12.5**, and server support for **MOVE + UIDPLUS**.
+Stock Mail, the flags-only C1 artifact and altered/unknown native builds refuse
+moves. The native client sends at most one UID MOVE, retaining the complete
+command-bound COPYUID mapping including both generations. It never falls back to
+COPY/delete or searches by Message-ID. Server rejection, missing/malformed mapping,
+a destination generation race or a lost acknowledgement after admission leaves an
+uncertain operation and retains the account write claim. Inspect native Mail and
+the receipt; no automatic retry, reconciliation or force-unlock is available.
+
+Receipts expose `mutation.phase`, exact remote proof and cache completion. Native
+source cache removal is locked and generation-checked; native Mail's ordinary
+synchronization later incorporates the destination, reported as
+`destination_state: native_sync_pending`. A succeeded operation proves the move
+and source cache/event completion, not destination cache freshness. Cache or event
+failure keeps the earlier proof and an uncertain state; replay/status never reruns
+MOVE, hooks, events or synchronization. The existing 20-second worker budget and
+five admissions per owner/account/minute apply. Sending remains disabled.
 
 ## Attachments and drafts
 
@@ -194,7 +236,7 @@ uncertain binding claims and minimal non-replay receipt keys are retained.
 C0 adds a native capability/evidence service and lifecycle regression tests; it adds
 no user mutation or send tool. The characterized NC35.0.2/Mail5.12.5 path can
 reselect another UID generation using the same client, so a generic raw-client
-mutation callback remains unsupported. Stock flags and all move/tag paths await a verified
+mutation callback remains unsupported. Stock flags and move/tag paths require a verified
 execution boundary; other native pairs remain unverified for these new paths.
 The 23 A/D tools and their permissions continue to work under their existing
 availability rules.

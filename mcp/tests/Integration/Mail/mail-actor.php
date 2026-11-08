@@ -56,6 +56,22 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'c3-role':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::role($uid,$in['fixture'],$in['role'],(int)$in['mailbox_id']);break;
+    case 'c3-boundary':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::boundary($uid);break;
+    case 'c3-fault':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::fault($uid,(int)$in['account_id'],$in['mode']);break;
+    case 'c3-service':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::service($uid,(int)$in['account_id']);break;
+    case 'c3-fixture':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::fixture($uid,(int)$in['account_id']);break;
+    case 'c3-cleanup':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::cleanup($uid,$in['fixture']);break;
+    case 'c3-inspect':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::inspect($uid,$in['fixture'],(int)$in['mailbox_id'],$in['sync']??false);break;
+    case 'c3-protocol':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMoveActor::protocol($uid,(int)$in['account_id'],$in['mode']);break;
     case 'c1-journal-advance':
         $lease=$in['lease'];$store=Server::get(\OCA\Mcp\Mcp\Operations\OperationStore::class);
         $wire=$store->checkpointNative($lease['scope'],$lease['id'],$lease['token'],'prepared',['phase'=>'wire_may_start']);

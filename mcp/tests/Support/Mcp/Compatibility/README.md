@@ -143,3 +143,8 @@ A guarded additive patch verifies that removing those three new entries restores
 the previous capture exactly; no existing tool, protocol or result is regenerated.
 The unknown-version historical fixture keeps Mail unpublished. Flags remain
 independently denied/selected and require the verified native dependency artifact.
+
+The 2026-11-08 C3 addition appends four Mail definitions to the three full
+locale catalogs and extends the existing Mail flag-guide paragraph to explain
+the qualified v2 MOVE/COPYUID path, separate permissions and pending native
+destination cache sync. Existing schemas, protocol and result captures are retained.

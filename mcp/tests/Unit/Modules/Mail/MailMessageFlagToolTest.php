@@ -14,6 +14,7 @@ final class MailMessageFlagToolTest extends TestCase {
         self::assertTrue(WriteGate::isWrite($flag));$p=WriteGate::publish($flag);
         self::assertSame(['account_id','message_id','flag','value'],$p['inputSchema']['required']);
         self::assertSame(['seen','flagged'],$p['inputSchema']['properties']['flag']['enum']);self::assertSame('boolean',$p['inputSchema']['properties']['value']['type']);
-        self::assertArrayHasKey('confirm',$p['inputSchema']['properties']);self::assertArrayNotHasKey('mail_move_message',$d);self::assertArrayNotHasKey('mail_send_message',$d);
+        self::assertArrayHasKey('confirm',$p['inputSchema']['properties']);self::assertArrayHasKey('mail_move_message',$d);self::assertArrayNotHasKey('mail_send_message',$d);
+        foreach(['move','archive','trash','restore'] as $action){$tool=$d['mail_'.$action.'_message'];self::assertSame($action.'_messages',$tool['operation']);self::assertTrue(WriteGate::isWrite($tool));self::assertNotSame('set_flags',$tool['operation']);}
     }
 }

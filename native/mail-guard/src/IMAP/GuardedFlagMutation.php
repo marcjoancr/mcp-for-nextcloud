@@ -59,6 +59,7 @@ trait GuardedFlagMutation {
         if(!$this->_isAuthenticated||!is_object($this->_connection)||$this->mutationSelection===null||!$this->mutationSelection->check($this->_connection,(string)$this->_selected,(string)$this->_mailboxOb()->getStatus(\Horde_Imap_Client::STATUS_UIDVALIDITY),$this->_mode,$this->mutationUid))throw new \RuntimeException('Mutation selection invalidated.');
     }
     protected function _processCmd($pipeline,$cmd,$data) {
+        $this->guardMoveCommand($pipeline,$cmd,$data);
         if($this->mutationSelection!==null&&$cmd===$data){
             $this->assertMutationSelection();
             if((string)$cmd->getCommand()!==$this->mutationCommand)throw new \RuntimeException('Unexpected guarded command.');
@@ -68,6 +69,7 @@ trait GuardedFlagMutation {
     }
     protected function _logout() {
         $this->mutationSelection?->invalidate();
+        $this->moveSelection?->invalidate();
         return parent::_logout();
     }
 }
