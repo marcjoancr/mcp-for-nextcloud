@@ -699,6 +699,30 @@ class Application extends App implements IBootstrap {
                 return $c->get(GrantPolicy::class)->within($uid,static fn():bool=>self::mailToolAllowed($c,$uid,'mail_test_connection'));
             }
         ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailCapabilities(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(IAppManager::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Mutations\NativeMutationRunner::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Mutations\NativeMutationRunner(
+            $c->get(\OCA\Mcp\Modules\Mail\Mutations\MutationTicket::class),$c->get(\OCA\Mcp\OAuth\ConnectionContext::class),$c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),
+            static function()use($c):?array {
+                try{$root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';
+                    if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;
+                    return ['command'=>[$cli,$root.'/occ','mcp:mail-mutation','--no-interaction','--no-ansi'],'cwd'=>$root];
+                }catch(\Throwable){return null;}
+            }
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Mutations\NativeMutationWorker::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Mutations\NativeMutationWorker(
+            $c->get(\OCA\Mcp\Modules\Mail\Mutations\MutationTicket::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailMutationTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationStore::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+            static function(string $uid,int $connection)use($c):bool {
+                $user=$c->get(IUserManager::class)->get($uid);if($user===null||!$user->isEnabled())return false;
+                $c->get(\OCP\IUserSession::class)->setUser($user);$c->get(IAppManager::class)->loadApp('mail');
+                $context=$c->get(\OCA\Mcp\OAuth\ConnectionContext::class);$context->set($connection);
+                $selection=$c->get(\OCA\Mcp\OAuth\ConnectionToolsStore::class)->get($uid,$connection);
+                if($selection===null)return false;$context->setSelection($selection['tools'],$selection['variants']);
+                return $c->get(GrantPolicy::class)->within($uid,static fn():bool=>self::mailToolAllowed($c,$uid,'mail_set_message_flag'));
+            }
+        ));
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
@@ -722,6 +746,7 @@ class Application extends App implements IBootstrap {
             'mail_test_connection' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\TestConnection::class),
             'mail_add_account' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AddAccount::class),
             'mail_complete_account_setup' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CompleteAccountSetup::class),
+            'mail_set_message_flag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMessageFlag::class),
             'mail_delete_account' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteAccount::class),
 
         ], $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class)));

@@ -10,7 +10,7 @@
 
 **Spec:** [Safe Mail mutation guard design](../specs/2026-11-08-mail-mutation-guard-design.md).
 
-**Status:** Proposed, no code changes or capability activation. Stock Mail5.12.5 remains blocked. The native repository task needs separate authorization/session; do not edit another project from this session. This supersedes the master plan's raw-client `run(..., Closure)` sketch, not A/D APIs.
+**Status:** C1 implementation and custom native dependency delivered for validation; see [delivery evidence](../specs/2026-11-08-mail-c1-guard-evidence.md). C3 remains blocked. The proposed native repository route was replaced with a reproducible source overlay in this selected project, installed only in disposable fixtures. Stock Mail5.12.5 remains blocked. The native repository task needs separate authorization/session; do not edit another project from this session. This supersedes the master plan's raw-client `run(..., Closure)` sketch, not A/D APIs.
 
 ## Global Constraints
 
@@ -121,6 +121,6 @@ The spec defines all proposed native request/result and `MutationFence` semantic
 
 ## Planning self-review
 
-The design's native dispatch, complete MOVE proof, native cache/lease and no-send invariants map to Task 1 and the per-action native tests. Parent/child authority maps to Task 2. Resource bounds/security/closed contracts map to Task 3. C1 and C3 policy, preview and proof gates map to Tasks 4–5; regression/artifact qualification maps to Task 6. The proposed native dependency remains explicit rather than being treated as a completed API. All implementation checkboxes remain open.
+The design's native dispatch, complete MOVE proof, native cache/lease and no-send invariants map to Task 1 and the per-action native tests. Parent/child authority maps to Task 2. Resource bounds/security/closed contracts map to Task 3. C1 and C3 policy, preview and proof gates map to Tasks 4–5; regression/artifact qualification maps to Task 6. The proposed native dependency remains explicit rather than being treated as a completed API. Execution status: native guarded flags/cache, delegated journal, isolated runner and C1 are implemented; see the delivery record for actual interfaces, test names and evidence. MOVE-specific steps remain open and C3 is blocked. The native source overlay replaces the proposed separate native repository route.
 
 Design builder check: a fresh read-only reviewer reported no important unanswered planning questions. This is an assessment of the proposed contract, not verification of native support or implementation approval.

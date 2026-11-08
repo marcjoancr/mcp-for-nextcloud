@@ -59,9 +59,8 @@ final class MailLifecycleActor {
                 $duplicateData=$duplicateClient->fetch($name,$query,['ids'=>new \Horde_Imap_Client_Ids([$duplicateUid])])->first();
                 $duplicate=$duplicateData->getUid()!==$newUid&&(string)$duplicateData->getEnvelope()->message_id===$newId;
             } finally {$duplicateClient->logout();}
-            $blocked=false;
-            try {Server::get(MailCapabilities::class)->requireSupported($uid,'mutation_session');}
-            catch(BeforeEffectFailure){$blocked=true;}
+            // The closed flag boundary never reintroduces the unsafe generic raw-client callback.
+            $blocked=!method_exists(\OCA\Mcp\Modules\Mail\Integration\MailMutationSession::class,'run');
             return ['generation_changed'=>$old!==$new,'same_uid'=>$oldUid===$newUid,'same_message_id'=>$oldId===$newId,
                 'duplicate_message_id_different_uid'=>$duplicate,'native_store_after_reconnect'=>$accepted,'mcp_admission_refused'=>$blocked,
                 'outgoing_unchanged'=>$before===self::outgoing($uid),'smtp_unchanged'=>$smtp===self::smtpCapture(),

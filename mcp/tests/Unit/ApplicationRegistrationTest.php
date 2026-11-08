@@ -48,7 +48,7 @@ final class ApplicationRegistrationTest extends TestCase {
         $built = [];
         $container = $this->sharedContainer($built);
         $module = $container->get(\OCA\Mcp\Modules\Mail\MailModule::class);
-        self::assertCount(23, $module->definitions());
+        self::assertCount(24, $module->definitions());
         foreach (\OCA\Mcp\Modules\Mail\MailToolCatalog::classes() as $tool) {
             self::assertInstanceOf($tool, $container->get($tool));
         }

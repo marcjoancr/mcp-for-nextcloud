@@ -190,7 +190,7 @@ Nextcloud 33–35, PHP 8.4+. Forms, Mail, Deck und Talk sind optional. Der Admin
             <step>OCA\Mcp\Migration\PolicyStateSeedStep</step>
         </install>
     </repair-steps>
-    <commands><command>OCA\Mcp\Command\CalendarSelftest</command><command>OCA\Mcp\Command\MailConnectionProbe</command></commands>
+    <commands><command>OCA\Mcp\Command\CalendarSelftest</command><command>OCA\Mcp\Command\MailConnectionProbe</command><command>OCA\Mcp\Command\MailMutation</command></commands>
     <settings>
         <admin>OCA\Mcp\Settings\AdminSettings</admin>
         <admin-section>OCA\Mcp\Settings\AdminSection</admin-section>

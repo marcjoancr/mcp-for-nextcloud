@@ -1,6 +1,12 @@
 OC.L10N.register(
     "mcp",
     {
+    "set_flags" : "Mail-Markierungen ändern",
+    "Set Mail message flag" : "Mail-Nachrichtenmarkierung ändern",
+    "set mail flags" : "Mail-Markierungen ändern",
+    "Set this Mail message flag to the reviewed value." : "Diese Mail-Nachrichtenmarkierung auf den geprüften Wert setzen.",
+    "Message id" : "Nachrichten-ID",
+    "Flag" : "Markierung",
     "Update these Mail preferences." : "Diese Mail-Einstellungen ändern.",
     "Update this Mail signature. A null value removes it." : "Diese Mail-Signatur ändern. Der Wert null entfernt sie.",
     "Open the native Mail assistant. Enter credentials there and review completion separately." : "Den nativen Mail-Assistenten öffnen. Zugangsdaten dort eingeben und den Abschluss separat prüfen.",

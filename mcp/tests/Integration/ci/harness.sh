@@ -562,7 +562,7 @@ cmd_test() {
     fi
     if [ "${MCP_IT_WITH_MAIL:-0}" = 1 ]; then
         # Fixed public fixture values only; no user-controlled shell expansion.
-        set -- "$@" -e MCP_IT_WITH_MAIL=1 -e MCP_IT_IMAP_HOST="$MCP_IT_IMAP_NAME" -e MCP_IT_IMAP_PORT=31143 \
+        set -- "$@" -e MCP_IT_MAIL_GUARD="${MCP_IT_MAIL_GUARD:-0}" -e MCP_IT_WITH_MAIL=1 -e MCP_IT_IMAP_HOST="$MCP_IT_IMAP_NAME" -e MCP_IT_IMAP_PORT=31143 \
             -e MCP_IT_IMAP_PASSWORD=mcp-it-imap-password
     fi
     if [ "${MCP_IT_WITH_FORMS:-0}" = 1 ]; then

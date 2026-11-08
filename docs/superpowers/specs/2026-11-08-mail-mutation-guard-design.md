@@ -1,6 +1,6 @@
 # Safe Mail Mutation Guard — Proposed Design
 
-Date: 2026-11-08. Status: proposed; documentation only, no runtime capability enabled.
+Date: 2026-11-08. Original proposed design; C1 was subsequently implemented with the custom native source overlay described in the [delivery record](2026-11-08-mail-c1-guard-evidence.md). The generic callback and C3 remain unavailable.
 Baseline: MCP 2.7.0 with A `90fe762d`, D `f59d5fc1`, C0 `8c619790`.
 Scope: replace the unsafe proposed `MailMutationSession::run(..., Closure)` contract and establish independent admission gates for C1 and C3. Sending remains disabled.
 

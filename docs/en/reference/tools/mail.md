@@ -16,6 +16,22 @@ is not a promise that every Mail/server version combination is supported.
 | `mail_read_message` | Reads one owned message as bounded text. Requires `mail.read_message`. |
 | `mail_read_thread` | Starting from a visible `message_id`, reads a page of messages from that thread in the same owned account. Requires `mail.read_message` and preserves unread flags. |
 
+## Message flags
+
+`mail_set_message_flag` previews and confirms `seen` or `flagged` as an explicit
+boolean for one `account_id` and `message_id`. It requires the independent
+`mail.set_flags` permission, an explicit tool assignment and selection for this
+connection. Existing grants and selections do not enable it.
+
+Flags require the verified custom native Mail build qualified on NC35.0.2 with
+Mail5.12.5. Stock Mail and unknown builds refuse before writing; use native Mail
+there. Review the preview and repeat its plan_state and operation_id with
+confirmation. The operation reports separate remote/cache phases. After a lost
+response, inspect that operation; an uncertain result retains the account's write
+claim. Status and repeated confirmations never retry the write. The action has a
+20-second worker budget and five admissions per owner/account/minute. Moves,
+trash/restore and sending remain unavailable through these tools.
+
 ## Attachments and drafts
 
 | Tool | Behavior and permission |
@@ -178,9 +194,9 @@ uncertain binding claims and minimal non-replay receipt keys are retained.
 C0 adds a native capability/evidence service and lifecycle regression tests; it adds
 no user mutation or send tool. The characterized NC35.0.2/Mail5.12.5 path can
 reselect another UID generation using the same client, so a generic raw-client
-mutation callback remains unsupported. Flags/move/tag tools await a verified
+mutation callback remains unsupported. Stock flags and all move/tag paths await a verified
 execution boundary; other native pairs remain unverified for these new paths.
-The existing 23 tools and their permissions continue to work under their existing
+The 23 A/D tools and their permissions continue to work under their existing
 availability rules.
 
 Native IMAP draft conversion also uses the account sender instead of the selected

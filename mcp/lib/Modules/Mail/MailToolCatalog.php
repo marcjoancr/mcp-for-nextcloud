@@ -14,7 +14,7 @@ final class MailToolCatalog {
     /** @return list<class-string<Tool>> */
     public static function classes(): array {
 		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class, ReadThread::class,
-			ReadAttachment::class, SaveAttachment::class, ReadDrafts::class, WriteDraft::class, DeleteDraft::class, Tools\AttachFiles::class, Tools\GetOperation::class, Tools\ListOperations::class, Tools\ReadAccountSettings::class, Tools\WriteAccountSettings::class, Tools\ReadSignature::class, Tools\WriteSignature::class, Tools\ReadConnection::class, Tools\ConfigureConnection::class, Tools\TestConnection::class, Tools\AddAccount::class, Tools\CompleteAccountSetup::class, Tools\DeleteAccount::class];
+			ReadAttachment::class, SaveAttachment::class, ReadDrafts::class, WriteDraft::class, DeleteDraft::class, Tools\AttachFiles::class, Tools\GetOperation::class, Tools\ListOperations::class, Tools\ReadAccountSettings::class, Tools\WriteAccountSettings::class, Tools\ReadSignature::class, Tools\WriteSignature::class, Tools\ReadConnection::class, Tools\ConfigureConnection::class, Tools\TestConnection::class, Tools\AddAccount::class, Tools\CompleteAccountSetup::class, Tools\DeleteAccount::class, Tools\SetMessageFlag::class];
     }
 
     /**
@@ -28,7 +28,7 @@ final class MailToolCatalog {
                 throw new \LogicException('Catalog entries must implement Tool');
             }
             $definition = $class::definition();
-			if (!in_array($definition->operation, ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'create_accounts', 'complete_setup', 'test_connection', 'delete_accounts'], true)) {
+			if (!in_array($definition->operation, ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'create_accounts', 'complete_setup', 'test_connection', 'delete_accounts', 'set_flags'], true)) {
 				throw new \LogicException('Mail tools must use a declared Mail operation');
             }
             if (isset($result[$definition->name])) {

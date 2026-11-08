@@ -25,7 +25,7 @@ const TIERS = {
 	talk: [['read'], ['reply', 'attach', 'quote'], ['create', 'publish_summary', 'search']],
 	people: [['read']],
 	logs: [['read']],
-	mail: [['read'], ['search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts']],
+	mail: [['read'], ['search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts', 'set_flags']],
 	forms: [['read'], ['read_responses', 'summarize_responses', 'export_responses']],
 }
 

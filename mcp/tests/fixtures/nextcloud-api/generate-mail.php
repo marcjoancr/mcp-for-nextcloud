@@ -90,7 +90,7 @@ try {
 	$parser = new SourceParser($tree);
 	foreach ($classes as $class) {
 		$surface = $parser->surface($class);
-		if ($surface === null) {
+		if ($surface === null && !in_array((string)$major,NextcloudApiUsage::VERSION_GATED[$class]['missing']??[],true)) {
 			throw new RuntimeException('Official source lacks ' . $class);
 		}
 		$fixture['classes'][$class] = $surface;

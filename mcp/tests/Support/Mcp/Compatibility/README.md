@@ -137,3 +137,9 @@ in each frozen locale. All prior tool objects are byte-equivalent after JSON
 normalization. Historical publication/results remain unchanged because that
 capture has no supported Mail version. Native settings/probes and permission
 contracts exercise explicitly enabled Mail separately.
+
+Mail C1 appends only `mail_set_message_flag` to each locale's raw Mail catalog.
+A guarded additive patch verifies that removing those three new entries restores
+the previous capture exactly; no existing tool, protocol or result is regenerated.
+The unknown-version historical fixture keeps Mail unpublished. Flags remain
+independently denied/selected and require the verified native dependency artifact.

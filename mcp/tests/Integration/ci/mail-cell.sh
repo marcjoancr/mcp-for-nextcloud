@@ -132,6 +132,12 @@ install_mail() {
 	# The archive is public source; www-data must read it across the tools mount.
 	chmod 0644 "$archive"
 	docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/mail.tar.gz -C /var/www/html/custom_apps
+	if [ "${MCP_IT_MAIL_GUARD:-0}" = 1 ]; then
+		php "$HERE/../../../../native/mail-guard/build.php" "$archive" "$TOOLS_DIR/native-mail-guard"
+		tar -czf "$TOOLS_DIR/mail-guard-overlay.tar.gz" -C "$TOOLS_DIR/native-mail-guard" mail
+		chmod 0644 "$TOOLS_DIR/mail-guard-overlay.tar.gz"
+		docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/mail-guard-overlay.tar.gz -C /var/www/html/custom_apps
+	fi
 	occ app:enable mail
 	actual=$(occ config:app:get mail installed_version)
 	[ "$actual" = "${MAIL_TAG#v}" ] || { echo "Unexpected installed Mail $actual" >&2; return 1; }

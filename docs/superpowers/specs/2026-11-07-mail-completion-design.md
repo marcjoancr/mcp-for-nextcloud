@@ -122,7 +122,7 @@ Responsibilities:
 - Mail/Settings, Signatures, Accounts and Connection: owner-scoped configuration, native-assistant handoffs and independently permitted diagnostics, under the D design.
 - Mcp/Operations: reusable operation state storage, key binding and concurrency; initially integrated only with Mail.
 - Db/Migration: journal tables and constraints; no direct SQL edits to native Mail tables.
-- Mail/Integration/MailCapabilities (delivered C0) and MailMutationSession (pending): C0 records per-capability evidence and refuses unsafe writes. The [safe mutation guard proposal](2026-11-08-mail-mutation-guard-design.md) defines closed flags/move actions, a native dispatch/cache dependency and independent C1/C3 gates; no raw-client callback is implemented or proposed for publication. Sending stays disabled.
+- Mail/Integration/MailCapabilities (delivered C0) and MailMutationSession (delivered for guarded C1 only): C0 records per-capability evidence and refuses unsafe writes. The [safe mutation guard proposal](2026-11-08-mail-mutation-guard-design.md) defines closed flags/move actions, a native dispatch/cache dependency and independent C1/C3 gates; no raw-client callback is implemented or proposed for publication. Sending stays disabled.
 
 ## Write identity and status contract
 

@@ -91,7 +91,9 @@ final class McpMailLifecycleTest extends IntegrationTestCase {
         self::assertTrue($p['generation_changed']);self::assertTrue($p['same_uid']);self::assertTrue($p['same_message_id']);
         self::assertTrue($p['native_store_after_reconnect']);self::assertTrue($p['duplicate_message_id_different_uid']);self::assertTrue($p['mcp_admission_refused']);
         self::assertTrue($p['outgoing_unchanged']);self::assertTrue($p['smtp_unchanged']);
-        self::assertSame('unsupported',$p['capabilities']['capabilities']['mutation_session']['status']);
+        self::assertSame(getenv('MCP_IT_MAIL_GUARD')==='1'?'verified':'unsupported',$p['capabilities']['capabilities']['mutation_session']['status']);
+        self::assertSame('blocked',$p['capabilities']['capabilities']['move']['status']);
+        self::assertSame('disabled',$p['capabilities']['capabilities']['send']['status']);
     }
     public function testNativeCacheEventIsRequiredAndNoLifecycleProbeDispatchesOutboxOrSmtpSubmission():void {
         $proof=MailActor::run(MailActor::ALICE,'c0-cache-proof',['message_id'=>$this->sourceMessage($this->account())]);

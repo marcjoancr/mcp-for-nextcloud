@@ -59,3 +59,5 @@ C0 test/operational evidence is kept with the delivery's execution log and commi
 ## Proposed follow-up (2026-11-08)
 
 The [safe mutation guard design](2026-11-08-mail-mutation-guard-design.md) and [plan](../plans/2026-11-08-mail-mutation-guard-plan.md) replace the unimplemented raw-client callback proposal with closed operations and identify native dispatch, COPYUID generation and cache-fence dependencies. They do not change this executed matrix: C1/C3 remain blocked, and sending remains disabled by user instruction.
+
+The [C1 delivery record](2026-11-08-mail-c1-guard-evidence.md) subsequently adds a separately fingerprinted native flag boundary. It does not make stock Mail or the generic raw callback safe, and does not unlock moves or sending.

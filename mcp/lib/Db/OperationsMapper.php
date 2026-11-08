@@ -40,15 +40,18 @@ final class OperationsMapper implements OperationStore {
     }
 
     public function checkpoint(string $scope, string $id, array $refs): void {
+        $old=$this->directSnapshot($scope,$id);
         $q = $this->db->getQueryBuilder();
         $n = $q->update(self::TABLE)->set('resource_refs', $q->createNamedParameter(json_encode($refs, JSON_THROW_ON_ERROR)))
             ->where($q->expr()->eq('scope_key', $q->createNamedParameter($scope)))
             ->andWhere($q->expr()->eq('operation_id', $q->createNamedParameter($id)))
-            ->andWhere($q->expr()->eq('state', $q->createNamedParameter('running')))->executeStatement();
+            ->andWhere($q->expr()->eq('state', $q->createNamedParameter('running')))
+            ->andWhere($q->expr()->eq('resource_refs',$q->createNamedParameter($old)))->executeStatement();
         if ($n !== 1) throw new \RuntimeException('Operation checkpoint failed.');
     }
 
     public function finish(string $scope, string $id, string $state, array $refs, int $time): void {
+        $old=$this->directSnapshot($scope,$id);
         $q = $this->db->getQueryBuilder();
         $q->update(self::TABLE)->set('state', $q->createNamedParameter($state))
             ->set('resource_refs', $q->createNamedParameter(json_encode($refs, JSON_THROW_ON_ERROR)))
@@ -56,8 +59,53 @@ final class OperationsMapper implements OperationStore {
         if ($state !== 'uncertain') $q->set('target_key', $q->createNamedParameter(null, IQueryBuilder::PARAM_NULL));
         $n = $q->where($q->expr()->eq('scope_key', $q->createNamedParameter($scope)))
             ->andWhere($q->expr()->eq('operation_id', $q->createNamedParameter($id)))
-            ->andWhere($q->expr()->eq('state', $q->createNamedParameter('running')))->executeStatement();
+            ->andWhere($q->expr()->eq('state', $q->createNamedParameter('running')))
+            ->andWhere($q->expr()->eq('resource_refs',$q->createNamedParameter($old)))->executeStatement();
         if ($n !== 1) throw new \RuntimeException('Operation completion could not be recorded.');
+    }
+
+    private function directSnapshot(string $scope,string $id):string {
+        $row=$this->get($scope,$id);
+        if($row===null||$row['state']!=='running'||isset($row['resource_refs']['mutation']))throw new \RuntimeException('Direct completion cannot change delegated evidence.');
+        return json_encode($row['resource_refs'],JSON_THROW_ON_ERROR);
+    }
+
+    /** Token/phase admission plus a whole-receipt CAS prevents stale parents from replacing newer proof. */
+    public function checkpointNative(string $scope, string $id, string $token, string $expectedPhase, array $refs): bool {
+        $row=$this->get($scope,$id);
+        if($row===null||$row['state']!=='running')return false;
+        $old=$row['resource_refs'];$mutation=$old['mutation']??null;
+        if($expectedPhase==='') {
+            if($mutation!==null||($refs['phase']??null)!=='prepared'||$row['tool_name']!=='mail_set_message_flag')return false;
+            $mutation=['token_hash'=>hash('sha256',$token)];
+        } elseif(!is_array($mutation)||!hash_equals($mutation['token_hash']??'',hash('sha256',$token))||($mutation['phase']??null)!==$expectedPhase)return false;
+        $next=['prepared'=>'wire_may_start','wire_may_start'=>'remote_verified','remote_verified'=>'cache_pending','cache_pending'=>'completed'];
+        if($expectedPhase!==''&&($next[$expectedPhase]??null)!==($refs['phase']??null))return false;
+        if(array_diff(array_keys($refs),['phase','descriptor','remote','cache','expires_at'])!==[]||($expectedPhase!==''&&(isset($refs['descriptor'])||isset($refs['expires_at']))))return false;
+        $mutation=array_replace($mutation,$refs);
+        $updated=$old;$updated['mutation']=$mutation;
+        return $this->nativeCas($scope,$id,$old,$updated,null,0);
+    }
+
+    public function finishNative(string $scope, string $id, string $token, string $expectedPhase, string $state, array $refs, int $time): bool {
+        $row=$this->get($scope,$id);$old=$row['resource_refs']??[];$mutation=$old['mutation']??null;
+        if($row===null||$row['state']!=='running'||!is_array($mutation)||!hash_equals($mutation['token_hash']??'',hash('sha256',$token))||($mutation['phase']??null)!==$expectedPhase)return false;
+        $required=$expectedPhase==='completed'?'succeeded':($expectedPhase==='prepared'?'failed_before_effect':'uncertain');
+        if($state!==$required||$refs!==[])return false;
+        return $this->nativeCas($scope,$id,$old,$old,$state,$time);
+    }
+
+    private function nativeCas(string $scope,string $id,array $old,array $refs,?string $state,int $time): bool {
+        $q=$this->db->getQueryBuilder();
+        $q->update(self::TABLE)->set('resource_refs',$q->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)));
+        if($state!==null){
+            $q->set('state',$q->createNamedParameter($state))->set('updated_at',$q->createNamedParameter($time,IQueryBuilder::PARAM_INT));
+            if($state!=='uncertain')$q->set('target_key',$q->createNamedParameter(null,IQueryBuilder::PARAM_NULL));
+        }
+        return $q->where($q->expr()->eq('scope_key',$q->createNamedParameter($scope)))
+            ->andWhere($q->expr()->eq('operation_id',$q->createNamedParameter($id)))
+            ->andWhere($q->expr()->eq('state',$q->createNamedParameter('running')))
+            ->andWhere($q->expr()->eq('resource_refs',$q->createNamedParameter(json_encode($old,JSON_THROW_ON_ERROR))))->executeStatement()===1;
     }
 
     /** Atomic exclusion between an approved repair and orphan cleanup. */
@@ -116,7 +164,8 @@ final class OperationsMapper implements OperationStore {
             ->andWhere($q->expr()->neq('actor_uid',$q->createNamedParameter('')))->setMaxResults(100)->executeQuery();
         try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         foreach($rows as $row){
-            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id','account_id','source_tool','native_state','source','user_expires_at','protocols']));
+            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id','account_id','source_tool','native_state','source','user_expires_at','protocols','mutation']));
+            if(isset($refs['mutation']))$refs['mutation']=array_intersect_key($refs['mutation'],array_flip(['phase','remote','cache']));
             $u=$this->db->getQueryBuilder();
             $u->update(self::TABLE)->set('state',$u->createNamedParameter($row['state']==='awaiting_user'?'expired':$row['state']))->set('actor_uid',$u->createNamedParameter(''))
                 ->set('effect_digest',$u->createNamedParameter(''))

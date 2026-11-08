@@ -56,6 +56,21 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'c1-journal-advance':
+        $lease=$in['lease'];$store=Server::get(\OCA\Mcp\Mcp\Operations\OperationStore::class);
+        $wire=$store->checkpointNative($lease['scope'],$lease['id'],$lease['token'],'prepared',['phase'=>'wire_may_start']);
+        $proof=$store->checkpointNative($lease['scope'],$lease['id'],$lease['token'],'wire_may_start',['phase'=>'remote_verified','remote'=>['outcome'=>'verified','message_id'=>17,'mailbox_id'=>5,'generation'=>'42','uid'=>'9','flag'=>'seen','value'=>true]]);
+        $out=['wire'=>$wire,'proof'=>$proof];break;
+    case 'c1-protocol-fault':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMutationActor::protocolFault($uid,(int)$in['account_id'],$in['mode']);break;
+    case 'c1-cache-proof':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMutationActor::cacheProof($uid,(int)$in['message_id']);break;
+    case 'c1-safety':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMutationActor::safety($uid);break;
+    case 'c1-read-flag':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMutationActor::read($uid,(int)$in['message_id']);break;
+    case 'c1-native-proof':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMutationActor::proof($uid,(int)$in['account_id']);break;
     case 'c0-selection-proof':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailLifecycleActor::selection($uid,(int)$in['account_id']);break;
     case 'c0-cache-proof':

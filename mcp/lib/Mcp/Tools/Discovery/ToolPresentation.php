@@ -184,6 +184,7 @@ final class ToolPresentation {
             'mail_write_signature' => Translator::t('Update Mail signature'),
             'mail_read_connection' => Translator::t('Read Mail connection settings'),
             'mail_configure_connection' => Translator::t('Configure Mail connection'),
+            'mail_set_message_flag' => Translator::t('Set Mail message flag'),
             'mail_test_connection' => Translator::t('Test Mail connection'),
             'mail_add_account' => Translator::t('Add Mail account'),
             'mail_complete_account_setup' => Translator::t('Complete Mail account setup'),

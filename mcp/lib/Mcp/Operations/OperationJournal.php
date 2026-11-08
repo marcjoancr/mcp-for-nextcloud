@@ -62,10 +62,12 @@ final class OperationJournal {
         try {
             $result = $effect();
         } catch (PlanChanged|BeforeEffectFailure $e) {
+            if(isset($this->active['delegated']))return $this->adoptNative($uid);
             $this->active = null;
             $this->store->finish($scope, $id, 'failed_before_effect', [], $this->clock->getTime());
             throw $e;
         } catch (\Throwable) {
+            if(isset($this->active['delegated']))return $this->adoptNative($uid);
             $repair = $this->active['repair_of'] ?? null;
             $refs = $this->active['refs'];
             $this->active = null;
@@ -76,6 +78,7 @@ final class OperationJournal {
             return ['operation' => $this->get($uid, $id),
                 'message' => 'The native write could not be verified. Inspect its state; do not repeat the write.'];
         }
+        if(isset($this->active['delegated']))return $this->adoptNative($uid);
         $deferred=$this->active['awaiting_user']??false;
         $repair = $this->active['repair_of'] ?? null;
         $refs = $this->active['refs'];
@@ -88,6 +91,29 @@ final class OperationJournal {
         $this->store->finish($scope, $id, $state, $refs, $this->clock->getTime());
         if ($repair !== null) $this->store->settleRepair($scope, $repair, $refs['staged'] ?? []);
         return $result + ['operation' => $this->get($uid, $id)];
+    }
+
+    /** Transfers the active reservation to exactly one bounded worker. Private token never enters a receipt. */
+    public function delegateNative(string $uid,array $descriptor): array {
+        $id=$this->activeId($uid);$scope=$this->scope($uid);
+        if(isset($this->active['delegated'])||($descriptor['account_id']??null)!==($this->active['refs']['account_id']??null))throw new BeforeEffectFailure('Invalid native delegation.');
+        $token=bin2hex(random_bytes(32));
+        if(!$this->store->checkpointNative($scope,$id,$token,'',['phase'=>'prepared','descriptor'=>$descriptor,'expires_at'=>$this->clock->getTime()+25]))throw new BeforeEffectFailure('Native operation admission changed.');
+        $this->active['delegated']=$token;
+        return ['scope'=>$scope,'id'=>$id,'token'=>$token];
+    }
+
+    private function adoptNative(string $uid): array {
+        $active=$this->active;$this->active=null;
+        for($attempt=0;$attempt<8;$attempt++){
+            $row=$this->store->get($active['scope'],$active['id']);
+            if($row===null)throw new \RuntimeException('Native operation evidence unavailable.');
+            if($row['state']!=='running')break;
+            $phase=$row['resource_refs']['mutation']['phase']??'';
+            $state=$phase==='completed'?'succeeded':($phase==='prepared'?'failed_before_effect':'uncertain');
+            if($this->store->finishNative($active['scope'],$active['id'],$active['delegated'],$phase,$state,[],$this->clock->getTime()))break;
+        }
+        return ['operation'=>$this->get($uid,$active['id'])];
     }
 
     public function scopeKey(string $uid): string {return $this->scope($uid);}
@@ -107,6 +133,7 @@ final class OperationJournal {
     /** Checkpoint only opaque native identities and integrity digests, never message or file content. */
     public function checkpoint(array $refs): void {
         if ($this->active === null) return;
+        if(isset($this->active['delegated']))throw new \LogicException('Delegated evidence is authoritative.');
         $this->active['refs'] = array_replace($this->active['refs'], $refs);
         $this->store->checkpoint($this->active['scope'], $this->active['id'], $this->active['refs']);
     }
@@ -146,10 +173,12 @@ final class OperationJournal {
 
     private function receipt(array $row, bool $replayed): array {
         $state = $row['state'];
+        if($state==='running' && isset($row['resource_refs']['mutation']['expires_at']) && $this->clock->getTime()>(int)$row['resource_refs']['mutation']['expires_at'])$state='uncertain';
         if ($state === 'running' && $this->clock->getTime() - (int)$row['updated_at'] > self::TTL) $state = 'uncertain';
         if($state==='awaiting_user' && $this->clock->getTime()>(int)($row['resource_refs']['user_expires_at']??0))$state='expired';
         $extra=array_intersect_key($row['resource_refs'],array_flip(['native_state','source','source_tool']));
         if ($row['tool_name']==='mail_test_connection' && isset($row['resource_refs']['protocols'])) $extra['protocols']=ProtocolDiagnostics::sanitize($row['resource_refs']['protocols']);
+        if(isset($row['resource_refs']['mutation']))$extra['mutation']=array_intersect_key($row['resource_refs']['mutation'],array_flip(['phase','remote','cache']));
         return $extra+['operation_id' => $row['operation_id'], 'tool' => $row['tool_name'], 'state' => $state,
             'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(['draft_id', 'file_id','account_id'])), 'replayed' => $replayed, 'safe_to_retry' => false,
             'updated_at' => (int)$row['updated_at']];

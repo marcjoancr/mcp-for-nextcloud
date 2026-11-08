@@ -141,6 +141,8 @@ class MailServices {
         return $class::TYPE_OUTGOING;
     }
 
+    public function guardedMutations(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\GuardedMessageMutations',$uid);}
+
     public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}
 
     public function aliasesService(string $userId): object {

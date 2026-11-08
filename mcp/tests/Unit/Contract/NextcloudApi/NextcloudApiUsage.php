@@ -361,6 +361,12 @@ final class NextcloudApiUsage {
      * @var array<string, array{missing: list<string>, fallback: string, by: string, elsewhere?: array<string, string>}>
      */
     public const VERSION_GATED = [
+        // Custom dependency, absent from every pinned stock Mail. Fingerprints admit the separately tested native artifact.
+        'OCA\\Mail\\Service\\GuardedMessageMutations' => [
+            'missing' => ['31','32','33','34','35'],
+            'fallback' => 'OCP\\App\\IAppManager::isEnabledForUser',
+            'by' => \OCA\Mcp\Modules\Mail\Integration\MailServices::class,
+        ],
         'OCA\\Mail\\Service\\Search\\SearchQuery::setThreaded' => [
             'missing' => ['31', '32'],
             'fallback' => 'OCA\\Mail\\Db\\MessageMapper::findIdsByQuery',

@@ -18,6 +18,7 @@ final class MailCapabilities {
         private MailServices $native,
         private IAppManager $apps,
         private IConfig $config,
+        private ?MailNativeBoundary $boundary = null,
     ) {}
 
     /** Read-only metadata: never instantiate an IMAP/SMTP client or run a lifecycle experiment here. */
@@ -42,6 +43,11 @@ final class MailCapabilities {
             foreach (['create_mailbox', 'rename_mailbox', 'subscribe_mailbox', 'refresh'] as $key) {
                 $capabilities[$key] = ['status' => 'unverified', 'reason' => 'native_sync_effects_and_budget_not_verified'];
             }
+        }
+        if($known && $this->boundary?->verified()){
+            $capabilities['mutation_session']=['status'=>'verified','reason'=>'native_guarded_flags_only'];
+            $capabilities['flags']=['status'=>'verified','reason'=>'native_guarded_flags_v1'];
+            $capabilities['move']=['status'=>'blocked','reason'=>'complete_copyuid_and_cache_contract_not_verified'];
         }
         $capabilities['send'] = ['status' => 'disabled', 'reason' => 'sending_not_authorized'];
         return ['native_pair' => ['nextcloud' => $server, 'mail' => $mail], 'evidence' => $evidence,

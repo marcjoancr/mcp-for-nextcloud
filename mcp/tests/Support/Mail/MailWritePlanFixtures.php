@@ -32,6 +32,7 @@ final class MailWritePlanFixtures {
             'mail_configure_connection' => ['account_id'=>1,'before'=>['imap'=>['host'=>'old.example.test']], 'requested'=>['imap'=>['host'=>'imap.example.test']]],
             'mail_add_account' => ['requested'=>['email'=>'alice@example.test']],
             'mail_complete_account_setup' => ['account_id'=>2,'setup_operation_id'=>'setup-1','requested'=>['email'=>'alice@example.test'],'observed'=>['imap'=>['host'=>'imap.example.test']]],
+            'mail_set_message_flag' => ['account_id'=>1,'message_id'=>42,'flag'=>'seen','before'=>false,'after'=>true],
             'mail_test_connection' => ['account_id'=>1,'profile'=>['imap'=>['host'=>'imap.example.test']],'protocols'=>['imap','smtp']],
             'mail_delete_account' => ['account_id'=>1,'account'=>['email'=>'alice@example.test'],'impact'=>['cache_and_workers'=>'Native Mail controls local cache and workers.']],
 

@@ -1,4 +1,10 @@
 { "translations": {
+    "set_flags" : "Cambiar marcas de Mail",
+    "Set Mail message flag" : "Cambiar marca de un mensaje de Mail",
+    "set mail flags" : "Cambiar marcas de Mail",
+    "Set this Mail message flag to the reviewed value." : "Cambia esta marca del mensaje de Mail al valor revisado.",
+    "Message id" : "ID de mensaje",
+    "Flag" : "Marca",
     "Update these Mail preferences." : "Modifica estas preferencias de Mail.",
     "Update this Mail signature. A null value removes it." : "Modifica esta firma de Mail. Un valor null la elimina.",
     "Open the native Mail assistant. Enter credentials there and review completion separately." : "Abre el asistente nativo de Mail. Introduce allí las credenciales y revisa la finalización por separado.",

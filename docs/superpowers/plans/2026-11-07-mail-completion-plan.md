@@ -6,11 +6,13 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** Planning update only. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1–C7 and D+ remain pending. Release B is frozen, outside this plan's completion criteria.
+**Status:** A/D/C0 plus conditional C1 delivery; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2–C7 and D+ remain pending. Release B is frozen, outside this plan's completion criteria.
 
-## Follow-up: safe mutation guard
+## Follow-up: safe mutation guard and C1 delivery
 
 The [2026-11-08 guard design](../specs/2026-11-08-mail-mutation-guard-design.md) and [implementation plan](2026-11-08-mail-mutation-guard-plan.md) propose the native dependency, closed actions, delegated journal and independent C1/C3 gates. They supersede the raw-client callback sketch below. This is a planning update, not a capability unblock: stock Mail5.12.5 remains blocked and sending stays disabled.
+
+The [C1 delivery record](../specs/2026-11-08-mail-c1-guard-evidence.md) records the implemented closed flag boundary, custom native dependency and delegated journal. C1 is conditional on that verified native artifact; stock Mail remains blocked. C3 and sending remain closed. The baseline table below records the preceding A/D tool set.
 
 ## Implementation baseline and evidence
 
@@ -100,7 +102,7 @@ Retain actual interfaces rather than the superseded speculative DTO API:
 - [x] Verify public native client/mapper/event/cache APIs, including implicit reconnect/reselection behavior, and record whether each of flags/move/labels/folder actions is supported. A reused client object alone is not proof if it silently reconnects before mutation. Do not create unused mutation wrappers to satisfy a diagram. If the same-client/event contract fails, publish an explicit native-UI fallback for that capability.
 - [x] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailCapabilities|MailCacheGeneration|MailBodyPreflight'` (expected: focused cases green); run the native Mail cell with lifecycle scenarios (expected: no SMTP delivery and no wrong-generation mutation).
 
-### C1 — Explicit message flags
+### C1 — Explicit message flags (implemented; requires verified native dependency)
 
 **Files:** Create `Mail/Messages/MailMessageFlags.php`, `Mail/Tools/SetMessageFlag.php`, `tests/Unit/Modules/Mail/MailMessageFlagsTest.php`, `tests/Integration/Mail/McpMailMessageFlagsTest.php` under `mcp/`; integrate shared registration/presentation files above.
 **Consumes:** C0 validated selection, existing message locator, journal/account claim.

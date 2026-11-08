@@ -17,7 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
-		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account'], true)) {
+		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag'], true)) {
 			return null;
 		}
 		return match ($tool) {
@@ -34,12 +34,13 @@ final class MailPlanRenderer {
             'mail_write_signature' => Translator::t('Update this Mail signature. A null value removes it.'),
             'mail_configure_connection', 'mail_add_account' => Translator::t('Open the native Mail assistant. Enter credentials there and review completion separately.'),
             'mail_complete_account_setup' => Translator::t('Confirm the observed native Mail configuration. This does not prove message delivery.'),
+            'mail_set_message_flag' => Translator::t('Set this Mail message flag to the reviewed value.'),
             'mail_test_connection' => Translator::t('Authenticate with the selected Mail servers. No message will be sent.'),
             'mail_delete_account' => Translator::t('Remove this Mail account from Nextcloud. Remote messages and Files are retained.'),
             default => throw new \LogicException('Unknown Mail configuration plan'),
         };
         $lines = [$heading, ''];
-        foreach (['account_id' => Translator::t('Account id'), 'alias_id' => Translator::t('Alias id'),
+        foreach (['account_id' => Translator::t('Account id'), 'alias_id' => Translator::t('Alias id'), 'message_id' => Translator::t('Message id'), 'flag' => Translator::t('Flag'),
             'setup_operation_id' => Translator::t('Setup operation'), 'source_tool' => Translator::t('Source tool')] as $key => $label) {
             if (array_key_exists($key, $plan)) $lines[] = '- ' . $label . ': ' . PlanText::quoted(self::value($plan[$key]));
         }
