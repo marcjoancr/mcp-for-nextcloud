@@ -10,7 +10,7 @@ From the repository root, with that verified archive available:
 mkdir -p mcp/build/native-mail-guard
 php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/overlay
 cmp mcp/build/native-mail-guard/overlay/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf mcp/build/native-mail-guard/mail-guard-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
 ```
 
 `overlay/mail` contains seven native source files: five additions and two minimal modifications to Mail's client and cache listener. The manifest also fingerprints the unchanged native factory, cache mappers and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
