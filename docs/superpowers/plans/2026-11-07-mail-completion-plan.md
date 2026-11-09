@@ -6,7 +6,7 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** C2 and C4 implemented, C5 inventory/local creation and conditional exact message assignment are complete; C6 local-draft filtering and guarded refresh are implemented; native v5, whole-check and normal enabled-package qualification have passed. D+ and full C acceptance remain incomplete. A/D/C0 and conditional C1/C3 are preserved; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2/C4–C7 were pending at the C3 baseline; the current follow-up below supersedes those task statuses. C3 is implemented conditionally on the native v2 artifact. Release B is frozen, outside this plan's completion criteria.
+**Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 37 tools and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+ credential-only change evidence, explicit reconciliation and alias administration remain pending. B sending/scheduling/dispatch is frozen and excluded from completion. Historical baseline results below do not extend qualification to NC33/34 or unknown Mail/provider combinations.
 
 ## Follow-up: safe mutation guard and C1 delivery
 
@@ -14,12 +14,12 @@ The [2026-11-08 guard design](../specs/2026-11-08-mail-mutation-guard-design.md)
 
 The [C1 delivery record](../specs/2026-11-08-mail-c1-guard-evidence.md) records the implemented closed flag boundary, custom native dependency and delegated journal. C1 is conditional on that verified native artifact; stock Mail remains blocked. The [C3 delivery record](../specs/2026-11-08-mail-c3-guard-evidence.md) adds four qualified single-message movement actions on the same journal/runner; stock and C1-only Mail builds still refuse moves. Sending remains closed. The baseline table below records the preceding A/D tool set.
 
-## Current follow-up: C2, C4, C5 and safe C6 slice
+## Current follow-up: C2, C4, C5, C6 and C7 acceptance
 
-The implementation now publishes **36 Mail tools**: C2 adds create, same-parent
+The implementation now publishes **37 Mail tools**: C2 adds create, same-parent
 rename, subscription and special-role configuration; C4 adds owned identity
 inventory and forwarding fields to the existing draft writer; C5 adds read-only
-tag inventory, qualified local creation and conditional exact message assignment. C6 adds account/subject filters to local draft reads. Each new tool
+tag inventory, qualified local creation and conditional exact message assignment. C6 adds account/subject filters to local draft reads and explicit qualified mailbox refresh. Each new tool
 has its own denied-by-default permission and connection selection. Sending remains
 disabled. Qualification and exact artifact hashes are recorded in the
 [C2 and continuation evidence](../specs/2026-11-08-mail-c2-continuation-evidence.md).
@@ -29,7 +29,7 @@ source dependency on NC35.0.2/Mail5.12.5. Flags-only v1 and movement v2 remain
 accepted for their original scopes. Folder changes use native commands/mappers
 with targeted cache updates, preserving omitted roles and unrelated cache; they
 never invoke the whole-account MailboxSync or automatic special-role guessing.
-New folder message freshness stays unknown until normal native synchronization.
+New folder message freshness stays unknown until normal native synchronization or a separately reviewed qualified C6 refresh/reset.
 Role configuration itself is local and remains available without v3.
 
 C4 guarantees new local forward drafts, a complete reviewed quote or explicit
@@ -48,7 +48,7 @@ Pre-fetch mailbox revision chains prevent stale sync/UI cache writes from adopti
 concurrent changes. Legacy/profile-changed cache requires an explicit native rebuild.
 Only the native MySQL/MariaDB provider is eligible; other backends remain closed.
 [Assignment evidence](../specs/2026-11-09-mail-tag-assignment-evidence.md) records
-qualification and rollback requirements. Remote refresh and sending remain closed.
+qualification and rollback requirements. C6 below now admits qualified refresh; sending remains closed.
 
 Local C5 creation acceptance: 10,171 PHP tests / 92,755 assertions, 837 browser
 tests, both static scopes and packaging; native v3 regression 28 tests / 850
@@ -61,7 +61,7 @@ passed. Read-only collection, cache CAS, explicit reset/new IDs and historical
 freshness replace the unsafe general-sync route. See the
 [C6 plan](2026-11-10-mail-refresh-plan.md) and
 [evidence](../specs/2026-11-10-mail-refresh-evidence.md).
-C7 acceptance applies to delivered slices, and does not imply all C is complete.
+C7 acceptance applies only to delivered slices; it does not complete D+ or optional native parity.
 D+ credential-change evidence, explicit reconciliation and alias administration
 remain pending. No force-unlock, folder deletion or send tool is added.
 
@@ -84,11 +84,11 @@ Implementation anchors, rather than the old checklist, establish what is deliver
 - `Drafts/MailDraftOperations.php` saves a real native parent locally and sets `failed=true` to hold lossy native draft-to-IMAP synchronization. Native UI edits can release that hold. This is **local threading**, not a proven native UI/IMAP lifecycle guarantee.
 - `Files/MailFilesSource.php` snapshots authorized Files bytes, preserves retained attachments and supports reviewed partial repair. Limits remain 10 attachments / 25 MiB raw, 20,000 characters per body and 50 recipients per address field.
 - `Integration/MailBodyPreflight.php` checks server-reported whole-message size (1 MiB). It is **not a hard streaming byte cap** against an IMAP server that lies about size. Search is cached header search; draft listing is local-only, with account/subject filters now added by the C6 local slice.
-- `Settings/MailSettings.php` supports exactly `editor_mode`, `signature_above_quote`, `show_subscribed_only`. D does not yet assign special folders or expose alias CRUD.
+- `Settings/MailSettings.php` supports exactly `editor_mode`, `signature_above_quote`, `show_subscribed_only`. C2 now assigns special folders; alias CRUD remains pending.
 - `Accounts/MailAccountSetup.php` admits a 24-hour native UI workflow and binds a specifically selected account. An unchanged connection profile refuses completion, including credential-only changes. The fixed native link does not prefill fields or capture credentials.
 - `Connection/MailConnection.php` checkpoints sanitized per-protocol results. `Mcp/Operations/OperationJournal.php` exposes them in `operation.protocols`, rechecks guarded completion replays and serializes writes by account where `account_id` is supplied.
 - `Operations/MailOperationCleanup.php` preserves uncertain/repairing claims. There is no published reconciliation/release-of-uncertainty tool. Native account deletion does not erase the journal.
-- At the historical A/D baseline there were no flag/move/archive/trash/restore, tag or folder-mutation tools. C1/C3 and the current follow-up add the qualified actions above. Remote refresh, sending, scheduling and outbox dispatch remain unavailable; message tag assignment requires qualified native v4.
+- At the historical A/D baseline there were no flag/move/archive/trash/restore, tag or folder-mutation tools. C1/C3 and the current follow-up add the qualified actions above. Remote refresh now requires qualified v5; sending, scheduling and outbox dispatch remain unavailable. Message tag assignment requires qualified native v4 or v5.
 
 Recorded implementation validation at `f59d5fc1`: full check 9,924 PHP tests / 89,235 assertions, 837 browser tests, both static scopes and packaging; native NC35/MariaDB/Mail5.12.5: 10 tests / 319 assertions. These are baseline results, **not evidence that the pending capabilities work**, nor a deployment record.
 
@@ -254,17 +254,26 @@ Sending is disabled. See [C6 evidence](../specs/2026-11-10-mail-refresh-evidence
 - [ ] Test unknown-key rejection, foreign alias membership, provisioned identities, retained certificate/signature fields, interrupted creation and lost delete responses. No guessed deduplication by email/name.
 - [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailIdentities|MailSettings|MailSignatures'` plus native identity cases (expected: only approved fields change; no outgoing admission), then commit. Ordering/background sync or other preferences require separately named fields, preservation tests and appropriate grants before admission.
 
-### C7 — Acceptance of the no-send module
+### C7 — Acceptance of the no-send module (complete on tested pair)
 
 **Files:** Affected unit/native/browser tests, `MailToolCatalog.php`, guide/presentation/l10n, `docs/en/reference/tools/mail.md`, translation workflow and capability evidence from C0.
 **Consumes:** Only actually implemented slices, not every proposed tool in this document.
 **Produces:** A reviewable no-send release with precise remaining limitations.
 
-- [ ] Run affected feature tests first and existing A/D regression cases. Pin read/write/restore receipt authorization, concurrency, native cache effects, partial failures, ownership and unchanged Files originals.
-- [ ] Preview then execute the existing disposable native runner: `PATH=/home/dev/.local/share/mise/installs/node/24.22.1/bin:$PATH sh mcp/tests/Integration/ci/run-local.sh --plan 35 mariadb fresh --mail`, then `PATH=/home/dev/.local/share/mise/installs/node/24.22.1/bin:$PATH MCP_IT_PHPUNIT_ARGS='--filter Mail' sh mcp/tests/Integration/ci/run-local.sh 35 mariadb fresh --mail`. Add NC33/34 native cells or label those capability/native-version pairs unverified; static fixtures alone are insufficient.
-- [ ] Run `devbox run check --cwd IMPLEMENTATION_WORKTREE --json` after focused checks pass. Expected: syntax, both static scopes, PHP/browser/docs tests and package all pass. Append new raw catalog entries intentionally; preserve prior tool/protocol/results contracts except reviewed schema extensions.
-- [ ] Assert no send/schedule/enqueue tool or grant, no SMTP envelope/DATA, no outbox/MDN dispatch and no release of held reply drafts through new paths. Existing D auth probes remain separately permitted.
-- [ ] Update user docs with actual tool names, budgets, local-vs-IMAP draft limits, explicit freshness, reversible-trash behavior, unsupported pairs and manual inspection steps. Review the final implementation; publishing/PR/deployment requires its own explicit request.
+- [x] Run affected feature tests first and existing A/D regression cases. Pin read/write/restore receipt authorization, concurrency, native cache effects, partial failures, ownership and unchanged Files originals.
+- [x] Preview then execute the existing disposable native runner: `PATH=/home/dev/.local/share/mise/installs/node/24.22.1/bin:$PATH sh mcp/tests/Integration/ci/run-local.sh --plan 35 mariadb fresh --mail`, then `PATH=/home/dev/.local/share/mise/installs/node/24.22.1/bin:$PATH MCP_IT_PHPUNIT_ARGS='--filter Mail' sh mcp/tests/Integration/ci/run-local.sh 35 mariadb fresh --mail`. Add NC33/34 native cells or label those capability/native-version pairs unverified; static fixtures alone are insufficient.
+- [x] Run `devbox run check --cwd IMPLEMENTATION_WORKTREE --json` after focused checks pass. Expected: syntax, both static scopes, PHP/browser/docs tests and package all pass. Append new raw catalog entries intentionally; preserve prior tool/protocol/results contracts except reviewed schema extensions.
+- [x] Assert no send/schedule/enqueue tool or grant, no SMTP envelope/DATA, no outbox/MDN dispatch and no release of held reply drafts through new paths. Existing D auth probes remain separately permitted.
+- [x] Update user docs with actual tool names, budgets, local-vs-IMAP draft limits, explicit freshness, reversible-trash behavior, unsupported pairs and manual inspection steps. Review the final implementation; publishing/PR/deployment requires its own explicit request.
+
+C7 acceptance results: **49 native v5 tests / 1,302 assertions**, no skips;
+stock Mail **17 executed / 32 expected skips**, 422 assertions. Complete catalog:
+**10,242 PHP tests / 93,724 assertions**, **837 browser tests**, both static
+scopes, documentation and package. NC33/34 and other native/provider pairs remain
+unverified. The native v5 source/manifest is unchanged; sending stays disabled.
+See the [C7 evidence](../specs/2026-11-09-mail-c7-acceptance-evidence.md) and
+[execution plan](2026-11-09-mail-c7-acceptance-plan.md). One fresh final review
+found no actionable Critical, Important or Minor finding.
 
 ## Frozen B and optional later parity
 

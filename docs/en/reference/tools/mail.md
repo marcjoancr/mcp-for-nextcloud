@@ -8,6 +8,22 @@ Each permission starts denied, including on existing installations. `mail.read` 
 The native qualification fixture uses Mail 5.12.5 on Nextcloud 35; the API floor
 is not a promise that every Mail/server version combination is supported.
 
+The module publishes **37 tools** on MCP2.7.0. Sending, scheduling, enqueueing,
+MDN transmission and outbox dispatch remain disabled. Acceptance covers the
+implemented A/D/C0–C6 slices; it does not claim complete parity with native Mail.
+
+| Native configuration | Acceptance scope |
+| --- | --- |
+| NC35.0.2 / stock Mail5.12.5 / MariaDB10.11.19 | Existing reads, local drafts/Files, settings/setup and qualified local tag creation. Guarded remote mutations refuse. |
+| Same pair with exact v5 overlay and required primary InnoDB schema | Flags, moves, folders, local tag creation, exact message tags and bounded refresh, subject to each independent grant and provider gate. |
+| Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
+| NC33/34 or other Mail/server/provider combinations | Native behavior unverified by this acceptance run. The manifest/API floor and static fixtures do not qualify those combinations. |
+
+The native dependency is installed separately. Its source fingerprint, provider,
+schema and protocol checks remain mandatory; version strings alone grant nothing.
+C7 acceptance exercises stock Mail and the current v5 build separately; the
+older overlays retain their previously qualified scopes.
+
 | Tool | Behavior |
 | --- | --- |
 | `mail_list_accounts` | Lists only accounts owned by the authenticated user, with ID, name and email address. Delegated accounts are excluded. |
@@ -55,7 +71,7 @@ folder generation/cache revision or Archive/Trash role requires a new preview.
 Restoration does not guess the old folder. Each tool requires its own assignment
 and current connection selection; existing read/flag grants do not enable moves.
 
-These tools require the exact custom **mcp-mail-mutations-v2** or **mcp-mail-mutations-v3** native dependency,
+These tools require the exact custom **v2, v3, v4 or v5** native dependency,
 qualified on **Nextcloud35.0.2/Mail5.12.5**, and server support for **MOVE + UIDPLUS**.
 Stock Mail, the flags-only C1 artifact and altered/unknown native builds refuse
 moves. The native client sends at most one UID MOVE, retaining the complete
@@ -67,7 +83,8 @@ the receipt; no automatic retry, reconciliation or force-unlock is available.
 
 Receipts expose `mutation.phase`, exact remote proof and cache completion. Native
 source cache removal is locked and generation-checked; native Mail's ordinary
-synchronization later incorporates the destination, reported as
+synchronization, or an independently reviewed qualified `mail_refresh_mailbox`,
+later incorporates the destination, reported as
 `destination_state: native_sync_pending`. A succeeded operation proves the move
 and source cache/event completion, not destination cache freshness. Cache or event
 failure keeps the earlier proof and an uncertain state; replay/status never reruns
@@ -83,7 +100,7 @@ five admissions per owner/account/minute apply. Sending remains disabled.
 | `mail_set_mailbox_subscription` | `mail.subscribe_mailboxes` | Set `subscribed` explicitly to true or false. |
 | `mail_configure_mailboxes` | `mail.configure_mailboxes` | Patch owned selectable Drafts, Sent, Trash or Archive folder IDs; omitted roles are preserved. |
 
-The three remote folder actions require the exact **v3** custom native dependency
+The three remote folder actions require the exact **v3, v4 or v5** custom native dependency
 on **NC35.0.2/Mail5.12.5**. v1/v2, stock and unknown builds refuse them.
 Special-role configuration is a local native account update and does not require
 v3 or contact IMAP. Roles cannot be cleared or assigned to foreign/shared folders.
@@ -104,8 +121,9 @@ cache updates. Rename preserves cached folder/message IDs and sync tokens. A new
 folder has NULL sync tokens: its initial zero counters do not promise message
 freshness. Normal native Mail synchronization owns message caching. Existing targets and
 every renamed descendant require a known, consistent preview generation. Newly
-created folders must first be synchronized in native Mail before renaming, changing
-subscription or creating children; unknown/conflicting generations are refused. No whole-account
+created folders must first be synchronized in native Mail, or refreshed with a
+separately reviewed qualified `mail_refresh_mailbox` and `allow_cache_reset: true`,
+before renaming, changing subscription or creating children; unknown/conflicting generations are refused. No whole-account
 sync, draft flushing, SMTP or automatic special-role guessing runs here.
 A lost acknowledgement, external namespace race, cache or event failure retains
 uncertainty and the account claim. Creation is never deduplicated by folder name.
@@ -121,8 +139,9 @@ selection start denied. Ordinary reads, search, listing, replay and operation
 status never refresh or enqueue synchronization.
 
 Refresh requires the separately installed **v5** native dependency, qualified only
-on **NC35.0.2 / Mail5.12.5 / MySQL or MariaDB primary**, without replicas or
-sharding. Stock, older custom artifacts and unknown builds refuse before network
+on **NC35.0.2 / Mail5.12.5 / MariaDB10.11.19 primary**. The source/schema
+gate also admits MySQL primary storage, but C7 has no separate native MySQL cell.
+Replicas and sharding are excluded. Stock, older custom artifacts and unknown builds refuse before network
 work. Existing v1–v4 scopes remain accepted for their original actions.
 
 The native provider observes one mailbox over a private read-only selection and
@@ -409,6 +428,27 @@ remaining cache/background work; MCP does not purge remote messages, original Fi
 or operation history. Native UI activity can still race with MCP; review local work
 in Mail before removal. Expired/completed setup metadata is compacted after 30 days;
 uncertain binding claims and minimal non-replay receipt keys are retained.
+
+## Inspecting a lost response or uncertain write
+
+1. Keep the returned `operation_id` and inspect it with `mail_get_operation` under
+   the same user/connection and current original-tool permissions. If a response
+   was lost, repeat only the same confirmed operation ID; never invent a new ID
+   to force another effect. Status and replay perform no network refresh or retry.
+2. Read the receipt's remote/cache phases and exact resource IDs. Inspect the
+   owned account, source/destination and local held draft in native Mail without
+   sending or releasing the draft hold. A movement receipt does not itself
+   hydrate the destination; an absent cached source or matching Message-ID does
+   not prove the outcome. A refresh snapshot describes its observation time.
+3. Preserve uncertain claims and staged resources for administrator inspection.
+   There is no force-unlock or automatic reconciliation tool. Age, name, subject
+   or human acknowledgment cannot prove a safe retry. Native installation and
+   matched code/database rollback require separate operator work.
+
+Credential-only changes with an unchanged non-secret profile remain unverified.
+Alias administration and explicit evidence-based reconciliation are pending D+
+work. Remote IMAP draft import/search, large-message streaming, raw export,
+advanced filters/snooze and destructive folder deletion remain outside acceptance.
 
 ## C0 compatibility foundation
 
