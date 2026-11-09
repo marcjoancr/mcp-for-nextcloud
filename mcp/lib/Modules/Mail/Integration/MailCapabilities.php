@@ -64,6 +64,7 @@ final class MailCapabilities {
             $capabilities['tags']=['status'=>'blocked','reason'=>'native_tag_cache_identity_not_verified'];
         }
         if($known&&$this->boundary?->tagsVerified())$capabilities['tags']=['status'=>'verified','reason'=>'native_exact_tag_cache_and_one_shot_keyword_v4'];
+        if($known&&$this->boundary?->refreshVerified())$capabilities['refresh']=['status'=>'verified','reason'=>'native_owned_bounded_refresh_v5'];
         $capabilities['send'] = ['status' => 'disabled', 'reason' => 'sending_not_authorized'];
         return ['native_pair' => ['nextcloud' => $server, 'mail' => $mail], 'evidence' => $evidence,
             'capabilities' => $capabilities];

@@ -187,6 +187,7 @@ final class ToolPresentation {
             'mail_move_message' => Translator::t('Move Mail message'),
             'mail_archive_message' => Translator::t('Archive Mail message'),
             'mail_trash_message' => Translator::t('Move Mail message to Trash'),
+            'mail_refresh_mailbox' => Translator::t('Refresh Mail folder'),
             'mail_set_message_tag' => Translator::t('Set Mail message tag'),
             'mail_create_tag' => Translator::t('Create Mail tag'),
             'mail_list_tags' => Translator::t('List Mail tags'),

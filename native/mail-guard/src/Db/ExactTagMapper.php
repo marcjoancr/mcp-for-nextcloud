@@ -9,7 +9,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 /** Exact native tag adapters shared by UI, sync, related-data and classification. */
 trait ExactTagMapper {
     private ?TagSnapshotVersion $tagBatch=null;
-    public function captureTagSnapshot(Account $account,int $mailbox,string $generation):TagSnapshotVersion {$v=$this->exactAssociations()->capture($account->getUserId(),$mailbox,$generation);if($v->profile!==TagProfile::account($account->getMailAccount()))throw new \RuntimeException('Native connection identity is stale.');return $v;}
+    public function captureTagSnapshot(Account $account,int $mailbox,string $generation,?\OCA\Mail\Sync\MailboxLease $lease=null):TagSnapshotVersion {$v=$this->exactAssociations()->capture($account->getUserId(),$mailbox,$generation,$lease);if($v->profile!==TagProfile::account($account->getMailAccount()))throw new \RuntimeException('Native connection identity is stale.');return $v;}
     public function beginTagBatch(Account $account,array $messages):void {
         if($this->tagBatch!==null)throw new \RuntimeException('Tag snapshot batch already active.');if($messages===[])return;
         $v=$messages[0]->getTagSnapshotVersion();if($v===null)throw new \RuntimeException('Only freshly fetched messages may establish tag cache.');

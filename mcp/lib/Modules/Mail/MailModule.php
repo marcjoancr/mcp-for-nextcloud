@@ -72,7 +72,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
 
     /** @return list<string> short behaviour notes about this module */
     public function guideNotes(): array {
-        return Presentation\MailMessages::GUIDE_NOTES;
+        return Presentation\MailMessages::guideNotes();
     }
 
     private function resolve(string $name): Tool {

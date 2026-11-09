@@ -65,6 +65,7 @@ final class MailRows {
 			'unread' => $mailbox['unread'],
 			'total' => $mailbox['total'],
 			'selectable' => $mailbox['selectable'],
+            'freshness' => $mailbox['freshness'] ?? ['status'=>'unknown'],
 		];
 	}
 

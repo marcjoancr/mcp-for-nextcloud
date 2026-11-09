@@ -12,14 +12,17 @@ class MailNativeBoundary {
     public function __construct(private IAppManager $apps){}
     // Flip only after the v4 exact-cache and real-protocol qualification passes.
     public const TAG_ASSIGNMENT_QUALIFIED=true;
-    public function verified():bool {return $this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_FLAGS_DATA)||$this->matches(NativeGuardManifest::LEGACY_MOVES_DATA)||$this->matches(NativeGuardManifest::LEGACY_FOLDERS_DATA);}
-    public function movesVerified():bool {return $this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_MOVES_DATA)||$this->matches(NativeGuardManifest::LEGACY_FOLDERS_DATA);}
-    public function foldersVerified():bool {return in_array(NativeGuardManifest::DATA['contract']??null,['mcp-mail-mutations-v3','mcp-mail-mutations-v4'],true)&&$this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_FOLDERS_DATA);}
-    public function tagsSourceVerified():bool {return (NativeGuardManifest::DATA['contract']??null)==='mcp-mail-mutations-v4'&&$this->matches(NativeGuardManifest::DATA);}
+    public const REFRESH_QUALIFIED=true;
+    public function refreshVerified():bool {return self::REFRESH_QUALIFIED&&$this->refreshSourceVerified();}
+    public function refreshSourceVerified():bool {return (NativeGuardManifest::DATA['contract']??null)==='mcp-mail-mutations-v5'&&$this->matches(NativeGuardManifest::DATA);}
+    public function verified():bool {return $this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_FLAGS_DATA)||$this->matches(NativeGuardManifest::LEGACY_MOVES_DATA)||$this->matches(NativeGuardManifest::LEGACY_FOLDERS_DATA)||$this->matches(NativeGuardManifest::LEGACY_TAGS_DATA);}
+    public function movesVerified():bool {return $this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_MOVES_DATA)||$this->matches(NativeGuardManifest::LEGACY_FOLDERS_DATA)||$this->matches(NativeGuardManifest::LEGACY_TAGS_DATA);}
+    public function foldersVerified():bool {return in_array(NativeGuardManifest::DATA['contract']??null,['mcp-mail-mutations-v3','mcp-mail-mutations-v4','mcp-mail-mutations-v5'],true)&&$this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_FOLDERS_DATA)||$this->matches(NativeGuardManifest::LEGACY_TAGS_DATA);}
+    public function tagsSourceVerified():bool {return in_array(NativeGuardManifest::DATA['contract']??null,['mcp-mail-mutations-v4','mcp-mail-mutations-v5'],true)&&$this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_TAGS_DATA);}
     public function tagsVerified():bool {return self::TAG_ASSIGNMENT_QUALIFIED&&$this->tagsSourceVerified();}
     private function matches(array $manifest):bool {
         try {
-            if(!in_array($manifest['contract']??null,['mcp-mail-flags-v1','mcp-mail-mutations-v2','mcp-mail-mutations-v3','mcp-mail-mutations-v4'],true)||($manifest['mail']??null)!=='5.12.5'||!is_array($manifest['files']??null)||count($manifest['files'])<7)return false;
+            if(!in_array($manifest['contract']??null,['mcp-mail-flags-v1','mcp-mail-mutations-v2','mcp-mail-mutations-v3','mcp-mail-mutations-v4','mcp-mail-mutations-v5'],true)||($manifest['mail']??null)!=='5.12.5'||!is_array($manifest['files']??null)||count($manifest['files'])<7)return false;
             $root=$this->apps->getAppPath('mail');
             foreach($manifest['files'] as $path=>$hash){
                 if(!is_string($path)||str_contains($path,'..')||str_starts_with($path,'/')||!is_string($hash)||!is_file($root.'/'.$path)||!hash_equals($hash,(string)hash_file('sha256',$root.'/'.$path)))return false;

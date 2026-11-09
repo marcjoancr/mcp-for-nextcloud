@@ -18357,6 +18357,47 @@
                         ],
                         "additionalProperties": false
                     }
+                },
+                {
+                    "name": "mail_refresh_mailbox",
+                    "module": "mail",
+                    "operation": "refresh",
+                    "app": "mail",
+                    "description": "Preview and confirm an explicit bounded refresh of one owned cached Mail folder. Requires the qualified native v5 dependency and independent refresh permission. Maximum 200 cached and remote messages, 20 seconds, bounded read-only IMAP observation, atomic cache commit. allow_cache_reset defaults to false; true authorizes replacing an invalid cache with new message IDs and invalidating old cursors and plans. No automatic refresh from reads or status, classifiers, thread rebuilding or sending. After uncertainty inspect the durable operation and never repeat the write.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "mailbox_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "allow_cache_reset": {
+                                "type": "boolean",
+                                "default": false
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "mailbox_id"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ],
             [
@@ -41273,6 +41314,47 @@
                         ],
                         "additionalProperties": false
                     }
+                },
+                {
+                    "name": "mail_refresh_mailbox",
+                    "module": "mail",
+                    "operation": "refresh",
+                    "app": "mail",
+                    "description": "Preview and confirm an explicit bounded refresh of one owned cached Mail folder. Requires the qualified native v5 dependency and independent refresh permission. Maximum 200 cached and remote messages, 20 seconds, bounded read-only IMAP observation, atomic cache commit. allow_cache_reset defaults to false; true authorizes replacing an invalid cache with new message IDs and invalidating old cursors and plans. No automatic refresh from reads or status, classifiers, thread rebuilding or sending. After uncertainty inspect the durable operation and never repeat the write.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "mailbox_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "allow_cache_reset": {
+                                "type": "boolean",
+                                "default": false
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "mailbox_id"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ],
             [
@@ -64186,6 +64268,47 @@
                             "message_id",
                             "tag_id",
                             "value"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_refresh_mailbox",
+                    "module": "mail",
+                    "operation": "refresh",
+                    "app": "mail",
+                    "description": "Preview and confirm an explicit bounded refresh of one owned cached Mail folder. Requires the qualified native v5 dependency and independent refresh permission. Maximum 200 cached and remote messages, 20 seconds, bounded read-only IMAP observation, atomic cache commit. allow_cache_reset defaults to false; true authorizes replacing an invalid cache with new message IDs and invalidating old cursors and plans. No automatic refresh from reads or status, classifiers, thread rebuilding or sending. After uncertainty inspect the durable operation and never repeat the write.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "mailbox_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "allow_cache_reset": {
+                                "type": "boolean",
+                                "default": false
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "mailbox_id"
                         ],
                         "additionalProperties": false
                     }

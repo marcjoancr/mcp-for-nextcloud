@@ -11,7 +11,7 @@ is not a promise that every Mail/server version combination is supported.
 | Tool | Behavior |
 | --- | --- |
 | `mail_list_accounts` | Lists only accounts owned by the authenticated user, with ID, name and email address. Delegated accounts are excluded. |
-| `mail_list_mailboxes` | Lists cached folders of an owned `account_id`: ID, path, last path segment, delimiter, special role, unread/total counts and selectable state. |
+| `mail_list_mailboxes` | Lists cached folders of an owned `account_id`: ID, path, last path segment, delimiter, special role, unread/total counts, selectable state and cache observation metadata. |
 | `mail_search_messages` | Searches cached headers in the caller’s own mailboxes. Requires `mail.search`. |
 | `mail_read_message` | Reads one owned message as bounded text. Requires `mail.read_message`. |
 | `mail_read_thread` | Starting from a visible `message_id`, reads a page of messages from that thread in the same owned account. Requires `mail.read_message` and preserves unread flags. |
@@ -112,6 +112,54 @@ uncertainty and the account claim. Creation is never deduplicated by folder name
 Status/replay never repeats CREATE, RENAME, subscriptions, events or synchronization.
 Inspect native Mail and the receipt; no force-unlock or automatic reconciliation
 is provided.
+
+## Explicit mailbox refresh and freshness
+
+`mail_refresh_mailbox` reviews and confirms one owned `account_id` / `mailbox_id`.
+The independent `mail.refresh` permission, tool assignment and current connection
+selection start denied. Ordinary reads, search, listing, replay and operation
+status never refresh or enqueue synchronization.
+
+Refresh requires the separately installed **v5** native dependency, qualified only
+on **NC35.0.2 / Mail5.12.5 / MySQL or MariaDB primary**, without replicas or
+sharding. Stock, older custom artifacts and unknown builds refuse before network
+work. Existing v1–v4 scopes remain accepted for their original actions.
+
+The native provider observes one mailbox over a private read-only selection and
+commits a targeted cache transaction. It never calls account synchronization,
+classifiers, synchronization events, thread rebuilding, draft/outbox workers or
+SMTP. Native synchronization and refresh share a physical database-session mutex;
+time does not transfer ownership, and an old process cannot unlock its successor.
+
+The closed boundary permits at most **200 cached and 200 remote messages**,
+**32 KiB per protocol line**, **64 KiB per literal/header**, **8 MiB total** and
+**2,048 protocol lines**. A closed response grammar prevents unsolicited UID-range
+expansion and authentication referrals. Both UID observations reach the server
+even when its count is zero.
+A 20-second parent watchdog bounds the whole worker; native deadline and socket
+checks also apply. CONDSTORE, a stable observed UIDVALIDITY/modification sequence
+and a complete bounded UID set are required. Oversized, unsupported, unstable or
+busy mailboxes refuse; use native Mail for them. This is a complete bounded
+snapshot, never a partial refresh advertised as complete.
+
+Valid cache incarnations retain their IDs and local preview data. New UIDs get
+new rows; vanished UIDs are removed precisely. `allow_cache_reset` defaults to
+false. Set it to true in the reviewed preview only to authorize replacement of an
+invalid cache or changed epoch with fresh message IDs. Old IDs, cursors and plans
+become invalid. Remote messages, Files and legacy header-only tag history are
+retained. Reset never guesses identity from Message-ID or a label.
+
+Use the returned `operation_id` with `mail_get_operation` or
+`mail_list_operations`. Read-stage refusal is `failed_before_effect`; cache
+admission/commit uncertainty retains the account claim and is never retried by
+status or replay. The shared limit is five admissions per owner/account/minute.
+
+Folder `freshness.status` is `unknown`, `stale`, or `snapshot`. A snapshot includes
+`observed_at` and the observed generation, and means a historical observation;
+it never promises that the remote mailbox is still current. Cache/profile changes
+invalidate its marker. `threads_state: native_rebuild_pending` explicitly excludes
+thread rebuilding. Sending remains disabled. Installation and matched code/database
+rollback are separate operations; MCP never installs this dependency automatically.
 
 ## Attachments and drafts
 

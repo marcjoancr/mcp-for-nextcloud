@@ -90,3 +90,44 @@ Qualification, exact final digests and remaining limits are recorded in the
 [C5 assignment evidence](../../docs/superpowers/specs/2026-11-09-mail-tag-assignment-evidence.md).
 
 The final normalized v4 overlay SHA256 is `056233948790dfa742cc1471e1c2133c5a70551ce8177cb22faadc964bb8ad79`; its 56-path manifest SHA256 is `4385f56e2dcde49e1f3739ad91fc21c84dbf41adea224af9152abeb57d8337a5`. The overlay contains 36 source files. Qualification passed 40 native Mail tests / 1,053 assertions, including actual cached QRESYNC response reuse with an intervening C5 assignment and new-message classification. One version follows the whole combined response; already imported new UIDs do not receive its old FLAGS again.
+
+## v5 bounded explicit refresh
+
+C6 introduces `GuardedMailboxRefresh` and the native read-only `CacheSnapshot`
+metadata helper. The provider uses a fresh private Horde client without the native
+cache backend, classifier, synchronization-event, draft, outbox or SMTP paths.
+It admits only one complete observed mailbox snapshot within fixed message, wire,
+literal, byte and time bounds. It requires CONDSTORE and refuses ESEARCH ranges.
+The command fence permits read/authentication commands only. No public protocol
+options or credentials are introduced.
+
+All native synchronization criteria now share one MySQL session-owned advisory
+mutex. A private random session token, physical connection ID and exact DTO owner
+fence acquisition, writes and release. Old shutdown callbacks cannot release a new
+DTO's lease. Legacy lock timestamps remain display metadata. Connection loss or
+process termination invalidates the lease; elapsed time never transfers it. This
+custom v5 sync dependency is qualified only for an unsharded, unreplicated
+MySQL/MariaDB primary. Unsupported providers refuse; they are not silently given
+the old timestamp authority.
+
+Native C5 snapshot versions retain the sync owner through import, flags, vanished
+batches and classification. Cache callbacks outside an owned native sync can
+update their in-memory UID list but cannot delete persistent rows. This keeps a
+cache-enabled native read from applying an obsolete deletion after a refresh.
+
+C6 takes a bounded cache fingerprint before read work, then locks and compares the
+owned account, mailbox and exact cached rows before an atomic targeted commit.
+Existing valid incarnations preserve their IDs and preview data. A reviewed
+`allow_cache_reset` is required for unknown/profile-changed/epoch-changed cache;
+replacement allocates fresh IDs and preserves legacy NULL-exact tag history.
+Every success rotates an opaque token component so earlier cursors/plans cannot
+adopt it. Only observed snapshot metadata is persisted; it never claims a live
+remote mailbox. Thread rebuilding remains explicitly pending.
+
+The unchanged shared MCP journal records read-stage refusal before effect, admits
+cache dispatch separately and retains commit/receipt uncertainty without replay.
+The independent refresh grant starts denied. Older immutable v1–v4 fingerprints
+remain scoped to their original features. v5 does not deploy itself; install and
+rollback require separately managed matched native code/database snapshots.
+Qualification and final artifact digests are recorded in the
+[C6 delivery evidence](../../docs/superpowers/specs/2026-11-10-mail-refresh-evidence.md).

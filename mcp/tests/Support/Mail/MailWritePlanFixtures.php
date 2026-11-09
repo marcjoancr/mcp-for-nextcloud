@@ -37,6 +37,7 @@ final class MailWritePlanFixtures {
             'mail_archive_message' => ['account_id'=>1,'message_id'=>42,'source'=>['id'=>3,'name'=>'INBOX'],'destination'=>['id'=>4,'name'=>'Reviewed']],
             'mail_trash_message' => ['account_id'=>1,'message_id'=>42,'source'=>['id'=>3,'name'=>'INBOX'],'destination'=>['id'=>4,'name'=>'Reviewed']],
             'mail_restore_message' => ['account_id'=>1,'message_id'=>42,'source'=>['id'=>3,'name'=>'INBOX'],'destination'=>['id'=>4,'name'=>'Reviewed']],
+            'mail_refresh_mailbox' => ['account_id'=>1,'mailbox_id'=>3,'source'=>'Reviewed','requested'=>['allow_cache_reset'=>true],'message'=>'Invalid cache will receive new cached IDs. Old IDs, cursors and plans become invalid.'],
             'mail_set_message_tag' => ['account_id'=>1,'message_id'=>42,'tag'=>['id'=>7,'name'=>'Reviewed','color'=>'#123456'],'before'=>false,'after'=>true],
             'mail_create_tag' => ['action'=>'create_tag','scope'=>'all_owned_accounts','after'=>['name'=>'Reviewed','color'=>'#123456']],
             'mail_create_mailbox' => ['account_id'=>1,'before'=>['name'=>''],'after'=>['name'=>'Reviewed']],

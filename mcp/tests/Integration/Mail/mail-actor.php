@@ -56,6 +56,11 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'c6-protocol':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeRefreshActor::protocol($uid,(int)$in['account_id'],$in['mode']);break;
+    case 'c6-lease':
+    case 'c6-lease-hold':
+        $owned=false;try{$lease=\OCA\Mail\Sync\MailboxLease::acquire(\OCP\Server::get(\OCP\IDBConnection::class),\OCP\Server::get(\OCP\IConfig::class)->getSystemValueString('dbtableprefix','oc_'),(int)$in['mailbox_id']);$owned=true;if($action==='c6-lease-hold'){echo "owned\n";flush();sleep(30);}$lease->release();}catch(\RuntimeException){}$out=['acquired'=>$owned];break;
     case 'c5-fault':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeTagActor::fault($uid,(int)$in['account_id'],$in['mode']);break;
     case 'c5-protocol':

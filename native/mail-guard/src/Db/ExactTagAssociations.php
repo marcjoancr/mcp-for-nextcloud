@@ -67,19 +67,19 @@ final class ExactTagAssociations {
     public function mailboxProfile(int $mailbox):string {
         $q=$this->db->getQueryBuilder();$r=$this->rows($q->select('a.inbound_host','a.inbound_port','a.inbound_ssl_mode','a.inbound_user','a.auth_method','a.protocol','a.email')->from('mail_mailboxes','b')->leftJoin('b','mail_accounts','a',$q->expr()->eq('b.account_id','a.id'))->where($q->expr()->eq('b.id',$q->createNamedParameter($mailbox,IQueryBuilder::PARAM_INT))));if(count($r)!==1)throw new \RuntimeException('Native tag mailbox unavailable.');return TagProfile::row($r[0]);
     }
-    public function capture(string $owner,int $mailbox,string $generation):TagSnapshotVersion {
+    public function capture(string $owner,int $mailbox,string $generation,?\OCA\Mail\Sync\MailboxLease $lease=null):TagSnapshotVersion {
         $q=$this->db->getQueryBuilder();$rows=$this->rows($q->select('b.tag_cache_revision','a.inbound_host','a.inbound_port','a.inbound_ssl_mode','a.inbound_user','a.auth_method','a.protocol','a.email')->from('mail_mailboxes','b')->leftJoin('b','mail_accounts','a',$q->expr()->eq('b.account_id','a.id'))->where($q->expr()->eq('b.id',$q->createNamedParameter($mailbox,IQueryBuilder::PARAM_INT)))->andWhere($q->expr()->eq('a.user_id',$q->createNamedParameter($owner))));
-        if(count($rows)!==1)throw new \RuntimeException('Owned snapshot mailbox unavailable.');return new TagSnapshotVersion($owner,$mailbox,$generation,(int)$rows[0]['tag_cache_revision'],TagProfile::row($rows[0]));
+        if(count($rows)!==1)throw new \RuntimeException('Owned snapshot mailbox unavailable.');return new TagSnapshotVersion($owner,$mailbox,$generation,(int)$rows[0]['tag_cache_revision'],TagProfile::row($rows[0]),$lease);
     }
     /** First statement inside the snapshot transaction: current locking read, never an old MVCC view. */
     public function claim(TagSnapshotVersion $version):void {
-        if(!$this->db->inTransaction())throw new \RuntimeException('Tag snapshot requires a transaction.');
+        $version->syncLease?->assertOwned();if(!$this->db->inTransaction())throw new \RuntimeException('Tag snapshot requires a transaction.');
         $q=$this->db->getQueryBuilder();$q->select('tag_cache_revision')->from('mail_mailboxes')->where($q->expr()->eq('id',$q->createNamedParameter($version->mailbox,IQueryBuilder::PARAM_INT)));if($this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_SQLITE)$q->forUpdate();$rows=$this->rows($q);
         if(count($rows)!==1||(int)$rows[0]['tag_cache_revision']!==$version->expected())throw new \RuntimeException('Tag snapshot was superseded by another cache writer.');if($this->capture($version->owner,$version->mailbox,$version->generation)->profile!==$version->profile)throw new \RuntimeException('Inbound snapshot identity changed.');$next=$version->stage();
         $q=$this->db->getQueryBuilder();if($q->update('mail_mailboxes')->set('tag_cache_revision',$q->createNamedParameter($next,IQueryBuilder::PARAM_INT))->where($q->expr()->eq('id',$q->createNamedParameter($version->mailbox,IQueryBuilder::PARAM_INT)))->andWhere($q->expr()->eq('tag_cache_revision',$q->createNamedParameter($version->expected(),IQueryBuilder::PARAM_INT)))->executeStatement()!==1)throw new \RuntimeException('Tag snapshot revision changed.');
     }
     public function assertCurrent(TagSnapshotVersion $version):void {
-        if($version->pending()!==null||(($current=$this->capture($version->owner,$version->mailbox,$version->generation))->expected()!==$version->expected()||$current->profile!==$version->profile))throw new \RuntimeException('Native tag snapshot changed.');
+        $version->syncLease?->assertOwned();if($version->pending()!==null||(($current=$this->capture($version->owner,$version->mailbox,$version->generation))->expected()!==$version->expected()||$current->profile!==$version->profile))throw new \RuntimeException('Native tag snapshot changed.');
     }
     public function set(string $owner,int $message,int $tag,bool $value,?TagSnapshotVersion $version=null):void {
         // Locate before beginning an owned transaction; locks precede its first consistent read.

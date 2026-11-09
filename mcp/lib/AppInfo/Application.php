@@ -706,7 +706,7 @@ class Application extends App implements IBootstrap {
             }
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailMutationTarget::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailMutationTarget(
-            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailMoveTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailboxMutationTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class)
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailMoveTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailboxMutationTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailRefreshTarget::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailCapabilities(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(IAppManager::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagBoundary::class)
@@ -767,6 +767,7 @@ class Application extends App implements IBootstrap {
             'mail_rename_mailbox' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RenameMailbox::class),
             'mail_set_mailbox_subscription' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMailboxSubscription::class),
             'mail_create_tag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CreateTag::class),
+            'mail_refresh_mailbox' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RefreshMailbox::class),
             'mail_set_message_tag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMessageTag::class),
             'mail_list_tags' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListTags::class),
             'mail_list_aliases' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAliases::class),

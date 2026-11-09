@@ -66,10 +66,10 @@ final class MailboxListerTest extends TestCase {
 
 		$this->assertSame(['id' => 3, 'name' => 'Work', 'email' => 'alice@example.com'], $answer['account']);
 		$this->assertSame([
-			['id' => 10, 'path' => 'INBOX', 'name' => 'INBOX', 'delimiter' => '.', 'special' => 'inbox', 'unread' => 2, 'total' => 3, 'selectable' => true],
-			['id' => 13, 'path' => 'Projects', 'name' => 'Projects', 'delimiter' => '.', 'special' => 'archive', 'unread' => null, 'total' => null, 'selectable' => false],
-			['id' => 12, 'path' => 'Projects.2026', 'name' => '2026', 'delimiter' => '.', 'special' => null, 'unread' => 0, 'total' => 2, 'selectable' => true],
-			['id' => 11, 'path' => 'Sent', 'name' => 'Sent', 'delimiter' => '.', 'special' => 'sent', 'unread' => 0, 'total' => 5, 'selectable' => true],
+			['id' => 10, 'path' => 'INBOX', 'name' => 'INBOX', 'delimiter' => '.', 'special' => 'inbox', 'unread' => 2, 'total' => 3, 'selectable' => true, 'freshness'=>['status'=>'unknown']],
+			['id' => 13, 'path' => 'Projects', 'name' => 'Projects', 'delimiter' => '.', 'special' => 'archive', 'unread' => null, 'total' => null, 'selectable' => false, 'freshness'=>['status'=>'unknown']],
+			['id' => 12, 'path' => 'Projects.2026', 'name' => '2026', 'delimiter' => '.', 'special' => null, 'unread' => 0, 'total' => 2, 'selectable' => true, 'freshness'=>['status'=>'unknown']],
+			['id' => 11, 'path' => 'Sent', 'name' => 'Sent', 'delimiter' => '.', 'special' => 'sent', 'unread' => 0, 'total' => 5, 'selectable' => true, 'freshness'=>['status'=>'unknown']],
 		], $answer['mailboxes']);
 		$this->assertSame(4, $answer['mailboxCount']);
 		$this->assertFalse($answer['hasMore']);

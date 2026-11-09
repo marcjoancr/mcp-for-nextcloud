@@ -33,6 +33,7 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 */
 	public function __construct(
 		private MailServices $services,
+        private ?MailNativeBoundary $boundary=null,
 	) {
 	}
 
@@ -96,6 +97,7 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 				'unread' => $mailbox->getUnseen() === null ? null : (int)$mailbox->getUnseen(),
 				'total' => $mailbox->getMessages() === null ? null : (int)$mailbox->getMessages(),
 				'selectable' => $mailbox->getSelectable() === null ? null : (bool)$mailbox->getSelectable(),
+                'freshness' => $this->freshness($userId,$accountId,(int)$mailbox->getId()),
 			];
 		}
 		return ['account' => $this->accountRow($account), 'mailboxes' => $rows];
@@ -107,6 +109,11 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 * @param object $account OCA\Mail\Account
 	 * @return array{id:int, name:string, email:string} the row of the account
 	 */
+    private function freshness(string $uid,int $account,int $box):array {
+        if(!$this->boundary?->refreshSourceVerified())return ['status'=>'unknown'];
+        try{return $this->services->refreshSnapshots($uid)->freshness($uid,$account,$box);}catch(\Throwable){return ['status'=>'unknown'];}
+    }
+
 	private function accountRow(object $account): array {
 		return [
 			'id' => (int)$account->getId(),

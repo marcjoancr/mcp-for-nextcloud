@@ -6,7 +6,7 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** C2 and C4 implemented, C5 inventory/local creation and conditional exact message assignment are complete; C6 local-draft filtering is added, while remote refresh, D+ and full C acceptance remain incomplete. A/D/C0 and conditional C1/C3 are preserved; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2/C4–C7 were pending at the C3 baseline; the current follow-up below supersedes those task statuses. C3 is implemented conditionally on the native v2 artifact. Release B is frozen, outside this plan's completion criteria.
+**Status:** C2 and C4 implemented, C5 inventory/local creation and conditional exact message assignment are complete; C6 local-draft filtering and guarded refresh are implemented; native v5, whole-check and normal enabled-package qualification have passed. D+ and full C acceptance remain incomplete. A/D/C0 and conditional C1/C3 are preserved; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2/C4–C7 were pending at the C3 baseline; the current follow-up below supersedes those task statuses. C3 is implemented conditionally on the native v2 artifact. Release B is frozen, outside this plan's completion criteria.
 
 ## Follow-up: safe mutation guard and C1 delivery
 
@@ -55,9 +55,12 @@ tests, both static scopes and packaging; native v3 regression 28 tests / 850
 assertions. Exact transaction/fault/receipt evidence is in the
 [C5 creation delivery](../specs/2026-11-09-mail-tag-creation-evidence.md).
 
-C6 **remote refresh remains blocked**. Native sync uses timestamp-only locks and
-unconditional unlocks, so stale owner safety is unproven; bounded work/held-draft
-semantics also need their own qualification. Only local draft filtering is complete.
+C6 is delivered conditionally on native v5: closed bounded refresh and physical session ownership. Its
+repository qualifier was enabled only after source/schema/native/whole checks
+passed. Read-only collection, cache CAS, explicit reset/new IDs and historical
+freshness replace the unsafe general-sync route. See the
+[C6 plan](2026-11-10-mail-refresh-plan.md) and
+[evidence](../specs/2026-11-10-mail-refresh-evidence.md).
 C7 acceptance applies to delivered slices, and does not imply all C is complete.
 D+ credential-change evidence, explicit reconciliation and alias administration
 remain pending. No force-unlock, folder deletion or send tool is added.
@@ -205,16 +208,21 @@ Retain actual interfaces rather than the superseded speculative DTO API:
 - [x] Test local creation interrupted before/after native ID recording, rollback and commit acknowledgement loss; retain uncertainty, never deduplicate/create again merely by display name. Keep opaque tag IDs through receipt compaction. Tag deletion/global renaming and bulk effects need a later reviewed design.
 - [x] Qualification passed 40 native Mail tests / 1,053 assertions, the whole check (10,205 PHP tests / 93,247 assertions, 837 browser tests), and the final PHP catalog (10,206 / 93,249), with actual C5 enabled in the packaged source. Only selected associations change; held replies and no-send state are preserved.
 
-### C6 — Explicit freshness and practical draft reading (local filters implemented; refresh blocked)
+### C6 — Explicit freshness and practical draft reading (conditional v5 implemented)
 
 **Files:** Create `Mail/Sync/MailRefresh.php`, `Tools/RefreshMailbox.php`; extend `Presentation/MailRows.php` / existing Mailbox presentation, `Tools/ReadDrafts.php`, `Drafts/MailDraftOperations.php`, `Search/MailMessagePager.php` as needed; add unit/native freshness cases.
-**Consumes:** Native `Service/Sync/SyncService.syncMailbox`, C0 capability evidence and A/D status; ordinary reads remain cache-only or read-only peek.
+**Consumes:** Qualified native v5 `GuardedMailboxRefresh` (not the general synchronizer), C0 capability evidence and A/D status; ordinary reads remain cache-only or read-only peek.
 **Produces:** Proposed `mail_refresh_mailbox` / `refresh`, freshness metadata and local draft account/subject filters. No automatic refresh inside status, search or listing.
 
-- [ ] Test `testReadNeverRefreshes`, `testFreshnessUnknownIsNotFresh`, `testExplicitRefreshPreservesSeenAndReplyHolds`, `testRefreshCannotDispatchWorkersOrOutbox`, `testRepeatedRefreshOperationDoesNotRunAgain`.
-- [ ] Admit one owned mailbox per operation, five operations/user/account/minute maximum and a 20-second wall-clock budget. Support this only if the native boundary/isolated runner can enforce the budget without unsafe replay; a socket timeout alone is insufficient. Do not repurpose D's authentication-only helper for arbitrary effects. Persist any partial/uncertain synchronization result and do not promise an unsupported native message-count cap.
+- [x] Test `testReadNeverRefreshes`, `testFreshnessUnknownIsNotFresh`, `testExplicitRefreshPreservesSeenAndReplyHolds`, `testRefreshCannotDispatchWorkersOrOutbox`, `testRepeatedRefreshOperationDoesNotRunAgain`.
+- [x] Admit one owned mailbox per operation, five operations/user/account/minute maximum and a 20-second wall-clock budget. Support this only if the native boundary/isolated runner can enforce the budget without unsafe replay; a socket timeout alone is insufficient. Do not repurpose D's authentication-only helper for arbitrary effects. Persist any partial/uncertain synchronization result and do not promise an unsupported native message-count cap.
 - [x] Filter local drafts by owned `account_id` / subject while retaining max 50/page and full-read truncation flags. A cached IMAP Drafts mailbox is **not** a local draft; import needs its own future reviewed operation.
-- [ ] Run `--filter 'MailRefresh|MailDraftOperations|MailMessagePager'` unit/native tests (expected: bounded requested work only; old cursor/cache-generation tests and SMTP capture unchanged), then commit.
+- [x] Run `--filter 'MailRefresh|MailDraftOperations|MailMessagePager'` unit/native tests (expected: bounded requested work only; old cursor/cache-generation tests and SMTP capture unchanged), then commit.
+
+C6 acceptance: 10,242 PHP tests / 93,716 assertions, 837 browser tests, both
+static scopes and packaging; final normal enabled-source native regression
+47 tests / 1,157 assertions. All source/schema/provider gates remain mandatory.
+Sending is disabled. See [C6 evidence](../specs/2026-11-10-mail-refresh-evidence.md).
 
 ### D+1 — Observe credential-only native work accurately
 
