@@ -684,6 +684,10 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), $c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
             $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeAccountSetupLinks::class), static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Connection\MailConnection::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Connection\MailConnection(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),
+            $c->get(\OCA\Mcp\Db\MailProbeSlotsMapper::class),$c->get(\OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbe::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),$c->get(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class)
+        ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbe::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbe(
             $c->get(\OCA\Mcp\Platform\Process\NativeProbeProcess::class),$c->get(\OCA\Mcp\Modules\Mail\Connection\ProbeTicket::class),$c->get(\OCA\Mcp\OAuth\ConnectionContext::class),
             static function()use($c):?array {
@@ -696,13 +700,17 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbeWorker::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbeWorker(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),
             $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeAccountSetupLinks::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Connection\ProbeTicket::class),
-            $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),static function(string $uid,int $connection)use($c):bool {
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),static function(string $uid,int $connection,array $sources=[])use($c):bool {
                 $user=$c->get(IUserManager::class)->get($uid);if($user===null||!$user->isEnabled())return false;
                 $c->get(\OCP\IUserSession::class)->setUser($user);$c->get(IAppManager::class)->loadApp('mail');
                 $context=$c->get(\OCA\Mcp\OAuth\ConnectionContext::class);$context->set($connection);
                 $selection=$c->get(\OCA\Mcp\OAuth\ConnectionToolsStore::class)->get($uid,$connection);
                 if($selection===null)return false;$context->setSelection($selection['tools'],$selection['variants']);
-                return $c->get(GrantPolicy::class)->within($uid,static fn():bool=>self::mailToolAllowed($c,$uid,'mail_test_connection'));
+                return $c->get(GrantPolicy::class)->within($uid,static function()use($c,$uid,$sources):bool {
+                    if(!self::mailToolAllowed($c,$uid,'mail_test_connection')||count($sources)>8)return false;
+                    foreach($sources as $tool)if(!is_string($tool)||!isset(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()[$tool])||!self::mailToolAllowed($c,$uid,$tool))return false;
+                    return true;
+                });
             }
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailMutationTarget::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailMutationTarget(
@@ -734,6 +742,9 @@ class Application extends App implements IBootstrap {
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tags\MailTagCreation::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tags\MailTagCreation(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\IDBConnection::class),$c->get(\OCA\Mcp\Db\MailProbeSlotsMapper::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailAliasGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\IDBConnection::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
@@ -768,6 +779,10 @@ class Application extends App implements IBootstrap {
             'mail_set_mailbox_subscription' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMailboxSubscription::class),
             'mail_create_tag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CreateTag::class),
             'mail_refresh_mailbox' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RefreshMailbox::class),
+            'mail_reconcile_operation' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReconcileOperation::class),
+            'mail_add_alias' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AddAlias::class),
+            'mail_update_alias' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\UpdateAlias::class),
+            'mail_delete_alias' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteAlias::class),
             'mail_set_message_tag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMessageTag::class),
             'mail_list_tags' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListTags::class),
             'mail_list_aliases' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAliases::class),

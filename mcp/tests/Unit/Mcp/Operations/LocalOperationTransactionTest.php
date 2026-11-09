@@ -48,4 +48,27 @@ final class LocalOperationTransactionTest extends TestCase {
         if($sql->dbal->isTransactionActive())$sql->dbal->rollBack();$row=$j->get('alice',$args['operation_id']);self::assertSame('running',$row['state']);self::assertArrayNotHasKey('tag_id',$row['resource_refs']);self::assertTrue($j->execute('mail_create_tag','alice',$args,static fn():array=>throw new \LogicException('No retry'))['operation']['replayed']);
     }
 
+    public function testOnlyACommittedLocalTransactionHasADurableCompletionMarker():void {
+        foreach(['before_commit','after_commit'] as $fault){
+            [$sql,$db,$j,$args]=$this->fixture($fault);
+            $j->execute('mail_create_tag','alice',$args,fn():array=>$j->atomicLocal($db,function()use($sql,$j):array{
+                $sql->dbal->insert('fixture_tags',['name'=>'Reviewed']);$j->checkpoint(['tag_id'=>(int)$sql->dbal->lastInsertId()]);return [];
+            }));
+            $row=(new OperationsMapper($sql->connection()))->get($j->scopeKey('alice'),$args['operation_id']);
+            self::assertSame($fault==='after_commit',$row['resource_refs']['local_completed']??false);
+        }
+    }
+
+    public function testAnAbortedInnerTransactionCannotLeaveAFalseDurableCompletionMarker():void {
+        [$sql,$db,$j,$args]=$this->fixture();
+        $j->execute('mail_create_tag','alice',$args,fn():array=>$j->atomicLocal($db,function()use($sql,$j):array{
+            $sql->dbal->insert('fixture_tags',['name'=>'Rolled back']);$id=(int)$sql->dbal->lastInsertId();
+            $sql->dbal->rollBack();
+            $j->checkpoint(['tag_id'=>$id]);return [];
+        }));
+        self::assertSame(0,(int)$sql->dbal->fetchOne('SELECT COUNT(*) FROM fixture_tags'));
+        $row=(new OperationsMapper($sql->connection()))->get($j->scopeKey('alice'),$args['operation_id']);
+        self::assertFalse($row['resource_refs']['local_completed']??false,'A completion marker must never escape the native transaction');
+    }
+
 }

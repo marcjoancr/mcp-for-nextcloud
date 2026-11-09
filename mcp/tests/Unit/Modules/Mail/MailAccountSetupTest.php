@@ -127,4 +127,41 @@ final class MailAccountSetupTest extends TestCase {
         $this->expectException(ToolFailure::class);$module->call('mail_complete_account_setup',$args,'alice');
     }
 
+    public function testUnchangedCredentialsCanBeObservedForDiagnosticsWithoutCompletingSetup():void {
+        [$s,$j,,$native,$entity]=$this->setupService();
+        [$r,$original]=$this->begin($s,$j,['account_id'=>4,'intent'=>[]],'mail_configure_connection');
+        $args=['setup_operation_id'=>$original['operation_id'],'account_id'=>4,'intent'=>[]];
+        $context=$s->diagnosticContext($args,'alice');
+        self::assertSame($original['operation_id'],$context['source_operation_id']);
+        self::assertSame('mail_configure_connection',$context['source_tool']);
+        self::assertSame('unverified',$context['credential_change']);
+        $entity->setInboundPassword('NEW-SECRET');
+        self::assertSame($context,$s->diagnosticContext($args,'alice'),'Secret changes cannot masquerade as non-secret authorization revision');
+        self::assertSame(0,$native->writes);self::assertSame('awaiting_user',$j->get('alice',$original['operation_id'])['state']);
+        try{$s->previewCompletion($args,'alice');self::fail('Credential change falsely completed');}catch(ToolFailure){}
+        self::assertStringNotContainsString('SECRET',json_encode($context));
+    }
+    public function testDiagnosticLinkStillRequiresCurrentIntentSourceConnectionAndExpiry():void {
+        [$s,$j,,,,,$connection]=$this->setupService();
+        [$r,$original]=$this->begin($s,$j,['account_id'=>4,'intent'=>[]],'mail_configure_connection');
+        $args=['setup_operation_id'=>$original['operation_id'],'account_id'=>4,'intent'=>[]];
+        foreach(['intent','connection','revoked','expired'] as $case){
+            $a=$args;$this->allowed=true;$this->now=1000;$connection->set(12);
+            if($case==='intent')$a['intent']=['name'=>'Other'];
+            if($case==='connection')$connection->set(99);
+            if($case==='revoked')$this->allowed=false;
+            if($case==='expired')$this->now=100000;
+            try{$s->diagnosticContext($a,'alice');self::fail('Diagnostic admitted '.$case);}catch(ToolFailure $e){self::assertNotEmpty($e->getMessage());}
+        }
+    }
+
+    public function testOAuthTokenPresenceWithoutANonSecretRevisionDoesNotProveFreshConsent():void {
+        [$s,$j,,$native,$entity]=$this->setupService();$entity->setAuthMethod('xoauth2');
+        [$r,$original]=$this->begin($s,$j,['account_id'=>4,'intent'=>[]],'mail_configure_connection');
+        $args=['setup_operation_id'=>$original['operation_id'],'account_id'=>4,'intent'=>[]];
+        $before=$s->diagnosticContext($args,'alice');$entity->setOauthAccessToken('NEW-SECRET-TOKEN');
+        self::assertSame($before,$s->diagnosticContext($args,'alice'));self::assertSame('unverified',$before['credential_change']);
+        self::assertSame(0,$native->writes);$this->expectException(ToolFailure::class);$s->previewCompletion($args,'alice');
+    }
+
 }

@@ -8,13 +8,13 @@ Each permission starts denied, including on existing installations. `mail.read` 
 The native qualification fixture uses Mail 5.12.5 on Nextcloud 35; the API floor
 is not a promise that every Mail/server version combination is supported.
 
-The module publishes **37 tools** on MCP2.7.0. Sending, scheduling, enqueueing,
+The module publishes **41 tools** on MCP2.7.0. Sending, scheduling, enqueueing,
 MDN transmission and outbox dispatch remain disabled. Acceptance covers the
-implemented A/D/C0–C6 slices; it does not claim complete parity with native Mail.
+implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim complete parity with native Mail.
 
 | Native configuration | Acceptance scope |
 | --- | --- |
-| NC35.0.2 / stock Mail5.12.5 / MariaDB10.11.19 | Existing reads, local drafts/Files, settings/setup and qualified local tag creation. Guarded remote mutations refuse. |
+| NC35.0.2 / stock Mail5.12.5 / MariaDB10.11.19 | Existing reads, local drafts/Files, settings/setup, qualified local tag creation and qualified local alias administration. Guarded remote mutations refuse. |
 | Same pair with exact v5 overlay and required primary InnoDB schema | Flags, moves, folders, local tag creation, exact message tags and bounded refresh, subject to each independent grant and provider gate. |
 | Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
 | NC33/34 or other Mail/server/provider combinations | Native behavior unverified by this acceptance run. The manifest/API floor and static fixtures do not qualify those combinations. |
@@ -441,14 +441,78 @@ uncertain binding claims and minimal non-replay receipt keys are retained.
    hydrate the destination; an absent cached source or matching Message-ID does
    not prove the outcome. A refresh snapshot describes its observation time.
 3. Preserve uncertain claims and staged resources for administrator inspection.
-   There is no force-unlock or automatic reconciliation tool. Age, name, subject
+   There is no force-unlock or automatic reconciliation tool. The separate reviewed
+   `mail_reconcile_operation` below requires durable completion proof. Age, name, subject
    or human acknowledgment cannot prove a safe retry. Native installation and
    matched code/database rollback require separate operator work.
 
 Credential-only changes with an unchanged non-secret profile remain unverified.
-Alias administration and explicit evidence-based reconciliation are pending D+
-work. Remote IMAP draft import/search, large-message streaming, raw export,
+Alias administration and a bounded evidence-based reconciliation path are
+provided below. Remote IMAP draft import/search, large-message streaming, raw export,
 advanced filters/snooze and destructive folder deletion remain outside acceptance.
+
+## D+ reconciliation, linked diagnostics and aliases
+
+| Tool | Independent permission | Reviewed scope |
+| --- | --- | --- |
+| `mail_reconcile_operation` | `mail.reconcile_operations` | Metadata-only resolution of one exact `target_operation_id` in this user/connection and `account_id`, under current original/source permissions. |
+| `mail_add_alias` | `mail.create_identities` | New owned local alias with explicit `name` and `email`; never adopt an existing address as a successful creation. |
+| `mail_update_alias` | `mail.edit_identities` | Patch only `name` / `email` in `changes` for an owned `alias_id` and `account_id`. |
+| `mail_delete_alias` | `mail.delete_identities` | Remove one owned local alias, refusing local draft/outgoing references and unresolved account work. |
+
+These writes have separate denied-by-default grants, assignments and connection
+selection, and use the existing preview / `plan_state` / `operation_id` protocol.
+Original operation keys remain non-replay tombstones after reconciliation.
+Status and repeated confirmations perform no new native write, authentication,
+refresh, deletion or reconciliation.
+
+Reconciliation accepts only already durable completion evidence: a closed native
+`completed` phase, an atomic local alias completion marker and exact ID, a
+completed setup binding, or a succeeded repair explicitly linked to its source
+(with `evidence_operation_id`). It compares the whole relevant receipt and target
+claim before changing metadata. For repair it relinquishes only the exact
+snapshots adopted by the succeeded operation; it never deletes an attachment.
+No remote connection is opened. A proven historical outcome does not promise
+that the referenced resource still exists now.
+
+Cache/event work still pending, an interrupted repair/binding without final
+proof, old receipts lacking the necessary link/marker, uncertain unscoped tag
+creation and unknown native outcomes remain protected. Missing rows, age, names,
+email, subject, Message-ID or a person's acknowledgment cannot resolve them.
+Inspect the receipt and native Mail with an administrator; do not manufacture a
+new operation ID or clear the database claim to force a retry. Unsharded primary
+transactional journal/setup storage is required, including InnoDB on MySQL/MariaDB.
+
+For D+1, `mail_test_connection` optionally accepts **both** `setup_operation_id`
+and the original non-secret `intent`. The workflow must be pending, unexpired,
+owned by this same user/connection and target the selected account; current
+original setup and connection-read permissions are rechecked, including in the
+bounded authentication worker. The receipt retains a minimal
+`authentication_observation`, profile revision and observation time. Successful
+results mean only **authentication observed with the current configuration**.
+They never prove a password/token changed, OAuth consent completed or a setup was
+created exactly once. Status/replay never probes again. Mail5.12.5 has no
+qualified non-secret authorization revision; credential-only changes with an
+unchanged profile remain unverified and completion continues to refuse them.
+A failed, revoked or expired context cannot yield a successful observation.
+
+Alias writes are source-qualified on NC35.0.2/Mail5.12.5, with the unchanged native
+Alias/AliasMapper source, owned-account checks, primary transactional tables and
+no replicas/sharding. Native mapper writes, opaque alias ID and completion marker
+share the journal's database transaction. Lost commit acknowledgment retains
+uncertainty until the separate approved proof-based reconciliation can establish
+the outcome. Stock Mail and v5 use the same unchanged alias mapper; other native
+pairs remain unverified. No additional overlay or native migration is installed.
+
+Names are literal text up to 255 bytes; alias addresses must be valid and at most
+254 bytes. Provisioned identities and unknown fields are refused. Signatures,
+signature mode, certificate bindings and account membership remain untouched;
+no crypto material is accepted or returned. Inventory review is bounded to 1,000
+aliases. MCP account admission serializes its own actions. Independent native UI
+activity can race, as with account removal: inspect open native drafts/settings
+before removing an identity. This is not a global native UI lifecycle lock.
+Additional account preferences still require a separately named allowlist.
+Sending, scheduling and outbox dispatch remain disabled.
 
 ## C0 compatibility foundation
 

@@ -60,7 +60,13 @@ class MailAccountSetup {
         });
         return ['account_id'=>$account,'native_state'=>'observed_in_mail','source'=>'native_ui'];
     }
-    private function observation(array $args,string $uid): array {
+    /** An observation context does not complete the workflow or attest to secret changes. */
+    public function diagnosticContext(array $args,string $uid):array {
+        [$flow,$profile,$tool]=$this->observation($args,$uid,true);
+        return ['source_operation_id'=>$args['setup_operation_id'],'source_tool'=>$tool,
+            'source_tools'=>[$tool,'mail_read_connection'],'profile_revision'=>$profile['revision'],'credential_change'=>'unverified'];
+    }
+    private function observation(array $args,string $uid,bool $diagnostic=false): array {
         $this->intent($args['intent']);
         $f=$this->workflows->get($this->journal->scopeKey($uid),$args['setup_operation_id']);
         if($f===null||$f['phase']!=='pending'||(int)$f['expires_at']<$this->clock->getTime())throw new ToolFailure('Setup operation not found or no longer pending.');
@@ -74,8 +80,8 @@ class MailAccountSetup {
         if(!$profile['editable'])throw new ToolFailure('Provisioned connection settings are managed by the administrator.');
         $this->links->validate($profile,true);
         if(!self::matches($args['intent'],$profile))throw new ToolFailure('The native configuration differs from the requested intent. Review a new setup plan.');
-        if(!$create && hash_equals($f['before_digest'],$profile['revision']))throw new ToolFailure('An unchanged profile does not verify a credential-only change. Use native Mail; authorization remains unverified.');
-        if($create && !$this->gateway->authorizationAvailable($uid,$id))throw new ToolFailure('Native Mail authorization has not been observed. Complete its assistant first.');
+        if(!$diagnostic && !$create && hash_equals($f['before_digest'],$profile['revision']))throw new ToolFailure('An unchanged profile does not verify a credential-only change. Use native Mail; authorization remains unverified.');
+        if(!$diagnostic && $create && !$this->gateway->authorizationAvailable($uid,$id))throw new ToolFailure('Native Mail authorization has not been observed. Complete its assistant first.');
         $original=$this->journal->get($uid,$args['setup_operation_id']);
         if($original===null||$original['tool']!==$tool||$original['state']!=='awaiting_user')throw new ToolFailure('Setup admission could not be verified. Inspect its operation.');
         return [$f,$profile,$tool];

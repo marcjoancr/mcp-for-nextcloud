@@ -19,6 +19,7 @@ class NativeConnectionProbeWorker {
             $uid=$ticket['uid'];$id=$ticket['account_id'];$protocol=$ticket['protocol'];
             $operation=$this->journal->get($uid,$ticket['operation_id']);
             if($operation===null||$operation['tool']!=='mail_test_connection'||$operation['state']!=='running')return ['status'=>'failed','category'=>'policy_refused'];
+            if(!($this->authorize)($ticket['uid'],$ticket['connection_id'],$operation['source_tools']??[]))return ['status'=>'failed','category'=>'policy_refused'];
             $p=$this->gateway->readConnection($uid,$id);
             if(!hash_equals($p['revision'],$ticket['revision']))return ['status'=>'unknown','category'=>'revision_changed'];
             $account=$this->gateway->account($uid,$id);

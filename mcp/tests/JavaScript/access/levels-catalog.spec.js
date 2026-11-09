@@ -105,7 +105,7 @@ test('the origin of a module: invalid, then individual, then unknown group, then
 
 test('Mail account management stays outside the legacy inventory read tier', () => {
     const operations = catalog().mail
-    const settings = ['read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts']
+    const settings = ['read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities']
     assert.deepEqual(Levels.operationsFor('mail', operations, 'read'), ['read'])
     for (const operation of settings) {
         assert.ok(Levels.operationsFor('mail', operations, 'full').includes(operation))

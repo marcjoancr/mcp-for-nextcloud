@@ -17535,13 +17535,97 @@
                     "module": "mail",
                     "operation": "test_connection",
                     "app": "mail",
-                    "description": "Explicitly previews and confirms native IMAP/SMTP authentication diagnostics independently. Hard budget: 10 seconds each, 20 total; five operations per account per minute. No SMTP envelope or message is submitted. Unsupported process/TLS policies are reported honestly.",
+                    "description": "Explicitly previews and confirms native IMAP/SMTP authentication diagnostics independently. Hard budget: 10 seconds each, 20 total; five operations per account per minute. No SMTP envelope or message is submitted. Unsupported process/TLS policies are reported honestly. Optionally repeat setup_operation_id and its original intent together to correlate a pending native assistant workflow. Authentication observed with the current profile never proves a credential change or completes setup.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "account_id": {
                                 "type": "integer",
                                 "minimum": 1
+                            },
+                            "setup_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "intent": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                    },
+                                    "imap": {
+                                        "type": "object",
+                                        "properties": {
+                                            "host": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 255
+                                            },
+                                            "port": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 65535
+                                            },
+                                            "tls": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "ssl",
+                                                    "tls"
+                                                ]
+                                            },
+                                            "user": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 500
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "smtp": {
+                                        "type": "object",
+                                        "properties": {
+                                            "host": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 255
+                                            },
+                                            "port": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 65535
+                                            },
+                                            "tls": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "ssl",
+                                                    "tls"
+                                                ]
+                                            },
+                                            "user": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 500
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "auth_method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "password",
+                                            "xoauth2"
+                                        ]
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "description": "Only non-secret desired configuration. Enter passwords and OAuth consent in native Mail."
                             },
                             "protocols": {
                                 "type": "array",
@@ -18395,6 +18479,182 @@
                         "required": [
                             "account_id",
                             "mailbox_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_reconcile_operation",
+                    "module": "mail",
+                    "operation": "reconcile_operations",
+                    "app": "mail",
+                    "description": "Preview and confirm a separate metadata reconciliation of one owned operation in this connection. Requires current original/source tool permissions and exact durable completion proof. Supports completed native phases, marked atomic local alias writes, completed setup binding and succeeded repairs explicitly referencing their source. Unproven claims remain protected; absence, age, names and human acknowledgment never authorize a retry. Does not connect to native mail servers, repeat effects, send, delete artifacts or force unlock.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "evidence_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "target_operation_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_add_alias",
+                    "module": "mail",
+                    "operation": "create_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            "email": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 254
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "name",
+                            "email"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_update_alias",
+                    "module": "mail",
+                    "operation": "edit_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "changes": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 254
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "alias_id",
+                            "changes"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_delete_alias",
+                    "module": "mail",
+                    "operation": "delete_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "alias_id"
                         ],
                         "additionalProperties": false
                     }
@@ -40492,13 +40752,97 @@
                     "module": "mail",
                     "operation": "test_connection",
                     "app": "mail",
-                    "description": "Explicitly previews and confirms native IMAP/SMTP authentication diagnostics independently. Hard budget: 10 seconds each, 20 total; five operations per account per minute. No SMTP envelope or message is submitted. Unsupported process/TLS policies are reported honestly.",
+                    "description": "Explicitly previews and confirms native IMAP/SMTP authentication diagnostics independently. Hard budget: 10 seconds each, 20 total; five operations per account per minute. No SMTP envelope or message is submitted. Unsupported process/TLS policies are reported honestly. Optionally repeat setup_operation_id and its original intent together to correlate a pending native assistant workflow. Authentication observed with the current profile never proves a credential change or completes setup.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "account_id": {
                                 "type": "integer",
                                 "minimum": 1
+                            },
+                            "setup_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "intent": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                    },
+                                    "imap": {
+                                        "type": "object",
+                                        "properties": {
+                                            "host": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 255
+                                            },
+                                            "port": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 65535
+                                            },
+                                            "tls": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "ssl",
+                                                    "tls"
+                                                ]
+                                            },
+                                            "user": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 500
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "smtp": {
+                                        "type": "object",
+                                        "properties": {
+                                            "host": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 255
+                                            },
+                                            "port": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 65535
+                                            },
+                                            "tls": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "ssl",
+                                                    "tls"
+                                                ]
+                                            },
+                                            "user": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 500
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "auth_method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "password",
+                                            "xoauth2"
+                                        ]
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "description": "Only non-secret desired configuration. Enter passwords and OAuth consent in native Mail."
                             },
                             "protocols": {
                                 "type": "array",
@@ -41352,6 +41696,182 @@
                         "required": [
                             "account_id",
                             "mailbox_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_reconcile_operation",
+                    "module": "mail",
+                    "operation": "reconcile_operations",
+                    "app": "mail",
+                    "description": "Preview and confirm a separate metadata reconciliation of one owned operation in this connection. Requires current original/source tool permissions and exact durable completion proof. Supports completed native phases, marked atomic local alias writes, completed setup binding and succeeded repairs explicitly referencing their source. Unproven claims remain protected; absence, age, names and human acknowledgment never authorize a retry. Does not connect to native mail servers, repeat effects, send, delete artifacts or force unlock.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "evidence_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "target_operation_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_add_alias",
+                    "module": "mail",
+                    "operation": "create_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            "email": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 254
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "name",
+                            "email"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_update_alias",
+                    "module": "mail",
+                    "operation": "edit_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "changes": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 254
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "alias_id",
+                            "changes"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_delete_alias",
+                    "module": "mail",
+                    "operation": "delete_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "alias_id"
                         ],
                         "additionalProperties": false
                     }
@@ -63449,13 +63969,97 @@
                     "module": "mail",
                     "operation": "test_connection",
                     "app": "mail",
-                    "description": "Explicitly previews and confirms native IMAP/SMTP authentication diagnostics independently. Hard budget: 10 seconds each, 20 total; five operations per account per minute. No SMTP envelope or message is submitted. Unsupported process/TLS policies are reported honestly.",
+                    "description": "Explicitly previews and confirms native IMAP/SMTP authentication diagnostics independently. Hard budget: 10 seconds each, 20 total; five operations per account per minute. No SMTP envelope or message is submitted. Unsupported process/TLS policies are reported honestly. Optionally repeat setup_operation_id and its original intent together to correlate a pending native assistant workflow. Authentication observed with the current profile never proves a credential change or completes setup.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
                             "account_id": {
                                 "type": "integer",
                                 "minimum": 1
+                            },
+                            "setup_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "intent": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                    },
+                                    "imap": {
+                                        "type": "object",
+                                        "properties": {
+                                            "host": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 255
+                                            },
+                                            "port": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 65535
+                                            },
+                                            "tls": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "ssl",
+                                                    "tls"
+                                                ]
+                                            },
+                                            "user": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 500
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "smtp": {
+                                        "type": "object",
+                                        "properties": {
+                                            "host": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 255
+                                            },
+                                            "port": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 65535
+                                            },
+                                            "tls": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "ssl",
+                                                    "tls"
+                                                ]
+                                            },
+                                            "user": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 500
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "auth_method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "password",
+                                            "xoauth2"
+                                        ]
+                                    }
+                                },
+                                "additionalProperties": false,
+                                "description": "Only non-secret desired configuration. Enter passwords and OAuth consent in native Mail."
                             },
                             "protocols": {
                                 "type": "array",
@@ -64309,6 +64913,182 @@
                         "required": [
                             "account_id",
                             "mailbox_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_reconcile_operation",
+                    "module": "mail",
+                    "operation": "reconcile_operations",
+                    "app": "mail",
+                    "description": "Preview and confirm a separate metadata reconciliation of one owned operation in this connection. Requires current original/source tool permissions and exact durable completion proof. Supports completed native phases, marked atomic local alias writes, completed setup binding and succeeded repairs explicitly referencing their source. Unproven claims remain protected; absence, age, names and human acknowledgment never authorize a retry. Does not connect to native mail servers, repeat effects, send, delete artifacts or force unlock.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "evidence_operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "target_operation_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_add_alias",
+                    "module": "mail",
+                    "operation": "create_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "maxLength": 255
+                            },
+                            "email": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 254
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "name",
+                            "email"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_update_alias",
+                    "module": "mail",
+                    "operation": "edit_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "changes": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 254
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "alias_id",
+                            "changes"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_delete_alias",
+                    "module": "mail",
+                    "operation": "delete_identities",
+                    "app": "mail",
+                    "description": "Preview and confirm this owned local Mail alias action. Only name and email fields are accepted; omitted signature, certificate and account fields are preserved. Provisioned identities and unresolved account operations refuse. Deletion also refuses local draft/outgoing references. Uses a qualified native mapper and atomic local journal; no credential entry, remote synchronization or sending. Native UI activity remains independent. Inspect the same operation ID after a lost response; never deduplicate creation by name or address.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "alias_id"
                         ],
                         "additionalProperties": false
                     }

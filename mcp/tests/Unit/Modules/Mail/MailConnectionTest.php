@@ -42,4 +42,26 @@ final class MailConnectionTest extends TestCase {
         try{$j->execute('mail_test_connection','alice',$a,fn():array=>$s->probe($a,'alice'));self::fail('Rate limit ignored');}
         catch(\OCA\Mcp\Mcp\Operations\BeforeEffectFailure){self::assertCount(10,$calls);self::assertSame('failed_before_effect',$j->get('alice',$a['operation_id'])['state']);}
     }
+    public function testSourceRevocationBetweenProtocolsPreservesObservedResultsWithoutAnotherProbe():void {
+        [$g,,,, $states]=$this->fixture();$context=new ConnectionContext();$clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);
+        $j=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock);$allowed=true;$calls=0;
+        $setup=$this->createMock(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class);
+        $setup->method('diagnosticContext')->willReturnCallback(static function()use(&$allowed):array{
+            if(!$allowed)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Source revoked');
+            return ['source_operation_id'=>'setup','source_tool'=>'mail_configure_connection','source_tools'=>['mail_configure_connection','mail_read_connection'],'profile_revision'=>'revision','credential_change'=>'unverified'];
+        });
+        $native=$this->createMock(NativeConnectionProbe::class);$native->method('run')->willReturnCallback(static function()use(&$allowed,&$calls):array{$calls++;$allowed=false;return ['status'=>'ok','category'=>'authenticated'];});
+        $s=new MailConnection($g,$states,$j,new MailProbeSlotsMapper($db->connection()),$native,$clock,$setup);
+        $args=['account_id'=>4,'protocols'=>['imap','smtp'],'setup_operation_id'=>'setup','intent'=>[]];
+        $p=$j->plan('mail_test_connection','alice',$args,$s->preview($args,'alice'));$a=$args+['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
+        $failure=null;try{$r=$j->execute('mail_test_connection','alice',$a,fn():array=>$s->probe($a,'alice'));}catch(\OCA\Mcp\Mcp\Operations\BeforeEffectFailure $e){$failure=$e;}
+        self::assertNull($failure,'A completed first diagnostic must not be erased as failed-before-effect');
+        self::assertSame(1,$calls);self::assertSame('ok',$r['protocols']['imap']['status']);
+        self::assertSame('policy_refused',$r['protocols']['smtp']['category']);self::assertSame('unverified',$r['authentication_observation']['status']);
+        self::assertSame('unverified',$r['authentication_observation']['credential_change']);
+        self::assertTrue($j->execute('mail_test_connection','alice',$a,static fn():array=>throw new \LogicException('No replay probe'))['operation']['replayed']);
+        self::assertSame(1,$calls);
+    }
+
 }

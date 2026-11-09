@@ -21,7 +21,12 @@ final class MailOperationReader {
     public function assertAccess(string $uid,array $receipt): void {
         if (!$this->allowed($uid,$receipt)) throw new ToolFailure('Operation not found.');
     }
-    private function allowed(string $uid,array $receipt):bool {return ($this->allowsTool)($uid,$receipt['tool']) && (!isset($receipt['source_tool']) || ($this->allowsTool)($uid,$receipt['source_tool']));}
+    private function allowed(string $uid,array $receipt):bool {
+        $tools=array_merge([$receipt['tool']],isset($receipt['source_tool'])?[$receipt['source_tool']]:[],$receipt['source_tools']??[]);
+        if(count($tools)>10)return false;
+        foreach($tools as $tool)if(!is_string($tool)||!($this->allowsTool)($uid,$tool))return false;
+        return true;
+    }
     public function list(string $uid, int $limit, int $offset): array {
         $rows = $this->journal->list($uid, $limit, $offset);
         $visible = array_values(array_filter($rows, fn(array $r): bool => $this->allowed($uid,$r)));

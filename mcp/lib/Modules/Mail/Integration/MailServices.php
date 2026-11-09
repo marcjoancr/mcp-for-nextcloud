@@ -159,6 +159,12 @@ class MailServices {
 
     public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}
 
+    public function newAliasMapper(string $uid,\OCP\IDBConnection $db):object {
+        $class='OCA\\Mail\\Db\\AliasMapper';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class($db);
+    }
+    public function newAlias(string $uid):object {
+        $class='OCA\\Mail\\Db\\Alias';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
+    }
     public function aliasesService(string $userId): object {
         return $this->resolve('OCA\\Mail\\Service\\AliasesService', $userId);
     }

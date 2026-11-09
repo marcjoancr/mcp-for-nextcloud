@@ -65,16 +65,17 @@ final class UniqueSnippetTest extends TestCase {
 		$this->assertSame('bXa', UniqueSnippet::replace('banana', 'anan', 'X'));
 	}
 
-	/** @return array<string, array{int, int, string, string}> lazy content/snippet sizes, suffix and refusal */
+	/** @return array<string, array{int, int, string, string, string}> lazy content/snippet sizes, suffix and refusal */
 	public static function adversarial(): array {
 		$ambiguous = EditingMessages::snippetAmbiguous();
 		$missing = EditingMessages::snippetMissing();
+        $memoryLimit = (string)ini_get('memory_limit');
 		return [
-			'short (strpos): 64 "a" in 10 MiB of "a", ambiguous' => [10485760,64,'',$ambiguous],
-			'short (strpos): 63 "a" then "b" in 10 MiB of "a", missing' => [10485760,64,'b',$missing],
-			'long (KMP): 64 KiB of "a" in 1 MiB of "a", ambiguous' => [1048576,65536,'',$ambiguous],
-			'long (KMP): 64 KiB - 1 of "a" then "b" in 1 MiB of "a", missing' => [1048576,65536,'b',$missing],
-			'longer than the content, missing at once' => [100,101,'',$missing],
+			'short (strpos): 64 "a" in 10 MiB of "a", ambiguous' => [10485760,64,'',$ambiguous,$memoryLimit],
+			'short (strpos): 63 "a" then "b" in 10 MiB of "a", missing' => [10485760,64,'b',$missing,$memoryLimit],
+			'long (KMP): 64 KiB of "a" in 1 MiB of "a", ambiguous' => [1048576,65536,'',$ambiguous,$memoryLimit],
+			'long (KMP): 64 KiB - 1 of "a" then "b" in 1 MiB of "a", missing' => [1048576,65536,'b',$missing,$memoryLimit],
+			'longer than the content, missing at once' => [100,101,'',$missing,$memoryLimit],
 		];
 	}
 
@@ -86,10 +87,16 @@ final class UniqueSnippetTest extends TestCase {
 	 * @param int $contentBytes content size
 	 * @param int $snippetBytes snippet size
      * @param string $suffix final non-repeating snippet bytes
+     * @param string $memoryLimit parent PHP memory limit, retained in the isolated case
 	 * @param string $refusal the message the search ends with
 	 */
 	#[DataProvider('adversarial')]
-	public function testASnippetThatRepeatsOrAlmostMatchesEverywhereIsRefusedQuickly(int $contentBytes, int $snippetBytes, string $suffix, string $refusal): void {
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
+	public function testASnippetThatRepeatsOrAlmostMatchesEverywhereIsRefusedQuickly(int $contentBytes, int $snippetBytes, string $suffix, string $refusal, string $memoryLimit): void {
+        // Avoid fragmentation accumulated by the full suite without changing inputs or raising the budget.
+        $this->iniSet('memory_limit', $memoryLimit);
+        self::assertSame($memoryLimit, ini_get('memory_limit'));
         // Keep large inputs out of PHPUnit's suite-wide provider storage and event exporter.
         $content = str_repeat('a', $contentBytes);
         $old = str_repeat('a', $snippetBytes - strlen($suffix)) . $suffix;

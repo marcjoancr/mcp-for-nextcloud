@@ -148,3 +148,11 @@ The 2026-11-08 C3 addition appends four Mail definitions to the three full
 locale catalogs and extends the existing Mail flag-guide paragraph to explain
 the qualified v2 MOVE/COPYUID path, separate permissions and pending native
 destination cache sync. Existing schemas, protocol and result captures are retained.
+
+Mail D+ appends four raw definitions (reconciliation and alias CRUD) to each
+locale and extends only mail_test_connection with optional setup_operation_id /
+intent correlation and its description. A guarded patch verified every other
+prior definition unchanged, and removing those two properties plus restoring the
+prior description exactly recovers that old definition. Historical unknown-version
+publication, protocol and result captures remain unchanged; no whole capture was
+regenerated. Current Mail/native and grant tests exercise the new actions.

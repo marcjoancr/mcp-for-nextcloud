@@ -6,7 +6,7 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 37 tools and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+ credential-only change evidence, explicit reconciliation and alias administration remain pending. B sending/scheduling/dispatch is frozen and excluded from completion. Historical baseline results below do not extend qualification to NC33/34 or unknown Mail/provider combinations.
+**Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 41 tools including D+ and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+1/D+2/D+3 are complete for the supported scope: linked authentication observations, proof-based reconciliation and alias CRUD. The [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md) records native acceptance and complete regression. Credential-change attestation with an unchanged profile remains a documented native blocker. B sending/scheduling/dispatch is frozen and excluded from completion. Historical baseline results below do not extend qualification to NC33/34 or unknown Mail/provider combinations.
 
 ## Follow-up: safe mutation guard and C1 delivery
 
@@ -16,7 +16,7 @@ The [C1 delivery record](../specs/2026-11-08-mail-c1-guard-evidence.md) records 
 
 ## Current follow-up: C2, C4, C5, C6 and C7 acceptance
 
-The implementation now publishes **37 Mail tools**: C2 adds create, same-parent
+The C7 baseline published **37 Mail tools**; D+ below adds four separately granted actions. At that baseline, C2 adds create, same-parent
 rename, subscription and special-role configuration; C4 adds owned identity
 inventory and forwarding fields to the existing draft writer; C5 adds read-only
 tag inventory, qualified local creation and conditional exact message assignment. C6 adds account/subject filters to local draft reads and explicit qualified mailbox refresh. Each new tool
@@ -61,9 +61,10 @@ passed. Read-only collection, cache CAS, explicit reset/new IDs and historical
 freshness replace the unsafe general-sync route. See the
 [C6 plan](2026-11-10-mail-refresh-plan.md) and
 [evidence](../specs/2026-11-10-mail-refresh-evidence.md).
-C7 acceptance applies only to delivered slices; it does not complete D+ or optional native parity.
-D+ credential-change evidence, explicit reconciliation and alias administration
-remain pending. No force-unlock, folder deletion or send tool is added.
+C7 acceptance covered the preceding delivered slices; D+ is accepted separately below. Optional native parity remains outside that acceptance.
+D+ linked authentication observations, proof-based reconciliation and alias
+administration are implemented under the [D+ plan](2026-11-09-mail-d-plus-plan.md);
+native acceptance and full regression are complete. Unchanged-profile credential changes remain unverified. No force-unlock, folder deletion or send tool is added.
 
 ## Implementation baseline and evidence
 
@@ -80,14 +81,14 @@ The A/D baseline `MailToolCatalog::definitions()` contained **23 tools** at `f59
 
 Implementation anchors, rather than the old checklist, establish what is delivered:
 
-- `mcp/lib/Modules/Mail/Composition/ReplyComposer.php` derives reply/reply-all recipients and validates owned aliases. `Tools/WriteDraft.php` had no forwarding fields in the C3 baseline; C4 below now adds forwarding and owned identity discovery. Alias administration remains pending.
+- `mcp/lib/Modules/Mail/Composition/ReplyComposer.php` derives reply/reply-all recipients and validates owned aliases. `Tools/WriteDraft.php` had no forwarding fields in the C3 baseline; C4 below now adds forwarding and owned identity discovery. D+3 now adds separately granted alias administration.
 - `Drafts/MailDraftOperations.php` saves a real native parent locally and sets `failed=true` to hold lossy native draft-to-IMAP synchronization. Native UI edits can release that hold. This is **local threading**, not a proven native UI/IMAP lifecycle guarantee.
 - `Files/MailFilesSource.php` snapshots authorized Files bytes, preserves retained attachments and supports reviewed partial repair. Limits remain 10 attachments / 25 MiB raw, 20,000 characters per body and 50 recipients per address field.
 - `Integration/MailBodyPreflight.php` checks server-reported whole-message size (1 MiB). It is **not a hard streaming byte cap** against an IMAP server that lies about size. Search is cached header search; draft listing is local-only, with account/subject filters now added by the C6 local slice.
-- `Settings/MailSettings.php` supports exactly `editor_mode`, `signature_above_quote`, `show_subscribed_only`. C2 now assigns special folders; alias CRUD remains pending.
+- `Settings/MailSettings.php` supports exactly `editor_mode`, `signature_above_quote`, `show_subscribed_only`. C2 assigns special folders; D+ adds separately granted alias CRUD.
 - `Accounts/MailAccountSetup.php` admits a 24-hour native UI workflow and binds a specifically selected account. An unchanged connection profile refuses completion, including credential-only changes. The fixed native link does not prefill fields or capture credentials.
 - `Connection/MailConnection.php` checkpoints sanitized per-protocol results. `Mcp/Operations/OperationJournal.php` exposes them in `operation.protocols`, rechecks guarded completion replays and serializes writes by account where `account_id` is supplied.
-- `Operations/MailOperationCleanup.php` preserves uncertain/repairing claims. There is no published reconciliation/release-of-uncertainty tool. Native account deletion does not erase the journal.
+- `Operations/MailOperationCleanup.php` preserves uncertain/repairing claims. D+ adds reviewed reconciliation only for exact durable completion proof; no force-unlock or resolution by absence is published. Native account deletion does not erase the journal.
 - At the historical A/D baseline there were no flag/move/archive/trash/restore, tag or folder-mutation tools. C1/C3 and the current follow-up add the qualified actions above. Remote refresh now requires qualified v5; sending, scheduling and outbox dispatch remain unavailable. Message tag assignment requires qualified native v4 or v5.
 
 Recorded implementation validation at `f59d5fc1`: full check 9,924 PHP tests / 89,235 assertions, 837 browser tests, both static scopes and packaging; native NC35/MariaDB/Mail5.12.5: 10 tests / 319 assertions. These are baseline results, **not evidence that the pending capabilities work**, nor a deployment record.
@@ -226,33 +227,43 @@ Sending is disabled. See [C6 evidence](../specs/2026-11-10-mail-refresh-evidence
 
 ### D+1 — Observe credential-only native work accurately
 
-**Files:** Extend `Accounts/MailAccountSetup.php`, `Connection/MailConnection.php`, `Mcp/Operations/ProtocolDiagnostics.php`, relevant workflow/operation mappers and `Operations/MailOperationReader.php`; corresponding unit/native tests.
+**Files:** Extended `Accounts/MailAccountSetup.php`, `Connection/{MailConnection,NativeConnectionProbeWorker}.php`, `Tools/TestConnection.php` and the operation receipt/permission chain; unit setup/connection cases and native `McpMailDPlusTest.php`.
 **Consumes:** Delivered D workflows, scoped diagnostic receipts, immutable setup intent and A repair claims.
 **Produces:** Optional reviewed native authorization evidence within existing ownership/permission boundaries, or a precisely documented blocker. This extends the delivered D; unchanged-profile refusal stays in place until evidence is proven.
 
-- [ ] Test credential-only native edits, OAuth consent without profile change, unchanged old credentials still authenticating and native UI abandonment. Evaluate a correlated, fresh successful per-protocol diagnostic or native authorization revision under current probe/source/read permissions. Describe it as **observed current authentication**, never proof that a password changed. If no trustworthy native change evidence exists, keep credential-change completion unverified; successful connectivity alone must not claim a credential update.
-- [ ] Require explicit workflow/account IDs, same actor/connection, current source permissions, intent equality and fresh revision for any evidence link. Status must not initiate the probe. Expose unsupported consent/deep-link capabilities honestly; never add secret inputs or fake prefill parameters.
-- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailAccountSetup|MailConnection|MailSetupOperation'` plus native scenarios (expected: original source revocation honored on status/replay, no false credential-change proof and no extra probes), then commit supported improvements or record the native blocker.
+- [x] Test credential-only native edits, OAuth consent without profile change, unchanged old credentials still authenticating and native UI abandonment. Evaluate a correlated, fresh successful per-protocol diagnostic or native authorization revision under current probe/source/read permissions. Describe it as **observed current authentication**, never proof that a password changed. If no trustworthy native change evidence exists, keep credential-change completion unverified; successful connectivity alone must not claim a credential update.
+- [x] Require explicit workflow/account IDs, same actor/connection, current source permissions, intent equality and fresh revision for any evidence link. Status must not initiate the probe. Expose unsupported consent/deep-link capabilities honestly; never add secret inputs or fake prefill parameters.
+- [x] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailAccountSetup|MailConnection|MailSetupOperation'` plus native scenarios (expected: original source revocation honored on status/replay, no false credential-change proof and no extra probes), then commit supported improvements or record the native blocker.
 
 ### D+2 — Explicit operation reconciliation
 
-**Files:** Add `Mail/Operations/MailOperationReconciler.php` only for proven observations; extend existing operation/workflow mappers and receipt readers. Any proposed `mail_reconcile_operation` tool has its own denied-by-default `reconcile_operations` grant and still requires original-action access/connection selection. Tests: `Unit/Modules/Mail/MailOperationReconcilerTest.php`, `Unit/Db/OperationsMapperTest.php` and native crash cases under `mcp/tests/`.
+**Files:** Added `Mail/Operations/MailOperationReconciler.php` and `Tools/ReconcileOperation.php`; extended `Db/OperationsMapper.php`, `Mcp/Operations/OperationJournal.php` and `Mail/Operations/MailOperationReader.php`. The `mail_reconcile_operation` tool has its own denied-by-default `reconcile_operations` grant and requires original/source-action access and connection selection. Tests: `Unit/Modules/Mail/MailOperationReconcilerTest.php`, `Unit/Mcp/Operations/LocalOperationTransactionTest.php`, the existing mapper/receipt regression and native `McpMailDPlusTest.php`.
 **Consumes:** A/D exact stored resource identities, keyed integrity proofs, account claims and protected repair/workflow phases; no dependence on D+1.
 **Produces:** A separately reviewed, approved metadata reconciliation path or an operator inspection procedure where a safe result cannot be proven.
 
-- [ ] Test a crash during partial repair/setup binding and a native write succeeding before receipt persistence. Reconcile only exact stored native IDs/integrity evidence in a **separate approved operation**. Status continues to make no native call or metadata transition.
-- [ ] Never claim the effect failed, unlock an uncertain target or clean artifacts from absence/age/subject/Message-ID matching. Preserve the old non-replay tombstone and use compare-and-set transitions. A human acknowledgment is not proof of the native outcome. If safe resolution cannot be proven, document native/admin inspection rather than ship a force-unlock tool.
-- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailOperationReconciler|MailOperation|OperationsMapper'` plus native interruption cases (expected: zero repeated effects, no unauthorized receipt, unresolved cases retained), then commit.
+- [x] Test a crash during partial repair/setup binding and a native write succeeding before receipt persistence. Reconcile only exact stored native IDs/integrity evidence in a **separate approved operation**. Status continues to make no native call or metadata transition.
+- [x] Never claim the effect failed, unlock an uncertain target or clean artifacts from absence/age/subject/Message-ID matching. Preserve the old non-replay tombstone and use compare-and-set transitions. A human acknowledgment is not proof of the native outcome. If safe resolution cannot be proven, document native/admin inspection rather than ship a force-unlock tool.
+- [x] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailOperationReconciler|MailOperation|OperationsMapper'` plus native interruption cases (expected: zero repeated effects, no unauthorized receipt, unresolved cases retained), then commit.
 
 ### D+3 — Optional alias administration and additional settings
 
-**Files:** Extend `Mail/Accounts/MailIdentities.php` from C4; proposed `Tools/{AddAlias,UpdateAlias,DeleteAlias}.php` and alias mutation tests. Other account preferences need a separate explicit allowlist after their native contracts are inspected.
+**Files:** Added `Mail/Accounts/MailIdentityAdministration.php`, `Integration/{MailAliasBoundary,MailAliasGateway,MailJournalStorage}.php`, `Tools/{AddAlias,UpdateAlias,DeleteAlias}.php`, unit alias/storage/tool tests and native `McpMailDPlusTest.php`. C4 inventory remains in `Accounts/MailIdentities.php`. Other account preferences require a separate explicit allowlist after their native contracts are inspected.
 **Consumes:** C4 owned alias inventory, D signature/native account adapters and journal; C2 already owns special-folder roles.
-**Produces:** Proposed independent `create_identities`, `edit_identities`, `delete_identities` grants for `mail_add_alias`, `mail_update_alias`, `mail_delete_alias`; not generic native object patching. This is a later parity slice, not a blocker for daily no-send composition.
+**Produces:** Independent `create_identities`, `edit_identities`, `delete_identities` grants for `mail_add_alias`, `mail_update_alias`, `mail_delete_alias`; not generic native object patching. This is a later parity slice, not a blocker for daily no-send composition.
 
-- [ ] Preview account/alias IDs, exact address/name and current revision. Preserve omitted signatures, account membership and S/MIME certificate bindings; refuse edits to provisioned addresses and removal while a local draft or active/uncertain operation references the alias. Never accept crypto private material.
-- [ ] Test unknown-key rejection, foreign alias membership, provisioned identities, retained certificate/signature fields, interrupted creation and lost delete responses. No guessed deduplication by email/name.
-- [ ] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailIdentities|MailSettings|MailSignatures'` plus native identity cases (expected: only approved fields change; no outgoing admission), then commit. Ordering/background sync or other preferences require separately named fields, preservation tests and appropriate grants before admission.
+- [x] Preview account/alias IDs, exact address/name and current revision. Preserve omitted signatures, account membership and S/MIME certificate bindings; refuse edits to provisioned addresses and removal while a local draft or active/uncertain operation references the alias. Never accept crypto private material.
+- [x] Test unknown-key rejection, foreign alias membership, provisioned identities, retained certificate/signature fields, interrupted creation and lost delete responses. No guessed deduplication by email/name.
+- [x] Run `php mcp/vendor/bin/phpunit -c mcp/phpunit.xml --filter 'MailIdentities|MailSettings|MailSignatures'` plus native identity cases (expected: only approved fields change; no outgoing admission), then commit. Ordering/background sync or other preferences require separately named fields, preservation tests and appropriate grants before admission.
+
+D+ acceptance: **10,326 PHP tests / 94,908 assertions**, **837 browser tests**,
+both static scopes, documentation/release/client checks and packaging passed in
+one complete catalog run. Native full Mail regression passed on v5 (51 tests /
+1,409 assertions) and stock (19 executed / 32 expected guard skips / 529
+assertions), with affected transaction paths rerun after the marker correction.
+The fresh final review found no actionable issues. Credential-change attestation
+with an unchanged profile remains the explicit native blocker allowed by D+1;
+observed authentication does not resolve it. See [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md).
+Sending remains disabled and native installation is separate.
 
 ### C7 — Acceptance of the no-send module (complete on tested pair)
 

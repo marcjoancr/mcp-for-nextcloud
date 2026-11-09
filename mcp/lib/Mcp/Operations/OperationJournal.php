@@ -48,7 +48,7 @@ final class OperationJournal {
         $old = $this->store->get($scope, $id);
         if ($old !== null) return $this->replay($old, $authorizeReplay);
         if ((int)$parts[2] < $this->clock->getTime()) throw new \InvalidArgumentException('Operation plan expired; preview again.');
-        $target = $tool==='mail_create_tag' ? 'mail-tags' : (isset($args['account_id']) ? 'account:' . (int)$args['account_id'] : (isset($args['draft_id']) ? 'draft:' . $args['draft_id'] : (isset($args['path']) ? 'file:' . $args['path'] : null)));
+        $target = $tool==='mail_reconcile_operation' ? 'reconcile:'.($args['target_operation_id']??'') : ($tool==='mail_create_tag' ? 'mail-tags' : (isset($args['account_id']) ? 'account:' . (int)$args['account_id'] : (isset($args['draft_id']) ? 'draft:' . $args['draft_id'] : (isset($args['path']) ? 'file:' . $args['path'] : null))));
         $row = ['scope_key' => $scope, 'actor_uid' => $uid, 'operation_id' => $id, 'tool_name' => $tool, 'effect_digest' => $fingerprint,
             'target_key' => $target === null ? null : hash('sha256', $uid . "\0" . $target),
             'state' => 'running', 'resource_refs' => isset($args['account_id']) ? ['account_id'=>(int)$args['account_id']] : [], 'created_at' => $this->clock->getTime(), 'updated_at' => $this->clock->getTime()];
@@ -105,7 +105,7 @@ final class OperationJournal {
         if($this->active===null||isset($this->active['delegated'])||$db->inTransaction())throw new BeforeEffectFailure('An independent local operation transaction is required.');
         $before=$this->active['refs'];
         try{$db->beginTransaction();}catch(\Throwable){throw new BeforeEffectFailure('The local transaction could not start.');}
-        try{$result=$write();}
+        try{$result=$write();if(!$db->inTransaction())throw new \RuntimeException('The local transaction ended before its completion checkpoint.');$this->checkpoint(['local_completed'=>true]);}
         catch(\Throwable $e){
             try{$db->rollBack();}catch(\Throwable){try{$db->close();}catch(\Throwable){throw new LocalCommitUnknown('Local connection could not be discarded.',false);}throw new LocalCommitUnknown('Local rollback outcome unavailable.');}
             $this->active['refs']=$before;
@@ -168,6 +168,7 @@ final class OperationJournal {
             throw new ToolFailure('Repair state changed; preview again.');
         }
         $this->active['repair_of'] = $id;
+        $this->checkpoint(['repair_source_operation_id'=>$id]);
     }
 
     public function repairResources(string $uid, string $id): array {
@@ -199,11 +200,11 @@ final class OperationJournal {
         if($state==='running' && isset($row['resource_refs']['mutation']['expires_at']) && $this->clock->getTime()>(int)$row['resource_refs']['mutation']['expires_at'])$state='uncertain';
         if ($state === 'running' && $this->clock->getTime() - (int)$row['updated_at'] > self::TTL) $state = 'uncertain';
         if($state==='awaiting_user' && $this->clock->getTime()>(int)($row['resource_refs']['user_expires_at']??0))$state='expired';
-        $extra=array_intersect_key($row['resource_refs'],array_flip(['native_state','source','source_tool']));
+        $extra=array_intersect_key($row['resource_refs'],array_flip(['native_state','source','source_tool','source_tools','authentication_observation','reconciled_operation_id']));
         if ($row['tool_name']==='mail_test_connection' && isset($row['resource_refs']['protocols'])) $extra['protocols']=ProtocolDiagnostics::sanitize($row['resource_refs']['protocols']);
         if(isset($row['resource_refs']['mutation']))$extra['mutation']=array_intersect_key($row['resource_refs']['mutation'],array_flip(['phase','remote','cache']));
         return $extra+['operation_id' => $row['operation_id'], 'tool' => $row['tool_name'], 'state' => $state,
-            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(array_merge(['draft_id', 'file_id','account_id'],$row['tool_name']==='mail_create_tag'?['tag_id']:[]))), 'replayed' => $replayed, 'safe_to_retry' => false,
+            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(array_merge(['draft_id', 'file_id','account_id'],$row['tool_name']==='mail_create_tag'?['tag_id']:(in_array($row['tool_name'],['mail_add_alias','mail_update_alias','mail_delete_alias'],true)?['alias_id']:[])))), 'replayed' => $replayed, 'safe_to_retry' => false,
             'updated_at' => (int)$row['updated_at']];
     }
 

@@ -171,7 +171,7 @@ final class OperationsMapper implements OperationStore {
             ->andWhere($q->expr()->neq('actor_uid',$q->createNamedParameter('')))->setMaxResults(100)->executeQuery();
         try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         foreach($rows as $row){
-            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id','tag_id','account_id','source_tool','native_state','source','user_expires_at','protocols','mutation']));
+            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id','tag_id','alias_id','account_id','source_tool','source_tools','native_state','source','user_expires_at','protocols','authentication_observation','reconciled_operation_id','mutation']));
             if(isset($refs['mutation']))$refs['mutation']=array_intersect_key($refs['mutation'],array_flip(['phase','remote','cache']));
             $u=$this->db->getQueryBuilder();
             $u->update(self::TABLE)->set('state',$u->createNamedParameter($row['state']==='awaiting_user'?'expired':$row['state']))->set('actor_uid',$u->createNamedParameter(''))
@@ -191,9 +191,27 @@ final class OperationsMapper implements OperationStore {
         if(count($rows)>1000)return true;
         foreach($rows as $row){$refs=$this->decode($row)['resource_refs'];
             if(($refs['account_id']??null)===$account || $row['target_key']===hash('sha256',$uid."\0account:".$account))return true;
-            if(!isset($refs['account_id'])&&in_array($row['tool_name'],['mail_write_draft','mail_attach_files'],true))return true;
+            if(!isset($refs['account_id'])&&in_array($row['tool_name'],['mail_write_draft','mail_attach_files','mail_delete_draft'],true))return true;
         }
         return false;
+    }
+
+    /** Separate approved reconciliation only: exact state/receipt CAS, retaining the non-replay key. */
+    public function reconcile(array $expected,string $state,array $refs,int $time):bool {
+        if(!in_array($expected['state']??null,['running','uncertain','repairing'],true)||!in_array($state,['succeeded','repaired'],true))return false;
+        $q=$this->db->getQueryBuilder();return $q->update(self::TABLE)
+            ->set('state',$q->createNamedParameter($state))->set('target_key',$q->createNamedParameter(null,IQueryBuilder::PARAM_NULL))
+            ->set('resource_refs',$q->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)))
+            ->set('updated_at',$q->createNamedParameter($time,IQueryBuilder::PARAM_INT))
+            ->where($q->expr()->eq('scope_key',$q->createNamedParameter($expected['scope_key'])))
+            ->andWhere($q->expr()->eq('operation_id',$q->createNamedParameter($expected['operation_id'])))
+            ->andWhere($q->expr()->eq('actor_uid',$q->createNamedParameter($expected['actor_uid'])))
+            ->andWhere($q->expr()->eq('tool_name',$q->createNamedParameter($expected['tool_name'])))
+            ->andWhere($q->expr()->eq('state',$q->createNamedParameter($expected['state'])))
+            ->andWhere($q->expr()->eq('effect_digest',$q->createNamedParameter($expected['effect_digest'])))
+            ->andWhere($expected['target_key']===null?$q->expr()->isNull('target_key'):$q->expr()->eq('target_key',$q->createNamedParameter($expected['target_key'])))
+            ->andWhere($q->expr()->eq('updated_at',$q->createNamedParameter((int)$expected['updated_at'],IQueryBuilder::PARAM_INT)))
+            ->andWhere($q->expr()->eq('resource_refs',$q->createNamedParameter(json_encode($expected['resource_refs'],JSON_THROW_ON_ERROR))))->executeStatement()===1;
     }
 
     public function resolveAwaiting(string $scope,string $id,array $refs,int $time): bool {

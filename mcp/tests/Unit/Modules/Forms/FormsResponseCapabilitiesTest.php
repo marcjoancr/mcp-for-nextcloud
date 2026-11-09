@@ -111,9 +111,10 @@ final class FormsResponseCapabilitiesTest extends TestCase {
 		$config->method('getSystemValueString')->willReturn('test-secret');
 		$states = new PlanState($config);
 		$page = $this->page(101);
+		$largeText = str_repeat('x', 2048);
 		foreach ($page['submissions'] as &$submission) {
 			for ($i = 0; $i < 200; $i++) {
-				$submission['answers'][] = ['questionId' => 3, 'text' => str_repeat('x', 2048)];
+				$submission['answers'][] = ['questionId' => 3, 'text' => $largeText];
 			}
 		}
 		unset($submission);
