@@ -1,4 +1,9 @@
 {"translations": {
+    "assign mail tags" : "asignar etiquetas de Mail",
+    "tag_messages" : "Asignar etiquetas a mensajes de Mail",
+    "Set Mail message tag" : "Establecer etiqueta de un mensaje de Mail",
+    "Set this Mail message tag to the reviewed value. Sending stays disabled." : "Establecer esta etiqueta del mensaje de Mail al valor revisado. El envío sigue desactivado.",
+    "Mail tag" : "Etiqueta de Mail",
     "create_tags" : "Crear etiquetas de Mail",
     "create tags" : "crear etiquetas de Mail",
     "Create Mail tag" : "Crear etiqueta de Mail",

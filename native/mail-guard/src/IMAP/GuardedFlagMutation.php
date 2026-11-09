@@ -59,6 +59,8 @@ trait GuardedFlagMutation {
         if(!$this->_isAuthenticated||!is_object($this->_connection)||$this->mutationSelection===null||!$this->mutationSelection->check($this->_connection,(string)$this->_selected,(string)$this->_mailboxOb()->getStatus(\Horde_Imap_Client::STATUS_UIDVALIDITY),$this->_mode,$this->mutationUid))throw new \RuntimeException('Mutation selection invalidated.');
     }
     protected function _processCmd($pipeline,$cmd,$data) {
+        $this->assertTagSnapshot();
+        $this->guardTagCommand($cmd,$data);
         $this->guardMoveCommand($pipeline,$cmd,$data);
         $this->guardMailboxCommand($cmd,$data);
         if($this->mutationSelection!==null&&$cmd===$data){
@@ -69,6 +71,8 @@ trait GuardedFlagMutation {
         return parent::_processCmd($pipeline,$cmd,$data);
     }
     protected function _logout() {
+        $this->cancelTagSnapshot();
+        $this->tagSelection?->invalidate();
         $this->mutationSelection?->invalidate();
         $this->moveSelection?->invalidate();
         $this->invalidateMailboxMutation();

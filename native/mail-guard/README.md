@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay for **Nextcloud Mail 5.12.5**. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE and folder operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay for **Nextcloud Mail 5.12.5**. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -10,10 +10,10 @@ From the repository root, with that verified archive available:
 mkdir -p mcp/build/native-mail-guard
 php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/overlay
 cmp mcp/build/native-mail-guard/overlay/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v3-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v4-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
 ```
 
-`overlay/mail` contains fourteen native source files: eleven additions and three minimal modifications to Mail's client, cache listener and special-role listener. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
+`overlay/mail` contains the v4 additions and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
 
 The native `MutationFence` adapter exchanges only approved identifiers and DB stage transitions. It never passes a raw client to MCP. `setFlagGuarded` validates the actual selected generation and connection before each command, permits one UID STORE, does not swallow tagged NO responses, requires explicit permanent support for the selected system flag and verifies the desired state on the same generation. A missing flag or keyword wildcard alone does not prove permanence. Logout or reconnect invalidates the permit. The native cache stage locks immutable mailbox/message rows, revalidates their identity and synchronization tokens, commits the flag, then dispatches one webhook-compatible guarded flag event. The ordinary native cache listener skips the already-applied event. An uncertain listener/crash outcome is retained and never automatically redispatched.
 
@@ -47,10 +47,46 @@ The only installation performed by this repository is into its own labelled disp
 MCP_IT_MAIL_GUARD=1 MCP_IT_PHPUNIT_ARGS='--filter McpMail' composer --working-dir=mcp test:integration -- 35 mariadb fresh --mail
 ```
 
-The default fixture still installs stock Mail. A shared or production installation requires a separately reviewed deployment; it is not performed by the builder or MCP startup. This custom overlay changes upstream signed application bytes and must be treated as a custom native build. Mail updates invalidate the admitted boundary until requalified. Stock Mail and unknown builds retain existing A/D behavior and refuse C1/C2/C3 remote writes. The immutable original C1 fingerprint remains accepted for flags, never moves. This v3 artifact cannot be activated by a configuration switch or native version alone.
+The default fixture still installs stock Mail. A shared or production installation requires a separately reviewed deployment; it is not performed by the builder or MCP startup. This custom overlay changes upstream signed application bytes and must be treated as a custom native build. Mail updates invalidate the admitted boundary until requalified. Stock Mail and unknown builds retain existing A/D behavior and refuse C1/C2/C3 remote writes. The immutable original C1 fingerprint remains accepted for flags, never moves. This artifact cannot be activated by a configuration switch or native version alone.
 
 Tests cover Dovecot flags and moves, duplicate Message-ID, no-op/reconnect/generation checks, real HTTP approval/replay/status/cache/permission behavior, native cache generation changes and scripted native-protocol faults. The scripted IMAP endpoint is a test server on loopback, not product transport code. See the [delivery evidence](../../docs/superpowers/specs/2026-11-08-mail-c1-guard-evidence.md) for the historical C1 results, and the [C3 evidence](../../docs/superpowers/specs/2026-11-08-mail-c3-guard-evidence.md) for v2 results and limits.
 
 See the [C2 and continuation evidence](../../docs/superpowers/specs/2026-11-08-mail-c2-continuation-evidence.md) for folder guarantees and subsequent no-send slices.
 
 Existing folder targets and every renamed descendant require a known consistent cached UIDVALIDITY at preview. Newly created folders keep NULL sync tokens and must first be synchronized in native Mail before renaming, subscription changes or child creation. Unknown/conflicting epochs never adopt an execution-time replacement by name.
+
+
+## v4 exact message tags
+
+C5 adds `cached_message_id` to native message/tag links, a unique exact association
+and a cascading foreign key. Existing header-only rows retain NULL exact keys.
+No header, name or label matching migrates their identity. Messages carry nullable
+generation and non-secret inbound-profile provenance; mailboxes carry a monotonic
+tag snapshot revision. Existing legacy/profile-changed cache requires an explicit
+native cache rebuild; ordinary flag-only refresh does not re-adopt old headers.
+No automatic cache deletion or live migration is performed by MCP.
+
+The actual selected authenticated connection brackets native fetches. A shared
+pre-fetch revision follows every batch and classifier write, advancing only after
+its own acknowledged transaction commits. Older snapshots cannot overwrite a
+concurrent C5 cache commit or adopt a newer writer's revision. Reads/search/global
+tag deletion refuse or hide unverified associations. Native UI and queued
+classification consume exact cached incarnations; old header-only jobs are ignored
+before AI calls. Overlong server keywords are never truncated into another tag.
+
+The closed keyword guard requires permanent keyword support, one exact UID and one
+UID STORE, with complete same-selection readback preserving every unrelated flag.
+A targeted cache transaction also maintains the native Important projection.
+Stock tag writes emit no event; v4 adds none. Journal uncertainty never retries,
+redispatches, refreshes or unlocks a retained operation. Sending remains disabled.
+
+Native v4 requires an unsharded, unreplicated transactional primary schema and
+working FK cascades. C5 assignment is qualified only for the MySQL/MariaDB provider; other providers refuse before schema or transport work. SQLite is a unit model, not native qualification.
+Installation remains a separate reviewed deployment. **Rollback requires a matched
+code/database snapshot**: v4 adds native entity columns, so restoring only older
+native files is not a safe downgrade. Never overwrite v1/v2/v3 artifacts.
+
+Qualification, exact final digests and remaining limits are recorded in the
+[C5 assignment evidence](../../docs/superpowers/specs/2026-11-09-mail-tag-assignment-evidence.md).
+
+The final normalized v4 overlay SHA256 is `056233948790dfa742cc1471e1c2133c5a70551ce8177cb22faadc964bb8ad79`; its 56-path manifest SHA256 is `4385f56e2dcde49e1f3739ad91fc21c84dbf41adea224af9152abeb57d8337a5`. The overlay contains 36 source files. Qualification passed 40 native Mail tests / 1,053 assertions, including actual cached QRESYNC response reuse with an intervening C5 assignment and new-message classification. One version follows the whole combined response; already imported new UIDs do not receive its old FLAGS again.

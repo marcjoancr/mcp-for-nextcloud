@@ -1,6 +1,11 @@
 OC.L10N.register(
     "mcp",
     {
+    "assign mail tags" : "atribuir etiquetas de Mail",
+    "tag_messages" : "Atribuir etiquetas às mensagens do Mail",
+    "Set Mail message tag" : "Definir etiqueta da mensagem do Mail",
+    "Set this Mail message tag to the reviewed value. Sending stays disabled." : "Definir esta etiqueta da mensagem do Mail para o valor revisado. O envio continua desativado.",
+    "Mail tag" : "Etiqueta de Mail",
     "create_tags" : "Criar etiquetas do Mail",
     "create tags" : "criar etiquetas do Mail",
     "Create Mail tag" : "Criar etiqueta do Mail",

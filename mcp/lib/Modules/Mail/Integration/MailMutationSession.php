@@ -13,6 +13,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 /** Closed actions only. Credentials, raw clients and generic mutation callbacks never cross this facade. */
 class MailMutationSession {
     public function __construct(private MailMutationTarget $target,private OperationJournal $journal,private NativeMutationRunner $runner,private MailProbeSlotsMapper $slots,private ITimeFactory $clock){}
+    public function tag(string $uid,array $request):array {return $this->admit($uid,$request);}
     public function setFlag(string $uid,array $request):array {return $this->admit($uid,$request);}
     private function admit(string $uid,array $request):array {
         if($this->target->snapshot($uid,$request)['request']!==$request)throw new BeforeEffectFailure('The approved native target changed. Preview again.');

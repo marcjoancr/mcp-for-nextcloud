@@ -150,6 +150,7 @@ class MailServices {
     public function newTag(string $uid):object {
         $class='OCA\\Mail\\Db\\Tag';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
     }
+    public function exactTags(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\ExactTagAssociations',$uid);}
     public function tagMapper(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\TagMapper',$uid);}
     public function guardedMailboxes(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxMutations',$uid);}
     public function guardedMutations(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\GuardedMessageMutations',$uid);}

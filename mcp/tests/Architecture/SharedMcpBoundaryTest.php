@@ -19,7 +19,7 @@ final class SharedMcpBoundaryTest extends TestCase {
         $bad = [];
         foreach ($parts as $part) {
             // These exact values are hash inputs in the optional Mail artifact, not MCP loaders.
-            if($file==='lib/Modules/Mail/Integration/NativeGuardManifest.php' && in_array(trim($part,"'\""),['lib/'.'Service/GuardedMessageMutations.php','lib/'.'Service/MutationFence.php','lib/'.'Service/AccountService.php','lib/'.'Service/MailManager.php','lib/'.'Service/GuardedMailboxMutations.php'],true))continue;
+            if($file==='lib/Modules/Mail/Integration/NativeGuardManifest.php' && in_array(trim($part,"'\""),['lib/'.'Service/GuardedMessageMutations.php','lib/'.'Service/MutationFence.php','lib/'.'Service/AccountService.php','lib/'.'Service/MailManager.php','lib/'.'Service/GuardedMailboxMutations.php','lib/'.'Service/Classification/NewMessagesClassifier.php','lib/'.'Service/Sync/ImapToDbSynchronizer.php'],true))continue;
             $part = str_replace('\\\\', '\\', $part);
             if (preg_match('~OCA\\\\Mcp\\\\(?:Tests\\\\Unit\\\\)?(?:Tools|Service)\\\\[A-Za-z_]~', $part)
                 || preg_match('~(?:lib|tests/Unit)/(?:Tools|Service)/[A-Za-z_]~', $part)) {

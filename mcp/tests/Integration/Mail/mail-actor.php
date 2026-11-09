@@ -56,6 +56,10 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'c5-fault':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeTagActor::fault($uid,(int)$in['account_id'],$in['mode']);break;
+    case 'c5-protocol':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeTagActor::protocol($uid,(int)$in['account_id'],$in['mode']);break;
     case 'c2-protocol':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailMailboxActor::protocol($uid,(int)$in['account_id'],$in['mode']);break;
     case 'c2-fault':

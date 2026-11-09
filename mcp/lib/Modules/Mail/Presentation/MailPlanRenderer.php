@@ -17,7 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
-		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag'], true)) {
+		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag', 'mail_set_message_tag'], true)) {
 			return null;
 		}
 		return match ($tool) {
@@ -30,6 +30,7 @@ final class MailPlanRenderer {
 
     private static function configuration(string $tool, array $plan): string {
         $heading = match ($tool) {
+            'mail_set_message_tag' => Translator::t('Set this Mail message tag to the reviewed value. Sending stays disabled.'),
             'mail_create_tag' => Translator::t('Create this local Mail tag for all your accounts. No message will be changed.'),
             'mail_write_account_settings' => Translator::t('Update these Mail preferences.'),
             'mail_write_signature' => Translator::t('Update this Mail signature. A null value removes it.'),
@@ -48,7 +49,7 @@ final class MailPlanRenderer {
             'setup_operation_id' => Translator::t('Setup operation'), 'source_tool' => Translator::t('Source tool')] as $key => $label) {
             if (array_key_exists($key, $plan)) $lines[] = '- ' . $label . ': ' . PlanText::quoted(self::value($plan[$key]));
         }
-        foreach (['folders' => Translator::t('Role folders'), 'source' => Translator::t('Source folder'), 'destination' => Translator::t('Destination folder'), 'account' => Translator::t('Mail account'), 'before' => Translator::t('Current values'),
+        foreach (['tag' => Translator::t('Mail tag'), 'folders' => Translator::t('Role folders'), 'source' => Translator::t('Source folder'), 'destination' => Translator::t('Destination folder'), 'account' => Translator::t('Mail account'), 'before' => Translator::t('Current values'),
             'after' => Translator::t('Values after this change'), 'requested' => Translator::t('Requested configuration'),
             'observed' => Translator::t('Observed configuration'), 'profile' => Translator::t('Mail connection'),
             'protocols' => Translator::t('Protocols'), 'impact' => Translator::t('Removal impact')] as $key => $label) {

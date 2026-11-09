@@ -1,6 +1,11 @@
 OC.L10N.register(
     "mcp",
     {
+    "assign mail tags" : "Mail-Schlagwörter zuweisen",
+    "tag_messages" : "Mail-Schlagwörter zuweisen",
+    "Set Mail message tag" : "Mail-Nachrichtenschlagwort setzen",
+    "Set this Mail message tag to the reviewed value. Sending stays disabled." : "Dieses Mail-Nachrichtenschlagwort auf den geprüften Wert setzen. Der Versand bleibt deaktiviert.",
+    "Mail tag" : "Mail-Schlagwort",
     "create_tags" : "Mail-Schlagwörter erstellen",
     "create tags" : "Mail-Schlagwörter erstellen",
     "Create Mail tag" : "Mail-Schlagwort erstellen",

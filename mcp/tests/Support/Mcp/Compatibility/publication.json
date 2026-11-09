@@ -18311,6 +18311,52 @@
                         ],
                         "additionalProperties": false
                     }
+                },
+                {
+                    "name": "mail_set_message_tag",
+                    "module": "mail",
+                    "operation": "tag_messages",
+                    "app": "mail",
+                    "description": "Preview and confirm assignment or removal of one owned native Mail tag on one exact owned message, using an explicit boolean. Requires the qualified v4 native dependency and fresh exact tag-cache provenance from native Mail synchronization. No automatic refresh, tag creation, system flag options or sending. Inspect the durable operation after an uncertain result; never repeat the write.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "tag_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "value": {
+                                "type": "boolean"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "message_id",
+                            "tag_id",
+                            "value"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ],
             [
@@ -41181,6 +41227,52 @@
                         ],
                         "additionalProperties": false
                     }
+                },
+                {
+                    "name": "mail_set_message_tag",
+                    "module": "mail",
+                    "operation": "tag_messages",
+                    "app": "mail",
+                    "description": "Preview and confirm assignment or removal of one owned native Mail tag on one exact owned message, using an explicit boolean. Requires the qualified v4 native dependency and fresh exact tag-cache provenance from native Mail synchronization. No automatic refresh, tag creation, system flag options or sending. Inspect the durable operation after an uncertain result; never repeat the write.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "tag_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "value": {
+                                "type": "boolean"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "message_id",
+                            "tag_id",
+                            "value"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ],
             [
@@ -64048,6 +64140,52 @@
                         "required": [
                             "name",
                             "color"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_set_message_tag",
+                    "module": "mail",
+                    "operation": "tag_messages",
+                    "app": "mail",
+                    "description": "Preview and confirm assignment or removal of one owned native Mail tag on one exact owned message, using an explicit boolean. Requires the qualified v4 native dependency and fresh exact tag-cache provenance from native Mail synchronization. No automatic refresh, tag creation, system flag options or sending. Inspect the durable operation after an uncertain result; never repeat the write.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "tag_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "value": {
+                                "type": "boolean"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "message_id",
+                            "tag_id",
+                            "value"
                         ],
                         "additionalProperties": false
                     }

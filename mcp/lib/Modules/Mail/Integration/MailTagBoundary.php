@@ -17,9 +17,9 @@ class MailTagBoundary {
         'lib/Db/Tag.php'=>'3dd25173b2c24e0afc79faa47ccbe5039bbf1822fccb649df5e32134ce2d4ab3',
         'lib/IMAP/ImapFlag.php'=>'3e1034befddb8489d5c462371892bf7489e46eb38e7b08cea3e430467207aa5a',
     ];
-    public function __construct(private IAppManager $apps,private IDBConnection $db,private IConfig $config){}
+    public function __construct(private IAppManager $apps,private IDBConnection $db,private IConfig $config,private ?MailNativeBoundary $mutations=null){}
     public function verified():bool {
-        try{$root=$this->apps->getAppPath('mail');foreach(self::FILES as$path=>$hash)if(!is_file($root.'/'.$path)||!hash_equals($hash,(string)hash_file('sha256',$root.'/'.$path)))return false;return true;}catch(\Throwable){return false;}
+        try{$root=$this->apps->getAppPath('mail');foreach(self::FILES as$path=>$hash){if($path==='lib/Db/TagMapper.php'&&$this->mutations?->tagsSourceVerified())continue;if(!is_file($root.'/'.$path)||!hash_equals($hash,(string)hash_file('sha256',$root.'/'.$path)))return false;}return true;}catch(\Throwable){return false;}
     }
     public function requireStorage():void {
         if($this->config->getSystemValue('dbsharding',[])!==[])throw new BeforeEffectFailure('Local tag/journal atomicity is not qualified with database sharding.');

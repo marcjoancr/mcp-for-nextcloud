@@ -191,7 +191,7 @@ connection selection. It creates **local user-owned tag metadata across accounts
 without assigning any message or contacting IMAP/SMTP. Supply a literal `name` and
 `color` (`#RRGGBB`), review the full preview and confirm the same `plan_state` and
 `operation_id`. Names are limited to 128 UTF-8 bytes and must encode completely
-within the native 63-byte keyword limit; reserved default labels, invalid keywords,
+within the 63-byte encoded-name limit (64 bytes including the keyword prefix); reserved default labels, invalid keywords,
 canonical collisions and silent truncation are refused. Inventory is limited to
 1,000 tags. Creation does not prove that a mailbox supports that keyword.
 
@@ -213,12 +213,44 @@ matching name is never adopted as proof that this operation created the tag. The
 opaque tag ID survives the existing 30-day receipt compaction.
 
 `mail_list_tags` requires `mail.read_tags` and lists bounded, user-owned native tag
-IDs, names and colors without contacting IMAP. Message tag assignment remains
-blocked: the native cache keys associations by header Message-ID, shared by duplicate
-messages. The native create-or-return helper is not used by `mail_create_tag`; its direct
-insert instead records the exact ID atomically. Remote
-refresh also remains unavailable: native timestamp locks lack a unique-owner unlock
-contract. Ordinary cached reads and status never initiate refresh.
+IDs, names and colors without contacting IMAP. The native create-or-return helper
+is not used by `mail_create_tag`; direct insertion records the exact ID atomically.
+
+`mail_set_message_tag` requires the separate `mail.tag_messages` permission and
+explicit connection selection. Supply an owned `account_id`, cached `message_id`,
+owned `tag_id` and boolean `value`; review the complete tag and before/after state,
+then confirm the same `plan_state` and `operation_id`. It assigns or removes one
+canonical keyword on one exact UID. Arbitrary flags and tag creation are excluded.
+Native default-label aliases are treated as one logical tag. Other keywords,
+system flags, other messages and held reply drafts are preserved.
+
+Assignment is conditional on the exact **v4 native Mail dependency**, its migrated
+MySQL/MariaDB transactional primary schema and fresh message provenance on NC35.0.2/Mail5.12.5. SQLite and PostgreSQL assignment remain closed.
+Stock Mail and v1/v2/v3 refuse assignment. v4 native import, cache reads, search,
+UI/bulk operations and classification use cached message IDs rather than shared
+header Message-ID. Historical header associations remain quarantined with a NULL
+exact key; they are never matched or adopted. Native JSON reports `tagsVerified`.
+Existing legacy or inbound-profile-changed cache needs an explicit cache rebuild
+in native Mail before assignment. A preview never performs that rebuild or sync.
+
+Native synchronization captures the actual selected generation and a pre-fetch
+mailbox revision. Only its own acknowledged cache commits advance that revision;
+a concurrent writer invalidates an older snapshot. One revision also spans a reused combined QRESYNC response; old FLAGS are not reapplied after classifying its newly imported messages. Fresh headers are also bound
+to the non-secret inbound server/user/protocol identity and the native XOAUTH2 email principal. Legacy queued follow-up
+classification jobs without an exact cached incarnation are ignored.
+
+The server must advertise permanent support for the keyword or keyword wildcard.
+One guarded UID STORE and full same-selection flag readback precede the targeted
+cache transaction. Metadata, ownership, generation or permission changes refuse;
+remote/cache acknowledgement loss retains an uncertain operation. Inspect
+`mail_get_operation` or `mail_list_operations` with the original permission.
+Repeated confirmation/status never sends another STORE, repairs or unlocks an
+uncertain operation. Existing account serialization and mutation rate limits apply.
+Native tagging dispatches no event, matching stock behavior.
+
+Remote refresh remains unavailable: native timestamp locks lack a unique-owner
+unlock contract. Ordinary cached reads and status never initiate refresh. Sending
+remains disabled.
 
 ## Reply drafts and write outcomes
 
