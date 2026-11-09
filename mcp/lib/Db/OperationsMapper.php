@@ -50,6 +50,13 @@ final class OperationsMapper implements OperationStore {
         if ($n !== 1) throw new \RuntimeException('Operation checkpoint failed.');
     }
 
+    /** Preserve all persisted evidence and the target claim when a direct commit acknowledgement is lost. */
+    public function uncertainLocal(string $scope,string $id,string $tool,int $time): bool {
+        $q=$this->db->getQueryBuilder();return $q->update(self::TABLE)->set('state',$q->createNamedParameter('uncertain'))->set('updated_at',$q->createNamedParameter($time,IQueryBuilder::PARAM_INT))
+            ->where($q->expr()->eq('scope_key',$q->createNamedParameter($scope)))->andWhere($q->expr()->eq('operation_id',$q->createNamedParameter($id)))
+            ->andWhere($q->expr()->eq('tool_name',$q->createNamedParameter($tool)))->andWhere($q->expr()->eq('state',$q->createNamedParameter('running')))->executeStatement()===1;
+    }
+
     public function finish(string $scope, string $id, string $state, array $refs, int $time): void {
         $old=$this->directSnapshot($scope,$id);
         $q = $this->db->getQueryBuilder();
@@ -164,7 +171,7 @@ final class OperationsMapper implements OperationStore {
             ->andWhere($q->expr()->neq('actor_uid',$q->createNamedParameter('')))->setMaxResults(100)->executeQuery();
         try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         foreach($rows as $row){
-            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id','account_id','source_tool','native_state','source','user_expires_at','protocols','mutation']));
+            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['draft_id','file_id','tag_id','account_id','source_tool','native_state','source','user_expires_at','protocols','mutation']));
             if(isset($refs['mutation']))$refs['mutation']=array_intersect_key($refs['mutation'],array_flip(['phase','remote','cache']));
             $u=$this->db->getQueryBuilder();
             $u->update(self::TABLE)->set('state',$u->createNamedParameter($row['state']==='awaiting_user'?'expired':$row['state']))->set('actor_uid',$u->createNamedParameter(''))

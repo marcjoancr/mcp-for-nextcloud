@@ -203,6 +203,9 @@ final class FilesModuleTest extends TestCase {
         $this->assertSame("Título\nUm\tdois & três", $this->tool('files_read', ['path' => '/a.odt'])['content'][0]['text']);
     }
 
+    // Keep the real 20 MiB safety fixture independent of the full API/catalog matrix heap.
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testCorruptDocumentsAndZipBombsReturnANotice(): void {
         $this->tree->addFile('/alice/files/bad.pdf', "%PDF-broken\0\0", 'application/pdf');
         $this->assertSame(ReadingMessages::notExtracted('bad.pdf'), $this->tool('files_read', ['path' => '/bad.pdf'])['content'][0]['text']);
@@ -210,6 +213,9 @@ final class FilesModuleTest extends TestCase {
         $this->assertSame(ReadingMessages::notExtracted('bomb.docx'), $this->tool('files_read', ['path' => '/bomb.docx'])['content'][0]['text']);
     }
 
+    // Keep the real 20 MiB safety fixture independent of the full API/catalog matrix heap.
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testReadEnforcesByteLimitBeforeAndWhileReading(): void {
         $this->tree->addFile('/alice/files/big.pdf', 'x', 'application/pdf', ['size' => TextExtractor::MAX_BYTES + 1]);
         $this->assertSame(TextExtractor::tooLarge(), $this->failure('files_read', ['path' => '/big.pdf']));

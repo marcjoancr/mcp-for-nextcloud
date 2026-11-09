@@ -48,7 +48,7 @@ final class OperationJournal {
         $old = $this->store->get($scope, $id);
         if ($old !== null) return $this->replay($old, $authorizeReplay);
         if ((int)$parts[2] < $this->clock->getTime()) throw new \InvalidArgumentException('Operation plan expired; preview again.');
-        $target = isset($args['account_id']) ? 'account:' . (int)$args['account_id'] : (isset($args['draft_id']) ? 'draft:' . $args['draft_id'] : (isset($args['path']) ? 'file:' . $args['path'] : null));
+        $target = $tool==='mail_create_tag' ? 'mail-tags' : (isset($args['account_id']) ? 'account:' . (int)$args['account_id'] : (isset($args['draft_id']) ? 'draft:' . $args['draft_id'] : (isset($args['path']) ? 'file:' . $args['path'] : null)));
         $row = ['scope_key' => $scope, 'actor_uid' => $uid, 'operation_id' => $id, 'tool_name' => $tool, 'effect_digest' => $fingerprint,
             'target_key' => $target === null ? null : hash('sha256', $uid . "\0" . $target),
             'state' => 'running', 'resource_refs' => isset($args['account_id']) ? ['account_id'=>(int)$args['account_id']] : [], 'created_at' => $this->clock->getTime(), 'updated_at' => $this->clock->getTime()];
@@ -61,6 +61,13 @@ final class OperationJournal {
         $repair = null;
         try {
             $result = $effect();
+        } catch (LocalCommitUnknown $failure) {
+            // Do not write provisional memory back after an ambiguous commit. The connection was discarded.
+            $this->active = null;
+            if(!$failure->connectionDiscarded)throw new ToolFailure('Local connection outcome unavailable. Inspect the original operation; never repeat it.');
+            if(!$this->store->uncertainLocal($scope,$id,$tool,$this->clock->getTime()))throw new ToolFailure('Local commit outcome unavailable. Inspect the original operation; never repeat it.');
+            $receipt=$this->get($uid,$id);if($receipt!==null)$receipt['state']='uncertain';
+            return ['operation'=>$receipt, 'message'=>'Local commit acknowledgement was lost. Inspect this operation; do not repeat the write.'];
         } catch (PlanChanged|BeforeEffectFailure $e) {
             if(isset($this->active['delegated']))return $this->adoptNative($uid);
             $this->active = null;
@@ -91,6 +98,22 @@ final class OperationJournal {
         $this->store->finish($scope, $id, $state, $refs, $this->clock->getTime());
         if ($repair !== null) $this->store->settleRepair($scope, $repair, $refs['staged'] ?? []);
         return $result + ['operation' => $this->get($uid, $id)];
+    }
+
+    /** DB-only native mapper work and its checkpoint must use this same connection. No remote effects are allowed. */
+    public function atomicLocal(\OCP\IDBConnection $db, \Closure $write): mixed {
+        if($this->active===null||isset($this->active['delegated'])||$db->inTransaction())throw new BeforeEffectFailure('An independent local operation transaction is required.');
+        $before=$this->active['refs'];
+        try{$db->beginTransaction();}catch(\Throwable){throw new BeforeEffectFailure('The local transaction could not start.');}
+        try{$result=$write();}
+        catch(\Throwable $e){
+            try{$db->rollBack();}catch(\Throwable){try{$db->close();}catch(\Throwable){throw new LocalCommitUnknown('Local connection could not be discarded.',false);}throw new LocalCommitUnknown('Local rollback outcome unavailable.');}
+            $this->active['refs']=$before;
+            if($e instanceof PlanChanged||$e instanceof BeforeEffectFailure)throw $e;
+            throw new BeforeEffectFailure('The local transaction was rolled back. No change was committed.');
+        }
+        try{$db->commit();}catch(\Throwable){try{$db->close();}catch(\Throwable){throw new LocalCommitUnknown('Local connection could not be discarded.',false);}throw new LocalCommitUnknown('Local commit outcome unavailable.');}
+        return $result;
     }
 
     /** Transfers the active reservation to exactly one bounded worker. Private token never enters a receipt. */
@@ -180,7 +203,7 @@ final class OperationJournal {
         if ($row['tool_name']==='mail_test_connection' && isset($row['resource_refs']['protocols'])) $extra['protocols']=ProtocolDiagnostics::sanitize($row['resource_refs']['protocols']);
         if(isset($row['resource_refs']['mutation']))$extra['mutation']=array_intersect_key($row['resource_refs']['mutation'],array_flip(['phase','remote','cache']));
         return $extra+['operation_id' => $row['operation_id'], 'tool' => $row['tool_name'], 'state' => $state,
-            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(['draft_id', 'file_id','account_id'])), 'replayed' => $replayed, 'safe_to_retry' => false,
+            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(array_merge(['draft_id', 'file_id','account_id'],$row['tool_name']==='mail_create_tag'?['tag_id']:[]))), 'replayed' => $replayed, 'safe_to_retry' => false,
             'updated_at' => (int)$row['updated_at']];
     }
 

@@ -11,6 +11,7 @@ interface OperationStore {
     public function get(string $scope, string $id): ?array;
     public function reserve(array $row): bool;
     public function checkpoint(string $scope, string $id, array $refs): void;
+    public function uncertainLocal(string $scope,string $id,string $tool,int $time): bool;
     public function finish(string $scope, string $id, string $state, array $refs, int $time): void;
     public function claimPartial(string $scope, string $id, string $state): bool;
     public function settleRepair(string $scope, string $id, array $adopted = []): void;

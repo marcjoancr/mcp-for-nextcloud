@@ -14,6 +14,6 @@ class MailTags {
     public function __construct(private MailServices $native){}
     public function read(array $args,string $uid):array {
         $tags=$this->native->tagMapper($uid)->getAllTagsForUser($uid);if(count($tags)>1000)throw new ToolFailure('Too many tags for bounded discovery.');$tags=array_values(array_filter($tags,static fn(object $tag):bool=>$tag->getUserId()===$uid));usort($tags,static fn(object $a,object $b):int=>(int)$a->getId()<=>(int)$b->getId());
-        $limit=min(100,max(1,(int)($args['limit']??50)));$offset=max(0,(int)($args['offset']??0));$rows=[];foreach(array_slice($tags,$offset,$limit) as $tag)$rows[]=['tag_id'=>(int)$tag->getId(),'name'=>MailRows::text($tag->getDisplayName()),'color'=>MailRows::text($tag->getColor())];$next=$offset+count($rows);return ['tags'=>$rows,'count'=>count($rows),'hasMore'=>$next<count($tags),'next_offset'=>$next<count($tags)?$next:null,'untrusted_mail_data'=>true];
+        $limit=min(100,max(1,(int)($args['limit']??50)));$offset=max(0,(int)($args['offset']??0));$rows=[];foreach(array_slice($tags,$offset,$limit) as $tag)$rows[]=['tag_id'=>(int)$tag->getId(),'name'=>MailRows::text($tag->getDisplayName()),'color'=>$tag->getColor()===null?null:MailRows::text($tag->getColor())];$next=$offset+count($rows);return ['tags'=>$rows,'count'=>count($rows),'hasMore'=>$next<count($tags),'next_offset'=>$next<count($tags)?$next:null,'untrusted_mail_data'=>true];
     }
 }

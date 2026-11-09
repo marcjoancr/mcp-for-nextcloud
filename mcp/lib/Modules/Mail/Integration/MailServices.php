@@ -141,6 +141,15 @@ class MailServices {
         return $class::TYPE_OUTGOING;
     }
 
+    public function tagCodec(string $uid):object {
+        $class='OCA\\Mail\\IMAP\\ImapFlag';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
+    }
+    public function newTagMapper(string $uid,\OCP\IDBConnection $db,\OCP\IL10N $l10n):object {
+        $class='OCA\\Mail\\Db\\TagMapper';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class($db,$l10n);
+    }
+    public function newTag(string $uid):object {
+        $class='OCA\\Mail\\Db\\Tag';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
+    }
     public function tagMapper(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\TagMapper',$uid);}
     public function guardedMailboxes(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxMutations',$uid);}
     public function guardedMutations(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\GuardedMessageMutations',$uid);}

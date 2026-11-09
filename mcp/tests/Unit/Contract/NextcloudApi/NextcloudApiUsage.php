@@ -68,6 +68,9 @@ final class NextcloudApiUsage {
      */
     public const POSITIONAL = [
         'OCA\\Mail\\Db\\TagMapper::getAllTagsForUser' => ['userId'],
+        'OCA\\Mail\\Db\\TagMapper::getTagForUser' => ['id','userId'],
+        'OCA\\Mail\\Db\\TagMapper::__construct' => ['db','l10n'],
+        'OCA\\Mail\\IMAP\\ImapFlag::create' => ['label'],
         'OCA\\Deck\\Db\\LabelMapper::findAssignedLabelsForCards' => ['cardIds', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::list' => ['cardId', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::create' => ['cardId', 'message'],
@@ -431,7 +434,7 @@ final class NextcloudApiUsage {
             'missing' => ['31', '32', '33'],
             'fallback' => 'OCA\\Deck\\Service\\CardService::update',
             'by' => \OCA\Mcp\Modules\Deck\Cards\CardUpdateArguments::class,
-            'elsewhere' => ['Modules/Mail/Tags/MailTags.php' => 'OCA\\Mail\\Db\\Tag::getColor', 'Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor', 'Modules/Deck/Labels/LabelListing.php' => 'OCA\\Deck\\Db\\Label::getColor', 'Modules/Deck/Labels/NativeLabels.php' => 'OCA\\Deck\\Db\\Label::getColor'],
+            'elsewhere' => ['Modules/Mail/Tags/MailTags.php' => 'OCA\\Mail\\Db\\Tag::getColor', 'Modules/Mail/Integration/MailTagGateway.php' => 'OCA\\Mail\\Db\\Tag::getColor', 'Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor', 'Modules/Deck/Labels/LabelListing.php' => 'OCA\\Deck\\Db\\Label::getColor', 'Modules/Deck/Labels/NativeLabels.php' => 'OCA\\Deck\\Db\\Label::getColor'],
         ],
         // Up to Talk 23 Room::getLobbyState() opens a lobby whose timer has passed by itself.
         'OCA\\Talk\\Service\\RoomService::validateLobbyTimer' => [
@@ -447,6 +450,7 @@ final class NextcloudApiUsage {
      * @var array<string, string> "Class::method" => the call it really is
      */
     public const NAME_CLASHES = [
+        'OCA\\Deck\\Db\\Card::setColor' => 'OCA\\Mail\\Db\\Tag::setColor, in Modules/Mail/Integration/MailTagGateway',
         'OCA\\Talk\\Room::getAttributes' => 'OCP\\Share\\IShare::getAttributes, in Modules/Files/Sharing/ShareAccess',
         'OCP\\Files\\File::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
         'OCP\\Files\\Folder::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',

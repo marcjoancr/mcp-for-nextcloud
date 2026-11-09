@@ -6,7 +6,7 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** C2 and C4 implemented, safe C5 inventory and C6 local-draft filtering added; remote tags/refresh, D+ and full C acceptance remain incomplete. A/D/C0 and conditional C1/C3 are preserved; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2/C4–C7 were pending at the C3 baseline; the current follow-up below supersedes those task statuses. C3 is implemented conditionally on the native v2 artifact. Release B is frozen, outside this plan's completion criteria.
+**Status:** C2 and C4 implemented, C5 inventory/local creation and C6 local-draft filtering added; remote tags/refresh, D+ and full C acceptance remain incomplete. A/D/C0 and conditional C1/C3 are preserved; see the follow-up evidence below. A is committed in `90fe762d`; D in `f59d5fc1`, on MCP 2.7.0. C0 characterization/capability gates are implemented; its native raw-client session is unsupported. C1 is implemented conditionally on its custom native dependency; C2/C4–C7 were pending at the C3 baseline; the current follow-up below supersedes those task statuses. C3 is implemented conditionally on the native v2 artifact. Release B is frozen, outside this plan's completion criteria.
 
 ## Follow-up: safe mutation guard and C1 delivery
 
@@ -16,10 +16,10 @@ The [C1 delivery record](../specs/2026-11-08-mail-c1-guard-evidence.md) records 
 
 ## Current follow-up: C2, C4 and safe C5/C6 slices
 
-The implementation now publishes **34 Mail tools**: C2 adds create, same-parent
+The implementation now publishes **35 Mail tools**: C2 adds create, same-parent
 rename, subscription and special-role configuration; C4 adds owned identity
 inventory and forwarding fields to the existing draft writer; C5 adds read-only
-tag inventory. C6 adds account/subject filters to local draft reads. Each new tool
+tag inventory and qualified local tag creation. C6 adds account/subject filters to local draft reads. Each new tool
 has its own denied-by-default permission and connection selection. Sending remains
 disabled. Qualification and exact artifact hashes are recorded in the
 [C2 and continuation evidence](../specs/2026-11-08-mail-c2-continuation-evidence.md).
@@ -37,12 +37,19 @@ final body, no inherited recipients/Bcc/parent/attachments, explicit MIME/Files
 snapshots and the existing journal/repair/status behavior. Alias IMAP conversion
 and reply hold limitations from C0 still apply. Alias CRUD is D+3, outside C4.
 
-C5 **writes remain blocked**. Pinned native TagMapper associates labels by header
+C5 **message assignment remains blocked**. Local creation is now a separate qualified path under the [tag creation plan](2026-11-09-mail-tag-creation-plan.md): native direct insertion and the journal checkpoint commit together; existing labels are refused rather than adopted by name. Pinned native TagMapper associates labels by header
 Message-ID rather than cached-message/account/generation identity; duplicate
 Message-IDs share cache associations. MailManager.createTag can return an existing
-tag by name-derived label. A future dependency must establish exact cache keys and
-creation correlation before assignment/creation is admitted. Read-only inventory
-is complete, but this does not complete C5.
+tag by name-derived label. Creation correlation is now established by the shared transaction. A future
+native dependency must establish exact cached-message tag keys before assignment
+is admitted; this must include native import/update, search, related-data reads,
+UI/bulk/deletion and classifier paths. Read-only inventory
+and local creation are complete, but this does not complete C5.
+
+Local C5 creation acceptance: 10,171 PHP tests / 92,755 assertions, 837 browser
+tests, both static scopes and packaging; native v3 regression 28 tests / 850
+assertions. Exact transaction/fault/receipt evidence is in the
+[C5 creation delivery](../specs/2026-11-09-mail-tag-creation-evidence.md).
 
 C6 **remote refresh remains blocked**. Native sync uses timestamp-only locks and
 unconditional unlocks, so stale owner safety is unproven; bounded work/held-draft
@@ -74,7 +81,7 @@ Implementation anchors, rather than the old checklist, establish what is deliver
 - `Accounts/MailAccountSetup.php` admits a 24-hour native UI workflow and binds a specifically selected account. An unchanged connection profile refuses completion, including credential-only changes. The fixed native link does not prefill fields or capture credentials.
 - `Connection/MailConnection.php` checkpoints sanitized per-protocol results. `Mcp/Operations/OperationJournal.php` exposes them in `operation.protocols`, rechecks guarded completion replays and serializes writes by account where `account_id` is supplied.
 - `Operations/MailOperationCleanup.php` preserves uncertain/repairing claims. There is no published reconciliation/release-of-uncertainty tool. Native account deletion does not erase the journal.
-- At the historical A/D baseline there were no flag/move/archive/trash/restore, tag or folder-mutation tools. C1/C3 and the current follow-up add the qualified actions above. Refresh, tag writes, sending, scheduling and outbox dispatch remain unavailable.
+- At the historical A/D baseline there were no flag/move/archive/trash/restore, tag or folder-mutation tools. C1/C3 and the current follow-up add the qualified actions above. Remote refresh, message tag assignment, sending, scheduling and outbox dispatch remain unavailable.
 
 Recorded implementation validation at `f59d5fc1`: full check 9,924 PHP tests / 89,235 assertions, 837 browser tests, both static scopes and packaging; native NC35/MariaDB/Mail5.12.5: 10 tests / 319 assertions. These are baseline results, **not evidence that the pending capabilities work**, nor a deployment record.
 
@@ -184,14 +191,14 @@ Retain actual interfaces rather than the superseded speculative DTO API:
 - [x] Keep signature insertion an explicit reviewed composition choice; default behavior remains the exact approved body. Preserve existing aliases/attachments/reply metadata and S/MIME state during ordinary edits.
 - [x] Run `--filter 'MailIdentities|MailForward|MailDraftComposition|ReplyRecipients'` unit/native tests (expected: one unsent draft, approved bytes/identities, no outgoing admission), then commit.
 
-### C5 — Mail labels/tags (inventory implemented; writes blocked)
+### C5 — Mail labels/tags (inventory and local creation implemented; assignment blocked)
 
 **Files:** Create `Mail/Tags/MailTags.php`, `Tools/{ListTags,CreateTag,SetMessageTag}.php`; add related unit/native cases and optional tag filtering to `Search/MailSearchCriteria.php` only after native query support is proven.
 **Consumes:** C0 selection/cache semantics, message ownership and native Mail tag APIs; no relation to Files SystemTags.
 **Produces:** Proposed `mail_list_tags` / `read_tags`, `mail_create_tag` / `create_tags`, `mail_set_message_tag` / `tag_messages` capabilities. Assignment uses an owned native tag ID and desired boolean state; no arbitrary IMAP command/flag input.
 
 - [ ] Test native PERMANENTFLAGS/keyword support, unsupported server refusal, owned tag/message checks, stable canonical IMAP label, idempotent assignment and private cache consistency. Reject system flags masquerading as tags.
-- [ ] Test creation interrupted before native ID recording; retain uncertainty, never deduplicate/create again merely by display name. Tag deletion/global renaming and bulk effects need a later reviewed design.
+- [x] Test local creation interrupted before/after native ID recording, rollback and commit acknowledgement loss; retain uncertainty, never deduplicate/create again merely by display name. Keep opaque tag IDs through receipt compaction. Tag deletion/global renaming and bulk effects need a later reviewed design.
 - [ ] Run `--filter MailTags` unit/native tests (expected: only selected label association changes, no other flags/SMTP effects), then commit.
 
 ### C6 — Explicit freshness and practical draft reading (local filters implemented; refresh blocked)

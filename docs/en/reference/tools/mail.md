@@ -186,11 +186,37 @@ Lost responses use the same journal/status/partial-repair path as other drafts.
 Local alias selection is preserved, but native IMAP draft conversion may use the
 primary account sender; review the sender in native Mail before further action.
 
+`mail_create_tag` requires the separate `mail.create_tags` permission and explicit
+connection selection. It creates **local user-owned tag metadata across accounts**,
+without assigning any message or contacting IMAP/SMTP. Supply a literal `name` and
+`color` (`#RRGGBB`), review the full preview and confirm the same `plan_state` and
+`operation_id`. Names are limited to 128 UTF-8 bytes and must encode completely
+within the native 63-byte keyword limit; reserved default labels, invalid keywords,
+canonical collisions and silent truncation are refused. Inventory is limited to
+1,000 tags. Creation does not prove that a mailbox supports that keyword.
+
+Creation is qualified on NC35.0.2/Mail5.12.5 with exact unchanged native
+Tag/TagMapper/ImapFlag sources, a unique owner/label index, transactional tag and
+journal tables and no database sharding. It works with stock Mail and the existing guard overlays; no new
+native build or schema migration is installed. Other pairs/builds refuse creation.
+The native mapper is constructed with the same DB connection used by the journal.
+Its insert and opaque `tag_id` checkpoint share one transaction. A known rollback
+commits neither; lost commit acknowledgement discards the connection and reads
+persisted journal evidence instead of overwriting it from memory.
+
+Five creations per user/minute are admitted across connections. Uncertainty retains
+a user-wide creation claim, even if the row cannot currently be observed. Status
+and repeated confirmations never insert again, reconcile or unlock that claim.
+A receipt ID is an observed reference, not proof of row existence in an uncertain
+operation. Current original create permission is required on replay/status. A
+matching name is never adopted as proof that this operation created the tag. The
+opaque tag ID survives the existing 30-day receipt compaction.
+
 `mail_list_tags` requires `mail.read_tags` and lists bounded, user-owned native tag
-IDs, names and colors without contacting IMAP. Tag creation and assignment remain
+IDs, names and colors without contacting IMAP. Message tag assignment remains
 blocked: the native cache keys associations by header Message-ID, shared by duplicate
-messages, and native creation may return an existing tag by display-name-derived
-label. Neither proves exact-target mutation or safe interrupted creation. Remote
+messages. The native create-or-return helper is not used by `mail_create_tag`; its direct
+insert instead records the exact ID atomically. Remote
 refresh also remains unavailable: native timestamp locks lack a unique-owner unlock
 contract. Ordinary cached reads and status never initiate refresh.
 

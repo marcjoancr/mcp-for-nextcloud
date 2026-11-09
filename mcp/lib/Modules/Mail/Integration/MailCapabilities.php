@@ -19,6 +19,7 @@ final class MailCapabilities {
         private IAppManager $apps,
         private IConfig $config,
         private ?MailNativeBoundary $boundary = null,
+        private ?MailTagBoundary $tagBoundary = null,
     ) {}
 
     /** Read-only metadata: never instantiate an IMAP/SMTP client or run a lifecycle experiment here. */
@@ -30,7 +31,7 @@ final class MailCapabilities {
         $evidence = !$enabled ? 'unavailable' : ($known ? 'characterized' : 'unverified');
         $unknown = ['status' => $enabled ? 'unverified' : 'unavailable', 'reason' => $enabled ? 'native_pair_not_characterized' : 'mail_unavailable'];
         $capabilities = array_fill_keys(['reply_parent_local', 'reply_parent_imap', 'sender_alias_local', 'sender_alias_imap', 'mutation_session', 'flags', 'move', 'tags',
-            'create_mailbox', 'rename_mailbox', 'subscribe_mailbox', 'refresh'], $unknown);
+            'create_mailbox', 'rename_mailbox', 'subscribe_mailbox', 'refresh', 'create_tag'], $unknown);
         if ($known) {
             $capabilities['reply_parent_local'] = ['status' => 'verified', 'reason' => 'local_parent_with_sync_hold'];
             $capabilities['reply_parent_imap'] = ['status' => 'unsupported', 'reason' => 'native_flush_omits_reply_headers'];
@@ -57,6 +58,10 @@ final class MailCapabilities {
         if($known){
             $capabilities['tags']=['status'=>'blocked','reason'=>'native_tag_cache_identity_and_creation_correlation_missing'];
             $capabilities['refresh']=['status'=>'unverified','reason'=>'native_sync_owner_lease_and_budget_not_verified'];
+        }
+        if($known&&$this->tagBoundary?->verified()){
+            $capabilities['create_tag']=['status'=>'verified','reason'=>'native_local_tag_insert_with_atomic_journal'];
+            $capabilities['tags']=['status'=>'blocked','reason'=>'native_tag_cache_identity_not_verified'];
         }
         $capabilities['send'] = ['status' => 'disabled', 'reason' => 'sending_not_authorized'];
         return ['native_pair' => ['nextcloud' => $server, 'mail' => $mail], 'evidence' => $evidence,

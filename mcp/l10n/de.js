@@ -1,6 +1,12 @@
 OC.L10N.register(
     "mcp",
     {
+    "create_tags" : "Mail-Schlagwörter erstellen",
+    "create tags" : "Mail-Schlagwörter erstellen",
+    "Create Mail tag" : "Mail-Schlagwort erstellen",
+    "Create this local Mail tag for all your accounts. No message will be changed." : "Dieses lokale Mail-Schlagwort für alle Ihre Konten erstellen. Keine Nachricht wird geändert.",
+    "Scope: all your Mail accounts." : "Geltungsbereich: alle Ihre Mail-Konten.",
+
     "create mail folders" : "Mail-Ordner erstellen",
     "rename mail folders" : "Mail-Ordner umbenennen",
     "change mail folder subscriptions" : "Mail-Ordner-Abonnements ändern",

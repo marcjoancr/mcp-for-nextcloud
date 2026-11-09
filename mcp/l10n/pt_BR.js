@@ -1,6 +1,12 @@
 OC.L10N.register(
     "mcp",
     {
+    "create_tags" : "Criar etiquetas do Mail",
+    "create tags" : "criar etiquetas do Mail",
+    "Create Mail tag" : "Criar etiqueta do Mail",
+    "Create this local Mail tag for all your accounts. No message will be changed." : "Criar esta etiqueta local do Mail para todas as suas contas. Nenhuma mensagem será alterada.",
+    "Scope: all your Mail accounts." : "Escopo: todas as suas contas do Mail.",
+
     "create mail folders" : "criar pastas do Mail",
     "rename mail folders" : "renomear pastas do Mail",
     "change mail folder subscriptions" : "alterar assinaturas de pastas do Mail",

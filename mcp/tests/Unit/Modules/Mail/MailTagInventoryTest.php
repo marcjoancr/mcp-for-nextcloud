@@ -14,4 +14,9 @@ final class MailTagInventoryTest extends TestCase {
         };
         $r=(new MailTags($native))->read(['limit'=>1],'alice');self::assertCount(1,$r['tags']);self::assertSame(2,$r['tags'][0]['tag_id']);self::assertFalse($r['hasMore']);self::assertStringNotContainsString('PRIVATE',json_encode($r));
     }
+    public function testLegacyNativeTagMayHaveNoColor():void {
+        $native=$this->createMock(MailServices::class);$native->method('tagMapper')->willReturn(new class{public function getAllTagsForUser(string $uid):array{return [new class{public function getId():int{return 4;}public function getUserId():string{return 'alice';}public function getDisplayName():string{return 'Legacy';}public function getColor():?string{return null;}}];}});
+        self::assertNull((new MailTags($native))->read([],'alice')['tags'][0]['color']);
+    }
+
 }

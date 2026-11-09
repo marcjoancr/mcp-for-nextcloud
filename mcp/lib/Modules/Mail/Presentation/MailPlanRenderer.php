@@ -17,7 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
-		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes'], true)) {
+		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag'], true)) {
 			return null;
 		}
 		return match ($tool) {
@@ -30,6 +30,7 @@ final class MailPlanRenderer {
 
     private static function configuration(string $tool, array $plan): string {
         $heading = match ($tool) {
+            'mail_create_tag' => Translator::t('Create this local Mail tag for all your accounts. No message will be changed.'),
             'mail_write_account_settings' => Translator::t('Update these Mail preferences.'),
             'mail_write_signature' => Translator::t('Update this Mail signature. A null value removes it.'),
             'mail_configure_connection', 'mail_add_account' => Translator::t('Open the native Mail assistant. Enter credentials there and review completion separately.'),
@@ -42,6 +43,7 @@ final class MailPlanRenderer {
             default => throw new \LogicException('Unknown Mail configuration plan'),
         };
         $lines = [$heading, ''];
+        if($tool==='mail_create_tag')$lines[] = Translator::t('Scope: all your Mail accounts.');
         foreach (['account_id' => Translator::t('Account id'), 'alias_id' => Translator::t('Alias id'), 'message_id' => Translator::t('Message id'), 'flag' => Translator::t('Flag'),
             'setup_operation_id' => Translator::t('Setup operation'), 'source_tool' => Translator::t('Source tool')] as $key => $label) {
             if (array_key_exists($key, $plan)) $lines[] = '- ' . $label . ': ' . PlanText::quoted(self::value($plan[$key]));
