@@ -23,7 +23,11 @@ final class MailCapabilities {
     ) {}
 
     /** Read-only metadata: never instantiate an IMAP/SMTP client or run a lifecycle experiment here. */
-    public function forUser(string $uid): array {
+    public function forUser(string $uid): array { return $this->evaluate($uid); }
+
+    /** Recheck only the requested boundary on latency-bounded mutation callbacks. */
+    private function evaluate(string $uid, ?string $only = null): array {
+        $needs = static fn(string ...$capabilities): bool => $only === null || in_array($only, $capabilities, true);
         $enabled = $this->native->isEnabledFor($uid);
         $mail = $enabled ? self::version($this->apps->getAppVersion('mail')) : null;
         $server = $enabled ? self::version($this->config->getSystemValueString('version', '')) : null;
@@ -45,27 +49,27 @@ final class MailCapabilities {
                 $capabilities[$key] = ['status' => 'unverified', 'reason' => 'native_sync_effects_and_budget_not_verified'];
             }
         }
-        if($known && $this->boundary?->verified()){
+        if($known && $needs('flags','mutation_session') && $this->boundary?->verified()){
             $capabilities['mutation_session']=['status'=>'verified','reason'=>'native_guarded_flags_only'];
             $capabilities['flags']=['status'=>'verified','reason'=>'native_guarded_flags_v1'];
             $capabilities['move']=['status'=>'blocked','reason'=>'complete_copyuid_and_cache_contract_not_verified'];
         }
-        if($known && $this->boundary?->movesVerified()){
+        if($known && $needs('move','mutation_session') && $this->boundary?->movesVerified()){
             $capabilities['mutation_session']=['status'=>'verified','reason'=>'native_guarded_mutations_v2'];
             $capabilities['move']=['status'=>'verified','reason'=>'native_command_bound_copyuid_and_cache_v2'];
         }
-        if($known && $this->boundary?->foldersVerified()){foreach(['create_mailbox','rename_mailbox','subscribe_mailbox'] as $key)$capabilities[$key]=['status'=>'verified','reason'=>'native_targeted_folder_mutations_v3'];}
+        if($known && $needs('create_mailbox','rename_mailbox','subscribe_mailbox') && $this->boundary?->foldersVerified()){foreach(['create_mailbox','rename_mailbox','subscribe_mailbox'] as $key)$capabilities[$key]=['status'=>'verified','reason'=>'native_targeted_folder_mutations_v3'];}
         if($known){
             $capabilities['tags']=['status'=>'blocked','reason'=>'native_tag_cache_identity_and_creation_correlation_missing'];
             $capabilities['refresh']=['status'=>'unverified','reason'=>'native_sync_owner_lease_and_budget_not_verified'];
         }
-        if($known&&$this->tagBoundary?->verified()){
+        if($known&&$needs('create_tag','tags')&&$this->tagBoundary?->verified()){
             $capabilities['create_tag']=['status'=>'verified','reason'=>'native_local_tag_insert_with_atomic_journal'];
             $capabilities['tags']=['status'=>'blocked','reason'=>'native_tag_cache_identity_not_verified'];
         }
-        if($known&&$this->boundary?->tagsVerified())$capabilities['tags']=['status'=>'verified','reason'=>'native_exact_tag_cache_and_one_shot_keyword_v4'];
-        if($known&&$this->boundary?->refreshVerified())$capabilities['refresh']=['status'=>'verified','reason'=>'native_owned_bounded_refresh_v5'];
-        if($known&&$this->boundary?->draftsVerified()){
+        if($known&&$needs('tags')&&$this->boundary?->tagsVerified())$capabilities['tags']=['status'=>'verified','reason'=>'native_exact_tag_cache_and_one_shot_keyword_v4'];
+        if($known&&$needs('refresh')&&$this->boundary?->refreshVerified())$capabilities['refresh']=['status'=>'verified','reason'=>'native_owned_bounded_refresh_v5'];
+        if($known&&$needs('reply_parent_imap','sender_alias_imap')&&$this->boundary?->draftsVerified()){
             $capabilities['reply_parent_imap']=['status'=>'verified','reason'=>'native_draft_identity_v6'];
             $capabilities['sender_alias_imap']=['status'=>'verified','reason'=>'native_owned_draft_alias_v6'];
         }
@@ -76,7 +80,7 @@ final class MailCapabilities {
 
     /** Future callers still need current tool selection, ownership, revision and write-journal admission. */
     public function requireSupported(string $uid, string $capability): void {
-        $row = $this->forUser($uid)['capabilities'][$capability] ?? null;
+        $row = $this->evaluate($uid, $capability)['capabilities'][$capability] ?? null;
         if (!is_array($row) || $row['status'] !== 'verified') {
             throw new BeforeEffectFailure('This Mail capability has no verified native execution boundary. Use native Mail.');
         }

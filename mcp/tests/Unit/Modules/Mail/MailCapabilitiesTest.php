@@ -48,6 +48,20 @@ final class MailCapabilitiesTest extends TestCase {
         self::assertSame('unverified',$unknown['capabilities']['reply_parent_imap']['status']);
         self::assertSame('disabled',$unknown['capabilities']['send']['status']);
     }
+    public function testRefreshAdmissionDoesNotSpendItsDeadlineOnUnrelatedStorageGates():void {
+        $boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);
+        $boundary->expects(self::once())->method('refreshVerified')->willReturn(true);
+        foreach(['verified','movesVerified','foldersVerified','tagsVerified','draftsVerified'] as $method)$boundary->expects(self::never())->method($method);
+        $this->capabilities(boundary:$boundary)->requireSupported('alice','refresh');
+    }
+    public function testSelectiveAdmissionMatchesTheFullCapabilityReport():void {
+        foreach([[],['verified'],['verified','movesVerified','foldersVerified'],['verified','movesVerified','foldersVerified','tagsVerified','refreshVerified','draftsVerified']] as $proven){
+            $boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);
+            foreach(['verified','movesVerified','foldersVerified','tagsVerified','refreshVerified','draftsVerified'] as $method)$boundary->method($method)->willReturn(in_array($method,$proven,true));
+            $c=$this->capabilities(boundary:$boundary);$report=$c->forUser('alice');
+            foreach($report['capabilities'] as $name=>$row){$admitted=true;try{$c->requireSupported('alice',$name);}catch(ToolFailure){$admitted=false;}self::assertSame($row['status']==='verified',$admitted,$name);}
+        }
+    }
     public function testUnsupportedMutationCannotBeAdmittedByARecognizedVersion(): void {
         $c=$this->capabilities();
         foreach(['mutation_session','flags','move','tags','create_mailbox','rename_mailbox','subscribe_mailbox','refresh','send','unknown'] as $capability){
