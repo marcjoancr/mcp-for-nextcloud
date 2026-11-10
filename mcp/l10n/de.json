@@ -352,6 +352,7 @@
     "This search would read %1$s folders, more than the %2$s allowed; choose an account or a folder." : "Diese Suche würde %1$s Ordner lesen, mehr als die erlaubten %2$s; wähle ein Konto oder einen Ordner.",
     "forms" : "Formulare",
     "read_message" : "E-Mail lesen",
+    "read_outbox" : "Die lokale Mail-Ausgangswarteschlange lesen",
     "search" : "suchen",
     "since must not be later than until." : "since darf nicht später als until sein.",
     "«%s» is not a date: use YYYY-MM-DD or an ISO 8601 date and time with an offset." : "«%s» ist kein Datum: verwende YYYY-MM-DD oder Datum und Uhrzeit nach ISO 8601 mit Zeitversatz.",

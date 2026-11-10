@@ -360,6 +360,7 @@ OC.L10N.register(
     "This search would read %1$s folders, more than the %2$s allowed; choose an account or a folder." : "Esta búsqueda leería %1$s carpetas, más que las %2$s permitidas; elige una cuenta o una carpeta.",
     "forms" : "formularios",
     "read_message" : "leer correo",
+    "read_outbox" : "leer la cola local de correo saliente",
     "search" : "buscar",
     "since must not be later than until." : "since no puede ser posterior a until.",
     "«%s» is not a date: use YYYY-MM-DD or an ISO 8601 date and time with an offset." : "«%s» no es una fecha: usa YYYY-MM-DD o una fecha y hora ISO 8601 con desfase.",

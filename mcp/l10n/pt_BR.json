@@ -351,6 +351,7 @@
     "This search would read %1$s folders, more than the %2$s allowed; choose an account or a folder." : "Esta busca leria %1$s pastas, mais que as %2$s permitidas; escolha uma conta ou uma pasta.",
     "forms" : "formulários",
     "read_message" : "ler mensagem",
+    "read_outbox" : "ler a fila local de saída de e-mail",
     "search" : "buscar",
     "since must not be later than until." : "since não pode ser posterior a until.",
     "«%s» is not a date: use YYYY-MM-DD or an ISO 8601 date and time with an offset." : "«%s» não é uma data: use YYYY-MM-DD ou uma data e hora ISO 8601 com fuso.",

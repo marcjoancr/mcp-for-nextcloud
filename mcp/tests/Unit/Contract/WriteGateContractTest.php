@@ -218,7 +218,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_outbox', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 
