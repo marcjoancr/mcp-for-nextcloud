@@ -9,6 +9,12 @@ use OCA\Mcp\Mcp\Operations\BeforeEffectFailure;
 use OCP\{IDBConnection,IConfig};
 use PHPUnit\Framework\TestCase;
 final class MailJournalStorageTest extends TestCase {
+    public function testPrimaryPostgresqlJournalDoesNotRequireOptionalNativeSessionClasses():void {
+        $schema=new Schema();$schema->createTable('oc_mcp_operations');
+        $db=$this->createMock(IDBConnection::class);$db->method('createSchema')->willReturn($schema);$db->method('getDatabaseProvider')->willReturn(IDBConnection::PLATFORM_POSTGRES);
+        $config=$this->createStub(IConfig::class);$config->method('getSystemValue')->willReturn([]);$config->method('getSystemValueString')->willReturn('oc_');
+        (new MailJournalStorage($db,$config))->requireTables(['mcp_operations']);self::addToAssertionCount(1);
+    }
     public function testAllPhysicalTablesAndPrimaryRoutingMustSupportTheSameAtomicTransaction():void {
         $schema=new Schema();foreach(['mcp_operations','mcp_mail_setup'] as $name)$schema->createTable('custom_'.$name)->addOption('engine','InnoDB');
         $db=$this->createMock(IDBConnection::class);$db->method('createSchema')->willReturn($schema);$db->method('getDatabaseProvider')->willReturn(IDBConnection::PLATFORM_MYSQL);

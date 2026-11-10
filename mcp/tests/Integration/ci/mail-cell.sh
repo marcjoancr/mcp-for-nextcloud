@@ -151,7 +151,7 @@ install_mail() {
 	occ app:enable mail
 	actual=$(occ config:app:get mail installed_version)
 	expected_mail=${MAIL_TAG#v}
-    if [ "${MCP_IT_MAIL_GUARD:-0}" = 1 ]; then expected_mail=5.12.5.8; fi
+    if [ "${MCP_IT_MAIL_GUARD:-0}" = 1 ]; then expected_mail=5.12.5.9; fi
 	[ "$actual" = "$expected_mail" ] || { echo "Unexpected installed Mail $actual" >&2; return 1; }
 	echo "Mail $actual enabled"
 }

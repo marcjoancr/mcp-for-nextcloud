@@ -14,6 +14,8 @@ class MailDraftStorage {
     public function verified():bool {
         try {
             if(!in_array($this->db->getDatabaseProvider(),[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true))return false;
+            $proof='OCA\\Mail\\Db\\PgDirectConnection';
+            if($this->db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES&&(!class_exists($proof)||!$proof::verified($this->db,$this->config)))return false;
             (new MailJournalStorage($this->db,$this->config))->requireTables(['mail_accounts','mail_local_messages','mail_recipients','mail_attachments']);
             $schema=$this->db->createSchema();$table=$schema->getTable($this->config->getSystemValueString('dbtableprefix','oc_').'mail_local_messages');
             if(!$table->hasColumn('mcp_draft_only'))return false;

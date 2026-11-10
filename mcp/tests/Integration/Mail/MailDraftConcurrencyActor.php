@@ -55,7 +55,7 @@ final class MailDraftConcurrencyActor {
         $db=Server::get(\OCP\IDBConnection::class);
         if(isset($in['kill'])){
             $id=$in['kill'];if(!is_int($id)||$id<1)throw new \RuntimeException('Invalid fixture connection.');
-            $db->executeStatement('KILL CONNECTION '.$id);
+            if($db->getDatabaseProvider()===\OCP\IDBConnection::PLATFORM_POSTGRES){$r=$db->executeQuery('SELECT pg_terminate_backend(?)',[$id]);try{if(!in_array($r->fetchOne(),[true,1,'1','t'],true))throw new \RuntimeException('Fixture session termination failed.');}finally{$r->closeCursor();}}else{$db->executeStatement('KILL CONNECTION '.$id);}
         }
         $message=$drafts->getMessage((int)$in['draft_id'],$uid);$account=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$message->getAccountId());
         $message->setBodyPlain('Successor native body');$message->setEditorBody('Successor native body');
@@ -87,7 +87,7 @@ final class MailDraftConcurrencyActor {
                 $orphanRetained=!$attachments->deleteUnassociatedAttachment($uid,$orphan->getId());
             }else{
                 $event=in_array($mode,['stage','loss_before'],true)?\OCA\Mail\Events\BeforeImapClientCreated::class:\OCA\Mail\Events\DraftSavedEvent::class;
-                $connection=(int)$db->executeQuery('SELECT CONNECTION_ID()')->fetchOne();
+                $connection=(int)$db->executeQuery($db->getDatabaseProvider()===\OCP\IDBConnection::PLATFORM_POSTGRES?'SELECT pg_backend_pid()':'SELECT CONNECTION_ID()')->fetchOne();
                 $events->addListener($event,static function($event)use(&$fired,&$child,$uid,$draftId,$a,$mode,$connection):void {
                     if($fired||$event->getAccount()->getUserId()!==$uid)return;$fired=true;
                     $input=['draft_id'=>$draftId,'attachment_id'=>$a->getId()];if(str_starts_with($mode,'loss_'))$input['kill']=$connection;

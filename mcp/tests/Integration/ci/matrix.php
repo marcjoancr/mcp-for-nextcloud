@@ -44,7 +44,9 @@ if (array_slice($argv, 1) === ['--matrix']) {
     exit(0);
 }
 foreach ($plans as $plan) {
-    if ($arguments === [$plan['nc'], $plan['db'], $plan['mode']] && (!$mail || ($plan['db'] === 'mariadb' && (($plan['nc'] === '35' && in_array($plan['mode'], ['fresh', 'upgrade-local'], true)) || (in_array($plan['nc'], ['33','34'], true) && $plan['mode'] === 'fresh'))))) {
+    $mailCell=($plan['db']==='mariadb' && (($plan['nc']==='35' && in_array($plan['mode'],['fresh','upgrade-local'],true)) || (in_array($plan['nc'],['33','34'],true)&&$plan['mode']==='fresh')))
+        || ($plan['nc']==='35'&&$plan['db']==='pgsql'&&$plan['mode']==='fresh');
+    if ($arguments === [$plan['nc'], $plan['db'], $plan['mode']] && (!$mail || $mailCell)) {
         if($runtimePhase!==''){
             require_once dirname(__DIR__,3).'/lib/Modules/Mail/Integration/MailRuntimePairs.php';
             require_once dirname(__DIR__,3).'/lib/Modules/Mail/Integration/NativeGuardManifest.php';

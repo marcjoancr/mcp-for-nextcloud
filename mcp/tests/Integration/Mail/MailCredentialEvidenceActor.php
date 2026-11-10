@@ -176,7 +176,7 @@ final class MailCredentialEvidenceActor {
         $s=self::state($uid,$token);$db=Server::get(\OCP\IDBConnection::class);
         if($kill){
             $id=$s['kill_connection']??null;if(!is_int($id)||$id<1)throw new \RuntimeException('Invalid fixture session.');
-            $db->executeStatement('KILL CONNECTION '.$id);return ['killed'=>true];
+            if($db->getDatabaseProvider()===\OCP\IDBConnection::PLATFORM_POSTGRES){$r=$db->executeQuery('SELECT pg_terminate_backend(?)',[$id]);try{$killed=in_array($r->fetchOne(),[true,1,'1','t'],true);}finally{$r->closeCursor();}return ['killed'=>$killed];}$db->executeStatement('KILL CONNECTION '.$id);return ['killed'=>true];
         }
         $service=Server::get('OCA\\Mail\\Service\\AccountService');$entity=$service->find($uid,$s['account_id'])->getMailAccount();
         // Native Entity ignores identical values. Fresh native encryption creates a real credential write attempt.
@@ -193,7 +193,7 @@ final class MailCredentialEvidenceActor {
         try{$native->withOwner($uid,function()use($native,$db,$flow,$s,$uid,$p,$token,&$killed):void {
             $flow->atomic(function(\OCP\IDBConnection $actual)use($native,$db,$flow,$s,$uid,$p,$token,&$killed):void {
                 $native->assertDatabase($actual);$native->claim($uid,$s['native_context_id'],$s['account_id'],$p['revision'],$s['scope'],$s['setup_operation_id'],'fixture-session-loss');
-                $s['kill_connection']=(int)$db->executeQuery('SELECT CONNECTION_ID()')->fetchOne();
+                $s['kill_connection']=(int)$db->executeQuery($db->getDatabaseProvider()===\OCP\IDBConnection::PLATFORM_POSTGRES?'SELECT pg_backend_pid()':'SELECT CONNECTION_ID()')->fetchOne();
                 file_put_contents('/tmp/mcp-credential-'.$token.'.json',json_encode($s,JSON_THROW_ON_ERROR));
                 $killed=MailActor::run($uid,'credential-ui-kill',['fixture'=>$token])['killed'];
                 $flow->claim($s['scope'],$s['setup_operation_id'],'fixture-session-loss',time());

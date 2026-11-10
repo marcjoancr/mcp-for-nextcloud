@@ -16,6 +16,13 @@ final class MailHarnessTest extends TestCase {
         return [proc_close($process), $out, $error];
     }
 
+    public function testPostgresqlNativeCellUsesPinnedNc35AndOnlyFreshMode():void {
+        $script=dirname(__DIR__,3).'/tests/Integration/ci/run-local.sh';
+        [$status,$out,$error]=$this->runCommand(['sh',$script,'--plan','35','pgsql','fresh','--mail']);
+        self::assertSame(0,$status,$error);$plan=json_decode($out,true,512,JSON_THROW_ON_ERROR);
+        self::assertSame('pgsql',$plan['db']);self::assertSame('35',$plan['nc']);self::assertStringContainsString('postgres:16.15@sha256:',$plan['db_image']);
+        [$status]=$this->runCommand(['sh',$script,'--plan','35','pgsql','upgrade','--mail']);self::assertSame(2,$status);
+    }
     public function testMailIsAnExplicitPinnedOptionAndUnsupportedCellsAreRejected(): void {
         $script = dirname(__DIR__, 3) . '/tests/Integration/ci/run-local.sh';
         foreach ([['35','fresh'],['35','upgrade-local'],['33','fresh'],['34','fresh']] as [$core,$mode]) {
@@ -33,14 +40,14 @@ final class MailHarnessTest extends TestCase {
         [$status, $out] = $this->runCommand(['sh', $script, '--plan', '35', 'mariadb', 'fresh']);
         self::assertSame(0, $status);
         self::assertNull(json_decode($out, true, 512, JSON_THROW_ON_ERROR)['mail']);
-        foreach ([['33','mariadb','upgrade-local'],['34','mariadb','upgrade-local'],['35', 'pgsql', 'fresh'], ['35', 'mariadb', 'upgrade']] as $cell) {
+        foreach ([['33','mariadb','upgrade-local'],['34','mariadb','upgrade-local'],['35', 'sqlite', 'fresh'], ['35', 'mariadb', 'upgrade']] as $cell) {
             [$status, $out] = $this->runCommand(['sh', $script, '--plan', ...$cell, '--mail']);
             self::assertSame(2, $status);
             self::assertSame('', $out);
         }
     }
 
-    public function testGuardedExtendedCellRequiresAnExplicitQualificationPhase():void {
+    public function testCurrentV9BuildCannotAcquireExtendedV8Qualification():void {
         $script=dirname(__DIR__,3).'/tests/Integration/ci/run-local.sh';
         foreach(['33','34'] as $core){
             $env=array_merge(getenv(),['MCP_IT_MAIL_GUARD'=>'1','MCP_IT_MAIL_RUNTIME_PHASE'=>'']);
@@ -48,10 +55,10 @@ final class MailHarnessTest extends TestCase {
             self::assertSame(2,$status);
             $env['MCP_IT_MAIL_RUNTIME_PHASE']='candidate';
             [$status,$out,$error]=$this->runCommand(['sh',$script,'--plan',$core,'mariadb','fresh','--mail'],$env);
-            self::assertSame(2,$status);self::assertSame('',$out);self::assertStringContainsString('pre-admission source',$error);
+            self::assertSame(0,$status,$error);self::assertSame('candidate',json_decode($out,true,512,JSON_THROW_ON_ERROR)['mail_runtime_phase']);
             $env['MCP_IT_MAIL_RUNTIME_PHASE']='enabled';
             [$status,$out]=$this->runCommand(['sh',$script,'--plan',$core,'mariadb','fresh','--mail'],$env);
-            self::assertSame(0,$status);self::assertSame('enabled',json_decode($out,true,512,JSON_THROW_ON_ERROR)['mail_runtime_phase']);
+            self::assertSame(2,$status);self::assertSame('',$out);
             $env['MCP_IT_MAIL_RUNTIME_PHASE']='unknown';
             [$status]=$this->runCommand(['sh',$script,'--plan',$core,'mariadb','fresh','--mail'],$env);
             self::assertSame(2,$status);

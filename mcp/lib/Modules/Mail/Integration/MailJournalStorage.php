@@ -12,7 +12,6 @@ class MailJournalStorage {
     public function __construct(private IDBConnection $db,private IConfig $config){}
     public function requireTables(array $tables):void {
         if($this->config->getSystemValue('dbsharding',[])!==[]||$this->config->getSystemValue('dbreplica',[])!==[])throw new BeforeEffectFailure('Local Mail transactions require unsharded primary storage.');
-        if($this->db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES&&!\OCA\Mail\Db\PgDirectConnection::verified($this->db,$this->config))throw new BeforeEffectFailure('Local Mail transactions require a directly connected PostgreSQL primary.');
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
         foreach($tables as $name){
             $table=$schema->getTable($prefix.$name);
