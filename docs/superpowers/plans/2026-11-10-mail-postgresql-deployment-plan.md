@@ -67,7 +67,7 @@
 
 **Files:** Mail outbox read and raw-export service/tools, permissions, presentation, unit/integration tests and public tool reference.
 
-- [ ] Implement and verify bounded owned outbox inspection with separate permission and no dispatch.
+- [x] Implement and verify bounded owned outbox inspection with separate permission and no dispatch. Cached metadata batches also pass the real PostgreSQL tool path.
 - [x] Implement generation-safe bounded raw export to Files with confirmation/journal/status/replay, or record an exact native boundary blocker before exposing it. **Blocker recorded below; no export tool exposed.**
 - [ ] Run appropriate tests, review, update master plan and list remaining B/extras work.
 
@@ -121,3 +121,9 @@ published while either guarantee is missing.
   identity management. Each needs its own native implementation assessment;
   delegated/global administration, destructive deletion and key management stay
   outside the current no-send scope.
+
+The local B0 [metadata evidence](../specs/2026-11-10-mail-bounded-metadata-evidence.md)
+records its source/overlay hashes, 49 focused MCP tests, actual v9 compatibility
+and v10 PostgreSQL acceptance (3 tests / 86 assertions). Complete regression and
+final review still gate the end of Task4. Production remains on the deployed v9
+snapshot; send/schedule/cancel are absent.

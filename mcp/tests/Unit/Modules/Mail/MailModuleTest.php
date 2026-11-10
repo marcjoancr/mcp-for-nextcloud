@@ -29,7 +29,7 @@ use Psr\Log\LoggerInterface;
  */
 final class MailModuleTest extends TestCase {
 	/** The tools of the module, in tools/list order. */
-	private const TOOLS = ['mail_list_accounts', 'mail_list_mailboxes', 'mail_search_messages', 'mail_read_message', 'mail_read_message_metadata', 'mail_read_outbox', 'mail_read_thread', 'mail_read_attachment', 'mail_save_attachment', 'mail_read_drafts', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_get_operation', 'mail_list_operations', 'mail_read_account_settings', 'mail_write_account_settings', 'mail_read_signature', 'mail_write_signature', 'mail_read_connection', 'mail_configure_connection', 'mail_test_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_list_aliases', 'mail_list_tags', 'mail_create_tag', 'mail_set_message_tag', 'mail_refresh_mailbox', 'mail_reconcile_operation', 'mail_add_alias', 'mail_update_alias', 'mail_delete_alias'];
+	private const TOOLS = ['mail_list_accounts', 'mail_list_mailboxes', 'mail_search_messages', 'mail_read_message', 'mail_read_thread', 'mail_read_attachment', 'mail_save_attachment', 'mail_read_drafts', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_get_operation', 'mail_list_operations', 'mail_read_account_settings', 'mail_write_account_settings', 'mail_read_signature', 'mail_write_signature', 'mail_read_connection', 'mail_configure_connection', 'mail_test_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_list_aliases', 'mail_list_tags', 'mail_create_tag', 'mail_set_message_tag', 'mail_refresh_mailbox', 'mail_reconcile_operation', 'mail_add_alias', 'mail_update_alias', 'mail_delete_alias', 'mail_read_outbox', 'mail_read_message_metadata'];
 
 	/**
 	 * Read tools remain read-only while the new Mail mutations use explicit write operations.
@@ -42,9 +42,9 @@ final class MailModuleTest extends TestCase {
 		$this->assertSame(self::TOOLS, array_column($definitions, 'name'));
 		foreach ($definitions as $i => $definition) {
 			$this->assertSame('mail', $definition['module']);
-			$this->assertSame(['read', 'read', 'search', 'read_message', 'read_message', 'read_outbox', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts', 'set_flags', 'move_messages', 'archive_messages', 'trash_messages', 'restore_messages', 'create_mailboxes', 'rename_mailboxes', 'subscribe_mailboxes', 'configure_mailboxes', 'read_identities', 'read_tags', 'create_tags', 'tag_messages', 'refresh', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities'][$i], $definition['operation']);
+			$this->assertSame(['read', 'read', 'search', 'read_message', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts', 'set_flags', 'move_messages', 'archive_messages', 'trash_messages', 'restore_messages', 'create_mailboxes', 'rename_mailboxes', 'subscribe_mailboxes', 'configure_mailboxes', 'read_identities', 'read_tags', 'create_tags', 'tag_messages', 'refresh', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities', 'read_outbox', 'read_message'][$i], $definition['operation']);
 			$this->assertSame('mail', $definition['app']);
-			$this->assertSame([false, false, false, false, false, false, false, false, true, false, true, true, true, false, false, false, true, false, true, false, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false, false, true, true, true, true, true, true, true][$i], WriteGate::isWrite($definition), $definition['name']);
+			$this->assertSame([false, false, false, false, false, false, true, false, true, true, true, false, false, false, true, false, true, false, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false, false, true, true, true, true, true, true, true, false, false][$i], WriteGate::isWrite($definition), $definition['name']);
 			$this->assertFalse(array_key_exists('confirm', (array)$definition['inputSchema']['properties']));
 			$this->assertFalse($definition['inputSchema']['additionalProperties']);
 		}
@@ -52,11 +52,12 @@ final class MailModuleTest extends TestCase {
 		$this->assertSame('search', $definitions[2]['operation']);
 		$this->assertSame('read_message', $definitions[3]['operation']);
 		$this->assertSame('read_message', $definitions[4]['operation']);
-		$this->assertSame('read_outbox', $definitions[5]['operation']);
+		$this->assertSame('read_outbox', $definitions[41]['operation']);
+		$this->assertSame('read_message', $definitions[42]['operation']);
 		self::assertArrayNotHasKey('body', $definitions[2]['inputSchema']['properties']);
 		$this->assertTrue(is_subclass_of(MailModule::class, PreviewsWrites::class));
 		$this->assertTrue(is_subclass_of(MailModule::class, RendersPlans::class));
-		$this->assertSame(['files' => ['create']], $definitions[8]['grantAllOf']);
+		$this->assertSame(['files' => ['create']], $definitions[6]['grantAllOf']);
 	}
 
 	/**
