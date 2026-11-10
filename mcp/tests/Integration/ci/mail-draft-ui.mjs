@@ -33,10 +33,10 @@ try {
     assert.equal(prepared.initially_held, true)
     const safety = actor('draft-ui-safety', prepared)
     assert.equal(safety.source_retained, true)
-    assert.equal(safety.tamper_refused, true)
     assert.equal(safety.crypto_mutation_refused, true)
     assert.equal(safety.crypto_controller_refused, true)
     assert.deepEqual(safety.refused, { missing_alias: true, foreign_alias: true, account_changed: true, empty_parent: true, header_injection: true, oversized_parent: true, crypto: true })
+    for (const [name, state] of Object.entries(safety.case_states)) assert.deepEqual(state.changed_fields, [], `Rejected ${name} mutation must preserve every draft field.`)
     const origin = 'http://' + ip
     browser = await chromium.launch({ headless: true })
     const context = await browser.newContext()

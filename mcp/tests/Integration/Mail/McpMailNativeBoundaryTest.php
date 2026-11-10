@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Mail;
-use OCA\Mcp\Modules\Mail\Integration\{MailNativeBoundary,NativeGuardManifest};
+use OCA\Mcp\Modules\Mail\Integration\{MailDraftStorage,MailNativeBoundary,NativeDraftLinks,NativeGuardManifest};
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
-use OCP\{App\IAppManager,Server};
+use OCP\{App\IAppManager,IConfig,IURLGenerator,Server};
 use PHPUnit\Framework\Attributes\Group;
 #[Group('mail')]
 final class McpMailNativeBoundaryTest extends IntegrationTestCase {
@@ -34,6 +34,17 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
             }
             $mockApps=$this->createMock(IAppManager::class);$mockApps->method('getAppPath')->willReturn($root);$mockApps->method('getAppVersion')->willReturn($installedVersion);
             $copyBoundary=new MailNativeBoundary($mockApps);$installedBoundary=new MailNativeBoundary($realApps);
+            $storage=$this->createMock(MailDraftStorage::class);$storage->method('verified')->willReturn(true);
+            $draftBoundary=new MailNativeBoundary($mockApps,$storage);$urls=$this->createMock(IURLGenerator::class);$urls->method('linkToRouteAbsolute')->willReturn('https://cloud.test/apps/mail');
+            $draftLinks=new NativeDraftLinks($draftBoundary,$urls,Server::get(IConfig::class));$installedDraftLinks=new NativeDraftLinks(new MailNativeBoundary($realApps,$storage),$urls,Server::get(IConfig::class));
+            $draft=new class {
+                public function getMcpDraftOnly():bool{return true;}
+                public function getSmimeSign():bool{return false;}
+                public function getSmimeEncrypt():bool{return false;}
+                public function isPgpMime():bool{return false;}
+                public function getSendAt():mixed{return null;}
+            };
+            $editUrl=$draftLinks->forDraft(71,$draft);self::assertSame($installedDraftLinks->forDraft(71,$draft),$editUrl,'The owned source copy must preserve the installed version’s edit-entry capability, including stock and legacy versions.');
             $before=['flags'=>$copyBoundary->verified(),'move'=>$copyBoundary->movesVerified()];
             self::assertSame(['flags'=>$installedBoundary->verified(),'move'=>$installedBoundary->movesVerified()],$before,'The owned copy must preserve current, legacy, stock, and v9 source verification.');
             $target=$root.'/lib/IMAP/HordeImapClient.php';
@@ -46,6 +57,11 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
                 } finally {if($tampered){$restored=file_put_contents($target,$original);if($restored!==strlen($original))throw new \RuntimeException('Could not restore the owned native fixture copy.');clearstatcache(true,$target);self::assertSame(hash('sha256',$original),hash_file('sha256',$target));}}
             }
             self::assertSame($before,['flags'=>$copyBoundary->verified(),'move'=>$copyBoundary->movesVerified()],'Restoring the copied source must restore its exact native fingerprint.');
+            $editTarget=$root.'/js/mail.js';self::assertFileExists($editTarget,'The copied editor fingerprint source must exist so its tamper check is exercised.');
+            $editorOriginal=file_get_contents($editTarget);if(!is_string($editorOriginal))throw new \RuntimeException('Cannot read copied native editor fingerprint source.');
+            try {$editorBytes=$editorOriginal."\n// disposable editor fingerprint mismatch\n";$written=file_put_contents($editTarget,$editorBytes);if($written!==strlen($editorBytes))throw new \RuntimeException('Could not completely tamper the owned editor fixture copy.');clearstatcache(true,$editTarget);self::assertNull($draftLinks->forDraft(71,$draft),'A changed editor artifact must suppress the native edit entry.');}
+            finally {$restored=file_put_contents($editTarget,$editorOriginal);if($restored!==strlen($editorOriginal))throw new \RuntimeException('Could not restore the owned editor fixture copy.');clearstatcache(true,$editTarget);self::assertSame(hash('sha256',$editorOriginal),hash_file('sha256',$editTarget));}
+            self::assertSame($editUrl,$draftLinks->forDraft(71,$draft),'Restoring the copied editor artifact must restore the native edit entry.');
         } finally {
             foreach(array_reverse($files) as $file)if(is_file($file)&&!unlink($file))throw new \RuntimeException('Cannot remove owned native fixture file.');
             foreach(array_reverse($directories) as $directory)if(is_dir($directory)&&!rmdir($directory))throw new \RuntimeException('Cannot remove owned native fixture directory.');

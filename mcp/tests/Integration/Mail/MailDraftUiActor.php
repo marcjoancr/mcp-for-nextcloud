@@ -24,6 +24,19 @@ final class MailDraftUiActor {
         if(!$reply->ok())throw new \RuntimeException('Native UI fixture tool failed: '.$reply->describe());
         return $reply->structured()!==[]?$reply->structured():$reply->json();
     }
+    /** Scalar mutation boundary observed by the browser fixture without exposing message contents. */
+    private static function draftFields(object $draft):array {
+        return [
+            'subject'=>$draft->getSubject(),'body_plain'=>$draft->getBodyPlain(),'body_html'=>$draft->getBodyHtml(),
+            'account_id'=>$draft->getAccountId(),'alias_id'=>$draft->getAliasId(),'parent_id'=>$draft->getInReplyToMessageId(),
+            'smime_sign'=>$draft->getSmimeSign(),'smime_encrypt'=>$draft->getSmimeEncrypt(),'pgp_mime'=>$draft->isPgpMime(),
+            'send_at'=>$draft->getSendAt(),'is_html'=>$draft->isHtml(),'failed'=>$draft->isFailed(),
+            'draft_only'=>$draft->getMcpDraftOnly(),
+        ];
+    }
+    private static function changedFields(array $before,array $after):array {
+        return array_values(array_filter(array_keys($before),static fn(string $name):bool=>($before[$name]??null)!==($after[$name]??null)));
+    }
     public static function prepare(string $uid,string $format="plain"):array {
         if(!in_array($format,["plain","html"],true))throw new \InvalidArgumentException("Unsupported native UI fixture format.");
         if($uid!==MailActor::ALICE)throw new \RuntimeException('Unexpected native UI fixture actor.');
@@ -61,7 +74,7 @@ final class MailDraftUiActor {
         finally{try{$service=Server::get('OCA\\Mail\\Service\\DraftsService');$service->deleteMessage($uid,$service->getMessage($id,$uid));}catch(\OCP\AppFramework\Db\DoesNotExistException){}}
     }
     public static function safety(string $uid,array $p):array {
-        $draft=Server::get('OCA\\Mail\\Service\\DraftsService')->getMessage((int)$p['draft_id'],$uid);
+        $draft=Server::get('OCA\\Mail\\Service\\DraftsService')->getMessage((int)$p['draft_id'],$uid);$sourceBefore=self::draftFields($draft);
         $accounts=Server::get('OCA\\Mail\\Service\\AccountService');$account=$accounts->find($uid,$draft->getAccountId());
         $bob=$accounts->findByUserId(MailActor::BOB)[0];$aliases=Server::get('OCA\\Mail\\Service\\AliasesService');
         $foreign=$aliases->create(MailActor::BOB,$bob->getId(),'safety-'.bin2hex(random_bytes(8)).'@example.test','Native safety fixture');
@@ -70,27 +83,26 @@ final class MailDraftUiActor {
             'header_injection'=>['inReplyToMessageId',"<parent@example.test>\r\nBcc: injected@example.test"],
             'oversized_parent'=>['inReplyToMessageId','<'.str_repeat('a',999).'@example.test>'],
             'crypto'=>['smimeSign',true]];
-        $refused=[];
+        $refused=[];$caseStates=[];
         try{
             foreach($cases as $name=>[$field,$value]){
                 $copy=clone $draft;$setter='set'.ucfirst($field);$copy->$setter($value);
                 try{Server::get('OCA\\Mail\\Service\\MailTransmission')->saveLocalDraft($account,$copy);$refused[$name]=false;}
                 catch(\OCA\Mail\Exception\ServiceException){$refused[$name]=true;}
+                $after=Server::get('OCA\\Mail\\Service\\DraftsService')->getMessage((int)$p['draft_id'],$uid);$state=self::draftFields($after);
+                $caseStates[$name]=['refused'=>$refused[$name],'changed_fields'=>self::changedFields($sourceBefore,$state)];
             }
         }finally{$aliases->delete(MailActor::BOB,$foreign->getId());}
         $copy=clone $draft;$copy->setSmimeSign(true);$cryptoRefused=false;
         try{Server::get('OCA\\Mail\\Db\\LocalMessageMapper')->update($copy);}catch(\OCA\Mail\Exception\ClientException){$cryptoRefused=true;}
-        $copy=clone $draft;$controller=Server::get('OCA\\Mail\\Controller\\DraftsController');$payload=$draft->jsonSerialize();$controllerRefused=false;
+        $afterMapper=Server::get('OCA\\Mail\\Service\\DraftsService')->getMessage((int)$p['draft_id'],$uid);$mapperState=self::draftFields($afterMapper);$caseStates['crypto_mapper']=['refused'=>$cryptoRefused,'changed_fields'=>self::changedFields($sourceBefore,$mapperState)];
+        $controller=Server::get('OCA\\Mail\\Controller\\DraftsController');$payload=$draft->jsonSerialize();$controllerRefused=false;
         try{$controller->update(id:$draft->getId(),accountId:$draft->getAccountId(),subject:$draft->getSubject(),bodyPlain:$draft->getBodyPlain(),bodyHtml:$draft->getBodyHtml(),editorBody:$draft->getEditorBody(),isHtml:$draft->isHtml(),smimeSign:true,smimeEncrypt:false,to:$payload['to'],cc:$payload['cc'],bcc:$payload['bcc'],attachments:$payload['attachments'],aliasId:$draft->getAliasId(),inReplyToMessageId:$draft->getInReplyToMessageId());}
         catch(\OCA\Mail\Exception\ClientException){$controllerRefused=true;}
         $remaining=Server::get('OCA\\Mail\\Service\\DraftsService')->getMessage((int)$p['draft_id'],$uid);
-        $path=Server::get(\OCP\App\IAppManager::class)->getAppPath('mail').'/js/mail.js';$bytes=file_get_contents($path);
-        try{
-            file_put_contents($path,$bytes."\n// disposable editor fingerprint mismatch\n");clearstatcache(true,$path);
-            $read=self::data((new McpClient(LoginFactory::basic($uid)))->tool('mail_read_drafts',['draft_id'=>(int)$p['draft_id']]));
-            $tamperRefused=!isset($read['native_edit_url'])&&!Server::get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class)->draftsVerified();
-        }finally{file_put_contents($path,$bytes);clearstatcache(true,$path);}
-        return ['crypto_mutation_refused'=>$cryptoRefused,'crypto_controller_refused'=>$controllerRefused,'tamper_refused'=>$tamperRefused,'refused'=>$refused,'source_retained'=>$remaining->getSubject()===$p['subject']&&$remaining->getBodyPlain()===$p['body_plain']&&$remaining->getBodyHtml()===($p['body_html']??null)&&$remaining->getAliasId()===$p['alias_id']];
+        $remainingFields=self::draftFields($remaining);
+        $caseStates['crypto_controller']=['refused'=>$controllerRefused,'changed_fields'=>self::changedFields($sourceBefore,$remainingFields)];
+        return ['crypto_mutation_refused'=>$cryptoRefused,'crypto_controller_refused'=>$controllerRefused,'refused'=>$refused,'source_retained'=>$remaining->getSubject()===$p['subject']&&$remaining->getBodyPlain()===$p['body_plain']&&$remaining->getBodyHtml()===($p['body_html']??null)&&$remaining->getAliasId()===$p['alias_id'],'case_states'=>$caseStates];
     }
     public static function finish(string $uid,array $p):array {
         $draft=Server::get('OCA\\Mail\\Service\\DraftsService')->getMessage((int)$p['draft_id'],$uid);
