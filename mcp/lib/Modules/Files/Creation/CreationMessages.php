@@ -42,6 +42,11 @@ final class CreationMessages {
         return Translator::t('Failed to write file; an empty file with this name may have been left in place.');
     }
 
+    /** @return string when safe cross-worker folder locking cannot be proven */
+    public static function lockingUnavailable(): string {
+        return Translator::t('File creation is unavailable because safe distributed file locking is not configured.');
+    }
+
     /** @return string the rule of a path whose extension files_create does not write */
     public static function createExtensionRule(): string {
         return Translator::t('files_create only writes text files (%s); use files_upload for any other type', [implode(', ', array_map(

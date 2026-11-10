@@ -82,6 +82,10 @@ class Application extends App implements IBootstrap {
             static fn (ContainerInterface $c): \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard => new \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard(
                 $c->get(\OCA\Mcp\Access\FileWritePolicy\FileWritePolicy::class),
             ));
+        $context->registerService(\OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard::class,
+            static fn (ContainerInterface $c): \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard => new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard(
+                $c->get(IConfig::class),
+            ));
         $context->registerService(\OCA\Mcp\Access\Guests\GuestRestrictions::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Access\Guests\GuestRestrictions(
             $c->get(IAppManager::class), $c->get(\OCP\IRequest::class),
             static fn () => $c->get('OCA\\Guests\\GuestManager'),

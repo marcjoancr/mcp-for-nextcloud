@@ -56,6 +56,7 @@ final class IncomingFileCreationTest extends FilesToolsTestCase {
             $this->visibilityGuard ?? FilesGuards::unrestricted($this),
             $this->creationLogger,
             $this->locks->service($this),
+            new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard($config, 'fpm-fcgi'),
         );
         $this->incoming = new IncomingFileCreation($this->rootFolder, $creation, $guard, $this->visibilityGuard);
     }
@@ -187,7 +188,7 @@ final class IncomingFileCreationTest extends FilesToolsTestCase {
         $access = $this->access;
         $shared = new SharedWriteGuard($access);
         $checkout = new CheckoutService($this->createMock(IURLGenerator::class), $config, $this->time, new TokenHasher($config), $this->store, $this->apps, $this->users);
-        $creation = new FileCreation(BackupDocumentFixture::location($this, $this->config), FileTypePolicies::guard($this), $access, $shared, $checkout, $this->filenames, $guard ?? $this->visibilityGuard, $this->creationLogger, $this->locks->service($this));
+        $creation = new FileCreation(BackupDocumentFixture::location($this, $this->config), FileTypePolicies::guard($this), $access, $shared, $checkout, $this->filenames, $guard ?? $this->visibilityGuard, $this->creationLogger, $this->locks->service($this), new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard($config, 'fpm-fcgi'));
         return new IncomingFileCreation($rootFolder, $creation, $shared, $guard ?? $this->visibilityGuard);
     }
 }

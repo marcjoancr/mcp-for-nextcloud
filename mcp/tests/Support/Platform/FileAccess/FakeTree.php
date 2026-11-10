@@ -60,6 +60,14 @@ final class FakeTree {
     /** Absolute path of the mount a node lives in; null means "the node's own folder". */
     public ?string $mountPath = null;
     public bool $failWrite = false;
+    /** Bytes a storage's touch operation writes when newFile() omits explicit content. */
+    public string $touchContent = '';
+    /** @var list<array{path:string,type:int}> */
+    public array $folderLocks = [];
+    /** @var list<array{path:string,type:int}> */
+    public array $folderUnlocks = [];
+    /** @var (\Closure(string, int): void)|null simulates a competing child operation while the parent lock is acquired */
+    public ?\Closure $beforeFolderLock = null;
     /** What putContent() of a file that is not a backup throws, when a test needs a lock or a full quota instead of a denial. */
     public ?\Throwable $writeFailure = null;
     /**
@@ -275,6 +283,13 @@ final class FakeTree {
     private function folder(string $path): Folder {
         $folder = $this->mock(Folder::class);
         $this->common($folder, $path);
+        $folder->method('lock')->willReturnCallback(function (int $type) use ($path): void {
+            $this->folderLocks[] = ['path' => $path, 'type' => $type];
+            ($this->beforeFolderLock)?->__invoke($path, $type);
+        });
+        $folder->method('unlock')->willReturnCallback(function (int $type) use ($path): void {
+            $this->folderUnlocks[] = ['path' => $path, 'type' => $type];
+        });
         $folder->method('getType')->willReturn(FileInfo::TYPE_FOLDER);
         $folder->method('getMimetype')->willReturn('httpd/unix-directory');
         $folder->method('getSize')->willReturn(0);
@@ -306,7 +321,7 @@ final class FakeTree {
             $this->ops[] = "create $path/$name";
             // Like the View, newFile() without content is a touch: a file that is already there keeps its bytes.
             if ($content !== null || !isset($this->nodes["$path/$name"])) {
-                $this->addFile("$path/$name", (string)$content, 'text/markdown');
+                $this->addFile("$path/$name", $content === null ? $this->touchContent : (string)$content, 'text/markdown');
             }
             if ($this->afterCreate !== null) {
                 ($this->afterCreate)("$path/$name");

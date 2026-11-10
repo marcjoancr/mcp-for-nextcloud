@@ -124,6 +124,9 @@ final class CheckoutCreateTest extends TestCase {
         $this->tree->addFolder('/alice/files/Documentos');
         $this->store = new InMemoryCheckoutTokenStore();
         $this->config = new InMemoryConfig();
+        $this->config->system['filelocking.enabled'] = true;
+        $this->config->system['memcache.locking'] = '';
+        $this->config->system['filelocking.excluded'] = [];
         $this->config->app['mcp'][CheckoutService::MAX_BYTES_KEY] = (string)self::LIMIT;
         $this->policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
         $this->policy->setGlobalEnabled(true);
@@ -174,7 +177,7 @@ final class CheckoutCreateTest extends TestCase {
             $this->hasher,
             $checkout,
             new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests),
-            new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests), new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this)), $this->locks->service($this)),
+            new CheckoutWriter(\OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, new CheckoutPolicy($root, $this->session, $time, $this->policy, $this->store, $users, $guard, $guests), new FileBackup(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::copies($this, \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this)), $apps, $users, $time, $config, \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this)), new SharedWriteGuard($access), $access, $this->createMock(LoggerInterface::class), $guard, new FileCreation(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames, $guard, $this->createMock(LoggerInterface::class), $this->locks->service($this), new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard($config, 'fpm-fcgi')), $this->locks->service($this)),
             ($this->bodyReader = new StagedBodyReader($temp)),
             $this->createMock(LoggerInterface::class),
             null,
@@ -336,8 +339,10 @@ final class CheckoutCreateTest extends TestCase {
     /** Another client creates the name between the check and the write: its bytes stay and the answer is a 409. */
     public function testARaceAtWriteTimeKeepsTheOtherFile(): void {
         $this->issue();
-        $this->tree->beforeCreate = function (string $path): void {
-            $this->tree->addFile($path, 'do outro', 'text/plain');
+        $this->tree->beforeFolderLock = function (string $path, int $type): void {
+            if ($type === \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE) {
+                $this->tree->addFile($path . '/' . basename(self::FILE), 'do outro', 'text/plain');
+            }
         };
         $response = $this->controller->upload();
 
