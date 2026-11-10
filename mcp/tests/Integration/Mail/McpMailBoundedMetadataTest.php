@@ -6,7 +6,7 @@ namespace OCA\Mcp\Tests\Integration\Mail;
 
 use OCA\Mcp\Modules\Mail\Integration\{MailNativeBoundary,MailRuntimePairs,NativeGuardManifest};
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
-use OCP\{App\IAppManager,DB\QueryBuilder\IQueryBuilder,IDBConnection,IConfig,Server};
+use OCP\{App\IAppManager,DB\QueryBuilder\IQueryBuilder,IDBConnection,Server};
 use PHPUnit\Framework\Attributes\Group;
 
 #[Group('mail')]
@@ -32,8 +32,16 @@ final class McpMailBoundedMetadataTest extends IntegrationTestCase {
         $subject=str_repeat('a',250).'😀😀';self::assertSame(258,strlen($subject));self::assertSame(252,mb_strlen($subject,'UTF-8'));
         $db->beginTransaction();$syntheticIds=[];
         $insert=static function(int $account,int $type,string $subject,bool $failed,int $updated)use($db,&$syntheticIds):int {
-            $db->insert('mail_local_messages',['type'=>$type,'account_id'=>$account,'alias_id'=>null,'send_at'=>null,'subject'=>$subject,'body'=>'','html'=>false,'failed'=>$failed,'updated_at'=>$updated]);
-            $id=$db->lastInsertId('mail_local_messages');$syntheticIds[]=$id;return $id;
+            $q=$db->getQueryBuilder();$q->insert('mail_local_messages')
+                ->setValue('type',$q->createNamedParameter($type,IQueryBuilder::PARAM_INT))
+                ->setValue('account_id',$q->createNamedParameter($account,IQueryBuilder::PARAM_INT))
+                ->setValue('alias_id',$q->createNamedParameter(null,IQueryBuilder::PARAM_INT))
+                ->setValue('send_at',$q->createNamedParameter(null,IQueryBuilder::PARAM_INT))
+                ->setValue('subject',$q->createNamedParameter($subject))
+                ->setValue('html',$q->createNamedParameter(false,IQueryBuilder::PARAM_BOOL))
+                ->setValue('failed',$q->createNamedParameter($failed,IQueryBuilder::PARAM_BOOL))
+                ->setValue('updated_at',$q->createNamedParameter($updated,IQueryBuilder::PARAM_INT));
+            $q->executeStatement();$id=$q->getLastInsertId();$syntheticIds[]=$id;return $id;
         };
         try {
             $aliceOlder=$insert($aliceAccounts[0],0,'alice older',false,100);
