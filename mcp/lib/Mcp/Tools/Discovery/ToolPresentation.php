@@ -211,6 +211,8 @@ final class ToolPresentation {
             'talk_search_messages' => Translator::t('Search Talk messages'),
             'talk_read_message_context' => Translator::t('Read Talk message context'),
             'mail_read_message' => Translator::t('Read mail message'),
+            'mail_read_message_metadata' => Translator::t('Read mail message metadata'),
+            'mail_read_outbox' => Translator::t('Read local mail outbox'),
             'mail_list_accounts' => Translator::t('List mail accounts'),
             'mail_list_mailboxes' => Translator::t('List mail folders'),
             'logs_list' => Translator::t('Read server log'),

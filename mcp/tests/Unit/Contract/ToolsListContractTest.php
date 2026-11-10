@@ -253,9 +253,9 @@ final class ToolsListContractTest extends TestCase {
      */
     public function testTitlesFollowTheUsersLanguageAndDescriptionsStayEnglish(): void {
         $expectedTitles = [
-            'en' => ['notes_list' => 'List notes', 'deck_read_card' => 'Read Deck card', 'talk_reply' => 'Reply in Talk'],
-            'pt_BR' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Ler card do Deck', 'talk_reply' => 'Responder no Talk'],
-            'es' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Leer tarjeta de Deck', 'talk_reply' => 'Responder en Talk'],
+            'en' => ['notes_list' => 'List notes', 'deck_read_card' => 'Read Deck card', 'talk_reply' => 'Reply in Talk', 'mail_read_message_metadata' => 'Read mail message metadata', 'mail_read_outbox' => 'Read local mail outbox'],
+            'pt_BR' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Ler card do Deck', 'talk_reply' => 'Responder no Talk', 'mail_read_message_metadata' => 'Ler metadados da mensagem de e-mail', 'mail_read_outbox' => 'Ler a caixa de saída local do Mail'],
+            'es' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Leer tarjeta de Deck', 'talk_reply' => 'Responder en Talk', 'mail_read_message_metadata' => 'Leer los metadatos del mensaje de correo', 'mail_read_outbox' => 'Leer la cola local de salida de correo'],
         ];
         $descriptions = [];
         try {
@@ -354,7 +354,8 @@ final class ToolsListContractTest extends TestCase {
         foreach ([
             ['mail', 'read', ['mail_list_accounts', 'mail_list_mailboxes']],
             ['mail', 'search', ['mail_search_messages']],
-            ['mail', 'read_message', ['mail_read_message', 'mail_read_thread']],
+            ['mail', 'read_message', ['mail_read_message', 'mail_read_message_metadata', 'mail_read_thread']],
+            ['mail', 'read_outbox', ['mail_read_outbox']],
             ['mail', 'read_attachment', ['mail_read_attachment']],
             ['mail', 'read_drafts', ['mail_read_drafts']],
             ['mail', 'write_drafts', ['mail_write_draft']],
@@ -388,7 +389,7 @@ final class ToolsListContractTest extends TestCase {
 
     public function testNewToolsRequireIndependentAssignmentsDespiteLegacyOperationGrants(): void {
         $newTools = ['forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
-            'mail_read_message', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
+            'mail_read_message', 'mail_read_message_metadata', 'mail_read_outbox', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
             'mail_write_draft', 'mail_delete_draft', 'talk_search_messages', 'talk_read_message_context'];
         $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
         $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;

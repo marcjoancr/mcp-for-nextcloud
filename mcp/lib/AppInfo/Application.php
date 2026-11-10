@@ -643,6 +643,8 @@ class Application extends App implements IBootstrap {
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(
             $c->get(IAppManager::class), static fn (string $class) => $c->get($class), $c->get(IUserManager::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailBoundedReads(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class), $c->get(\OCP\IConfig::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class));
         foreach ([\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class, \OCA\Mcp\Modules\Mail\Tools\ReadMessage::class, \OCA\Mcp\Modules\Mail\Tools\ReadThread::class] as $tool) {
             $context->registerService($tool, static fn (ContainerInterface $c) => new $tool(
@@ -763,6 +765,8 @@ class Application extends App implements IBootstrap {
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
             'mail_search_messages' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class),
             'mail_read_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadMessage::class),
+            'mail_read_message_metadata' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadMessageMetadata($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
+            'mail_read_outbox' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadOutbox($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
             'mail_read_thread' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadThread::class),
             'mail_read_attachment' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadAttachment::class),
             'mail_save_attachment' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SaveAttachment::class),

@@ -17,7 +17,10 @@ final class MailConfigurationToolsTest extends TestCase {
             'mail_test_connection'=>'test_connection','mail_add_account'=>'create_accounts','mail_complete_account_setup'=>'complete_setup','mail_delete_account'=>'delete_accounts'];
         foreach($expected as $tool=>$op){self::assertArrayHasKey($tool,$definitions);self::assertSame($op,$definitions[$tool]['operation']);
             self::assertSame(!in_array($op,['read_settings','read_signatures','read_connection'],true),WriteGate::isWrite($definitions[$tool]));}
-        foreach(array_keys($definitions) as $tool)self::assertDoesNotMatchRegularExpression('/send|outbox/',$tool);
+        foreach(array_keys($definitions) as $tool) {
+            if ($tool === 'mail_read_outbox') { continue; }
+            self::assertDoesNotMatchRegularExpression('/send|outbox/',$tool);
+        }
     }
     public function testCredentialFieldsAreNeverAcceptedAtAnySetupBoundary():void {
         $definitions=MailToolCatalog::definitions();
