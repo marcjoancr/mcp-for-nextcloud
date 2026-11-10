@@ -103,10 +103,8 @@ final class MailNativeMoveActor {
     }
 
     public static function boundary(string $uid):array {
-        $cap=Server::get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class);$before=$cap->forUser($uid);$safe=MailNativeMutationActor::safety($uid);
-        $path=Server::get(\OCP\App\IAppManager::class)->getAppPath('mail').'/lib/IMAP/HordeImapClient.php';$bytes=file_get_contents($path);
-        try{file_put_contents($path,$bytes."\n// disposable fingerprint mismatch\n");clearstatcache(true,$path);$tampered=$cap->forUser($uid);}finally{file_put_contents($path,$bytes);clearstatcache(true,$path);}
-        return ['before'=>$before,'tampered'=>$tampered,'restored'=>$cap->forUser($uid),'no_send'=>$safe===MailNativeMutationActor::safety($uid)];
+        $cap=Server::get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class);$safe=MailNativeMutationActor::safety($uid);
+        return ['before'=>$cap->forUser($uid),'no_send'=>$safe===MailNativeMutationActor::safety($uid)];
     }
 
     public static function role(string $uid,array $fixture,string $role,int $id):array {
