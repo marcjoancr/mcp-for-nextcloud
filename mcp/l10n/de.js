@@ -1,6 +1,7 @@
 OC.L10N.register(
     "mcp",
     {
+    "File creation is unavailable because safe distributed file locking is not configured." : "Die Dateierstellung ist nicht verfügbar, da keine sichere verteilte Dateisperre konfiguriert ist.",
     "The native editor is draft-only: sending and scheduling are disabled, and automatic draft conversion stays held." : "Der native Editor ist auf Entwürfe beschränkt: Senden und Planen sind deaktiviert, und die automatische Umwandlung bleibt angehalten.",
     "Record this proven Mail operation outcome. No native write will be repeated." : "Dieses nachgewiesene Mail-Vorgangsergebnis erfassen. Kein nativer Schreibvorgang wird wiederholt.",
     "Apply these reviewed local Mail identity changes. Sending stays disabled." : "Diese geprüften lokalen Mail-Identitätsänderungen anwenden. Der Versand bleibt deaktiviert.",
