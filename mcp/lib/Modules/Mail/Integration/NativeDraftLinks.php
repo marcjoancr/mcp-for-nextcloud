@@ -11,7 +11,7 @@ use OCP\{IURLGenerator,IConfig};
 class NativeDraftLinks {
     public function __construct(private MailNativeBoundary $boundary,private IURLGenerator $urls,private IConfig $config){}
     public function available():bool {
-        return preg_match('/^35\.0\.2(?:\.\d+)?$/D',$this->config->getSystemValueString('version',''))===1&&$this->boundary->draftsVerified();
+        return $this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))&&$this->boundary->draftsVerified();
     }
     public function forDraft(int $id,object $draft):?string {
         if($id<1||!$this->available())return null;

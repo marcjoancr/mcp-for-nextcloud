@@ -67,6 +67,12 @@ final class McpMailTagCreationTest extends IntegrationTestCase {
 
     public function testNativeHttpCreationIsReviewedUserOwnedAndNeverReplayed():void {
         $uid=MailActor::ALICE;$map=Server::get('OCA\\Mail\\Db\\TagMapper');$safe=MailActor::run($uid,'c1-safety');$ids=[];$name='C5 Revisión '.bin2hex(random_bytes(5));$args=['name'=>$name,'color'=>'#AABBCC'];
+        if(getenv('MCP_IT_NC')!=='35'&&getenv('MCP_IT_MAIL_GUARD')!=='1'){
+            $count=count($map->getAllTagsForUser($uid));
+            self::assertFalse($this->alice->tool('mail_create_tag',$args)->ok());
+            self::assertCount($count,$map->getAllTagsForUser($uid));
+            self::assertSame($safe,MailActor::run($uid,'c1-safety'));return;
+        }
         try{
             $p=$this->data($this->alice->tool('mail_create_tag',$args));self::assertTrue($p['requiresConfirmation']);self::assertSame('all_owned_accounts',$p['scope']);$c=$args+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']];$r=$this->data($this->alice->tool('mail_create_tag',$c));self::assertSame('succeeded',$r['operation']['state'],json_encode($r));$id=$r['tag']['tag_id'];$ids[]=$id;$tag=$map->getTagForUser($id,$uid);self::assertSame($name,$tag->getDisplayName());self::assertSame('#aabbcc',$tag->getColor());self::assertFalse($tag->getIsDefaultTag());self::assertSame($id,$r['operation']['resource_refs']['tag_id']);self::assertArrayNotHasKey('imap_label',$r['tag']);
             $count=count($map->getAllTagsForUser($uid));self::assertTrue($this->data($this->alice->tool('mail_create_tag',$c))['operation']['replayed']);self::assertCount($count,$map->getAllTagsForUser($uid));$this->data($this->alice->tool('mail_get_operation',['operation_id'=>$p['operation_id']]));self::assertFalse($this->bob->tool('mail_get_operation',['operation_id'=>$p['operation_id']])->ok());self::assertFalse($this->alice->tool('mail_create_tag',$args)->ok());

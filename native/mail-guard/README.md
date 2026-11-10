@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, built as custom **5.12.5.7** on the qualified NC35 line. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, built as custom **5.12.5.8** for the exact qualified NC33.0.10, NC34.0.5 and NC35.0.2 pairs. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -10,7 +10,7 @@ From the repository root, with that verified archive available:
 mkdir -p mcp/build/native-mail-guard
 php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/overlay
 cmp mcp/build/native-mail-guard/overlay/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v7-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v8-normalized-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
 ```
 
 `overlay/mail` contains the v7 additions (including the preserved v6 draft lifecycle) and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
@@ -228,3 +228,26 @@ their prior setup behavior. Immutable v1–v6 manifests remain limited to their
 previous scopes. Both native and MCP migrations are required; mixed workers and
 code/database rollback require separate operator work. Sending stays disabled.
 See the [credential evidence plan](../../docs/superpowers/plans/2026-11-10-mail-native-credential-evidence-plan.md).
+
+## v8 exact runtime qualification
+
+The v8 build preserves all 128 v7 implementation fingerprints; only native
+appinfo version/core range changes. MCP keeps 41 tools and centralizes exact
+core/build admission across capabilities, draft entry, credential evidence and
+alias writes. NC33/34 require build 5.12.5.8; immutable v1–v7 retain only their
+previous NC35 scopes. Source/schema/grant/provider gates remain independent.
+
+Both new cores pass direct native candidate guarantees while their MCP pairs
+remain closed, followed by complete 57-case enabled Mail acceptance and all
+plain/HTML and credential browser workflows without manual context arming.
+Stock NC33/34 retains unverified guarded capabilities, including alias/tag writes.
+The runner rejects candidate mode on final admitted source and enabled mode on
+pre-admission source before creating containers; qualification phases require
+the selected checkout, not an external kit. No production environment bypass.
+
+The final normalized overlay uses files644/directories755, uid/gid/time0 and
+source manifest 957ba46907945d3cd1cee00955ae0ab9ae9c3dcf0d0fd3b71b6d4298f5e81276.
+The immutable review archive is preserved separately from this normalization.
+Only fresh pinned primary MariaDB/InnoDB cells are qualified; upgrades, other
+patches/providers and operator deployment need separate acceptance. Sending
+stays disabled. See the [runtime evidence](../../docs/superpowers/specs/2026-11-10-mail-runtime-qualification-evidence.md).

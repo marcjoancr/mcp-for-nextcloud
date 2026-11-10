@@ -12,7 +12,7 @@ use OCP\{IDBConnection,IConfig};
 class NativeSetupEvidence {
     public function __construct(private MailServices $services,private MailNativeBoundary $boundary,private MailCredentialStorage $storage,private IDBConnection $db,private IConfig $config){}
     public function available():bool {
-        return MailNativeBoundary::CREDENTIAL_WRITES_QUALIFIED&&preg_match('/^35\.0\.2(?:\.\d+)?$/D',$this->config->getSystemValueString('version',''))===1&&$this->boundary->credentialsSourceVerified()&&$this->storage->verified();
+        return MailNativeBoundary::CREDENTIAL_WRITES_QUALIFIED&&$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))&&$this->boundary->credentialsSourceVerified()&&$this->storage->verified();
     }
     private function service(string $uid):object {
         if(!$this->available())throw new BeforeEffectFailure('Native credential evidence is not qualified for this installation.');

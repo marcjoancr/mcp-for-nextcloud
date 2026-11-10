@@ -554,7 +554,7 @@ REPORT
 cmd_test() {
     expected=$(cat "$WORK/expected-version")
     set -- -e NEXTCLOUD_ROOT=/var/www/html -e MCP_IT_NC="$MCP_IT_NC" -e MCP_IT_DB="$MCP_IT_DB" \
-        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json \
+        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_MAIL_RUNTIME_PHASE="${MCP_IT_MAIL_RUNTIME_PHASE:-}" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json \
         -e MCP_IT_SNAPSHOT=/tmp/mcp-it-snapshot.json -e MCP_IT_BASELINE_APP=/tmp/mcp-previous \
         -e MCP_IT_PROVISION_FAILURES="$(tr '\n' ' ' < "$WORK/provision-failures" 2>/dev/null || true)" \
         -e MCP_IT_GF_NAME="$GF_NAME"
@@ -578,7 +578,7 @@ cmd_test() {
 # One full coordinated restore rehearsal, isolated from the policy tests and never against a real installation.
 cmd_draft_ui() {
     if [ "${MCP_IT_MAIL_UI:-0}" != 1 ]; then echo 'Native draft browser acceptance not requested.'; return; fi
-    [ "${MCP_IT_WITH_MAIL:-0}:${MCP_IT_NC}:${MCP_IT_MAIL_GUARD:-0}" = 1:35:1 ] || { echo 'Native draft browser acceptance requires the owned NC35 guarded Mail cell.' >&2; return 1; }
+    case "${MCP_IT_WITH_MAIL:-0}:$MCP_IT_NC:${MCP_IT_MAIL_GUARD:-0}" in 1:33:1|1:34:1|1:35:1) ;; *) echo 'Native draft browser acceptance requires a pinned owned guarded Mail cell.' >&2; return 1 ;; esac
     for format in plain html; do
         MCP_IT_MAIL_UI_FORMAT="$format" node "$REPO_ROOT/mcp/tests/Integration/ci/mail-draft-ui.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
     done
@@ -586,7 +586,7 @@ cmd_draft_ui() {
 
 cmd_credential_ui() {
     if [ "${MCP_IT_MAIL_CREDENTIAL_UI:-0}" != 1 ]; then echo 'Native credential browser acceptance not requested.'; return; fi
-    [ "${MCP_IT_WITH_MAIL:-0}:$MCP_IT_NC:${MCP_IT_MAIL_GUARD:-0}" = 1:35:1 ] || { echo 'Native credential acceptance requires the owned NC35 guarded Mail cell.' >&2; return 1; }
+    case "${MCP_IT_WITH_MAIL:-0}:$MCP_IT_NC:${MCP_IT_MAIL_GUARD:-0}" in 1:33:1|1:34:1|1:35:1) ;; *) echo 'Native credential acceptance requires a pinned owned guarded Mail cell.' >&2; return 1 ;; esac
     if [ "${MCP_IT_MAIL_TABS_ONLY:-0}" != 1 ]; then
         node "$REPO_ROOT/mcp/tests/Integration/ci/mail-credential-ui.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
     fi

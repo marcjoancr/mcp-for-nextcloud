@@ -18,14 +18,16 @@ implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim co
 | Same pair with exact v5 overlay and required primary InnoDB schema | Flags, moves, folders, local tag creation, exact message tags and bounded refresh, subject to each independent grant and provider gate. |
 | NC35.0.2 / custom Mail5.12.5.6 / exact v6 overlay and primary InnoDB schema | Existing v5 scopes plus protected native draft editing and alias/reply preservation through native IMAP conversion. |
 | NC35.0.2 / custom Mail5.12.5.7 / exact v7 overlay and required primary InnoDB schema | Existing v6 scopes plus correlated native manual credential-write evidence and one-shot setup completion. |
+| NC33.0.10, NC34.0.5 or NC35.0.2 / custom Mail5.12.5.8 / exact v8 overlay and required primary InnoDB schema | All preceding guarded scopes, protected native drafts and correlated credential-write evidence; same 41 tools and independent grants. |
+| NC33.0.10 or NC34.0.5 / stock Mail5.12.5 | Reads, legacy local drafts/Files and existing account/settings behavior retain their permissions; guarded capabilities remain unverified, including local alias/tag creation. |
 | Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
-| NC33/34 or other Mail/server/provider combinations | Native behavior unverified by this acceptance run. The manifest/API floor and static fixtures do not qualify those combinations. |
+| Other Mail/server/provider combinations | Native behavior unverified. The manifest/API floor and static fixtures do not qualify an unknown pair. |
 
 The native dependency is installed separately. Its source fingerprint, provider,
 schema and protocol checks remain mandatory; version strings alone grant nothing.
 C7 and D+ acceptance exercised stock Mail and v5 separately. The v6 continuation
 adds actual native composer acceptance; older immutable overlays retain only their
-previously qualified scopes. Installation remains separate from implementation acceptance.
+previously qualified scopes. v8 native qualification covers the exact three core patches above in fresh pinned MariaDB cells; unknown patches, upgrades and other providers need separate acceptance. Installation remains separate from implementation acceptance.
 
 | Tool | Behavior |
 | --- | --- |
@@ -42,8 +44,7 @@ boolean for one `account_id` and `message_id`. It requires the independent
 `mail.set_flags` permission, an explicit tool assignment and selection for this
 connection. Existing grants and selections do not enable it.
 
-Flags require the verified custom native Mail build qualified on NC35.0.2 with
-Mail5.12.5. Stock Mail and unknown builds refuse before writing; use native Mail
+Flags require an exact qualified custom native pair in the table above. Stock Mail and unknown builds refuse before writing; use native Mail
 there. Review the preview and repeat its plan_state and operation_id with
 confirmation. The operation reports separate remote/cache phases. After a lost
 response, inspect that operation; an uncertain result retains the account's write
@@ -74,8 +75,7 @@ folder generation/cache revision or Archive/Trash role requires a new preview.
 Restoration does not guess the old folder. Each tool requires its own assignment
 and current connection selection; existing read/flag grants do not enable moves.
 
-These tools require the exact custom **v2, v3, v4, v5, v6 or v7** native dependency,
-qualified on **Nextcloud35.0.2/Mail5.12.5**, and server support for **MOVE + UIDPLUS**.
+These tools require the exact custom **v2–v7** on **NC35.0.2/Mail5.12.5**, or an exact **v8** pair above, and server support for **MOVE + UIDPLUS**.
 Stock Mail, the flags-only C1 artifact and altered/unknown native builds refuse
 moves. The native client sends at most one UID MOVE, retaining the complete
 command-bound COPYUID mapping including both generations. It never falls back to
@@ -103,8 +103,7 @@ five admissions per owner/account/minute apply. Sending remains disabled.
 | `mail_set_mailbox_subscription` | `mail.subscribe_mailboxes` | Set `subscribed` explicitly to true or false. |
 | `mail_configure_mailboxes` | `mail.configure_mailboxes` | Patch owned selectable Drafts, Sent, Trash or Archive folder IDs; omitted roles are preserved. |
 
-The three remote folder actions require the exact **v3, v4, v5, v6 or v7** custom native dependency
-on **NC35.0.2/Mail5.12.5**. v1/v2, stock and unknown builds refuse them.
+The three remote folder actions require the exact **v3–v7** on **NC35.0.2/Mail5.12.5**, or an exact **v8** pair above. v1/v2, stock and unknown builds refuse them.
 Special-role configuration is a local native account update and does not require
 v3 or contact IMAP. Roles cannot be cleared or assigned to foreign/shared folders.
 Credentials, TLS policy, signatures and omitted account fields are preserved.
@@ -141,8 +140,7 @@ The independent `mail.refresh` permission, tool assignment and current connectio
 selection start denied. Ordinary reads, search, listing, replay and operation
 status never refresh or enqueue synchronization.
 
-Refresh requires the separately installed **v5, v6 or v7** native dependency, qualified only
-on **NC35.0.2 / Mail5.12.5 / MariaDB10.11.19 primary**. The source/schema
+Refresh requires separately installed **v5–v7** on **NC35.0.2/Mail5.12.5/MariaDB10.11.19 primary**, or an exact **v8** pair above. The source/schema
 gate also admits MySQL primary storage, but C7 has no separate native MySQL cell.
 Replicas and sharding are excluded. Stock, older custom artifacts and unknown builds refuse before network
 work. Existing v1–v4 scopes remain accepted for their original actions.
@@ -267,7 +265,7 @@ within the 63-byte encoded-name limit (64 bytes including the keyword prefix); r
 canonical collisions and silent truncation are refused. Inventory is limited to
 1,000 tags. Creation does not prove that a mailbox supports that keyword.
 
-Creation is qualified on NC35.0.2/Mail5.12.5 with exact unchanged native
+Creation is qualified on NC35.0.2/Mail5.12.5 and the exact v8 pairs above, with exact unchanged native
 Tag/TagMapper/ImapFlag sources, a unique owner/label index, transactional tag and
 journal tables and no database sharding. It works with stock Mail and the existing guard overlays; no new
 native build or schema migration is installed. Other pairs/builds refuse creation.
@@ -296,8 +294,7 @@ canonical keyword on one exact UID. Arbitrary flags and tag creation are exclude
 Native default-label aliases are treated as one logical tag. Other keywords,
 system flags, other messages and held reply drafts are preserved.
 
-Assignment is conditional on the exact **v4 native Mail dependency**, its migrated
-MySQL/MariaDB transactional primary schema and fresh message provenance on NC35.0.2/Mail5.12.5. SQLite and PostgreSQL assignment remain closed.
+Assignment requires exact **v4–v7 on NC35.0.2/Mail5.12.5**, or an exact **v8** pair above, with migrated MySQL/MariaDB transactional primary schema and fresh message provenance. SQLite and PostgreSQL assignment remain closed.
 Stock Mail and v1/v2/v3 refuse assignment. v4 native import, cache reads, search,
 UI/bulk operations and classification use cached message IDs rather than shared
 header Message-ID. Historical header associations remain quarantined with a NULL
@@ -335,13 +332,12 @@ duplicates are excluded; original Bcc recipients are never copied. Explicit reci
 arguments override the corresponding derived list and appear in the approval plan.
 `alias_id` selects an existing alias owned by that account; omission preserves it.
 
-On stock Mail5.12.5 and older overlays, the parent guarantee is local only.
+On stock Mail5.12.5 and v1–v5 overlays, the parent guarantee is local only.
 Those native serializers lose reply headers/alias choice during IMAP conversion.
 Replies use `failed=true` and `sync_held: true`; an ordinary native edit can release
 that historical hold.
 
-The exact qualified **v6 / custom Mail5.12.5.6 or v7 / custom Mail5.12.5.7** dependency on **NC35.0.2 with
-transactional primary MySQL/MariaDB storage** adds a protected native editor.
+The exact qualified **v6 / Mail5.12.5.6 or v7 / Mail5.12.5.7 on NC35.0.2**, or an exact **v8** pair above with transactional primary MySQL/MariaDB storage, adds a protected native editor.
 New ordinary MCP writes and reviewed ordinary legacy edits persist draft-only
 protection and retain their hold. Native controller/mapper updates cannot clear it,
 schedule delivery or convert it to an outgoing item, including through stale objects.
@@ -392,7 +388,7 @@ The hourly cleanup processes at most 100 abandoned partial/repaired operations
 older than 24 hours. It competes atomically with repair, skips active, uncertain
 and repairing operations, and deletes only recorded native Mail attachments that
 still have no local-message association. It never deletes original Files content.
-Safe orphan deletion requires the qualified v6 atomic native boundary. Stock or
+Safe orphan deletion requires the qualified atomic native boundary. Stock or
 unqualified builds retain those bytes and their private references. Associated
 attachments are preserved. Failed cleanups keep their private references for a
 later cleanup attempt;
@@ -426,7 +422,7 @@ approved text and never silently append a signature.
 Setup accepts only non-secret `intent` fields: name, email, authentication method
 (`password` or `xoauth2`), and IMAP/SMTP host, port, TLS (`ssl` or `tls`) and user.
 Mail's native form alone handles passwords and OAuth consent. The generated link
-has no credential or prefill query parameters. On qualified v7 it includes an
+has no credential or prefill query parameters. On qualified v7 or v8 it includes an
 opaque context handle requiring the same native owner login. Administrator-disabled creation and
 provisioned connections are refused. Opening a link creates only an
 `awaiting_user` receipt, valid for 24 hours; it does not create an account or prove
@@ -436,7 +432,7 @@ After finishing native setup, select its exact `account_id`, repeat the original
 `intent`, preview completion and confirm the fresh observed profile. New-account
 completion refuses pre-existing IDs; reconfiguration requires the original account
 and a matching non-secret profile. Stock/v6 and legacy workflows still require
-a changed profile. Qualified v7 may instead use a fresh correlated manual-write
+a changed profile. Qualified v7 or v8 may instead use a fresh correlated manual-write
 proof after the native assistant saved credentials, even when the profile is
 unchanged. The confirmation reports native write observed and credential-change
 unverified: saving the same value is allowed, and SMTP-only evidence does not
@@ -450,7 +446,7 @@ close a form already opened there. Expiry remains unverified, even if the native
 user completed work independently. Status calls never open a form, authenticate,
 write, match accounts automatically or retry an effect.
 
-On qualified v7, the operation detail can return the same pending native link
+On qualified v7 or v8, the operation detail can return the same pending native link
 and its bound account ID after current original-tool/read permissions, scope,
 ownership and expiry are checked. It never admits a second context. Native
 handoffs last at most 24 hours, with 100 unconsumed native contexts per owner
@@ -541,12 +537,12 @@ bounded authentication worker. The receipt retains a minimal
 `authentication_observation`, profile revision and observation time. Successful
 results mean only **authentication observed with the current configuration**.
 They never prove a password/token changed, OAuth consent completed or a setup was
-created exactly once. Status/replay never probes again. Mail5.12.5 has no
+created exactly once. Status/replay never probes again. Stock Mail5.12.5 has no
 qualified non-secret authorization revision; credential-only changes with an
 unchanged profile remain unverified and completion continues to refuse them.
 A failed, revoked or expired context cannot yield a successful observation.
 
-Alias writes are source-qualified on NC35.0.2/Mail5.12.5, with the unchanged native
+Alias writes are source-qualified on NC35.0.2/Mail5.12.5 and the exact v8 pairs above, with the unchanged native
 Alias/AliasMapper source, owned-account checks, primary transactional tables and
 no replicas/sharding. Native mapper writes, opaque alias ID and completion marker
 share the journal's database transaction. Lost commit acknowledgment retains

@@ -27,7 +27,7 @@ final class MailCapabilities {
         $enabled = $this->native->isEnabledFor($uid);
         $mail = $enabled ? self::version($this->apps->getAppVersion('mail')) : null;
         $server = $enabled ? self::version($this->config->getSystemValueString('version', '')) : null;
-        $known = $enabled && $mail === '5.12.5' && $server === '35.0.2';
+        $known = $enabled && $mail === '5.12.5' && MailRuntimePairs::matches($this->config->getSystemValueString('version',''),$this->apps->getAppVersion('mail'));
         $evidence = !$enabled ? 'unavailable' : ($known ? 'characterized' : 'unverified');
         $unknown = ['status' => $enabled ? 'unverified' : 'unavailable', 'reason' => $enabled ? 'native_pair_not_characterized' : 'mail_unavailable'];
         $capabilities = array_fill_keys(['reply_parent_local', 'reply_parent_imap', 'sender_alias_local', 'sender_alias_imap', 'mutation_session', 'flags', 'move', 'tags',

@@ -6,7 +6,7 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 41 tools including D+ and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+1/D+2/D+3 are complete for the supported scope: linked authentication observations, proof-based reconciliation and alias CRUD. The [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md) records native acceptance and complete regression. Native v7 implements manual credential-write evidence for unchanged profiles; its originating-page attribution correction passes native RED→GREEN and the existing guarantees; final enabled-source acceptance and complete regression pass. It never attests secret inequality, current authentication or delivery. B sending/scheduling/dispatch is frozen and excluded from completion. Historical baseline results below do not extend qualification to NC33/34 or unknown Mail/provider combinations.
+**Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 41 tools including D+ and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+1/D+2/D+3 are complete for the supported scope: linked authentication observations, proof-based reconciliation and alias CRUD. The [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md) records native acceptance and complete regression. Native v7 implements manual credential-write evidence for unchanged profiles; its originating-page attribution correction passes native RED→GREEN and the existing guarantees; final enabled-source acceptance and complete regression pass. It never attests secret inequality, current authentication or delivery. B sending/scheduling/dispatch is frozen and excluded from completion. The v8 continuation below qualifies the exact NC33.0.10, NC34.0.5 and NC35.0.2 pairs; other combinations remain unverified.
 
 ## Current continuation: native draft lifecycle
 
@@ -36,7 +36,21 @@ consumption, status recovery and replay. Stock regression and immutable v6
 source-gate compatibility pass. The [delivery record](../specs/2026-11-10-mail-native-credentials-evidence.md)
 distinguishes native write observation from secret change/authentication/delivery
 and tracks final validation/review/artifacts. Sending remains disabled; no
-installation is performed. The final review found cross-tab evidence attribution in three native admission hooks. Per-page request binding and all three browser regressions pass RED→GREEN with the existing guarantees; full enabled-source acceptance and the complete catalog pass (10,371 PHP / 95,499 assertions, 837 browser tests), as recorded in the delivery evidence. NC33/34 qualification remains next.
+installation is performed. The final review found cross-tab evidence attribution in three native admission hooks. Per-page request binding and all three browser regressions pass RED→GREEN with the existing guarantees; full enabled-source acceptance and the complete catalog pass (10,371 PHP / 95,499 assertions, 837 browser tests), as recorded in the delivery evidence. Exact NC33/34 qualification is completed independently in the v8 continuation below.
+
+## Current continuation: exact runtime qualification
+
+The [runtime plan](2026-11-10-mail-runtime-qualification-plan.md) preserves v7
+and adds a separate v8 installation identity with identical native implementation
+bytes. One exact runtime policy gates capabilities, draft entry, credentials and
+aliases. NC33.0.10 and NC34.0.5 each pass candidate guarantees and full enabled
+acceptance (57 native / 1,424 assertions plus all browser workflows). Stock
+NC33/34, current v8/NC35 regression, immutable compatibility, fresh review and the
+complete catalog pass (10,379 PHP / 95,640 assertions and 837 browser tests).
+The [runtime evidence](../specs/2026-11-10-mail-runtime-qualification-evidence.md)
+records exact hashes, review correction and limits. All delivery stays local;
+sending remains disabled. Unknown pairs, upgrades and deployment need separate
+acceptance.
 
 ## Follow-up: safe mutation guard and C1 delivery
 

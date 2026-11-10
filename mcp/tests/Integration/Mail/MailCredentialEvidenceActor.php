@@ -41,8 +41,7 @@ final class MailCredentialEvidenceActor {
         $flow=Server::get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class)->get($scope,$state['setup_operation_id']);
         $armed=getenv('MCP_IT_MAIL_CREDENTIAL_CANDIDATE')==='1';
         if($armed){
-            $qualified='OCA\\Mcp\\Modules\\Mail\\Integration\\MailNativeBoundary::CREDENTIAL_WRITES_QUALIFIED';
-            if(defined($qualified)&&constant($qualified))throw new \RuntimeException('Qualified credentials must use actual MCP handoff, never fixture arming.');
+            if(Server::get(\OCA\Mcp\Modules\Mail\Integration\NativeSetupEvidence::class)->available())throw new \RuntimeException('Qualified credentials must use actual MCP handoff, never fixture arming.');
             $native=Server::get('OCA\\Mail\\Authorization\\SetupEvidence');
             $state['native_context_id']=$native->register($uid,$scope,$state['setup_operation_id'],'configure_connection',$id,[],(int)$flow['expires_at']);
             $begin['url']=Server::get(\OCP\IURLGenerator::class)->linkToRouteAbsolute('mail.page.index',['mcpSetup'=>$state['native_context_id']]);
@@ -96,7 +95,7 @@ final class MailCredentialEvidenceActor {
         $flow=Server::get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class)->get($scope,$operation);
         $context=$flow['native_context_id']??null;
         if(getenv('MCP_IT_MAIL_CREDENTIAL_CANDIDATE')==='1'){
-            if(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::CREDENTIAL_WRITES_QUALIFIED)throw new \RuntimeException('Qualified primary contexts cannot be fixture armed.');
+            if(Server::get(\OCA\Mcp\Modules\Mail\Integration\NativeSetupEvidence::class)->available())throw new \RuntimeException('Qualified primary contexts cannot be fixture armed.');
             $context=Server::get('OCA\\Mail\\Authorization\\SetupEvidence')->register($uid,$scope,$operation,$tool==='mail_add_account'?'create_account':'configure_connection',$args['account_id']??null,$args['intent'],(int)$flow['expires_at']);
             $begin['url']=Server::get(\OCP\IURLGenerator::class)->linkToRouteAbsolute($tool==='mail_add_account'?'mail.page.setup':'mail.page.index',['mcpSetup'=>$context]);
         }

@@ -71,6 +71,11 @@ final class McpMailDPlusTest extends IntegrationTestCase {
 
     public function testAliasCrudCommitLossReconciliationAndHeldReferencesNeverSend():void {
         $uid=MailActor::BOB;$account=MailActor::run($uid,'accounts')['accounts'][0]['id'];
+        if(getenv('MCP_IT_NC')!=='35'&&getenv('MCP_IT_MAIL_GUARD')!=='1'){
+            $before=$this->data($this->alice->tool('mail_list_aliases',['account_id'=>$account]));
+            self::assertFalse($this->alice->tool('mail_add_alias',['account_id'=>$account,'name'=>'Unqualified','email'=>'unqualified@example.test'])->ok());
+            self::assertSame($before,$this->data($this->alice->tool('mail_list_aliases',['account_id'=>$account])));return;
+        }
         $fixture=MailActor::run($uid,'c3-fixture',['account_id'=>$account]);
         $aliases=Server::get('OCA\\Mail\\Service\\AliasesService');$aliasId=$draftId=null;$faults=[];
         $email='plus-'.bin2hex(random_bytes(6)).'@example.test';$safe=MailActor::run($uid,'c1-safety');

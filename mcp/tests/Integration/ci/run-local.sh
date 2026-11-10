@@ -37,6 +37,17 @@ printf '%s\n' "$plan" > "$RUNNER_TEMP/plan.json"
 # shellcheck disable=SC2016
 field() { php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p[$argv[2]] ?? "";' "$RUNNER_TEMP/plan.json" "$1"; }
 MCP_IT_NC=$(field nc); MCP_IT_DB=$(field db); MCP_IT_MODE=$(field mode)
+MCP_IT_MAIL_RUNTIME_PHASE=$(field mail_runtime_phase)
+case "$MCP_IT_MAIL_RUNTIME_PHASE" in
+    candidate)
+        MCP_IT_MAIL_CREDENTIAL_CANDIDATE=1; MCP_IT_MAIL_CREDENTIAL_UI=1; MCP_IT_MAIL_TABS_ONLY=0; MCP_IT_MAIL_UI=0
+        ;;
+    enabled)
+        MCP_IT_MAIL_CREDENTIAL_CANDIDATE=0; MCP_IT_MAIL_CREDENTIAL_UI=1; MCP_IT_MAIL_TABS_ONLY=0; MCP_IT_MAIL_UI=1
+        ;;
+esac
+export MCP_IT_MAIL_RUNTIME_PHASE MCP_IT_MAIL_CREDENTIAL_CANDIDATE MCP_IT_MAIL_CREDENTIAL_UI MCP_IT_MAIL_TABS_ONLY MCP_IT_MAIL_UI
+
 MCP_IT_NC_IMAGE=$(field nc_image); MCP_IT_DB_IMAGE=$(field db_image); MCP_IT_BASELINE=$(field baseline_commit)
 MCP_IT_NET="$MCP_IT_RUN_ID-net"; MCP_IT_NC_NAME="$MCP_IT_RUN_ID-nc"; MCP_IT_DB_NAME="$MCP_IT_RUN_ID-db"
 MCP_IT_WITH_MAIL=$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p["mail"] === null ? "0" : "1";' "$RUNNER_TEMP/plan.json")
