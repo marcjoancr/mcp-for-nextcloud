@@ -60,6 +60,12 @@ final class McpMailBoundedMetadataTest extends IntegrationTestCase {
             self::assertSame([$aliceOlder],array_column($second['items'],'id'));self::assertNull($second['next_before_id']);
             $all=$reader->outbox(MailActor::ALICE,null,50,null);self::assertSame([$aliceNewer,$aliceOlder],array_column($all['items'],'id'));
             self::assertNotContains($bobOutgoing,array_column($all['items'],'id'));self::assertNotContains($aliceDraft,array_column($all['items'],'id'));
+            $context=new \OCA\Mcp\Mcp\Tools\ToolContext(MailActor::ALICE);
+            $mcpOutbox=Server::get(\OCA\Mcp\Modules\Mail\Tools\ReadOutbox::class)->execute(['account_id'=>$aliceAccounts[0],'limit'=>1],$context);
+            $outboxResult=json_decode($mcpOutbox['content'][0]['text'],true,512,JSON_THROW_ON_ERROR);
+            self::assertSame([$aliceNewer],array_column($outboxResult['items'],'id'),'The registered MCP tool must reach the qualified native projection.');
+            self::assertSame($subject,$outboxResult['items'][0]['subject']);
+
 
             $idsFor=static function(string $uid)use($db):array {
                 $q=$db->getQueryBuilder();$r=$q->select('m.id')->from('mail_messages','m')
@@ -74,6 +80,11 @@ final class McpMailBoundedMetadataTest extends IntegrationTestCase {
             $cached=$reader->cachedMessages(MailActor::ALICE,array_merge($bobCacheIds,$aliceCacheIds));
             self::assertSame($aliceCacheIds,array_column($cached,'id'),'A mixed-owner request must return exactly the requested Alice cache identities.');
             foreach($cached as$row)self::assertSame(['id','account_id','mailbox_id','subject','subject_truncated','sent_at','seen','flagged'],array_keys($row));
+            $mcpMetadata=Server::get(\OCA\Mcp\Modules\Mail\Tools\ReadMessageMetadata::class)->execute(['message_ids'=>array_merge($bobCacheIds,$aliceCacheIds)],$context);
+            $metadataResult=json_decode($mcpMetadata['content'][0]['text'],true,512,JSON_THROW_ON_ERROR);
+            self::assertSame($aliceCacheIds,array_column($metadataResult['items'],'id'),'The registered MCP batch tool must omit foreign IDs identically to missing IDs.');
+            foreach($metadataResult['items']as$row)self::assertSame(['id','account_id','mailbox_id','subject','subject_truncated','sent_at','seen','flagged'],array_keys($row));
+
         } finally {
             if($db->inTransaction())$db->rollBack();
         }
