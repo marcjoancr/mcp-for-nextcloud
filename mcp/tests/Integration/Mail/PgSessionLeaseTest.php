@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Mail;
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
 use OCP\{IDBConnection,Server,App\IAppManager};
+use OCP\IConfig;
 use PHPUnit\Framework\Attributes\Group;
 #[Group('mail')]
 final class PgSessionLeaseTest extends IntegrationTestCase {
@@ -13,6 +14,7 @@ final class PgSessionLeaseTest extends IntegrationTestCase {
         Server::get(IAppManager::class)->loadApp('mail');
         $first=$this->openIndependentConnection();$second=$this->openIndependentConnection();
         self::assertSame(IDBConnection::PLATFORM_POSTGRES,$first->getDatabaseProvider());
+        self::assertTrue(\OCA\Mail\Db\PgDirectConnection::verified($first,Server::get(IConfig::class)),'The configured database endpoint must be the actual PostgreSQL TCP server.');
         $lease=\OCA\Mail\Db\PgSessionLease::acquire($first,'oc_','integration','owner-a');
         try {
             $lease->assertOwned();self::addToAssertionCount(1);

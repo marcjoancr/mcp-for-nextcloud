@@ -4,15 +4,16 @@
 declare(strict_types=1);
 namespace OCA\Mail\Sync;
 use OCA\Mail\Db\PgSessionLease;
-use OCP\IDBConnection;
+use OCA\Mail\Db\PgDirectConnection;
+use OCP\{IDBConnection,IConfig};
 /** Physical primary-session ownership. A timestamp never grants, expires or releases this mutex. */
 final class MailboxLease {
     private bool $released=false;
     private function __construct(private IDBConnection $db,private string $name,private string $variable,private string $token,private string $connection,private ?PgSessionLease $pg=null){}
     private static function scalar(IDBConnection $db,string $sql,array $params=[]):mixed {$r=$db->executeQuery($sql,$params);try{return $r->fetchOne();}finally{$r->closeCursor();}}
-    public static function acquire(IDBConnection $db,string $prefix,int $mailbox):self {
+    public static function acquire(IDBConnection $db,string $prefix,int $mailbox,?IConfig $config=null):self {
         if($mailbox<1)throw new \RuntimeException('Owned sync requires a primary database session.');
-        if($db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES){$pg=PgSessionLease::acquire($db,$prefix,'mailbox-sync',(string)$mailbox);return new self($db,'','','','',$pg);}
+        if($db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES){if($config===null||!PgDirectConnection::verified($db,$config))throw new \RuntimeException('Owned sync requires a directly connected PostgreSQL primary.');$pg=PgSessionLease::acquire($db,$prefix,'mailbox-sync',(string)$mailbox);return new self($db,'','','','',$pg);}
         if($db->getDatabaseProvider()!==IDBConnection::PLATFORM_MYSQL)throw new \RuntimeException('Owned sync requires a primary database session.');
         $hash=hash('sha256',self::scalar($db,'SELECT DATABASE()')."\0".$prefix."\0".$mailbox);$name='mcp_mail_'.$hash;$name=substr($name,0,64);$variable='@mcp_mail_owner_'.substr($hash,0,32);$connection=(string)self::scalar($db,'SELECT CONNECTION_ID()');
         // MySQL permits recursive GET_LOCK on one session; deliberately refuse it.

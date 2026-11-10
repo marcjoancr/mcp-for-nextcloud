@@ -7,10 +7,11 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Unit\Modules\Mail;
 use Doctrine\DBAL\Schema\Schema;
 use OCA\Mcp\Modules\Mail\Integration\MailCredentialStorage;
-use OCP\{IDBConnection,IConfig};
+use OCP\{IDBConnection,IConfig,DB\IResult};
 use PHPUnit\Framework\TestCase;
 final class MailCredentialStorageTest extends TestCase {
     public function testPrimaryEngineRevisionAndOneShotSchemaAreRequired():void {
+        require_once dirname(__DIR__,5).'/native/mail-guard/src/Db/PgDirectConnection.php';
         $s=new Schema();
         foreach(['mail_accounts','mail_mcp_auth_contexts','mail_mcp_auth_states','mcp_mail_setup','mcp_operations','mail_local_messages','mail_recipients','mail_attachments'] as $name)$s->createTable('custom_'.$name)->addOption('engine','InnoDB');
         $revision=$s->getTable('custom_mail_accounts')->addColumn('mcp_auth_revision','bigint',['notnull'=>true,'default'=>0]);
@@ -30,8 +31,9 @@ final class MailCredentialStorageTest extends TestCase {
         $states->setPrimaryKey(['id']);
         $provider=IDBConnection::PLATFORM_MYSQL;$routing=[];
         $db=$this->createStub(IDBConnection::class);$db->method('createSchema')->willReturn($s);$db->method('getDatabaseProvider')->willReturnCallback(static function()use(&$provider){return $provider;});
-        $config=$this->createStub(IConfig::class);$config->method('getSystemValueString')->willReturn('custom_');$config->method('getSystemValue')->willReturnCallback(static function($key,$default)use(&$routing){return $routing[$key]??$default;});
-        $storage=new MailCredentialStorage($db,$config);self::assertTrue($storage->verified());$provider=IDBConnection::PLATFORM_POSTGRES;self::assertTrue($storage->verified(),'PostgreSQL tables are transactional without an InnoDB engine option.');$provider=IDBConnection::PLATFORM_MYSQL;
+        $db->method('executeQuery')->willReturnCallback(function():IResult {$r=$this->createMock(IResult::class);$r->method('fetch')->willReturn(['address'=>'127.0.0.1','port'=>5432]);return $r;});
+        $endpoint='127.0.0.1';$config=$this->createStub(IConfig::class);$config->method('getSystemValueString')->willReturnCallback(static function($key,$default)use(&$endpoint){return $key==='dbhost'?$endpoint:'custom_';});$config->method('getSystemValue')->willReturnCallback(static function($key,$default)use(&$routing){return $routing[$key]??$default;});
+        $storage=new MailCredentialStorage($db,$config);self::assertTrue($storage->verified());$provider=IDBConnection::PLATFORM_POSTGRES;self::assertTrue($storage->verified(),'PostgreSQL tables are transactional without an InnoDB engine option.');$endpoint='127.0.0.1:6432';self::assertFalse($storage->verified(),'A PostgreSQL transaction-pool frontend is not admitted.');$endpoint='127.0.0.1';$provider=IDBConnection::PLATFORM_MYSQL;
         foreach(['dbreplica','dbsharding'] as $key){$routing[$key]=['unsafe'];self::assertFalse($storage->verified(),$key);$routing=[];}
         foreach($s->getTables() as $table){$table->addOption('engine','MyISAM');self::assertFalse($storage->verified(),$table->getName());$table->addOption('engine','InnoDB');}
         $revision->setNotnull(false);self::assertFalse($storage->verified());$revision->setNotnull(true);

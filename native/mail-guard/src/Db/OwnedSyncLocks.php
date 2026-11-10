@@ -11,7 +11,7 @@ trait OwnedSyncLocks {
     private function acquireOwnedSync(Mailbox $box,string $attr):int {
         $id=$box->getId();$entry=$this->ownedSync[$id]??null;
         if($entry!==null&&($entry['box']!==$box||isset($entry['types'][$attr])))throw \OCA\Mail\Exception\MailboxLockedException::from($box);
-        if($entry===null){try{$config=\OCP\Server::get(\OCP\IConfig::class);if($config->getSystemValue('dbreplica',[])!==[]||$config->getSystemValue('dbsharding',[])!==[])throw new \RuntimeException('Owned sync requires the primary.');$lease=MailboxLease::acquire($this->db,$config->getSystemValueString('dbtableprefix','oc_'),$id);}catch(\Throwable $e){throw \OCA\Mail\Exception\MailboxLockedException::from($box);} $this->ownedSync[$id]=['box'=>$box,'lease'=>$lease,'types'=>[]];}
+        if($entry===null){try{$config=\OCP\Server::get(\OCP\IConfig::class);if($config->getSystemValue('dbreplica',[])!==[]||$config->getSystemValue('dbsharding',[])!==[])throw new \RuntimeException('Owned sync requires the primary.');$lease=MailboxLease::acquire($this->db,$config->getSystemValueString('dbtableprefix','oc_'),$id,$config);}catch(\Throwable $e){throw \OCA\Mail\Exception\MailboxLockedException::from($box);} $this->ownedSync[$id]=['box'=>$box,'lease'=>$lease,'types'=>[]];}
         $this->ownedSync[$id]['lease']->assertOwned();$now=$this->timeFactory->getTime();
         try{$this->syncTimestamp($id,$attr,$now);$this->ownedSync[$id]['types'][$attr]=true;return $now;}catch(\Throwable $e){if($this->ownedSync[$id]['types']===[]){$this->ownedSync[$id]['lease']->release();unset($this->ownedSync[$id]);}throw $e;}
     }

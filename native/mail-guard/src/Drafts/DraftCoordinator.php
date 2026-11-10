@@ -4,6 +4,7 @@
 declare(strict_types=1);
 namespace OCA\Mail\Drafts;
 use OCA\Mail\Db\LocalMessageMapper;
+use OCA\Mail\Db\PgDirectConnection;
 use OCA\Mail\Exception\DraftAdmissionFailure;
 use OCP\{IDBConnection,IConfig};
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -19,13 +20,14 @@ final class DraftCoordinator {
     public function assertNoTransaction():void {if($this->db->inTransaction())throw new DraftAdmissionFailure('Filesystem work cannot inherit a draft transaction.');}
     private function primary():void {
         $provider=$this->db->getDatabaseProvider();if(!in_array($provider,[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true)||$this->config->getSystemValue('dbreplica',[])!==[]||$this->config->getSystemValue('dbsharding',[])!==[])throw new DraftAdmissionFailure('Draft coordination requires unsharded primary transactional storage.');
+        if($provider===IDBConnection::PLATFORM_POSTGRES&&!PgDirectConnection::verified($this->db,$this->config))throw new DraftAdmissionFailure('Draft coordination requires a directly connected PostgreSQL primary.');
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
         if($provider===IDBConnection::PLATFORM_MYSQL)foreach(['mail_accounts','mail_local_messages','mail_recipients','mail_attachments'] as $name)if(strtolower((string)($schema->getTable($prefix.$name)->getOptions()['engine']??''))!=='innodb')throw new DraftAdmissionFailure('Draft participants must use transactional primary storage.');
     }
     public function runOwner(string $uid,\Closure $effect):mixed {
         if($this->active!==null){if($this->active->uid!==$uid)throw new DraftAdmissionFailure('Nested draft work cannot change owner.');$this->active->assertOwned();return $effect($this->active);}
         $this->assertNoTransaction();$this->primary();
-        try{$lease=DraftOwnerLease::acquire($this->db,$this->config->getSystemValueString('dbtableprefix','oc_'),$uid);}catch(\Throwable $error){throw new DraftAdmissionFailure('Draft work is busy or its primary session is unavailable.',0,$error);}
+        try{$lease=DraftOwnerLease::acquire($this->db,$this->config->getSystemValueString('dbtableprefix','oc_'),$uid,$this->config);}catch(\Throwable $error){throw new DraftAdmissionFailure('Draft work is busy or its primary session is unavailable.',0,$error);}
         $scope=new DraftScope($uid,$lease);$this->active=$scope;
         try{$scope->assertOwned();$result=$effect($scope);$scope->assertOwned();$this->assertNoTransaction();return $result;}catch(DraftAdmissionFailure $error){if($scope->hasWritten())throw new \RuntimeException('Native draft work stopped after mutation admission.',0,$error);throw $error;}finally{$this->active=null;$lease->release();}
     }

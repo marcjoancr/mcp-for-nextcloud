@@ -4,15 +4,16 @@
 declare(strict_types=1);
 namespace OCA\Mail\Drafts;
 use OCA\Mail\Db\PgSessionLease;
-use OCP\IDBConnection;
+use OCA\Mail\Db\PgDirectConnection;
+use OCP\{IDBConnection,IConfig};
 /** Distinct owner mutex: includes drafts that have no ID and unassociated attachments. */
 final class DraftOwnerLease {
     private bool $released=false;
     private function __construct(private IDBConnection $db,private string $name,private string $variable,private string $token,private string $connection,public readonly string $uid,private ?PgSessionLease $pg=null){}
     private static function scalar(IDBConnection $db,string $sql,array $params=[]):mixed {$r=$db->executeQuery($sql,$params);try{return $r->fetchOne();}finally{$r->closeCursor();}}
-    public static function acquire(IDBConnection $db,string $prefix,string $uid):self {
+    public static function acquire(IDBConnection $db,string $prefix,string $uid,?IConfig $config=null):self {
         if($uid===''||strlen($uid)>1024)throw new \RuntimeException('Draft coordination requires a primary database session.');
-        if($db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES){$pg=PgSessionLease::acquire($db,$prefix,'draft-owner',$uid);return new self($db,'','','','', $uid,$pg);}
+        if($db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES){if($config===null||!PgDirectConnection::verified($db,$config))throw new \RuntimeException('Draft coordination requires a directly connected PostgreSQL primary.');$pg=PgSessionLease::acquire($db,$prefix,'draft-owner',$uid);return new self($db,'','','','', $uid,$pg);}
         if($db->getDatabaseProvider()!==IDBConnection::PLATFORM_MYSQL)throw new \RuntimeException('Draft coordination requires a primary database session.');
         $hash=hash('sha256',self::scalar($db,'SELECT DATABASE()')."\0".$prefix."\0".$uid);$name='mcp_mail_draft_'.substr($hash,0,48);$variable='@mcp_mail_draft_owner_'.substr($hash,0,32);$connection=(string)self::scalar($db,'SELECT CONNECTION_ID()');
         if($connection===''||self::scalar($db,'SELECT IS_USED_LOCK(?)',[$name])!==null||self::scalar($db,'SELECT GET_LOCK(?, 0)',[$name])!=1)throw new \RuntimeException('Draft work for this owner is already active.');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\Mail\Authorization;
 use OCA\Mail\Account;
 use OCA\Mail\Db\MailAccount;
+use OCA\Mail\Db\PgDirectConnection;
 use OCA\Mail\Drafts\{DraftCoordinator,DraftScope};
 use OCA\Mail\Exception\DraftAdmissionFailure;
 use OCP\{IDBConnection,IConfig,IRequest};
@@ -19,6 +20,7 @@ final class SetupEvidence {
     public function assertDatabase(IDBConnection $db):void {if($this->db!==$db)throw new DraftAdmissionFailure('Native setup requires the same primary transaction.');}
     private function primary():void {
         $provider=$this->db->getDatabaseProvider();if(!in_array($provider,[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true)||$this->config->getSystemValue('dbreplica',[])!==[]||$this->config->getSystemValue('dbsharding',[])!==[])throw new DraftAdmissionFailure('Native setup evidence requires primary transactional storage.');
+        if($provider===IDBConnection::PLATFORM_POSTGRES&&!PgDirectConnection::verified($this->db,$this->config))throw new DraftAdmissionFailure('Native setup evidence requires a directly connected PostgreSQL primary.');
         $s=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
         if($provider===IDBConnection::PLATFORM_MYSQL)foreach(['mail_accounts',self::CONTEXTS,self::STATES] as $name)if(strtolower((string)($s->getTable($prefix.$name)->getOptions()['engine']??''))!=='innodb')throw new DraftAdmissionFailure('Native setup participants must be transactional.');
     }

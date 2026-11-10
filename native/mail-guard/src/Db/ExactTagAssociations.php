@@ -11,6 +11,7 @@ final class ExactTagAssociations {
     public function requireStorage():void {
         if(!in_array($this->db->getDatabaseProvider(),[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true))throw new \RuntimeException('This native tag storage provider has not been qualified.');
         if($this->config===null||$this->config->getSystemValue('dbsharding',[])!==[]||$this->config->getSystemValue('dbreplica',[])!==[])throw new \RuntimeException('Exact tag writes require an unsharded primary database.');
+        if($this->db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES&&!PgDirectConnection::verified($this->db,$this->config))throw new \RuntimeException('Exact tag writes require a directly connected PostgreSQL primary.');
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');$m=$schema->getTable($prefix.'mail_messages');$t=$schema->getTable($prefix.'mail_message_tags');$unique=false;$cascade=false;
         if(!$schema->getTable($prefix.'mail_mailboxes')->hasColumn('tag_cache_revision')||!$m->hasColumn('tag_cache_profile')||!$m->hasColumn('tag_cache_generation')||!$t->hasColumn('cached_message_id'))throw new \RuntimeException('Exact tag migration unavailable.');
         foreach($t->getIndexes()as$index){$columns=$index->getColumns();sort($columns);if($index->isUnique()&&$columns===['cached_message_id','tag_id'])$unique=true;}
