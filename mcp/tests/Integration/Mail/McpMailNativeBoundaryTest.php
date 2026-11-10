@@ -21,7 +21,7 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
         $realApps=Server::get(IAppManager::class);$installedRoot=$realApps->getAppPath('mail');$installedVersion=$realApps->getAppVersion('mail');
         $manifests=[NativeGuardManifest::DATA,NativeGuardManifest::LEGACY_FLAGS_DATA,NativeGuardManifest::LEGACY_MOVES_DATA,NativeGuardManifest::LEGACY_FOLDERS_DATA,
             NativeGuardManifest::LEGACY_TAGS_DATA,NativeGuardManifest::LEGACY_REFRESH_DATA,NativeGuardManifest::LEGACY_DRAFTS_DATA,
-            NativeGuardManifest::LEGACY_CREDENTIALS_DATA,NativeGuardManifest::LEGACY_RUNTIME_DATA];
+            NativeGuardManifest::LEGACY_CREDENTIALS_DATA,NativeGuardManifest::LEGACY_RUNTIME_DATA,NativeGuardManifest::LEGACY_POSTGRESQL_DATA];
         $paths=[];foreach($manifests as $manifest)foreach(array_keys($manifest['files']??[]) as $relative)$paths[$relative]=true;
         $root=sys_get_temp_dir().'/mcp-mail-boundary-'.bin2hex(random_bytes(16));if(!mkdir($root,0700))throw new \RuntimeException('Cannot create owned native boundary fixture directory.');
         $files=[];$directories=[$root];
@@ -53,6 +53,7 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
             $setupBaseline=$setupCopy->available();$setupSourceBaseline=$setupCopyBoundary->credentialsSourceVerified();
             self::assertSame($setupInstalled->available(),$setupBaseline,'The owned source copy must preserve the installed setup evidence capability.');
             self::assertSame((new MailNativeBoundary($realApps))->credentialsSourceVerified(),$setupSourceBaseline,'The owned source copy must preserve the installed credential source verification.');
+            if(in_array($installedVersion,['5.12.5.9','5.12.5.10'],true))self::assertTrue($setupSourceBaseline,'The v9 legacy and v10 current source identities must retain credential evidence.');
             $setupTarget=$root.'/lib/Authorization/SetupEvidence.php';
             if(is_file($setupTarget)){
                 $setupOriginal=file_get_contents($setupTarget);if(!is_string($setupOriginal))throw new \RuntimeException('Cannot read copied credential source fingerprint.');
@@ -62,7 +63,20 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
             }else{
                 self::assertFalse($setupBaseline,'A source profile without SetupEvidence.php cannot provide native credential setup evidence.');
             }
-            $before=['flags'=>$copyBoundary->verified(),'move'=>$copyBoundary->movesVerified()];
+            $boundedBaseline=$copyBoundary->boundedMetadataSourceVerified();
+            self::assertSame((new MailNativeBoundary($realApps))->boundedMetadataSourceVerified(),$boundedBaseline,'Only the exact installed v10 source may provide bounded native metadata.');
+            self::assertSame($installedVersion==='5.12.5.10',$boundedBaseline,'Only exact v10 fingerprints admit bounded native metadata; v9 remains historical.');
+            $boundedTarget=$root.'/lib/Db/BoundedMailMetadata.php';
+            if(is_file($boundedTarget)){
+                $boundedOriginal=file_get_contents($boundedTarget);if(!is_string($boundedOriginal))throw new \RuntimeException('Cannot read copied bounded metadata fingerprint.');
+                try {$boundedBytes=$boundedOriginal."\n// disposable bounded metadata fingerprint mismatch\n";$written=file_put_contents($boundedTarget,$boundedBytes);if($written!==strlen($boundedBytes))throw new \RuntimeException('Could not completely tamper the owned bounded metadata copy.');clearstatcache(true,$boundedTarget);self::assertFalse($copyBoundary->boundedMetadataSourceVerified(),'A changed bounded metadata source must fail v10 admission.');}
+                finally {$restored=file_put_contents($boundedTarget,$boundedOriginal);if($restored!==strlen($boundedOriginal))throw new \RuntimeException('Could not restore the owned bounded metadata copy.');clearstatcache(true,$boundedTarget);self::assertSame(hash('sha256',$boundedOriginal),hash_file('sha256',$boundedTarget));}
+                self::assertSame($boundedBaseline,$copyBoundary->boundedMetadataSourceVerified(),'Restoring bounded metadata source must restore its exact v10 fingerprint result.');
+            }else self::assertFalse($boundedBaseline,'A v9 or stock source without bounded metadata cannot pass v10 admission.');
+            $sources=['verified'=>$copyBoundary->verified(),'move'=>$copyBoundary->movesVerified(),'folders'=>$copyBoundary->foldersVerified(),'refresh'=>$copyBoundary->refreshSourceVerified(),'tags'=>$copyBoundary->tagsSourceVerified(),'drafts'=>$copyBoundary->draftsSourceVerified(),'credentials'=>$copyBoundary->credentialsSourceVerified()];
+            self::assertSame(['verified'=>$installedBoundary->verified(),'move'=>$installedBoundary->movesVerified(),'folders'=>$installedBoundary->foldersVerified(),'refresh'=>$installedBoundary->refreshSourceVerified(),'tags'=>$installedBoundary->tagsSourceVerified(),'drafts'=>$installedBoundary->draftsSourceVerified(),'credentials'=>$installedBoundary->credentialsSourceVerified()],$sources,'The owned copy must preserve current, v9 legacy, and stock source verification.');
+            if(in_array($installedVersion,['5.12.5.9','5.12.5.10'],true))foreach($sources as $name=>$verified)self::assertTrue($verified,'v9/v10 source should retain '.$name.' verification.');
+            $before=['flags'=>$sources['verified'],'move'=>$sources['move']];
             self::assertSame(['flags'=>$installedBoundary->verified(),'move'=>$installedBoundary->movesVerified()],$before,'The owned copy must preserve current, legacy, stock, and v9 source verification.');
             $target=$root.'/lib/IMAP/HordeImapClient.php';
             self::assertFileExists($target,'The copied native move target must exist so the tamper check is exercised.');

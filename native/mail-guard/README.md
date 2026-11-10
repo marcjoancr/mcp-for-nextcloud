@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, now built as custom **5.12.5.9** for NC35.0.2 PostgreSQL qualification. The immutable **5.12.5.8** artifact retains its qualified NC33.0.10, NC34.0.5 and NC35.0.2 MariaDB pairs. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**. The deployed **5.12.5.9** artifact remains qualified for NC35.0.2 with PostgreSQL. The immutable **5.12.5.8** artifact retains its qualified NC33.0.10, NC34.0.5 and NC35.0.2 MariaDB pairs. This branch adds a **5.12.5.10** candidate for bounded metadata reads; it is not represented as deployed or accepted. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -8,12 +8,12 @@ From the repository root, with that verified archive available:
 
 ```sh
 mkdir -p mcp/build/native-mail-guard
-php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/overlay
-cmp mcp/build/native-mail-guard/overlay/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v9-normalized-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
+php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/metadata-v10
+cmp mcp/build/native-mail-guard/metadata-v10/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v10-normalized-overlay.tar.gz -C mcp/build/native-mail-guard/metadata-v10 mail
 ```
 
-`overlay/mail` contains the v9 PostgreSQL coordination and the v7 additions (including the preserved v6 draft lifecycle) and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
+`metadata-v10/mail` contains the v9 PostgreSQL coordination and adds bounded metadata projections to the native Mail source. The v10 manifest preserves v9 verbatim as `LEGACY_POSTGRESQL_DATA`; v9 continues to provide its previously qualified features but cannot provide bounded metadata. Earlier immutable manifests v1–v8 remain available. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
 
 The native `MutationFence` adapter exchanges only approved identifiers and DB stage transitions. It never passes a raw client to MCP. `setFlagGuarded` validates the actual selected generation and connection before each command, permits one UID STORE, does not swallow tagged NO responses, requires explicit permanent support for the selected system flag and verifies the desired state on the same generation. A missing flag or keyword wildcard alone does not prove permanence. Logout or reconnect invalidates the permit. The native cache stage locks immutable mailbox/message rows, revalidates their identity and synchronization tokens, commits the flag, then dispatches one webhook-compatible guarded flag event. The ordinary native cache listener skips the already-applied event. An uncertain listener/crash outcome is retained and never automatically redispatched.
 
@@ -255,6 +255,10 @@ stays disabled. See the [runtime evidence](../../docs/superpowers/specs/2026-11-
 ## v9 primary PostgreSQL boundary
 
 The v9 builder emits Mail5.12.5.9 / `mcp-mail-mutations-v9` for the exact NC35.0.2 pair. It preserves v8 as a separate immutable manifest; v9 does not admit NC33/34. PostgreSQL session advisory leases cover draft owners and mailbox synchronization, with a random session marker, backend PID/start identity and an actual held exclusive-lock check. Recursive acquisition, reconnect, backend termination and stale release cannot transfer ownership. The configured single TCP endpoint must resolve uniquely and match the actual backend address/port; transaction-pooling frontends, replicas and sharding are unqualified. Schema/FK/index checks remain required.
+
+## v10 bounded metadata candidate
+
+The v10 builder emits Mail 5.12.5.10 / `mcp-mail-mutations-v10` for the exact NC35.0.2 runtime pair. Its new `OCA\Mail\Db\BoundedMailMetadata` source performs read-only owned projections for outbox rows and requested cache IDs. Each response is limited to 50 rows; SQL reads at most 257 subject characters before returning at most 256 UTF-8 characters. It does not load entities, message bodies, recipients, attachments, IMAP data or the outbox service, and it does not infer delivery state. The primary topology proof remains the v9 direct PostgreSQL boundary. This candidate still requires its separate runtime and fixture acceptance before deployment.
 
 Legacy cached messages are not stamped with guessed provenance. Existing header-based tag history remains preserved, while exact tag association requires a fresh native snapshot. A reviewed bounded mailbox reset is distinct from ordinary refresh; neither status reads nor deployment source checks rebuild the cache.
 

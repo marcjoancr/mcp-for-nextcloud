@@ -377,6 +377,7 @@ final class NextcloudApiUsage {
         'OCA\\Mail\\Service\\GuardedMailboxRefresh' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         // Custom dependency, absent from every pinned stock Mail. Fingerprints admit the separately tested native artifact.
         'OCA\\Mail\\Db\\ExactTagAssociations' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Db\\BoundedMailMetadata' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Db\\Message::getTagCacheGeneration' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCA\\Mail\\Db\\Mailbox::getSyncNewToken','by'=>\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class],
         'OCA\\Mail\\Service\\GuardedMailboxMutations' => [
             'missing' => ['31','32','33','34','35'],

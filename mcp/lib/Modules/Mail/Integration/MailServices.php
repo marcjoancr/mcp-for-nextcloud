@@ -154,6 +154,8 @@ class MailServices {
     public function refreshSnapshots(string $uid):object {return $this->resolve('OCA\\Mail\\Sync\\CacheSnapshot',$uid);}
     public function guardedRefresh(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxRefresh',$uid);}
     public function exactTags(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\ExactTagAssociations',$uid);}
+    /** Native bounded scalar metadata reader; callers gate this on the v10 source boundary. */
+    public function boundedMetadata(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\BoundedMailMetadata',$uid);}
     public function tagMapper(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\TagMapper',$uid);}
     public function guardedMailboxes(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxMutations',$uid);}
     public function guardedMutations(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\GuardedMessageMutations',$uid);}
