@@ -37,6 +37,8 @@ final class SqliteDatabase {
     public int $queryCount = 0;
     /** One-shot interleaving hook, invoked just before a database write. */
     public $beforeStatement = null;
+    /** One-shot lost acknowledgement after the database actually committed. */
+    public $afterCommit = null;
 
     /**
      * @param TestCase $test the test that owns the mocks
@@ -63,7 +65,11 @@ final class SqliteDatabase {
         $db = $this->stub(IDBConnection::class);
         $db->method('getQueryBuilder')->willReturnCallback(fn (): IQueryBuilder => $this->builder());
         $db->method('beginTransaction')->willReturnCallback(fn () => $this->dbal->beginTransaction());
-        $db->method('commit')->willReturnCallback(fn () => $this->dbal->commit());
+        $db->method('commit')->willReturnCallback(function () {
+            $result=$this->dbal->commit();
+            if($this->afterCommit!==null){$hook=$this->afterCommit;$this->afterCommit=null;$hook();}
+            return $result;
+        });
         $db->method('rollBack')->willReturnCallback(fn () => $this->dbal->rollBack());
         $db->method('inTransaction')->willReturnCallback(fn (): bool => $this->dbal->isTransactionActive());
         $db->method('lastInsertId')->willReturnCallback(fn (): int => (int)$this->dbal->lastInsertId());

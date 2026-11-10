@@ -681,12 +681,13 @@ class Application extends App implements IBootstrap {
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader(
             $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
-                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid)
+                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid),
+            static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class)->pendingNativeEntry($uid,$id)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class), $c->get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class),
             $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), $c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
-            $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeAccountSetupLinks::class), static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool)
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeAccountSetupLinks::class), static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeSetupEvidence::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Connection\MailConnection::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Connection\MailConnection(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),

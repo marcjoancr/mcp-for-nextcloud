@@ -6,7 +6,7 @@
 **Architecture:** Extend the existing native Mail adapters, composition services and shared operation journal. Native Mail remains the owner of accounts, credentials, MIME, folders and cached messages. Reuse the existing typed PHP boundaries and bounded arrays; do not rebuild A/D, introduce a second journal or implement a transport.
 **Tech Stack:** Manifest PHP >=8.4 / Nextcloud 33–35, optional Mail >=5.0.0, Nextcloud DB abstractions, PHPUnit and existing Playwright/native fixtures. Historical NC31/32 API fixtures do not extend the manifest's runtime support.
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
-**Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 41 tools including D+ and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+1/D+2/D+3 are complete for the supported scope: linked authentication observations, proof-based reconciliation and alias CRUD. The [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md) records native acceptance and complete regression. Credential-change attestation with an unchanged profile remains a documented native blocker. B sending/scheduling/dispatch is frozen and excluded from completion. Historical baseline results below do not extend qualification to NC33/34 or unknown Mail/provider combinations.
+**Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 41 tools including D+ and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+1/D+2/D+3 are complete for the supported scope: linked authentication observations, proof-based reconciliation and alias CRUD. The [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md) records native acceptance and complete regression. Native v7 implements manual credential-write evidence for unchanged profiles; its originating-page attribution correction passes native RED→GREEN and the existing guarantees; final enabled-source acceptance and complete regression pass. It never attests secret inequality, current authentication or delivery. B sending/scheduling/dispatch is frozen and excluded from completion. Historical baseline results below do not extend qualification to NC33/34 or unknown Mail/provider combinations.
 
 ## Current continuation: native draft lifecycle
 
@@ -18,8 +18,25 @@ shared owner-session coordination and complete snapshot checks; seven native
 contention/session-loss cases pass. Stock regression passes (19 executed / 39 expected skips / 530 assertions).
 The full catalog passes 10,341 PHP tests / 95,113 assertions, 837 browser tests,
 both static scopes and packaging; see the [delivery evidence](../specs/2026-11-10-mail-draft-lifecycle-evidence.md). This continuation does
-not enable sending. Native credential-write evidence and broader NC33/34
-qualification remain subsequent work, not inferred from the draft tests.
+not enable sending. Native credential-write evidence follows in the continuation below. Broader NC33/34
+qualification remains separate work, not inferred from the draft tests.
+
+## Current continuation: native credential-write evidence
+
+The [credential plan](2026-11-10-mail-native-credential-evidence-plan.md) extends
+the pinned dependency to v7 / Mail5.12.5.7. Native credentials and consent remain
+in the original assistant. An owner/source/scope-bound handoff, hidden account
+revision and one-shot proof permit unchanged-profile completion after actual
+native persistence. Failed OAuth with old tokens, refresh, stale state, page
+visits and diagnostics cannot provide new manual evidence.
+
+Final enabled acceptance passes 56 native Mail tests / 1,412 assertions, real
+plain/HTML draft workflows and password/Google/Microsoft MCP completion,
+consumption, status recovery and replay. Stock regression and immutable v6
+source-gate compatibility pass. The [delivery record](../specs/2026-11-10-mail-native-credentials-evidence.md)
+distinguishes native write observation from secret change/authentication/delivery
+and tracks final validation/review/artifacts. Sending remains disabled; no
+installation is performed. The final review found cross-tab evidence attribution in three native admission hooks. Per-page request binding and all three browser regressions pass RED→GREEN with the existing guarantees; full enabled-source acceptance and the complete catalog pass (10,371 PHP / 95,499 assertions, 837 browser tests), as recorded in the delivery evidence. NC33/34 qualification remains next.
 
 ## Follow-up: safe mutation guard and C1 delivery
 

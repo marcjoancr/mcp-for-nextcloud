@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, built as custom **5.12.5.6** on the qualified NC35 line. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, built as custom **5.12.5.7** on the qualified NC35 line. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -10,10 +10,10 @@ From the repository root, with that verified archive available:
 mkdir -p mcp/build/native-mail-guard
 php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/overlay
 cmp mcp/build/native-mail-guard/overlay/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v6-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v7-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
 ```
 
-`overlay/mail` contains the v6 additions and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
+`overlay/mail` contains the v7 additions (including the preserved v6 draft lifecycle) and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
 
 The native `MutationFence` adapter exchanges only approved identifiers and DB stage transitions. It never passes a raw client to MCP. `setFlagGuarded` validates the actual selected generation and connection before each command, permits one UID STORE, does not swallow tagged NO responses, requires explicit permanent support for the selected system flag and verifies the desired state on the same generation. A missing flag or keyword wildcard alone does not prove permanence. Logout or reconnect invalidates the permit. The native cache stage locks immutable mailbox/message rows, revalidates their identity and synchronization tokens, commits the flag, then dispatches one webhook-compatible guarded flag event. The ordinary native cache listener skips the already-applied event. An uncertain listener/crash outcome is retained and never automatically redispatched.
 
@@ -182,3 +182,49 @@ remain accepted for their prior scopes, without v6 draft claims. Runtime qualifi
 also requires the known native pair and unsharded, unreplicated primary InnoDB schema.
 See the [draft lifecycle plan](../../docs/superpowers/plans/2026-11-10-mail-draft-lifecycle-plan.md)
 for acceptance progress; MCP never installs this dependency itself.
+
+## v7 native manual credential-write evidence
+
+The native assistant retains all password entry, OAuth consent, encryption and
+provider transport. MCP registers an opaque owner/source-operation/connection
+handoff and stores only its handle. Opening the native Page entry activates the
+context through the core HttpOnly/SameSite cookie. The loaded page also carries
+an opaque initial-state marker. Only the three native API producers for account
+create/update and OAuth state attach it to their payload; evidence admission
+requires an exact match with the cookie. A later tab cannot acquire an old page’s
+write or target. Missing/mismatched markers leave ordinary native actions
+available without new evidence. No credential prefill or credential field is
+added to MCP.
+
+Native account writes advance a hidden authorization revision with credentials
+or connection identity, including the display name. Ordinary signatures and
+preferences do not advance it. The mapper commits those changes and the counter
+together under the owner session, then clears already-persisted dirty fields so
+later mailbox cache work cannot resubmit credentials.
+
+Password evidence follows the successful native save. Google/Microsoft manual
+callbacks reserve one exact signed nonce state, accept a transient permit only
+after a successful new token response, persist through the native mapper and
+then record evidence. Their existing error branch returns old tokens unchanged:
+neither that branch nor background refresh attests a manual write. A later
+authorization/identity revision invalidates older evidence.
+
+Handoffs last at most 24 hours, with 100 unconsumed native contexts per owner.
+At most 32 states may be correlated per handoff; each state lasts at most
+600 seconds. Further ordinary native OAuth remains independent of evidence.
+New proof tables contain only identifiers, intent, timestamps and revisions,
+never passwords, provider codes, tokens or secret hashes.
+
+The closed MCP adapter verifies the exact native source, NC35.0.2 and all primary
+InnoDB participants. Completion refuses inherited transactions, rechecks current
+source/read permissions under the current request-wide policy snapshot and claims the one-shot proof in the same authoritative
+SQL transaction as the MCP workflow and source receipt. Physical owner-session
+continuity is checked before commit. Status may recover the same pending link;
+it never activates a context, exchanges credentials or registers another handoff.
+
+A same-value save may prove a native write. It never proves a different password,
+current authentication or delivery. Stock/v6 and legacy workflow rows retain
+their prior setup behavior. Immutable v1–v6 manifests remain limited to their
+previous scopes. Both native and MCP migrations are required; mixed workers and
+code/database rollback require separate operator work. Sending stays disabled.
+See the [credential evidence plan](../../docs/superpowers/plans/2026-11-10-mail-native-credential-evidence-plan.md).

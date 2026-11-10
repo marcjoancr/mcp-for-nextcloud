@@ -101,13 +101,18 @@ final class McpMailSettingsTest extends IntegrationTestCase {
         $file=$root->newFile('/mcp-mail-d-retain-'.bin2hex(random_bytes(5)).'.txt','Original Files bytes');
         try {
             $begin=$this->write('mail_add_account',['intent'=>$intent]);$source=$begin['operation']['operation_id'];
-            self::assertSame('awaiting_user',$begin['operation']['state']);self::assertStringNotContainsString('?',$begin['url']);
+            self::assertSame('awaiting_user',$begin['operation']['state']);
+            if(Server::get(\OCA\Mcp\Modules\Mail\Integration\NativeSetupEvidence::class)->available()){
+                parse_str((string)parse_url($begin['url'],PHP_URL_QUERY),$query);
+                self::assertSame(['mcpSetup'],array_keys($query));self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/D',$query['mcpSetup']);
+                self::assertStringNotContainsString($email,$begin['url']);
+            }else self::assertNull(parse_url($begin['url'],PHP_URL_QUERY));
             $native=MailActor::run(MailActor::ALICE,'native-setup-form',['email'=>$email]);$id=$native['account_id'];$ids[]=$id;
             // A separate native form can create another account; MCP never guesses which was intended.
             $duplicate=MailActor::run(MailActor::ALICE,'native-setup-form',['email'=>$email]);$ids[]=$duplicate['account_id'];
             self::assertNotSame($id,$duplicate['account_id']);
             $bound=$this->write('mail_complete_account_setup',['setup_operation_id'=>$source,'account_id'=>$id,'intent'=>$intent]);
-            self::assertSame('observed_in_mail',$bound['native_state']);
+            self::assertSame('observed_in_mail',$bound['native_state']);self::assertArrayNotHasKey('credential_write',$bound,'Independent legacy creation must not invent a manual credential proof.');
             $receipt=$this->data($this->alice->tool('mail_get_operation',['operation_id'=>$source]));
             self::assertSame('succeeded',$receipt['operation']['state']);self::assertSame($id,$receipt['operation']['resource_refs']['account_id']);
             $probe=$this->write('mail_test_connection',['account_id'=>$id,'protocols'=>['imap','smtp']]);

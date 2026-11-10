@@ -16,11 +16,12 @@ while($client=@stream_socket_accept($server,3600)){
   $parts=explode(' ',trim($line),3);$tag=$protocol==='imap'?$parts[0]:'';$cmd=strtoupper($parts[$protocol==='imap'?1:0]??'');
   file_put_contents('/tmp/mcp-mail-probe-'.$protocol.'.log',$cmd."\n",FILE_APPEND);
   if($protocol==='imap'){
-   if($cmd==='CAPABILITY')fwrite($client,"* CAPABILITY IMAP4rev1 AUTH=PLAIN SASL-IR ID\r\n$tag OK capability\r\n");
+   if($cmd==='CAPABILITY')fwrite($client,"* CAPABILITY IMAP4rev1 AUTH=PLAIN AUTH=XOAUTH2 SASL-IR ID\r\n$tag OK capability\r\n");
    elseif($cmd==='AUTHENTICATE'){
     $auth=explode(' ',$parts[2]??'',2);$encoded=$auth[1]??null;
     if($encoded===null){fwrite($client,"+ \r\n");$encoded=trim((string)fgets($client,4096));}
-    $fields=explode("\0",(string)base64_decode($encoded,true));$ok=end($fields)==='mcp-it-probe-password';
+    $decoded=(string)base64_decode($encoded,true);$fields=explode("\0",$decoded);$ok=end($fields)==='mcp-it-probe-password';
+    if(strtoupper($auth[0])==='XOAUTH2')$ok=is_file('/tmp/mcp-mail-probe-oauth-sync')&&str_contains($decoded,"\1auth=Bearer ");
     fwrite($client,$tag.($ok?" OK authenticated\r\n":" NO denied\r\n"));
    }elseif($cmd==='LOGIN')fwrite($client,$tag.(str_contains($parts[2]??'','mcp-it-probe-password')?" OK authenticated\r\n":" NO denied\r\n"));
    elseif($cmd==='LOGOUT'){fwrite($client,"* BYE closing\r\n$tag OK logout\r\n");break;}

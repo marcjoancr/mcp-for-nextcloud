@@ -322,7 +322,7 @@ cmd_fixtures() {
         *"- password_policy:"*) occ app:disable password_policy ;;
     esac
     password=$(openssl rand -hex 24)
-    if [ "${MCP_IT_MAIL_UI:-0}" = 1 ]; then printf 'FIXTURE_PASSWORD=%s\n' "$password" >> "$WORK/credentials"; fi
+    if [ "${MCP_IT_MAIL_UI:-0}" = 1 ] || [ "${MCP_IT_MAIL_CREDENTIAL_UI:-0}" = 1 ]; then printf 'FIXTURE_PASSWORD=%s\n' "$password" >> "$WORK/credentials"; fi
     for uid in mcp-it-alice mcp-it-bob mcp-it-legacy mcp-it-deck-owner mcp-it-deck-editor mcp-it-deck-reader mcp-it-deck-outsider; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
@@ -584,6 +584,15 @@ cmd_draft_ui() {
     done
 }
 
+cmd_credential_ui() {
+    if [ "${MCP_IT_MAIL_CREDENTIAL_UI:-0}" != 1 ]; then echo 'Native credential browser acceptance not requested.'; return; fi
+    [ "${MCP_IT_WITH_MAIL:-0}:$MCP_IT_NC:${MCP_IT_MAIL_GUARD:-0}" = 1:35:1 ] || { echo 'Native credential acceptance requires the owned NC35 guarded Mail cell.' >&2; return 1; }
+    if [ "${MCP_IT_MAIL_TABS_ONLY:-0}" != 1 ]; then
+        node "$REPO_ROOT/mcp/tests/Integration/ci/mail-credential-ui.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
+    fi
+    node "$REPO_ROOT/mcp/tests/Integration/ci/mail-credential-tabs.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
+}
+
 cmd_recovery() {
     if [ "$MCP_IT_NC:$MCP_IT_DB:$MCP_IT_MODE" != 35:sqlite:fresh ]; then
         echo 'Coordinated recovery is covered by the NC35/SQLite/fresh cell.'
@@ -633,6 +642,7 @@ case "${1:-}" in
     report) cmd_report ;;
     test) cmd_test ;;
     draft-ui) cmd_draft_ui ;;
+    credential-ui) cmd_credential_ui ;;
     recovery) cmd_recovery ;;
     collect) cmd_collect ;;
     *)

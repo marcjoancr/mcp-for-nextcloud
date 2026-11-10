@@ -56,6 +56,38 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'credential-tabs-prepare':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::tabsPrepare($uid,$in['mode']);break;
+    case 'credential-tabs-inspect':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::tabsInspect($uid,$in['fixture']);break;
+    case 'credential-tabs-created':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::tabsCreated($uid,$in['fixture'],(int)$in['account_id']);break;
+    case 'credential-ui-prepare':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::prepare($uid,$in['provider']??null);break;
+    case 'credential-ui-finish':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::finish($uid,$in['fixture']);break;
+    case 'credential-ui-gates':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::gates($uid,$in['fixture']);break;
+    case 'credential-ui-state-count':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::stateCount($uid,$in['fixture']);break;
+    case 'credential-ui-name-contender':
+    case 'credential-ui-contender':
+    case 'credential-ui-kill':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::contender($uid,$in['fixture'],$action==='credential-ui-kill',$action==='credential-ui-name-contender');break;
+    case 'credential-ui-session-loss':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::sessionLoss($uid,$in['fixture']);break;
+    case 'credential-ui-inspect':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::inspect($uid,$in['fixture']);break;
+    case 'credential-ui-alternate':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::alternate($uid,$in['fixture']);break;
+    case 'credential-ui-refresh':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::refresh($uid,$in['fixture']);break;
+    case 'credential-ui-expire-state':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::expireState($uid,$in['fixture'],$in['state']);break;
+    case 'credential-ui-guarantees':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::guarantees($uid,$in['fixture']);break;
+    case 'credential-ui-cleanup':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::cleanup($uid,$in['fixture']);break;
     case 'draft-contender':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftConcurrencyActor::contender($uid,$in);break;
     case 'draft-coordinated':
@@ -144,7 +176,12 @@ switch ($action) {
         $args=['accountName'=>'D fixture','emailAddress'=>$in['email'],'imapHost'=>'127.0.0.1','imapPort'=>33493,'imapSslMode'=>'ssl','imapUser'=>'fixture',
             'smtpHost'=>'127.0.0.1','smtpPort'=>33465,'smtpSslMode'=>'ssl','smtpUser'=>'fixture',
             'imapPassword'=>'mcp-it-probe-password','smtpPassword'=>'mcp-it-probe-password','authMethod'=>'password'];
-        $response=isset($in['account_id'])?$controller->update(...(['id'=>(int)$in['account_id']]+$args)):$controller->create(...$args);
+        try{
+            $response=isset($in['account_id'])?$controller->update(...(['id'=>(int)$in['account_id']]+$args)):$controller->create(...$args);
+        }catch(\Throwable $error){
+            $trace=array_map(static fn(array $frame):array=>array_intersect_key($frame,array_flip(['file','line','class','function'])), $error->getTrace());
+            throw new RuntimeException('Native setup safe trace '.json_encode(['class'=>get_class($error),'file'=>$error->getFile(),'line'=>$error->getLine(),'trace'=>$trace],JSON_THROW_ON_ERROR));
+        }
         if(!in_array($response->getStatus(),[200,201],true))throw new RuntimeException('Native setup form failed with status '.$response->getStatus());
         $accounts=Server::get('OCA\\Mail\\Service\\AccountService')->findByUserId($uid);
         $ids=[];foreach($accounts as $account)if($account->getEmail()===$in['email'])$ids[]=(int)$account->getId();

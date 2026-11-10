@@ -19,7 +19,7 @@ final class SharedMcpBoundaryTest extends TestCase {
         $bad = [];
         foreach ($parts as $part) {
             // These exact values are hash inputs in the optional Mail artifact, not MCP loaders.
-            if($file==='lib/Modules/Mail/Integration/NativeGuardManifest.php' && in_array(trim($part,"'\""),['lib/'.'Service/LocalDraftEditor.php','lib/'.'Service/OutboxService.php','lib/'.'Service/MailTransmission.php','lib/'.'Service/DraftsService.php','lib/'.'Service/AliasesService.php','lib/'.'Service/TransmissionService.php','lib/'.'Service/Attachment/AttachmentService.php','lib/'.'Service/Attachment/AttachmentStorage.php','lib/'.'Service/GuardedMessageMutations.php','lib/'.'Service/MutationFence.php','lib/'.'Service/AccountService.php','lib/'.'Service/MailManager.php','lib/'.'Service/GuardedMailboxMutations.php','lib/'.'Service/GuardedMailboxRefresh.php','lib/'.'Service/RefreshFence.php','lib/'.'Service/Classification/NewMessagesClassifier.php','lib/'.'Service/Sync/ImapToDbSynchronizer.php'],true))continue;
+            if($file==='lib/Modules/Mail/Integration/NativeGuardManifest.php' && in_array(trim($part,"'\""),['lib/'.'Service/SetupService.php','lib/'.'Service/OauthStateService.php','lib/'.'Service/LocalDraftEditor.php','lib/'.'Service/OutboxService.php','lib/'.'Service/MailTransmission.php','lib/'.'Service/DraftsService.php','lib/'.'Service/AliasesService.php','lib/'.'Service/TransmissionService.php','lib/'.'Service/Attachment/AttachmentService.php','lib/'.'Service/Attachment/AttachmentStorage.php','lib/'.'Service/GuardedMessageMutations.php','lib/'.'Service/MutationFence.php','lib/'.'Service/AccountService.php','lib/'.'Service/MailManager.php','lib/'.'Service/GuardedMailboxMutations.php','lib/'.'Service/GuardedMailboxRefresh.php','lib/'.'Service/RefreshFence.php','lib/'.'Service/Classification/NewMessagesClassifier.php','lib/'.'Service/Sync/ImapToDbSynchronizer.php'],true))continue;
             $part = str_replace('\\\\', '\\', $part);
             if (preg_match('~OCA\\\\Mcp\\\\(?:Tests\\\\Unit\\\\)?(?:Tools|Service)\\\\[A-Za-z_]~', $part)
                 || preg_match('~(?:lib|tests/Unit)/(?:Tools|Service)/[A-Za-z_]~', $part)) {
@@ -88,7 +88,7 @@ final class SharedMcpBoundaryTest extends TestCase {
         $native="<?php const FILE = ".var_export('lib/'.'Service/GuardedMessageMutations.php',true).";";
         $manifest='lib/Modules/Mail/Integration/NativeGuardManifest.php';
         self::assertSame([],self::retired($native,$manifest));
-        foreach(['LocalDraftEditor','OutboxService','MailTransmission','DraftsService','AliasesService','TransmissionService','Attachment/AttachmentService','Attachment/AttachmentStorage'] as $file){
+        foreach(['SetupService','OauthStateService','LocalDraftEditor','OutboxService','MailTransmission','DraftsService','AliasesService','TransmissionService','Attachment/AttachmentService','Attachment/AttachmentStorage'] as $file){
             $data="<?php const FILE = ".var_export('lib/'.'Service/'.$file.'.php',true).";";
             self::assertSame([],self::retired($data,$manifest));
             self::assertNotEmpty(self::retired($data,'lib/Modules/Mail/Other.php'));

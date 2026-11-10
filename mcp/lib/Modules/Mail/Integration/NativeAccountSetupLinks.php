@@ -11,13 +11,14 @@ use OCP\Security\IRemoteHostValidator;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 class NativeAccountSetupLinks {
     public function __construct(private IURLGenerator $urls,private IRemoteHostValidator $hosts){}
-    public function url(bool $create): string {
+    public function url(bool $create,?string $context=null): string {
         $base=$this->urls->linkToRouteAbsolute('mail.page.index');
         $url=$create?$this->urls->linkToRouteAbsolute('mail.page.setup'):$base;
         $a=parse_url($base);$b=parse_url($url);
         if(!is_array($a)||!is_array($b)||!in_array($b['scheme']??'', ['http','https'],true)
             || ($a['scheme']??null)!==($b['scheme']??null)||($a['host']??null)!==($b['host']??null)||($a['port']??null)!==($b['port']??null)
             ||isset($b['user'])||isset($b['pass'])||isset($b['query']))throw new ToolFailure('Native Mail settings link is unavailable.');
+        if($context!==null){if(preg_match('/^[a-f0-9]{64}$/D',$context)!==1)throw new ToolFailure('Native Mail settings link is unavailable.');$url.='?mcpSetup='.$context;}
         return $url;
     }
     public function validate(array $profile,bool $complete=false): void {

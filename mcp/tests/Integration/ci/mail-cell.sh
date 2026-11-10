@@ -151,7 +151,7 @@ install_mail() {
 	occ app:enable mail
 	actual=$(occ config:app:get mail installed_version)
 	expected_mail=${MAIL_TAG#v}
-    if [ "${MCP_IT_MAIL_GUARD:-0}" = 1 ]; then expected_mail=5.12.5.6; fi
+    if [ "${MCP_IT_MAIL_GUARD:-0}" = 1 ]; then expected_mail=5.12.5.7; fi
 	[ "$actual" = "$expected_mail" ] || { echo "Unexpected installed Mail $actual" >&2; return 1; }
 	echo "Mail $actual enabled"
 }
@@ -198,7 +198,7 @@ cmd_provision() {
 start_probe_servers() {
     assert_owner "$NC"
     openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=127.0.0.1' \
-        -addext 'subjectAltName=IP:127.0.0.1' -keyout "$WORK/mcp-mail-probe.key" -out "$WORK/mcp-mail-probe.crt" >/dev/null 2>&1
+        -addext 'subjectAltName=IP:127.0.0.1,DNS:oauth2.googleapis.com,DNS:login.microsoftonline.com,DNS:imap.gmail.com' -keyout "$WORK/mcp-mail-probe.key" -out "$WORK/mcp-mail-probe.crt" >/dev/null 2>&1
     docker cp "$WORK/mcp-mail-probe.crt" "$NC:/usr/local/share/ca-certificates/mcp-mail-probe.crt"
     docker cp "$WORK/mcp-mail-probe.crt" "$NC:/tmp/mcp-mail-probe.crt"
     docker cp "$WORK/mcp-mail-probe.key" "$NC:/tmp/mcp-mail-probe.key"
@@ -209,6 +209,13 @@ start_probe_servers() {
     docker exec "$NC" chmod 644 /tmp/mcp-mail-probe.crt /tmp/mcp-mail-probe-server.php
     docker exec -d -u www-data "$NC" sh -c 'php /tmp/mcp-mail-probe-server.php imap > /tmp/mcp-mail-probe-imap-errors.log 2>&1'
     docker exec -d -u www-data "$NC" sh -c 'php /tmp/mcp-mail-probe-server.php smtp > /tmp/mcp-mail-probe-smtp-errors.log 2>&1'
+    if [ "${MCP_IT_MAIL_CREDENTIAL_UI:-0}" = 1 ]; then
+        docker cp "$HERE/mail/oauth-provider.php" "$NC:/tmp/mcp-mail-oauth-provider.php"
+        docker exec "$NC" sh -c 'printf "127.0.0.1 oauth2.googleapis.com login.microsoftonline.com imap.gmail.com\\n" >> /etc/hosts'
+        docker exec -u www-data "$NC" php /var/www/html/occ config:system:set allow_local_remote_servers --type=boolean --value=true >/dev/null
+        docker exec -u www-data "$NC" php /var/www/html/occ config:system:set default_certificates_bundle_path --value=/etc/ssl/certs/ca-certificates.crt >/dev/null
+        docker exec -d "$NC" sh -c 'php /tmp/mcp-mail-oauth-provider.php > /tmp/mcp-mail-oauth-provider-errors.log 2>&1'
+    fi
     docker exec -u www-data "$NC" php -r 'foreach ([33493,33465] as $port) { $ready=false; for($attempt=0;$attempt<30;$attempt++) { $s=@stream_socket_client("tls://127.0.0.1:".$port,$code,$message,1); if($s) {fclose($s);$ready=true;break;} usleep(100000); } if(!$ready) {fwrite(STDERR,"TLS fixture unavailable: ".$message." ".json_encode(error_get_last())."\n");exit(2);} }'
 }
 

@@ -10,13 +10,13 @@ use OCA\Mcp\Db\MailSetupWorkflowsMapper;
 use OCA\Mcp\Mcp\Operations\OperationJournal;
 use OCA\Mcp\Mcp\Confirmation\{PlanState,PlanChanged};
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
-use OCA\Mcp\Modules\Mail\Integration\{MailSettingsGateway,NativeAccountSetupLinks};
+use OCA\Mcp\Modules\Mail\Integration\{MailSettingsGateway,NativeAccountSetupLinks,NativeSetupEvidence};
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /** Credential-free admission and explicit observation of independently completed native Mail setup. */
 class MailAccountSetup {
     public function __construct(private MailSettingsGateway $gateway,private MailSetupWorkflowsMapper $workflows,private OperationJournal $journal,
-        private PlanState $states,private ITimeFactory $clock,private NativeAccountSetupLinks $links,private \Closure $allowsTool){}
+        private PlanState $states,private ITimeFactory $clock,private NativeAccountSetupLinks $links,private \Closure $allowsTool,private ?NativeSetupEvidence $evidence=null){}
 
     public function preview(array $args,string $uid): array {
         $intent=$this->intent($args['intent']);$create=!isset($args['account_id']);
@@ -27,6 +27,7 @@ class MailAccountSetup {
         $after=$create?$intent:self::overlay($before,$intent);$this->links->validate($after,!$create);
         $plan=['action'=>$create?'add_account':'configure_connection','requested'=>$intent,'before'=>$before,
             'credential_entry'=>'native_mail','message'=>'Complete credentials and consent in the native Mail assistant. Opening it is not proof of completion.'];
+        if($this->evidence?->available())$plan['credential_evidence']='native_manual_write';
         if(!$create)$plan['account_id']=(int)$args['account_id'];
         $bound=$plan+['before_ids'=>$create?$this->gateway->ownedIds($uid):[]];
         return $plan+['plan_state'=>$this->states->of($create?'mail_add_account':'mail_configure_connection',$uid,$bound)];
@@ -35,8 +36,13 @@ class MailAccountSetup {
         PlanState::require($args);$p=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->preview($args,$uid));if(!PlanState::matches($p['plan_state'],$args))throw new PlanChanged($p);
         $create=!isset($args['account_id']);$id=$this->journal->activeId($uid);$expiry=$this->clock->getTime()+86400;
         $url=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->links->url($create));
+        $context=null;
+        if(isset($p['credential_evidence'])){
+            $context=$this->evidence->register($uid,$this->journal->scopeKey($uid),$id,$create?'create_account':'configure_connection',$create?null:(int)$args['account_id'],$p['requested'],$expiry);
+            $url=$this->links->url($create,$context);
+        }
         $this->workflows->create($this->journal->scopeKey($uid),$id,$create?'create_account':'configure_connection', $create?null:(int)$args['account_id'],
-            $create?$this->gateway->ownedIds($uid):[],$this->digest($uid,$args['intent']),$p['before']['revision']??'',$this->clock->getTime(),$expiry);
+            $create?$this->gateway->ownedIds($uid):[],$this->digest($uid,$args['intent']),$p['before']['revision']??'',$this->clock->getTime(),$expiry,$context);
         $this->journal->awaitingUser($expiry);
         $result=['url'=>$url,'expires_at'=>$expiry,'instructions'=>$create?'Open the native Mail assistant and enter credentials there. Then select the resulting account ID for reviewed completion.'
             :'Open native Mail settings, select the approved account and its Mail server section. Enter credentials there, then review the observed account through completion.'];
@@ -44,9 +50,10 @@ class MailAccountSetup {
         return $result;
     }
     public function previewCompletion(array $args,string $uid): array {
-        [$flow,$profile,$tool]=$this->observation($args,$uid);
+        [$flow,$profile,$tool,$proof]=$this->observation($args,$uid);
         $plan=['action'=>'complete_account_setup','setup_operation_id'=>$args['setup_operation_id'],'account_id'=>(int)$args['account_id'],
             'requested'=>$args['intent'],'observed'=>$profile,'source_tool'=>$tool,'message'=>'Confirm this observed native configuration. This does not prove message delivery or globally unique account creation.'];
+        if($proof!==null){$plan['credential_write']=$proof;$plan['message']='Confirm the observed native credential write. Credential change, current authentication and message delivery remain unverified.';}
         return $plan+['plan_state'=>$this->states->of('mail_complete_account_setup',$uid,$plan)];
     }
     public function complete(array $args,string $uid): array {
@@ -54,11 +61,24 @@ class MailAccountSetup {
         if(!PlanState::matches($p['plan_state'],$args))throw new PlanChanged($p);
         $scope=$this->journal->scopeKey($uid);$source=$args['setup_operation_id'];$completion=$this->journal->activeId($uid);$account=(int)$args['account_id'];
         $this->journal->checkpoint(['account_id'=>$account,'source_tool'=>$p['source_tool'],'source_operation_id'=>$source]);
-        $this->workflows->atomic(function()use($scope,$source,$completion,$account,$uid): void {
-            if(!$this->workflows->claim($scope,$source,$completion,$this->clock->getTime())||!$this->workflows->complete($scope,$source,$completion,$account))throw new ToolFailure('Setup is already being bound or has expired; inspect its operation.');
-            $this->journal->completeExternal($uid,$source,$account);
-        });
-        return ['account_id'=>$account,'native_state'=>'observed_in_mail','source'=>'native_ui'];
+        $proof=$p['credential_write']??null;
+        $finish=function()use($args,$p,$scope,$source,$completion,$account,$uid,$proof):void {
+            $this->workflows->atomic(function(\OCP\IDBConnection $db)use($args,$p,$scope,$source,$completion,$account,$uid,$proof):void {
+                // Current permissions, ownership, intent and evidence are checked under the native owner scope.
+                $fresh=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->previewCompletion($args,$uid));
+                if(!hash_equals($fresh['plan_state'],$p['plan_state']))throw new PlanChanged($fresh);
+                if($proof!==null){
+                    $flow=$this->workflows->get($scope,$source);
+                    $this->evidence->claim($db,$uid,$flow['native_context_id'],$account,$proof['revision'],$scope,$source,$completion);
+                }
+                if(!$this->workflows->claim($scope,$source,$completion,$this->clock->getTime())||!$this->workflows->complete($scope,$source,$completion,$account))throw new ToolFailure('Setup is already being bound or has expired; inspect its operation.');
+                $this->journal->completeExternal($uid,$source,$account);
+                if($proof!==null)$this->evidence->assertCompletion($db,$uid);
+            });
+        };
+        if($proof!==null)$this->evidence->withCompletion($uid,$finish);else $finish();
+        $result=['account_id'=>$account,'native_state'=>'observed_in_mail','source'=>'native_ui'];
+        if($proof!==null)$result['credential_write']=$proof;return $result;
     }
     /** An observation context does not complete the workflow or attest to secret changes. */
     public function diagnosticContext(array $args,string $uid):array {
@@ -80,11 +100,33 @@ class MailAccountSetup {
         if(!$profile['editable'])throw new ToolFailure('Provisioned connection settings are managed by the administrator.');
         $this->links->validate($profile,true);
         if(!self::matches($args['intent'],$profile))throw new ToolFailure('The native configuration differs from the requested intent. Review a new setup plan.');
-        if(!$diagnostic && !$create && hash_equals($f['before_digest'],$profile['revision']))throw new ToolFailure('An unchanged profile does not verify a credential-only change. Use native Mail; authorization remains unverified.');
         if(!$diagnostic && $create && !$this->gateway->authorizationAvailable($uid,$id))throw new ToolFailure('Native Mail authorization has not been observed. Complete its assistant first.');
         $original=$this->journal->get($uid,$args['setup_operation_id']);
         if($original===null||$original['tool']!==$tool||$original['state']!=='awaiting_user')throw new ToolFailure('Setup admission could not be verified. Inspect its operation.');
-        return [$f,$profile,$tool];
+        $proof=null;
+        if(!$diagnostic&&$f['native_context_id']!==null&&$this->evidence?->available())$proof=$this->evidence->observe($uid,$f['native_context_id'],$id,$this->journal->scopeKey($uid),$args['setup_operation_id']);
+        if(!$diagnostic&&!$create&&hash_equals($f['before_digest'],$profile['revision'])&&$proof===null)throw new ToolFailure('An unchanged profile requires current correlated native manual-write evidence. Authorization remains unverified.');
+        return [$f,$profile,$tool,$proof];
+    }
+    /** Recover the same pending native handoff without registration, activation or credential work. */
+    public function pendingNativeEntry(string $uid,string $operation):?array {
+        try{
+            if(!$this->evidence?->available())return null;
+            $scope=$this->journal->scopeKey($uid);$f=$this->workflows->get($scope,$operation);
+            if($f===null||$f['native_context_id']===null||$f['phase']!=='pending'||(int)$f['expires_at']<$this->clock->getTime())return null;
+            $create=$f['kind']==='create_account';if(!$create&&$f['kind']!=='configure_connection')return null;
+            $this->authorizeKind($uid,$create);if(!($this->allowsTool)($uid,'mail_read_connection'))return null;
+            $source=$this->journal->get($uid,$operation);
+            if($source===null||$source['state']!=='awaiting_user'||$source['tool']!==($create?'mail_add_account':'mail_configure_connection'))return null;
+            $description=$this->evidence->describe($uid,$f['native_context_id'],$scope,$operation);
+            if($description===null||$description['kind']!==$f['kind']||$description['expires_at']!==(int)$f['expires_at'])return null;
+            $target=$description['target_account_id'];
+            if(!$create&&$target!==$f['target_account_id'])return null;
+            // Opening the native editor must remain possible to repair an unsafe profile; completion still validates TLS/host policy.
+            if($target!==null){$profile=$this->gateway->readConnection($uid,$target);if(!$profile['editable'])return null;}
+            $result=['url'=>$this->links->url($target===null,$f['native_context_id']),'expires_at'=>(int)$f['expires_at']];
+            if($target!==null)$result['account_id']=$target;return $result;
+        }catch(\Throwable){return null;}
     }
     private function authorizeKind(string $uid,bool $create): void {
         if(!($this->allowsTool)($uid,$create?'mail_add_account':'mail_configure_connection'))throw new ToolFailure('This setup action is not permitted for the current connection.');

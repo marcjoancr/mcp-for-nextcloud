@@ -17,7 +17,7 @@ class MailAliasBoundary {
     ];
     public function __construct(private IAppManager $apps,private IDBConnection $db,private IConfig $config){}
     public function requireSupported():void {
-        if(!in_array($this->apps->getAppVersion('mail'),['5.12.5','5.12.5.6'],true)||preg_match('/^35\.0\.2(?:\.\d+)?$/D',$this->config->getSystemValueString('version',''))!==1)throw new BeforeEffectFailure('This native Mail pair has no qualified alias write boundary.');
+        if(!in_array($this->apps->getAppVersion('mail'),['5.12.5','5.12.5.6','5.12.5.7'],true)||preg_match('/^35\.0\.2(?:\.\d+)?$/D',$this->config->getSystemValueString('version',''))!==1)throw new BeforeEffectFailure('This native Mail pair has no qualified alias write boundary.');
         $root=$this->apps->getAppPath('mail');foreach(self::FILES as $path=>$hash)if(!is_file($root.'/'.$path)||!hash_equals($hash,(string)hash_file('sha256',$root.'/'.$path)))throw new BeforeEffectFailure('The native alias mapper source is not qualified.');
         if($this->config->getSystemValue('dbsharding',[])!==[]||$this->config->getSystemValue('dbreplica',[])!==[])throw new BeforeEffectFailure('Alias/journal atomicity requires primary storage without sharding or replicas.');
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');

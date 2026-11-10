@@ -17,6 +17,7 @@ implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim co
 | NC35.0.2 / stock Mail5.12.5 / MariaDB10.11.19 | Existing reads, local drafts/Files, settings/setup, qualified local tag creation and qualified local alias administration. Guarded remote mutations refuse. |
 | Same pair with exact v5 overlay and required primary InnoDB schema | Flags, moves, folders, local tag creation, exact message tags and bounded refresh, subject to each independent grant and provider gate. |
 | NC35.0.2 / custom Mail5.12.5.6 / exact v6 overlay and primary InnoDB schema | Existing v5 scopes plus protected native draft editing and alias/reply preservation through native IMAP conversion. |
+| NC35.0.2 / custom Mail5.12.5.7 / exact v7 overlay and required primary InnoDB schema | Existing v6 scopes plus correlated native manual credential-write evidence and one-shot setup completion. |
 | Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
 | NC33/34 or other Mail/server/provider combinations | Native behavior unverified by this acceptance run. The manifest/API floor and static fixtures do not qualify those combinations. |
 
@@ -73,7 +74,7 @@ folder generation/cache revision or Archive/Trash role requires a new preview.
 Restoration does not guess the old folder. Each tool requires its own assignment
 and current connection selection; existing read/flag grants do not enable moves.
 
-These tools require the exact custom **v2, v3, v4, v5 or v6** native dependency,
+These tools require the exact custom **v2, v3, v4, v5, v6 or v7** native dependency,
 qualified on **Nextcloud35.0.2/Mail5.12.5**, and server support for **MOVE + UIDPLUS**.
 Stock Mail, the flags-only C1 artifact and altered/unknown native builds refuse
 moves. The native client sends at most one UID MOVE, retaining the complete
@@ -102,7 +103,7 @@ five admissions per owner/account/minute apply. Sending remains disabled.
 | `mail_set_mailbox_subscription` | `mail.subscribe_mailboxes` | Set `subscribed` explicitly to true or false. |
 | `mail_configure_mailboxes` | `mail.configure_mailboxes` | Patch owned selectable Drafts, Sent, Trash or Archive folder IDs; omitted roles are preserved. |
 
-The three remote folder actions require the exact **v3, v4, v5 or v6** custom native dependency
+The three remote folder actions require the exact **v3, v4, v5, v6 or v7** custom native dependency
 on **NC35.0.2/Mail5.12.5**. v1/v2, stock and unknown builds refuse them.
 Special-role configuration is a local native account update and does not require
 v3 or contact IMAP. Roles cannot be cleared or assigned to foreign/shared folders.
@@ -140,7 +141,7 @@ The independent `mail.refresh` permission, tool assignment and current connectio
 selection start denied. Ordinary reads, search, listing, replay and operation
 status never refresh or enqueue synchronization.
 
-Refresh requires the separately installed **v5 or v6** native dependency, qualified only
+Refresh requires the separately installed **v5, v6 or v7** native dependency, qualified only
 on **NC35.0.2 / Mail5.12.5 / MariaDB10.11.19 primary**. The source/schema
 gate also admits MySQL primary storage, but C7 has no separate native MySQL cell.
 Replicas and sharding are excluded. Stock, older custom artifacts and unknown builds refuse before network
@@ -339,7 +340,7 @@ Those native serializers lose reply headers/alias choice during IMAP conversion.
 Replies use `failed=true` and `sync_held: true`; an ordinary native edit can release
 that historical hold.
 
-The exact qualified **v6 / custom Mail5.12.5.6** dependency on **NC35.0.2 with
+The exact qualified **v6 / custom Mail5.12.5.6 or v7 / custom Mail5.12.5.7** dependency on **NC35.0.2 with
 transactional primary MySQL/MariaDB storage** adds a protected native editor.
 New ordinary MCP writes and reviewed ordinary legacy edits persist draft-only
 protection and retain their hold. Native controller/mapper updates cannot clear it,
@@ -425,7 +426,8 @@ approved text and never silently append a signature.
 Setup accepts only non-secret `intent` fields: name, email, authentication method
 (`password` or `xoauth2`), and IMAP/SMTP host, port, TLS (`ssl` or `tls`) and user.
 Mail's native form alone handles passwords and OAuth consent. The generated link
-has no credential or prefill query parameters. Administrator-disabled creation and
+has no credential or prefill query parameters. On qualified v7 it includes an
+opaque context handle requiring the same native owner login. Administrator-disabled creation and
 provisioned connections are refused. Opening a link creates only an
 `awaiting_user` receipt, valid for 24 hours; it does not create an account or prove
 successful authorization. The initial confirmation plan lasts 15 minutes.
@@ -433,8 +435,13 @@ successful authorization. The initial confirmation plan lasts 15 minutes.
 After finishing native setup, select its exact `account_id`, repeat the original
 `intent`, preview completion and confirm the fresh observed profile. New-account
 completion refuses pre-existing IDs; reconfiguration requires the original account
-and a changed, matching non-secret profile. Credential-only changes with an unchanged
-profile remain unverified. Completion rechecks its own permission, the original
+and a matching non-secret profile. Stock/v6 and legacy workflows still require
+a changed profile. Qualified v7 may instead use a fresh correlated manual-write
+proof after the native assistant saved credentials, even when the profile is
+unchanged. The confirmation reports native write observed and credential-change
+unverified: saving the same value is allowed, and SMTP-only evidence does not
+prove authentication. Old tokens, failed OAuth, automatic refresh, diagnostic
+success, visiting a page and abandoned setup do not count. Completion rechecks its own permission, the original
 setup tool, connection-read access and the same user/connection. `observed_in_mail`
 means only that the reviewed native configuration was observed, not that delivery
 works or that independently submitted native forms created only one account.
@@ -442,6 +449,16 @@ Revocation prevents future MCP calls but cannot revoke native Mail permissions o
 close a form already opened there. Expiry remains unverified, even if the native
 user completed work independently. Status calls never open a form, authenticate,
 write, match accounts automatically or retry an effect.
+
+On qualified v7, the operation detail can return the same pending native link
+and its bound account ID after current original-tool/read permissions, scope,
+ownership and expiry are checked. It never admits a second context. Native
+handoffs last at most 24 hours, with 100 unconsumed native contexts per owner
+and at most 32 correlated OAuth states per handoff; state validity is at most
+600 seconds. Proof consumption and source/workflow completion share the primary
+transaction. Revision changes, revocation or uncertain acknowledgements never
+authorize automatic credential resubmission. After a lost result, inspect and
+replay the original operation ID.
 
 Connection probes have independent per-protocol results, a hard 10-second budget
 per protocol (20 seconds for both), and five operations per user/account per minute
