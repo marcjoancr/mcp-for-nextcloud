@@ -200,7 +200,6 @@ final class FileCreation {
      * @throws FileExists when the name is taken
      */
     public function target(Folder $root, string $path): array {
-        $this->creationLocks->assertAvailable();
         $path = PathGuard::normalize($path);
         if ($path === '/') {
             throw self::invalidName();
@@ -227,6 +226,7 @@ final class FileCreation {
             }
             throw new FileExists(CreationMessages::fileExists());
         }
+        $this->creationLocks->assertAvailable();
         return ['path' => $path, 'name' => $name, 'folderPath' => $folderPath, 'folder' => $folder];
     }
 
