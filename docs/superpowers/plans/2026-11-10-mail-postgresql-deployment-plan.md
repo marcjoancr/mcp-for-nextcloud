@@ -31,10 +31,10 @@
 
 **Files:** native/mail-guard/src/Db/PgSessionLease.php, Drafts/DraftOwnerLease.php, Sync/MailboxLease.php, Drafts/DraftCoordinator.php, Authorization/SetupEvidence.php, Db/ExactTagAssociations.php, Sync/CacheSnapshot.php; MCP Integration/MailDraftStorage.php and MailCredentialStorage.php; targeted unit and PostgreSQL integration tests.
 
-- [ ] Add and run failing PostgreSQL admission and physical-session ownership tests.
-- [ ] Add PostgreSQL leases and transactional storage admission without weakening MySQL.
-- [ ] Verify recursive refusal, concurrent owner refusal, reconnect/termination, rollback, stale release and namespace isolation.
-- [ ] Run targeted tests and commit only task-owned files.
+- [x] Add and run failing PostgreSQL admission and physical-session ownership tests.
+- [x] Add PostgreSQL leases and transactional storage admission without weakening MySQL.
+- [x] Verify recursive refusal, concurrent owner refusal, reconnect/termination, rollback, stale release and namespace isolation.
+- [x] Run targeted tests and commit only task-owned files.
 
 **Expected:** PostgreSQL contract tests pass; MySQL lease and unsafe-storage tests remain green.
 
@@ -42,10 +42,13 @@
 
 **Files:** native/mail-guard/build.php and README.md; MCP Integration/MailNativeBoundary.php, NativeGuardManifest.php, MailRuntimePairs.php; native harness gates/tests, qualification evidence.
 
-- [ ] Preserve v8 manifest; add distinct v9 native version/contract and source admission.
+- [x] Preserve v8 manifest; add distinct v9 native version/contract and source admission.
 - [ ] Run complete Mail native PostgreSQL acceptance, browser credential/draft checks and real-session failure cases.
 - [ ] Rehearse stock-to-custom PostgreSQL upgrade and consistent recovery on the LinuxServer profile.
 - [ ] Run catalog check, review and build matching immutable runtime/native/source kit.
+
+- [ ] Verify S3 incoming-file creation with web/database parent exclusion and independent CLI contenders; refuse unsupported backends before preview.
+- [ ] Recheck bounded refresh after removing unrelated capability/schema work from its callbacks.
 
 **Expected:** Admission remains closed until the qualified artifact passes; all required checks pass and immutable digests are recorded.
 
@@ -55,7 +58,7 @@
 
 - [ ] Recheck live identity, current versions, database and operator controls.
 - [ ] Stage exact complete applications, take consistent private backups and establish recovery.
-- [ ] Freeze admission, drain workers, install, migrate and restart with exact source metadata.
+- [ ] Freeze admission, drain workers, replace APCu file locking with default database locking, install, migrate and restart with exact source metadata.
 - [ ] Verify HTTPS, source/schema, grants/connections and no-send capabilities; document result.
 
 **Expected:** Healthy migrated instance with qualified Mail and sending still disabled. Stop without live changes if prerequisites fail.

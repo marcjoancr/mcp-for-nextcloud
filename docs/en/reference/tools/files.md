@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | **Files** | list, search (by name or content with snippets via fulltextsearch), search images by tag/date, view images and batch previews (JPEG, PNG, WebP, GIF, TIFF, PDF), read text (TXT/MD, PDF, DOCX, ODT; a scan without text returns `text_layer: false` and, with the optional Workflow OCR app active, gains text in the background), list and read file versions | edit text with a diff and a partial replacement, with verified pre-write copies enabled by default in the configured backup folder (administrators may suspend them when Versions is available); restore a stored version; check any file (DOCX, XLSX, PDF, images, up to the upload limit) out to an agent with a shell through a one-time link; reorganize folders: scan the tree, create a folder, copy, move, move a batch and undo it. **Never deletes the file.** Also list the shares you created, share an own file or folder with a person, a group or a public link (with a generated password when asked), and remove a share — which removes the access, not the file. |
 
+New-file creation (`files_create`, upload-link issuance and incoming Mail attachments) requires a web worker with Nextcloud's default database file locking. The writer takes an exclusive parent-folder lock for the collision check and explicit empty creation, including on primary S3. Disabled locking, APCu/Redis locking, debug locking, excluded paths and CLI execution are unqualified and refuse before preview or link issuance. Existing edit and read tools retain their own guards.
+
 | Tool | Grant | Notes |
 | --- | --- | --- |
 | `files_list` `{path="/"}` | files.read | Direct children of the folder, as `{name, path, isDir, size, mtime, contentType}`. |

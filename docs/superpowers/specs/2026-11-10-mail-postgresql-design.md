@@ -17,3 +17,11 @@ After deployment, implement owned bounded outbox inspection with a distinct read
 ## Failure requirements
 
 Concurrent holders, recursive locking, reconnect, transaction rollback, process termination, stale release, changed UIDVALIDITY, schema mismatch, legacy tag cache, interrupted migration and uncertain remote outcomes must not transfer ownership or replay effects. Credential handoffs remain one-shot and owner/source/page-bound. No raw credentials in APIs or logs. Preserve existing production grants and connections.
+
+## Production-profile findings incorporated during acceptance
+
+A refresh worker exhausted its fixed 20-second process deadline because each revocation callback evaluated unrelated draft/schema capabilities. Selective admission now evaluates only the requested capability, retaining the same version, source, ownership, permission, target and journal checks. A parity regression compares selective admission with the full capability report; the complete report still checks every advertised boundary. The native refresh budget and process deadline are unchanged.
+
+Primary S3's native touch operation creates a one-space marker, so the existing Files writer could not prove a newly created file empty. Do not treat an arbitrary one-space file as disposable. Creation instead takes the native parent-folder exclusion, rechecks collision and creates explicit empty content. Capture identity/ETag/size before releasing that exclusion, then use the ordinary guarded content write. Real FPM-to-CLI contention proved that an existing single-space file is preserved, another creator is refused before and after empty creation, and creation becomes available only after release.
+
+This creation boundary requires web execution with native database file locking; Nextcloud disables that provider's shared-lock cache in CLI. APCu cannot coordinate FPM with independent CLI processes, and Redis's nested locking contract is unqualified. Production currently uses APCu; switch only the locking provider to the default database implementation after admission closes and all old workers drain. Keep local memory caching unchanged. Creation previews must refuse unsupported locking configurations before issuing a confirmation or upload link. Existing edit/read/status behavior remains separate.

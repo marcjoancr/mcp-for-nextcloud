@@ -90,6 +90,7 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
             self::assertTrue($wrongUser->isError(), $wrongUser->describe());
             self::assertFalse($root->nodeExists($path));
             $saved = $this->data($this->alice->tool('mail_save_attachment', $save + ['confirm' => true, 'operation_id' => $plan['operation_id'], 'plan_state' => $plan['plan_state']]));
+            self::assertSame('succeeded', $saved['operation']['state'], json_encode($saved, JSON_THROW_ON_ERROR));
             self::assertSame($path, $saved['file']['path']);
             self::assertSame($bytes, $root->get($path)->getContent());
             self::assertFalse(Server::get(IRootFolder::class)->getUserFolder(MailActor::BOB)->nodeExists($path));

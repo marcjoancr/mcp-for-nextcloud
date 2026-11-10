@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, built as custom **5.12.5.8** for the exact qualified NC33.0.10, NC34.0.5 and NC35.0.2 pairs. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, now built as custom **5.12.5.9** for NC35.0.2 PostgreSQL qualification. The immutable **5.12.5.8** artifact retains its qualified NC33.0.10, NC34.0.5 and NC35.0.2 MariaDB pairs. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -10,10 +10,10 @@ From the repository root, with that verified archive available:
 mkdir -p mcp/build/native-mail-guard
 php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/overlay
 cmp mcp/build/native-mail-guard/overlay/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v8-normalized-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v9-normalized-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
 ```
 
-`overlay/mail` contains the v7 additions (including the preserved v6 draft lifecycle) and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
+`overlay/mail` contains the v9 PostgreSQL coordination and the v7 additions (including the preserved v6 draft lifecycle) and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
 
 The native `MutationFence` adapter exchanges only approved identifiers and DB stage transitions. It never passes a raw client to MCP. `setFlagGuarded` validates the actual selected generation and connection before each command, permits one UID STORE, does not swallow tagged NO responses, requires explicit permanent support for the selected system flag and verifies the desired state on the same generation. A missing flag or keyword wildcard alone does not prove permanence. Logout or reconnect invalidates the permit. The native cache stage locks immutable mailbox/message rows, revalidates their identity and synchronization tokens, commits the flag, then dispatches one webhook-compatible guarded flag event. The ordinary native cache listener skips the already-applied event. An uncertain listener/crash outcome is retained and never automatically redispatched.
 
@@ -251,3 +251,13 @@ The immutable review archive is preserved separately from this normalization.
 Only fresh pinned primary MariaDB/InnoDB cells are qualified; upgrades, other
 patches/providers and operator deployment need separate acceptance. Sending
 stays disabled. See the [runtime evidence](../../docs/superpowers/specs/2026-11-10-mail-runtime-qualification-evidence.md).
+
+## v9 primary PostgreSQL boundary
+
+The v9 builder emits Mail5.12.5.9 / `mcp-mail-mutations-v9` for the exact NC35.0.2 pair. It preserves v8 as a separate immutable manifest; v9 does not admit NC33/34. PostgreSQL session advisory leases cover draft owners and mailbox synchronization, with a random session marker, backend PID/start identity and an actual held exclusive-lock check. Recursive acquisition, reconnect, backend termination and stale release cannot transfer ownership. The configured single TCP endpoint must resolve uniquely and match the actual backend address/port; transaction-pooling frontends, replicas and sharding are unqualified. Schema/FK/index checks remain required.
+
+Legacy cached messages are not stamped with guessed provenance. Existing header-based tag history remains preserved, while exact tag association requires a fresh native snapshot. A reviewed bounded mailbox reset is distinct from ordinary refresh; neither status reads nor deployment source checks rebuild the cache.
+
+Production-profile acceptance also exercises Mail attachments saved to primary S3. Native `touch` creates a one-space marker on S3. The Files writer instead creates explicit empty content under a verified exclusive parent-folder lock, then releases it before the ordinary guarded content write. This path requires a web worker and default native database file locking. APCu, Redis, CLI, unknown backends, disabled locking and excluded paths are unqualified for this creation path. The shared-lock cache in Nextcloud's DB provider is disabled for CLI workers; the web-only restriction is intentional. No original Files object is used as a scratch attachment.
+
+The [PostgreSQL implementation and deployment plan](../../docs/superpowers/plans/2026-11-10-mail-postgresql-deployment-plan.md) records outstanding acceptance and deployment gates. Sending remains disabled.

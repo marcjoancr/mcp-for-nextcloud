@@ -19,6 +19,7 @@ implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim co
 | NC35.0.2 / custom Mail5.12.5.6 / exact v6 overlay and primary InnoDB schema | Existing v5 scopes plus protected native draft editing and alias/reply preservation through native IMAP conversion. |
 | NC35.0.2 / custom Mail5.12.5.7 / exact v7 overlay and required primary InnoDB schema | Existing v6 scopes plus correlated native manual credential-write evidence and one-shot setup completion. |
 | NC33.0.10, NC34.0.5 or NC35.0.2 / custom Mail5.12.5.8 / exact v8 overlay and required primary InnoDB schema | All preceding guarded scopes, protected native drafts and correlated credential-write evidence; same 41 tools and independent grants. |
+| NC35.0.2 / custom Mail5.12.5.9 / exact v9 overlay / PostgreSQL16.15 primary | Guarded A/D/C scopes with PostgreSQL session ownership and direct-endpoint proof. Exact schema, source, ownership, grants and operation-state checks remain mandatory; qualification/deployment is recorded separately. |
 | NC33.0.10 or NC34.0.5 / stock Mail5.12.5 | Reads, legacy local drafts/Files and existing account/settings behavior retain their permissions; guarded capabilities remain unverified, including local alias/tag creation. |
 | Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
 | Other Mail/server/provider combinations | Native behavior unverified. The manifest/API floor and static fixtures do not qualify an unknown pair. |
@@ -28,6 +29,10 @@ schema and protocol checks remain mandatory; version strings alone grant nothing
 C7 and D+ acceptance exercised stock Mail and v5 separately. The v6 continuation
 adds actual native composer acceptance; older immutable overlays retain only their
 previously qualified scopes. v8 native qualification covers the exact three core patches above in fresh pinned MariaDB cells; unknown patches, upgrades and other providers need separate acceptance. Installation remains separate from implementation acceptance.
+
+PostgreSQL v9 requires one configured TCP endpoint whose unique resolved address and port match the actual primary backend. Transaction-pooling frontends, replicas, sharding, ambiguous DNS and endpoint translation are unqualified. Stock cached messages retain unknown provenance until an explicitly reviewed native cache rebuild; old header-based tag history is never guessed into exact message associations.
+
+Saving an attachment to Files also requires the Files creation boundary: a web worker with default database file locking. APCu, Redis and CLI creation are unqualified. A native S3 touch marker is not accepted as permission to overwrite an existing file.
 
 | Tool | Behavior |
 | --- | --- |
@@ -140,7 +145,7 @@ The independent `mail.refresh` permission, tool assignment and current connectio
 selection start denied. Ordinary reads, search, listing, replay and operation
 status never refresh or enqueue synchronization.
 
-Refresh requires separately installed **v5–v7** on **NC35.0.2/Mail5.12.5/MariaDB10.11.19 primary**, or an exact **v8** pair above. The source/schema
+Refresh on PostgreSQL requires the exact **v9** pair above. Earlier-provider refresh requires separately installed **v5–v7** on **NC35.0.2/Mail5.12.5/MariaDB10.11.19 primary**, or an exact **v8** pair above. The source/schema
 gate also admits MySQL primary storage, but C7 has no separate native MySQL cell.
 Replicas and sharding are excluded. Stock, older custom artifacts and unknown builds refuse before network
 work. Existing v1–v4 scopes remain accepted for their original actions.
@@ -294,7 +299,7 @@ canonical keyword on one exact UID. Arbitrary flags and tag creation are exclude
 Native default-label aliases are treated as one logical tag. Other keywords,
 system flags, other messages and held reply drafts are preserved.
 
-Assignment requires exact **v4–v7 on NC35.0.2/Mail5.12.5**, or an exact **v8** pair above, with migrated MySQL/MariaDB transactional primary schema and fresh message provenance. SQLite and PostgreSQL assignment remain closed.
+Assignment requires exact **v4–v7 on NC35.0.2/Mail5.12.5**, or an exact **v8** pair above, with migrated MySQL/MariaDB transactional primary schema and fresh message provenance. SQLite remains unqualified. PostgreSQL assignment requires the exact v9 pair above and fresh proven cache identities.
 Stock Mail and v1/v2/v3 refuse assignment. v4 native import, cache reads, search,
 UI/bulk operations and classification use cached message IDs rather than shared
 header Message-ID. Historical header associations remain quarantined with a NULL
@@ -337,7 +342,7 @@ Those native serializers lose reply headers/alias choice during IMAP conversion.
 Replies use `failed=true` and `sync_held: true`; an ordinary native edit can release
 that historical hold.
 
-The exact qualified **v6 / Mail5.12.5.6 or v7 / Mail5.12.5.7 on NC35.0.2**, or an exact **v8** pair above with transactional primary MySQL/MariaDB storage, adds a protected native editor.
+The exact qualified **v6 / Mail5.12.5.6 or v7 / Mail5.12.5.7 on NC35.0.2**, or an exact **v8** pair above with transactional primary MySQL/MariaDB storage, adds a protected native editor. The exact v9 pair above extends that protected editor to qualified primary PostgreSQL.
 New ordinary MCP writes and reviewed ordinary legacy edits persist draft-only
 protection and retain their hold. Native controller/mapper updates cannot clear it,
 schedule delivery or convert it to an outgoing item, including through stale objects.
