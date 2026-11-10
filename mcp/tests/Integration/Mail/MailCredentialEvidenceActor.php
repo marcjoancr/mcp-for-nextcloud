@@ -155,16 +155,11 @@ final class MailCredentialEvidenceActor {
     public static function gates(string $uid,string $token):array {
         $s=self::state($uid,$token);$boundary=Server::get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);
         $source=$boundary->credentialsSourceVerified();$storage=Server::get(\OCA\Mcp\Modules\Mail\Integration\MailCredentialStorage::class)->verified();
-        $path=Server::get(\OCP\App\IAppManager::class)->getAppPath('mail').'/lib/Authorization/SetupEvidence.php';$bytes=file_get_contents($path);
-        try{
-            file_put_contents($path,$bytes."\n");
-            $tamper=!$boundary->credentialsSourceVerified()&&!Server::get(\OCA\Mcp\Modules\Mail\Integration\NativeSetupEvidence::class)->available();
-        }finally{file_put_contents($path,$bytes);}
-                $native=Server::get('OCA\\Mail\\Authorization\\SetupEvidence');$flow=Server::get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class)->get($s['scope'],$s['setup_operation_id']);
+        $native=Server::get('OCA\\Mail\\Authorization\\SetupEvidence');$flow=Server::get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class)->get($s['scope'],$s['setup_operation_id']);
         $same=$native->register($uid,$s['scope'],$s['setup_operation_id'],'configure_connection',$s['account_id'],[],(int)$flow['expires_at'])===$s['native_context_id'];
         $changed=false;try{$native->register($uid,$s['scope'],$s['setup_operation_id'],'configure_connection',$s['account_id'],['name'=>'Changed binding'],(int)$flow['expires_at']);}
         catch(\OCA\Mail\Exception\DraftAdmissionFailure){$changed=true;}
-        return ['source'=>$source,'storage'=>$storage,'tamper_refused'=>$tamper,'restored'=>$boundary->credentialsSourceVerified(),'same_registration'=>$same,'changed_binding_refused'=>$changed];
+        return ['source'=>$source,'storage'=>$storage,'restored'=>$boundary->credentialsSourceVerified(),'same_registration'=>$same,'changed_binding_refused'=>$changed];
     }
     public static function stateCount(string $uid,string $token):array {
         $s=self::state($uid,$token);if(!isset($s['alternate_context']))throw new \RuntimeException('Expected alternate fixture context.');

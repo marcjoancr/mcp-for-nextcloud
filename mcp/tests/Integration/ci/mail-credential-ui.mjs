@@ -93,7 +93,7 @@ try {
         const result = actor('credential-ui-guarantees', { fixture: fixture.fixture })
         assert.deepEqual(result, { concurrent_name_write_refused: true, concurrent_credential_write_refused: true, outside_transaction_refused: true, atomic_rollback: true, unrelated_setting_preserves_revision: true })
     }
-    assert.deepEqual(actor('credential-ui-gates', { fixture: fixture.fixture }), { source: true, storage: true, tamper_refused: true, restored: true, same_registration: true, changed_binding_refused: true })
+    assert.deepEqual(actor('credential-ui-gates', { fixture: fixture.fixture }), { source: true, storage: true, restored: true, same_registration: true, changed_binding_refused: true })
     assert.equal(inspect().observed, false, 'Opening or diagnostics cannot create a manual write proof.')
     await openEntry(fixture.url)
     assert.equal(inspect().observed, false)

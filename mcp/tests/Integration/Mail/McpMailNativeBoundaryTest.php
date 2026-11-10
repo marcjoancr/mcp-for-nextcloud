@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Mail;
-use OCA\Mcp\Modules\Mail\Integration\{MailDraftStorage,MailNativeBoundary,NativeDraftLinks,NativeGuardManifest};
+use OCA\Mcp\Modules\Mail\Integration\{MailCredentialStorage,MailDraftStorage,MailNativeBoundary,MailServices,NativeDraftLinks,NativeGuardManifest,NativeSetupEvidence};
 use OCA\Mcp\Tests\Integration\IntegrationTestCase;
-use OCP\{App\IAppManager,IConfig,IURLGenerator,Server};
+use OCP\{App\IAppManager,IConfig,IDBConnection,IURLGenerator,Server};
 use PHPUnit\Framework\Attributes\Group;
 #[Group('mail')]
 final class McpMailNativeBoundaryTest extends IntegrationTestCase {
@@ -45,6 +45,23 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
                 public function getSendAt():mixed{return null;}
             };
             $editUrl=$draftLinks->forDraft(71,$draft);self::assertSame($installedDraftLinks->forDraft(71,$draft),$editUrl,'The owned source copy must preserve the installed version’s edit-entry capability, including stock and legacy versions.');
+            $setupStorage=$this->createMock(MailCredentialStorage::class);$setupStorage->method('verified')->willReturn(true);
+            $setupServices=$this->createMock(MailServices::class);$setupServices->expects(self::never())->method('clientFactory');$setupServices->expects(self::never())->method('smtpFactory');$setupServices->expects(self::never())->method('setupEvidence');
+            $config=Server::get(IConfig::class);$db=Server::get(IDBConnection::class);$setupCopyBoundary=new MailNativeBoundary($mockApps);
+            $setupCopy=new NativeSetupEvidence($setupServices,$setupCopyBoundary,$setupStorage,$db,$config);
+            $setupInstalled=new NativeSetupEvidence($setupServices,new MailNativeBoundary($realApps),$setupStorage,$db,$config);
+            $setupBaseline=$setupCopy->available();$setupSourceBaseline=$setupCopyBoundary->credentialsSourceVerified();
+            self::assertSame($setupInstalled->available(),$setupBaseline,'The owned source copy must preserve the installed setup evidence capability.');
+            self::assertSame((new MailNativeBoundary($realApps))->credentialsSourceVerified(),$setupSourceBaseline,'The owned source copy must preserve the installed credential source verification.');
+            $setupTarget=$root.'/lib/Authorization/SetupEvidence.php';
+            if(is_file($setupTarget)){
+                $setupOriginal=file_get_contents($setupTarget);if(!is_string($setupOriginal))throw new \RuntimeException('Cannot read copied credential source fingerprint.');
+                try {$setupBytes=$setupOriginal."\n// disposable setup evidence fingerprint mismatch\n";$written=file_put_contents($setupTarget,$setupBytes);if($written!==strlen($setupBytes))throw new \RuntimeException('Could not completely tamper the owned setup evidence copy.');clearstatcache(true,$setupTarget);self::assertFalse($setupCopyBoundary->credentialsSourceVerified(),'A changed setup evidence source must fail credential source verification.');self::assertFalse($setupCopy->available(),'A changed setup evidence source must suppress native setup evidence.');}
+                finally {$restored=file_put_contents($setupTarget,$setupOriginal);if($restored!==strlen($setupOriginal))throw new \RuntimeException('Could not restore the owned setup evidence copy.');clearstatcache(true,$setupTarget);self::assertSame(hash('sha256',$setupOriginal),hash_file('sha256',$setupTarget));}
+                self::assertSame($setupSourceBaseline,$setupCopyBoundary->credentialsSourceVerified(),'Restoring setup evidence source must restore its exact fingerprint.');self::assertSame($setupBaseline,$setupCopy->available(),'Restoring setup evidence source must restore the installed setup capability.');
+            }else{
+                self::assertFalse($setupBaseline,'A source profile without SetupEvidence.php cannot provide native credential setup evidence.');
+            }
             $before=['flags'=>$copyBoundary->verified(),'move'=>$copyBoundary->movesVerified()];
             self::assertSame(['flags'=>$installedBoundary->verified(),'move'=>$installedBoundary->movesVerified()],$before,'The owned copy must preserve current, legacy, stock, and v9 source verification.');
             $target=$root.'/lib/IMAP/HordeImapClient.php';
