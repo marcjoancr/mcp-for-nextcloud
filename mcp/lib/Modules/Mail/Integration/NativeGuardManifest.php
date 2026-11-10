@@ -41,7 +41,7 @@ final class NativeGuardManifest {
     'lib/Controller/PageController.php' => 'be46ee35742e2ba12e9d697a064650a84054f77e578903547e48e62e39577a64',
     'lib/Db/Alias.php' => 'd15c35e0db73ae3938c4e491ab18ce5c47eae7f952ba7b11df40c7fb843816f7',
     'lib/Db/AliasMapper.php' => '79cb77259b8b79cc1f602f5d27d10ca67c138f60cd5061a5d32b030e7280728c',
-    'lib/Db/BoundedMailMetadata.php' => '3bbc245601ed432d5d2a9ffa6cfef2b8eaa265cb51eff4122f017bcd7399a969',
+    'lib/Db/BoundedMailMetadata.php' => '20babce0efd985e1e4209688ca6121f2c33d6907cc35b44d541b359e4ed1041e',
     'lib/Db/CredentialRevision.php' => '6b17246ff19937588bcda219bd91d16c9729730163a5fe52330ee1f79c875835',
     'lib/Db/DraftOnlyStorage.php' => '47f69bcef598d39eb391216dca54de7b8b203f645256638f0d7688162f615c5b',
     'lib/Db/ExactTagAssociations.php' => '0226dccf631b136336642d551712e9819294ee830fca75e06dda8662e8f97f22',

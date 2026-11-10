@@ -44,7 +44,8 @@ final class BoundedMailMetadata {
         if($uid===''||$limit<1||$limit>self::MAX_PAGE||($accountId!==null&&$accountId<1)||($beforeId!==null&&$beforeId<1))throw new \InvalidArgumentException('Invalid bounded Mail outbox request.');
         $this->requirePrimary();
         $q=$this->db->getQueryBuilder();
-        $q->select('l.id','l.account_id','SUBSTRING(l.subject, 1, 257) AS subject_sample','l.failed','l.send_at','l.updated_at')
+        $q->select('l.id','l.account_id','l.failed','l.send_at','l.updated_at')
+            ->selectAlias($q->func()->substring('l.subject',$q->createNamedParameter(1,IQueryBuilder::PARAM_INT),$q->createNamedParameter(257,IQueryBuilder::PARAM_INT)),'subject_sample')
             ->from('mail_local_messages','l')
             ->leftJoin('l','mail_accounts','a',$q->expr()->eq('l.account_id','a.id'))
             ->where($q->expr()->eq('a.user_id',$q->createNamedParameter($uid)))
@@ -69,12 +70,14 @@ final class BoundedMailMetadata {
         $seen=[];foreach($ids as$id){if(!self::positiveId($id)||isset($seen[$id]))throw new \InvalidArgumentException('Invalid bounded Mail cache identity.');$seen[$id]=true;}
         $this->requirePrimary();
         $q=$this->db->getQueryBuilder();
-        $rows=$this->rows($q->select('m.id','b.account_id','m.mailbox_id','SUBSTRING(m.subject, 1, 257) AS subject_sample','m.sent_at','m.flag_seen','m.flag_flagged')
+        $q->select('m.id','b.account_id','m.mailbox_id','m.sent_at','m.flag_seen','m.flag_flagged')
+            ->selectAlias($q->func()->substring('m.subject',$q->createNamedParameter(1,IQueryBuilder::PARAM_INT),$q->createNamedParameter(257,IQueryBuilder::PARAM_INT)),'subject_sample')
             ->from('mail_messages','m')->leftJoin('m','mail_mailboxes','b',$q->expr()->eq('m.mailbox_id','b.id'))
             ->leftJoin('b','mail_accounts','a',$q->expr()->eq('b.account_id','a.id'))
             ->where($q->expr()->eq('a.user_id',$q->createNamedParameter($uid)))
             ->andWhere($q->expr()->in('m.id',$q->createNamedParameter(array_keys($seen),IQueryBuilder::PARAM_INT_ARRAY)))
-            ->orderBy('m.id','ASC')->setMaxResults(self::MAX_PAGE));
+            ->orderBy('m.id','ASC')->setMaxResults(self::MAX_PAGE);
+        $rows=$this->rows($q);
         $items=[];
         foreach($rows as$row){$subject=self::subject($row);$items[]=[
             'id'=>(int)$row['id'],'account_id'=>(int)$row['account_id'],'mailbox_id'=>(int)$row['mailbox_id'],

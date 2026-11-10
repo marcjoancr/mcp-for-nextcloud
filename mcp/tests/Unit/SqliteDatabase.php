@@ -113,6 +113,13 @@ final class SqliteDatabase {
                 $function->method('__toString')->willReturn('COUNT(' . ($count === '' ? '*' : (string)self::sqlArgument($count)) . ')' . ($alias === '' ? '' : ' AS ' . $alias));
                 return $function;
             });
+            $functions->method('substring')->willReturnCallback(function ($input, $start, $length = null) {
+                $args = [$input, $start];
+                if ($length !== null) $args[] = $length;
+                $function = $this->stub(\OCP\DB\QueryBuilder\IQueryFunction::class);
+                $function->method('__toString')->willReturn('SUBSTRING(' . implode(', ', array_map(static fn ($arg): string => (string)self::sqlArgument($arg), $args)) . ')');
+                return $function;
+            });
             return $functions;
         });
         $qb->method('createNamedParameter')->willReturnCallback(function ($value, $type = IQueryBuilder::PARAM_STR, $placeHolder = null) use ($inner): IParameter {
