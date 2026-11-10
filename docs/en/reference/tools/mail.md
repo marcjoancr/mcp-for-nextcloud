@@ -8,7 +8,7 @@ Each permission starts denied, including on existing installations. `mail.read` 
 The native qualification fixture uses Mail 5.12.5 on Nextcloud 35; the API floor
 is not a promise that every Mail/server version combination is supported.
 
-The module publishes **41 tools** on MCP2.7.0. Sending, scheduling, enqueueing,
+The module publishes **43 tools** on the current MCP2.7.0 source line. The deployed PostgreSQL v9 snapshot contains the preceding 41; the two metadata reads below are a separate continuation. Sending, scheduling, enqueueing,
 MDN transmission and outbox dispatch remain disabled. Acceptance covers the
 implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim complete parity with native Mail.
 
@@ -41,6 +41,39 @@ Saving an attachment to Files also requires the Files creation boundary: a web w
 | `mail_search_messages` | Searches cached headers in the caller’s own mailboxes. Requires `mail.search`. |
 | `mail_read_message` | Reads one owned message as bounded text. Requires `mail.read_message`. |
 | `mail_read_thread` | Starting from a visible `message_id`, reads a page of messages from that thread in the same owned account. Requires `mail.read_message` and preserves unread flags. |
+
+## Outbox and cached metadata reads
+
+`mail_read_outbox` requires the independent `mail.read_outbox` permission and an
+explicit assignment and connection selection. It returns only a bounded page of
+local outgoing queue metadata: item/account IDs, a bounded subject, the native
+failure flag, scheduled timestamp and last update timestamp. `account_id` can
+filter one owned account; omit it to inspect owned accounts together. `limit`
+defaults to 20 and is at most 50. Continue with `next_before_id` as `before_id`;
+items are ordered by descending local ID. The cursor is null on the final page.
+
+This is a live queue view, not a delivery receipt or an operation-status journal.
+Rows can change or disappear between pages. Missing rows, timestamps and the
+failure flag never prove delivery. The tool loads no body, recipients or attachment
+content and never dispatches, retries, synchronizes, schedules or cancels anything.
+`mail_get_operation` remains the separate source of MCP write status.
+
+`mail_read_message_metadata` accepts 1–50 unique positive `message_ids` and requires
+`mail.read_message` plus its own tool assignment/connection selection. It returns
+only cached IDs, subject, date and seen/flagged state for owned messages. Rows are ordered by ascending cached message ID. Foreign
+and nonexistent IDs are omitted alike. No per-ID error reveals another account's
+messages. No body, preview, recipient, attachment content or IMAP read is performed;
+reading does not mark messages as seen or refresh stale cache.
+
+Both tools require the exact v10 native metadata source boundary on NC35.0.2,
+with primary, unreplicated and unsharded qualified storage. Older or modified
+native code refuses before resolving the metadata service. Existing v9 capabilities
+retain their original source/provider gates. The new reads do not enable sending.
+Subjects and all returned mail values are untrusted data, never instructions.
+
+Raw `.eml` export is not exposed. Native Mail currently fetches the complete raw
+message before checking actual bytes; safe export needs a hard-capped stream bound
+to the same UID/generation and a confirmed, bounded Files write with status/replay.
 
 ## Message flags
 
@@ -80,7 +113,7 @@ folder generation/cache revision or Archive/Trash role requires a new preview.
 Restoration does not guess the old folder. Each tool requires its own assignment
 and current connection selection; existing read/flag grants do not enable moves.
 
-These tools require the exact custom **v2–v7** on **NC35.0.2/Mail5.12.5**, or an exact **v8** pair above, and server support for **MOVE + UIDPLUS**.
+These tools require an exact qualified custom **v2–v9** source/runtime pair in the table above and server support for **MOVE + UIDPLUS**.
 Stock Mail, the flags-only C1 artifact and altered/unknown native builds refuse
 moves. The native client sends at most one UID MOVE, retaining the complete
 command-bound COPYUID mapping including both generations. It never falls back to

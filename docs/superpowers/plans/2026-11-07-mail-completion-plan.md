@@ -8,6 +8,19 @@
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
 **Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 41 tools including D+ and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+1/D+2/D+3 are complete for the supported scope: linked authentication observations, proof-based reconciliation and alias CRUD. The [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md) records native acceptance and complete regression. Native v7 implements manual credential-write evidence for unchanged profiles; its originating-page attribution correction passes native RED→GREEN and the existing guarantees; final enabled-source acceptance and complete regression pass. It never attests secret inequality, current authentication or delivery. B sending/scheduling/dispatch is frozen and excluded from completion. The v8 continuation below qualifies the exact NC33.0.10, NC34.0.5 and NC35.0.2 pairs; other combinations remain unverified.
 
+## Current continuation: PostgreSQL deployment and B foundation
+
+Production deployment is complete on NC35.0.2.2 / PostgreSQL16.15 / primary S3:
+MCP2.7.0 commit `49b00cc1f9d4285e8ee14530247a8fefcd46ad37`, native Mail5.12.5.9.
+The [deployment evidence](../specs/2026-11-10-mail-postgresql-deployment-evidence.md)
+records exact hashes, 59 native tests / 1,433 assertions, complete browser
+acceptance, 10,394 PHP / 95,843 assertions and 837 browser regression tests.
+Migrations, grants/connections, HTTPS and disabled sending are verified.
+The [PostgreSQL continuation plan](2026-11-10-mail-postgresql-deployment-plan.md)
+now starts separate local bounded outbox inspection and cached metadata batches.
+This authorizes no transmission. Older sections below retain their historical
+provider/artifact limits; v9 adds only its specifically qualified PostgreSQL pair.
+
 ## Current continuation: native draft lifecycle
 
 The [2026-11-10 draft plan](2026-11-10-mail-draft-lifecycle-plan.md) extends the
@@ -330,9 +343,9 @@ See the [C7 evidence](../specs/2026-11-09-mail-c7-acceptance-evidence.md) and
 [execution plan](2026-11-09-mail-c7-acceptance-plan.md). One fresh final review
 found no actionable Critical, Important or Minor finding.
 
-## Frozen B and optional later parity
+## B transmission remains disabled; optional later parity
 
-B remains **unimplemented and disabled**, even if a future native API makes sending easier. Sending/scheduling/cancellation, dispatch workers and SMTP acceptance/fault testing need a separately approved design and explicit reauthorization. A read-only outbox viewer may be designed independently but must never dispatch or infer successful delivery from missing rows.
+B transmission remains **unimplemented and disabled**, even if a future native API makes sending easier. The separately approved PostgreSQL continuation now implements the first read-only outbox inspection slice; it is not SMTP delivery or dispatch. Sending/scheduling/cancellation, dispatch workers and SMTP acceptance/fault testing need a separately approved design and explicit reauthorization. A read-only outbox viewer may be designed independently but must never dispatch or infer successful delivery from missing rows.
 
 Optional later slices, not blockers for the daily no-send workflow: IMAP draft import/search, raw `.eml` export, genuinely bounded larger incoming attachment reads, account/folder resource scopes, bounded item batches, full-body indexed search, snooze/filter/out-of-office management and advanced alias administration. Delegated/global account management, cryptographic key handling and destructive deletion remain separately designed work. No implicit S/MIME/PGP downgrade.
 
