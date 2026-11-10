@@ -388,19 +388,27 @@ final class ToolsListContractTest extends TestCase {
     }
 
     public function testNewToolsRequireIndependentAssignmentsDespiteLegacyOperationGrants(): void {
-        $newTools = ['forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
-            'mail_read_message', 'mail_read_message_metadata', 'mail_read_outbox', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
-            'mail_write_draft', 'mail_delete_draft', 'talk_search_messages', 'talk_read_message_context'];
-        $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
-        $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;
-        $legacy = json_decode($this->handle($request, $version, '{}', true, null, []), true)['result']['tools'];
-        self::assertSame([], array_values(array_intersect($newTools, array_column($legacy, 'name'))),
-            'Legacy operation grants cannot silently enable new tools');
-        foreach ($newTools as $name) {
-            $response = json_decode($this->handle($request, $version, '{}', true,
-                static fn (): bool => false, [$name => true]), true);
-            $published = array_values(array_diff(array_column($response['result']['tools'], 'name'), ['mcp_status', 'mcp_guide']));
-            self::assertSame([$name], $published, 'One tool assignment must not enable another capability');
+        $garbageCollectionWasEnabled = gc_enabled();
+        gc_enable();
+        try {
+            $newTools = ['forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
+                'mail_read_message', 'mail_read_message_metadata', 'mail_read_outbox', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
+                'mail_write_draft', 'mail_delete_draft', 'talk_search_messages', 'talk_read_message_context'];
+            $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
+            $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;
+            $legacy = json_decode($this->handle($request, $version, '{}', true, null, []), true)['result']['tools'];
+            self::assertSame([], array_values(array_intersect($newTools, array_column($legacy, 'name'))),
+                'Legacy operation grants cannot silently enable new tools');
+            foreach ($newTools as $name) {
+                $response = json_decode($this->handle($request, $version, '{}', true,
+                    static fn (): bool => false, [$name => true]), true);
+                $published = array_values(array_diff(array_column($response['result']['tools'], 'name'), ['mcp_status', 'mcp_guide']));
+                self::assertSame([$name], $published, 'One tool assignment must not enable another capability');
+            }
+        } finally {
+            if (!$garbageCollectionWasEnabled) {
+                gc_disable();
+            }
         }
     }
 
