@@ -65,6 +65,10 @@ final class MailCapabilities {
         }
         if($known&&$this->boundary?->tagsVerified())$capabilities['tags']=['status'=>'verified','reason'=>'native_exact_tag_cache_and_one_shot_keyword_v4'];
         if($known&&$this->boundary?->refreshVerified())$capabilities['refresh']=['status'=>'verified','reason'=>'native_owned_bounded_refresh_v5'];
+        if($known&&$this->boundary?->draftsVerified()){
+            $capabilities['reply_parent_imap']=['status'=>'verified','reason'=>'native_draft_identity_v6'];
+            $capabilities['sender_alias_imap']=['status'=>'verified','reason'=>'native_owned_draft_alias_v6'];
+        }
         $capabilities['send'] = ['status' => 'disabled', 'reason' => 'sending_not_authorized'];
         return ['native_pair' => ['nextcloud' => $server, 'mail' => $mail], 'evidence' => $evidence,
             'capabilities' => $capabilities];

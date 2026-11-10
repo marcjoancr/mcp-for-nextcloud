@@ -1,4 +1,5 @@
 {"translations": {
+    "The native editor is draft-only: sending and scheduling are disabled, and automatic draft conversion stays held." : "O editor nativo funciona apenas com rascunhos: o envio e o agendamento estão desativados, e a conversão automática do rascunho continua suspensa.",
     "Record this proven Mail operation outcome. No native write will be repeated." : "Registrar este resultado comprovado de uma operação do Mail. Nenhuma gravação nativa será repetida.",
     "Apply these reviewed local Mail identity changes. Sending stays disabled." : "Aplicar estas alterações locais revisadas nas identidades do Mail. O envio continua desativado.",
     "Target operation" : "Operação de destino",

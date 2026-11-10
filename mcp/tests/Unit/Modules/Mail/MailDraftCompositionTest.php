@@ -85,7 +85,30 @@ final class MailDraftCompositionTest extends TestCase {
         [$ops]=$this->ops($draft,null,null,$forward);$a=['account_id'=>4,'subject'=>'Fwd: Source','forward_message_id'=>7];$p=$ops->previewWrite($a,'alice');self::assertSame('Reviewed forwarded quote',$p['after']['body_plain']);self::assertSame([],$p['after']['to']);self::assertSame([],$p['after']['bcc']);$r=$ops->write($a+['plan_state'=>$p['plan_state']],'alice');self::assertNull($r['draft']['in_reply_to']);
         $this->expectException(\InvalidArgumentException::class);$ops->previewWrite($a+['draft_id'=>77],'alice');
     }
-    private function ops(CompositionDraft $draft, ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files=null, ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal=null, ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward=null): array {
+    public function testQualifiedNativeEditorProtectsEvenANonReplyDraftWithoutChangingItsBody():void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'','bodyPlain'=>'','bodyHtml'=>'','html'=>false,'updatedAt'=>1,'attachments'=>[],'recipients'=>[]]);
+        $editor=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class);$editor->method('available')->willReturn(true);
+        [$ops]=$this->ops($draft,editor:$editor);$args=['account_id'=>4,'subject'=>'New','body_plain'=>'Unsent approved body'];
+        $p=$ops->previewWrite($args,'alice');$result=$ops->write($args+['plan_state'=>$p['plan_state']],'alice');
+        self::assertTrue($draft->getMcpDraftOnly());self::assertTrue($draft->isFailed());
+        self::assertSame('Unsent approved body',$result['draft']['body_plain']);
+    }
+    public function testQualifiedEditorRefusesAdoptingAnExistingCryptographicDraftBeforeEffects():void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'Before','bodyPlain'=>'Original','bodyHtml'=>'','html'=>false,'updatedAt'=>1,'attachments'=>[],'recipients'=>[],'smimeSign'=>true]);
+        $editor=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class);$editor->method('available')->willReturn(true);
+        [$ops]=$this->ops($draft,editor:$editor);
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $ops->previewWrite(['account_id'=>4,'draft_id'=>77,'subject'=>'After'],'alice');
+    }
+    public function testLosingNativeEditorQualificationInvalidatesTheReviewedWriteBeforeNativeMutation():void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'Before','bodyPlain'=>'Original','bodyHtml'=>'','html'=>false,'updatedAt'=>1,'attachments'=>[],'recipients'=>[]]);
+        $qualified=true;$editor=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class);$editor->method('available')->willReturnCallback(static function()use(&$qualified){return $qualified;});
+        [$ops,$service]=$this->ops($draft,editor:$editor);$args=['account_id'=>4,'draft_id'=>77,'subject'=>'After','body_plain'=>'Changed'];
+        $p=$ops->previewWrite($args,'alice');$qualified=false;
+        try{$ops->write($args+['plan_state'=>$p['plan_state']],'alice');self::fail('Changed native guarantees were silently accepted.');}catch(\OCA\Mcp\Mcp\Confirmation\PlanChanged){}
+        self::assertSame('Original',$draft->getBodyPlain());self::assertSame([],$service->lastAttachments);
+    }
+    private function ops(CompositionDraft $draft, ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files=null, ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal=null, ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward=null,?\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks $editor=null): array {
         $service=new class($draft) {
             public array $lastAttachments=[];
             public function __construct(private CompositionDraft $draft){}
@@ -114,7 +137,7 @@ final class MailDraftCompositionTest extends TestCase {
             'replyTo'=>['count'=>0,'addresses'=>[]],'to'=>['count'=>1,'addresses'=>[['email'=>'alice@example.test','name'=>'Alice']]],'cc'=>['count'=>0,'addresses'=>[]]]);
         $tools=$this->createMock(\OCA\Mcp\Mcp\Tools\ToolRegistry::class);$tools->method('allowsTool')->willReturn(true);
         $composer=new ReplyComposer($locator,static fn(string $uid)=>$reader,$services,$tools->allowsTool(...));
-        $ops=new MailDraftOperations($services,$accounts,new PlanState((new InMemoryConfig())->mock($this)),$composer,$files,$journal,$forward);
+        $ops=new MailDraftOperations($services,$accounts,new PlanState((new InMemoryConfig())->mock($this)),$composer,$files,$journal,$forward,$editor);
         return [$ops,$service];
     }
 }

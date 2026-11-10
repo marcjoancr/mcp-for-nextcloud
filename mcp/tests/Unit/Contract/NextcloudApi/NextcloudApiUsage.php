@@ -29,6 +29,11 @@ final class NextcloudApiUsage {
         '35' => ['server' => '35.0.0', 'deck' => '1.19.0', 'spreed' => '25.0.0'],
     ];
 
+    /** Custom dependency markers: qualified native source/native integration, never upstream API fixtures. */
+    public const QUALIFIED_NATIVE_CLASSES = [
+        'OCA\\Mail\\Exception\\DraftAdmissionFailure' => ['Modules/Mail/Integration/NativeDraftWrites.php'],
+    ];
+
     /**
      * Classes lib/ names that the fixtures do not carry, by app: the Guests app is not part of the trees the fixtures are
      * generated from. {@see \OCA\Mcp\Access\Guests\GuestRestrictions} resolves these services by name and refuses the

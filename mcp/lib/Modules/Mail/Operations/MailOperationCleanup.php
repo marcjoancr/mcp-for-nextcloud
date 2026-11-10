@@ -14,7 +14,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 
 /** Never touches active/uncertain repairs or native attachments associated with any local message. */
 class MailOperationCleanup {
-    public function __construct(private OperationsMapper $store, private MailServices $mail, private ITimeFactory $clock, private ?\OCA\Mcp\Db\MailSetupWorkflowsMapper $workflows = null, private ?\OCA\Mcp\Db\MailProbeSlotsMapper $slots = null) {}
+    public function __construct(private OperationsMapper $store, private MailServices $mail, private ITimeFactory $clock, private ?\OCA\Mcp\Db\MailSetupWorkflowsMapper $workflows = null, private ?\OCA\Mcp\Db\MailProbeSlotsMapper $slots = null, private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites $drafts = null) {}
     public function run(): void {
         foreach ($this->store->cleanupCandidates($this->clock->getTime()-86400,100) as $row) {
             if ($row['state']==='partial' && !$this->store->claimPartial($row['scope_key'],$row['operation_id'],'cleaning')) continue;
@@ -26,11 +26,13 @@ class MailOperationCleanup {
                         try { [$attachment]=$native->getAttachment($row['actor_uid'],(int)$ref['attachment_id']); }
                         catch (DoesNotExistException|\OCA\Mail\Exception\AttachmentNotFoundException) {
                             // Native deletion removes metadata before bytes; retry the storage step even if metadata is gone.
-                            $native->deleteAttachment($row['actor_uid'],(int)$ref['attachment_id']);
+                            if($this->drafts===null)throw new \RuntimeException('Atomic native cleanup is unavailable.');
+                            $this->drafts->cleanup($row['actor_uid'],(int)$ref['attachment_id'],$native);
                             continue;
                         }
                         if ($attachment->getLocalMessageId()!==null) continue;
-                        $native->deleteAttachment($row['actor_uid'],(int)$ref['attachment_id']);
+                        if($this->drafts===null)throw new \RuntimeException('Atomic native cleanup is unavailable.');
+                            $this->drafts->cleanup($row['actor_uid'],(int)$ref['attachment_id'],$native);
                     }
                 }
                 $this->store->cleaned($row['scope_key'],$row['operation_id']);

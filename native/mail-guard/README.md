@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay for **Nextcloud Mail 5.12.5**. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**, built as custom **5.12.5.6** on the qualified NC35 line. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -10,10 +10,10 @@ From the repository root, with that verified archive available:
 mkdir -p mcp/build/native-mail-guard
 php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/overlay
 cmp mcp/build/native-mail-guard/overlay/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v4-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v6-overlay.tar.gz -C mcp/build/native-mail-guard/overlay mail
 ```
 
-`overlay/mail` contains the v4 additions and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
+`overlay/mail` contains the v6 additions and bounded transformations of the pinned native source. These include exact cached-message tag associations and native import/update/read/search/UI/classification integration. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
 
 The native `MutationFence` adapter exchanges only approved identifiers and DB stage transitions. It never passes a raw client to MCP. `setFlagGuarded` validates the actual selected generation and connection before each command, permits one UID STORE, does not swallow tagged NO responses, requires explicit permanent support for the selected system flag and verifies the desired state on the same generation. A missing flag or keyword wildcard alone does not prove permanence. Logout or reconnect invalidates the permit. The native cache stage locks immutable mailbox/message rows, revalidates their identity and synchronization tokens, commits the flag, then dispatches one webhook-compatible guarded flag event. The ordinary native cache listener skips the already-applied event. An uncertain listener/crash outcome is retained and never automatically redispatched.
 
@@ -131,3 +131,54 @@ remain scoped to their original features. v5 does not deploy itself; install and
 rollback require separately managed matched native code/database snapshots.
 Qualification and final artifact digests are recorded in the
 [C6 delivery evidence](../../docs/superpowers/specs/2026-11-10-mail-refresh-evidence.md).
+
+## v6 native draft identity and protected editor
+
+The native `saveLocalDraft` null-transport path preserves an explicit owned,
+same-account alias and a bounded single parent in In-Reply-To and References.
+Missing/foreign aliases and unsafe parent values refuse before client creation.
+Existing native MIME and SMTP implementation methods remain unchanged.
+
+New qualified MCP writes persist `mail_local_messages.mcp_draft_only=true` and
+`failed=true`. Historical rows default to false; only a reviewed ordinary MCP
+write adopts them. The native mapper locks the persisted row before updates and
+keeps the protection/hold against stale objects. Stored and requested scheduling
+or cryptographic state refuse adoption and protected editing. Native controller
+and outbox admission enforce the same limits independently of the UI.
+
+Native draft/outbox services, local-message and attachment mappers, and attachment
+filesystem operations share a primary-session mutex per owner. Reentrant native
+calls reuse that scope. Full hydrated snapshots reject stale converters even
+when body/attachment changes share a timestamp. Background conversion refuses
+held/protected content. A current explicit native conversion retains its scope
+through APPEND and local cleanup, with a physical-session check at command dispatch
+and before destructive cleanup. Filesystem phases inherit no SQL transaction;
+existing partial-write/repair semantics remain conservative after admission.
+
+Protected associations cannot be reassigned to another message, and deletion by
+an obsolete parent refuses. MCP orphan cleanup uses the qualified atomic native
+operation; unqualified builds retain orphan bytes/references rather than applying
+a check-then-delete sequence. Original Files are never removed by this operation.
+
+An owner-only, bounded Page entry loads an allowlisted local draft into the real
+native composer. The derived Home/composer chunks and their runtime names are
+content-addressed and fingerprinted. The custom native version also changes the
+asset cache version. Draft-only editing disables sending, scheduling and crypto
+controls; it does not alter ordinary native Mail composition. Untouched canonical
+body/mode retains the original plain/HTML value; actual edits use native serialization.
+The upstream release's source maps and the readable transformations/snippets in
+this directory provide the inputs needed to reproduce the modified native chunks.
+
+Explicit native local-draft conversion to IMAP remains a native action. MCP never
+calls it, releases the hold or starts a sender. No exactly-once APPEND, automatic
+retry, full ancestral References chain or global SMTP switch is claimed. Native
+conversion uncertainty must be inspected manually. Original Files remain unchanged.
+
+v6 adds a native migration; install/rollback requires a matched code/database
+snapshot and separate deployment authorization. Stop old workers/requests before
+changing the matched native code: mixed-version workers do not share these new
+coordination guarantees. The immutable v5 overlay/manifest
+remain accepted for their prior scopes, without v6 draft claims. Runtime qualification
+also requires the known native pair and unsharded, unreplicated primary InnoDB schema.
+See the [draft lifecycle plan](../../docs/superpowers/plans/2026-11-10-mail-draft-lifecycle-plan.md)
+for acceptance progress; MCP never installs this dependency itself.

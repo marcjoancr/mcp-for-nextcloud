@@ -14,7 +14,7 @@ use OCP\IConfig;
 use PHPUnit\Framework\TestCase;
 
 final class MailCapabilitiesTest extends TestCase {
-    private function capabilities(string $mail='5.12.5',string $server='35.0.2.2',bool $enabled=true): MailCapabilities {
+    private function capabilities(string $mail='5.12.5',string $server='35.0.2.2',bool $enabled=true,?\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary $boundary=null): MailCapabilities {
         $native=$this->createMock(MailServices::class);
         $native->method('isEnabledFor')->willReturn($enabled);
         $native->expects(self::never())->method('clientFactory');
@@ -23,7 +23,7 @@ final class MailCapabilitiesTest extends TestCase {
         $native->expects(self::never())->method('mailManager');
         $apps=$this->createMock(IAppManager::class);$apps->method('getAppVersion')->willReturn($mail);
         $config=$this->createMock(IConfig::class);$config->method('getSystemValueString')->willReturn($server);
-        return new MailCapabilities($native,$apps,$config);
+        return new MailCapabilities($native,$apps,$config,$boundary);
     }
     public function testKnownPairDoesNotUpgradeLocalReplyIntoAnImapGuarantee(): void {
         $c=$this->capabilities();$r=$c->forUser('alice');
@@ -36,6 +36,17 @@ final class MailCapabilitiesTest extends TestCase {
         self::assertSame('native_tag_cache_identity_and_creation_correlation_missing',$r['capabilities']['tags']['reason']);
         self::assertSame('native_sync_owner_lease_and_budget_not_verified',$r['capabilities']['refresh']['reason']);
         self::assertSame('disabled',$r['capabilities']['send']['status']);
+    }
+    public function testQualifiedDraftSerializationStillNeedsTheKnownNativePairAndNeverEnablesSending():void {
+        $boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);
+        $boundary->method('draftsVerified')->willReturn(true);
+        $result=$this->capabilities(boundary:$boundary)->forUser('alice');
+        self::assertSame('verified',$result['capabilities']['reply_parent_imap']['status']);
+        self::assertSame('verified',$result['capabilities']['sender_alias_imap']['status']);
+        self::assertSame('disabled',$result['capabilities']['send']['status']);
+        $unknown=$this->capabilities(server:'34.0.5',boundary:$boundary)->forUser('alice');
+        self::assertSame('unverified',$unknown['capabilities']['reply_parent_imap']['status']);
+        self::assertSame('disabled',$unknown['capabilities']['send']['status']);
     }
     public function testUnsupportedMutationCannotBeAdmittedByARecognizedVersion(): void {
         $c=$this->capabilities();

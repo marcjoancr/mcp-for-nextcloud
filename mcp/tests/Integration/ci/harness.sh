@@ -322,6 +322,7 @@ cmd_fixtures() {
         *"- password_policy:"*) occ app:disable password_policy ;;
     esac
     password=$(openssl rand -hex 24)
+    if [ "${MCP_IT_MAIL_UI:-0}" = 1 ]; then printf 'FIXTURE_PASSWORD=%s\n' "$password" >> "$WORK/credentials"; fi
     for uid in mcp-it-alice mcp-it-bob mcp-it-legacy mcp-it-deck-owner mcp-it-deck-editor mcp-it-deck-reader mcp-it-deck-outsider; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
@@ -575,6 +576,14 @@ cmd_test() {
 }
 
 # One full coordinated restore rehearsal, isolated from the policy tests and never against a real installation.
+cmd_draft_ui() {
+    if [ "${MCP_IT_MAIL_UI:-0}" != 1 ]; then echo 'Native draft browser acceptance not requested.'; return; fi
+    [ "${MCP_IT_WITH_MAIL:-0}:${MCP_IT_NC}:${MCP_IT_MAIL_GUARD:-0}" = 1:35:1 ] || { echo 'Native draft browser acceptance requires the owned NC35 guarded Mail cell.' >&2; return 1; }
+    for format in plain html; do
+        MCP_IT_MAIL_UI_FORMAT="$format" node "$REPO_ROOT/mcp/tests/Integration/ci/mail-draft-ui.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
+    done
+}
+
 cmd_recovery() {
     if [ "$MCP_IT_NC:$MCP_IT_DB:$MCP_IT_MODE" != 35:sqlite:fresh ]; then
         echo 'Coordinated recovery is covered by the NC35/SQLite/fresh cell.'
@@ -623,6 +632,7 @@ case "${1:-}" in
     provision) cmd_provision ;;
     report) cmd_report ;;
     test) cmd_test ;;
+    draft-ui) cmd_draft_ui ;;
     recovery) cmd_recovery ;;
     collect) cmd_collect ;;
     *)

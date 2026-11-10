@@ -66,7 +66,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' HUP TERM
-for step in packages tools start-db start-nextcloud install-app fixtures provision mail report test recovery; do
+for step in packages tools start-db start-nextcloud install-app fixtures provision mail report test draft-ui recovery; do
     [ "$step" != mail ] || [ "$MCP_IT_WITH_MAIL" = 1 ] || continue
     status=0
     if [ "$step" = packages ]; then

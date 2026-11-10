@@ -6,6 +6,8 @@ namespace OCA\Mail\IMAP;
 use OCA\Mail\Service\MutationFence;
 /** Native-only extension: all protected Horde interactions stay inside Mail's existing client. */
 trait GuardedFlagMutation {
+    private ?\OCA\Mail\Drafts\DraftScope $draftScope=null;
+    public function setDraftScope(?\OCA\Mail\Drafts\DraftScope $scope):void {if($scope!==null)$scope->assertOwned();$this->draftScope=$scope;}
     private ?MutationSelection $mutationSelection=null;
     private string $mutationCommand='';
     private int $mutationUid=0;
@@ -59,6 +61,7 @@ trait GuardedFlagMutation {
         if(!$this->_isAuthenticated||!is_object($this->_connection)||$this->mutationSelection===null||!$this->mutationSelection->check($this->_connection,(string)$this->_selected,(string)$this->_mailboxOb()->getStatus(\Horde_Imap_Client::STATUS_UIDVALIDITY),$this->_mode,$this->mutationUid))throw new \RuntimeException('Mutation selection invalidated.');
     }
     protected function _processCmd($pipeline,$cmd,$data) {
+        $this->draftScope?->assertOwned();
         $this->assertTagSnapshot();
         $this->guardTagCommand($cmd,$data);
         $this->guardMoveCommand($pipeline,$cmd,$data);
@@ -71,6 +74,7 @@ trait GuardedFlagMutation {
         return parent::_processCmd($pipeline,$cmd,$data);
     }
     protected function _logout() {
+        $this->draftScope=null;
         $this->cancelTagSnapshot();
         $this->tagSelection?->invalidate();
         $this->mutationSelection?->invalidate();

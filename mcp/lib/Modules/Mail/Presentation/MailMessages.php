@@ -322,4 +322,8 @@ final class MailMessages {
 	public static function notSynchronized(): string {
 		return Translator::t('The Mail app has not synchronized the folders of this account yet; open the account in Mail once and try again.');
 	}
+    public static function draftOnlyEditor():string {
+        return Translator::t('The native editor is draft-only: sending and scheduling are disabled, and automatic draft conversion stays held.');
+    }
+
 }

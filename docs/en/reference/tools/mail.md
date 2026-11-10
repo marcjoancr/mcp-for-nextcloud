@@ -16,13 +16,15 @@ implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim co
 | --- | --- |
 | NC35.0.2 / stock Mail5.12.5 / MariaDB10.11.19 | Existing reads, local drafts/Files, settings/setup, qualified local tag creation and qualified local alias administration. Guarded remote mutations refuse. |
 | Same pair with exact v5 overlay and required primary InnoDB schema | Flags, moves, folders, local tag creation, exact message tags and bounded refresh, subject to each independent grant and provider gate. |
+| NC35.0.2 / custom Mail5.12.5.6 / exact v6 overlay and primary InnoDB schema | Existing v5 scopes plus protected native draft editing and alias/reply preservation through native IMAP conversion. |
 | Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
 | NC33/34 or other Mail/server/provider combinations | Native behavior unverified by this acceptance run. The manifest/API floor and static fixtures do not qualify those combinations. |
 
 The native dependency is installed separately. Its source fingerprint, provider,
 schema and protocol checks remain mandatory; version strings alone grant nothing.
-C7 acceptance exercises stock Mail and the current v5 build separately; the
-older overlays retain their previously qualified scopes.
+C7 and D+ acceptance exercised stock Mail and v5 separately. The v6 continuation
+adds actual native composer acceptance; older immutable overlays retain only their
+previously qualified scopes. Installation remains separate from implementation acceptance.
 
 | Tool | Behavior |
 | --- | --- |
@@ -71,7 +73,7 @@ folder generation/cache revision or Archive/Trash role requires a new preview.
 Restoration does not guess the old folder. Each tool requires its own assignment
 and current connection selection; existing read/flag grants do not enable moves.
 
-These tools require the exact custom **v2, v3, v4 or v5** native dependency,
+These tools require the exact custom **v2, v3, v4, v5 or v6** native dependency,
 qualified on **Nextcloud35.0.2/Mail5.12.5**, and server support for **MOVE + UIDPLUS**.
 Stock Mail, the flags-only C1 artifact and altered/unknown native builds refuse
 moves. The native client sends at most one UID MOVE, retaining the complete
@@ -100,7 +102,7 @@ five admissions per owner/account/minute apply. Sending remains disabled.
 | `mail_set_mailbox_subscription` | `mail.subscribe_mailboxes` | Set `subscribed` explicitly to true or false. |
 | `mail_configure_mailboxes` | `mail.configure_mailboxes` | Patch owned selectable Drafts, Sent, Trash or Archive folder IDs; omitted roles are preserved. |
 
-The three remote folder actions require the exact **v3, v4 or v5** custom native dependency
+The three remote folder actions require the exact **v3, v4, v5 or v6** custom native dependency
 on **NC35.0.2/Mail5.12.5**. v1/v2, stock and unknown builds refuse them.
 Special-role configuration is a local native account update and does not require
 v3 or contact IMAP. Roles cannot be cleared or assigned to foreign/shared folders.
@@ -138,7 +140,7 @@ The independent `mail.refresh` permission, tool assignment and current connectio
 selection start denied. Ordinary reads, search, listing, replay and operation
 status never refresh or enqueue synchronization.
 
-Refresh requires the separately installed **v5** native dependency, qualified only
+Refresh requires the separately installed **v5 or v6** native dependency, qualified only
 on **NC35.0.2 / Mail5.12.5 / MariaDB10.11.19 primary**. The source/schema
 gate also admits MySQL primary storage, but C7 has no separate native MySQL cell.
 Replicas and sharding are excluded. Stock, older custom artifacts and unknown builds refuse before network
@@ -234,7 +236,8 @@ and current limits, consult the live `mcp_guide` schema.
 `mail_list_aliases` requires the independent `mail.read_identities` permission and
 an owned `account_id`. It lists the primary identity (`alias_id: null`) and native
 aliases, without signatures, certificates or credentials. Use an owned `alias_id`
-in draft composition. Creating, changing and removing aliases remains unavailable.
+in draft composition. Alias administration requires its own tool assignments and
+`create_identities`, `edit_identities` or `delete_identities` grant, described below.
 
 `forward_message_id` on `mail_write_draft` creates a **new local draft**, mutually
 exclusive with draft editing and replying. It defaults to a complete attributed
@@ -250,8 +253,9 @@ They can be combined with Files snapshots within the existing 10-attachment/25-M
 composition limit; incoming whole-message and individual-part limits remain 1 MiB.
 Source generation/UID and current authorization are rechecked before the local save.
 Lost responses use the same journal/status/partial-repair path as other drafts.
-Local alias selection is preserved, but native IMAP draft conversion may use the
-primary account sender; review the sender in native Mail before further action.
+Local alias selection is preserved. Qualified v6 conversion retains the selected
+owned identity; stock and older native builds may substitute the primary sender.
+Independent native identity edits remain subject to review in native Mail.
 
 `mail_create_tag` requires the separate `mail.create_tags` permission and explicit
 connection selection. It creates **local user-owned tag metadata across accounts**,
@@ -330,13 +334,39 @@ duplicates are excluded; original Bcc recipients are never copied. Explicit reci
 arguments override the corresponding derived list and appear in the approval plan.
 `alias_id` selects an existing alias owned by that account; omission preserves it.
 
-This delivery guarantees the parent on the **local draft only**. Native Mail 5.12.5
-loses that parent when converting a local draft into an IMAP draft. Reply drafts
-therefore use native `failed=true` to hold automatic synchronization and return
-`sync_held: true`. Mail can display this as a synchronization failure. A native
-Mail UI/controller edit defaults that flag to false, releasing the hold. Opening,
-editing, synchronizing or sending in native Mail is outside this guarantee. No
-sending tool is included in this delivery.
+On stock Mail5.12.5 and older overlays, the parent guarantee is local only.
+Those native serializers lose reply headers/alias choice during IMAP conversion.
+Replies use `failed=true` and `sync_held: true`; an ordinary native edit can release
+that historical hold.
+
+The exact qualified **v6 / custom Mail5.12.5.6** dependency on **NC35.0.2 with
+transactional primary MySQL/MariaDB storage** adds a protected native editor.
+New ordinary MCP writes and reviewed ordinary legacy edits persist draft-only
+protection and retain their hold. Native controller/mapper updates cannot clear it,
+schedule delivery or convert it to an outgoing item, including through stale objects.
+Scheduled/cryptographic drafts are excluded from this editor and refuse adoption.
+
+Qualified writes and native lifecycle/attachment mutations share an owner-session
+scope. Conversion rechecks the complete loaded draft revision, including bodies,
+recipients and attachment identities. A cached converter cannot consume a newer
+revision; background conversion refuses held/protected drafts. Losing the physical
+session stops the old process before a further guarded command or local cleanup.
+An APPEND already accepted by IMAP can still leave an uncertain native outcome.
+
+An owned single-draft `mail_read_drafts` response includes `native_edit_url` only
+when the native source/schema/pair and draft are eligible. The entry reuses Mail's
+composer, with Send and unsupported actions disabled. Metadata-only saves retain
+the untouched original body; explicit body edits use native serialization. Access
+is owner-checked and bounded by the existing body/recipient/attachment limits.
+Historical rows are not adopted by name or type alone.
+
+A person can explicitly let native Mail convert that protected local draft to an
+IMAP draft. v6 retains the owned alias, In-Reply-To and a References value containing
+the immediate parent, with native MIME/attachments. This does not reconstruct the
+whole ancestral References chain or provide exactly-once APPEND. Native conversion
+is outside the MCP journal and must not be automatically retried after uncertainty.
+MCP/status never opens the entry, releases the hold, converts the draft or sends it.
+Independent native Mail actions and ordinary native composition remain separate.
 
 Write admission is recorded before native effects. Repeating the same approved
 operation returns a minimal receipt and never executes the write again. Changed
@@ -361,7 +391,10 @@ The hourly cleanup processes at most 100 abandoned partial/repaired operations
 older than 24 hours. It competes atomically with repair, skips active, uncertain
 and repairing operations, and deletes only recorded native Mail attachments that
 still have no local-message association. It never deletes original Files content.
-Failed cleanups keep their private references for a later cleanup attempt;
+Safe orphan deletion requires the qualified v6 atomic native boundary. Stock or
+unqualified builds retain those bytes and their private references. Associated
+attachments are preserved. Failed cleanups keep their private references for a
+later cleanup attempt;
 completed cleanup leaves an `expired` receipt. After 30 days, terminal private
 metadata is compacted; minimal non-replay operation keys remain.
 

@@ -185,10 +185,11 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
             self::assertSame($saved['draft']['in_reply_to'], $native['in_reply_to']);
             self::assertSame(base64_encode($bytes), $native['attachment_bytes'][0]);
             $cleanup=MailActor::run(MailActor::ALICE,'cleanup-contract',['attachment_id'=>$attachmentId]);
-            self::assertTrue($cleanup['orphan_missing']);
+            $atomicCleanup=getenv('MCP_IT_MAIL_GUARD')==='1'&&\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::DRAFT_IDENTITY_QUALIFIED;
+            self::assertSame($atomicCleanup,$cleanup['orphan_missing']);
             self::assertTrue($cleanup['uncertain_attachment_exists']);
             self::assertSame($draftId,$cleanup['associated_draft_id']);
-            self::assertSame(['orphan'=>'expired','already_removed'=>'expired','uncertain'=>'uncertain','associated'=>'expired'],$cleanup['states']);
+            self::assertSame(['orphan'=>$atomicCleanup?'expired':'cleaning','already_removed'=>$atomicCleanup?'expired':'cleaning','uncertain'=>'uncertain','associated'=>'expired'],$cleanup['states']);
 
             $edit = ['account_id' => $account, 'draft_id' => $draftId, 'subject' => 'Re: Unread message', 'body_plain' => 'Edited reply'];
             $p = $this->data($this->alice->tool('mail_write_draft', $edit));
@@ -202,8 +203,10 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
             self::assertSame($bytes, $root->get(ltrim($path, '/'))->getContent());
             $nativeEdit = MailActor::run(MailActor::ALICE, 'native-draft-update', ['draft_id' => $draftId]);
             self::assertSame($saved['draft']['in_reply_to'], $nativeEdit['in_reply_to']);
-            self::assertFalse($nativeEdit['sync_held'], 'Native UI update defaults failed=false; it releases the local hold.');
-            self::assertTrue($nativeEdit['due_for_sync'], 'A native edit can make the draft eligible for lossy IMAP conversion.');
+            $qualified=getenv('MCP_IT_MAIL_GUARD')==='1'&&\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::DRAFT_IDENTITY_QUALIFIED;
+            self::assertSame($qualified,$nativeEdit['draft_only'],'Qualified HTTP writes must persist draft-only protection.');
+            self::assertSame($qualified,$nativeEdit['sync_held'],'Protected native updates keep the hold; stock retains its characterized behavior.');
+            self::assertSame(!$qualified,$nativeEdit['due_for_sync']);
         } finally {
             if ($draftId !== null) {
                 $p = $this->data($this->alice->tool('mail_delete_draft', ['draft_id' => $draftId]));

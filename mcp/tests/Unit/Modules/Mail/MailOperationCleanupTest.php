@@ -47,7 +47,9 @@ final class MailOperationCleanupTest extends TestCase {
         };
         $mail=$this->createMock(MailServices::class);$mail->method('attachmentService')->willReturn($native);
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(100001);
-        $cleanup=new MailOperationCleanup($store,$mail,$clock);
+        $boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class);
+        $boundary->method('cleanup')->willReturnCallback(static fn(string $uid,int $id,object $service)=>$service->deleteAttachment($uid,$id));
+        $cleanup=new MailOperationCleanup($store,$mail,$clock,null,null,$boundary);
         $cleanup->run();
         self::assertSame('cleaning',$store->get('scope','1')['state']);
         self::assertNotEmpty($store->get('scope','1')['resource_refs']);

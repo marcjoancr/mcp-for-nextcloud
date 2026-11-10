@@ -8,6 +8,19 @@
 **Spec:** [Mail completion design](../specs/2026-11-07-mail-completion-design.md), as updated by the user's 2026-11-08 no-send instruction.
 **Status:** A/D/C0 and C1–C6 are implemented on MCP2.7.0, with 41 tools including D+ and independent native/source/schema/provider gates. C7 acceptance and final review are complete under the [C7 execution plan](2026-11-09-mail-c7-acceptance-plan.md). Stock Mail remains blocked for guarded remote writes. D+1/D+2/D+3 are complete for the supported scope: linked authentication observations, proof-based reconciliation and alias CRUD. The [D+ evidence](../specs/2026-11-09-mail-d-plus-evidence.md) records native acceptance and complete regression. Credential-change attestation with an unchanged profile remains a documented native blocker. B sending/scheduling/dispatch is frozen and excluded from completion. Historical baseline results below do not extend qualification to NC33/34 or unknown Mail/provider combinations.
 
+## Current continuation: native draft lifecycle
+
+The [2026-11-10 draft plan](2026-11-10-mail-draft-lifecycle-plan.md) extends the
+pinned native dependency with exact reply/alias serialization, an owner-only
+native editor entry and persisted draft-only protection. Final guarded native acceptance passes 58 tests / 1,458 assertions and real
+plain/HTML browser workflows. The consolidated final-review correction adds
+shared owner-session coordination and complete snapshot checks; seven native
+contention/session-loss cases pass. Stock regression passes (19 executed / 39 expected skips / 530 assertions).
+The full catalog passes 10,341 PHP tests / 95,113 assertions, 837 browser tests,
+both static scopes and packaging; see the [delivery evidence](../specs/2026-11-10-mail-draft-lifecycle-evidence.md). This continuation does
+not enable sending. Native credential-write evidence and broader NC33/34
+qualification remain subsequent work, not inferred from the draft tests.
+
 ## Follow-up: safe mutation guard and C1 delivery
 
 The [2026-11-08 guard design](../specs/2026-11-08-mail-mutation-guard-design.md) and [implementation plan](2026-11-08-mail-mutation-guard-plan.md) propose the native dependency, closed actions, delegated journal and independent C1/C3 gates. They supersede the raw-client callback sketch below. This is a planning update, not a capability unblock: stock Mail5.12.5 remains blocked and sending stays disabled.
@@ -158,11 +171,11 @@ Retain actual interfaces rather than the superseded speculative DTO API:
 
 **Files:** Create `Mail/Messages/MailMessageFlags.php`, `Mail/Tools/SetMessageFlag.php`, `tests/Unit/Modules/Mail/MailMessageFlagsTest.php`, `tests/Integration/Mail/McpMailMessageFlagsTest.php` under `mcp/`; integrate shared registration/presentation files above.
 **Consumes:** C0 validated selection, existing message locator, journal/account claim.
-**Produces:** Proposed `mail_set_message_flag`, independent operation `set_flags`, arguments `account_id`, `message_id`, `flag` (`seen`/`flagged`), `value` (boolean), plus standard confirmation proofs. No toggle or arbitrary raw flag.
+**Produces:** Implemented `mail_set_message_flag`, independent operation `set_flags`, arguments `account_id`, `message_id`, `flag` (`seen`/`flagged`), `value` (boolean), plus standard confirmation proofs. No toggle or arbitrary raw flag.
 
-- [ ] Add `testSetSeenAndFlaggedUseDesiredState`, `testRevokedOrForeignMessageHasNoEffect`, `testCachedGenerationChangeRefusesStore`, `testRepeatedOperationDoesNotIssueAnotherStore`, `testNativeCacheAndUnreadCountsFollowVerifiedState`.
-- [ ] Preview the single requested field and current state; mutate/read back through C0 and supported native cache/event behavior. Checkpoint evidence so an interrupted write never becomes an automatic replay. Distinguish proven pre-effect refusal from possible IMAP effects.
-- [ ] Run focused `--filter MailMessageFlags` unit/native tests (expected: only the selected UID/flag changes; neighboring flags and SMTP capture unchanged), then commit.
+- [x] Cover desired seen/flagged state, ownership/revocation, changed cache generations, replay refusal and exact native cache/unread results in the unit suite, `McpMailMessageFlagsTest` and `McpMailNativeMutationTest`; see the C1 delivery evidence above.
+- [x] Preview the single requested field and current state; mutate/read back through C0 and supported native cache/event behavior. Checkpoint evidence so an interrupted write never becomes an automatic replay. Distinguish proven pre-effect refusal from possible IMAP effects.
+- [x] Run focused `--filter MailMessageFlags` unit/native tests (expected: only the selected UID/flag changes; neighboring flags and SMTP capture unchanged), then commit.
 
 ### C2 — Folder organization and special-folder settings (implemented on qualified v3)
 
@@ -175,16 +188,16 @@ Retain actual interfaces rather than the superseded speculative DTO API:
 - [x] Use the qualified v3 targeted native boundary instead of whole-account sync; verify no held-draft flush, SMTP enqueue or implicit synchronization. Existing targets and all descendants require consistent preview generations; unknown epochs need native synchronization before another remote action. Folder deletion/emptying remains absent.
 - [x] Run `--filter 'MailMailboxMutations|MailSettings'` unit/native tests (expected: only approved hierarchy/subscription/role changes; existing A/D checks green), then commit.
 
-### C3 — Same-account move, archive, recoverable trash and restore
+### C3 — Same-account move, archive, recoverable trash and restore (implemented on qualified v2+)
 
 **Files:** Create `Mail/Messages/MailMessageMoves.php`, `Tools/{MoveMessage,ArchiveMessage,TrashMessage,RestoreMessage}.php`, `tests/Unit/Modules/Mail/MailMessageMovesTest.php` and native equivalent; extend `Mcp/Operations` receipt allowlists / `OperationsMapper.php` only for explicit correlation fields.
 **Consumes:** C0 session, C2 verified role destinations (or previously configured native roles), existing account claims/status.
-**Produces:** Proposed `mail_move_message` / `move_messages`, `mail_archive_message` / `archive_messages`, `mail_trash_message` / `trash_messages`, `mail_restore_message` / `restore_messages` tools with `account_id`, `message_id`, and explicit destination ID where needed. A restore always previews its destination; it does not guess the historical folder.
+**Produces:** Implemented `mail_move_message` / `move_messages`, `mail_archive_message` / `archive_messages`, `mail_trash_message` / `trash_messages`, `mail_restore_message` / `restore_messages` tools with `account_id`, `message_id`, and explicit destination ID where needed. A restore always previews its destination; it does not guess the historical folder.
 
-- [ ] Add `testSameClientSourceGenerationIsUsed`, `testCrossAccountMoveRefused`, `testMissingRoleDoesNotGuessFolder`, `testTrashAlreadyInTrashNeverExpunges`, `testRestoreNeedsOwnedDestination`.
-- [ ] Add `testMoveSuccessWithoutUidMappingRemainsUncertain`, `testCrashAfterMoveDoesNotMoveAgain`, `testDuplicateMessageIdsCannotResolveMove`, `testOldMessageIdAfterCacheRefreshDoesNotAddressAnotherMessage`.
-- [ ] Use only proven native move primitives. Reject heuristic `force_map` correspondence: require native UIDPLUS/COPYUID or an equivalently proven UID mapping, otherwise refuse the capability before mutation. A missing mapping despite admitted support still remains uncertain. Bind both mailbox generations; verify returned mapping and destination where available, preserve cache/events and persist minimal evidence. A nullable mapping or vanished source remains uncertain; source disappearance alone is insufficient.
-- [ ] Run `--filter MailMessageMoves` unit/native cases (expected: one approved move, recoverable trash, no expunge or SMTP command), then commit.
+- [x] Cover both bound generations, cross-account and missing-role refusal, already-trashed refusal and explicit owned restore destinations in the unit suite and `McpMailMessageMovesTest`.
+- [x] Cover missing/malformed COPYUID, post-command faults, interrupted cache updates, duplicate Message-IDs and old native cache IDs in `McpMailNativeMovesTest`; durable proof and uncertainty prevent replay. See the C3 delivery evidence above.
+- [x] Use only proven native move primitives. Reject heuristic `force_map` correspondence: require native UIDPLUS/COPYUID or an equivalently proven UID mapping, otherwise refuse the capability before mutation. A missing mapping despite admitted support still remains uncertain. Bind both mailbox generations; verify returned mapping and destination where available, preserve cache/events and persist minimal evidence. A nullable mapping or vanished source remains uncertain; source disappearance alone is insufficient.
+- [x] Run `--filter MailMessageMoves` unit/native cases (expected: one approved move, recoverable trash, no expunge or SMTP command), then commit.
 
 ### C4 — Sender discovery and complete unsent composition (implemented locally)
 

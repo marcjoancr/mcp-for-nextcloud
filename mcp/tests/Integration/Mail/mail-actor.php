@@ -56,6 +56,22 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'draft-contender':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftConcurrencyActor::contender($uid,$in);break;
+    case 'draft-coordinated':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftConcurrencyActor::coordinated($uid,$in['mode']);break;
+    case 'draft-stale-conversion':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftConcurrencyActor::stale($uid,$in['mode']);break;
+    case 'draft-ui-prepare':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftUiActor::prepare($uid,$in['format']??'plain');break;
+    case 'draft-ui-normal':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftUiActor::normal($uid);break;
+    case 'draft-ui-safety':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftUiActor::safety($uid,$in);break;
+    case 'draft-ui-finish':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftUiActor::finish($uid,$in);break;
+    case 'draft-ui-cleanup':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDraftUiActor::cleanup($uid,$in);break;
     case 'c6-protocol':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeRefreshActor::protocol($uid,(int)$in['account_id'],$in['mode']);break;
     case 'c6-lease':
@@ -162,7 +178,7 @@ switch ($action) {
             aliasId: $draft->getAliasId(), inReplyToMessageId: $draft->getInReplyToMessageId());
         $reopened = $draftService->getMessage($draft->getId(), $uid);
         $due = Server::get('OCA\\Mail\\Db\\LocalMessageMapper')->findDueDrafts(time()+600);
-        $out = ['in_reply_to' => $reopened->getInReplyToMessageId(), 'sync_held' => $reopened->isFailed(),
+        $out = ['draft_only'=>property_exists($reopened,'mcpDraftOnly')&&$reopened->getMcpDraftOnly(),'in_reply_to' => $reopened->getInReplyToMessageId(), 'sync_held' => $reopened->isFailed(),
             'due_for_sync' => in_array((int)$draft->getId(), array_map(static fn(object $d): int => (int)$d->getId(), $due), true)];
         break;
     case 'cleanup-contract':

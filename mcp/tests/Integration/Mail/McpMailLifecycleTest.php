@@ -75,11 +75,18 @@ final class McpMailLifecycleTest extends IntegrationTestCase {
             $saved=$this->data($this->alice->tool('mail_write_draft',$args+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]));
             $draftId=$saved['draft']['id'];
             $proof=MailActor::run(MailActor::ALICE,'c0-draft-proof',['draft_id'=>$draftId]);$draftId=null;
-            self::assertTrue($proof['initially_held']);self::assertTrue($proof['ui_released_hold']);
+            self::assertTrue($proof['initially_held']);self::assertSame(!$proof['draft_only'],$proof['ui_released_hold']);
             self::assertSame('<shared-thread-root@mcp-it.example>',$proof['local_parent']);
             self::assertSame($proof['local_parent'],$proof['ui_parent']);self::assertSame($alias['alias_id'],$proof['local_alias_id']);
-            self::assertCount(1,$proof['imap_drafts']);self::assertTrue($proof['imap_drafts'][0]['has_subject_header']);self::assertTrue($proof['imap_drafts'][0]['from_is_account']);self::assertFalse($proof['imap_drafts'][0]['has_parent_header']);self::assertFalse($proof['imap_drafts'][0]['has_references_header']);
-            self::assertStringNotContainsString('d-alias@example.test',$proof['imap_drafts'][0]['from']);
+            self::assertCount(1,$proof['imap_drafts']);self::assertTrue($proof['imap_drafts'][0]['has_subject_header']);
+            $qualifiedCandidate=getenv('MCP_IT_MAIL_GUARD')==='1';
+            self::assertSame(!$qualifiedCandidate,$proof['imap_drafts'][0]['from_is_account'],'Native draft conversion must preserve an explicit owned sender.');
+            self::assertSame($qualifiedCandidate,$proof['imap_drafts'][0]['has_parent_header']);self::assertSame($qualifiedCandidate,$proof['imap_drafts'][0]['has_references_header']);
+            if($qualifiedCandidate){
+                self::assertStringContainsString('d-alias@example.test',$proof['imap_drafts'][0]['from']);
+                self::assertSame($proof['local_parent'],$proof['imap_drafts'][0]['in_reply_to']);
+                self::assertSame($proof['local_parent'],$proof['imap_drafts'][0]['references']);
+            }else{self::assertStringNotContainsString('d-alias@example.test',$proof['imap_drafts'][0]['from']);}
             self::assertTrue($proof['outgoing_unchanged']);self::assertTrue($proof['smtp_unchanged']);
         } finally {
             if($draftId!==null){$a=['draft_id'=>$draftId];$p=$this->data($this->alice->tool('mail_delete_draft',$a));$this->alice->tool('mail_delete_draft',$a+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]);}

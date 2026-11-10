@@ -1,6 +1,7 @@
 OC.L10N.register(
     "mcp",
     {
+    "The native editor is draft-only: sending and scheduling are disabled, and automatic draft conversion stays held." : "El editor nativo funciona solo con borradores: el envío y la programación están desactivados, y la conversión automática del borrador sigue retenida.",
     "Record this proven Mail operation outcome. No native write will be repeated." : "Registrar este resultado demostrado de Mail. No se repetirá ninguna escritura nativa.",
     "Apply these reviewed local Mail identity changes. Sending stays disabled." : "Aplicar estos cambios locales revisados en las identidades de Mail. El envío sigue desactivado.",
     "Target operation" : "Operación de destino",

@@ -30,7 +30,9 @@ final class MailDraftOperations {
         private ?\OCA\Mcp\Modules\Mail\Composition\ReplyComposer $composer = null,
         private ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files = null,
         private ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal = null,
-        private ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward = null) {}
+        private ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward = null,
+        private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks $editor = null,
+        private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites $writeScope = null) {}
 
 	/** @return array<string,mixed> a bounded list or one locally stored draft */
 	public function read(array $arguments, string $userId): array {
@@ -43,7 +45,9 @@ final class MailDraftOperations {
 			if ($account === null) {
 				throw new ToolFailure(MailMessages::draftNotFound());
 			}
-			return ['draft' => $this->row($draft, true), 'account' => ['id' => (int)$account->getId(), 'email' => (string)$account->getEmail()]];
+            $result = ['draft' => $this->row($draft, true), 'account' => ['id' => (int)$account->getId(), 'email' => (string)$account->getEmail()]];
+            $link=$this->editor?->forDraft((int)$draft->getId(),$draft);if($link!==null)$result['native_edit_url']=$link;
+            return $result;
 		}
 
 		$all = $this->services->localMessageMapper($userId)->getAllForUser($userId, $this->services->localDraftType($userId));
@@ -77,7 +81,7 @@ final class MailDraftOperations {
 			'after' => $prepared['fields'],
 			PlanState::ARGUMENT => $this->states->of(self::WRITE_TOOL, $userId, $this->writeState($prepared)),
 			'message' => MailMessages::draftPlan(),
-            'warnings' => array_merge($prepared['fields']['in_reply_to'] === null ? [] : [['message' => 'This reply stays local in Mail to preserve its thread; IMAP auto-sync is held. Editing it in the native UI may change that state.']],$prepared['fields']['alias_id'] === null ? [] : [['message'=>'Native Mail may use the account sender when synchronizing this alias draft. Review the sender in Mail.']]),
+            'warnings' => ($prepared['fields']['draft_only']??false) ? [['message'=>MailMessages::draftOnlyEditor()]] : array_merge($prepared['fields']['in_reply_to'] === null ? [] : [['message' => 'This reply stays local in Mail to preserve its thread; IMAP auto-sync is held. Editing it in the native UI may change that state.']],$prepared['fields']['alias_id'] === null ? [] : [['message'=>'Native Mail may use the account sender when synchronizing this alias draft. Review the sender in Mail.']]),
 		];
 	}
 
@@ -89,6 +93,11 @@ final class MailDraftOperations {
 			$plan = $this->previewWrite($arguments, $userId);
 			throw new PlanChanged($plan + ['warnings' => [['message' => MailMessages::draftPlanChanged()]]]);
 		}
+        $effect=fn():array=>$this->writePrepared($arguments,$userId,$prepared);
+        return $this->writeScope===null?$effect():$this->writeScope->run($userId,$effect);
+    }
+
+    private function writePrepared(array $arguments,string $userId,array $prepared):array {
         if (isset($arguments['repair_of_operation_id'])) $this->journal?->claimRepair($userId, $arguments['repair_of_operation_id']);
 		$fields = $prepared['fields'];
         $added = $prepared['add_manifest'] === [] ? [] : $this->files->stage($userId, $prepared['add_manifest'], $prepared['reusable'], $prepared['draft'] === null ? null : (int)$prepared['draft']->getId());
@@ -109,6 +118,7 @@ final class MailDraftOperations {
         if (is_callable([$draft, 'setAliasId'])) $draft->setAliasId($fields['alias_id']);
         // Preserve the parent against Mail's lossy draft-to-IMAP auto-flush.
         if ($fields['in_reply_to'] !== null) $draft->setFailed(true);
+        if(($fields['draft_only']??false)===true){$draft->setMcpDraftOnly(true);$draft->setFailed(true);}
         if(isset($fields['forward_source']))$this->forward->verify($userId,$prepared['accountId'],$fields['forward_source']);
 		$service = $this->services->draftsService($userId);
         $this->journal?->checkpoint(['native_write_started' => true]);
@@ -126,7 +136,7 @@ final class MailDraftOperations {
         sort($actualIds); sort($expectedIds);
         if ($actualIds !== $expectedIds) throw new ToolFailure('Draft attachment associations could not be verified.');
 		return ['draft' => $this->row($saved, true), 'message' => MailMessages::draftSaved()];
-	}
+	    }
 
 	public function previewDelete(array $arguments, string $userId): array {
 		$prepared = $this->prepareDelete($arguments, $userId);
@@ -144,8 +154,11 @@ final class MailDraftOperations {
 			$plan = $this->previewDelete($arguments, $userId);
 			throw new PlanChanged($plan + ['warnings' => [['message' => MailMessages::draftPlanChanged()]]]);
 		}
-		$this->services->draftsService($userId)->deleteMessage($userId, $prepared['draft']);
-		return ['deleted_draft_id' => (int)$prepared['draft']->getId(), 'message' => MailMessages::draftDeleted()];
+        $effect=function()use($prepared,$userId):array {
+            $this->services->draftsService($userId)->deleteMessage($userId,$prepared['draft']);
+            return ['deleted_draft_id'=>(int)$prepared['draft']->getId(),'message'=>MailMessages::draftDeleted()];
+        };
+        return $this->writeScope===null?$effect():$this->writeScope->run($userId,$effect);
 	}
 
 	/** @return array{account:object,accountId:int,draft:object|null,fields:array<string,mixed>} */
@@ -223,6 +236,10 @@ final class MailDraftOperations {
         }));
         if (count($retained)+count($newAttachments)+count($forward_manifest)>10 || array_sum(array_column($retained,'size'))+array_sum(array_column($newAttachments,'size'))+array_sum(array_column($forward_manifest,'size'))>26214400) throw new ToolFailure('Draft attachment limit exceeded.');
         $fields['attachments']=array_merge($retained,$newAttachments,$forward_manifest);
+        if($this->editor?->available()){
+            if($draft!==null&&(self::native($draft,'getSendAt')!==null||self::native($draft,'getSmimeSign')||self::native($draft,'getSmimeEncrypt')||self::native($draft,'isPgpMime')))throw new ToolFailure('Use native Mail for scheduled or cryptographic drafts.');
+            $fields['draft_only']=true;
+        }
         return compact('account', 'accountId', 'draft', 'fields', 'retained', 'add_manifest', 'reusable', 'forward_manifest');
 	}
 
@@ -326,6 +343,8 @@ final class MailDraftOperations {
         if ($value === null || !is_callable([$value, $method])) return null;
         return match ($method) {
             'getId' => $value->getId(), 'getAliasId' => $value->getAliasId(),
+            'getSendAt' => $value->getSendAt(), 'getSmimeSign' => $value->getSmimeSign(),
+            'getSmimeEncrypt' => $value->getSmimeEncrypt(), 'isPgpMime' => $value->isPgpMime(),
             'getInReplyToMessageId' => $value->getInReplyToMessageId(), 'isFailed' => $value->isFailed(),
             default => throw new \LogicException('Unsupported native draft field.'),
         };

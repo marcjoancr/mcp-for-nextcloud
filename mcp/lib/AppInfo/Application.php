@@ -652,7 +652,11 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
             $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ReplyComposer::class),
-            $c->get(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ForwardComposer::class)
+            $c->get(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ForwardComposer::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup(
+            $c->get(\OCA\Mcp\Db\OperationsMapper::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+            $c->get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class),$c->get(\OCA\Mcp\Db\MailProbeSlotsMapper::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Files\MailFilesSource(
             $c->get(IRootFolder::class), $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class), $c->get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class),
@@ -715,6 +719,9 @@ class Application extends App implements IBootstrap {
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailMutationTarget::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailMutationTarget(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailMoveTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailboxMutationTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailRefreshTarget::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary(
+            $c->get(IAppManager::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDraftStorage::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailCapabilities(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(IAppManager::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagBoundary::class)

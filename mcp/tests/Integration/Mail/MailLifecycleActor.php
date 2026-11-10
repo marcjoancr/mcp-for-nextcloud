@@ -88,12 +88,13 @@ final class MailLifecycleActor {
                 'outgoing_unchanged'=>$before===self::outgoing($uid),'smtp_unchanged'=>$smtp===self::smtpCapture()];
         } finally {$client->logout();$manager->flagMessage($account,$mailbox->getName(),$message->getUid(),'flagged',$original);}
     }
-    public static function draft(string $uid,int $draftId): array {
+    public static function draft(string $uid,int $draftId,array $options=[]): array {
         $drafts=Server::get('OCA\\Mail\\Service\\DraftsService');$draft=$drafts->getMessage($draftId,$uid);
         $accounts=Server::get('OCA\\Mail\\Service\\AccountService');$account=$accounts->find($uid,$draft->getAccountId());
         $mailboxes=Server::get('OCA\\Mail\\Db\\MailboxMapper');$manager=Server::get('OCA\\Mail\\Service\\MailManager');
         $factory=Server::get('OCA\\Mail\\IMAP\\IMAPClientFactory');$nativeAccount=$account->getMailAccount();
         $oldRole=$nativeAccount->getDraftsMailboxId();$names=array_map(static fn(object $m):string=>$m->getName(),$mailboxes->findAll($account));
+        $draftOnly=property_exists($draft,'mcpDraftOnly')&&$draft->getMcpDraftOnly();
         $subject=$draft->getSubject();$localParent=$draft->getInReplyToMessageId();$localAlias=$draft->getAliasId();$held=$draft->isFailed();
         $outgoing=self::outgoing($uid);$smtp=self::smtpCapture();$payload=json_decode(json_encode($draft,JSON_THROW_ON_ERROR),true,512,JSON_THROW_ON_ERROR);
         $controller=Server::get('OCA\\Mail\\Controller\\DraftsController');
@@ -108,14 +109,18 @@ final class MailLifecycleActor {
             $draftFolder=$oldRole===null?$mailboxes->find($account,'Drafts'):$mailboxes->findById($oldRole);
             $name=$draftFolder->getName();$query=new \Horde_Imap_Client_Fetch_Query();$query->uid();$query->envelope();
             $query->headers('c0',['Subject','From','Message-ID','In-Reply-To','References'],['peek'=>true]);
+            if(isset($options['attachment_base64']))$query->fullText(['peek'=>true]);
             $found=[];
             foreach($client->fetch($name,$query,['ids'=>new \Horde_Imap_Client_Ids(\Horde_Imap_Client_Ids::ALL)]) as $data){
                 if($data->getEnvelope()->subject!==$subject)continue;
                 $imapUid=$data->getUid();$headers=(string)$data->getHeaders('c0');
                 $found[]=['has_subject_header'=>preg_match('/^Subject:/mi',$headers)===1,'from_is_account'=>str_contains(strtolower((string)$data->getEnvelope()->from),strtolower($account->getEMailAddress())),'has_parent_header'=>preg_match('/^In-Reply-To:/mi',$headers)===1,'has_references_header'=>preg_match('/^References:/mi',$headers)===1,
-                    'from'=>(string)$data->getEnvelope()->from];
+                    'from'=>(string)$data->getEnvelope()->from,
+                    'in_reply_to'=>preg_match('/^In-Reply-To:[ \t]*(.*)$/mi',$headers,$parentMatch)===1?trim($parentMatch[1]):null,
+                    'references'=>preg_match('/^References:[ \t]*(.*)$/mi',$headers,$referencesMatch)===1?trim($referencesMatch[1]):null,
+                    'attachment_preserved'=>!isset($options['attachment_base64'])||str_contains((string)$data->getFullMsg(),$options['attachment_base64'])];
             }
-            return ['local_parent'=>$localParent,'local_alias_id'=>$localAlias,'initially_held'=>$held,'ui_parent'=>$uiParent,'ui_released_hold'=>$released,
+            return ['draft_only'=>$draftOnly,'local_parent'=>$localParent,'local_alias_id'=>$localAlias,'initially_held'=>$held,'ui_parent'=>$uiParent,'ui_released_hold'=>$released,
                 'imap_drafts'=>$found,'outgoing_unchanged'=>$outgoing===self::outgoing($uid),'smtp_unchanged'=>$smtp===self::smtpCapture()];
         } finally {
             if($imapUid!==null&&$draftFolder!==null)$client->expunge($draftFolder->getName(),['ids'=>new \Horde_Imap_Client_Ids([$imapUid]),'delete'=>true]);
