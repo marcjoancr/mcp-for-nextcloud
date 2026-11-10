@@ -13,6 +13,20 @@ use OCA\Mcp\Modules\Mail\MailToolCatalog;
 use PHPUnit\Framework\TestCase;
 
 final class MailBoundedReadsContractTest extends TestCase {
+	public function testNewMailReadsAppendAfterTheFrozenFortyOneToolCatalog(): void {
+		$publication = json_decode(
+			file_get_contents(dirname(__DIR__, 3).'/Support/Mcp/Compatibility/publication.json'),
+			true,
+			512,
+			JSON_THROW_ON_ERROR,
+		);
+		$frozenMailNames = array_column($publication['en']['raw'][9], 'name');
+		$currentMailNames = array_keys(MailToolCatalog::definitions());
+
+		self::assertSame(array_slice($frozenMailNames, 0, 41), array_slice($currentMailNames, 0, 41));
+		self::assertSame(['mail_read_outbox', 'mail_read_message_metadata'], array_slice($currentMailNames, 41));
+	}
+
 	public function testOutboxAndMetadataReadsArePublishedWithSeparateSafeContracts(): void {
 		$definitions = MailToolCatalog::definitions();
 

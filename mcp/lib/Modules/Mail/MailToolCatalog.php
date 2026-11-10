@@ -8,13 +8,13 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Mail;
 
 use OCA\Mcp\Mcp\Tools\Tool;
-use OCA\Mcp\Modules\Mail\Tools\{DeleteDraft, ListAccounts, ListMailboxes, ReadAttachment, ReadDrafts, ReadMessage, ReadMessageMetadata, ReadOutbox, ReadThread, SaveAttachment, SearchMessages, WriteDraft};
+use OCA\Mcp\Modules\Mail\Tools\{DeleteDraft, ListAccounts, ListMailboxes, ReadAttachment, ReadDrafts, ReadMessage, ReadThread, ReadMessageMetadata, ReadOutbox, SaveAttachment, SearchMessages, WriteDraft};
 
 final class MailToolCatalog {
     /** @return list<class-string<Tool>> */
     public static function classes(): array {
-		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class, ReadMessageMetadata::class, ReadOutbox::class, ReadThread::class,
-			ReadAttachment::class, SaveAttachment::class, ReadDrafts::class, WriteDraft::class, DeleteDraft::class, Tools\AttachFiles::class, Tools\GetOperation::class, Tools\ListOperations::class, Tools\ReadAccountSettings::class, Tools\WriteAccountSettings::class, Tools\ReadSignature::class, Tools\WriteSignature::class, Tools\ReadConnection::class, Tools\ConfigureConnection::class, Tools\TestConnection::class, Tools\AddAccount::class, Tools\CompleteAccountSetup::class, Tools\DeleteAccount::class, Tools\SetMessageFlag::class, Tools\MoveMessage::class, Tools\ArchiveMessage::class, Tools\TrashMessage::class, Tools\RestoreMessage::class, Tools\CreateMailbox::class, Tools\RenameMailbox::class, Tools\SetMailboxSubscription::class, Tools\ConfigureMailboxes::class, Tools\ListAliases::class, Tools\ListTags::class, Tools\CreateTag::class, Tools\SetMessageTag::class, Tools\RefreshMailbox::class, Tools\ReconcileOperation::class, Tools\AddAlias::class, Tools\UpdateAlias::class, Tools\DeleteAlias::class];
+		return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class, ReadThread::class,
+			ReadAttachment::class, SaveAttachment::class, ReadDrafts::class, WriteDraft::class, DeleteDraft::class, Tools\AttachFiles::class, Tools\GetOperation::class, Tools\ListOperations::class, Tools\ReadAccountSettings::class, Tools\WriteAccountSettings::class, Tools\ReadSignature::class, Tools\WriteSignature::class, Tools\ReadConnection::class, Tools\ConfigureConnection::class, Tools\TestConnection::class, Tools\AddAccount::class, Tools\CompleteAccountSetup::class, Tools\DeleteAccount::class, Tools\SetMessageFlag::class, Tools\MoveMessage::class, Tools\ArchiveMessage::class, Tools\TrashMessage::class, Tools\RestoreMessage::class, Tools\CreateMailbox::class, Tools\RenameMailbox::class, Tools\SetMailboxSubscription::class, Tools\ConfigureMailboxes::class, Tools\ListAliases::class, Tools\ListTags::class, Tools\CreateTag::class, Tools\SetMessageTag::class, Tools\RefreshMailbox::class, Tools\ReconcileOperation::class, Tools\AddAlias::class, Tools\UpdateAlias::class, Tools\DeleteAlias::class, ReadOutbox::class, ReadMessageMetadata::class];
     }
 
     /**

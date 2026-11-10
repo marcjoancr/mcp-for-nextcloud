@@ -765,8 +765,6 @@ class Application extends App implements IBootstrap {
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
             'mail_search_messages' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class),
             'mail_read_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadMessage::class),
-            'mail_read_message_metadata' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadMessageMetadata($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
-            'mail_read_outbox' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadOutbox($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
             'mail_read_thread' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadThread::class),
             'mail_read_attachment' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadAttachment::class),
             'mail_save_attachment' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SaveAttachment::class),
@@ -804,6 +802,8 @@ class Application extends App implements IBootstrap {
             'mail_list_aliases' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAliases::class),
             'mail_configure_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ConfigureMailboxes::class),
             'mail_delete_account' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteAccount::class),
+            'mail_read_message_metadata' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadMessageMetadata($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
+            'mail_read_outbox' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadOutbox($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
 
         ], $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
