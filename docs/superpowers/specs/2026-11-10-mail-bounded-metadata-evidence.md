@@ -65,8 +65,15 @@ byte-based substr would corrupt or lose valid subjects. A review caught the v10
 credential contract missing from its whitelist; the correction is exercised by
 actual v10 source/credential assertions, while v9 fallback remains accepted.
 
-Complete regression and final review are recorded below once finished. The
-development fixture acceptance does not install or authorize B transmission.
+Complete PHP and browser regression components pass: **10416 PHP tests / 96256 assertions and 837 browser tests**, both static-analysis scopes, documentation and packaging. Final read-only review found no actionable issue.
+
+The full catalog attempt passed every PHP test and reached the browser suite; its three failures were the same missing outbox tier entry on each browser. After that one-line JavaScript correction, the full 837-test browser suite, package build and translation cross-check pass. PHP source/tests remain byte-identical to the successful PHP run; the seven-minute PHP suite was not repeated for a tier-list-only change. This is component verification, not a claim that the earlier failed catalog command returned success.
+
+The catalog preserves the original 41-tool prefix and appends the two new definitions; the current canonical publication adds only their raw definitions for its three recorded locales. Protocol/result captures and prior publication entries are unchanged.
+
+The expanded assignment contract exhausted the fixed 1 GiB test process. The same 21 assertions pass with local cycle collection: peak 580 MB before, 240 MB after, with about 16 seconds additional time. The complete ToolsList class passes 14 tests / 4,684 assertions. This changes only one test's temporary-object collection and restores the prior GC state; it raises no limit and skips no check.
+
+The development fixture acceptance does not install or authorize B transmission.
 
 ## Remaining work
 
@@ -77,3 +84,27 @@ SMTP uncertainty/Sent-copy repair without duplicate sends. Raw EML and larger
 incoming attachment retrieval need a native hard-capped same-generation stream.
 Other extras and legacy cache provenance are tracked in the
 [continuation plan](../plans/2026-11-10-mail-postgresql-deployment-plan.md).
+
+## Final package comparison
+
+The final clean runtime at source commit `fb4a7f70d17d35b06e0709224620aa350832725b`
+has SHA-256 `2e2c4c19b3c19fda30c9901218f13332460ab73053d7a3d68d53daa4417574a1`.
+Local token comparison proves the three reader/tool implementations are identical
+to those executed successfully in PostgreSQL, excluding their added SPDX notices.
+Factory values are identical; their order and the catalog's append-only ordering
+changed. Other differences are source/composer identity, reserved operation
+translations, and the compiled access-tier entry covered by all 837 browser tests.
+No native helper or execution-boundary implementation changed after PG acceptance.
+
+Automatic approval review rejected an additional copy of the final private
+package/script to the existing test host because it required explicit destination
+authorization. That extra transfer was cancelled. Final verification uses the
+local comparison and the recorded PostgreSQL execution instead; there is no claim
+that the final clean package itself was reinstalled in the remote fixture.
+
+
+The synthetic fixture and its labeled containers, volumes and network were removed
+after acceptance; the private continuation summary distinguishes the original v9
+qualification from the final v10 fixture state. The test SOCKS listener is closed.
+Production HTTPS was independently rechecked healthy with no pending upgrade,
+MCP source 49b, native v9, preserved policy and MCP sending disabled.

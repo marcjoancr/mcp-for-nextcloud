@@ -20,6 +20,7 @@ implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim co
 | NC35.0.2 / custom Mail5.12.5.7 / exact v7 overlay and required primary InnoDB schema | Existing v6 scopes plus correlated native manual credential-write evidence and one-shot setup completion. |
 | NC33.0.10, NC34.0.5 or NC35.0.2 / custom Mail5.12.5.8 / exact v8 overlay and required primary InnoDB schema | All preceding guarded scopes, protected native drafts and correlated credential-write evidence; same 41 tools and independent grants. |
 | NC35.0.2 / custom Mail5.12.5.9 / exact v9 overlay / PostgreSQL16.15 primary | Guarded A/D/C scopes with PostgreSQL session ownership and direct-endpoint proof. Exact schema, source, ownership, grants and operation-state checks remain mandatory; qualification/deployment is recorded separately. |
+| NC35.0.2 / custom Mail5.12.5.10 / exact v10 overlay / PostgreSQL16.15 primary | Separately tested local continuation: bounded outbox and cached message metadata projections. Original native implementation bytes match v9; immutable v9 stays admitted for its original scopes. This continuation is not deployed by the recorded v9 installation. |
 | NC33.0.10 or NC34.0.5 / stock Mail5.12.5 | Reads, legacy local drafts/Files and existing account/settings behavior retain their permissions; guarded capabilities remain unverified, including local alias/tag creation. |
 | Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
 | Other Mail/server/provider combinations | Native behavior unverified. The manifest/API floor and static fixtures do not qualify an unknown pair. |
@@ -47,7 +48,7 @@ Saving an attachment to Files also requires the Files creation boundary: a web w
 `mail_read_outbox` requires the independent `mail.read_outbox` permission and an
 explicit assignment and connection selection. It returns only a bounded page of
 local outgoing queue metadata: item/account IDs, a bounded subject, the native
-failure flag, scheduled timestamp and last update timestamp. `account_id` can
+failure flag, scheduled timestamp and last update timestamp (native Unix seconds or null). `account_id` can
 filter one owned account; omit it to inspect owned accounts together. `limit`
 defaults to 20 and is at most 50. Continue with `next_before_id` as `before_id`;
 items are ordered by descending local ID. The cursor is null on the final page.

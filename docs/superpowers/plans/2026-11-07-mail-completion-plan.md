@@ -18,7 +18,7 @@ acceptance, 10,394 PHP / 95,843 assertions and 837 browser regression tests.
 Migrations, grants/connections, HTTPS and disabled sending are verified.
 The [PostgreSQL continuation plan](2026-11-10-mail-postgresql-deployment-plan.md)
 now starts separate local bounded outbox inspection and cached metadata batches.
-The first two metadata tools and their native v10 dependency pass the real PostgreSQL path; see the [B0 evidence](../specs/2026-11-10-mail-bounded-metadata-evidence.md). Complete regression and installation of this separate continuation remain tracked independently. This authorizes no transmission. Older sections below retain their historical
+The first two metadata tools and their native v10 dependency pass the real PostgreSQL path; see the [B0 evidence](../specs/2026-11-10-mail-bounded-metadata-evidence.md). Complete regression passes (10416 PHP tests / 96256 assertions and 837 browser tests) and final review has no open finding. Installing this separate continuation remains pending. This authorizes no transmission. Older sections below retain their historical
 provider/artifact limits; v9 adds only its specifically qualified PostgreSQL pair.
 
 ## Current continuation: native draft lifecycle

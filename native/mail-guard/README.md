@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**. The deployed **5.12.5.9** artifact remains qualified for NC35.0.2 with PostgreSQL. The immutable **5.12.5.8** artifact retains its qualified NC33.0.10, NC34.0.5 and NC35.0.2 MariaDB pairs. This branch adds a **5.12.5.10** candidate for bounded metadata reads; it is not represented as deployed or accepted. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**. The deployed **5.12.5.9** artifact remains qualified for NC35.0.2 with PostgreSQL. The immutable **5.12.5.8** artifact retains its qualified NC33.0.10, NC34.0.5 and NC35.0.2 MariaDB pairs. This branch adds **5.12.5.10** for bounded metadata reads, verified locally on NC35.0.2 / PostgreSQL16.15. It is not represented as deployed. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -265,3 +265,21 @@ Legacy cached messages are not stamped with guessed provenance. Existing header-
 Production-profile acceptance also exercises Mail attachments saved to primary S3. Native `touch` creates a one-space marker on S3. The Files writer instead creates explicit empty content under a verified exclusive parent-folder lock, then releases it before the ordinary guarded content write. This path requires a web worker and default native database file locking. APCu, Redis, CLI, unknown backends, disabled locking and excluded paths are unqualified for this creation path. The shared-lock cache in Nextcloud's DB provider is disabled for CLI workers; the web-only restriction is intentional. No original Files object is used as a scratch attachment.
 
 The [PostgreSQL implementation and deployment plan](../../docs/superpowers/plans/2026-11-10-mail-postgresql-deployment-plan.md) records outstanding acceptance and deployment gates. Sending remains disabled.
+
+
+## Bounded metadata read acceptance
+
+The v10 native helper projects only owned scalar outbox/cache metadata, at most 50
+items, with SQL subject bounds and UTF-8-safe truncation. Actual PostgreSQL tests
+exercise both registered MCP tools, Alice/Bob isolation, cursor pagination,
+outgoing-versus-draft exclusion and uncommitted seed rollback. The exact v9
+fallback still passes; the only existing native file changed from v9 is the
+installation version in appinfo/info.xml. The helper is added independently.
+
+Final v10 manifest SHA-256:
+`b7a921df7c49ab95e5f59b70d49fce7d4482e7b170428fbbf55fe40ea653a859`.
+Normalized overlay SHA-256:
+`ed05c27b7bc19958a5b02083633252a2bb9c025f9e8e0164895e583d8523b19c`.
+See the [B0 evidence](../../docs/superpowers/specs/2026-11-10-mail-bounded-metadata-evidence.md)
+for qualification, full regression and limits. Native v9 remains the recorded
+production deployment; no transmission/schedule/cancel capability is added.

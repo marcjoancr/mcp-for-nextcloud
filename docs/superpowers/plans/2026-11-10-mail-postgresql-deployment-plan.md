@@ -69,7 +69,7 @@
 
 - [x] Implement and verify bounded owned outbox inspection with separate permission and no dispatch. Cached metadata batches also pass the real PostgreSQL tool path.
 - [x] Implement generation-safe bounded raw export to Files with confirmation/journal/status/replay, or record an exact native boundary blocker before exposing it. **Blocker recorded below; no export tool exposed.**
-- [ ] Run appropriate tests, review, update master plan and list remaining B/extras work.
+- [x] Run appropriate tests, review, update master plan and list remaining B/extras work.
 
 **Expected:** Tested initial B/extras slice, with actual transmission disabled and incomplete work explicitly recorded.
 
@@ -124,6 +124,5 @@ published while either guarantee is missing.
 
 The local B0 [metadata evidence](../specs/2026-11-10-mail-bounded-metadata-evidence.md)
 records its source/overlay hashes, 49 focused MCP tests, actual v9 compatibility
-and v10 PostgreSQL acceptance (3 tests / 86 assertions). Complete regression and
-final review still gate the end of Task4. Production remains on the deployed v9
+and v10 PostgreSQL acceptance (3 tests / 86 assertions). All affected verification components and final review pass (10416 PHP tests / 96256 assertions and 837 browser tests). Task4 is complete for this first slice, with raw EML explicitly blocked. Production remains on the deployed v9
 snapshot; send/schedule/cancel are absent.
