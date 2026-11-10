@@ -13,7 +13,7 @@ final class CacheSnapshot {
     public function requireStorage():void {
         (new ExactTagAssociations($this->db,$this->config))->requireStorage();$schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');$boxes=$schema->getTable($prefix.'mail_mailboxes');
         if(!$boxes->hasColumn('refresh_snapshot')||$boxes->getColumn('refresh_snapshot')->getLength()!==512||$boxes->getColumn('refresh_snapshot')->getNotnull())throw new \RuntimeException('Refresh migration unavailable.');
-        foreach(['mail_accounts','mail_recipients']as$table)if(strtolower((string)($schema->getTable($prefix.$table)->getOptions()['engine']??''))!=='innodb')throw new \RuntimeException('Every refresh cache table must be transactional.');
+        if($this->db->getDatabaseProvider()===IDBConnection::PLATFORM_MYSQL)foreach(['mail_accounts','mail_recipients']as$table)if(strtolower((string)($schema->getTable($prefix.$table)->getOptions()['engine']??''))!=='innodb')throw new \RuntimeException('Every refresh cache table must be transactional.');
     }
     public function capture(string $owner,int $account,int $mailbox,bool $lock=false):array {
         if($lock&&!$this->db->inTransaction())throw new \LogicException('Refresh locking read requires a transaction.');

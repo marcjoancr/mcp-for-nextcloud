@@ -18,9 +18,9 @@ final class SetupEvidence {
     public function __construct(private IDBConnection $db,private IConfig $config,private ITimeFactory $clock,private IRequest $request){}
     public function assertDatabase(IDBConnection $db):void {if($this->db!==$db)throw new DraftAdmissionFailure('Native setup requires the same primary transaction.');}
     private function primary():void {
-        if($this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_MYSQL||$this->config->getSystemValue('dbreplica',[])!==[]||$this->config->getSystemValue('dbsharding',[])!==[])throw new DraftAdmissionFailure('Native setup evidence requires primary transactional storage.');
+        $provider=$this->db->getDatabaseProvider();if(!in_array($provider,[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true)||$this->config->getSystemValue('dbreplica',[])!==[]||$this->config->getSystemValue('dbsharding',[])!==[])throw new DraftAdmissionFailure('Native setup evidence requires primary transactional storage.');
         $s=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
-        foreach(['mail_accounts',self::CONTEXTS,self::STATES] as $name)if(strtolower((string)($s->getTable($prefix.$name)->getOptions()['engine']??''))!=='innodb')throw new DraftAdmissionFailure('Native setup participants must be transactional.');
+        if($provider===IDBConnection::PLATFORM_MYSQL)foreach(['mail_accounts',self::CONTEXTS,self::STATES] as $name)if(strtolower((string)($s->getTable($prefix.$name)->getOptions()['engine']??''))!=='innodb')throw new DraftAdmissionFailure('Native setup participants must be transactional.');
     }
     public function withOwner(string $uid,\Closure $work):mixed {
         $this->primary();return DraftCoordinator::forDatabase($this->db)->runOwner($uid,static fn(DraftScope $scope):mixed=>$work());

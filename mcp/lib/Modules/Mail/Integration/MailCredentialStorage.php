@@ -20,7 +20,7 @@ class MailCredentialStorage {
     }
     public function verified():bool {
         try{
-            if($this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_MYSQL)return false;
+            if(!in_array($this->db->getDatabaseProvider(),[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true))return false;
             (new MailJournalStorage($this->db,$this->config))->requireTables(['mail_accounts','mail_mcp_auth_contexts','mail_mcp_auth_states','mcp_mail_setup','mcp_operations','mail_local_messages','mail_recipients','mail_attachments']);
             $s=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
             $a=$s->getTable($prefix.'mail_accounts')->getColumn('mcp_auth_revision');

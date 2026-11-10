@@ -17,7 +17,7 @@ final class MailDraftStorageTest extends TestCase {
         $provider=IDBConnection::PLATFORM_MYSQL;$routing=[];
         $db=$this->createMock(IDBConnection::class);$db->method('createSchema')->willReturn($schema);$db->method('getDatabaseProvider')->willReturnCallback(static function()use(&$provider){return $provider;});
         $config=$this->createMock(IConfig::class);$config->method('getSystemValueString')->willReturn('custom_');$config->method('getSystemValue')->willReturnCallback(static function($key,$default)use(&$routing){return $routing[$key]??$default;});
-        $guard=new MailDraftStorage($db,$config);self::assertTrue($guard->verified());
+        $guard=new MailDraftStorage($db,$config);self::assertTrue($guard->verified());$provider=IDBConnection::PLATFORM_POSTGRES;self::assertTrue($guard->verified(),'PostgreSQL tables are transactional without an InnoDB engine option.');$provider=IDBConnection::PLATFORM_MYSQL;
         foreach(['dbreplica','dbsharding'] as $key){$routing[$key]=['unsafe'];self::assertFalse($guard->verified(),$key);$routing=[];}
         foreach(['mail_accounts','mail_local_messages','mail_recipients','mail_attachments'] as $name){$participant=$schema->getTable('custom_'.$name);$participant->addOption('engine','MyISAM');self::assertFalse($guard->verified(),$name);$participant->addOption('engine','InnoDB');}
         $column->setNotnull(false);self::assertFalse($guard->verified());$column->setNotnull(true);

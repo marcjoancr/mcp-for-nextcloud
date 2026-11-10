@@ -31,7 +31,7 @@ final class MailCredentialStorageTest extends TestCase {
         $provider=IDBConnection::PLATFORM_MYSQL;$routing=[];
         $db=$this->createStub(IDBConnection::class);$db->method('createSchema')->willReturn($s);$db->method('getDatabaseProvider')->willReturnCallback(static function()use(&$provider){return $provider;});
         $config=$this->createStub(IConfig::class);$config->method('getSystemValueString')->willReturn('custom_');$config->method('getSystemValue')->willReturnCallback(static function($key,$default)use(&$routing){return $routing[$key]??$default;});
-        $storage=new MailCredentialStorage($db,$config);self::assertTrue($storage->verified());
+        $storage=new MailCredentialStorage($db,$config);self::assertTrue($storage->verified());$provider=IDBConnection::PLATFORM_POSTGRES;self::assertTrue($storage->verified(),'PostgreSQL tables are transactional without an InnoDB engine option.');$provider=IDBConnection::PLATFORM_MYSQL;
         foreach(['dbreplica','dbsharding'] as $key){$routing[$key]=['unsafe'];self::assertFalse($storage->verified(),$key);$routing=[];}
         foreach($s->getTables() as $table){$table->addOption('engine','MyISAM');self::assertFalse($storage->verified(),$table->getName());$table->addOption('engine','InnoDB');}
         $revision->setNotnull(false);self::assertFalse($storage->verified());$revision->setNotnull(true);

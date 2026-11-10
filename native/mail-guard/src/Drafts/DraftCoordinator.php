@@ -18,9 +18,9 @@ final class DraftCoordinator {
     public function assertDatabase(IDBConnection $db):void {if($db!==$this->db)throw new DraftAdmissionFailure('Draft work requires the authoritative primary connection.');}
     public function assertNoTransaction():void {if($this->db->inTransaction())throw new DraftAdmissionFailure('Filesystem work cannot inherit a draft transaction.');}
     private function primary():void {
-        if($this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_MYSQL||$this->config->getSystemValue('dbreplica',[])!==[]||$this->config->getSystemValue('dbsharding',[])!==[])throw new DraftAdmissionFailure('Draft coordination requires unsharded primary MySQL storage.');
+        $provider=$this->db->getDatabaseProvider();if(!in_array($provider,[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true)||$this->config->getSystemValue('dbreplica',[])!==[]||$this->config->getSystemValue('dbsharding',[])!==[])throw new DraftAdmissionFailure('Draft coordination requires unsharded primary transactional storage.');
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
-        foreach(['mail_accounts','mail_local_messages','mail_recipients','mail_attachments'] as $name)if(strtolower((string)($schema->getTable($prefix.$name)->getOptions()['engine']??''))!=='innodb')throw new DraftAdmissionFailure('Draft participants must use transactional primary storage.');
+        if($provider===IDBConnection::PLATFORM_MYSQL)foreach(['mail_accounts','mail_local_messages','mail_recipients','mail_attachments'] as $name)if(strtolower((string)($schema->getTable($prefix.$name)->getOptions()['engine']??''))!=='innodb')throw new DraftAdmissionFailure('Draft participants must use transactional primary storage.');
     }
     public function runOwner(string $uid,\Closure $effect):mixed {
         if($this->active!==null){if($this->active->uid!==$uid)throw new DraftAdmissionFailure('Nested draft work cannot change owner.');$this->active->assertOwned();return $effect($this->active);}

@@ -9,7 +9,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 final class ExactTagAssociations {
     public function __construct(private IDBConnection $db,private ?\OCP\IConfig $config=null){}
     public function requireStorage():void {
-        if($this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_MYSQL)throw new \RuntimeException('This native tag storage provider has not been qualified.');
+        if(!in_array($this->db->getDatabaseProvider(),[IDBConnection::PLATFORM_MYSQL,IDBConnection::PLATFORM_POSTGRES],true))throw new \RuntimeException('This native tag storage provider has not been qualified.');
         if($this->config===null||$this->config->getSystemValue('dbsharding',[])!==[]||$this->config->getSystemValue('dbreplica',[])!==[])throw new \RuntimeException('Exact tag writes require an unsharded primary database.');
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');$m=$schema->getTable($prefix.'mail_messages');$t=$schema->getTable($prefix.'mail_message_tags');$unique=false;$cascade=false;
         if(!$schema->getTable($prefix.'mail_mailboxes')->hasColumn('tag_cache_revision')||!$m->hasColumn('tag_cache_profile')||!$m->hasColumn('tag_cache_generation')||!$t->hasColumn('cached_message_id'))throw new \RuntimeException('Exact tag migration unavailable.');
