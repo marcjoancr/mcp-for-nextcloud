@@ -133,7 +133,8 @@ final class NextcloudApiContractTest extends TestCase {
 
     public function testQualifiedNativeMarkersStayInsideTheirClosedIntegrationBoundary(): void {
         foreach (NextcloudApiUsage::QUALIFIED_NATIVE_CLASSES as $class => $expectedFiles) {
-            self::assertSame($expectedFiles, self::scanner()->classes()[$class] ?? [], $class);
+            $actualFiles=self::scanner()->classes()[$class]??[];sort($actualFiles);sort($expectedFiles);
+            self::assertSame($expectedFiles,$actualFiles,$class);
             foreach (self::checkedMajors() as $major) self::assertArrayNotHasKey($class,self::fixture($major)['classes']);
             // Source and runtime proof belongs to the custom dependency, not stock Mail's fixtures.
             $relative=str_replace('OCA\\Mail\\','',$class);

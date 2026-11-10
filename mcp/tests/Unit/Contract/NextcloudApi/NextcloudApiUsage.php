@@ -31,6 +31,7 @@ final class NextcloudApiUsage {
 
     /** Custom dependency markers: qualified native source/native integration, never upstream API fixtures. */
     public const QUALIFIED_NATIVE_CLASSES = [
+        'OCA\\Mail\\Db\\PgDirectConnection' => ['Modules/Mail/Integration/MailDraftStorage.php','Modules/Mail/Integration/MailCredentialStorage.php'],
         'OCA\\Mail\\Exception\\DraftAdmissionFailure' => ['Modules/Mail/Integration/NativeDraftWrites.php','Modules/Mail/Integration/NativeSetupEvidence.php'],
         'OCA\\Mail\\Authorization\\SetupEvidence' => ['Modules/Mail/Integration/MailServices.php'],
     ];
