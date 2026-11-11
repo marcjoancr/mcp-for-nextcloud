@@ -33,10 +33,10 @@
 
 **Interfaces:** Produce native GuardedDelivery::preview(string uid,int draftId):array (safe exact content/identity/revisions); queue(string uid,int draftId,string approvedRevision,string operationKey,int connectionId,string sourceTool,int sendAt,string timezone):array; status(string uid,string id):array; due(int limit):array; cancel(string uid,string id,string revision):array; dispatch(string uid,string id,object fence):array. Fence authorizes current uid/connection/sourceTool/account immediately before effect. Produce SentCopyRepair::preview/repair closed IMAP-only methods. IDs are opaque, receipts sanitized. Settle exact signatures in /tmp/mail-complete-20261111/native-delivery-interface.md before MCP implementation.
 
-- [ ] Write failing behavioral tests for changed/missing sender/attachment, native protected source edit fence, idempotent queue admission, queued/attempting/accepted/uncertain/cancelled transitions, two-worker/cancel CAS, source privacy and no auto replay. Observe RED.
-- [ ] Implement dedicated native queue/migration, frozen canonical content revision, exact MIME/envelope/FCC snapshot, source association and current identity proof under existing owner lease. No normal outbox conversion.
-- [ ] Implement durable pre-wire claim, current authorization fence, bounded due selection, conservative SMTP uncertainty and independent Sent-copy-only repair. Gate execution by disabled-by-default native setting. Preserve existing ordinary native behavior outside guarded queue.
-- [ ] Run focused tests/lint, add deterministic native protocol fault scenarios and commit. Expected: no repeated SMTP submission after ambiguous outcome; repair never resolves SMTP client.
+- [x] Write failing behavioral tests for changed/missing sender/attachment, native protected source edit fence, idempotent queue admission, queued/attempting/accepted/uncertain/cancelled transitions, two-worker/cancel CAS, source privacy and no auto replay. Observe RED.
+- [x] Implement dedicated native queue/migration, frozen canonical content revision, exact MIME/envelope/FCC snapshot, source association and current identity proof under existing owner lease. No normal outbox conversion.
+- [x] Implement durable pre-wire claim, current authorization fence, bounded due selection, conservative SMTP uncertainty and independent Sent-copy-only repair. Gate execution by disabled-by-default native setting. Preserve existing ordinary native behavior outside guarded queue.
+- [x] Run focused tests/lint, add deterministic native protocol fault scenarios and commit. Expected: no repeated SMTP submission after ambiguous outcome; repair never resolves SMTP client.
 
 ### Task 2: MCP B tools, worker and native artifact admission
 
@@ -45,7 +45,7 @@
 **Interfaces:** Consume Task1 interface report. Produce mail_send/send, mail_schedule/schedule, mail_cancel_delivery/cancel_delivery, mail_read_delivery/read_delivery and mail_sent_repair/repair_sent tools with independent grants, current connection checks and background authorization; journal admission succeeds with delivery ID, status reports native delivery evidence separately. Preserve first43 tools' order.
 
 - [ ] RED tests for exact preview/plan changes, denied/revoked source selection, timezone/DST validation, read-only status, durable replay, operation receipt privacy and separately denied new grants.
-- [ ] Wire a bounded job launching one signed fresh CLI child per item via existing NativeMutationProcess20-second process limit plus CLI alarm and a fresh25-second delivery ticket. Revalidate originating persistent OAuth connection/user/app/grant/scope before native fence; queue lifetime is independent of ticket lifetime. Basic/session connection zero refuses. Bound each job sweep to50 entries and an absolute budget, restore parent context.
+- [ ] Wire a bounded job launching one signed fresh CLI child per item via existing NativeMutationProcess20-second process limit plus CLI alarm and a fresh25-second delivery ticket. Sent-copy repair must use the same absolute child bound, including its APPEND write; include action and approved repairRevision in the signed ticket. Revalidate originating persistent OAuth connection/user/app/grant/scope before native fence; queue lifetime is independent of ticket lifetime. Basic/session connection zero refuses. Bound each job sweep to50 entries and an absolute budget, restore parent context.
 - [ ] Recover lost queue acknowledgements through native read-only findByOperation(uid,key), derived from journal scope/original operation ID. Add sanitized delivery_id to receipts/compaction and source_tool checks to cancel/repair/replay. Complete automatic normal Sent copy only with target bound in initial approval; pending copy remains explicit and never resends.
 - [ ] Generate native v11 artifact (Mail5.12.5.11, mcp-mail-mutations-v11), preserve immutable v10 manifest, extend API/runtime/source qualification without blessing stock/new untested pairs.
 - [ ] GREEN focused PHP/API/UI tests, update public tool contract and commit.
@@ -54,9 +54,10 @@
 
 **Files:** native Content/IMAP/Service capped reader and transport budget integration; MCP Integration/MailContentReader.php, Files export and larger attachment saver, Tools export; tests native/MCP.
 
-**Interfaces:** Native readRaw/readPart closed owned message APIs return bytes+generation+hash, bounded before allocation; MCP export uses IncomingFileWriter, operation checkpoint and exact destination/content plan.
+**Interfaces:** Native GuardedContentReader readRaw/listParts/readPart/readDraft/readIndexText closed owned APIs (see external content-reader-design report) bind actual selected connection/mailbox/UIDVALIDITY/UID and narrow authorization fence; raw/part return private bytes+generation+hash, listParts bounded scalar metadata only. MCP export uses IncomingFileWriter, operation checkpoint and exact destination/content plan.
 
-- [ ] RED malicious oversized literal/line/count/deadline and UIDVALIDITY/reselection tests; no mark-read or crypto fallback.
+- [ ] RED malicious oversized literal/line/count/deadline and UIDVALIDITY/reselection tests; no mark-read or implicit decryption. Opaque encrypted raw export preserves bytes; parsed crypto refuses. Include UID before/after literal, missing tagged completion and public fetch retry refusal.
+- [ ] Implement bounded BODYSTRUCTURE part discovery with pre-token grammar limits and conditional node/parameter hooks BEFORE Horde object construction; do not materialize every attachment or require whole-message25MiB for listing a25MiB decoded base64 part. Share this closed manifest with draft/import/index readers; avoid unbounded Horde parseMessage recursion.
 - [ ] Implement25MiB raw/decoded part and40MiB wire cap before reads; fresh client and exact selection proof. Keep existing small base64 response bound; larger parts save directly to Files.
 - [ ] Implement confirmed EML/part export with no overwrite, policy recheck/status/replay and changed content refusal. GREEN focused tests and commit.
 
