@@ -30,6 +30,13 @@ final class MailLifecycleActor {
             $before=['generation'=>$m->getTagCacheGeneration(),'profile'=>$m->getTagCacheProfile()];$db=Server::get(\OCP\IDBConnection::class);$q=$db->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($generation))->set('tag_cache_profile',$q->createNamedParameter(\OCA\Mail\Db\TagProfile::account($a->getMailAccount())))->where($q->expr()->eq('id',$q->createNamedParameter($messageId)))->executeStatement();return $before;
         }finally{$client->logout();}
     }
+    /** A different native PHP request attempts a noncredential write while sync owns the account. */
+    public static function syncContender(string $uid,int $accountId):array {
+        $mapper=Server::get('OCA\\Mail\\Db\\MailAccountMapper');$a=$mapper->find($uid,$accountId);$before=$a->getSignature();$written=false;
+        try{$a->setSignature('mcp-sync-contention-'.bin2hex(random_bytes(8)));try{$mapper->update($a);$written=true;}catch(\OCA\Mail\Exception\DraftAdmissionFailure){}
+            return ['written'=>$written,'unchanged'=>$mapper->find($uid,$accountId)->getSignature()===$before];
+        }finally{if($written){$a=$mapper->find($uid,$accountId);$a->setSignature($before);$mapper->update($a);}}
+    }
     public static function selection(string $uid,int $accountId): array {
         $account=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$accountId);
         $manager=Server::get('OCA\\Mail\\Service\\MailManager');

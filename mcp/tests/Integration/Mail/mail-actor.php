@@ -162,6 +162,8 @@ switch ($action) {
         $out=\OCA\Mcp\Tests\Integration\Mail\MailNativeMutationActor::proof($uid,(int)$in['account_id']);break;
     case 'c0-reply-seed':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailLifecycleActor::seedReply($uid,(int)$in['message_id']);break;
+    case 'mailbox-sync-contender':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailLifecycleActor::syncContender($uid,(int)$in['account_id']);break;
     case 'c0-selection-proof':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailLifecycleActor::selection($uid,(int)$in['account_id']);break;
     case 'c0-cache-proof':
