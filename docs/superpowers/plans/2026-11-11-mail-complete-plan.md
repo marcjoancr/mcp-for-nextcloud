@@ -50,6 +50,20 @@
 - [ ] Generate native v11 artifact (Mail5.12.5.11, mcp-mail-mutations-v11), preserve immutable v10 manifest, extend API/runtime/source qualification without blessing stock/new untested pairs.
 - [ ] GREEN focused PHP/API/UI tests, update public tool contract and commit.
 
+### Task 9: Native private-payload account and user lifecycle
+
+Execute after the Task2 implementation checkpoint and before its final review and Task3. Review Tasks2 and9 together as one B safety deliverable; Task2 remains pending approval until this prerequisite passes. This dependency was added after source inspection proved a native lifecycle gap; keep delivery qualification closed until its native acceptance and review pass.
+
+**Files:** native/mail-guard/src/Transmission/AttemptStore.php and HeldAccountDeletion.php; new Lifecycle/MailErasureStore.php, MailErasureService.php, background cleanup job and migration; pinned UserDeletedListener/AccountService integration through build patch; native/MCP tests and current v11 manifest only.
+
+**Interfaces:** Consume existing DraftCoordinator physical owner lease and immutable queue. Produce narrow native account-payload cleanup plus durable user-erasure capture/retry for exact original account identities. Ordinary account deletion retains unresolved-delivery denial and erases derived private payload only with admitted account removal. User deletion captures old account IDs and queue references before the nonblocking lease attempt; pending erasure fences those identities against fresh admission/dispatch. Retry shares the lease and cannot target a later recreated UID's new accounts. No new MCP administrative erasure tool.
+
+- [ ] RED ordinary account deletion for cancelled/blocked/accepted+verified deliveries proves no orphan frozen payload; unresolved ordinary deletion refuses and preserves source/payload.
+- [ ] RED actual native UserDeletedEvent path across all queue states proves native accounts/credentials and frozen payload are removed without SMTP/IMAP/APPEND; active-worker independent-session lease permits no partial erasure and persists a retry.
+- [ ] Implement SQL-only exact-account payload purge in the successful account-removal transaction; add idempotent durable native erasure marker/retry, shared owner exclusion and pre-effect erased-consent fence. Do not load/log body to erase it. Retry also handles already-missing accounts/orphan rows. Keep all unrelated owners intact.
+- [ ] RED→GREEN repeated event/job, after-busy retry, original user recreation with new account IDs, and worker pre-wire denial. Preserve uncertainty/no-repeat semantics; erasure cannot recall already accepted remote mail and must not claim it can.
+- [ ] Regenerate current native v11 source hashes, run focused native PostgreSQL/LinuxServer/S3 lifecycle plus delivery regression, focused API/runtime tests and commit. Qualification remains closed until fresh task review accepts the guarantees.
+
 ### Task 3: Hard-capped content and Files export
 
 **Files:** native Content/IMAP/Service capped reader and transport budget integration; MCP Integration/MailContentReader.php, Files export and larger attachment saver, Tools export; tests native/MCP.
