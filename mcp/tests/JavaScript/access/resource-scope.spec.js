@@ -83,7 +83,7 @@ test('a draft prevents closing or replacing its drawer until discard is confirme
     expect(writes(app)).toEqual([])
 })
 
-for (const status of [403, 503]) {
+for (const status of [400, 401, 403, 503]) {
     test(`unreadable scope ${status} shows an alert and no resource names`, async ({ page, app }) => {
         scopes(app)
         app.on('GET', '/api/scope/alice/files', () => ({ status }))
@@ -92,7 +92,12 @@ for (const status of [403, 503]) {
         await page.locator('#mcp-scope-user').fill('alice')
         await page.locator('#mcp-scope-form').getByRole('button').click()
         await expect(page.locator('#mcp-scope-alert')).not.toHaveText('')
-        await expect(page.locator('#mcp-scope-modules')).toBeEmpty()
+        if (status === 503) {
+            await expect(page.locator('#mcp-scope-module-files')).toHaveCount(0)
+            await expect(page.locator('#mcp-scope-module-calendar')).toBeVisible()
+            await expect(page.locator('#mcp-scope-save-files')).toHaveCount(0)
+        } else await expect(page.locator('#mcp-scope-modules')).toBeEmpty()
+        expect(writes(app)).toEqual([])
     })
 }
 
@@ -269,3 +274,24 @@ test('personal Mail scope distinguishes account and folder selections without tr
     await app.open('/personal')
     await expect(page.locator('#mcp-my-scope-list')).toHaveText('Mail: no account or folder')
 })
+
+for (const unavailable of [false, true]) {
+    test(`optional Mail scope ${unavailable ? 'unavailable app' : 'unreadable native inventory'} keeps Files usable without Mail writes`, async ({ page, app }) => {
+        const saved = scopes(app)
+        saved.mail = { ...saved.mail, mode: 'restricted', items: [{ id: 'account:9', name: 'Private old account', found: true }] }
+        const originalMail = structuredClone(saved.mail)
+        app.on('GET', '/api/scope/alice/mail', () => unavailable
+            ? { body: { module: 'mail', available: false } }
+            : { status: 503, body: { error: 'Unavailable', uncertain: false } })
+        await open(page, app)
+        await expect(page.locator('#mcp-scope-tab-mail')).toHaveCount(0)
+        await expect(page.locator('#mcp-scope-save-mail')).toHaveCount(0)
+        await expect(page.locator('#mcp-scope-modules')).not.toContainText('Private old account')
+        if (!unavailable) await expect(page.locator('#mcp-scope-alert')).toContainText('Mail')
+        await page.locator('#mcp-scope-mode-files-restricted').check()
+        await page.locator('#mcp-scope-save-files').click()
+        await expect(page.locator('#mcp-scope-undo-files')).toBeVisible()
+        expect(writes(app).map(call => call.path)).toEqual(['/api/scope/alice/files'])
+        expect(saved.mail).toEqual(originalMail)
+    })
+}

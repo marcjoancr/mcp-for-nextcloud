@@ -4,7 +4,7 @@
  */
 /**
  * Resource scope panel of the admin page (issue #4, B7; contracts B.6). Mounted ES module. One user at a
- * time: per module of the scope (Files, Calendar, Tasks) the administrator chooses "All resources" or "Only
+ * time: per module of the scope (Files, Calendar, Tasks, Mail) the administrator chooses "All resources" or "Only
  * selected" and picks folders, calendars or task lists from the user's own Nextcloud resources, through the admin
  * routes of the scope (GET /api/scope/{uid}/{module}, its candidates, PUT with expectedRevision, undo through
  * /api/grants/undo). Nothing here decides access: the server validates every item and the tools apply the scope.
@@ -121,8 +121,13 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 		container.setAttribute('aria-busy', 'true')
 		say(t('mcp', 'Loading the resource scope…'))
 		try {
-			const loaded = await Promise.all(MODULES.map((module) => api('GET', scopePath(module))))
+			const replies = await Promise.allSettled(MODULES.map((module) => api('GET', scopePath(module))))
 			if (mine !== seq) return
+            const refused = replies.map((reply, index) => ({ ...reply, module: MODULES[index] })).filter(reply => reply.status === 'rejected')
+            // These statuses deny the admin/user request itself; no other response may leave writable controls.
+            const denied = refused.find(reply => ['400', '401', '403'].includes(reply.reason.message))
+            if (denied) throw denied.reason
+            const loaded = replies.filter(reply => reply.status === 'fulfilled').map(reply => reply.value)
 			loaded.filter(data => data.available !== false).forEach((data) => {
 				modules[data.module] = {
 					uid: target, generation: mine, module: data.module, active: data.active, limit: data.limit, revision: data.revision,
@@ -130,10 +135,11 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 					search: '', parents: [], results: null, page: 1, undo: null, saving: false, stale: false,
 				}
 			})
-			if (!modules[currentTab]) currentTab = 'files'
+			if (!modules[currentTab]) currentTab = MODULES.find(module => modules[module]) || 'files'
 			Object.values(modules).forEach(state => container.append(renderModule(state)))
 			renderTabs()
-			say(t('mcp', 'Resource scope of {user}.', { user: uid }, undefined, { escape: false }))
+            if (refused.length > 0) say(refused.map(reply => title(reply.module) + ': ' + failure(reply.reason)).join(' '), true)
+            else say(t('mcp', 'Resource scope of {user}.', { user: uid }, undefined, { escape: false }))
 			const heading = find('mcp-scope-heading-' + currentTab)
 			if (focusModule && heading) {
 				heading.scrollIntoView?.({ block: 'start' })
@@ -167,7 +173,7 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 	}
 
 	/**
-	 * The policy revision moved (a save, an undo, a conflict): the three modules are read again. A module with an
+	 * The policy revision moved (a save, an undo, a conflict): the loaded modules are read again. A module with an
 	 * unsaved draft keeps it. When it already took the revision this page's own write made (`current`), the draft is
 	 * still valid and stays as it is. Otherwise it keeps the revision it was read at, and says so: saving it is refused
 	 * by the server (409) rather than accepted against a scope it never saw, and discarding it loads the saved scope.

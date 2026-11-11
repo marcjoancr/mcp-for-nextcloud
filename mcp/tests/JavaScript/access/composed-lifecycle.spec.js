@@ -4,7 +4,7 @@ import { test, expect } from '../support/app-fixture.js'
 for (const reject of [false, true]) {
     test(`admin remount removes previous listeners and ignores late scope ${reject ? 'failure' : 'success'}`, async ({ page, app }) => {
         const replies = []
-        for (const module of ['files', 'calendar', 'tasks']) app.on('GET', `/api/scope/alice/${module}`, () => new Promise(resolve => replies.push(() => resolve(reject ? { status: 503 } : { body: { uid: 'alice', module, revision: '0', active: true, mode: 'restricted', limit: 200, items: [{ id: '11', name: 'Old secret' }] } }))))
+        for (const module of ['files', 'calendar', 'tasks', 'mail']) app.on('GET', `/api/scope/alice/${module}`, () => new Promise(resolve => replies.push(() => resolve(reject ? { status: 503 } : { body: module === 'mail' ? { module, available: false } : { uid: 'alice', module, revision: '0', active: true, mode: 'restricted', limit: 200, items: [{ id: '11', name: 'Old secret' }] } }))))
         await page.goto('/admin?bare=1#access')
         await page.evaluate(async () => {
             const { mountAdmin } = await import('/modules/admin/bootstrap.js')
@@ -19,7 +19,7 @@ for (const reject of [false, true]) {
         await page.locator('#mcp-scope-entry').click()
         await page.locator('#mcp-scope-user').fill('alice')
         await page.locator('#mcp-scope-form button').click()
-        await expect.poll(() => replies.length).toBe(3)
+        await expect.poll(() => replies.length).toBe(4)
         await page.evaluate(async () => { window.adminOwner.destroy(); window.adminOwner.destroy(); window.adminOwner = window.mountAdminFixture(); await window.adminOwner.ready })
         replies.forEach(reply => reply())
         await expect(page.locator('#mcp-scope-modules')).toBeEmpty()
