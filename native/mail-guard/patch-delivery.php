@@ -26,5 +26,14 @@ function nativeDeliveryOverlay(Closure $read,array $files):array {
     $files[$p]=$s;
     $p='lib/Service/AccountService.php';$s=$take($p);
     foreach(['delete','deleteByAccountId'] as $method){$vars=$method==='delete'?'$currentUserId,$accountId':'$accountId';$s=nativeDraftReplaceBody($s,$method,static fn(string $body):string=>"\n        \$db=\\OCP\\Server::get(\\OCP\\IDBConnection::class);\$uid=\\OCA\\Mail\\Transmission\\DeliveryHolds::owner(\$db,\$accountId);\\OCA\\Mail\\Drafts\\DraftCoordinator::forDatabase(\$db)->runOwner(\$uid,function()use($vars,\$db){\\OCA\\Mail\\Transmission\\DeliveryHolds::assertFree(\$db,'account_id',\$accountId);$body\n        });\n    ");}
-    $files[$p]=$s;return $files;
+
+    $files[$p]=$s;
+    $p='lib/AppInfo/Application.php';$s=$take($p);$needle='$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);';
+    $files[$p]=$replace($s,$needle,$needle."\n        \$context->registerEventListener(\\OCP\\User\\Events\\BeforeUserDeletedEvent::class, \\OCA\\Mail\\Listener\\BeforeMailUserDeletedListener::class);");
+    $p='lib/Listener/UserDeletedListener.php';$s=$take($p);
+    $start=strpos($s,"\t\tforeach (\$this->accountService->findByUserId");$end=strpos($s,"\t\t\$this->textBlockService",$start);
+    if($start===false||$end===false)throw new RuntimeException('Unexpected user erasure listener.');
+    $files[$p]=substr($s,0,$start)."        if(!\\OCP\\Server::get(\\OCA\\Mail\\Lifecycle\\MailErasureService::class)->deleted(\$user))return;\n".substr($s,$end);
+    $p='appinfo/info.xml';$files[$p]=$replace($take($p),'<background-jobs>',"<background-jobs>\n        <job>OCA\\Mail\\BackgroundJob\\MailErasureJob</job>");
+    return $files;
 }

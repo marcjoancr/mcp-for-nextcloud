@@ -37,7 +37,7 @@ final class SentCopyRepair {
     private function copy(string $uid,string $id,string $approvedRevision,object $fence,bool $separate):array {
         return $this->store->coordinator()->runOwner($uid,function($scope)use($uid,$id,$approvedRevision,$fence,$separate):array {
             $r=$this->store->find($uid,$id);if($r['state']!=='accepted'||$r['sent_state']!=='pending')return DeliveryState::receipt($r);
-            $authorize=function()use($uid,$r,$scope,$fence,$separate):void {$scope->assertOwned();$fence->authorize($uid,(int)$r['connection_id'],$r['source_tool'],(int)$r['account_id']);if($separate)$fence->authorize($uid,(int)$r['connection_id'],'mail_sent_repair',(int)$r['account_id']);$scope->assertOwned();};$authorize();
+            $authorize=function()use($uid,$r,$scope,$fence,$separate):void {$scope->assertOwned();$this->store->assertAccount($uid,(int)$r['account_id']);$fence->authorize($uid,(int)$r['connection_id'],$r['source_tool'],(int)$r['account_id']);if($separate)$fence->authorize($uid,(int)$r['connection_id'],'mail_sent_repair',(int)$r['account_id']);$scope->assertOwned();$this->store->assertAccount($uid,(int)$r['account_id']);};$authorize();
             [$client,$mailbox,$validity,$target]=$this->target($uid,$r);
             try{
                 if(!hash_equals(hash('sha256',$r['revision'].':'.$target),$approvedRevision))throw new \RuntimeException('Sent repair target changed.');

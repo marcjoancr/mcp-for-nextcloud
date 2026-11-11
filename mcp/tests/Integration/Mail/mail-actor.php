@@ -56,6 +56,8 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'erasure-native':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailErasureActor::run($in);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e).': '.$e->getMessage(),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
     case 'delivery-child':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailDeliveryActor::child($uid,$in);break;
     case 'delivery-native':

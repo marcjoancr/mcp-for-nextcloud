@@ -33,7 +33,7 @@ trait CredentialRevision {
         if(!$entity instanceof MailAccount)return parent::insert($entity);
         $changed=$this->mcpCredentialFieldsChanged($entity->getUpdatedFields());
         $guard=DraftCoordinator::forDatabase($this->db);$uid=$entity->getUserId();
-        return $guard->runOwner($uid,function(DraftScope $scope)use($entity,$guard,$uid,$changed):Entity {
+        return \OCA\Mail\Lifecycle\AccountCapture::insert($this->db,$uid,fn() => $guard->runOwner($uid,function(DraftScope $scope)use($entity,$guard,$uid,$changed):Entity {
             $guard->assertNoTransaction();$this->db->beginTransaction();
             try{
                 if($entity->getUserId()!==$uid)throw new DraftAdmissionFailure('Native account ownership changed.');
@@ -41,7 +41,7 @@ trait CredentialRevision {
                 if($changed)$this->mcpStoreCredentialRevision((int)$saved->getId(),1);
                 $scope->assertOwned();$this->db->commit();return $this->mcpCredentialWritten($saved,$changed?1:0);
             }catch(\Throwable $error){if($this->db->inTransaction())$this->db->rollBack();throw $error;}
-        });
+        }));
     }
     public function update(Entity $entity):Entity {
         if(!$entity instanceof MailAccount)return parent::update($entity);

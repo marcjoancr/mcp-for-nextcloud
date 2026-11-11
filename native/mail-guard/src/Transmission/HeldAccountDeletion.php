@@ -8,6 +8,6 @@ use OCA\Mail\Drafts\DraftCoordinator;
 trait HeldAccountDeletion {
     public function delete(Entity $entity):Entity {
         $id=(int)$entity->getId();$uid=DeliveryHolds::owner($this->db,$id);
-        return DraftCoordinator::forDatabase($this->db)->runOwner($uid,function($scope)use($id,$entity,$uid):Entity {if(DeliveryHolds::owner($this->db,$id)!==$uid)throw new \RuntimeException('Account owner changed.');DeliveryHolds::assertFree($this->db,'account_id',$id);$scope->markWrite();return parent::delete($entity);});
+        return DraftCoordinator::forDatabase($this->db)->runOwner($uid,function($scope)use($id,$entity,$uid):Entity {if(DeliveryHolds::owner($this->db,$id)!==$uid)throw new \RuntimeException('Account owner changed.');DeliveryHolds::assertFree($this->db,'account_id',$id);$store=new \OCA\Mail\Lifecycle\MailErasureStore($this->db);return $store->transaction(function()use($scope,$store,$uid,$id,$entity):Entity {$scope->markWrite();$saved=parent::delete($entity);$store->purgeAccount($uid,$id);$scope->assertOwned();return $saved;});});
     }
 }

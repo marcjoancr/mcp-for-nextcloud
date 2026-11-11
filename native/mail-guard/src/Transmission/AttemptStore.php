@@ -14,6 +14,7 @@ final class AttemptStore {
         $q=$this->db->getQueryBuilder();$q->select(...$columns)->from('mail_mcp_deliveries');
         foreach($where as $column=>$value)$q->andWhere($q->expr()->eq($column,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR)));return $q;
     }
+    public function assertAccount(string $uid,int $account):void {(new \OCA\Mail\Lifecycle\MailErasureStore($this->db))->assertAccount($uid,$account);}
     public function find(string $uid,string $id):array {
         if(!preg_match('/^[a-f0-9]{64}$/D',$id))throw new \RuntimeException('Delivery unavailable.');
         $r=$this->query(['user_id'=>$uid,'id'=>$id])->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}if($row===false)throw new \RuntimeException('Delivery unavailable.');return $row;
@@ -27,7 +28,7 @@ final class AttemptStore {
         $schema=$this->db->createSchema();if($this->db->getDatabaseProvider()===IDBConnection::PLATFORM_MYSQL&&strtolower((string)($schema->getTable($this->config->getSystemValueString('dbtableprefix','oc_').'mail_mcp_deliveries')->getOptions()['engine']??''))!=='innodb')throw new \RuntimeException('Delivery storage is not transactional.');
         $this->db->beginTransaction();try{$scope->assertOwned();$scope->markWrite();$result=$effect();$scope->assertOwned();$this->db->commit();$scope->assertOwned();$guard->assertNoTransaction();return $result;}catch(\Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
     }
-    public function insert(array $row):void {$this->transaction($row['user_id'],function()use($row):void {$this->assertFree($row['user_id'],(int)$row['draft_id']);$q=$this->db->getQueryBuilder();$q->insert('mail_mcp_deliveries');foreach($row as $key=>$value)$q->setValue($key,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:($value===null?IQueryBuilder::PARAM_NULL:IQueryBuilder::PARAM_STR)));if($q->executeStatement()!==1)throw new \RuntimeException('Delivery admission unavailable.');});}
+    public function insert(array $row):void {$this->transaction($row['user_id'],function()use($row):void {$this->assertAccount($row['user_id'],(int)$row['account_id']);$this->assertFree($row['user_id'],(int)$row['draft_id']);$q=$this->db->getQueryBuilder();$q->insert('mail_mcp_deliveries');foreach($row as $key=>$value)$q->setValue($key,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:($value===null?IQueryBuilder::PARAM_NULL:IQueryBuilder::PARAM_STR)));if($q->executeStatement()!==1)throw new \RuntimeException('Delivery admission unavailable.');});}
     public function transition(array $row,string $to):bool {
         if(!DeliveryState::allows($row['state'],$to))return false;
         return $this->cas($row,'state',$row['state'],$to,$to==='accepted'?['sent_state'=>'pending']:[]);

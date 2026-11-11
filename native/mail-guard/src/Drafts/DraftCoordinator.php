@@ -24,6 +24,7 @@ final class DraftCoordinator {
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
         if($provider===IDBConnection::PLATFORM_MYSQL)foreach(['mail_accounts','mail_local_messages','mail_recipients','mail_attachments'] as $name)if(strtolower((string)($schema->getTable($prefix.$name)->getOptions()['engine']??''))!=='innodb')throw new DraftAdmissionFailure('Draft participants must use transactional primary storage.');
     }
+    public function runOwnerExclusive(string $uid,\Closure $effect):mixed {if($this->active!==null)throw new DraftAdmissionFailure('A native worker still owns this session.');return $this->runOwner($uid,$effect);}
     public function runOwner(string $uid,\Closure $effect):mixed {
         if($this->active!==null){if($this->active->uid!==$uid)throw new DraftAdmissionFailure('Nested draft work cannot change owner.');$this->active->assertOwned();return $effect($this->active);}
         $this->assertNoTransaction();$this->primary();
