@@ -22,9 +22,28 @@ final class MailDeliveryToolActor {
         }catch(\Throwable $error){return ['error'=>true,'type'=>get_class($error)];}
     }
     private static function confirm(string $uid,string $tool,array $args,array $plan):array {return self::call($uid,$tool,$args+['confirm'=>true,'plan_state'=>$plan['plan_state'],'operation_id'=>$plan['operation_id']]);}
+    private static function restoreMail(string $enabled):void {
+        $apps=Server::get(\OCP\App\IAppManager::class);
+        if($enabled==='yes')$apps->enableApp('mail');
+        elseif(is_array($groups=json_decode($enabled,true)))$apps->enableAppForGroups('mail',$groups);
+        else $apps->disableApp('mail');
+        Server::get(\OCP\IAppConfig::class)->clearCache(false);
+    }
+    private static function logMarker(string $log):int {
+        clearstatcache(true,$log);$offset=filesize($log);$marker='mcp-audit-'.bin2hex(random_bytes(16));
+        $r=Server::get(IDBConnection::class)->executeQuery("SELECT '".$marker."'");$r->closeCursor();
+        $deadline=microtime(true)+5;
+        do{
+            $stream=fopen($log,'r');fseek($stream,$offset);$bytes=stream_get_contents($stream,16777216);fclose($stream);
+            $pos=strpos($bytes,$marker);if($pos!==false)return $offset+$pos+strlen($marker);
+            usleep(100000);
+        }while(microtime(true)<$deadline);
+        throw new \RuntimeException('Private SQL mirror did not acknowledge audit boundary.');
+    }
     public static function run(string $uid,int $draftId,string $scenario):array {
         DeliveryFixtureBoundary::install();
         $config=Server::get(\OCP\IConfig::class);$appConfig=Server::get(\OCP\IAppConfig::class);$appConfig->clearCache(false);
+        $mailEnabled=$config->getAppValue('mail','enabled','yes');$disabledGroup=null;
         $auditCursor=$config->getAppValue('mcp','mail_delivery_audit_cursor','__mcp_fixture_absent__');
         $legacy=[];foreach([GrantPolicy::ELIGIBLE_KEY,GrantPolicy::CONNECTED_KEY]as$key)$legacy[$key]=$config->getUserValue($uid,'mcp',$key,'__mcp_fixture_absent__');
         $global=$appConfig->hasKey('mcp',GrantPolicy::SERVICE_KEY)?$config->getAppValue('mcp',GrantPolicy::SERVICE_KEY):null;
@@ -53,8 +72,8 @@ final class MailDeliveryToolActor {
                 };
                 (new \ReflectionProperty(MailDeliveryOperations::class,'gateway'))->setValue(Server::get(MailDeliveryOperations::class),$proxy);
             }
-            $tool=in_array($scenario,['mcp_schedule','mcp_future_revoked'],true)?'mail_schedule':'mail_send';$args=['draft_id'=>$draftId];
-            if(in_array($scenario,['mcp_schedule','mcp_future_revoked'],true))$args+=['send_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600),'timezone'=>'UTC'];
+            $tool=in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_paused','mcp_mail_revoked'],true)?'mail_schedule':'mail_send';$args=['draft_id'=>$draftId];
+            if(in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_paused','mcp_mail_revoked'],true))$args+=['send_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600),'timezone'=>'UTC'];
             $plan=self::call($uid,$tool,$args);if(!isset($plan['plan_state']))throw new \RuntimeException('Actual tool preview failed: '.json_encode($plan));
             $accepted=self::confirm($uid,$tool,$args,$plan);if($scenario==='mcp_lost_ack'){
                 $key=hash('sha256',Server::get(\OCA\Mcp\Mcp\Operations\OperationJournal::class)->scopeKey($uid)."\0".$plan['operation_id']);
@@ -69,6 +88,31 @@ final class MailDeliveryToolActor {
             if($scenario==='mcp_schedule'){
                 $cancel=self::call($uid,'mail_cancel_delivery',['delivery_id'=>$id]);$done=self::confirm($uid,'mail_cancel_delivery',['delivery_id'=>$id],$cancel);$out['cancelled']=$done['delivery']['state']??null;
                 $context->setSelection(array_values(array_diff(self::TOOLS,[$tool])));$out['source_revoked_read']=self::call($uid,'mail_read_delivery',['delivery_id'=>$id])['error']??false;$out['source_revoked_replay']=self::confirm($uid,'mail_cancel_delivery',['delivery_id'=>$id],$cancel)['error']??false;
+            }elseif(in_array($scenario,['mcp_due_paused','mcp_future_paused','mcp_mail_revoked'],true)){
+                if($scenario==='mcp_mail_revoked'){
+                    $disabledGroup=Server::get(\OCP\IGroupManager::class)->createGroup('mcp-it-mail-audit-'.bin2hex(random_bytes(8)));
+                    $disabledGroup->addUser(Server::get(\OCP\IUserManager::class)->get(MailActor::BOB));
+                    $apps=Server::get(\OCP\App\IAppManager::class);$apps->enableAppForGroups('mail',[$disabledGroup]);$appConfig->clearCache(false);
+                    $out['mail_disabled_for_owner']=!Server::get(\OCP\App\IAppManager::class)->isEnabledForUser('mail',Server::get(\OCP\IUserManager::class)->get($uid));
+                    $out['mail_enabled_for_other']=Server::get(\OCP\App\IAppManager::class)->isEnabledForUser('mail',Server::get(\OCP\IUserManager::class)->get(MailActor::BOB));
+                }
+                $config->setSystemValue('app.mail.mcp-transmission.enabled',false);$out['gate_off']=true;
+                $log=getenv('MCP_IT_PG_LOG');if(!is_string($log)||!is_readable($log))throw new \RuntimeException('Private metadata SQL proof log unavailable.');
+                $offset=self::logMarker($log);
+                Server::get(\OCA\Mcp\Modules\Mail\Transmission\DeliverySweep::class)->run();
+                $end=self::logMarker($log);if($end-$offset>16777216)throw new \RuntimeException('Audit SQL proof exceeded its bounded window.');
+                $stream=fopen($log,'r');fseek($stream,$offset);$sql=stream_get_contents($stream,$end-$offset);fclose($stream);
+                preg_match_all('/SELECT\s+(.+?)\s+FROM\s+"?oc_mail_mcp_deliveries"?/i',$sql,$projections);
+                $out['audit_metadata_only']=count($projections[1])>0;
+                foreach($projections[1] as $projection)if(preg_match('/\*|artifact|sent_proof/i',$projection))$out['audit_metadata_only']=false;
+                unset($sql,$projections);
+                $native=Server::get('OCA\\Mail\\Service\\GuardedDelivery');$out['native_state']=$native->status($uid,$id)['state'];$out['has_unresolved']=$native->hasUnresolved($uid,$accepted['delivery']['accountId']);
+                $out['source_held']=false;try{Server::get('OCA\\Mail\\Transmission\\AttemptStore')->assertFree($uid,$draftId);}catch(\Throwable){$out['source_held']=true;}
+                if($scenario==='mcp_mail_revoked'){
+                    self::restoreMail($mailEnabled);
+                    Server::get(DeliveryRunner::class)->run(['uid'=>$uid,'id'=>$id,'accountId'=>$accepted['delivery']['accountId'],'connectionId'=>$connection,'sourceTool'=>$tool]);
+                    $out['restored_state']=$native->status($uid,$id)['state'];
+                }
             }elseif(in_array($scenario,['mcp_revoked','mcp_future_revoked'],true)){
                 $selected=$store->get($uid,$connection);$store->save($uid,$connection,array_values(array_diff(self::TOOLS,[$tool])),$selected['revision']);
                 if($scenario==='mcp_future_revoked'){
@@ -82,6 +126,7 @@ final class MailDeliveryToolActor {
             }
             return $out;
         }finally{
+            if($disabledGroup!==null){self::restoreMail($mailEnabled);$disabledGroup->delete();}
             foreach($ids as$id){$q=$db->getQueryBuilder();$q->delete('mail_mcp_deliveries')->where($q->expr()->eq('id',$q->createNamedParameter($id)))->andWhere($q->expr()->eq('user_id',$q->createNamedParameter($uid)))->executeStatement();}
             if($connection!==null){
                 $scope=hash('sha256',$uid."\0".$connection);$q=$db->getQueryBuilder();$q->delete('mcp_operations')->where($q->expr()->eq('scope_key',$q->createNamedParameter($scope)))->andWhere($q->expr()->eq('actor_uid',$q->createNamedParameter($uid)))->executeStatement();

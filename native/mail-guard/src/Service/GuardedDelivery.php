@@ -8,7 +8,7 @@ use OCP\IConfig;
 /** Closed native admission/dispatch. A completed journal entry proves admission only. */
 final class GuardedDelivery {
     public function __construct(private AttemptStore $store,private DeliverySource $source,private FrozenMessageRenderer $renderer,private RawSmtp $smtp,private SentCopyRepair $sent,private IConfig $config,private \OCP\EventDispatcher\IEventDispatcher $events){}
-    private function enabled():void {if(!$this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false))throw new BeforeWireBlock('Approved transmission is disabled.');}
+    private function enabled():void {if(!$this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false))throw new \RuntimeException('Approved transmission is disabled.');}
     public function preview(string $uid,int $draftId):array {return $this->store->coordinator()->runOwner($uid,function()use($uid,$draftId):array {$content=$this->source->read($uid,$draftId);return $this->renderer->preview($content)+['sentTarget'=>$this->sent->approvalTarget($uid,$content['accountId'])];});}
     public function queue(string $uid,int $draftId,string $approvedRevision,string $operationKey,int $connectionId,string $sourceTool,int $sendAt,string $timezone,?array $approvedSentTarget=null):array {
         if(!preg_match('/^[a-f0-9]{64}$/D',$approvedRevision)||!preg_match('/^[\x21-\x7e]{1,128}$/D',$operationKey)||$connectionId<1||!in_array($sourceTool,['mail_send','mail_schedule'],true)||!in_array($timezone,\DateTimeZone::listIdentifiers(\DateTimeZone::ALL_WITH_BC),true)||$sendAt<0||($sourceTool==='mail_send'&&$sendAt!==0)||($sourceTool==='mail_schedule'&&$sendAt<=0))throw new \RuntimeException('Invalid delivery approval.');
@@ -25,8 +25,8 @@ final class GuardedDelivery {
         });
     }
     public function findByOperation(string $uid,string $operationKey):?array {$r=$this->store->replay($uid,$operationKey);return $r===null?null:DeliveryState::receipt($r);}
-    public function accessContext(string $uid,string $id):array {$r=$this->store->find($uid,$id);return ['accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'draftId'=>(int)$r['draft_id']];}
-    public function status(string $uid,string $id):array {return DeliveryState::receipt($this->store->find($uid,$id));}
+    public function accessContext(string $uid,string $id):array {$r=$this->store->metadata($uid,$id);return ['accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'draftId'=>(int)$r['draft_id']];}
+    public function status(string $uid,string $id):array {return DeliveryState::receipt($this->store->metadata($uid,$id));}
     public function due(int $limit=50):array {if(!$this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false))return [];return $this->store->due($limit);}
     public function queuedAfter(string $cursor,int $limit=25):array {return $this->store->queuedAfter($cursor,$limit);}
     public function hasUnresolved(string $uid,int $accountId):bool {return $this->store->hasUnresolved($uid,$accountId);}
@@ -35,11 +35,12 @@ final class GuardedDelivery {
     }
     /** Definite withdrawn authorization before claim is terminal and releases local native holds. No transport exists. */
     public function blockBeforeWire(string $uid,string $id):array {
-        return $this->store->coordinator()->runOwner($uid,function()use($uid,$id):array {$r=$this->store->find($uid,$id);if($r['state']==='queued')$this->store->transition($r,'blocked');return $this->status($uid,$id);});
+        return $this->store->coordinator()->runOwner($uid,function()use($uid,$id):array {$r=$this->store->metadata($uid,$id);if($r['state']==='queued')$this->store->transition($r,'blocked');return $this->status($uid,$id);});
     }
     public function dispatch(string $uid,string $id,object $fence):array {
         return $this->store->coordinator()->runOwner($uid,function($scope)use($uid,$id,$fence):array {
-            $r=$this->store->find($uid,$id);if($r['state']!=='queued'||(int)$r['send_at']>time())return DeliveryState::receipt($r);
+            $r=$this->store->metadata($uid,$id);if($r['state']!=='queued'||(int)$r['send_at']>time()||!$this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false))return DeliveryState::receipt($r);
+            $r=$this->store->find($uid,$id);
             $authorize=function()use($r,$uid,$fence,$scope):void {$scope->assertOwned();$this->store->assertAccount($uid,(int)$r['account_id']);$this->enabled();$fence->authorize($uid,(int)$r['connection_id'],$r['source_tool'],(int)$r['account_id']);$fresh=$this->source->read($uid,(int)$r['draft_id']);if(!hash_equals($r['content_revision'],$this->renderer->revision($fresh)))throw new BeforeWireBlock('Current delivery identity changed.');$this->store->assertAccount($uid,(int)$r['account_id']);$this->smtp->check($this->source->account($uid,(int)$r['account_id']));$scope->assertOwned();};
             try{$authorize();$content=$this->source->read($uid,(int)$r['draft_id']);if(!hash_equals($r['content_revision'],$this->renderer->revision($content)))throw new BeforeWireBlock('Source changed.');$account=$this->source->account($uid,(int)$r['account_id']);$this->smtp->check($account);$artifact=json_decode($r['artifact'],true,512,JSON_THROW_ON_ERROR);if(!hash_equals($artifact['smtpHash'],hash('sha256',$artifact['smtp']))||!hash_equals($artifact['fccHash'],hash('sha256',$artifact['fcc'])))throw new BeforeWireBlock('Artifact changed.');}
             catch(BeforeWireBlock){$this->store->transition($r,'blocked');return $this->status($uid,$id);}

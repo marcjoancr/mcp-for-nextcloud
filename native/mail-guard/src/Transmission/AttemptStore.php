@@ -15,9 +15,14 @@ final class AttemptStore {
         foreach($where as $column=>$value)$q->andWhere($q->expr()->eq($column,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR)));return $q;
     }
     public function assertAccount(string $uid,int $account):void {(new \OCA\Mail\Lifecycle\MailErasureStore($this->db))->assertAccount($uid,$account);}
-    public function find(string $uid,string $id):array {
+    /** Fixed scalar projection for authorization and receipts; frozen messages never enter an audit. */
+    public function metadata(string $uid,string $id):array {
+        return $this->lookup($uid,$id,['id','user_id','draft_id','account_id','revision','state','sent_state','send_at','timezone','created_at','connection_id','source_tool']);
+    }
+    public function find(string $uid,string $id):array {return $this->lookup($uid,$id,['*']);}
+    private function lookup(string $uid,string $id,array $columns):array {
         if(!preg_match('/^[a-f0-9]{64}$/D',$id))throw new \RuntimeException('Delivery unavailable.');
-        $r=$this->query(['user_id'=>$uid,'id'=>$id])->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}if($row===false)throw new \RuntimeException('Delivery unavailable.');return $row;
+        $r=$this->query(['user_id'=>$uid,'id'=>$id],$columns)->setMaxResults(1)->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}if($row===false)throw new \RuntimeException('Delivery unavailable.');return $row;
     }
     public function replay(string $uid,string $key):?array {$r=$this->query(['user_id'=>$uid,'operation_key'=>hash('sha256',$key)])->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}return $row===false?null:$row;}
     public function assertFree(string $uid,int $draftId):void {

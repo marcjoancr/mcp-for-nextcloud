@@ -18,13 +18,13 @@ class DeliverySweep {
         if($audit===[]&&$cursor!=='')$audit=array_slice($this->gateway->queuedAfter('',25),0,25);
         $due=array_slice($this->gateway->due(25),0,25);$work=[];
         // Review the audit page first, and advance only past entries whose child was actually invoked.
-        foreach($audit as$row)$work[$row['id']]=['row'=>$row,'audit'=>true];
-        foreach($due as$row)if(!isset($work[$row['id']]))$work[$row['id']]=['row'=>$row,'audit'=>false];
+        foreach($audit as$row)$work[$row['id']]=['row'=>$row,'audit'=>true,'action'=>'audit'];
+        foreach($due as$row){if(isset($work[$row['id']]))$work[$row['id']]['action']='dispatch';else $work[$row['id']]=['row'=>$row,'audit'=>false,'action'=>'dispatch'];}
         $last=null;
         try{
             foreach(array_slice($work,0,50)as$item){
                 $remaining=(int)(($deadline-$this->now())/1000000);if($remaining<1000)break;
-                try{$this->runner->run($item['row'],budgetMs:min(20000,$remaining));}catch(\Throwable){/* Unknown authorization/storage never invalidates consent here. */}
+                try{$this->runner->run($item['row'],$item['action'],budgetMs:min(20000,$remaining));}catch(\Throwable){/* Unknown authorization/storage never invalidates consent here. */}
                 if($item['audit'])$last=$item['row']['id'];
             }
         }finally{

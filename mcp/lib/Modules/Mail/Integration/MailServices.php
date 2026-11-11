@@ -173,6 +173,12 @@ class MailServices {
         $class='OCA\\Mail\\Service\\GuardedDelivery';if(!class_exists($class))throw new MailUnavailableException();
         $service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
     }
+    /** Internal qualified metadata lane remains available to record withdrawal after app access is revoked. */
+    public function deliveryAuthorization():object {
+        $this->appManager->loadApp(self::APP_ID);
+        $class='OCA\\Mail\\Service\\DeliveryAuthorization';if(!class_exists($class))throw new MailUnavailableException();
+        $service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
+    }
     public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}
 
     public function newAliasMapper(string $uid,\OCP\IDBConnection $db):object {

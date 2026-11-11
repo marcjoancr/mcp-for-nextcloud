@@ -13,13 +13,13 @@ final class DeliveryTicket {
     public function __construct(private PlanState $proof,private ITimeFactory $clock){}
     public function create(array $row,string $action='dispatch',?string $repairRevision=null):array {
         if(count($row)!==5||!self::identity($row))throw new \InvalidArgumentException('Invalid native delivery identity.');
-        if(!in_array($action,['dispatch','repair'],true)||($action==='repair'?(preg_match('/^[a-f0-9]{64}$/D',$repairRevision??'')!==1):$repairRevision!==null))throw new \InvalidArgumentException('Invalid delivery action.');
+        if(!in_array($action,['dispatch','repair','audit'],true)||($action==='repair'?(preg_match('/^[a-f0-9]{64}$/D',$repairRevision??'')!==1):$repairRevision!==null))throw new \InvalidArgumentException('Invalid delivery action.');
         $t=$row+['action'=>$action,'repairRevision'=>$repairRevision,'nonce'=>bin2hex(random_bytes(16)),'expires_at'=>$this->clock->getTime()+25];
         return $t+['proof'=>$this->sign($t)];
     }
     public function verify(array $t):bool {
         if(count($t)!==10||array_diff(array_keys($t),['uid','id','accountId','connectionId','sourceTool','action','repairRevision','nonce','expires_at','proof'])!==[]||!self::identity($t)
-            ||!in_array($t['action']??null,['dispatch','repair'],true)||(($t['action']??null)==='repair'?(preg_match('/^[a-f0-9]{64}$/D',$t['repairRevision']??'')!==1):($t['repairRevision']??null)!==null)
+            ||!in_array($t['action']??null,['dispatch','repair','audit'],true)||(($t['action']??null)==='repair'?(preg_match('/^[a-f0-9]{64}$/D',$t['repairRevision']??'')!==1):($t['repairRevision']??null)!==null)
             ||!is_string($t['nonce']??null)||preg_match('/^[a-f0-9]{32}$/D',$t['nonce'])!==1
             ||!is_string($t['proof']??null)||preg_match('/^[a-f0-9]{64}$/D',$t['proof'])!==1
             ||!is_int($t['expires_at']??null)||$t['expires_at']<$this->clock->getTime()||$t['expires_at']>$this->clock->getTime()+25)return false;

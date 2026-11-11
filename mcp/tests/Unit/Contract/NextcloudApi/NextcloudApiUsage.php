@@ -33,6 +33,7 @@ final class NextcloudApiUsage {
     public const QUALIFIED_NATIVE_CLASSES = [
         'OCA\\Mail\\Db\\PgDirectConnection' => ['Modules/Mail/Integration/MailDraftStorage.php','Modules/Mail/Integration/MailCredentialStorage.php'],
         'OCA\\Mail\\Transmission\\BeforeWireBlock' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\DeliveryAuthorization' => ['Modules/Mail/Integration/MailServices.php'],
         'OCA\\Mail\\Service\\GuardedDelivery' => ['Modules/Mail/Integration/MailServices.php'],
         'OCA\\Mail\\Service\\SentCopyRepair' => ['Modules/Mail/Integration/MailServices.php'],
         'OCA\\Mail\\Db\\BoundedMailMetadata' => ['Modules/Mail/Integration/MailServices.php'],
@@ -382,6 +383,7 @@ final class NextcloudApiUsage {
         // Custom dependency, absent from every pinned stock Mail. Fingerprints admit the separately tested native artifact.
         'OCA\\Mail\\Db\\ExactTagAssociations' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Transmission\\BeforeWireBlock' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\DeliveryAuthorization' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::loadApp','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Service\\GuardedDelivery' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Service\\SentCopyRepair' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Db\\BoundedMailMetadata' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],

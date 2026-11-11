@@ -28,6 +28,14 @@ class MailDeliveryGateway {
     public function dispatch(string $uid,string $id,object $fence):array {return $this->native($uid)->dispatch($uid,$id,$fence);}
     public function previewSent(string $uid,string $id):array {$this->admit($uid);return $this->services->sentCopyRepair($uid)->preview($uid,$id);}
     public function repairSent(string $uid,string $id,string $revision,object $fence):array {$this->admit($uid);return $this->services->sentCopyRepair($uid)->repair($uid,$id,$revision,$fence);}
+    /** These internal calls may only inspect metadata or terminal-block a queued entry, never transmit. */
+    public function workerContext(string $uid,string $id):array {return $this->authorization()->context($uid,$id);}
+    public function reviewAuthorization(string $uid,string $id,object $fence):array {return $this->authorization()->review($uid,$id,$fence);}
+    public function workerBeforeWireBlock():\Throwable {return $this->authorization()->denied();}
+    private function authorization():object {
+        if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||!$this->qualifiedProvider()||!$this->boundary->deliveryVerified())throw new ToolFailure('The qualified Mail authorization worker is unavailable.');
+        return $this->services->deliveryAuthorization();
+    }
     public function hasUnresolved(string $uid,int $account):bool {
         if(!$this->boundary->deliverySourceVerified())return false;
         if(!$this->services->isEnabledFor($uid))throw new ToolFailure('Mail account state is unavailable.');
@@ -36,12 +44,12 @@ class MailDeliveryGateway {
     public function due(int $limit=50):array {
         if(!$this->enabled())return [];
         if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||!$this->qualifiedProvider()||!$this->boundary->deliveryVerified())throw new ToolFailure('The qualified Mail delivery worker is unavailable.');
-        return $this->services->guardedDeliveryWorker()->due(max(1,min(50,$limit)));
+        return $this->authorization()->due(max(1,min(50,$limit)));
     }
     /** Reviews outstanding consent even while dispatch is disabled; contains no message data. */
     public function queuedAfter(string $cursor,int $limit=25):array {
         if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||!$this->qualifiedProvider()||!$this->boundary->deliveryVerified())return [];
-        return $this->services->guardedDeliveryWorker()->queuedAfter($cursor,max(1,min(25,$limit)));
+        return $this->authorization()->queuedAfter($cursor,max(1,min(25,$limit)));
     }
     private function qualifiedProvider():bool {return $this->db!==null&&$this->db->getDatabaseProvider()===\OCP\IDBConnection::PLATFORM_POSTGRES;}
     private function admit(string $uid):void {

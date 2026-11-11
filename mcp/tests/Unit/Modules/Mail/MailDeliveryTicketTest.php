@@ -25,6 +25,7 @@ final class MailDeliveryTicketTest extends TestCase {
         self::assertTrue($tickets->verify($repair));self::assertSame('repair',$repair['action']);self::assertSame(str_repeat('c',64),$repair['repairRevision']);
         self::assertFalse($tickets->verify(array_replace($repair,['action'=>'dispatch'])));
         self::assertFalse($tickets->verify(array_replace($repair,['repairRevision'=>str_repeat('d',64)])));
+        $audit=$tickets->create($row,'audit');self::assertTrue($tickets->verify($audit));self::assertFalse($tickets->verify(array_replace($audit,['action'=>'dispatch'])));
         $now=1026;self::assertFalse($tickets->verify($t));
     }
 }
