@@ -43,7 +43,7 @@ class MailSnoozeGateway {
         $native=$this->native($uid);$status=$native->status($uid,$id,$fence);
         return $status['state']==='placing'?$native->place($uid,$id,$fence):$native->wake($uid,$id,$revision,$fence);
     }
-    public function due(int $limit=25):array {$this->qualified();return $this->services->snoozeAuthorization()->due($limit);}
+    public function due(int $limit=25,string $cursor=''):array {$this->qualified();return $this->services->snoozeAuthorization()->due($limit,$cursor);}
     public function queuedAfter(string $cursor,int $limit=25):array {$this->qualified();return $this->services->snoozeAuthorization()->queuedAfter($cursor,$limit);}
     public function denied():\Throwable {$this->qualified();return $this->services->deliveryAuthorization()->denied();}
 }

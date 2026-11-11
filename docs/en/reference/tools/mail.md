@@ -682,7 +682,9 @@ changed profiles block new effects; no INBOX fallback exists. Cache waiting is
 readiness, not evidence of an uncertain remote effect.
 
 The sweep reviews at most 25 metadata audit entries plus 25 due/prepared entries,
-at most 50 distinct intents within 55 seconds. Definite withdrawal of the original
+at most 50 distinct intents within 55 seconds. Independent rotating ID cursors
+interleave due/prepared dispatch and metadata review, so missing cache rows cannot
+starve later intents. Each cursor advances only past its attempted prefix. Definite withdrawal of the original
 actor, connection, tools, grants, scopes or apps blocks before new wire and releases
 only known holds. Unknown policy availability preserves consent and holds. Future
 audits do not fetch mail or create transports. Prepared placement can be recovered
@@ -691,8 +693,11 @@ legs are excluded from executable selection.
 
 Dedicated intents never enter the stock executable snooze table or WakeJob.
 Native destructive actions, stock snooze, folder topology, roles, account/profile
-changes and lower IMAP mutation paths respect holds; whole-thread/folder actions
-preflight conservatively at account scope to prevent partially processed prefixes.
+changes and lower destructive IMAP paths respect holds. Thread operations preflight
+their complete affected membership before any message moves; folder changes protect
+the affected namespace subtree. Unrelated native timers, threads and folders remain
+usable, as do ordinary Seen changes. Unknown MOVE destinations retain whole-folder
+protection, and account/profile changes still require all active holds to be resolved.
 Ordinary cache synchronization can remove vanished source rows and materialize the
 proven destination. Native account/user erasure removes exact captured intent IDs
 without network cleanup. Original private actor and both mailbox references survive

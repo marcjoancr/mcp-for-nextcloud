@@ -22,6 +22,7 @@ final class MailSnoozeActor {
             $at=time()+3600;$preview=$service->preview($uid,$fixture['messages'][0],$at,'UTC',$fence);$key=bin2hex(random_bytes(32));$queued=$service->schedule($uid,$fixture['messages'][0],$at,'UTC',$preview['revision'],$key,1,$fence);$id=$queued['id'];
             $held=fn():bool=>self::refused(fn()=>\OCA\Mail\Snooze\SnoozeHolds::account($db,(int)$account->getId()));
             $inspect=fn(int $box,bool $sync=false):array=>MailNativeMoveActor::inspect($uid,$fixture,$box,$sync);
+            if($scenario==='coexist'){$service->place($uid,$id,$fence);return $out+MailSnoozeCoexistActor::run($uid,$fixture,$id);}
             if($scenario==='audit'){
                 self::refused(fn()=>$service->review($uid,$id,new class{public function allows(string $uid,array $origin):bool{throw new \RuntimeException('Synthetic policy unavailable');}}));$out['unknown']=$service->status($uid,$id,$fence)['state'];
                 $out['blocked']=$service->review($uid,$id,new class{public function allows(string $uid,array $origin):bool{return false;}})['state'];$out['held_after']=$held();return $out+['no_send'=>$before===MailNativeMutationActor::safety($uid)];

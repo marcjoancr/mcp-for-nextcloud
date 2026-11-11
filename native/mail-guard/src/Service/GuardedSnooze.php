@@ -60,6 +60,6 @@ final class GuardedSnooze {
     public function review(string $uid,string $id,object $fence):array {
         return $this->store->coordinator()->runOwner($uid,function()use($uid,$id,$fence):array{$r=$this->store->metadata($uid,$id);if(!$fence->allows($uid,SnoozeState::origin($r)))$r=$this->store->block($r);return SnoozeState::receipt($r);});
     }
-    public function due(int $limit=25):array {return $this->store->due($limit);}
+    public function due(int $limit=25,string $cursor=''):array {return $this->store->due($limit,$cursor);}
     public function queuedAfter(string $cursor,int $limit=25):array {return $this->store->queuedAfter($cursor,$limit);}
 }

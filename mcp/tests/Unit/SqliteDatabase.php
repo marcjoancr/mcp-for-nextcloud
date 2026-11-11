@@ -196,6 +196,9 @@ final class SqliteDatabase {
         $result->method('fetch')->willReturnCallback(function () use (&$rows) {
             return $rows === [] ? false : array_shift($rows);
         });
+        $result->method('fetchOne')->willReturnCallback(function () use (&$rows) {
+            return $rows === [] ? false : array_values(array_shift($rows))[0];
+        });
         $result->method('fetchAll')->willReturnCallback(function () use (&$rows): array {
             [$all, $rows] = [$rows, []];
             return $all;

@@ -37,14 +37,14 @@ final class SnoozeStore {
     }
     public function cancel(array $r,\Closure $authorize):array {if(!SnoozeState::cancellable($r))throw new \RuntimeException('Snooze cancellation is too late or uncertain.');return $this->update($r,['state'=>'cancelled','active_source'=>null],$authorize);}
     public function block(array $r):array {if(!SnoozeState::releasable($r)||!in_array($r['state'],['placing','snoozed'],true))return $r;return $this->update($r,['state'=>'blocked','reason'=>'authorization_or_identity_changed','active_source'=>null]);}
-    public function due(int $limit):array {return $this->page('',max(1,min(25,$limit)),true);}
+    public function due(int $limit,string $cursor=''):array {if($cursor!==''&&preg_match('/^[a-f0-9]{64}$/D',$cursor)!==1)throw new \RuntimeException('Invalid snooze dispatch cursor.');return $this->page($cursor,max(1,min(25,$limit)),true);}
     public function queuedAfter(string $cursor,int $limit):array {if($cursor!==''&&preg_match('/^[a-f0-9]{64}$/D',$cursor)!==1)throw new \RuntimeException('Invalid snooze audit cursor.');return $this->page($cursor,max(1,min(25,$limit)),false);}
     private function page(string $cursor,int $limit,bool $due):array {
         $q=$this->query([]);$q->select('id','user_id','account_id','connection_id')->andWhere($q->expr()->in('state',$q->createNamedParameter(['placing','snoozed'],IQueryBuilder::PARAM_STR_ARRAY)))
             ->andWhere($q->expr()->neq('placement_phase',$q->createNamedParameter('wire_may_start')))->andWhere($q->expr()->eq('wake_phase',$q->createNamedParameter('prepared')));
         if($due)$q->andWhere($q->expr()->orX($q->expr()->eq('state',$q->createNamedParameter('placing')),$q->expr()->lte('wake_at',$q->createNamedParameter(time(),IQueryBuilder::PARAM_INT))));
-        else $q->andWhere($q->expr()->gt('id',$q->createNamedParameter($cursor)));
-        $q->orderBy($due?'wake_at':'id')->addOrderBy('id')->setMaxResults($limit);$r=$q->executeQuery();try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
+        $q->andWhere($q->expr()->gt('id',$q->createNamedParameter($cursor)));
+        $q->orderBy('id')->setMaxResults($limit);$r=$q->executeQuery();try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         return array_map(static fn(array $r):array=>['id'=>$r['id'],'uid'=>$r['user_id'],'accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>'mail_snooze'],$rows);
     }
 }

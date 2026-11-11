@@ -1,4 +1,13 @@
 OC.L10N.register(
+    "mcp",
+    {
+    "Account" : "Conta",
+    "Folder" : "Pasta",
+    "Export a mail message" : "Exportar uma mensagem de e-mail",
+    "snooze" : "Adiar e-mail",
+    "wake" : "Retomar e-mail",
+    "cancel_snooze" : "Cancelar adiamento",
+    "read_snooze" : "Ler adiamento",
     "Snooze one mail message" : "Adiar uma mensagem de e-mail",
     "Wake one snoozed message" : "Retornar uma mensagem adiada",
     "Cancel a mail wake timer" : "Cancelar o temporizador de um e-mail",
@@ -16,8 +25,6 @@ OC.L10N.register(
     "Snooze id" : "ID do adiamento",
     "Snooze state" : "Status do adiamento",
     "Current folder id" : "ID da pasta atual",
-    "mcp",
-    {
     "Mail: accounts and folders" : "E-mail: contas e pastas",
     "Nothing selected: the Mail tools of this user reach no account or folder." : "Nada selecionado: as ferramentas de e-mail deste usuário não acessam nenhuma conta ou pasta.",
     "Account: {name}" : "Conta: {name}",
@@ -49,7 +56,6 @@ OC.L10N.register(
     "Attempt state" : "Estado da tentativa",
     "Sent-copy state" : "Estado da cópia em Enviados",
     "Scheduled UTC epoch" : "Instante UTC agendado",
-    "Timezone" : "Fuso horário",
     "Transmission enabled" : "Transmissão habilitada",
     "send" : "Enviar e-mail",
     "schedule" : "Agendar e-mail",

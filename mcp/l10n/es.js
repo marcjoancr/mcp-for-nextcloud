@@ -1,4 +1,13 @@
 OC.L10N.register(
+    "mcp",
+    {
+    "Account" : "Cuenta",
+    "Folder" : "Carpeta",
+    "Export a mail message" : "Exportar un mensaje de correo",
+    "snooze" : "Posponer correo",
+    "wake" : "Despertar correo",
+    "cancel_snooze" : "Cancelar posposición",
+    "read_snooze" : "Leer posposición",
     "Snooze one mail message" : "Posponer un mensaje de correo",
     "Wake one snoozed message" : "Despertar un mensaje pospuesto",
     "Cancel a mail wake timer" : "Cancelar el temporizador de un correo",
@@ -16,8 +25,6 @@ OC.L10N.register(
     "Snooze id" : "Id de la posposición",
     "Snooze state" : "Estado de la posposición",
     "Current folder id" : "Id de la carpeta actual",
-    "mcp",
-    {
     "Mail: accounts and folders" : "Correo: cuentas y carpetas",
     "Nothing selected: the Mail tools of this user reach no account or folder." : "No hay nada seleccionado: las herramientas de correo de este usuario no pueden acceder a ninguna cuenta ni carpeta.",
     "Account: {name}" : "Cuenta: {name}",
@@ -49,7 +56,6 @@ OC.L10N.register(
     "Attempt state" : "Estado del intento",
     "Sent-copy state" : "Estado de la copia en Enviados",
     "Scheduled UTC epoch" : "Instante UTC programado",
-    "Timezone" : "Zona horaria",
     "Transmission enabled" : "Transmisión habilitada",
     "send" : "Enviar correo",
     "schedule" : "Programar correo",

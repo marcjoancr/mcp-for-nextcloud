@@ -1,4 +1,13 @@
 OC.L10N.register(
+    "mcp",
+    {
+    "Account" : "Konto",
+    "Folder" : "Ordner",
+    "Export a mail message" : "Eine E-Mail exportieren",
+    "snooze" : "E-Mail zurückstellen",
+    "wake" : "E-Mail zurückholen",
+    "cancel_snooze" : "Rückstellung abbrechen",
+    "read_snooze" : "Rückstellstatus lesen",
     "Snooze one mail message" : "Eine E-Mail zurückstellen",
     "Wake one snoozed message" : "Eine zurückgestellte Nachricht zurückholen",
     "Cancel a mail wake timer" : "Einen E-Mail-Rückholtimer abbrechen",
@@ -16,8 +25,6 @@ OC.L10N.register(
     "Snooze id" : "Rückstell-ID",
     "Snooze state" : "Rückstellstatus",
     "Current folder id" : "ID des aktuellen Ordners",
-    "mcp",
-    {
     "Mail: accounts and folders" : "E-Mail: Konten und Ordner",
     "Nothing selected: the Mail tools of this user reach no account or folder." : "Nichts ausgewählt: Die E-Mail-Werkzeuge dieses Benutzers können auf kein Konto und keinen Ordner zugreifen.",
     "Account: {name}" : "Konto: {name}",
@@ -49,7 +56,6 @@ OC.L10N.register(
     "Attempt state" : "Versuchsstatus",
     "Sent-copy state" : "Status der Gesendet-Kopie",
     "Scheduled UTC epoch" : "Geplanter UTC-Zeitpunkt",
-    "Timezone" : "Zeitzone",
     "Transmission enabled" : "Übertragung aktiviert",
     "send" : "E-Mail senden",
     "schedule" : "E-Mail planen",
