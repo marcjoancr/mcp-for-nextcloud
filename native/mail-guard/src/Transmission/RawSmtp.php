@@ -13,7 +13,7 @@ final class RawSmtp {
         if(!$this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false)||!$this->config->getSystemValueBool('app.mail.verify-tls-peer',true)||$this->config->getSystemValueBool('app.mail.debug',false)||$account->getMailAccount()->getDebug()||!in_array($account->getMailAccount()->getOutboundSslMode(),['tls','ssl'],true))throw new \RuntimeException('Approved transmission requires its enabled gate and verified private TLS transport.');
     }
     /** Caller MUST commit attempting before entering this method, including factory construction. */
-    public function send(Account $account,array $artifact,\Closure $preWire):void {
+    public function send(Account $account,#[\SensitiveParameter] array $artifact,\Closure $preWire):void {
         $this->check($account);$transport=$this->factory->create($account);
         if(!$transport instanceof \Horde_Mail_Transport_Smtphorde)throw new \RuntimeException('Unsupported SMTP transport.');
         $smtp=$transport->getSMTPObject();

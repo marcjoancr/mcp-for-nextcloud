@@ -6,6 +6,12 @@ declare(strict_types=1);
 function nativeDeliveryOverlay(Closure $read,array $files):array {
     $take=static fn(string $path):string=>$files[$path]??$read($path);
     $replace=static function(string $s,string $needle,string $next):string {if(substr_count($s,$needle)!==1)throw new RuntimeException('Unexpected pinned delivery source.');return str_replace($needle,$next,$s);};
+    // A short SMTP write is an unknown remote effect: physically close before framing/logout can continue.
+    $p='vendor/nextcloud/horde-smtp/lib/Horde/Smtp/Connection.php';$s=$take($p);
+    $s=$replace($s,'public function write($data, $size = null)','public function write(#[\\SensitiveParameter] $data, $size = null)');
+    $s=$replace($s,'protected function _write($data)','protected function _write(#[\\SensitiveParameter] $data)');
+    $s=$replace($s,'if (fwrite($this->_stream, $data) === false) {',"if (fwrite(\$this->_stream, \$data) !== strlen(\$data)) {\n            \$this->close();");
+    $files[$p]=$s;
     $p='lib/Service/MailTransmission.php';$files[$p]=nativeDraftReplaceBody($take($p),'sendMessage',static fn(string $body):string=>"\n        \$mapper=\\OCP\\Server::get(\\OCA\\Mail\\Db\\LocalMessageMapper::class);\$guard=\$mapper->draftCoordinator();\$guard->runOwner(\$account->getUserId(),function()use(\$account,\$localMessage,\$mapper,\$guard){\$guard->admit(\$localMessage,\$mapper,\$account->getUserId(),'send');$body\n        });\n    ");
     $p='lib/IMAP/GuardedFlagMutation.php';$files[$p]=$replace($take($p),'$this->guardRefreshCommand($cmd,$data);','$this->mcpGuardCopyCommand($cmd,$data);$this->guardRefreshCommand($cmd,$data);');
     $p='lib/IMAP/HordeImapClient.php';$files[$p]=$replace($take($p),'class HordeImapClient extends Horde_Imap_Client_Socket {',"class HordeImapClient extends Horde_Imap_Client_Socket {\n    use \\OCA\\Mail\\Transmission\\SingleAppend;");
