@@ -38,7 +38,7 @@ final class MailConnectionProbeTest extends TestCase {
         $smtpFactory=new class($smtp){public function __construct(private object $t){}public function create(object $account):object{return $this->t;}};
         $services->method('clientFactory')->willReturn($factory);$services->method('smtpFactory')->willReturn($smtpFactory);
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$context=new ConnectionContext();$context->set(12);
-        $j=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock);
+        $j=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $hosts=$this->createMock(IRemoteHostValidator::class);$hosts->method('isValid')->willReturn(true);
         $config=$this->createMock(IConfig::class);$config->method('getSystemValueBool')->willReturnCallback(static fn(string $key,bool $default=false):bool=>$key==='app.mail.verify-tls-peer');
         $worker=new NativeConnectionProbeWorker($gateway,$services,new NativeAccountSetupLinks($this->createMock(IURLGenerator::class),$hosts),$config,$tickets,$j,static fn(string $uid,int $connection,array $sources=[],?int $account=null,?\Closure $target=null):bool=>$target===null||$target());

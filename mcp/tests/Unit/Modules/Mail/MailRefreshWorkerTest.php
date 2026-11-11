@@ -17,7 +17,7 @@ final class MailRefreshWorkerTest extends TestCase {
     public static function request():array {return ['kind'=>'refresh','account_id'=>4,'mailbox_id'=>5,'mailbox'=>'INBOX','profile_revision'=>str_repeat('a',64),'cache_revision'=>str_repeat('b',64),'allow_cache_reset'=>false];}
     /** @dataProvider failures */
     public function testReadRefusalIsBeforeEffectAndCacheLossNeverReplays(string $mode,string $state,string $phase):void {
-        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());$ctx=new ConnectionContext();$ctx->set(4);$clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);$proof=new PlanState((new InMemoryConfig())->mock($this));$journal=new OperationJournal($store,$proof,$ctx,$clock);$tickets=new MutationTicket($proof,$clock);$r=self::request();$target=$this->createMock(MailMutationTarget::class);$target->method('snapshot')->willReturn(['request'=>$r]);
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());$ctx=new ConnectionContext();$ctx->set(4);$clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);$proof=new PlanState((new InMemoryConfig())->mock($this));$journal=new OperationJournal($store,$proof,$ctx,$clock, new \OCA\Mcp\Tests\Support\OperationActors());$tickets=new MutationTicket($proof,$clock);$r=self::request();$target=$this->createMock(MailMutationTarget::class);$target->method('snapshot')->willReturn(['request'=>$r]);
         $service=new class($mode) {
             public int $reads=0;public int $writes=0;
             public function __construct(private string $mode){}

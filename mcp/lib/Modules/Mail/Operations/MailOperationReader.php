@@ -34,9 +34,9 @@ final class MailOperationReader {
     public function list(string $uid, int $limit, int $offset): array {
         $visible=[];$wanted=$offset+$limit+1;
         for($cursor=0;$cursor<=10000&&count($visible)<$wanted;$cursor+=50){
-            $rows=$this->journal->list($uid,50,$cursor);
+            $page=$this->journal->page($uid,50,$cursor);$rows=$page['operations'];
             foreach($rows as $r){try{if($this->allowed($uid,$r))$visible[]=$r;}catch(ToolFailure){}}
-            if(count($rows)<50)break;
+            if($page['scanned']<50)break;
         }
         return ['operations'=>array_slice($visible,$offset,$limit),'next_offset'=>count($visible)>$offset+$limit?$offset+$limit:null];
     }

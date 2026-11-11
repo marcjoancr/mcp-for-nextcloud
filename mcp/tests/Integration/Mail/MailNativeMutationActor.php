@@ -19,7 +19,7 @@ final class MailNativeMutationActor {
         $args=['account_id'=>$sentinel,'message_id'=>17,'flag'=>'seen','value'=>true];$p=$journal->plan('mail_set_message_flag',$uid,$args,['plan_state'=>'fixture']);$args+=['operation_id'=>$p['operation_id'],'plan_state'=>'fixture'];
         try {
             $effect=function()use($uid,$journal,$store,$r,$client):array{
-                $lease=$journal->delegateNative($uid,$r);$fence=new \OCA\Mcp\Mcp\Operations\NativeOperationFence($store,$lease,$r,static fn():bool=>true);
+                $lease=$journal->delegateNative($uid,$r);$fence=new \OCA\Mcp\Mcp\Operations\NativeOperationFence($store,$lease,$r,static fn():bool=>true,static fn():bool=>true);
                 return $client->setFlagGuarded($r,Server::get('OCA\\Mail\\Service\\GuardedMessageMutations')->fence($fence));
             };
             $result=$journal->execute('mail_set_message_flag',$uid,$args,$effect);

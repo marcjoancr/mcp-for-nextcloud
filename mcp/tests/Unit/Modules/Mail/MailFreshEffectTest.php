@@ -26,7 +26,7 @@ final class MailFreshEffectTest extends TestCase {
         $selection=new ConnectionToolsStore($fx->db,$clock,$this->createMock(TokenOwnerGate::class),new AuthUsersMapper($fx->db),$fx->state,new OAuthClientsMapper($fx->db));
         $selection->save('alice',0,['mail_write_draft'],'0');$context=new ConnectionContext();
         $operationDb=new \OCA\Mcp\Tests\Unit\SqliteDatabase($this,[new \OCA\Mcp\Migration\Version002700Date20261107000000()]);
-        $journal=new OperationJournal(new \OCA\Mcp\Db\OperationsMapper($operationDb->connection()),new \OCA\Mcp\Mcp\Confirmation\PlanState($fx->config->mock($this)),$context,$clock);
+        $journal=new OperationJournal(new \OCA\Mcp\Db\OperationsMapper($operationDb->connection()),new \OCA\Mcp\Mcp\Confirmation\PlanState($fx->config->mock($this)),$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('isEnabledForUser')->willReturn(true);$apps->method('getAppVersion')->willReturn('99.0.0');$apps->method('getAppPath')->willReturn('/native-mail');
         $guests=$this->createMock(\OCA\Mcp\Access\Guests\GuestRestrictions::class);$guests->method('allowsApp')->willReturn(true);
         self::assertSame(['mail_write_draft'],$selection->get('alice',0)['tools']);

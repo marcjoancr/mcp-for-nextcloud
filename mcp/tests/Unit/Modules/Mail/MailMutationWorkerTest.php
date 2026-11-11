@@ -17,7 +17,7 @@ final class MailMutationWorkerTest extends TestCase {
     public function testRevocationAfterRemoteEffectRetainsProofAndPreventsCacheAndReplay():void {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
         $ctx=new ConnectionContext();$ctx->set(4);$clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
-        $proof=new PlanState((new InMemoryConfig())->mock($this));$journal=new OperationJournal($store,$proof,$ctx,$clock);$tickets=new MutationTicket($proof,$clock);
+        $proof=new PlanState((new InMemoryConfig())->mock($this));$journal=new OperationJournal($store,$proof,$ctx,$clock, new \OCA\Mcp\Tests\Support\OperationActors());$tickets=new MutationTicket($proof,$clock);
         $r=['account_id'=>4,'message_id'=>17,'mailbox_id'=>5,'mailbox'=>'INBOX','generation'=>'42','uid'=>'9','flag'=>'seen','value'=>true,'profile_revision'=>'p','cache_revision'=>'c'];
         $target=$this->createMock(MailMutationTarget::class);$target->method('snapshot')->willReturn(['request'=>$r,'before'=>false]);
         $allowed=true;$authorize=static function()use(&$allowed):bool{return $allowed;};

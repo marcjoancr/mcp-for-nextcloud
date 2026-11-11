@@ -99,7 +99,7 @@ final class MailDeliveryOperationsTest extends TestCase {
         $connection=new ConnectionContext();$connection->set(12);
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(strtotime('2026-11-11T00:00:00Z'));
         $proof=new PlanState((new InMemoryConfig())->mock($this));
-        $journal=new OperationJournal($this->createMock(OperationStore::class),$proof,$connection,$clock);
+        $journal=new OperationJournal($this->createMock(OperationStore::class),$proof,$connection,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $allowed=(object)['tools'=>['mail_schedule'=>true,'mail_send'=>true,'mail_sent_repair'=>true]];
         return [new MailDeliveryOperations($gateway,$proof,$journal,$connection,$clock,static fn(string $uid,string $tool):bool=>isset($allowed->tools[$tool])),$gateway,$connection,$allowed,$journal];
     }

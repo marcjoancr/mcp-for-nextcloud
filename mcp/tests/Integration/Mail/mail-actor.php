@@ -58,6 +58,9 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 switch ($action) {
     case 'content-native':
         try{$out=\OCA\Mcp\Tests\Integration\Mail\MailContentActor::run($uid,$in);}catch(\Throwable $error){$out=['fixture_error'=>get_class($error).': '.$error->getMessage(),'site'=>basename($error->getFile()).':'.$error->getLine()];}break;
+    case 'actor-incarnation':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailIncarnationActor::run($in);
+        break;
     case 'erasure-native':
         try{$out=\OCA\Mcp\Tests\Integration\Mail\MailErasureActor::run($in);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e).': '.$e->getMessage(),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
     case 'delivery-child':

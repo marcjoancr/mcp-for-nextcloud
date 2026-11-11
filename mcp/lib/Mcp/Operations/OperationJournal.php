@@ -19,7 +19,7 @@ final class OperationJournal {
     private ?array $active = null;
 
     public function __construct(private OperationStore $store, private PlanState $proof,
-        private ConnectionContext $connection, private ITimeFactory $clock) {}
+        private ConnectionContext $connection, private ITimeFactory $clock, private ActorIdentity $actors) {}
 
     public static function property(): array {
         return ['type' => 'string', 'minLength' => 1, 'maxLength' => 128,
@@ -27,6 +27,7 @@ final class OperationJournal {
     }
 
     public function plan(string $tool, string $uid, array $args, array $plan): array {
+        $this->actors->capture($uid);
         $expires = $this->clock->getTime() + self::TTL;
         $nonce = bin2hex(random_bytes(16));
         $base = $nonce . '.' . $expires;
@@ -44,23 +45,26 @@ final class OperationJournal {
         if (!hash_equals($this->signature($tool, $uid, $parts[1], $fingerprint), $parts[3])) {
             throw new ToolFailure('Operation does not match the approved request.');
         }
+        $actor = $this->actors->capture($uid);
         $scope = $this->scope($uid);
         $old = $this->store->get($scope, $id);
-        if ($old !== null) return $this->replay($old, $authorizeReplay);
+        if ($old !== null) return $this->replay($uid, $old, $authorizeReplay);
         if ((int)$parts[2] < $this->clock->getTime()) throw new \InvalidArgumentException('Operation plan expired; preview again.');
         $target = $tool==='mail_reconcile_operation' ? 'reconcile:'.($args['target_operation_id']??'') : ($tool==='mail_create_tag' ? 'mail-tags' : (isset($args['account_id']) ? 'account:' . (int)$args['account_id'] : (isset($args['draft_id']) ? 'draft:' . $args['draft_id'] : (isset($args['path']) ? 'file:' . $args['path'] : null))));
         $row = ['scope_key' => $scope, 'actor_uid' => $uid, 'operation_id' => $id, 'tool_name' => $tool, 'effect_digest' => $fingerprint,
             'target_key' => $target === null ? null : hash('sha256', $uid . "\0" . $target),
-            'state' => 'running', 'resource_refs' => isset($args['account_id']) ? ['account_id'=>(int)$args['account_id']] : [], 'created_at' => $this->clock->getTime(), 'updated_at' => $this->clock->getTime()];
+            'state' => 'running', 'resource_refs' => ['actor_incarnation'=>$actor] + (isset($args['account_id']) ? ['account_id'=>(int)$args['account_id']] : []), 'created_at' => $this->clock->getTime(), 'updated_at' => $this->clock->getTime()];
         if (!$this->store->reserve($row)) {
             $existing = $this->store->get($scope, $id);
-            if ($existing !== null) return $this->replay($existing, $authorizeReplay);
+            if ($existing !== null) return $this->replay($uid, $existing, $authorizeReplay);
             throw new ToolFailure('Another write owns this target; inspect its operation before changing it.');
         }
-        $this->active = ['scope' => $scope, 'id' => $id, 'tool'=>$tool, 'refs' => $row['resource_refs']];
+        $this->active = ['uid'=>$uid, 'actor'=>$actor, 'scope' => $scope, 'id' => $id, 'tool'=>$tool, 'refs' => $row['resource_refs']];
         $repair = null;
         try {
+            $this->assertActiveActor();
             $result = $effect();
+            $this->assertActiveActor();
         } catch (LocalCommitUnknown $failure) {
             // Do not write provisional memory back after an ambiguous commit. The connection was discarded.
             $this->active = null;
@@ -72,7 +76,7 @@ final class OperationJournal {
             if(isset($this->active['delegated']))return $this->adoptNative($uid);
             $authorization=$this->active['refs']['authorization']??null;
             $this->active = null;
-            $this->store->finish($scope, $id, 'failed_before_effect', is_array($authorization)?['authorization'=>$authorization]:[], $this->clock->getTime());
+            $this->store->finish($scope, $id, 'failed_before_effect', ['actor_incarnation'=>$actor]+(is_array($authorization)?['authorization'=>$authorization]:[]), $this->clock->getTime());
             throw $e;
         } catch (\Throwable) {
             if(isset($this->active['delegated']))return $this->adoptNative($uid);
@@ -104,9 +108,10 @@ final class OperationJournal {
     /** DB-only native mapper work and its checkpoint must use this same connection. No remote effects are allowed. */
     public function atomicLocal(\OCP\IDBConnection $db, \Closure $write): mixed {
         if($this->active===null||isset($this->active['delegated'])||$db->inTransaction())throw new BeforeEffectFailure('An independent local operation transaction is required.');
+        $this->assertActiveActor();
         $before=$this->active['refs'];
         try{$db->beginTransaction();}catch(\Throwable){throw new BeforeEffectFailure('The local transaction could not start.');}
-        try{$result=$write();if(!$db->inTransaction())throw new \RuntimeException('The local transaction ended before its completion checkpoint.');$this->checkpoint(['local_completed'=>true]);}
+        try{$result=$write();if(!$db->inTransaction())throw new \RuntimeException('The local transaction ended before its completion checkpoint.');$this->checkpoint(['local_completed'=>true]);$this->assertActiveActor();}
         catch(\Throwable $e){
             try{$db->rollBack();}catch(\Throwable){try{$db->close();}catch(\Throwable){throw new LocalCommitUnknown('Local connection could not be discarded.',false);}throw new LocalCommitUnknown('Local rollback outcome unavailable.');}
             $this->active['refs']=$before;
@@ -129,12 +134,14 @@ final class OperationJournal {
 
     private function adoptNative(string $uid): array {
         $active=$this->active;$this->active=null;
+        $this->actors->assertCurrent($uid,$active['actor']);
         for($attempt=0;$attempt<8;$attempt++){
             $row=$this->store->get($active['scope'],$active['id']);
             if($row===null)throw new \RuntimeException('Native operation evidence unavailable.');
             if($row['state']!=='running')break;
             $phase=$row['resource_refs']['mutation']['phase']??'';
             $state=$phase==='completed'?'succeeded':($phase==='prepared'?'failed_before_effect':'uncertain');
+            $this->actors->assertCurrent($uid,$active['actor']);
             if($this->store->finishNative($active['scope'],$active['id'],$active['delegated'],$phase,$state,[],$this->clock->getTime()))break;
         }
         return ['operation'=>$this->get($uid,$active['id'])];
@@ -143,6 +150,7 @@ final class OperationJournal {
     public function scopeKey(string $uid): string {return $this->scope($uid);}
     public function activeId(string $uid): string {
         if($this->active===null || $this->active['scope']!==$this->scope($uid))throw new ToolFailure('A confirmed operation reservation is required.');
+        $this->assertActiveActor();
         return $this->active['id'];
     }
     public function awaitingUser(int $expires): void {
@@ -151,12 +159,15 @@ final class OperationJournal {
     }
     public function completeExternal(string $uid,string $id,int $account): void {
         $this->activeId($uid);
-        if(!$this->store->resolveAwaiting($this->scope($uid),$id,['account_id'=>$account,'native_state'=>'observed_in_mail','source'=>'native_ui'],$this->clock->getTime()))throw new ToolFailure('Setup state changed; inspect its outcome.');
+        $original=$this->privateResources($uid,$id);
+        if(!$this->store->resolveAwaiting($this->scope($uid),$id,array_replace($original,['account_id'=>$account,'native_state'=>'observed_in_mail','source'=>'native_ui']),$this->clock->getTime()))throw new ToolFailure('Setup state changed; inspect its outcome.');
     }
 
     /** Checkpoint only opaque native identities and integrity digests, never message or file content. */
     public function checkpoint(array $refs): void {
         if ($this->active === null) return;
+        $this->assertActiveActor();
+        if(array_key_exists('actor_incarnation',$refs)&&$refs['actor_incarnation']!==$this->active['actor'])throw new \LogicException('Original actor is immutable.');
         if(isset($this->active['delegated']))throw new \LogicException('Delegated evidence is authoritative.');
         if(isset($refs['authorization'],$this->active['refs']['authorization'])&&$refs['authorization']!==$this->active['refs']['authorization'])throw new \LogicException('Original authorization is immutable.');
         $this->active['refs'] = array_replace($this->active['refs'], $refs);
@@ -165,6 +176,7 @@ final class OperationJournal {
 
     /** Called after the fresh draft plan was validated, before reusable attachment IDs are touched. */
     public function claimRepair(string $uid, string $id): void {
+        $this->privateResources($uid,$id);
         if ($this->active === null || $this->active['scope'] !== $this->scope($uid)
             || !$this->store->claimPartial($this->scope($uid), $id, 'repairing')) {
             throw new ToolFailure('Repair state changed; preview again.');
@@ -178,6 +190,7 @@ final class OperationJournal {
         if ($row === null || !($row['state'] === 'partial' || ($row['state'] === 'repairing' && ($this->active['repair_of'] ?? null) === $id && ($this->active['scope'] ?? null) === $this->scope($uid))) || !in_array($row['tool_name'], ['mail_write_draft', 'mail_attach_files'], true)) {
             throw new ToolFailure('This operation has no verified attachment repair state.');
         }
+        $this->assertRowActor($uid,$row);
         return $row['resource_refs'];
     }
 
@@ -185,12 +198,13 @@ final class OperationJournal {
     public function activeAuthorization(string $uid):array {
         $this->activeId($uid);$refs=$this->active['refs']['authorization']??null;
         if(!is_array($refs))throw new ToolFailure('Original Mail authorization unavailable.');
-        return ['tool'=>$this->active['tool'],'refs'=>$refs];
+        return ['tool'=>$this->active['tool'],'refs'=>$refs,'actor_incarnation'=>$this->active['actor']];
     }
     /** Trusted server-side authorization only; never serialize this result into a public receipt. */
     public function privateResources(string $uid,string $id):array {
         $row=$this->store->get($this->scope($uid),$id);
-        if($row===null||($row['actor_uid']??null)!==$uid)throw new ToolFailure('Operation not found.');
+        if($row===null)throw new ToolFailure('Operation not found.');
+        $this->assertRowActor($uid,$row);
         return $row['resource_refs'];
     }
     /** One immutable descriptor, recorded after ownership admission and before the effect callback proceeds. */
@@ -202,18 +216,45 @@ final class OperationJournal {
 
     public function get(string $uid, string $id): ?array {
         $row = $this->store->get($this->scope($uid), $id);
-        return $row === null ? null : $this->receipt($row, false);
+        if($row===null)return null;
+        $this->assertRowActor($uid,$row);
+        return $this->receipt($row, false);
     }
 
     public function list(string $uid, int $limit = 20, int $offset = 0): array {
-        return array_map(fn(array $r): array => $this->receipt($r, false),
-            $this->store->list($this->scope($uid), max(1, min(50, $limit)), max(0, min(10000, $offset))));
+        return $this->page($uid,$limit,$offset)['operations'];
     }
 
-    private function replay(array $row, ?\Closure $authorize): array {
+    /** Internal raw cursor count prevents hidden old actors from truncating or rescanning list pages. */
+    public function page(string $uid,int $limit,int $offset):array {
+        $this->actors->capture($uid);
+        $rows=$this->store->list($this->scope($uid),max(1,min(50,$limit)),max(0,min(10000,$offset)));$visible=[];
+        foreach($rows as $row) {
+            try{$this->assertRowActor($uid,$row);}catch(ActorRetired){continue;}
+            $visible[]=$this->receipt($row,false);
+        }
+        return ['operations'=>$visible,'scanned'=>count($rows)];
+    }
+
+    private function replay(string $uid,array $row, ?\Closure $authorize): array {
+        $this->assertRowActor($uid,$row);
         $receipt = $this->receipt($row, true);
         if ($authorize !== null) $authorize($receipt);
         return ['operation' => $receipt];
+    }
+
+    /** Pin this process admission before any private Mail read or callback is created. */
+    public function actor(string $uid):string { return $this->actors->capture($uid); }
+    public function assertActor(string $uid,string $original):void { $this->actors->assertCurrent($uid,$original); }
+    private function assertActiveActor():void {
+        if($this->active===null)throw new ToolFailure('A confirmed operation reservation is required.');
+        $this->actors->assertCurrent($this->active['uid'],$this->active['actor']);
+    }
+    private function assertRowActor(string $uid,array $row):void {
+        $token=$row['resource_refs']['actor_incarnation']??'';
+        if(!in_array($row['actor_uid']??null,[$uid,''],true)||($row['scope_key']??null)!==$this->scope($uid)||!is_string($token)||$token==='')throw new ActorRetired();
+        $this->actors->assertCurrent($uid,$token);
+        if(!hash_equals($this->actors->capture($uid),$token))throw new ActorRetired();
     }
 
     private function receipt(array $row, bool $replayed): array {

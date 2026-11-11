@@ -29,7 +29,7 @@ final class MailAccountSetupTest extends TestCase {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturnCallback(fn():int=>$this->now);
         $context=new ConnectionContext();$context->set(12);
-        $journal=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock);
+        $journal=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $store=new MailSetupWorkflowsMapper($db->connection());
         $urls=$this->createMock(IURLGenerator::class);$urls->method('linkToRouteAbsolute')->willReturnCallback(static fn(string $r):string=>'https://cloud.example.test/apps/mail/'.($r==='mail.page.setup'?'setup':''));
         $hosts=$this->createMock(IRemoteHostValidator::class);$hosts->method('isValid')->willReturn(true);

@@ -14,9 +14,10 @@ class DeliveryWorker {
             if(!$this->tickets->verify($ticket))return ['status'=>'refused'];
             $origin=$this->gateway->workerContext($ticket['uid'],$ticket['id']);
             foreach(['accountId','connectionId','sourceTool']as$key)if(($origin[$key]??null)!==$ticket[$key])return ['status'=>'refused'];
-            $allows=function(string $uid,int $connection,string $source,int $account)use($ticket):bool {
+            $allows=function(string $uid,int $connection,string $source,int $account)use($ticket,$origin):bool {
                 if(!$this->tickets->verify($ticket)||$uid!==$ticket['uid']||$connection!==$ticket['connectionId']||$source!==$ticket['sourceTool']||$account!==$ticket['accountId'])throw new \RuntimeException('Delivery audit identity or deadline changed.');
-                return ($this->authorize)($uid,$connection,$source,$account,$ticket['action']==='repair');
+                try{$operation=$this->gateway->originalOperation($uid,$origin);}catch(\OCA\Mcp\Mcp\Operations\ActorRetired){return false;}
+                return ($this->authorize)($uid,$connection,$source,$account,$ticket['action']==='repair',$operation);
             };
             $review=new class($allows){public function __construct(private \Closure $live){}public function allows(string $uid,int $connection,string $source,int $account):bool{return ($this->live)($uid,$connection,$source,$account);}};
             if($ticket['action']==='audit'){
@@ -28,13 +29,13 @@ class DeliveryWorker {
                 if($ticket['action']==='dispatch')$this->gateway->reviewAuthorization($ticket['uid'],$ticket['id'],$review);
                 return ['status'=>'refused'];
             }
-            $live=function(string $uid,int $connection,string $source,int $account)use($ticket):void {
+            $live=function(string $uid,int $connection,string $source,int $account)use($ticket,$allows,$origin):void {
                 if(!$this->tickets->verify($ticket)||$uid!==$ticket['uid']||$connection!==$ticket['connectionId']||$account!==$ticket['accountId']
                     ||!in_array($source,$ticket['action']==='repair'?[$ticket['sourceTool'],'mail_sent_repair']:[$ticket['sourceTool']],true)
                     )throw new \RuntimeException('Delivery child identity or deadline changed.');
-                if(!($this->authorize)($uid,$connection,$ticket['sourceTool'],$account,$ticket['action']==='repair'))throw $this->gateway->workerBeforeWireBlock();
+                if(!$allows($uid,$connection,$ticket['sourceTool'],$account))throw $this->gateway->workerBeforeWireBlock();
                 $fresh=$this->gateway->workerContext($uid,$ticket['id']);
-                foreach(['accountId','connectionId','sourceTool']as$key)if(($fresh[$key]??null)!==$ticket[$key])throw new \RuntimeException('Delivery origin changed.');
+                foreach(['accountId','connectionId','sourceTool','operationKeyHash']as$key)if(($fresh[$key]??null)!==($origin[$key]??null))throw new \RuntimeException('Delivery origin changed.');
             };
             $fence=new class($live){public function __construct(private \Closure $live){} public function authorize(string $uid,int $connection,string $source,int $account):void {($this->live)($uid,$connection,$source,$account);}};
             if($ticket['action']==='repair')$this->gateway->repairSent($ticket['uid'],$ticket['id'],$ticket['repairRevision'],$fence);

@@ -15,7 +15,7 @@ final class MailNativeMoveActor {
         $args=['account_id'=>$sentinel,'message_id'=>17,'destination_mailbox_id'=>6];$plan=$journal->plan('mail_move_message',$uid,$args,['plan_state'=>'fixture']);$args+=['operation_id'=>$plan['operation_id'],'plan_state'=>'fixture'];$verified=false;
         try {
             $effect=function()use($uid,$journal,$store,$r,$client,&$verified):array{
-                $l=$journal->delegateNative($uid,$r);$f=new \OCA\Mcp\Mcp\Operations\NativeOperationFence($store,$l,$r,static fn():bool=>true);
+                $l=$journal->delegateNative($uid,$r);$f=new \OCA\Mcp\Mcp\Operations\NativeOperationFence($store,$l,$r,static fn():bool=>true,static fn():bool=>true);
                 $result=$client->moveGuarded($r,Server::get('OCA\\Mail\\Service\\GuardedMessageMutations')->fence($f));$verified=true;return $result;
             };
             $result=$journal->execute('mail_move_message',$uid,$args,$effect);
@@ -88,7 +88,7 @@ final class MailNativeMoveActor {
         $safe=MailNativeMutationActor::safety($uid);
         try{
             $plan=$journal->plan($tool,$uid,$args,['plan_state'=>'fixture']);$args+=['operation_id'=>$plan['operation_id'],'plan_state'=>'fixture'];
-            $effect=function()use($uid,$journal,$store,$r,$admission):array{$l=$journal->delegateNative($uid,$r);$f=new \OCA\Mcp\Mcp\Operations\NativeOperationFence($store,$l,$r,$admission);$native=Server::get('OCA\\Mail\\Service\\GuardedMessageMutations');return $native->move($uid,$r,$native->fence($f));};
+            $effect=function()use($uid,$journal,$store,$r,$admission):array{$l=$journal->delegateNative($uid,$r);$f=new \OCA\Mcp\Mcp\Operations\NativeOperationFence($store,$l,$r,$admission,static fn():bool=>true);$native=Server::get('OCA\\Mail\\Service\\GuardedMessageMutations');return $native->move($uid,$r,$native->fence($f));};
             $result=$journal->execute($tool,$uid,$args,$effect);$counts=[$hookCount,$eventCount];
             $replay=$journal->execute($tool,$uid,$args,static fn():array=>throw new \LogicException('No replay'));
             $source=self::inspect($uid,$fixture,$r['mailbox_id']);$dest=self::inspect($uid,$fixture,$r['destination_mailbox_id']);

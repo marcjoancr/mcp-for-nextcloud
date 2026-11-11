@@ -20,11 +20,13 @@ final class MailFreshAccess {
     }
     /** Native code supplies an independently owner-verified resource before private reads. */
     public function assertResource(string $uid,string $tool,int $account,int $mailbox=0):void {
-        $this->assertContext($uid,['tool'=>$tool,'refs'=>['v'=>1,'mail'=>[['account'=>$account,'mailbox'=>$mailbox]],'global'=>false,'files'=>[],'tools'=>[]]]);
+        $this->assertContext($uid,['actor_incarnation'=>$this->journal->actor($uid),'tool'=>$tool,'refs'=>['v'=>1,'mail'=>[['account'=>$account,'mailbox'=>$mailbox]],'global'=>false,'files'=>[],'tools'=>[]]]);
     }
     private function assertContext(string $uid,array $context):void {
+        $this->journal->assertActor($uid,$context['actor_incarnation']);
         $connection=$this->connection->current();
         $this->policy->freshWithin($uid,function(GrantPolicy $fresh)use($uid,$context,$connection):void {
+            $this->journal->assertActor($uid,$context['actor_incarnation']);
             $user=$this->users->get($uid);
             if($user===null||!$user->isEnabled()||!$this->apps->isEnabledForUser('mcp',$user)||!$fresh->canConnect($uid))throw new ToolFailure('Mail authorization changed.');
             $selection=$this->selections->get($uid,$connection);

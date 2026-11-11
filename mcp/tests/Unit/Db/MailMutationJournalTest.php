@@ -15,7 +15,7 @@ final class MailMutationJournalTest extends TestCase {
     private function fixture():array {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
         $context=new ConnectionContext();$context->set(4);$clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
-        return [$db,$store,new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),$context,$clock)];
+        return [$db,$store,new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors())];
     }
     private function descriptor():array {return ['account_id'=>4,'message_id'=>17,'mailbox_id'=>5,'mailbox'=>'INBOX','generation'=>'42','uid'=>'9','flag'=>'seen','value'=>true,'profile_revision'=>'profile','cache_revision'=>'cache'];}
     private function args(OperationJournal $j):array {$a=['account_id'=>4,'message_id'=>17,'flag'=>'seen','value'=>true];$p=$j->plan('mail_set_message_flag','alice',$a,['plan_state'=>'approved']);return $a+['plan_state'=>'approved','operation_id'=>$p['operation_id']];}
@@ -52,7 +52,7 @@ final class MailMutationJournalTest extends TestCase {
     public function testExpiredDelegatedWorkerIsReportedUncertainWithoutReleasingItsClaim():void {
         [$db,$store,$journal]=$this->fixture();$scope=$journal->scopeKey('alice');
         $store->reserve(['scope_key'=>$scope,'operation_id'=>'expired-worker','tool_name'=>'mail_set_message_flag','effect_digest'=>'effect','target_key'=>'retained-claim','actor_uid'=>'alice','state'=>'running',
-            'resource_refs'=>['account_id'=>4,'mutation'=>['phase'=>'wire_may_start','expires_at'=>995]],'created_at'=>970,'updated_at'=>970]);
+            'resource_refs'=>['actor_incarnation'=>$journal->actor('alice'),'account_id'=>4,'mutation'=>['phase'=>'wire_may_start','expires_at'=>995]],'created_at'=>970,'updated_at'=>970]);
         self::assertSame('uncertain',$journal->get('alice','expired-worker')['state']);self::assertSame('retained-claim',$store->get($scope,'expired-worker')['target_key']);
     }
     public function testDirectCompletionCannotOverwriteDelegatedState():void {

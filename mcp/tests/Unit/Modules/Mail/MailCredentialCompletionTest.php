@@ -39,7 +39,7 @@ final class MailCredentialCompletionTest extends TestCase {
         $connection=$db->connection();
         $clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturnCallback(fn():int=>$this->now);
         $context=new ConnectionContext();$context->set(12);
-        $journal=new OperationJournal(new OperationsMapper($connection),$states,$context,$clock);
+        $journal=new OperationJournal(new OperationsMapper($connection),$states,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $store=new MailSetupWorkflowsMapper($connection);
         $urls=$this->createStub(IURLGenerator::class);$urls->method('linkToRouteAbsolute')->willReturnCallback(static fn(string $r):string=>'https://cloud.example.test/apps/mail/'.($r==='mail.page.setup'?'setup':''));
         $hosts=$this->createStub(IRemoteHostValidator::class);$hosts->method('isValid')->willReturn(true);

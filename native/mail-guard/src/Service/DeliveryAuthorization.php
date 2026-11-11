@@ -9,7 +9,7 @@ final class DeliveryAuthorization {
     public function __construct(private AttemptStore $store){}
     public function context(string $uid,string $id):array {
         $r=$this->store->metadata($uid,$id);
-        return ['accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'draftId'=>(int)$r['draft_id']];
+        return ['operationKeyHash'=>$r['operation_key'],'accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'draftId'=>(int)$r['draft_id']];
     }
     public function queuedAfter(string $cursor,int $limit=25):array {return $this->store->queuedAfter($cursor,$limit);}
     public function due(int $limit=25):array {return $this->store->due($limit);}

@@ -15,7 +15,7 @@ use OCP\Files\IRootFolder;
 final class MailOperationAuthorization {
     private const MESSAGE_WRITES=['mail_set_message_flag','mail_set_message_tag','mail_move_message','mail_archive_message','mail_trash_message','mail_restore_message','mail_refresh_mailbox','mail_export_message','mail_save_attachment','mail_index_messages'];
     public function __construct(private MailAccessGuard $access,private MailServices $native,private OperationJournal $journal,
-        private GrantPolicy $policy,private FilesScope $files,private FilesAccessGuard $fileGuard,private IRootFolder $roots,private \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility $tags){}
+        private GrantPolicy $policy,private FilesScope $files,private FilesAccessGuard $fileGuard,private IRootFolder $roots,private \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility $tags,private MailDeliveryOrigin $deliveryOrigins){}
     public function capture(string $uid,string $tool,array $args):void {
         $this->access->assertReadable($uid);
         $refs=['v'=>1,'mail'=>[],'global'=>false,'files'=>[],'tools'=>[]];
@@ -39,7 +39,7 @@ final class MailOperationAuthorization {
         }
         if($tool==='mail_configure_mailboxes')foreach($args['roles']??[] as $id){$r=$this->identity($uid,'mailbox',(int)$id);if($r['account_id']!==(int)$args['account_id'])throw new ToolFailure('Mail resource not found.');$add($r['account_id'],$r['mailbox_id']);}
         if($tool==='mail_set_message_tag'){$visible=$this->tags->requireVisible($uid,(int)$args['tag_id']);if($visible!==null)$add($visible['account_id'],$visible['mailbox_id']);else $refs['global']=true;}
-        if(isset($args['delivery_id'])){$r=$this->native->guardedDelivery($uid)->accessContext($uid,$args['delivery_id']);$add($r['accountId']);$refs['tools'][]=$r['sourceTool'];}
+        if(isset($args['delivery_id'])){$r=$this->native->guardedDelivery($uid)->accessContext($uid,$args['delivery_id']);$this->deliveryOrigins->assertCurrent($uid,$r);$add($r['accountId']);$refs['tools'][]=$r['sourceTool'];}
         foreach(['setup_operation_id','target_operation_id','evidence_operation_id','repair_of_operation_id'] as $key)if(isset($args[$key])){
             $old=$this->journal->privateResources($uid,$args[$key]);$original=$old['authorization']??null;
             if(!is_array($original))throw new ToolFailure('Operation not found.');$this->assertReferences($uid,$original);

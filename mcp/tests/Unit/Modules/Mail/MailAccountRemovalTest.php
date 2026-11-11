@@ -26,7 +26,7 @@ final class MailAccountRemovalTest extends TestCase {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);$store=new OperationsMapper($db->connection());
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
         $delivery=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class);$delivery->method('hasUnresolved')->willReturnCallback(fn():bool=>$this->deliveryBusy);
-        $j=new OperationJournal($store,$states,new ConnectionContext(),$clock);
+        $j=new OperationJournal($store,$states,new ConnectionContext(),$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         return [new MailAccountRemoval($gateway,$services,$states,$store,new MailSetupWorkflowsMapper($db->connection()),$clock,$delivery),$j,$native,$store];
     }
     public function testEmptyNativeAccountRemovalIsConfirmedAndNeverRepeatedOnLostResponse():void {

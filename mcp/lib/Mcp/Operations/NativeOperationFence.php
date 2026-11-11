@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Mcp\Operations;
 /** DB-only implementation, wrapped by the optional native dependency's typed MutationFence adapter. */
 final class NativeOperationFence {
-    public function __construct(private OperationStore $store,private array $lease,private array $request,private \Closure $authorize,private ?\Closure $remoteValidator=null,private ?\Closure $cacheValidator=null){}
+    public function __construct(private OperationStore $store,private array $lease,private array $request,private \Closure $authorize,private \Closure $originalActor,private ?\Closure $remoteValidator=null,private ?\Closure $cacheValidator=null){}
     public function beforePreconditions(array $binding):bool {
         return ($this->request['requires_trash_hook']??false)===true&&$binding===$this->request&&($this->authorize)()&&$this->step('prepared',['phase'=>'preconditions_may_start']);
     }
@@ -48,6 +48,7 @@ final class NativeOperationFence {
             &&$this->step('cache_pending',['phase'=>'completed','cache'=>$result]);
     }
     private function step(string $phase,array $refs):bool {
+        if(!($this->originalActor)())return false;
         $row=$this->store->get($this->lease['scope'],$this->lease['id']);
         if(($row['resource_refs']['mutation']['descriptor']??null)!==$this->request)return false;
         return $this->store->checkpointNative($this->lease['scope'],$this->lease['id'],$this->lease['token'],$phase,$refs);

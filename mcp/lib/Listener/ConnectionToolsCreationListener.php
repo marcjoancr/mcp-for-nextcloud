@@ -17,7 +17,7 @@ use OCP\User\Events\BeforeUserCreatedEvent;
 /** Before Nextcloud creates a UID, clear the previous account's grants and connection selections together. */
 final class ConnectionToolsCreationListener implements IEventListener {
     public function __construct(private ConnectionToolsStore $selections, private ToolGrantsMapper $toolGrants,
-        private PolicyTransaction $transaction) {}
+        private PolicyTransaction $transaction, private \OCA\Mcp\Mcp\Operations\DurableActorIdentity $actors) {}
 
     public function handle(Event $event): void {
         if (!$event instanceof BeforeUserCreatedEvent) {
@@ -26,6 +26,7 @@ final class ConnectionToolsCreationListener implements IEventListener {
         // A failed cleanup must abort native creation before the backend can publish the new account.
         $uid = $event->getUid();
         $this->transaction->runInternal([$uid], static fn () => null, function () use ($uid): bool {
+            $this->actors->rotateBeforeCreation($uid);
             $changed = $this->toolGrants->deletePrincipal(ToolGrantsMapper::USER, $uid);
             $this->selections->deleteUserSelections($uid);
             return $changed;

@@ -36,6 +36,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function call(string $name, array $arguments, string $userId): array {
+        $this->operations?->actor($userId);
         $this->access->assertReadable($userId);
         $tool = $this->resolve($name);
         if ($this->operations === null || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
@@ -59,6 +60,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function preview(string $name, array $arguments, string $userId): array {
+        $this->operations?->actor($userId);
         $this->access->assertReadable($userId);
         $tool = $this->resolve($name);
         if (!$tool instanceof WriteTool || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {

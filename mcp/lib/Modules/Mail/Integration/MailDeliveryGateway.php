@@ -11,16 +11,17 @@ use OCP\IConfig;
 
 /** Closed native queue boundary; ordinary OutboxService and mutable native send APIs are never resolved. */
 class MailDeliveryGateway {
-    public function __construct(private MailServices $services,private MailNativeBoundary $boundary,private IConfig $config,private MailGateway $accounts,private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access,private ?\OCP\IDBConnection $db=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null){}
+    public function __construct(private MailServices $services,private MailNativeBoundary $boundary,private IConfig $config,private MailGateway $accounts,private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access,private \OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin $origins,private ?\OCP\IDBConnection $db=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null){}
     /** Read-only source/provider evidence; this never resolves a transport or confers authorization. */
     public function available(string $uid):bool {try{$this->admit($uid);return true;}catch(\Throwable){return false;}}
     public function enabled():bool {return $this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false);}
     public function preview(string $uid,int $draft,string $source='mail_send'):array {$this->accounts->requireDraft($uid,$draft);return $this->native($uid)->preview($uid,$draft,$this->fence($uid,$source,false));}
     public function queue(string $uid,int $draft,string $revision,string $operation,int $connection,string $source,int $at,string $zone,?array $sentTarget=null):array {
+        $this->origins->bind($uid,$operation,$connection,$source);
         $this->accounts->requireDraft($uid,$draft);return $this->native($uid)->queue($uid,$draft,$revision,$operation,$connection,$source,$at,$zone,$sentTarget,$this->fence($uid,$source,true));
     }
-    public function findByOperation(string $uid,string $key):?array {$this->access->assertReadable($uid);$r=$this->native($uid)->findByOperation($uid,$key);if($r!==null)$this->access->requireAccount($uid,(int)$r['accountId']);return $r;}
-    public function accessContext(string $uid,string $id):array {$this->access->assertReadable($uid);$r=$this->native($uid)->accessContext($uid,$id);$this->access->requireAccount($uid,(int)$r['accountId']);return $r;}
+    public function findByOperation(string $uid,string $key):?array {$this->access->assertReadable($uid);$r=$this->native($uid)->findByOperation($uid,$key);if($r!==null)$this->accessContext($uid,$r['id']);return $r;}
+    public function accessContext(string $uid,string $id):array {$this->access->assertReadable($uid);$r=$this->native($uid)->accessContext($uid,$id);$this->origins->assertCurrent($uid,$r);$this->access->requireAccount($uid,(int)$r['accountId']);return $r;}
     public function status(string $uid,string $id):array {$this->accessContext($uid,$id);return $this->native($uid)->status($uid,$id);}
     public function cancel(string $uid,string $id,string $revision):array {$this->accessContext($uid,$id);$this->freshAccess?->assertActive($uid);return $this->native($uid)->cancel($uid,$id,$revision);}
     public function beforeWireBlock(string $uid):\Throwable {$this->admit($uid);return $this->services->beforeWireBlock($uid);}
@@ -31,6 +32,7 @@ class MailDeliveryGateway {
     /** These internal calls may only inspect metadata or terminal-block a queued entry, never transmit. */
     public function workerContext(string $uid,string $id):array {return $this->authorization()->context($uid,$id);}
     public function reviewAuthorization(string $uid,string $id,object $fence):array {return $this->authorization()->review($uid,$id,$fence);}
+    public function originalOperation(string $uid,array $origin):string {return $this->origins->assertCurrent($uid,$origin);}
     public function workerBeforeWireBlock():\Throwable {return $this->authorization()->denied();}
     private function authorization():object {
         if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||!$this->qualifiedProvider()||!$this->boundary->deliveryVerified())throw new ToolFailure('The qualified Mail authorization worker is unavailable.');

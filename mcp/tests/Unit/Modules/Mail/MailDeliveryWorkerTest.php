@@ -78,4 +78,27 @@ final class MailDeliveryWorkerTest extends TestCase {
         self::assertSame(['status'=>'unknown'],(new DeliveryWorker($tickets,$gateway,static fn()=>throw new \OCA\Mcp\Access\Policy\PolicyUnavailable('Unavailable.')))->run($tickets->create($row,'audit')));
     }
 
+    public function testActorRetirementBlocksQueuedConsentButRegistryOutageDoesNot():void {
+        foreach([new \OCA\Mcp\Mcp\Operations\ActorRetired(),new \RuntimeException('Registry read unavailable'),new \OCA\Mcp\Access\Policy\PolicyUnavailable(),new \OCP\DB\Exception('Synthetic connection loss')]as$failure){
+            $retired=$failure instanceof \OCA\Mcp\Mcp\Operations\ActorRetired;
+            $clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);$tickets=new DeliveryTicket(new PlanState((new InMemoryConfig())->mock($this)),$clock);
+            $row=['uid'=>'alice','id'=>str_repeat('a',64),'accountId'=>3,'connectionId'=>12,'sourceTool'=>'mail_schedule'];$gateway=$this->createMock(MailDeliveryGateway::class);$state='queued';
+            $gateway->method('workerContext')->willReturn(['accountId'=>3,'connectionId'=>12,'sourceTool'=>'mail_schedule','operationKeyHash'=>str_repeat('b',64)]);
+            $gateway->method('originalOperation')->willThrowException($failure);
+            foreach(['dispatch','repairSent','status','accessContext']as$method)$gateway->expects(self::never())->method($method);
+            $gateway->method('reviewAuthorization')->willReturnCallback(function($uid,$id,$fence)use(&$state):array{if(!$fence->allows($uid,12,'mail_schedule',3))$state='blocked';return ['state'=>$state];});
+            $worker=new DeliveryWorker($tickets,$gateway,static fn()=>true);$result=$worker->run($tickets->create($row,'audit'));
+            self::assertSame($retired?'blocked':'queued',$state);self::assertSame($retired?'completed':'unknown',$result['status']);
+        }
+    }
+    public function testInFlightDeliveryCannotAdoptRecreatedActorAtTheNextFence():void {
+        $clock=$this->createStub(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);$tickets=new DeliveryTicket(new PlanState((new InMemoryConfig())->mock($this)),$clock);
+        $row=['uid'=>'alice','id'=>str_repeat('a',64),'accountId'=>3,'connectionId'=>12,'sourceTool'=>'mail_send'];$gateway=$this->createMock(MailDeliveryGateway::class);$checks=0;$wire=0;
+        $gateway->method('workerContext')->willReturn(['accountId'=>3,'connectionId'=>12,'sourceTool'=>'mail_send','operationKeyHash'=>str_repeat('b',64)]);
+        $gateway->method('originalOperation')->willReturnCallback(function()use(&$checks):string{if(++$checks>1)throw new \OCA\Mcp\Mcp\Operations\ActorRetired();return 'original';});
+        $gateway->method('workerBeforeWireBlock')->willReturn(new \RuntimeException('Original actor retired'));
+        $gateway->method('dispatch')->willReturnCallback(function($uid,$id,$fence)use(&$wire):array{$fence->authorize($uid,12,'mail_send',3);$wire++;return [];});
+        $result=(new DeliveryWorker($tickets,$gateway,static fn()=>true))->run($tickets->create($row));self::assertSame('unknown',$result['status']);self::assertSame(0,$wire);self::assertSame(2,$checks);
+    }
+
 }

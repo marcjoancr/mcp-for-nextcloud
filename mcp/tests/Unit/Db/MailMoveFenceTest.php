@@ -16,7 +16,7 @@ final class MailMoveFenceTest extends TestCase {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$s=new OperationsMapper($db->connection());
         $s->reserve(['scope_key'=>'s','operation_id'=>'o','tool_name'=>'mail_trash_message','effect_digest'=>'effect','target_key'=>'claim','actor_uid'=>'alice','state'=>'running','resource_refs'=>[],'created_at'=>1000,'updated_at'=>1000]);
         $l=['scope'=>'s','id'=>'o','token'=>'t'];self::assertTrue($s->checkpointNative('s','o','t','',['phase'=>'prepared','descriptor'=>$r]));
-        $allowed=true;$f=new NativeOperationFence($s,$l,$r,static function()use(&$allowed):bool{return $allowed;});
+        $allowed=true;$f=new NativeOperationFence($s,$l,$r,static function()use(&$allowed):bool{return $allowed;},static fn():bool=>true);
         self::assertFalse($f->beforeWire($r));self::assertTrue($f->beforePreconditions($r));self::assertFalse($f->beforePreconditions($r));self::assertTrue($f->beforeWire($r));self::assertFalse($f->beforeWire($r));
         $p=['outcome'=>'moved','message_id'=>17,'mailbox_id'=>5,'generation'=>'42','uid'=>'9','destination_mailbox_id'=>6,'destination_generation'=>'43','destination_uid'=>'27','action'=>'trash'];
         foreach(['generation','uid','destination_generation','destination_mailbox_id','action'] as $key){$bad=$p;$bad[$key]='wrong';self::assertFalse($f->recordRemote($bad));}

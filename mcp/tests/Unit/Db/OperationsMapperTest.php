@@ -58,7 +58,7 @@ final class OperationsMapperTest extends TestCase {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
         $connection=new ConnectionContext();$connection->set(4);$now=1000;
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturnCallback(static function()use(&$now):int{return $now;});
-        $journal=new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),$connection,$clock);
+        $journal=new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),$connection,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $args=['account_id'=>4];$p=$journal->plan('mail_write_draft','alice',$args,['plan_state'=>'proof']);
         $journal->execute('mail_write_draft','alice',$args+['plan_state'=>'proof','operation_id'=>$p['operation_id']],function()use($journal):array{
             $journal->checkpoint(['staged'=>[['attachment_id'=>9,'file_id'=>50,'sha256'=>'hash']]]);
@@ -84,8 +84,8 @@ final class OperationsMapperTest extends TestCase {
         $connection=new ConnectionContext();$connection->set(4);
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
         $proof=new PlanState((new InMemoryConfig())->mock($this));
-        $a=new OperationJournal(new OperationsMapper($db->connection()),$proof,$connection,$clock);
-        $b=new OperationJournal(new OperationsMapper($db->connection()),$proof,$connection,$clock);
+        $a=new OperationJournal(new OperationsMapper($db->connection()),$proof,$connection,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
+        $b=new OperationJournal(new OperationsMapper($db->connection()),$proof,$connection,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $args=['account_id'=>4,'subject'=>'Test'];
         $plan=$a->plan('mail_write_draft','alice',$args,['plan_state'=>'proof']);
         $args+=['operation_id'=>$plan['operation_id'],'plan_state'=>'proof'];
@@ -102,7 +102,7 @@ final class OperationsMapperTest extends TestCase {
         $store=new OperationsMapper($db->connection());$context=new ConnectionContext();
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
         $proof=new PlanState((new InMemoryConfig())->mock($this));
-        $remove=new OperationJournal($store,$proof,$context,$clock);$draft=new OperationJournal($store,$proof,$context,$clock);
+        $remove=new OperationJournal($store,$proof,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());$draft=new OperationJournal($store,$proof,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $a=['account_id'=>4];$p=$remove->plan('mail_delete_account','alice',$a,['plan_state'=>'delete']);
         $b=['account_id'=>4,'draft_id'=>7];$q=$draft->plan('mail_write_draft','alice',$b,['plan_state'=>'draft']);
         $blocked=false;$writes=0;
@@ -118,7 +118,7 @@ final class OperationsMapperTest extends TestCase {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
         $proof=new PlanState((new InMemoryConfig())->mock($this));$context=new ConnectionContext();
-        $a=new OperationJournal($store,$proof,$context,$clock);$b=new OperationJournal($store,$proof,$context,$clock);
+        $a=new OperationJournal($store,$proof,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());$b=new OperationJournal($store,$proof,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $args=['account_id'=>4];$p=$a->plan('mail_complete_account_setup','alice',$args,['plan_state'=>'proof']);
         $args+=['operation_id'=>$p['operation_id'],'plan_state'=>'proof'];$effects=0;$guards=0;
         $native=function()use($b,&$effects):array{$effects++;$b->checkpoint(['source_tool'=>'mail_add_account']);return ['account_id'=>4];};

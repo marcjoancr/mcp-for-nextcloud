@@ -42,7 +42,16 @@ final class OperationJournalTest extends TestCase {
             array_slice(array_values(array_filter($this->rows, fn(array $r): bool => $r['scope_key'] === $scope)), $offset, $limit));
         $clock = $this->createMock(ITimeFactory::class);
         $clock->method('getTime')->willReturnCallback(fn(): int => $this->now);
-        $this->journal = new OperationJournal($store, new PlanState((new InMemoryConfig())->mock($this)), $this->connection, $clock);
+        $this->journal = new OperationJournal($store, new PlanState((new InMemoryConfig())->mock($this)), $this->connection, $clock, new \OCA\Mcp\Tests\Support\OperationActors());
+    }
+
+    public function testUnprovenLegacyOperationStaysOccupiedAndCannotReplay(): void {
+        $args=['account_id'=>4];$plan=$this->journal->plan('mail_write_draft','alice',$args,['plan_state'=>'approved']);
+        $args+=['operation_id'=>$plan['operation_id'],'plan_state'=>'approved'];$effects=0;
+        $this->journal->execute('mail_write_draft','alice',$args,function()use(&$effects):array{$effects++;return ['draft'=>['id'=>77]];});
+        foreach($this->rows as &$row)unset($row['resource_refs']['actor_incarnation']);unset($row);
+        try{$this->journal->execute('mail_write_draft','alice',$args,function()use(&$effects):array{$effects++;return [];});self::fail('Unknown historical actor was adopted');}
+        catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){self::assertSame(1,$effects);self::assertCount(1,$this->rows);}
     }
 
     public function testRepeatedConfirmationReturnsTheSameResourceWithoutRepeatingEffect(): void {
@@ -135,4 +144,11 @@ final class OperationJournalTest extends TestCase {
         $this->connection->set(13);
         self::assertNull($this->journal->get('alice', $p['operation_id']));
     }
+    public function testFormerActorPageIsHiddenWithoutTruncatingTheNextCurrentActorPage():void {
+        $scope=$this->journal->scopeKey('alice');$token=$this->journal->actor('alice');
+        for($i=0;$i<51;$i++)$this->rows[$scope.$i]=['scope_key'=>$scope,'actor_uid'=>'alice','operation_id'=>(string)$i,'tool_name'=>'mail_create_tag','state'=>'succeeded','resource_refs'=>['actor_incarnation'=>$i===50?$token:str_repeat('f',64),'tag_id'=>$i],'updated_at'=>1000];
+        $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($this->journal,static fn()=>true);
+        $result=$reader->list('alice',20,0);self::assertCount(1,$result['operations']);self::assertSame('50',$result['operations'][0]['operation_id']);self::assertNull($result['next_offset']);
+    }
+
 }

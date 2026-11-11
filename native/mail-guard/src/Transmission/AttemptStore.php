@@ -17,7 +17,7 @@ final class AttemptStore {
     public function assertAccount(string $uid,int $account):void {(new \OCA\Mail\Lifecycle\MailErasureStore($this->db))->assertAccount($uid,$account);}
     /** Fixed scalar projection for authorization and receipts; frozen messages never enter an audit. */
     public function metadata(string $uid,string $id):array {
-        return $this->lookup($uid,$id,['id','user_id','draft_id','account_id','revision','state','sent_state','send_at','timezone','created_at','connection_id','source_tool']);
+        return $this->lookup($uid,$id,['operation_key','id','user_id','draft_id','account_id','revision','state','sent_state','send_at','timezone','created_at','connection_id','source_tool']);
     }
     public function find(string $uid,string $id):array {return $this->lookup($uid,$id,['*']);}
     private function lookup(string $uid,string $id,array $columns):array {

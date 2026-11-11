@@ -19,7 +19,7 @@ final class MailConnectionTest extends TestCase {
     use MailSettingsFixture;
     public function testIndependentConfirmedProbesHaveAHardBudgetRateLimitAndNoReplay(): void {
         [$g,,,, $states]=$this->fixture();$context=new ConnectionContext();$clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
-        $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);$store=new OperationsMapper($db->connection());$j=new OperationJournal($store,$states,$context,$clock);
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);$store=new OperationsMapper($db->connection());$j=new OperationJournal($store,$states,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $calls=[];$runner=$this->createMock(NativeProbeProcess::class);
         $runner->method('run')->willReturnCallback(static function(array $command,string $cwd,array $payload,int $budget)use(&$calls):array{
             $calls[]=$payload['protocol'];self::assertSame(10000,$budget);self::assertStringNotContainsString('SECRET',json_encode([$command,$payload]));return ['status'=>$payload['protocol']==='imap'?'ok':'failed','category'=>$payload['protocol']==='imap'?'authenticated':'connection_or_authentication_failed','transcript'=>'SECRET-PROVIDER'];
@@ -45,7 +45,7 @@ final class MailConnectionTest extends TestCase {
     public function testSourceRevocationBetweenProtocolsPreservesObservedResultsWithoutAnotherProbe():void {
         [$g,,,, $states]=$this->fixture();$context=new ConnectionContext();$clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);
-        $j=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock);$allowed=true;$calls=0;
+        $j=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());$allowed=true;$calls=0;
         $setup=$this->createMock(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class);
         $setup->method('diagnosticContext')->willReturnCallback(static function()use(&$allowed):array{
             if(!$allowed)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Source revoked');

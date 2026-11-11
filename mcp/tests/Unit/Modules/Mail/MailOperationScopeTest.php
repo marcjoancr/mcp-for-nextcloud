@@ -24,7 +24,7 @@ final class MailOperationScopeTest extends TestCase {
     private function fixture():array {
         $sql=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($sql->connection());
         $context=new ConnectionContext();$context->set(12);$clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
-        $journal=new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),$context,$clock);
+        $journal=new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $scope=new ScopeStub();$access=new MailAccessGuard($scope);$policy=$this->createMock(GrantPolicy::class);$policy->method('scopeItems')->willReturn(null);
         $ids=new class {public bool $deleted=false;public int $calls=0;public function identities(string $uid,string $kind,array $ids):array {$this->calls++;if($this->deleted)return [];return array_map(static fn(int $id):array=>['id'=>$id,'account_id'=>$kind==='account'?$id:3,'mailbox_id'=>match($kind){'message'=>$id===102?8:7,'mailbox'=>$id,default=>0}],$ids);}};
         $native=$this->createMock(MailServices::class);$native->method('boundedMetadata')->willReturn($ids);
@@ -32,9 +32,9 @@ final class MailOperationScopeTest extends TestCase {
         $native->method('guardedDelivery')->willReturn(new class{public function accessContext(string $uid,string $id):array{return ['accountId'=>3,'sourceTool'=>'mail_send'];}});
         $files=$this->createMock(FilesScope::class);$files->method('candidates')->willReturn(['91']);
         $root=$this->createMock(\OCP\Files\Folder::class);$root->method('isReadable')->willReturn(true);$roots=$this->createMock(\OCP\Files\IRootFolder::class);$roots->method('getUserFolder')->willReturn($root);
-        $authorization=new MailOperationAuthorization($access,$native,$journal,$policy,$files,$this->createMock(FilesAccessGuard::class),$roots,new \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility($native,$access));
+        $authorization=new MailOperationAuthorization($access,$native,$journal,$policy,$files,$this->createMock(FilesAccessGuard::class),$roots,new \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility($native,$access),$this->createMock(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class));
         $reader=new MailOperationReader($journal,static fn()=>true,authorization:$authorization);
-        $store->reserve(['scope_key'=>$journal->scopeKey('alice'),'actor_uid'=>'alice','operation_id'=>'prior','tool_name'=>'mail_write_account_settings','effect_digest'=>'prior','target_key'=>null,'state'=>'succeeded','resource_refs'=>['authorization'=>['v'=>1,'mail'=>[['account'=>3,'mailbox'=>0]],'global'=>false,'files'=>[],'tools'=>[]]],'created_at'=>1,'updated_at'=>1]);
+        $store->reserve(['scope_key'=>$journal->scopeKey('alice'),'actor_uid'=>'alice','operation_id'=>'prior','tool_name'=>'mail_write_account_settings','effect_digest'=>'prior','target_key'=>null,'state'=>'succeeded','resource_refs'=>['actor_incarnation'=>$journal->actor('alice'),'authorization'=>['v'=>1,'mail'=>[['account'=>3,'mailbox'=>0]],'global'=>false,'files'=>[],'tools'=>[]]],'created_at'=>1,'updated_at'=>1]);
         return [$journal,$authorization,$reader,$scope,$ids,$store];
     }
     public function testBeforeEffectFailureRetainsPrivateOriginalProvenanceForRestrictedStatus():void {

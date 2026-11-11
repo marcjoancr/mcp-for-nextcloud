@@ -24,8 +24,10 @@ class NativeMutationWorker {
             $live=function()use($ticket,$uid,$request):bool{return $this->tickets->verify($ticket)&&($this->authorize)($uid,$ticket['connection_id'],MutationRequest::tool($request),fn():bool=>$this->targets->snapshot($uid,$request)['request']===$request,$ticket['lease']['id']);};
             if(!$live())return ['status'=>'refused'];
             $refresh=($request['kind']??null)==='refresh';$folder=($request['kind']??null)==='mailbox';$tag=($request['kind']??null)==='tag';
-            $fence=new NativeOperationFence($this->store,$lease,$request,$live,$refresh?RefreshRequest::remote(...):($folder?MailboxMutationRequest::remote(...):($tag?TagMutationRequest::remote(...):null)),$refresh?RefreshRequest::cache(...):($folder?MailboxMutationRequest::cache(...):($tag?TagMutationRequest::cache(...):null)));
+            $identity=function()use($uid,$lease):bool{$this->journal->privateResources($uid,$lease['id']);return true;};
+            $fence=new NativeOperationFence($this->store,$lease,$request,$live,$identity,$refresh?RefreshRequest::remote(...):($folder?MailboxMutationRequest::remote(...):($tag?TagMutationRequest::remote(...):null)),$refresh?RefreshRequest::cache(...):($folder?MailboxMutationRequest::cache(...):($tag?TagMutationRequest::cache(...):null)));
             $service=$refresh?$this->native->guardedRefresh($uid):$this->native->guardedMutations($uid);if($refresh)$service->refresh($uid,$request,$service->fence(new RefreshOperationFence($this->store,$lease,$request,$live,$fence)));else if(($request['kind']??null)==='mailbox')$this->native->guardedMailboxes($uid)->mutate($uid,$request,$service->fence($fence));elseif($tag)$service->setTag($uid,$request,$service->fence($fence));elseif(isset($request['action']))$service->move($uid,$request,$service->fence($fence));else $service->setFlag($uid,$request,$service->fence($fence));
+            $identity();
             return ['status'=>$this->store->finishNative($lease['scope'],$lease['id'],$lease['token'],'completed','succeeded',[],$this->clock->getTime())?'completed':'unknown'];
         }catch(\Throwable){return ['status'=>'unknown'];}
     }

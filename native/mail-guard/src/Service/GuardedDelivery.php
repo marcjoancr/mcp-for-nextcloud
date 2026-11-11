@@ -25,7 +25,7 @@ final class GuardedDelivery {
         });
     }
     public function findByOperation(string $uid,string $operationKey):?array {$r=$this->store->replay($uid,$operationKey);return $r===null?null:DeliveryState::receipt($r);}
-    public function accessContext(string $uid,string $id):array {$r=$this->store->metadata($uid,$id);return ['accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'draftId'=>(int)$r['draft_id']];}
+    public function accessContext(string $uid,string $id):array {$r=$this->store->metadata($uid,$id);return ['operationKeyHash'=>$r['operation_key'],'accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'draftId'=>(int)$r['draft_id']];}
     public function status(string $uid,string $id):array {return DeliveryState::receipt($this->store->metadata($uid,$id));}
     public function due(int $limit=50):array {if(!$this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false))return [];return $this->store->due($limit);}
     public function queuedAfter(string $cursor,int $limit=25):array {return $this->store->queuedAfter($cursor,$limit);}

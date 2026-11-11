@@ -19,7 +19,7 @@ final class MailMutationSessionTest extends TestCase {
         $runner=$this->createMock(NativeMutationRunner::class);$runner->expects(self::never())->method('run');
         $slots=$this->createMock(MailProbeSlotsMapper::class);$slots->expects(self::never())->method('reserve');
         $store=$this->createMock(OperationStore::class);$store->expects(self::never())->method('checkpointNative');$clock=$this->createStub(ITimeFactory::class);
-        $journal=new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),new ConnectionContext(),$clock);
+        $journal=new OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),new ConnectionContext(),$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $session=new MailMutationSession($target,$journal,$runner,$slots,$clock);$this->expectException(BeforeEffectFailure::class);$session->setFlag('alice',$approved);
     }
 }

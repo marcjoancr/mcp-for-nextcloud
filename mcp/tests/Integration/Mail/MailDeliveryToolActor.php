@@ -61,7 +61,13 @@ final class MailDeliveryToolActor {
             $command=new \ReflectionProperty(DeliveryRunner::class,'command');$command->setValue(Server::get(DeliveryRunner::class),static fn():array=>['command'=>[PHP_BINARY,__DIR__.'/delivery-tool-child.php'],'cwd'=>dirname(__DIR__)]);
             if($scenario==='mcp_repair'){
                 $native=Server::get('OCA\\Mail\\Service\\GuardedDelivery');$preview=$native->preview($uid,$draftId);
-                $pending=$native->queue($uid,$draftId,$preview['revision'],bin2hex(random_bytes(16)),$connection,'mail_send',0,'UTC');$id=$pending['id'];$ids[]=$id;
+                $journal=Server::get(\OCA\Mcp\Mcp\Operations\OperationJournal::class);$syntheticArgs=['draft_id'=>$draftId,'account_id'=>$preview['accountId']];$approved=$journal->plan('mail_send',$uid,$syntheticArgs,['plan_state'=>'synthetic-pending-sent']);
+                $admission=$journal->execute('mail_send',$uid,$syntheticArgs+['operation_id'=>$approved['operation_id'],'plan_state'=>'synthetic-pending-sent'],function()use($uid,$draftId,$preview,$connection,$journal):array {
+                    $journal->recordAuthorization($uid,['v'=>1,'mail'=>[['account'=>$preview['accountId'],'mailbox'=>0]],'global'=>false,'files'=>[],'tools'=>[]]);
+                    $key=hash('sha256',$journal->scopeKey($uid)."\0".$journal->activeId($uid));
+                    $receipt=Server::get(MailDeliveryGateway::class)->queue($uid,$draftId,$preview['revision'],$key,$connection,'mail_send',0,'UTC');
+                    $journal->checkpoint(['delivery_id'=>$receipt['id'],'account_id'=>$preview['accountId'],'source_tool'=>'mail_send']);return ['delivery'=>$receipt];
+                });$pending=$admission['delivery'];$id=$pending['id'];$ids[]=$id;
                 $dispatch=Server::get(DeliveryRunner::class)->run(['uid'=>$uid,'id'=>$id,'accountId'=>$pending['accountId'],'connectionId'=>$connection,'sourceTool'=>'mail_send']);
                 $initial=self::call($uid,'mail_read_delivery',['delivery_id'=>$id]);
                 $plan=self::call($uid,'mail_sent_repair',['delivery_id'=>$id]);if(!isset($plan['plan_state']))throw new \RuntimeException('Repair preview failed: '.json_encode(['plan'=>$plan,'dispatch'=>$dispatch,'state'=>$initial['delivery']['state']??null,'sent'=>$initial['delivery']['sentState']??null]));
@@ -69,7 +75,7 @@ final class MailDeliveryToolActor {
                 return ['before'=>$initial['delivery']['sentState']??null,'after'=>$done['delivery']['sentState']??null,'state'=>$done['delivery']['state']??null,'replayed'=>$again['operation']['replayed']??false,'source_tool'=>$done['operation']['source_tool']??null];
             }
             if($scenario==='mcp_lost_ack'){
-                $proxy=new class(Server::get(MailServices::class),new DeliveryFixtureBoundary(Server::get(\OCP\App\IAppManager::class)),Server::get(\OCP\IConfig::class),Server::get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),$db,Server::get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class))extends MailDeliveryGateway{
+                $proxy=new class(Server::get(MailServices::class),new DeliveryFixtureBoundary(Server::get(\OCP\App\IAppManager::class)),Server::get(\OCP\IConfig::class),Server::get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class),$db,Server::get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class))extends MailDeliveryGateway{
                     public function queue(string $uid,int $draft,string $revision,string $operation,int $connection,string $source,int $at,string $zone,?array $sentTarget=null):array {parent::queue($uid,$draft,$revision,$operation,$connection,$source,$at,$zone,$sentTarget);throw new \RuntimeException('Synthetic lost queue response.');}
                 };
                 (new \ReflectionProperty(MailDeliveryOperations::class,'gateway'))->setValue(Server::get(MailDeliveryOperations::class),$proxy);

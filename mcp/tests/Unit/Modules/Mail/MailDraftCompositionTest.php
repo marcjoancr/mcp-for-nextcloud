@@ -72,8 +72,8 @@ final class MailDraftCompositionTest extends TestCase {
         $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'Before','bodyPlain'=>'Original','bodyHtml'=>'','html'=>false,
             'updatedAt'=>1,'attachments'=>$attachments,'recipients'=>[]]);
         $store=$this->createMock(\OCA\Mcp\Mcp\Operations\OperationStore::class);
-        $store->method('get')->willReturn(['state'=>'partial','tool_name'=>'mail_write_draft','resource_refs'=>['draft_id'=>77,'staged'=>$staged]]);
-        $journal=new \OCA\Mcp\Mcp\Operations\OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),new \OCA\Mcp\OAuth\ConnectionContext(),$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class));
+        $store->method('get')->willReturn(['actor_uid'=>'alice','scope_key'=>hash('sha256',"alice\0".'0'),'state'=>'partial','tool_name'=>'mail_write_draft','resource_refs'=>['actor_incarnation'=>(new \OCA\Mcp\Tests\Support\OperationActors())->capture('alice'),'draft_id'=>77,'staged'=>$staged]]);
+        $journal=new \OCA\Mcp\Mcp\Operations\OperationJournal($store,new PlanState((new InMemoryConfig())->mock($this)),new \OCA\Mcp\OAuth\ConnectionContext(),$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class), new \OCA\Mcp\Tests\Support\OperationActors());
         $files=$this->createMock(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class);$files->method('preview')->willReturn($manifest);
         [$ops]=$this->ops($draft,$files,$journal);
         $plan=$ops->previewWrite(['account_id'=>4,'draft_id'=>77,'subject'=>'Repaired','add_files'=>$paths,'repair_of_operation_id'=>'partial'],'alice');
