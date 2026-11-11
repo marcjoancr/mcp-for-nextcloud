@@ -39,7 +39,7 @@ final class WriteGateContractTest extends TestCase {
             return \OCA\Mcp\Modules\Forms\FormsModule::withReader($this->createStub(\OCA\Mcp\Modules\Forms\FormsReader::class));
         }
         if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
-            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
+            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')), new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
         }
 
         if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {
@@ -218,7 +218,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_outbox', 'read_delivery', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'search_drafts', 'search_indexed_body', 'read_message', 'read_outbox', 'read_delivery', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 

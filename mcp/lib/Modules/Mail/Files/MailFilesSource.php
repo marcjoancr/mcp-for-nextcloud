@@ -24,7 +24,7 @@ class MailFilesSource {
     public const MAX_BYTES = 26214400;
     public function __construct(private IRootFolder $roots, private FilesAccessGuard $guard,
         private BackupLocation $backups, private MailServices $services, private \Closure $allowsTool,
-        private ?OperationJournal $journal = null) {}
+        private ?OperationJournal $journal = null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null) {}
 
     public function preview(string $uid, array $paths): array {
         $this->authorize($uid);
@@ -43,11 +43,13 @@ class MailFilesSource {
     }
 
     public function stage(string $uid, array $manifest, array $reusable = [], ?int $draftId = null): array {
+        $this->freshAccess?->assertActive($uid);
         $fresh = $this->preview($uid, array_column($manifest, 'path'));
         if ($fresh !== $manifest) throw new ToolFailure('Files attachments changed; preview the draft again.');
         $native = $this->services->attachmentService($uid);
         $staged = []; $resources = [];
         foreach ($manifest as $item) {
+            $this->freshAccess?->assertActive($uid);
             [$source, $bytes] = $this->read($uid, $item['path'], self::MAX_BYTES);
             if ((int)$source->getId() !== $item['file_id'] || $source->getEtag() !== $item['etag']
                 || $source->getName() !== $item['name'] || $source->getMimetype() !== $item['mime_type']) {

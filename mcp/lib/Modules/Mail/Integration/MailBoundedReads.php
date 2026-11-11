@@ -21,6 +21,7 @@ final class MailBoundedReads {
 		private MailServices $services,
 		private MailNativeBoundary $boundary,
 		private IConfig $config,
+        private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access,
 	) {
 	}
 
@@ -37,7 +38,9 @@ final class MailBoundedReads {
 		}
 
 		$reader = $this->reader($uid);
-		$page = $reader->outbox($uid, $accountId, $limit, $beforeId);
+		if($accountId!==null)$this->access->requireAccount($uid,$accountId);
+        $scope=$this->access->items($uid);$allowed=$scope===null?null:array_values(array_map(static fn(string $v):int=>(int)substr($v,8),array_filter($scope,static fn(string $v):bool=>str_starts_with($v,'account:'))));
+        $page = $reader->outbox($uid, $accountId, $limit, $beforeId,$allowed);
 		if (!is_array($page) || !is_array($page['items'] ?? null) || !array_is_list($page['items'])) {
 			throw new ToolFailure(MailMessages::boundedReadUnavailable());
 		}
@@ -73,7 +76,12 @@ final class MailBoundedReads {
 
 		$reader = $this->reader($uid);
 		$requested = array_fill_keys(array_keys($unique), true);
-		$rows = $reader->cachedMessages($uid, array_keys($unique));
+		if(!$this->access->unrestricted($uid)){
+            $identities=$reader->identities($uid,'message',array_keys($unique));
+            if(count($identities)!==count($unique))throw new ToolFailure(MailMessages::messageNotFound());
+            foreach($identities as $row)$this->access->requireMailbox($uid,$row['account_id'],$row['mailbox_id']);
+        }
+        $rows = $reader->cachedMessages($uid, array_keys($unique));
 		if (!is_array($rows) || !array_is_list($rows)) {
 			throw new ToolFailure(MailMessages::boundedReadUnavailable());
 		}
@@ -91,12 +99,16 @@ final class MailBoundedReads {
 	}
 
 	private function reader(string $uid): object {
+        $this->access->assertReadable($uid);
 		if (!$this->services->isEnabledFor($uid)
 			|| !$this->boundary->runtimeMatches($this->config->getSystemValueString('version', ''))
 			|| !$this->boundary->boundedMetadataSourceVerified()) {
 			throw new ToolFailure(MailMessages::boundedReadUnavailable());
 		}
-		return $this->services->boundedMetadata($uid);
+        $reader=$this->services->boundedMetadata($uid);
+        // v10 accepts extra PHP arguments without applying them; never pass a restriction to that contract.
+        if(!$this->access->unrestricted($uid)&&!is_callable([$reader,'identities']))throw new ToolFailure(MailMessages::boundedReadUnavailable());
+        return $reader;
 	}
 
 	/** @param array<string,mixed> $arguments @param list<string> $allowed */

@@ -9,13 +9,13 @@ namespace OCA\Mcp\Modules\Mail\Integration;
 use OCA\Mcp\Mcp\Operations\BeforeEffectFailure;
 /** Closed local-write scope: acquires native coordination before staging; no client is passed to MCP. */
 class NativeDraftWrites {
-    public function __construct(private MailServices $mail,private NativeDraftLinks $links){}
+    public function __construct(private MailServices $mail,private NativeDraftLinks $links,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $access=null){}
     public function run(string $uid,\Closure $effect):array {
-        if(!$this->links->available())return $effect();
+        if(!$this->links->available()){$this->access?->assertActive($uid);return $effect();}
         $entered=false;
         try{
             $guard=$this->mail->draftsService($uid)->draftCoordinator();
-            return $guard->runOwner($uid,static function(object $scope)use($effect,&$entered):array {$entered=true;return $effect();});
+            return $guard->runOwner($uid,function(object $scope)use($uid,$effect,&$entered):array {$this->access?->assertActive($uid);$entered=true;return $effect();});
         }catch(\Throwable $error){
             if(!$entered&&$this->links->available()&&get_class($error)==='OCA\\Mail\\Exception\\DraftAdmissionFailure')throw new BeforeEffectFailure('Native draft work is busy or changed before write admission.');
             throw $error;

@@ -12,9 +12,9 @@ use OCP\{IDBConnection,IConfig};
 /** Closed owned content APIs. Byte-bearing results are private integration data, never tool JSON or receipts. */
 final class GuardedContentReader {
     public function __construct(private IDBConnection $db,private IConfig $config,private AccountService $accounts,private IMAPClientFactory $clients){}
-    private function source(string $uid,int $id):array {return (new \OCA\Mail\Content\ContentSource($this->db,$this->config))->message($uid,$id);}
+    private function source(string $uid,int $id,object $fence):array {return (new \OCA\Mail\Content\ContentSource($this->db,$this->config))->message($uid,$id,$fence);}
     private function run(string $uid,int $id,object $fence,\Closure $read):array {
-        $source=$this->source($uid,$id);$authorize=function()use($uid,$id,$fence,$source):void {if($source!==$this->source($uid,$id))throw new \RuntimeException('Content source changed.');$fence->authorize($uid,$source['account_id'],$source['mailbox_id'],$id);};$authorize();
+        $source=$this->source($uid,$id,$fence);$authorize=function()use($uid,$id,$fence,$source):void {if($source!==$this->source($uid,$id,$fence))throw new \RuntimeException('Content source changed.');$fence->authorize($uid,$source['account_id'],$source['mailbox_id'],$id);};$authorize();
         $account=$this->accounts->find($uid,$source['account_id']);
         if($account->getMailAccount()->getDebug()||$this->config->getSystemValueBool('app.mail.debug',false)||!$this->config->getSystemValueBool('app.mail.verify-tls-peer',true))throw new \RuntimeException('Content requires private verified transport.');
         $client=$this->clients->getClient($account,false);
@@ -27,7 +27,7 @@ final class GuardedContentReader {
     }
     /** Metadata-only current-source check before an approved effect; never opens an IMAP connection. */
     public function assertSource(string $uid,array $source,object $fence):void {
-        if(!is_int($source['message_id']??null))throw new \RuntimeException('Invalid content source reference.');$current=$this->source($uid,$source['message_id']);unset($current['mailbox'],$current['drafts_mailbox_id']);
+        if(!is_int($source['message_id']??null))throw new \RuntimeException('Invalid content source reference.');$current=$this->source($uid,$source['message_id'],$fence);unset($current['mailbox'],$current['drafts_mailbox_id']);
         if($current!==$source)throw new \RuntimeException('Content source reference changed.');$fence->authorize($uid,$current['account_id'],$current['mailbox_id'],$current['message_id']);
     }
     public function readRaw(string $uid,int $messageId,object $fence):array {return $this->run($uid,$messageId,$fence,static fn($c):array=>$c->mcpContentRaw());}

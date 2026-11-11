@@ -29,6 +29,7 @@ final class SearchMessages implements Tool {
 		private MailGateway $accounts,
 		private UserTimezone $timezones,
 		private MailLinks $links,
+        private MailMessageGateway $messages,
 	) {
 	}
 
@@ -54,7 +55,7 @@ final class SearchMessages implements Tool {
 	}
 
 	public function execute(array $arguments, ToolContext $context): array {
-		$messages = new MailMessageGateway($this->services);
+		$messages = $this->messages;
 		$zone = $this->timezones->forUser($context->userId);
 		$rows = new MailMessageRows($zone, $this->links);
 		$answer = new MailMessageAnswer($rows);

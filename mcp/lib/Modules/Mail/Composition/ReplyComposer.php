@@ -13,9 +13,10 @@ use OCA\Mcp\Modules\Mail\Integration\MailServices;
 
 final class ReplyComposer {
     public function __construct(private MailMessageLocator $locator, private \Closure $reader,
-        private MailServices $services, private \Closure $allowsTool) {}
+        private MailServices $services, private \Closure $allowsTool, private \OCA\Mcp\Modules\Mail\Integration\MailGateway $accounts) {}
 
     public function identities(string $uid, object $account, ?int $aliasId): array {
+        $this->accounts->requireAccount($uid,(int)$account->getId());
         $aliases = $this->services->aliasesService($uid)->findAll((int)$account->getId(), $uid);
         $own = [(string)$account->getEmail()];
         $sender = ['email' => (string)$account->getEmail(), 'name' => (string)$account->getName(), 'alias_id' => null];
@@ -30,6 +31,7 @@ final class ReplyComposer {
     }
 
     public function reply(string $uid, int $accountId, int $messageId, bool $all, array $own): array {
+        $this->accounts->requireAccount($uid,$accountId);
         if (!($this->allowsTool)($uid, 'mail_read_message')) throw new ToolFailure('Reading the source message is not permitted.');
         $found = $this->locator->locate($uid, $messageId);
         if ((int)$found['account']->getId() !== $accountId) throw new ToolFailure('The source message is unavailable in this account.');

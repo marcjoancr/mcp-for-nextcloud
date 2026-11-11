@@ -25,10 +25,10 @@ class MailMoveTarget {
         if($args['action']==='restore'&&((int)$source->getId()!==$roles['trash']||$id===$roles['trash']))throw new BeforeEffectFailure('Restore requires a message in the configured Trash and an explicit destination.');
         $sg=MailCacheGeneration::of($source);$dg=MailCacheGeneration::of($dest);
         if($sg===null||$dg===null)throw new BeforeEffectFailure('Both folders need verified native cache generations. Use native Mail.');
-        $profile=$this->settings->readConnection($uid,(int)$args['account_id']);
+        $profile=$this->settings->profileRevision($uid,(int)$args['account_id'],(int)$source->getId());
         $revision=static fn(object $b):string=>hash('sha256',json_encode([$b->getSyncNewToken(),$b->getSyncChangedToken(),$b->getSyncVanishedToken()],JSON_THROW_ON_ERROR));
         $r=['account_id'=>(int)$account->getId(),'message_id'=>(int)$message->getId(),'mailbox_id'=>(int)$source->getId(),'mailbox'=>(string)$source->getName(),'generation'=>$sg,'uid'=>(string)$message->getUid(),
-            'profile_revision'=>$profile['revision'],'cache_revision'=>$revision($source),'action'=>$args['action'],'destination_mailbox_id'=>$id,'destination_mailbox'=>(string)$dest->getName(),'destination_generation'=>$dg,
+            'profile_revision'=>$profile,'cache_revision'=>$revision($source),'action'=>$args['action'],'destination_mailbox_id'=>$id,'destination_mailbox'=>(string)$dest->getName(),'destination_generation'=>$dg,
             'destination_cache_revision'=>$revision($dest),'roles_revision'=>$this->states->of('mail_move_roles',$uid,$roles),'requires_trash_hook'=>$id===$roles['trash']];
         if(!MutationRequest::valid($r))throw new BeforeEffectFailure('The native MOVE identity is not supported.');
         return ['request'=>$r];

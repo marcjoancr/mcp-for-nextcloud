@@ -64,7 +64,7 @@ final class ScopeFixture {
     public function __construct(private TestCase $test) {
         $migration = new Version001100Date20261015000000($this->mock(IDBConnection::class));
         // The group grants table too, so the resolution core can read a snapshot over the same database.
-        $this->database = new SqliteDatabase($test, [new Version001100Date20261014000000(), $migration, new Version001100Date20261015010000(), new Version001100Date20261015020000()]);
+        $this->database = new SqliteDatabase($test, [new Version001100Date20261014000000(), $migration, new Version001100Date20261015010000(), new Version001100Date20261015020000(),new \OCA\Mcp\Migration\Version002100Date20261101000000()]);
         $this->db = $this->database->connection();
         (new Version001100Date20261015000000($this->db))->postSchemaChange($this->mock(IOutput::class), fn () => null, []);
         $this->state = new PolicyStateMapper($this->db);
@@ -100,10 +100,10 @@ final class ScopeFixture {
         $this->calendars->addCalendar('principals/users/bob', 14, 'bob-only', 'principals/users/bob', ['name' => 'Bob only', 'components' => ['VEVENT']]);
     }
 
-    public function enumerator(): NativeResourceEnumerator {
+    public function enumerator(?\OCA\Mcp\Modules\Mail\Integration\MailServices $mail=null): NativeResourceEnumerator {
         $root = $this->mock(\OCP\Files\IRootFolder::class);
         $root->method('getUserFolder')->willReturnCallback(fn (string $uid) => $uid === 'alice' ? $this->tree->rootFolder() : throw new \OCP\Files\NotFoundException());
-        return new NativeResourceEnumerator($root, new CalendarAccess($this->calendars), $this->guard);
+        return new NativeResourceEnumerator($root, new CalendarAccess($this->calendars), $this->guard,$mail===null?null:new \OCA\Mcp\Modules\Mail\Integration\NativeMailResourceInventory($mail));
     }
 
     /**
@@ -132,7 +132,7 @@ final class ScopeFixture {
             $resources ?? $this->enumerator(), $services->scopeMutations);
     }
 
-    public function resolver(\OCA\Mcp\Tests\Support\Access\Policy\PolicyServices $services): \OCA\Mcp\Access\Policy\Resolution\PolicyResolver {
+    public function resolver(\OCA\Mcp\Tests\Support\Access\Policy\PolicyServices $services,?\OCA\Mcp\Db\ToolGrantsMapper $tools=null): \OCA\Mcp\Access\Policy\Resolution\PolicyResolver {
         $backend = new \OCA\Mcp\Tests\Unit\ArrayGroupBackend(static fn () => []);
         $groups = $this->mock(\OCP\IGroupManager::class);
         $groups->method('getBackends')->willReturn([$backend]);
@@ -147,12 +147,12 @@ final class ScopeFixture {
             new \OCA\Mcp\Access\Grants\Groups\MembershipReader($groups), new \OCA\Mcp\Access\Grants\Groups\GroupSourceClassifier($groups),
             new \OCA\Mcp\Db\GroupGrantsMapper($this->db), $life,
             new \OCA\Mcp\Access\Grants\Groups\GroupTrustObserver($this->db, $services->transaction, $life, $this->mock(\Psr\Log\LoggerInterface::class)),
-            $apps, $logs, new ResourceScopeMapper($this->db));
+            $apps, $logs, new ResourceScopeMapper($this->db),$tools);
     }
 
     /** The GrantPolicy the tools read, over resolver($writer). */
-    public function policy(\OCA\Mcp\Tests\Support\Access\Policy\PolicyServices $services): \OCA\Mcp\Access\Grants\GrantPolicy {
-        return new \OCA\Mcp\Access\Grants\GrantPolicy($this->config->mock($this->test), $this->mock(IUserConfig::class), $services->grants, $services->service, $this->resolver($services), $services->transaction);
+    public function policy(\OCA\Mcp\Tests\Support\Access\Policy\PolicyServices $services,?\OCA\Mcp\Db\ToolGrantsMapper $tools=null): \OCA\Mcp\Access\Grants\GrantPolicy {
+        return new \OCA\Mcp\Access\Grants\GrantPolicy($this->config->mock($this->test), $this->mock(IUserConfig::class), $services->grants, $services->service, $this->resolver($services,$tools), $services->transaction);
     }
 
     public function userManager(): IUserManager {

@@ -12,7 +12,7 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 
 /** Current original-action access is checked again; receipts never contain message bodies or attachment handles. */
 final class MailOperationReader {
-    public function __construct(private OperationJournal $journal, private \Closure $allowsTool,private ?\Closure $nativeEntry=null,private ?\Closure $deliveryEntry=null) {}
+    public function __construct(private OperationJournal $journal, private \Closure $allowsTool,private ?\Closure $nativeEntry=null,private ?\Closure $deliveryEntry=null,private ?\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization $authorization=null) {}
     public function get(string $uid, string $id): array {
         $receipt = $this->journal->get($uid, $id);
         if ($receipt === null || !$this->allowed($uid,$receipt)) throw new ToolFailure('Operation not found.');
@@ -25,14 +25,19 @@ final class MailOperationReader {
         if (!$this->allowed($uid,$receipt)) throw new ToolFailure('Operation not found.');
     }
     private function allowed(string $uid,array $receipt):bool {
-        $tools=array_merge([$receipt['tool']],isset($receipt['source_tool'])?[$receipt['source_tool']]:[],$receipt['source_tools']??[]);
+        $extra=$this->authorization?->historical($uid,$receipt['operation_id'])??[];
+        $tools=array_merge($extra,[$receipt['tool']],isset($receipt['source_tool'])?[$receipt['source_tool']]:[],$receipt['source_tools']??[]);
         if(count($tools)>10)return false;
         foreach($tools as $tool)if(!is_string($tool)||!($this->allowsTool)($uid,$tool))return false;
         return true;
     }
     public function list(string $uid, int $limit, int $offset): array {
-        $rows = $this->journal->list($uid, $limit, $offset);
-        $visible = array_values(array_filter($rows, fn(array $r): bool => $this->allowed($uid,$r)));
-        return ['operations' => $visible, 'next_offset' => count($rows) === $limit ? $offset + $limit : null];
+        $visible=[];$wanted=$offset+$limit+1;
+        for($cursor=0;$cursor<=10000&&count($visible)<$wanted;$cursor+=50){
+            $rows=$this->journal->list($uid,50,$cursor);
+            foreach($rows as $r){try{if($this->allowed($uid,$r))$visible[]=$r;}catch(ToolFailure){}}
+            if(count($rows)<50)break;
+        }
+        return ['operations'=>array_slice($visible,$offset,$limit),'next_offset'=>count($visible)>$offset+$limit?$offset+$limit:null];
     }
 }

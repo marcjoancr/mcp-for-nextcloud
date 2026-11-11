@@ -57,7 +57,7 @@ final class OperationJournal {
             if ($existing !== null) return $this->replay($existing, $authorizeReplay);
             throw new ToolFailure('Another write owns this target; inspect its operation before changing it.');
         }
-        $this->active = ['scope' => $scope, 'id' => $id, 'refs' => $row['resource_refs']];
+        $this->active = ['scope' => $scope, 'id' => $id, 'tool'=>$tool, 'refs' => $row['resource_refs']];
         $repair = null;
         try {
             $result = $effect();
@@ -70,8 +70,9 @@ final class OperationJournal {
             return ['operation'=>$receipt, 'message'=>'Local commit acknowledgement was lost. Inspect this operation; do not repeat the write.'];
         } catch (PlanChanged|BeforeEffectFailure $e) {
             if(isset($this->active['delegated']))return $this->adoptNative($uid);
+            $authorization=$this->active['refs']['authorization']??null;
             $this->active = null;
-            $this->store->finish($scope, $id, 'failed_before_effect', [], $this->clock->getTime());
+            $this->store->finish($scope, $id, 'failed_before_effect', is_array($authorization)?['authorization'=>$authorization]:[], $this->clock->getTime());
             throw $e;
         } catch (\Throwable) {
             if(isset($this->active['delegated']))return $this->adoptNative($uid);
@@ -157,6 +158,7 @@ final class OperationJournal {
     public function checkpoint(array $refs): void {
         if ($this->active === null) return;
         if(isset($this->active['delegated']))throw new \LogicException('Delegated evidence is authoritative.');
+        if(isset($refs['authorization'],$this->active['refs']['authorization'])&&$refs['authorization']!==$this->active['refs']['authorization'])throw new \LogicException('Original authorization is immutable.');
         $this->active['refs'] = array_replace($this->active['refs'], $refs);
         $this->store->checkpoint($this->active['scope'], $this->active['id'], $this->active['refs']);
     }
@@ -177,6 +179,25 @@ final class OperationJournal {
             throw new ToolFailure('This operation has no verified attachment repair state.');
         }
         return $row['resource_refs'];
+    }
+
+    /** Private evidence for a fresh effect fence; activeId also binds the originating connection. */
+    public function activeAuthorization(string $uid):array {
+        $this->activeId($uid);$refs=$this->active['refs']['authorization']??null;
+        if(!is_array($refs))throw new ToolFailure('Original Mail authorization unavailable.');
+        return ['tool'=>$this->active['tool'],'refs'=>$refs];
+    }
+    /** Trusted server-side authorization only; never serialize this result into a public receipt. */
+    public function privateResources(string $uid,string $id):array {
+        $row=$this->store->get($this->scope($uid),$id);
+        if($row===null||($row['actor_uid']??null)!==$uid)throw new ToolFailure('Operation not found.');
+        return $row['resource_refs'];
+    }
+    /** One immutable descriptor, recorded after ownership admission and before the effect callback proceeds. */
+    public function recordAuthorization(string $uid,array $refs):void {
+        $this->activeId($uid);
+        if(isset($this->active['refs']['authorization']))throw new \LogicException('Original authorization is immutable.');
+        $this->checkpoint(['authorization'=>$refs]);
     }
 
     public function get(string $uid, string $id): ?array {

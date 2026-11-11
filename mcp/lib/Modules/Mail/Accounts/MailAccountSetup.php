@@ -16,7 +16,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 /** Credential-free admission and explicit observation of independently completed native Mail setup. */
 class MailAccountSetup {
     public function __construct(private MailSettingsGateway $gateway,private MailSetupWorkflowsMapper $workflows,private OperationJournal $journal,
-        private PlanState $states,private ITimeFactory $clock,private NativeAccountSetupLinks $links,private \Closure $allowsTool,private ?NativeSetupEvidence $evidence=null){}
+        private PlanState $states,private ITimeFactory $clock,private NativeAccountSetupLinks $links,private \Closure $allowsTool,private ?NativeSetupEvidence $evidence=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null){}
 
     public function preview(array $args,string $uid): array {
         $intent=$this->intent($args['intent']);$create=!isset($args['account_id']);
@@ -36,6 +36,7 @@ class MailAccountSetup {
         PlanState::require($args);$p=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->preview($args,$uid));if(!PlanState::matches($p['plan_state'],$args))throw new PlanChanged($p);
         $create=!isset($args['account_id']);$id=$this->journal->activeId($uid);$expiry=$this->clock->getTime()+86400;
         $url=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->links->url($create));
+        $this->freshAccess?->assertActive($uid);
         $context=null;
         if(isset($p['credential_evidence'])){
             $context=$this->evidence->register($uid,$this->journal->scopeKey($uid),$id,$create?'create_account':'configure_connection',$create?null:(int)$args['account_id'],$p['requested'],$expiry);
@@ -57,12 +58,14 @@ class MailAccountSetup {
         return $plan+['plan_state'=>$this->states->of('mail_complete_account_setup',$uid,$plan)];
     }
     public function complete(array $args,string $uid): array {
+        $this->freshAccess?->assertActive($uid);
         PlanState::require($args);$p=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->previewCompletion($args,$uid));
         if(!PlanState::matches($p['plan_state'],$args))throw new PlanChanged($p);
         $scope=$this->journal->scopeKey($uid);$source=$args['setup_operation_id'];$completion=$this->journal->activeId($uid);$account=(int)$args['account_id'];
         $this->journal->checkpoint(['account_id'=>$account,'source_tool'=>$p['source_tool'],'source_operation_id'=>$source]);
         $proof=$p['credential_write']??null;
         $finish=function()use($args,$p,$scope,$source,$completion,$account,$uid,$proof):void {
+            $this->freshAccess?->assertActive($uid);
             $this->workflows->atomic(function(\OCP\IDBConnection $db)use($args,$p,$scope,$source,$completion,$account,$uid,$proof):void {
                 // Current permissions, ownership, intent and evidence are checked under the native owner scope.
                 $fresh=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->previewCompletion($args,$uid));
@@ -129,6 +132,7 @@ class MailAccountSetup {
         }catch(\Throwable){return null;}
     }
     private function authorizeKind(string $uid,bool $create): void {
+        if($create)$this->gateway->requireUnrestricted($uid);
         if(!($this->allowsTool)($uid,$create?'mail_add_account':'mail_configure_connection'))throw new ToolFailure('This setup action is not permitted for the current connection.');
         if($create && !$this->gateway->creationAllowed())throw new ToolFailure('The administrator has disabled adding Mail accounts.');
     }

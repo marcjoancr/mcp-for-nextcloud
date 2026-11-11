@@ -16,6 +16,9 @@ use OCA\Mcp\Access\Policy\PolicyUnavailable;
  * grant (F3 of the B4 review): the scope narrows what the grant allows and is never the first gate.
  */
 interface ScopeReader {
+    /** @return list<string>|null Same policy snapshot; null is unrestricted, [] denies all. */
+    public function scopeItems(string $userId, string $module): ?array;
+
     /**
      * @param string $userId authenticated user of the operation
      * @param string $module scope module (decision D1); a module without scope is never restricted

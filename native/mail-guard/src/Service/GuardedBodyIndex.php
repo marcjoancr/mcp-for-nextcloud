@@ -17,7 +17,7 @@ final class GuardedBodyIndex {
     private function prepare(string $uid,array $ids,object $fence):array {
         $this->sources->primary();$this->ids($ids);$sources=[];
         // Authorize the entire explicit selection before reading any private content.
-        foreach($ids as $id){$s=ContentSource::stable($this->sources->message($uid,$id));$fence->authorize($uid,$s['account_id'],$s['mailbox_id'],$id);$sources[]=$s;}
+        foreach($ids as $id){$s=ContentSource::stable($this->sources->message($uid,$id,$fence));$fence->authorize($uid,$s['account_id'],$s['mailbox_id'],$id);$sources[]=$s;}
         $items=[];$texts=[];
         foreach($sources as $source){$read=null;try{$read=$this->reader->readIndexText($uid,$source['message_id'],$fence);}catch(\Throwable){$this->reader->assertSource($uid,$source,$fence);}
             $policy=$read===null?['state'=>'refused_content','text'=>'']:BodyIndexPolicy::extract($read);
@@ -41,8 +41,8 @@ final class GuardedBodyIndex {
             try{foreach($approved['items'] as $n=>$item){$s=$item['source'];$this->reader->assertSource($uid,$s,$fence);
                 $q=$this->db->getQueryBuilder();$q->delete('mail_mcp_body_index')->where($q->expr()->eq('message_id',$q->createNamedParameter($s['message_id'],IQueryBuilder::PARAM_INT)))->executeStatement();
                 $row=['message_id'=>$s['message_id'],'user_id'=>$uid,'account_id'=>$s['account_id'],'mailbox_id'=>$s['mailbox_id'],'imap_uid'=>$s['uid'],'generation'=>$s['uidvalidity'],'profile'=>$s['profile_revision'],'auth_revision'=>$s['auth_revision'],'content_revision'=>$item['content_revision'],'body_text'=>$fresh['texts'][$n],'policy_version'=>BodyIndexPolicy::VERSION,'coverage_state'=>$item['coverage_state'],'indexed_at'=>time()];
-                $q=$this->db->getQueryBuilder();$q->insert('mail_mcp_body_index');foreach($row as $key=>$value)$q->setValue($key,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR));$q->executeStatement();
-            }$fence->checkpoint(['index_completed'=>true]);$scope->assertOwned();}
+                $this->reader->assertSource($uid,$s,$fence);$q=$this->db->getQueryBuilder();$q->insert('mail_mcp_body_index');foreach($row as $key=>$value)$q->setValue($key,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR));$q->executeStatement();
+            }foreach($approved['items'] as $item)$this->reader->assertSource($uid,$item['source'],$fence);$fence->checkpoint(['index_completed'=>true]);$scope->assertOwned();}
             catch(\Throwable $error){try{$this->db->rollBack();}catch(\Throwable){\OCA\Mail\Exception\ContentCommitUnknown::discard($this->db);}$fence->checkpoint(['index_completed'=>false]);throw new \RuntimeException('Index transaction did not complete.',0,$error);}
             try{$this->db->commit();}catch(\Throwable){\OCA\Mail\Exception\ContentCommitUnknown::discard($this->db);}
             return ['policy'=>BodyIndexPolicy::VERSION,'items'=>array_map(static fn(array $item):array=>['message_id'=>$item['source']['message_id'],'coverage_state'=>$item['coverage_state']],$approved['items']),'coverage'=>'supported_text_parts_only'];

@@ -18,6 +18,7 @@ class ScopeActivation {
         'files' => true,
         'calendar' => true,
         'tasks' => true,
+        'mail' => false,
     ];
 
     /**

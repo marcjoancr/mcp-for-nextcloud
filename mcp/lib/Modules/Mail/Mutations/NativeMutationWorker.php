@@ -21,7 +21,7 @@ class NativeMutationWorker {
             $row=$this->store->get($lease['scope'],$lease['id']);
             if($row===null||$row['actor_uid']!==$uid||$row['tool_name']!==MutationRequest::tool($request)||$row['state']!=='running'||($row['resource_refs']['mutation']['descriptor']??null)!==$request
                 ||($row['resource_refs']['mutation']['phase']??null)!=='prepared'||!hash_equals($row['resource_refs']['mutation']['token_hash']??'',hash('sha256',$lease['token'])))return ['status'=>'refused'];
-            $live=function()use($ticket,$uid,$request):bool{return $this->tickets->verify($ticket)&&($this->authorize)($uid,$ticket['connection_id'],MutationRequest::tool($request))&&$this->targets->snapshot($uid,$request)['request']===$request;};
+            $live=function()use($ticket,$uid,$request):bool{return $this->tickets->verify($ticket)&&($this->authorize)($uid,$ticket['connection_id'],MutationRequest::tool($request),fn():bool=>$this->targets->snapshot($uid,$request)['request']===$request,$ticket['lease']['id']);};
             if(!$live())return ['status'=>'refused'];
             $refresh=($request['kind']??null)==='refresh';$folder=($request['kind']??null)==='mailbox';$tag=($request['kind']??null)==='tag';
             $fence=new NativeOperationFence($this->store,$lease,$request,$live,$refresh?RefreshRequest::remote(...):($folder?MailboxMutationRequest::remote(...):($tag?TagMutationRequest::remote(...):null)),$refresh?RefreshRequest::cache(...):($folder?MailboxMutationRequest::cache(...):($tag?TagMutationRequest::cache(...):null)));

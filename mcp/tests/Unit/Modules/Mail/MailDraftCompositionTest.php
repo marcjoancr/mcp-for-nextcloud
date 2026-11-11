@@ -125,7 +125,7 @@ final class MailDraftCompositionTest extends TestCase {
                 public function getContent(): string{return 'bytes';}public function getSize(): int{return 5;}
             }];}
         });
-        $accounts=new MailGateway((new FakeMailApp())->withAccount(4,'alice','Alice','alice@example.test'));
+        $accounts=new MailGateway((new FakeMailApp())->withAccount(4,'alice','Alice','alice@example.test'), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
         $services->method('aliasesService')->willReturn(new class {public function findAll(int $id,string $uid): array{return [new class {
             public function getId(): int{return 3;}public function getAccountId(): int{return 4;}
             public function getAlias(): string{return 'alias@example.test';}public function getName(): string{return 'Alias';}
@@ -136,7 +136,7 @@ final class MailDraftCompositionTest extends TestCase {
         $reader->method('readRow')->willReturn(['from'=>['count'=>1,'addresses'=>[['email'=>'person@example.test','name'=>'Person']]],
             'replyTo'=>['count'=>0,'addresses'=>[]],'to'=>['count'=>1,'addresses'=>[['email'=>'alice@example.test','name'=>'Alice']]],'cc'=>['count'=>0,'addresses'=>[]]]);
         $tools=$this->createMock(\OCA\Mcp\Mcp\Tools\ToolRegistry::class);$tools->method('allowsTool')->willReturn(true);
-        $composer=new ReplyComposer($locator,static fn(string $uid)=>$reader,$services,$tools->allowsTool(...));
+        $composer=new ReplyComposer($locator,static fn(string $uid)=>$reader,$services,$tools->allowsTool(...),$accounts);
         $ops=new MailDraftOperations($services,$accounts,new PlanState((new InMemoryConfig())->mock($this)),$composer,$files,$journal,$forward,$editor);
         return [$ops,$service];
     }

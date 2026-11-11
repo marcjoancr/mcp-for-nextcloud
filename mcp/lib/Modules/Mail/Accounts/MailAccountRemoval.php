@@ -14,14 +14,18 @@ use OCA\Mcp\Db\{OperationsMapper,MailSetupWorkflowsMapper};
 use OCP\AppFramework\Utility\ITimeFactory;
 class MailAccountRemoval {
     public function __construct(private MailSettingsGateway $gateway,private MailServices $native,private PlanState $states,
-        private OperationsMapper $operations,private MailSetupWorkflowsMapper $workflows,private ITimeFactory $clock,private ?\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway $delivery=null){}
+        private OperationsMapper $operations,private MailSetupWorkflowsMapper $workflows,private ITimeFactory $clock,private ?\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway $delivery=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null){}
     public function preview(array $args,string $uid): array {
         $id=(int)$args['account_id'];$profile=$this->gateway->readConnection($uid,$id);
         if(!$profile['editable'])throw new BeforeEffectFailure('Provisioned accounts must be managed by their administrator.');
         if(($this->delivery?->hasUnresolved($uid,$id)??false)||$this->operations->unresolvedAccount($uid,$id,$args['operation_id']??'')||$this->workflows->pendingForAccount($id,$this->clock->getTime()))throw new BeforeEffectFailure('Inspect pending or uncertain operations before removing this account.');
-        $mapper=$this->native->localMessageMapper($uid);$counts=[];
+        $counts=[];
         foreach(['local_drafts'=>$this->native->localDraftType($uid),'outgoing_items'=>$this->native->localOutgoingType($uid)] as $key=>$type){
-            $counts[$key]=count(array_filter($mapper->getAllForUser($uid,$type),static fn(object $m):bool=>(int)$m->getAccountId()===$id));
+            if($this->native->scopedMetadataAvailable())$counts[$key]=(int)$this->native->boundedMetadata($uid)->hasLocalMessages($uid,$id,$type);
+            else {
+                if(!$this->gateway->unrestricted($uid))throw new BeforeEffectFailure('Scoped local inventory requires the current native dependency.');
+                $counts[$key]=count(array_filter($this->native->localMessageMapper($uid)->getAllForUser($uid,$type),static fn(object $m):bool=>(int)$m->getAccountId()===$id));
+            }
         }
         if(array_sum($counts)>0)throw new BeforeEffectFailure('This account has local drafts or outgoing items. Review them in native Mail before removing the account.');
         $account=$this->gateway->account($uid,$id);$mailboxes=$this->native->mailboxMapper($uid)->findAll($account);
@@ -33,7 +37,7 @@ class MailAccountRemoval {
     }
     public function write(array $args,string $uid): array {
         PlanState::require($args);$p=\OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->preview($args,$uid));if(!PlanState::matches($p['plan_state'],$args))throw new PlanChanged($p);
-        $id=(int)$args['account_id'];$this->native->accountService($uid)->delete($uid,$id);
+        $this->freshAccess?->assertActive($uid);$id=(int)$args['account_id'];$this->gateway->account($uid,$id);$this->native->accountService($uid)->delete($uid,$id);
         try{$this->gateway->account($uid,$id);}catch(ToolFailure){return ['account_id'=>$id,'removed'=>true];}
         throw new ToolFailure('Native account removal could not be verified; inspect its operation.');
     }

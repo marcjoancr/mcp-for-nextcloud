@@ -174,6 +174,7 @@ final class ToolPresentation {
             'mail_read_thread' => Translator::t('Read mail thread'),
             'mail_read_attachment' => Translator::t('Read mail attachments'),
             'mail_save_attachment' => Translator::t('Save a mail attachment'),
+            'mail_export_message' => Translator::t('Export a mail message'),
             'mail_read_drafts' => Translator::t('Read mail drafts'),
             'mail_write_draft' => Translator::t('Save a mail draft'),
             'mail_delete_draft' => Translator::t('Delete a mail draft'),

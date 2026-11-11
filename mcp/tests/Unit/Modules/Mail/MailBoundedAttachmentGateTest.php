@@ -25,11 +25,11 @@ final class MailBoundedAttachmentGateTest extends TestCase {
     public function testCurrentDisplayUnavailableCannotReachLegacyManager():void {
         $reader=$this->createMock(MailContentReader::class);$reader->method('available')->willReturn(false);$reader->method('mustUseBounded')->willReturn(true);
         $services=$this->createMock(MailServices::class);$services->expects(self::never())->method('mailManager');
-        $body=new \OCA\Mcp\Modules\Mail\Integration\MailBodyReader($services,content:$reader);$this->expectException(ToolFailure::class);$body->read('alice',new \stdClass(),new \stdClass(),new \stdClass());
+        $body=new \OCA\Mcp\Modules\Mail\Integration\MailBodyReader($services,new \OCA\Mcp\Modules\Mail\Integration\MailGateway(new FakeMailApp(),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())),content:$reader);$this->expectException(ToolFailure::class);$body->read('alice',new \stdClass(),new \stdClass(),new \stdClass());
     }
     public function testThreadReaderPreservesItsIndependentOriginatingGrant():void {
         $reader=$this->createMock(MailContentReader::class);$reader->method('available')->willReturn(true);$reader->expects(self::once())->method('readBody')->with('alice',7,'mail_read_thread')->willReturn(['body_plain'=>'text','body_html'=>'','attachments'=>[],'reply_to'=>[]]);
         $services=$this->createMock(MailServices::class);$services->expects(self::never())->method('mailManager');$message=new class {public function getId():int {return 7;}};
-        $body=new \OCA\Mcp\Modules\Mail\Integration\MailBodyReader($services,content:$reader,sourceTool:'mail_read_thread');self::assertSame('text',$body->read('alice',new \stdClass(),new \stdClass(),$message)->getPlainBody());
+        $body=new \OCA\Mcp\Modules\Mail\Integration\MailBodyReader($services,new \OCA\Mcp\Modules\Mail\Integration\MailGateway(new FakeMailApp(),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())),content:$reader,sourceTool:'mail_read_thread');self::assertSame('text',$body->read('alice',new \stdClass(),new \stdClass(),$message)->getPlainBody());
     }
 }

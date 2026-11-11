@@ -42,7 +42,7 @@ trait MailSettingsFixture {
         $services=$this->createMock(MailServices::class);$services->method('accountService')->willReturn($service);$services->method('aliasesService')->willReturn($aliases);
         $policy=$this->createMock(IAppConfig::class);$policy->method('getValueBool')->willReturn($creationAllowed);
         $states=new PlanState((new InMemoryConfig())->mock($this));
-        $gateway=new MailSettingsGateway(new MailGateway($services),$services,$states,$policy);
+        $gateway=new MailSettingsGateway(new MailGateway($services, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())),$services,$states,$policy);
         return [$gateway,$entity,$service,$alias,$states,$services];
     }
 }

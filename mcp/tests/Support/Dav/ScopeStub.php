@@ -30,6 +30,11 @@ final class ScopeStub implements ScopeReader {
         return $this;
     }
 
+    public function scopeItems(string $userId, string $module): ?array {
+        $this->assertReadable($userId,$module);
+        return $this->restricted[$module] ?? null;
+    }
+
     public function inScope(string $userId, string $module, string $resourceId): bool {
         $this->asked[] = [$userId, $module, $resourceId];
         if ($this->unavailable) {

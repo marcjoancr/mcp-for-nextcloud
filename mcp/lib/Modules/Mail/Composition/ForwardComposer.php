@@ -12,8 +12,9 @@ use OCA\Mcp\Mcp\Operations\OperationJournal;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 /** Explicit new local draft composition; source recipients, reply parent and MIME parts are never inherited. */
 class ForwardComposer {
-    public function __construct(private MailMessageLocator $locator,private \Closure $reader,private MailAttachmentAccess $attachments,private MailServices $native,private \Closure $allows,private ?OperationJournal $journal=null){}
+    public function __construct(private MailMessageLocator $locator,private \Closure $reader,private MailAttachmentAccess $attachments,private MailServices $native,private \Closure $allows,private \OCA\Mcp\Modules\Mail\Integration\MailGateway $accounts,private ?OperationJournal $journal=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null){}
     private function source(string $uid,int $account,int $message):array {
+        $this->accounts->requireAccount($uid,$account);
         if(!($this->allows)($uid,'mail_read_message'))throw new ToolFailure('Reading the forwarded source is not permitted.');
         $l=$this->locator->locate($uid,$message);if((int)$l['account']->getId()!==$account)throw new ToolFailure('Forward source unavailable in the selected account.');return $l;
     }
@@ -42,8 +43,9 @@ class ForwardComposer {
         $name=$a['name']??'attachment';$meta=['message_id'=>$message,'part_id'=>$part,'source'=>$binding,'name'=>$name,'mime_type'=>$a['mimeType'],'size'=>strlen($bytes),'sha256'=>hash('sha256',$bytes),'mail_source'=>hash('sha256',json_encode([$binding,$part],JSON_THROW_ON_ERROR))];return [$meta,$bytes];
     }
     public function stage(string $uid,int $account,array $manifest,array $reusable,array $resources=[]):array {
+        $this->accounts->requireAccount($uid,$account);
         $staged=[];$storage=$manifest===[]?null:$this->native->attachmentService($uid);
-        foreach($manifest as $approved){[$fresh,$bytes]=$this->part($uid,$account,$approved['message_id'],$approved['part_id'],$approved['source']);if($fresh!==$approved)throw new ToolFailure('Forward attachment changed. Preview again.');$id=null;
+        foreach($manifest as $approved){$this->freshAccess?->assertActive($uid);[$fresh,$bytes]=$this->part($uid,$account,$approved['message_id'],$approved['part_id'],$approved['source']);if($fresh!==$approved)throw new ToolFailure('Forward attachment changed. Preview again.');$id=null;
             foreach($reusable as $old)if(($old['mail_source']??null)===$approved['mail_source']&&($old['sha256']??null)===$approved['sha256']){$id=(int)$old['attachment_id'];break;}
             if($id===null)$id=(int)$storage->addFileFromString($uid,$approved['name'],$approved['mime_type'],$bytes,null,'attachment')->getId();
             $resources[]=['attachment_id'=>$id,'file_id'=>0,'sha256'=>$approved['sha256'],'mail_source'=>$approved['mail_source']];$this->journal?->checkpoint(['staged'=>$resources]);

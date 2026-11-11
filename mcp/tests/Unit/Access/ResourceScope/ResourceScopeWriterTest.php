@@ -34,10 +34,10 @@ final class ResourceScopeWriterTest extends TestCase {
     }
 
     /** B5 and B6 opened every module: each slice wired all the consumers of its modules. */
-    public function testTheShippedBarrierOpensEveryModule(): void {
-        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true], ScopeActivation::MODULES);
+    public function testTheShippedBarrierKeepsIncompleteMailClosed(): void {
+        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true, 'mail' => false], ScopeActivation::MODULES);
         $this->assertSame(ResourceScopeMapper::MODULES, array_keys(ScopeActivation::MODULES));
-        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true], (new ScopeActivation())->modules());
+        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true, 'mail' => false], (new ScopeActivation())->modules());
         $this->assertFalse((new ScopeActivation())->isActive('notes'));
     }
 

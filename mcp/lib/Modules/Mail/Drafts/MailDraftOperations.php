@@ -32,16 +32,17 @@ final class MailDraftOperations {
         private ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal = null,
         private ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward = null,
         private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks $editor = null,
-        private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites $writeScope = null) {}
+        private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites $writeScope = null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null) {}
 
 	/** @return array<string,mixed> a bounded list or one locally stored draft */
 	public function read(array $arguments, string $userId): array {
+        $allowedAccounts=$this->accounts->allowedAccounts($userId);
         if(isset($arguments['draft_id'])&&(isset($arguments['account_id'])||isset($arguments['subject_contains'])))throw new \InvalidArgumentException('Draft list filters cannot be combined with draft_id.');
-        if(isset($arguments['account_id'])&&$this->accounts->ownedAccount($userId,(int)$arguments['account_id'])===null)throw new ToolFailure(MailMessages::accountNotFound());
+        if(isset($arguments['account_id'])&&$this->accounts->requireAccount($userId,(int)$arguments['account_id'])===null)throw new ToolFailure(MailMessages::accountNotFound());
 		$service = $this->services->draftsService($userId);
 		if (isset($arguments['draft_id'])) {
 			$draft = $this->draft($service, $userId, (int)$arguments['draft_id']);
-			$account = $this->accounts->ownedAccount($userId, (int)$draft->getAccountId());
+			$account = $this->accounts->requireAccount($userId, (int)$draft->getAccountId());
 			if ($account === null) {
 				throw new ToolFailure(MailMessages::draftNotFound());
 			}
@@ -50,6 +51,12 @@ final class MailDraftOperations {
             return $result;
 		}
 
+        if($allowedAccounts!==null||$this->services->scopedMetadataAvailable()){
+            $limit=min(self::MAX_DRAFTS,max(1,(int)($arguments['limit']??20)));$offset=max(0,(int)($arguments['offset']??0));
+            $page=$this->services->boundedMetadata($userId)->draftIds($userId,$this->services->localDraftType($userId),$arguments['account_id']??null,$arguments['subject_contains']??null,$limit,$offset,$allowedAccounts);
+            $rows=[];foreach($page['ids'] as $id){$draft=$this->draft($service,$userId,$id);$account=$this->accounts->requireAccount($userId,(int)$draft->getAccountId());$rows[]=$this->row($draft,false)+['account'=>['id'=>(int)$account->getId(),'email'=>(string)$account->getEmail()]];}
+            return ['drafts'=>$rows,'count'=>count($rows),'hasMore'=>$page['has_more'],'limit'=>$limit,'offset'=>$offset,'next_offset'=>$page['has_more']?$offset+count($rows):null];
+        }
 		$all = $this->services->localMessageMapper($userId)->getAllForUser($userId, $this->services->localDraftType($userId));
 		usort($all, static fn (object $a, object $b): int => ((int)$b->getUpdatedAt() <=> (int)$a->getUpdatedAt()) ?: ((int)$a->getId() <=> (int)$b->getId()));
 		$limit = min(self::MAX_DRAFTS, max(1, (int)($arguments['limit'] ?? 20)));
@@ -98,6 +105,7 @@ final class MailDraftOperations {
     }
 
     private function writePrepared(array $arguments,string $userId,array $prepared):array {
+        $this->freshAccess?->assertActive($userId);$this->accounts->requireAccount($userId,$prepared['accountId']);
         if (isset($arguments['repair_of_operation_id'])) $this->journal?->claimRepair($userId, $arguments['repair_of_operation_id']);
 		$fields = $prepared['fields'];
         $added = $prepared['add_manifest'] === [] ? [] : $this->files->stage($userId, $prepared['add_manifest'], $prepared['reusable'], $prepared['draft'] === null ? null : (int)$prepared['draft']->getId());
@@ -121,6 +129,7 @@ final class MailDraftOperations {
         if(($fields['draft_only']??false)===true){$draft->setMcpDraftOnly(true);$draft->setFailed(true);}
         if(isset($fields['forward_source']))$this->forward->verify($userId,$prepared['accountId'],$fields['forward_source']);
 		$service = $this->services->draftsService($userId);
+        $this->freshAccess?->assertActive($userId);
         $this->journal?->checkpoint(['native_write_started' => true]);
         try {
             $saved = $prepared['draft'] === null
@@ -155,6 +164,7 @@ final class MailDraftOperations {
 			throw new PlanChanged($plan + ['warnings' => [['message' => MailMessages::draftPlanChanged()]]]);
 		}
         $effect=function()use($prepared,$userId):array {
+            $this->freshAccess?->assertActive($userId);$this->accounts->requireAccount($userId,(int)$prepared['draft']->getAccountId());
             $this->services->draftsService($userId)->deleteMessage($userId,$prepared['draft']);
             return ['deleted_draft_id'=>(int)$prepared['draft']->getId(),'message'=>MailMessages::draftDeleted()];
         };
@@ -164,7 +174,7 @@ final class MailDraftOperations {
 	/** @return array{account:object,accountId:int,draft:object|null,fields:array<string,mixed>} */
 	private function prepareWrite(array $arguments, string $userId): array {
 		$accountId = (int)$arguments['account_id'];
-		$account = $this->accounts->ownedAccount($userId, $accountId);
+		$account = $this->accounts->requireAccount($userId, $accountId);
 		if ($account === null) {
 			throw new ToolFailure(MailMessages::accountNotFound());
 		}
@@ -246,7 +256,7 @@ final class MailDraftOperations {
 	/** @return array{draft:object,account:object} */
 	private function prepareDelete(array $arguments, string $userId): array {
 		$draft = $this->draft($this->services->draftsService($userId), $userId, (int)$arguments['draft_id']);
-		$account = $this->accounts->ownedAccount($userId, (int)$draft->getAccountId());
+		$account = $this->accounts->requireAccount($userId, (int)$draft->getAccountId());
 		if ($account === null) {
 			throw new ToolFailure(MailMessages::draftNotFound());
 		}
@@ -254,6 +264,7 @@ final class MailDraftOperations {
 	}
 
 	private function draft(object $service, string $userId, int $id): object {
+        $this->accounts->requireDraft($userId,$id);
 		try {
 			return $service->getMessage($id, $userId);
 		} catch (DoesNotExistException) {

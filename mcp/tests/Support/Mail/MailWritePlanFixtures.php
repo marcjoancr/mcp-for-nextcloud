@@ -25,7 +25,7 @@ final class MailWritePlanFixtures {
 			};
 		}
 
-		return [new MailModule($factories), [
+		return [new MailModule($factories, new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())), [
 
             'mail_import_draft' => ['action'=>'copy_to_new_protected_local_draft','source_retained'=>true,'source'=>['message_id'=>7],'target'=>['account_id'=>2,'sender'=>['name'=>'Chosen sender','email'=>'sender@example.test']],'source_from'=>['name'=>'Original sender','email'=>'source@example.test'],'subject'=>'Synthetic subject','to'=>[['name'=>'Recipient','email'=>'recipient@example.test']],'cc'=>[],'bcc'=>[],'body'=>['plain_characters'=>4,'html_characters'=>0],'reply_to'=>'<parent@example.test>','attachments'=>[['filename'=>'synthetic.bin','mime_type'=>'application/octet-stream','disposition'=>'attachment','content_id'=>null,'byte_count'=>3,'sha256'=>str_repeat('c',64)]]],
             'mail_index_messages' => ['action'=>'index_selected_messages','policy'=>'complete-text-v1','coverage'=>'supported_text_parts_only','items'=>[['source'=>['message_id'=>7],'coverage_state'=>'complete','text_bytes'=>4]]],

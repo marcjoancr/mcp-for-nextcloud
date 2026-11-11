@@ -14,9 +14,10 @@ use OCP\IDBConnection;
 /** Native dirty-field tracking preserves omitted signature/certificate/account fields. */
 class MailAliasGateway {
     public function __construct(private MailSettingsGateway $accounts,private MailServices $native,private MailAliasBoundary $boundary,
-        private OperationsMapper $operations,private PlanState $states,private IDBConnection $db){}
+        private OperationsMapper $operations,private PlanState $states,private IDBConnection $db,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null){}
     private function mapper(string $uid):object{return $this->native->newAliasMapper($uid,$this->db);}
     private function entity(string $uid,int $account,int $alias):object {
+        $this->accounts->account($uid,$account);
         try{$a=$this->mapper($uid)->find($alias,$uid);}catch(\Throwable){throw new BeforeEffectFailure('Mail identity not found.');}
         if((int)$a->getAccountId()!==$account||$a->getProvisioningId()!==null)throw new BeforeEffectFailure('Mail identity is unavailable or provisioned.');
         return $a;
@@ -50,14 +51,20 @@ class MailAliasGateway {
         }
         usort($inventory,static fn(array $a,array $b):int=>$a[0]<=>$b[0]);
         if($action==='delete')foreach([$this->native->localDraftType($uid),$this->native->localOutgoingType($uid)] as $type){
-            foreach($this->native->localMessageMapper($uid)->getAllForUser($uid,$type) as $message)if((int)$message->getAliasId()===(int)$args['alias_id'])throw new BeforeEffectFailure('This identity is referenced by a local draft or outgoing item. Review it in native Mail first.');
+            if($this->native->scopedMetadataAvailable())$referenced=$this->native->boundedMetadata($uid)->hasLocalMessages($uid,$id,$type,(int)$args['alias_id']);
+            else {
+                if(!$this->accounts->unrestricted($uid))throw new BeforeEffectFailure('Scoped local inventory requires the current native dependency.');
+                $referenced=array_filter($this->native->localMessageMapper($uid)->getAllForUser($uid,$type),static fn(object $message):bool=>(int)$message->getAliasId()===(int)$args['alias_id'])!==[];
+            }
+            if($referenced)throw new BeforeEffectFailure('This identity is referenced by a local draft or outgoing item. Review it in native Mail first.');
         }
         return ['account_id'=>$id,'alias_id'=>$args['alias_id']??null,'before'=>$before,'after'=>$after,
             'revision'=>$this->states->of('mail_alias_inventory',$uid,[$profile['revision'],$inventory])];
     }
     /** Must run only in the shared journal transaction, after a fresh prepared revision check. */
     public function apply(string $uid,array $args,string $action):int {
-        $mapper=$this->mapper($uid);$id=(int)$args['account_id'];
+        $this->freshAccess?->assertActive($uid);
+        $id=(int)$args['account_id'];$this->accounts->account($uid,$id);$mapper=$this->mapper($uid);
         if($action==='add'){
             $a=$this->native->newAlias($uid);$a->setAccountId($id);$a->setAlias($args['email']);$a->setName($args['name']);
             return (int)$mapper->insert($a)->getId();

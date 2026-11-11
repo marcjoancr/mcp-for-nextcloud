@@ -67,7 +67,7 @@ final class NativeResourceEnumeratorTest extends TestCase {
     public function testCandidatesNeverConsultTheMcpPolicy(): void {
         $constructor = (new \ReflectionClass(NativeResourceEnumerator::class))->getConstructor();
         $types = array_map(static fn (\ReflectionParameter $p): string => (string)$p->getType(), $constructor->getParameters());
-        $this->assertSame([\OCP\Files\IRootFolder::class, \OCA\Mcp\Platform\Dav\CalDav\CollectionAccess::class, \OCA\Mcp\Access\Visibility\VisibilityGuard::class], $types);
+        $this->assertSame([\OCP\Files\IRootFolder::class, \OCA\Mcp\Platform\Dav\CalDav\CollectionAccess::class, \OCA\Mcp\Access\Visibility\VisibilityGuard::class, '?'.\OCA\Mcp\Access\ResourceScope\MailResourceInventory::class], $types);
         $this->assertNotSame([], $this->fx->enumerator()->candidates('alice', 'calendar', '', 1)['items']);
     }
 

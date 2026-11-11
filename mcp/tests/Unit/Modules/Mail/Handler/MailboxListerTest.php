@@ -239,7 +239,7 @@ final class MailboxListerTest extends TestCase {
 	 * @return array<string, mixed> the answer
 	 */
 	private function answer(FakeMailApp $app, array $arguments, string $userId = 'alice'): array {
-		$result = (new MailboxLister(new MailGateway($app), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute($arguments, $userId);
+		$result = (new MailboxLister(new MailGateway($app, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute($arguments, $userId);
 		return json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
 	}
 }

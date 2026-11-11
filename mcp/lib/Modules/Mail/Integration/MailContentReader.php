@@ -21,13 +21,13 @@ class MailContentReader {
         $connection=$this->connection->current();$check=function(string $owner,int $account,int $mailbox,int $message)use($uid,$tool,$connection):void {
             if($owner!==$uid||$this->connection->current()!==$connection||!($this->authorize)($uid,$connection,$tool,$account,$mailbox,$message))throw new ToolFailure(MailMessages::messageChanged());
         };
-        return new class($check){public function __construct(private \Closure $check){}public function authorize(string $uid,int $account,int $mailbox,int $message):void {($this->check)($uid,$account,$mailbox,$message);}};
+        return new class($check){public function __construct(private \Closure $check){}public function authorize(string $uid,int $account,int $mailbox,int $message):void {($this->check)($uid,$account,$mailbox,$message);}public function authorizeHistorical(string $uid,int $account,int $mailbox,int $message):void {($this->check)($uid,$account,$mailbox,$message);}};
     }
     /** Only these four fixed origins may acquire a content-feature fence. */
     public function featureFence(string $uid,string $tool,\Closure $checkpoint):object {
         if(!in_array($tool,['mail_search_drafts','mail_import_draft','mail_index_messages','mail_search_indexed_body'],true))throw new ToolFailure(MailMessages::messageChanged());
         $fence=$this->fence($uid,$tool);
-        return new class($fence,$checkpoint){public function __construct(private object $fence,private \Closure $checkpoint){}public function authorize(string $uid,int $account,int $mailbox,int $message):void {$this->fence->authorize($uid,$account,$mailbox,$message);}public function checkpoint(array $refs):void {($this->checkpoint)($refs);}};
+        return new class($fence,$checkpoint){public function __construct(private object $fence,private \Closure $checkpoint){}public function authorize(string $uid,int $account,int $mailbox,int $message):void {$this->fence->authorize($uid,$account,$mailbox,$message);}public function authorizeHistorical(string $uid,int $account,int $mailbox,int $message):void {$this->fence->authorizeHistorical($uid,$account,$mailbox,$message);}public function checkpoint(array $refs):void {($this->checkpoint)($refs);}};
     }
     public function readDraft(string $uid,int $message):array {try{return $this->native($uid)->readDraft($uid,$message,$this->fence($uid,'mail_import_draft'));}catch(\Throwable){throw new ToolFailure(MailMessages::contentReadUnavailable());}}
     public function readIndexText(string $uid,int $message):array {try{return $this->native($uid)->readIndexText($uid,$message,$this->fence($uid,'mail_index_messages'));}catch(\Throwable){throw new ToolFailure(MailMessages::contentReadUnavailable());}}

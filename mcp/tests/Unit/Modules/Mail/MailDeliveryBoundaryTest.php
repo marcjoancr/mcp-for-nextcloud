@@ -19,7 +19,7 @@ final class MailDeliveryBoundaryTest extends TestCase {
         $config=$this->createMock(\OCP\IConfig::class);$config->method('getSystemValueString')->willReturn('35.0.2.2');
         foreach([\OCP\IDBConnection::PLATFORM_MYSQL=>false,\OCP\IDBConnection::PLATFORM_POSTGRES=>true]as$provider=>$expected){
             $db=$this->createMock(\OCP\IDBConnection::class);$db->method('getDatabaseProvider')->willReturn($provider);
-            $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,$db);self::assertSame($expected,$gateway->available('alice'));
+            $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,new \OCA\Mcp\Modules\Mail\Integration\MailGateway(new FakeMailApp(),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()),$db);self::assertSame($expected,$gateway->available('alice'));
         }
     }
     public function testNewNativeRuntimeDoesNotExtendUnqualifiedCorePairs():void {
@@ -32,7 +32,7 @@ final class MailDeliveryBoundaryTest extends TestCase {
         $services=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailServices::class);$services->method('isEnabledFor')->willReturn(false);$services->method('deliveryAuthorization')->willReturn($native);$services->expects(self::never())->method('guardedDelivery');
         $boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);$boundary->method('runtimeMatches')->willReturn(true);$boundary->method('deliveryVerified')->willReturn(true);
         $config=$this->createMock(\OCP\IConfig::class);$config->method('getSystemValueString')->willReturn('35.0.2.2');$db=$this->createMock(\OCP\IDBConnection::class);$db->method('getDatabaseProvider')->willReturn(\OCP\IDBConnection::PLATFORM_POSTGRES);
-        $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,$db);
+        $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,new \OCA\Mcp\Modules\Mail\Integration\MailGateway(new FakeMailApp(),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()),$db);
         self::assertFalse($gateway->available('alice'));self::assertSame(3,$gateway->workerContext('alice',str_repeat('a',64))['accountId']);self::assertSame('blocked',$gateway->reviewAuthorization('alice',str_repeat('a',64),new \stdClass())['state']);self::assertTrue($native->reviewed);
         $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);$gateway->status('alice',str_repeat('a',64));
     }
@@ -41,7 +41,7 @@ final class MailDeliveryBoundaryTest extends TestCase {
             $services=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailServices::class);$services->expects(self::never())->method('deliveryAuthorization');
             $boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);$boundary->method('deliveryVerified')->willReturn($source);$boundary->method('runtimeMatches')->willReturn($runtime);
             $config=$this->createMock(\OCP\IConfig::class);$config->method('getSystemValueString')->willReturn('35.0.2.2');$db=$this->createMock(\OCP\IDBConnection::class);$db->method('getDatabaseProvider')->willReturn($provider);
-            $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,$db);
+            $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,new \OCA\Mcp\Modules\Mail\Integration\MailGateway(new FakeMailApp(),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()),$db);
             try{$gateway->workerContext('alice',str_repeat('a',64));self::fail('Unqualified metadata worker resolved.');}catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){self::assertTrue(true);}
         }
     }

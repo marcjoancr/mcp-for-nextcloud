@@ -174,7 +174,7 @@ final class MailModuleTest extends TestCase {
         $notes=implode(' ',$this->module()->guideNotes());self::assertStringContainsString('200',$notes);self::assertStringContainsString('historical snapshot',$notes);self::assertStringNotContainsString('remote refresh remain unavailable',$notes);self::assertStringNotContainsString('Remote refresh remains closed',$notes);
     }
     private function module(): MailModule {
-        $reader = new MailGateway(new FakeMailApp());
+        $reader = new MailGateway(new FakeMailApp(), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
         $rows = new \OCA\Mcp\Modules\Mail\Presentation\MailRows();
 		return new MailModule([
             'mail_send' => static fn () => throw new \LogicException('Not called in this test'),
@@ -232,12 +232,12 @@ final class MailModuleTest extends TestCase {
             'mail_list_tags' => static fn () => throw new \LogicException('Not called in this test'),
             'mail_delete_account' => static fn () => throw new \LogicException('Not called in this test'),
 
-        ]);
+        ], new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
     }
 
     public function testMetadataDoesNotResolveOptionalServices(): void {
         $factory = static fn () => throw new \LogicException('Unexpected resolution');
-		$module = new MailModule(array_fill_keys(self::TOOLS, $factory));
+		$module = new MailModule(array_fill_keys(self::TOOLS, $factory), new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 		self::assertCount(count(self::TOOLS), $module->definitions());
         self::assertNotEmpty($module->guideNotes());
     }

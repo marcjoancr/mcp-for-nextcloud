@@ -1,4 +1,13 @@
 {"translations": {
+    "Mail: accounts and folders" : "E-Mail: Konten und Ordner",
+    "Nothing selected: the Mail tools of this user reach no account or folder." : "Nichts ausgewählt: Die E-Mail-Werkzeuge dieses Benutzers können auf kein Konto und keinen Ordner zugreifen.",
+    "Account: {name}" : "Konto: {name}",
+    "Folder: {name}" : "Ordner: {name}",
+    "Find a Mail account or folder of the user" : "E-Mail-Konto oder Ordner des Benutzers suchen",
+    "An account includes its folders. A folder permits message actions only; account settings, local drafts and sending require the account. Global actions require all resources." : "Ein Konto umfasst seine Ordner. Ein Ordner erlaubt nur Nachrichtenaktionen; Kontoeinstellungen, lokale Entwürfe und Versand erfordern das Konto. Globale Aktionen erfordern alle Ressourcen.",
+    "Mail: every account and folder" : "E-Mail: alle Konten und Ordner",
+    "Mail: no account or folder" : "E-Mail: kein Konto oder Ordner",
+    "Mail: only {names}" : "E-Mail: nur {names}",
     "The original is retained. A new protected local draft will be created." : "Das Original bleibt erhalten. Ein neuer geschützter lokaler Entwurf wird erstellt.",
     "Original sender: %s" : "Ursprünglicher Absender: %s",
     "Body sizes: plain %s characters; HTML %s characters." : "Textlänge: Klartext %s Zeichen; HTML %s Zeichen.",

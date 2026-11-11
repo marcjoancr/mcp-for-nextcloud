@@ -21,7 +21,7 @@ final class MailAccountRemovalTest extends TestCase {
     private function removal():array {
         [$gateway,$entity,$native,, $states,$services]=$this->fixture();
         $services->method('localDraftType')->willReturn(1);$services->method('localOutgoingType')->willReturn(0);
-        $services->method('localMessageMapper')->willReturn(new class($this->busy){public function __construct(private bool &$busy){}public function getAllForUser(string $uid,int $type):array{return $this->busy?[new class{public function getAccountId():int{return 4;}}]:[];}});
+        $services->method('scopedMetadataAvailable')->willReturn(true);$services->method('boundedMetadata')->willReturn(new class($this->busy){public function __construct(private bool &$busy){}public function hasLocalMessages(string $uid,int $account,int $type):bool{return $this->busy;}});
         $services->method('mailboxMapper')->willReturn(new class{public function findAll(object $a):array{return [];}});
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);$store=new OperationsMapper($db->connection());
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);

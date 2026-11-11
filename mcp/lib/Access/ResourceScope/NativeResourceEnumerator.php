@@ -42,6 +42,7 @@ class NativeResourceEnumerator {
         private IRootFolder $rootFolder,
         private CalendarAccess $calendars,
         private VisibilityGuard $guard,
+        private ?MailResourceInventory $mail = null,
     ) {}
 
     /**
@@ -62,6 +63,10 @@ class NativeResourceEnumerator {
             return [];
         }
         try {
+            if ($module === 'mail') {
+                $visible=$this->mailResources($uid);
+                return array_values(array_filter($ids,static fn(string $id):bool=>!isset($visible[$id])));
+            }
             if ($module === 'files') {
                 $folder = $this->rootFolder->getUserFolder($uid);
                 return array_values(array_filter($ids, fn (string $id): bool => $this->folder($folder, $id) === null));
@@ -103,7 +108,9 @@ class NativeResourceEnumerator {
         }
         $folderOfParent = null;
         try {
-            if ($module === 'files') {
+            if ($module === 'mail') {
+                $items=array_values($this->mailResources($uid));
+            } elseif ($module === 'files') {
                 $root = $this->rootFolder->getUserFolder($uid);
                 $folderOfParent = $parent === null ? $root : $this->folder($root, self::canonical($parent));
                 if ($folderOfParent === null) {
@@ -129,7 +136,7 @@ class NativeResourceEnumerator {
         }
         // A stable order across pages: name ignoring case, then the exact name, then the id.
         usort($items, static fn (array $a, array $b): int => [mb_strtolower($a['name']), $a['name']] <=> [mb_strtolower($b['name']), $b['name']]
-            ?: DecimalCounter::compare($a['id'], $b['id']));
+            ?: ResourceIdentity::compare($module,$a['id'], $b['id']));
         $offset = ($page - 1) * self::PAGE_SIZE;
         return [
             'items' => array_slice($items, $offset, self::PAGE_SIZE),
@@ -158,6 +165,10 @@ class NativeResourceEnumerator {
             return [];
         }
         try {
+            if ($module === 'mail') {
+                $visible=$this->mailResources($uid);
+                return array_map(static fn(string $id):array=>isset($visible[$id])?self::found($visible[$id]):self::missing($id),$ids);
+            }
             if ($module === 'files') {
                 $root = $this->rootFolder->getUserFolder($uid);
                 return array_map(function (string $id) use ($root): array {
@@ -170,6 +181,15 @@ class NativeResourceEnumerator {
         } catch (Throwable $e) {
             throw new PolicyUnavailable('Native resources unavailable', previous: $e);
         }
+    }
+
+    /** Native owned metadata, deliberately independent of the target user's MCP grants and saved scope. */
+    private function mailResources(string $uid):array {
+        if($this->mail===null)throw new PolicyUnavailable('Native Mail resources unavailable');
+        $rows=$this->mail->resources($uid);$items=[];
+        if(count($rows)>10000)throw new PolicyUnavailable('Native Mail resource inventory exceeds its bound');
+        foreach($rows as $row){$id=ResourceIdentity::validate('mail',$row['id']);$items[$id]=$row;}
+        return $items;
     }
 
     /** @return Folder|null the readable folder with this id in the user's tree */

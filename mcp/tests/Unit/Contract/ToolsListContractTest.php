@@ -37,7 +37,7 @@ final class ToolsListContractTest extends TestCase {
             return \OCA\Mcp\Modules\Forms\FormsModule::withReader($this->createStub(\OCA\Mcp\Modules\Forms\FormsReader::class));
         }
         if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
-            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
+            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')), new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
         }
 
         if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {

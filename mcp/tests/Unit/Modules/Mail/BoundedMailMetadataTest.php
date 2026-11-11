@@ -17,7 +17,7 @@ final class BoundedMailMetadataTest extends TestCase {
         $base=new class extends SimpleMigrationStep {
             public function changeSchema(IOutput $output,\Closure $schemaClosure,array $options):?ISchemaWrapper {
                 $s=$schemaClosure();
-                foreach(['mail_accounts'=>['user_id'=>'string'],'mail_local_messages'=>['account_id'=>'integer','type'=>'integer','subject'=>'string','failed'=>'boolean','send_at'=>'bigint','updated_at'=>'bigint'],'mail_mailboxes'=>['account_id'=>'integer'],'mail_messages'=>['mailbox_id'=>'integer','subject'=>'string','sent_at'=>'bigint','flag_seen'=>'boolean','flag_flagged'=>'boolean']] as $name=>$columns){
+                foreach(['mail_accounts'=>['user_id'=>'string','name'=>'string'],'mail_local_messages'=>['account_id'=>'integer','alias_id'=>'integer','type'=>'integer','subject'=>'string','failed'=>'boolean','send_at'=>'bigint','updated_at'=>'bigint'],'mail_mailboxes'=>['account_id'=>'integer','name'=>'string'],'mail_messages'=>['thread_root_id'=>'string','mailbox_id'=>'integer','subject'=>'string','sent_at'=>'bigint','flag_seen'=>'boolean','flag_flagged'=>'boolean']] as $name=>$columns){
                     $t=$s->createTable($name);$t->addColumn('id','integer',['autoincrement'=>true]);$t->setPrimaryKey(['id']);foreach($columns as $column=>$type)$t->addColumn($column,$type,['notnull'=>false]);
                 }
                 return $s;
@@ -42,6 +42,54 @@ final class BoundedMailMetadataTest extends TestCase {
         $db=$sql->connection();$db->method('getDatabaseProvider')->willReturn($provider);
         $settings=$topology;$config=$this->createStub(IConfig::class);$config->method('getSystemValue')->willReturnCallback(static fn(string $key,mixed $default)=>$settings[$key]??$default);
         return [$sql,new \OCA\Mail\Db\BoundedMailMetadata($db,$config)];
+    }
+    public function testTagVisibilityProvesAnOwnedAdmittedAssociationWithoutProjectingTagMetadata():void {
+        [$sql,$reader]=$this->fixture();
+        $sql->dbal->executeStatement('CREATE TABLE mail_tags (id INTEGER, user_id TEXT, display_name TEXT)');
+        $sql->dbal->executeStatement('CREATE TABLE mail_message_tags (cached_message_id INTEGER, tag_id INTEGER)');
+        foreach([[7,'alice'],[8,'bob']] as [$id,$owner])$sql->dbal->insert('mail_tags',['id'=>$id,'user_id'=>$owner,'display_name'=>'Private']);
+        foreach([[100,7],[101,7],[102,8]] as [$message,$tag])$sql->dbal->insert('mail_message_tags',['cached_message_id'=>$message,'tag_id'=>$tag]);
+        self::assertSame(['account_id'=>1,'mailbox_id'=>10],$reader->tagSource('alice',7,[],[10]));
+        self::assertSame(['account_id'=>1,'mailbox_id'=>10],$reader->tagSource('alice',7,[1],[]));
+        self::assertNull($reader->tagSource('alice',7,[],[12]));
+        self::assertNull($reader->tagSource('alice',7,[2],[]));
+        self::assertNull($reader->tagSource('alice',8,[3],[]));
+    }
+    public function testLocalMessageExistenceChecksOnlyOwnedSelectedAccountAndAlias():void {
+        [$sql,$reader]=$this->fixture();
+        self::assertTrue($reader->hasLocalMessages('alice',1,1));
+        self::assertFalse($reader->hasLocalMessages('alice',2,0));
+        self::assertFalse($reader->hasLocalMessages('alice',3,1));
+        self::assertFalse($reader->hasLocalMessages('alice',1,1,77));
+        $sql->dbal->update('mail_local_messages',['alias_id'=>77],['id'=>5]);
+        self::assertTrue($reader->hasLocalMessages('alice',1,1,77));
+    }
+    public function testPickerInventoryIsOwnedAndSqlBoundedBeforeMaterialization():void {
+        [$sql,$reader]=$this->fixture();
+        $sql->dbal->executeStatement("UPDATE mail_accounts SET name = 'Account'");
+        $sql->dbal->executeStatement("UPDATE mail_mailboxes SET name = 'INBOX'");
+        $rows=$reader->resourceInventory('alice');
+        self::assertSame(['account:1','account:3','mailbox:10','mailbox:12'],array_column($rows,'id'));
+        self::assertSame(['id','name','path','kind','excluded'],array_keys($rows[0]));
+        self::assertSame('Account',$rows[2]['path']);
+        for($id=4;$id<=1002;$id++)$sql->dbal->insert('mail_accounts',['id'=>$id,'user_id'=>'alice','name'=>'Overflow']);
+        $this->expectException(\RuntimeException::class);$reader->resourceInventory('alice');
+    }
+    public function testScopeFiltersBeforeOutboxPaginationAndIdentityProjectionHasNoPrivateText():void {
+        [$sql,$reader]=$this->fixture();
+        $page=$reader->outbox('alice',null,1,null,[1]);
+        self::assertSame([2],array_column($page['items'],'id'));
+        self::assertSame(2,$page['next_before_id']);
+        self::assertSame([], $reader->outbox('alice',null,1,null,[])['items']);
+        self::assertSame([['id'=>100,'account_id'=>1,'mailbox_id'=>10]],$reader->identities('alice','message',[100,101,999]));
+        self::assertSame([['id'=>5,'account_id'=>1,'mailbox_id'=>0]],$reader->identities('alice','draft',[5]));
+    }
+    public function testScopedDraftAndThreadQueriesNeverCountHiddenSources():void {
+        [$sql,$reader]=$this->fixture();$sql->dbal->executeStatement("UPDATE mail_messages SET thread_root_id = 'thread'");
+        self::assertSame([100],$reader->threadIds('alice',1,'thread',[10]));
+        self::assertSame([],$reader->threadIds('alice',1,'thread',[12]));
+        self::assertSame(['ids'=>[5],'has_more'=>false],$reader->draftIds('alice',1,null,null,20,0,[1]));
+        self::assertSame(['ids'=>[],'has_more'=>false],$reader->draftIds('alice',1,null,null,20,0,[]));
     }
     public function testOutboxReadsOnlyOwnedOutgoingRowsAndPaginatesWithBoundedSubjects():void {
         [$sql,$reader]=$this->fixture();

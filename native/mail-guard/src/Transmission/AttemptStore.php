@@ -24,7 +24,11 @@ final class AttemptStore {
         if(!preg_match('/^[a-f0-9]{64}$/D',$id))throw new \RuntimeException('Delivery unavailable.');
         $r=$this->query(['user_id'=>$uid,'id'=>$id],$columns)->setMaxResults(1)->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}if($row===false)throw new \RuntimeException('Delivery unavailable.');return $row;
     }
-    public function replay(string $uid,string $key):?array {$r=$this->query(['user_id'=>$uid,'operation_key'=>hash('sha256',$key)])->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}return $row===false?null:$row;}
+    public function replay(string $uid,string $key):?array {$r=$this->query(['user_id'=>$uid,'operation_key'=>hash('sha256',$key)],['id','user_id','draft_id','account_id','revision','state','sent_state','send_at','timezone','created_at','connection_id','source_tool'])->setMaxResults(1)->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}return $row===false?null:$row;}
+    public function draftAccount(string $uid,int $draftId):int {
+        $rows=(new \OCA\Mail\Db\BoundedMailMetadata($this->db,$this->config))->identities($uid,'draft',[$draftId]);
+        if(count($rows)!==1)throw new \RuntimeException('Draft unavailable.');return $rows[0]['account_id'];
+    }
     public function assertFree(string $uid,int $draftId):void {
         $q=$this->query(['user_id'=>$uid,'draft_id'=>$draftId],['id']);$q->andWhere($q->expr()->neq('state',$q->createNamedParameter('cancelled')))->andWhere($q->expr()->neq('state',$q->createNamedParameter('blocked')))->setMaxResults(1);$r=$q->executeQuery();try{$held=$r->fetch()!==false;}finally{$r->closeCursor();}if($held)throw new \RuntimeException('Draft is held by an approved delivery.');
     }

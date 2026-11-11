@@ -98,6 +98,17 @@ class GrantPolicy implements ScopeReader {
     ) {}
 
     /**
+     * A native effect fence must not inherit an enclosing HTTP snapshot.
+     * @template T
+     * @param Closure(self):T $work
+     * @return T
+     */
+    public function freshWithin(string $uid,Closure $work):mixed {
+        $fresh=new self($this->config,$this->userConfig,$this->commands,$this->service,$this->resolver,$this->transaction);
+        return $fresh->within($uid,static fn()=>$work($fresh));
+    }
+
+    /**
      * Runs one operation of $uid (a request of the MCP endpoint, a checkout step) over one policy snapshot: every
      * read of that user inside $work reuses it, so tools/list and a tools/call each see the policy of their own
      * request, consistently, and never one of an earlier request. The snapshot is assembled on the first read and

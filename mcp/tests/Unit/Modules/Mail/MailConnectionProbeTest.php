@@ -41,7 +41,7 @@ final class MailConnectionProbeTest extends TestCase {
         $j=new OperationJournal(new OperationsMapper($db->connection()),$states,$context,$clock);
         $hosts=$this->createMock(IRemoteHostValidator::class);$hosts->method('isValid')->willReturn(true);
         $config=$this->createMock(IConfig::class);$config->method('getSystemValueBool')->willReturnCallback(static fn(string $key,bool $default=false):bool=>$key==='app.mail.verify-tls-peer');
-        $worker=new NativeConnectionProbeWorker($gateway,$services,new NativeAccountSetupLinks($this->createMock(IURLGenerator::class),$hosts),$config,$tickets,$j,static fn():bool=>true);
+        $worker=new NativeConnectionProbeWorker($gateway,$services,new NativeAccountSetupLinks($this->createMock(IURLGenerator::class),$hosts),$config,$tickets,$j,static fn(string $uid,int $connection,array $sources=[],?int $account=null,?\Closure $target=null):bool=>$target===null||$target());
         $args=['account_id'=>4];$p=$j->plan('mail_test_connection','alice',$args,['plan_state'=>'proof']);
         $r=$j->execute('mail_test_connection','alice',$args+['operation_id'=>$p['operation_id'],'plan_state'=>'proof'],function()use($worker,$tickets,$gateway,$j):array{
             $revision=$gateway->readConnection('alice',4)['revision'];

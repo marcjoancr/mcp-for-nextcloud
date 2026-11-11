@@ -7,6 +7,6 @@ use OCA\Mcp\Modules\Mail\Integration\{MailGateway,MailNativeBoundary};
 use PHPUnit\Framework\TestCase;
 final class MailRefreshFreshnessTest extends TestCase {
     public function testOrdinaryMailboxReadReportsUnknownWithoutResolvingAnyRefreshService():void {
-        $app=(new FakeMailApp())->withAccount(3,'alice','Mail','alice@example.test')->withMailbox(3,['id'=>7,'name'=>'INBOX']);$g=new MailGateway($app);$r=$g->mailboxes('alice',3);self::assertSame(['status'=>'unknown'],$r['mailboxes'][0]['freshness']);self::assertSame(['AccountService::find','MailboxMapper::findAll'],$app->serviceCalls());
+        $app=(new FakeMailApp())->withAccount(3,'alice','Mail','alice@example.test')->withMailbox(3,['id'=>7,'name'=>'INBOX']);$g=new MailGateway($app, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));$r=$g->mailboxes('alice',3);self::assertSame(['status'=>'unknown'],$r['mailboxes'][0]['freshness']);self::assertSame(['AccountService::find','MailboxMapper::findAll'],$app->serviceCalls());
     }
 }

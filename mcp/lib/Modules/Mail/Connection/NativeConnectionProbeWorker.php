@@ -15,17 +15,20 @@ class NativeConnectionProbeWorker {
         private IConfig $config,private ProbeTicket $tickets,private OperationJournal $journal,private \Closure $authorize){}
     public function run(array $ticket): array {
         try {
-            if(!$this->tickets->verify($ticket)||!($this->authorize)($ticket['uid'],$ticket['connection_id']))return ['status'=>'failed','category'=>'policy_refused'];
+            if(!$this->tickets->verify($ticket)||!($this->authorize)($ticket['uid'],$ticket['connection_id'],[],$ticket['account_id']))return ['status'=>'failed','category'=>'policy_refused'];
             $uid=$ticket['uid'];$id=$ticket['account_id'];$protocol=$ticket['protocol'];
             $operation=$this->journal->get($uid,$ticket['operation_id']);
             if($operation===null||$operation['tool']!=='mail_test_connection'||$operation['state']!=='running')return ['status'=>'failed','category'=>'policy_refused'];
-            if(!($this->authorize)($ticket['uid'],$ticket['connection_id'],$operation['source_tools']??[]))return ['status'=>'failed','category'=>'policy_refused'];
-            $p=$this->gateway->readConnection($uid,$id);
-            if(!hash_equals($p['revision'],$ticket['revision']))return ['status'=>'unknown','category'=>'revision_changed'];
-            $account=$this->gateway->account($uid,$id);
-            if(!$p['editable']||!$this->config->getSystemValueBool('app.mail.verify-tls-peer',true)
-                ||$this->config->getSystemValueBool('app.mail.debug',false)||$account->getMailAccount()->getDebug())return ['status'=>'unsupported','category'=>'unsupported_transport'];
-            $this->hosts->validate([$protocol=>$p[$protocol]]);
+            $p=null;$account=null;
+            $target=function()use($uid,$id,$ticket,$protocol,&$p,&$account):bool {
+                $p=$this->gateway->readConnection($uid,$id);if(!hash_equals($p['revision'],$ticket['revision']))return false;
+                $account=$this->gateway->account($uid,$id);
+                if(!$p['editable']||!$this->config->getSystemValueBool('app.mail.verify-tls-peer',true)||$this->config->getSystemValueBool('app.mail.debug',false)||$account->getMailAccount()->getDebug())return false;
+                $this->hosts->validate([$protocol=>$p[$protocol]]);return true;
+            };
+            if(!($this->authorize)($uid,$ticket['connection_id'],$operation['source_tools']??[],$id,$target,$ticket['operation_id']))return ['status'=>'failed','category'=>'policy_refused'];
+            // The authorizer must execute the target in its coherent policy window.
+            if($account===null||$p===null)return ['status'=>'failed','category'=>'policy_refused'];
             if($protocol==='imap'){
                 $client=$this->native->clientFactory($uid)->getClient($account,false);
                 $client->login();$client->logout();

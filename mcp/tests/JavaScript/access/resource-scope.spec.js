@@ -4,7 +4,7 @@
 import { test, expect } from '../support/app-fixture.js'
 
 function scopes(app) {
-    const saved = Object.fromEntries(['files', 'calendar', 'tasks'].map(module => [module, { uid: 'alice', module, active: true, mode: 'unrestricted', items: [], limit: 200 }]))
+    const saved = Object.fromEntries(['files', 'calendar', 'tasks', 'mail'].map(module => [module, { uid: 'alice', module, active: true, mode: 'unrestricted', items: [], limit: 200 }]))
     for (const module of Object.keys(saved)) {
         app.on('GET', `/api/scope/alice/${module}`, ({ state }) => ({ body: { ...saved[module], revision: state.revision } }))
         app.on('GET', `/api/scope/alice/${module}/candidates`, () => ({ body: { items: [{ id: '11', name: 'A & B', path: module === 'files' ? '/A & B' : null, excluded: true }, { id: '12', name: 'Team', path: null }], total: 2, page: 1, pageSize: 50, hasMore: false } }))
@@ -141,7 +141,7 @@ test('scope tabs use arrows and retain unsaved status in their accessible names'
     await tab.focus(); await page.keyboard.press('ArrowRight')
     await expect(page.locator('#mcp-scope-tab-calendar')).toBeFocused()
     await expect(page.locator('#mcp-scope-tab-calendar')).toHaveAttribute('aria-selected', 'true')
-    await page.keyboard.press('End'); await expect(page.locator('#mcp-scope-tab-tasks')).toBeFocused()
+    await page.keyboard.press('End'); await expect(page.locator('#mcp-scope-tab-mail')).toBeFocused()
     await page.keyboard.press('Home'); await expect(tab).toBeFocused()
     expect(writes(app)).toEqual([])
 })
@@ -235,3 +235,37 @@ for (const action of ['save', 'undo']) {
         await expect(page.locator('#mcp-scope-undo-files')).toHaveCount(0)
     })
 }
+
+test('Mail typed selections retain exact IDs and keyboard focus after removal', async ({ page, app }, testInfo) => {
+    scopes(app)
+    app.on('GET', '/api/scope/alice/mail', ({ state }) => ({ body: {
+        uid: 'alice', module: 'mail', active: true, mode: 'restricted', limit: 200, revision: state.revision,
+        items: [{ id: 'account:7', kind: 'account', name: 'Main', found: true }, { id: 'mailbox:7', kind: 'mailbox', name: 'INBOX', path: 'Main', found: true }],
+    } }))
+    app.on('PUT', '/api/scope/alice/mail', ({ body, state }) => {
+        expect(body.items).toEqual(['mailbox:7'])
+        state.revision = '1'
+        return { body: { revision: '1', changed: true, receiptId: 'typed-receipt' } }
+    })
+    await open(page, app)
+    await page.locator('#mcp-scope-tab-mail').click()
+    // The isolated harness omits Nextcloud core CSS; supply its theme variables only for visual evidence.
+    await page.addStyleTag({ content: ':root { --color-main-background: #fff; --color-main-text: #222; --color-text-maxcontrast: #555; --color-border: #ddd; --color-box-shadow: #0002; --default-clickable-area: 44px; } body { font-family: system-ui, sans-serif; }' })
+    await page.locator('#mcp-scope').screenshot({ path: testInfo.outputPath('mail-scope-desktop.png') })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.locator('#mcp-scope').screenshot({ path: testInfo.outputPath('mail-scope-mobile.png') })
+    await page.getByRole('button', { name: 'Remove Account: Main', exact: true }).click()
+    await expect(page.locator('[id="mcp-scope-remove-mail-mailbox:7"]')).toBeFocused()
+    await page.locator('#mcp-scope-save-mail').click()
+    await expect(page.locator('#mcp-scope-undo-mail')).toBeVisible()
+})
+
+test('personal Mail scope distinguishes account and folder selections without treating empty as unrestricted', async ({ page, app }) => {
+    app.on('GET', '/api/my/scope', () => ({ body: { modules: { mail: { mode: 'restricted', items: [{ id: 'account:7', name: 'Main' }, { id: 'mailbox:7', name: 'INBOX', path: 'Main' }] } } } }))
+    await app.open('/personal')
+    await expect(page.locator('#mcp-my-scope-list')).toContainText('Account: Main')
+    await expect(page.locator('#mcp-my-scope-list')).toContainText('Folder: Main / INBOX')
+    app.on('GET', '/api/my/scope', () => ({ body: { modules: { mail: { mode: 'restricted', items: [] } } } }))
+    await app.open('/personal')
+    await expect(page.locator('#mcp-my-scope-list')).toHaveText('Mail: no account or folder')
+})

@@ -72,7 +72,7 @@ final class AccountListerTest extends TestCase {
 
 		$this->expectException(MailUnavailableException::class);
 		$this->expectExceptionMessage('The Mail app is not available for this account.');
-		(new AccountLister(new MailGateway($app), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute([], 'alice');
+		(new AccountLister(new MailGateway($app, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute([], 'alice');
 	}
 
 	/**
@@ -83,7 +83,7 @@ final class AccountListerTest extends TestCase {
 	 * @return array<string, mixed> the answer
 	 */
 	private function answer(FakeMailApp $app, string $userId): array {
-		$result = (new AccountLister(new MailGateway($app), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute([], $userId);
+		$result = (new AccountLister(new MailGateway($app, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute([], $userId);
 		return json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
 	}
 }

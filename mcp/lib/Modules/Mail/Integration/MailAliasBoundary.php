@@ -18,7 +18,12 @@ class MailAliasBoundary {
     public function __construct(private IAppManager $apps,private IDBConnection $db,private IConfig $config){}
     public function requireSupported():void {
         if(!MailRuntimePairs::matches($this->config->getSystemValueString('version',''),$this->apps->getAppVersion('mail')))throw new BeforeEffectFailure('This native Mail pair has no qualified alias write boundary.');
-        $root=$this->apps->getAppPath('mail');foreach(self::FILES as $path=>$hash)if(!is_file($root.'/'.$path)||!hash_equals($hash,(string)hash_file('sha256',$root.'/'.$path)))throw new BeforeEffectFailure('The native alias mapper source is not qualified.');
+        if($this->apps->getAppVersion('mail')==='5.12.5.11'){
+            // Current alias ownership overlays belong to the exact complete v11 source artifact.
+            if(!(new MailNativeBoundary($this->apps))->deliverySourceVerified())throw new BeforeEffectFailure('The native alias mapper source is not qualified.');
+        }else{
+            $root=$this->apps->getAppPath('mail');foreach(self::FILES as $path=>$hash)if(!is_file($root.'/'.$path)||!hash_equals($hash,(string)hash_file('sha256',$root.'/'.$path)))throw new BeforeEffectFailure('The native alias mapper source is not qualified.');
+        }
         if($this->config->getSystemValue('dbsharding',[])!==[]||$this->config->getSystemValue('dbreplica',[])!==[])throw new BeforeEffectFailure('Alias/journal atomicity requires primary storage without sharding or replicas.');
         $schema=$this->db->createSchema();$prefix=$this->config->getSystemValueString('dbtableprefix','oc_');
         foreach(['mail_aliases','mail_accounts','mail_local_messages','mcp_operations'] as $name){

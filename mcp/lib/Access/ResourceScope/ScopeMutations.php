@@ -20,8 +20,8 @@ final class ScopeMutations {
         $scopes = $this->scopes;
         try {
             $stored = $scopes->forModule($uid, $module);
-            $before = PolicyEventPayload::scopeValue($stored === null ? null : $stored['items']);
-            $after = PolicyEventPayload::scopeValue($items);
+            $before = PolicyEventPayload::scopeValue($stored === null ? null : $stored['items'], $module);
+            $after = PolicyEventPayload::scopeValue($items, $module);
             if ($before === $after) {
                 return null;
             }

@@ -25,9 +25,9 @@ class MailDeliveryOperations {
         if($this->connection->current()<1)throw new ToolFailure('Mail transmission requires a persistent OAuth connection with its own tool selection.');
         $source=$schedule?'mail_schedule':'mail_send';
         if(!($this->allowsTool)($uid,$source))throw new ToolFailure('Mail action unavailable.');
-        // Task5 supplies a bounded metadata-only draft lookup here, before content loading.
+        // Resolve only the owned draft identity before any private content.
         if($this->assertDraft!==null)($this->assertDraft)($uid,$id);
-        $snapshot=$this->gateway->preview($uid,$id);
+        $snapshot=$this->gateway->preview($uid,$id,$source);
         if($this->assertAccount!==null)($this->assertAccount)($uid,$snapshot['accountId']);
         $plan=['action'=>$schedule?'schedule_mail':'send_mail','draft'=>$snapshot,'send_at'=>$at,'timezone'=>$schedule?$args['timezone']:'UTC',
             'sending_enabled'=>$this->gateway->enabled(),'notice'=>'Approval releases a frozen copy for one attempt. SMTP acceptance is not delivery. An uncertain attempt is never automatically repeated.'];

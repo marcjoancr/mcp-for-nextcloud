@@ -1,6 +1,15 @@
 OC.L10N.register(
     "mcp",
     {
+    "Mail: accounts and folders" : "Correo: cuentas y carpetas",
+    "Nothing selected: the Mail tools of this user reach no account or folder." : "No hay nada seleccionado: las herramientas de correo de este usuario no pueden acceder a ninguna cuenta ni carpeta.",
+    "Account: {name}" : "Cuenta: {name}",
+    "Folder: {name}" : "Carpeta: {name}",
+    "Find a Mail account or folder of the user" : "Buscar una cuenta o carpeta de correo del usuario",
+    "An account includes its folders. A folder permits message actions only; account settings, local drafts and sending require the account. Global actions require all resources." : "Una cuenta incluye sus carpetas. Una carpeta solo permite acciones sobre mensajes; los ajustes, los borradores locales y el envío requieren acceso a la cuenta. Las acciones globales requieren todos los recursos.",
+    "Mail: every account and folder" : "Correo: todas las cuentas y carpetas",
+    "Mail: no account or folder" : "Correo: ninguna cuenta ni carpeta",
+    "Mail: only {names}" : "Correo: solo {names}",
     "The original is retained. A new protected local draft will be created." : "Se conserva el original. Se creará un nuevo borrador local protegido.",
     "Original sender: %s" : "Remitente original: %s",
     "Body sizes: plain %s characters; HTML %s characters." : "Tamaño del cuerpo: texto %s caracteres; HTML %s caracteres.",

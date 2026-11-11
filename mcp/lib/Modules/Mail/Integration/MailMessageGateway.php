@@ -34,6 +34,7 @@ class MailMessageGateway {
 	 */
 	public function __construct(
 		private MailServices $services,
+        private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access,
 	) {
 	}
 
@@ -46,7 +47,9 @@ class MailMessageGateway {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function mailboxes(string $userId, object $account): array {
-		return array_values($this->services->mailboxMapper($userId)->findAll($account));
+		$this->access->assertReadable($userId);
+        if((string)$account->getUserId()!==$userId)return [];
+        return array_values(array_filter($this->services->mailboxMapper($userId)->findAll($account),fn(object $box):bool=>$this->access->mailboxAllowed($userId,(int)$account->getId(),(int)$box->getId())));
 	}
 
 	/**
@@ -60,6 +63,7 @@ class MailMessageGateway {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function messageIds(string $userId, object $mailbox, object $query, int $limit): array {
+        if($this->mailbox($userId,(int)$mailbox->getId())===null)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(MailMessages::messageNotFound());
 		return array_map('intval', array_values($this->services->messageMapper($userId)->findIdsByQuery($mailbox, $query, self::NEWEST_FIRST, $limit, null)));
 	}
 
@@ -75,6 +79,8 @@ class MailMessageGateway {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function messages(string $userId, array $ids): array {
+        $this->access->assertReadable($userId);
+        if(!$this->access->unrestricted($userId))foreach(array_chunk($ids,50) as $chunk)foreach($chunk as $id)if(!$this->permitted($userId,"message",$id))throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(MailMessages::messageNotFound());
 		return $ids === [] ? [] : array_values($this->services->messageMapper($userId)->findByIds($userId, $ids, self::NEWEST_FIRST));
 	}
 
@@ -88,6 +94,13 @@ class MailMessageGateway {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function thread(string $userId, object $account, string $threadRootId): array {
+        $this->access->assertReadable($userId);
+        if((string)$account->getUserId()!==$userId)return [];
+        if(!$this->access->accountAllowed($userId,(int)$account->getId())) {
+            $ids=$this->services->boundedMetadata($userId)->threadIds($userId,(int)$account->getId(),$threadRootId,$this->mailboxIds($userId,$account));
+            if(count($ids)>500)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(MailMessages::threadTooLarge(500));
+            $rows=[];foreach(array_chunk($ids,50) as $chunk)array_push($rows,...$this->messages($userId,$chunk));return $rows;
+        }
 		return array_values($this->services->mailManager($userId)->getThread($account, $threadRootId));
 	}
 
@@ -100,7 +113,7 @@ class MailMessageGateway {
 	 */
 	public function mailboxIds(string $userId, object $account): array {
 		return array_map(static fn (object $mailbox): int => (int)$mailbox->getId(),
-			$this->services->mailboxMapper($userId)->findAll($account));
+			$this->mailboxes($userId,$account));
 	}
 
 	/**
@@ -112,6 +125,8 @@ class MailMessageGateway {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function message(string $userId, int $messageId): ?object {
+        $this->access->assertReadable($userId);
+        if(!$this->access->unrestricted($userId)&&!$this->permitted($userId,"message",$messageId))return null;
 		try {
 			return $this->services->mailManager($userId)->getMessage($userId, $messageId);
 		} catch (DoesNotExistException) {
@@ -128,6 +143,8 @@ class MailMessageGateway {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function mailbox(string $userId, int $mailboxId): ?object {
+        $this->access->assertReadable($userId);
+        if(!$this->access->unrestricted($userId)&&!$this->permitted($userId,"mailbox",$mailboxId))return null;
 		$exception = MailServices::CLIENT_EXCEPTION_CLASS;
 		try {
 			return $this->services->mailManager($userId)->getMailbox($userId, $mailboxId);
@@ -138,5 +155,10 @@ class MailMessageGateway {
 			throw $e;
 		}
 	}
+    private function permitted(string $uid,string $kind,int $id):bool {
+        $rows=$this->services->boundedMetadata($uid)->identities($uid,$kind,[$id]);
+        if(count($rows)!==1)return false;$r=$rows[0];
+        return $this->access->mailboxAllowed($uid,$r['account_id'],$r['mailbox_id']);
+    }
 
 }

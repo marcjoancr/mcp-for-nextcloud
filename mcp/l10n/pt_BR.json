@@ -1,4 +1,13 @@
 {"translations": {
+    "Mail: accounts and folders" : "E-mail: contas e pastas",
+    "Nothing selected: the Mail tools of this user reach no account or folder." : "Nada selecionado: as ferramentas de e-mail deste usuário não acessam nenhuma conta ou pasta.",
+    "Account: {name}" : "Conta: {name}",
+    "Folder: {name}" : "Pasta: {name}",
+    "Find a Mail account or folder of the user" : "Buscar uma conta ou pasta de e-mail do usuário",
+    "An account includes its folders. A folder permits message actions only; account settings, local drafts and sending require the account. Global actions require all resources." : "Uma conta inclui suas pastas. Uma pasta permite apenas ações sobre mensagens; configurações, rascunhos locais e envio exigem acesso à conta. Ações globais exigem todos os recursos.",
+    "Mail: every account and folder" : "E-mail: todas as contas e pastas",
+    "Mail: no account or folder" : "E-mail: nenhuma conta ou pasta",
+    "Mail: only {names}" : "E-mail: apenas {names}",
     "The original is retained. A new protected local draft will be created." : "O original é mantido. Um novo rascunho local protegido será criado.",
     "Original sender: %s" : "Remetente original: %s",
     "Body sizes: plain %s characters; HTML %s characters." : "Tamanho do corpo: texto %s caracteres; HTML %s caracteres.",

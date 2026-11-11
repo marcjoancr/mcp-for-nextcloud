@@ -118,7 +118,7 @@ final class MailAccountSetupTest extends TestCase {
         $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($j,fn(string $uid,string $tool):bool=>$this->allowed||$tool==='mail_complete_account_setup');
         $factories=array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()),static fn()=>throw new \LogicException('Unused tool'));
         $factories['mail_complete_account_setup']=static fn()=>new \OCA\Mcp\Modules\Mail\Tools\CompleteAccountSetup($s);
-        $module=new \OCA\Mcp\Modules\Mail\MailModule($factories,$j,$reader);
+        $module=new \OCA\Mcp\Modules\Mail\MailModule($factories, new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()),$j,$reader);
         $args=['setup_operation_id'=>$original['operation_id'],'account_id'=>5,'intent'=>$intent];
         $p=$module->preview('mail_complete_account_setup',$args,'alice');
         $args+=['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state'],'confirm'=>true];

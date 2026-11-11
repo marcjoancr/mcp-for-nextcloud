@@ -326,11 +326,11 @@ final class PolicyEventPayload {
      * @param list<string>|null $items canonical ids, unique, or null for unrestricted
      * @return string|null the raw scope a receipt stores: null, or the JSON list in ascending numeric order
      */
-    public static function scopeValue(?array $items): ?string {
+    public static function scopeValue(?array $items, string $module = 'files'): ?string {
         if ($items === null) {
             return null;
         }
-        usort($items, DecimalCounter::compare(...));
+        usort($items, static fn (string $a, string $b): int => \OCA\Mcp\Access\ResourceScope\ResourceIdentity::compare($module, $a, $b));
         return json_encode($items, JSON_THROW_ON_ERROR);
     }
 
@@ -338,7 +338,7 @@ final class PolicyEventPayload {
      * @param string|null $value raw scope as stored in a receipt
      * @return list<string>|null|false the ids (null for unrestricted), or false when the value is not a canonical scope
      */
-    public static function scopeItems(?string $value): array|null|false {
+    public static function scopeItems(?string $value, string $module = 'files'): array|null|false {
         if ($value === null) {
             return null;
         }
@@ -348,7 +348,7 @@ final class PolicyEventPayload {
         }
         foreach ($items as $id) {
             try {
-                if (!is_string($id) || DecimalCounter::validate($id, DecimalCounter::MAX) === '0') {
+                if (!is_string($id) || !\OCA\Mcp\Access\ResourceScope\ResourceIdentity::valid($module, $id)) {
                     return false;
                 }
             } catch (\InvalidArgumentException) {
@@ -356,7 +356,7 @@ final class PolicyEventPayload {
             }
         }
         // Canonical form only: sorted, unique and encoded exactly as scopeValue() does.
-        return count(array_unique($items)) === count($items) && self::scopeValue($items) === $value ? $items : false;
+        return count(array_unique($items)) === count($items) && self::scopeValue($items, $module) === $value ? $items : false;
     }
 
     /** @return bool a user id the official user config accepts: non-empty, valid UTF-8, without NUL */
@@ -533,7 +533,7 @@ final class PolicyEventPayload {
             return !$receipt && in_array($key, self::APP_KEYS, true);
         }
         if (self::scopeModule($key) !== null) {
-            return is_string($uid) && self::validUid($uid) && self::scopeItems($before) !== false && self::scopeItems($after) !== false;
+            return is_string($uid) && self::validUid($uid) && self::scopeItems($before, (string)self::scopeModule($key)) !== false && self::scopeItems($after, (string)self::scopeModule($key)) !== false;
         }
         return is_string($uid) && self::validUid($uid) && self::validUserKey($key);
     }

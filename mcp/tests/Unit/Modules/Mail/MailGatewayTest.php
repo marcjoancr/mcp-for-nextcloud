@@ -31,7 +31,7 @@ final class MailGatewayTest extends TestCase {
 		$journal = new \ArrayObject();
 		$own = $this->account(3, 'alice', $journal);
 		$delegated = $this->account(8, 'carol', $journal);
-		$gateway = new MailGateway($this->services(['findByUserId' => static fn (): array => [$own, $delegated]], $journal));
+		$gateway = new MailGateway($this->services(['findByUserId' => static fn (): array => [$own, $delegated]], $journal), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 
 		$this->assertSame([['id' => 3, 'name' => 'Account 3', 'email' => 'a3@example.com']], $gateway->accounts('alice'));
 	}
@@ -44,7 +44,7 @@ final class MailGatewayTest extends TestCase {
 	public function testAFoundAccountOfAnotherOwnerIsNotFound(): void {
 		$journal = new \ArrayObject();
 		$delegated = $this->account(8, 'carol', $journal);
-		$gateway = new MailGateway($this->services(['find' => static fn (): object => $delegated], $journal));
+		$gateway = new MailGateway($this->services(['find' => static fn (): object => $delegated], $journal), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 
 		$this->assertNull($gateway->mailboxes('alice', 8));
 	}
@@ -56,7 +56,7 @@ final class MailGatewayTest extends TestCase {
 	 */
 	public function testAnotherFailureOfMailIsNotTurnedIntoNotFound(): void {
 		$journal = new \ArrayObject();
-		$gateway = new MailGateway($this->services(['find' => static fn (): object => throw new RuntimeException('database down')], $journal));
+		$gateway = new MailGateway($this->services(['find' => static fn (): object => throw new RuntimeException('database down')], $journal), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 
 		$this->expectException(RuntimeException::class);
 		$this->expectExceptionMessage('database down');

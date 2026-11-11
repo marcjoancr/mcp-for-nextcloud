@@ -60,7 +60,7 @@ final class ReceiptUndo {
             $changes = $grantCells === [] ? [] : $this->mutations->apply($attempt, $grantCells, $inherited);
             $revision = DecimalCounter::increment($current['revision']);
             foreach ($scopeCells as $cell) {
-                $items = PolicyEventPayload::scopeItems($cell['value']);
+                $items = PolicyEventPayload::scopeItems($cell['value'], (string)PolicyEventPayload::scopeModule($cell['key']));
                 $change = $items === false ? throw new PolicyUnavailable('Invalid stored receipt')
                     : $this->scopes->write($attempt, $cell['uid'], (string)PolicyEventPayload::scopeModule($cell['key']), $items, $revision);
                 if ($change !== null) {

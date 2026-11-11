@@ -43,6 +43,7 @@ final class MailDeliveryToolActor {
     public static function run(string $uid,int $draftId,string $scenario):array {
         DeliveryFixtureBoundary::install();
         $config=Server::get(\OCP\IConfig::class);$appConfig=Server::get(\OCP\IAppConfig::class);$appConfig->clearCache(false);
+        $oldScope=Server::get(\OCA\Mcp\Db\ResourceScopeMapper::class)->forModule($uid,'mail');$scopeScenario=in_array($scenario,['mcp_scope_revoked','mcp_future_scope_revoked'],true);
         $mailEnabled=$config->getAppValue('mail','enabled','yes');$disabledGroup=null;
         $auditCursor=$config->getAppValue('mcp','mail_delivery_audit_cursor','__mcp_fixture_absent__');
         $legacy=[];foreach([GrantPolicy::ELIGIBLE_KEY,GrantPolicy::CONNECTED_KEY]as$key)$legacy[$key]=$config->getUserValue($uid,'mcp',$key,'__mcp_fixture_absent__');
@@ -52,6 +53,7 @@ final class MailDeliveryToolActor {
         Server::get(PolicyTransaction::class)->runInternal([$uid],static fn()=>null,static function()use($mapper,$uid):bool{foreach(array_merge([ToolGrantsMapper::SERVICE],self::TOOLS)as$tool)$mapper->set(ToolGrantsMapper::USER,$uid,$tool,'allow');return true;});
         $context=Server::get(ConnectionContext::class);$context->clear();$context->setSelection(self::TOOLS);$connection=null;$ids=[];$db=Server::get(IDBConnection::class);
         try{
+            if($scopeScenario){$sourceAccount=(int)Server::get('OCA\\Mail\\Service\\DraftsService')->getMessage($draftId,$uid)->getAccountId();MailSavedScopeActor::scope($uid,['account:'.$sourceAccount]);}
             $basic=self::call($uid,'mail_send',['draft_id'=>$draftId]);
             $credential=LoginFactory::bearer($uid);$hash=Server::get(TokenHasher::class)->hash(substr($credential->authorization(),7));$row=Server::get(OAuthStore::class)->findByAccess($hash);$connection=(int)$row['id'];
             $store=Server::get(ConnectionToolsStore::class);$selected=$store->get($uid,$connection);$store->save($uid,$connection,self::TOOLS,$selected['revision']);$context->set($connection);$context->setSelection(self::TOOLS);
@@ -60,20 +62,20 @@ final class MailDeliveryToolActor {
             if($scenario==='mcp_repair'){
                 $native=Server::get('OCA\\Mail\\Service\\GuardedDelivery');$preview=$native->preview($uid,$draftId);
                 $pending=$native->queue($uid,$draftId,$preview['revision'],bin2hex(random_bytes(16)),$connection,'mail_send',0,'UTC');$id=$pending['id'];$ids[]=$id;
-                Server::get(DeliveryRunner::class)->run(['uid'=>$uid,'id'=>$id,'accountId'=>$pending['accountId'],'connectionId'=>$connection,'sourceTool'=>'mail_send']);
+                $dispatch=Server::get(DeliveryRunner::class)->run(['uid'=>$uid,'id'=>$id,'accountId'=>$pending['accountId'],'connectionId'=>$connection,'sourceTool'=>'mail_send']);
                 $initial=self::call($uid,'mail_read_delivery',['delivery_id'=>$id]);
-                $plan=self::call($uid,'mail_sent_repair',['delivery_id'=>$id]);if(!isset($plan['plan_state']))throw new \RuntimeException('Repair preview failed: '.json_encode($plan));
+                $plan=self::call($uid,'mail_sent_repair',['delivery_id'=>$id]);if(!isset($plan['plan_state']))throw new \RuntimeException('Repair preview failed: '.json_encode(['plan'=>$plan,'dispatch'=>$dispatch,'state'=>$initial['delivery']['state']??null,'sent'=>$initial['delivery']['sentState']??null]));
                 $done=self::confirm($uid,'mail_sent_repair',['delivery_id'=>$id],$plan);$again=self::confirm($uid,'mail_sent_repair',['delivery_id'=>$id],$plan);
                 return ['before'=>$initial['delivery']['sentState']??null,'after'=>$done['delivery']['sentState']??null,'state'=>$done['delivery']['state']??null,'replayed'=>$again['operation']['replayed']??false,'source_tool'=>$done['operation']['source_tool']??null];
             }
             if($scenario==='mcp_lost_ack'){
-                $proxy=new class(Server::get(MailServices::class),new DeliveryFixtureBoundary(Server::get(\OCP\App\IAppManager::class)),Server::get(\OCP\IConfig::class),$db)extends MailDeliveryGateway{
+                $proxy=new class(Server::get(MailServices::class),new DeliveryFixtureBoundary(Server::get(\OCP\App\IAppManager::class)),Server::get(\OCP\IConfig::class),Server::get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),$db,Server::get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class))extends MailDeliveryGateway{
                     public function queue(string $uid,int $draft,string $revision,string $operation,int $connection,string $source,int $at,string $zone,?array $sentTarget=null):array {parent::queue($uid,$draft,$revision,$operation,$connection,$source,$at,$zone,$sentTarget);throw new \RuntimeException('Synthetic lost queue response.');}
                 };
                 (new \ReflectionProperty(MailDeliveryOperations::class,'gateway'))->setValue(Server::get(MailDeliveryOperations::class),$proxy);
             }
-            $tool=in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_paused','mcp_mail_revoked'],true)?'mail_schedule':'mail_send';$args=['draft_id'=>$draftId];
-            if(in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_paused','mcp_mail_revoked'],true))$args+=['send_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600),'timezone'=>'UTC'];
+            $tool=in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_scope_revoked','mcp_future_paused','mcp_mail_revoked'],true)?'mail_schedule':'mail_send';$args=['draft_id'=>$draftId];
+            if(in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_scope_revoked','mcp_future_paused','mcp_mail_revoked'],true))$args+=['send_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600),'timezone'=>'UTC'];
             $plan=self::call($uid,$tool,$args);if(!isset($plan['plan_state']))throw new \RuntimeException('Actual tool preview failed: '.json_encode($plan));
             $accepted=self::confirm($uid,$tool,$args,$plan);if($scenario==='mcp_lost_ack'){
                 $key=hash('sha256',Server::get(\OCA\Mcp\Mcp\Operations\OperationJournal::class)->scopeKey($uid)."\0".$plan['operation_id']);
@@ -113,9 +115,10 @@ final class MailDeliveryToolActor {
                     Server::get(DeliveryRunner::class)->run(['uid'=>$uid,'id'=>$id,'accountId'=>$accepted['delivery']['accountId'],'connectionId'=>$connection,'sourceTool'=>$tool]);
                     $out['restored_state']=$native->status($uid,$id)['state'];
                 }
-            }elseif(in_array($scenario,['mcp_revoked','mcp_future_revoked'],true)){
-                $selected=$store->get($uid,$connection);$store->save($uid,$connection,array_values(array_diff(self::TOOLS,[$tool])),$selected['revision']);
-                if($scenario==='mcp_future_revoked'){
+            }elseif(in_array($scenario,['mcp_revoked','mcp_future_revoked','mcp_scope_revoked','mcp_future_scope_revoked'],true)){
+                if($scopeScenario){MailSavedScopeActor::scope($uid,[]);$out['scope_status_denied']=self::call($uid,'mail_get_operation',['operation_id'=>$plan['operation_id']])['error']??false;$out['scope_replay_denied']=self::confirm($uid,$tool,$args,$plan)['error']??false;}
+                else{$selected=$store->get($uid,$connection);$store->save($uid,$connection,array_values(array_diff(self::TOOLS,[$tool])),$selected['revision']);}
+                if(in_array($scenario,['mcp_future_revoked','mcp_future_scope_revoked'],true)){
                     $config->setSystemValue('app.mail.mcp-transmission.enabled',false);
                     Server::get(\OCA\Mcp\Modules\Mail\Transmission\DeliverySweep::class)->run();$out['child']='audited';$out['audit_index']=false;foreach($db->createSchema()->getTable($config->getSystemValueString('dbtableprefix','oc_').'mail_mcp_deliveries')->getIndexes()as$index)if($index->getColumns()===['state','id'])$out['audit_index']=true;$out['gate_off']=!$config->getSystemValueBool('app.mail.mcp-transmission.enabled',false);
                 }else{$ack=Server::get(DeliveryRunner::class)->run(['uid'=>$uid,'id'=>$id,'accountId'=>$accepted['delivery']['accountId'],'connectionId'=>$connection,'sourceTool'=>$tool]);$out['child']=$ack['status'];}
@@ -126,6 +129,7 @@ final class MailDeliveryToolActor {
             }
             return $out;
         }finally{
+            if($scopeScenario)MailSavedScopeActor::scope($uid,$oldScope['items']??null);
             if($disabledGroup!==null){self::restoreMail($mailEnabled);$disabledGroup->delete();}
             foreach($ids as$id){$q=$db->getQueryBuilder();$q->delete('mail_mcp_deliveries')->where($q->expr()->eq('id',$q->createNamedParameter($id)))->andWhere($q->expr()->eq('user_id',$q->createNamedParameter($uid)))->executeStatement();}
             if($connection!==null){

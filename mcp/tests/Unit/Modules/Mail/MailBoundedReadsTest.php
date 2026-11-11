@@ -50,7 +50,7 @@ final class MailBoundedReadsTest extends TestCase {
 		$apps = $this->createMock(IAppManager::class);
 		$config = $this->createMock(IConfig::class);
 		$config->expects(self::never())->method('getSystemValueString');
-		$reads = new MailBoundedReads($services, new MailNativeBoundary($apps), $config);
+		$reads = new MailBoundedReads($services, new MailNativeBoundary($apps), $config, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 
 		try {
 			$reads->outbox('alice', []);
@@ -69,7 +69,7 @@ final class MailBoundedReadsTest extends TestCase {
 		$apps->expects(self::atMost(1))->method('getAppPath')->with('mail')->willReturn('/missing-native-mail-source');
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValueString')->with('version', '')->willReturn('35.0.2');
-		$reads = new MailBoundedReads($services, new MailNativeBoundary($apps), $config);
+		$reads = new MailBoundedReads($services, new MailNativeBoundary($apps), $config, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 
 		try {
 			$reads->outbox('alice', []);
@@ -128,7 +128,7 @@ final class MailBoundedReadsTest extends TestCase {
 		};
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValueString')->with('version', '')->willReturn('35.0.2');
-		$reads = new MailBoundedReads($services, $boundary, $config);
+		$reads = new MailBoundedReads($services, $boundary, $config, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 
 		$outbox = new ReadOutbox($reads)->execute(['account_id' => 7, 'limit' => 3, 'before_id' => 99], new ToolContext('alice'));
 		$outboxResult = json_decode($outbox['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
@@ -151,9 +151,20 @@ final class MailBoundedReadsTest extends TestCase {
 		self::assertSame(2, $boundary->sourceChecks);
 	}
 
+    public function testLegacyOutboxCannotSilentlyIgnoreTheNewScopeArgument():void {
+        $native=new class {public int $calls=0;public function outbox(string $uid,?int $account,int $limit,?int $before):array{$this->calls++;return ['items'=>[],'next_before_id'=>null];}};
+        $services=$this->createMock(MailServices::class);$services->method('isEnabledFor')->willReturn(true);$services->method('boundedMetadata')->willReturn($native);
+        $boundary=$this->createMock(MailNativeBoundary::class);$boundary->method('runtimeMatches')->willReturn(true);$boundary->method('boundedMetadataSourceVerified')->willReturn(true);
+        $scope=(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())->restrict('mail',[]);
+        $reads=new MailBoundedReads($services,$boundary,$this->createMock(IConfig::class),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard($scope));
+        $denied=false;try{$reads->outbox('alice',[]);}catch(ToolFailure){$denied=true;}
+        self::assertTrue($denied);self::assertSame(0,$native->calls);
+        $scope->restricted=[];self::assertSame([],$reads->outbox('alice',[])['items']);self::assertSame(1,$native->calls);
+    }
+
 	private function reads(): MailBoundedReads {
 		$services = $this->createMock(MailServices::class);
 		$apps = $this->createMock(IAppManager::class);
-		return new MailBoundedReads($services, new MailNativeBoundary($apps), $this->createMock(IConfig::class));
+		return new MailBoundedReads($services, new MailNativeBoundary($apps), $this->createMock(IConfig::class), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 	}
 }

@@ -89,6 +89,17 @@ class FakeMailApp extends MailServices {
 	 * @return object strict double of OCA\Mail\Service\AccountService
 	 * @throws MailUnavailableException when the test turned Mail off
 	 */
+    public function scopedMetadataAvailable():bool {return false;}
+    public function boundedMetadata(string $uid):object {
+        return new RecordingDouble('BoundedMailMetadata',['resourceInventory'=>function(string $uid):array {
+            $rows=[];
+            foreach($this->accounts as $a)if($a['owner']===$uid){
+                $rows[]=['id'=>'account:'.$a['id'],'name'=>$a['name'],'path'=>null,'kind'=>'account','excluded'=>false];
+                foreach($this->mailboxes[$a['id']]??[] as $b)$rows[]=['id'=>'mailbox:'.$b['id'],'name'=>$b['name'],'path'=>$a['name'],'kind'=>'mailbox','excluded'=>false];
+            }
+            return $rows;
+        }],$this->journal);
+    }
 	public function accountService(string $userId): object {
 		$this->assertEnabled();
 		return new RecordingDouble('AccountService', [

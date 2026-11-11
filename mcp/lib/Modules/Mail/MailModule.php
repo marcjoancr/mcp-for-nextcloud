@@ -19,7 +19,7 @@ use OCA\Mcp\Mcp\Tools\ToolModule;
 /** Static publication and lazy dispatch for the Mail feature. */
 final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, RendersPlans {
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null, private ?Operations\MailOperationReader $receipts = null) {
+    public function __construct(private array $factories, private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null, private ?Operations\MailOperationReader $receipts = null,private ?\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization $authorization=null) {
         $expected = array_keys(MailToolCatalog::definitions());
         if (array_diff($expected, array_keys($factories)) !== [] || array_diff(array_keys($factories), $expected) !== []) {
             throw new \LogicException('Factories must match the catalog exactly');
@@ -36,21 +36,22 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function call(string $name, array $arguments, string $userId): array {
+        $this->access->assertReadable($userId);
         $tool = $this->resolve($name);
         if ($this->operations === null || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
             return $tool->execute($arguments, new ToolContext($userId));
         }
         try {
-            $data = $this->operations->execute($name, $userId, $arguments, static function () use ($tool, $arguments, $userId): array {
+            $data = $this->operations->execute($name, $userId, $arguments, function () use ($tool, $arguments, $userId,$name): array {
+                \OCA\Mcp\Mcp\Operations\BeforeEffectFailure::preflight(fn()=>$this->authorization?->capture($userId,$name,$arguments));
                 $result = $tool->execute($arguments, new ToolContext($userId));
                 if (($result['isError'] ?? false) === true) throw new \RuntimeException('Mail write did not confirm its result.');
                 return $result['structuredContent'] ?? json_decode($result['content'][0]['text'], true, 32, JSON_THROW_ON_ERROR);
             }, function(array $receipt) use ($userId): void {
-                if (isset($receipt['source_tool'])) {
                     if ($this->receipts===null) throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Operation not found.');
                     $this->receipts->assertAccess($userId,$receipt);
-                }
             });
+            if(isset($data['operation'])&&$this->receipts!==null)$this->receipts->assertAccess($userId,$data['operation']);
             return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($data);
         } catch (\OCA\Mcp\Mcp\Confirmation\PlanChanged $e) {
             throw new \OCA\Mcp\Mcp\Confirmation\PlanChanged($this->operations->plan($name, $userId, $arguments, $e->plan));
@@ -58,6 +59,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function preview(string $name, array $arguments, string $userId): array {
+        $this->access->assertReadable($userId);
         $tool = $this->resolve($name);
         if (!$tool instanceof WriteTool || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
             throw new \InvalidArgumentException('Unknown tool');

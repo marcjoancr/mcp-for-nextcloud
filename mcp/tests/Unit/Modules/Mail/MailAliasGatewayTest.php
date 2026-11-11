@@ -23,10 +23,10 @@ final class MailAliasGatewayTest extends TestCase {
             public function update(object $a):object{$this->writes++;return $a;}
             public function insert(object $a):object{$a->setId(9);$this->rows[9]=$a;$this->writes++;return $a;}
             public function delete(object $a):object{unset($this->rows[$a->getId()]);$this->writes++;return $a;}
-            public function getAllForUser(string $uid,int $type):array{return $this->messages;}
+            public function hasLocalMessages(string $uid,int $account,int $type,?int $alias=null):bool{return array_filter($this->messages,static fn(object $m):bool=>(int)$m->getAccountId()===$account&&(int)$m->getAliasId()===$alias)!==[];}
         };
         $native->method('newAliasMapper')->willReturn($mapper);$native->method('newAlias')->willReturnCallback(static fn():object=>new SettingsNativeEntity([]));
-        $native->method('localMessageMapper')->willReturn($mapper);$native->method('localDraftType')->willReturn(1);$native->method('localOutgoingType')->willReturn(0);
+        $native->method('scopedMetadataAvailable')->willReturn(true);$native->method('boundedMetadata')->willReturn($mapper);$native->method('localDraftType')->willReturn(1);$native->method('localOutgoingType')->willReturn(0);
         $sql=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$ops=new OperationsMapper($sql->connection());
         $gateway=new MailAliasGateway($accounts,$native,$this->createMock(MailAliasBoundary::class),$ops,$states,$sql->connection());
         return [$gateway,$mapper,$alias,$entity,$ops];

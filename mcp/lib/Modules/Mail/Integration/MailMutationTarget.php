@@ -20,9 +20,9 @@ class MailMutationTarget {
         $message=$located['message'];$mailbox=$located['mailbox'];$account=$located['account'];
         if((int)$account->getId()!==(int)$args['account_id'])throw new BeforeEffectFailure('Message not found in the selected account.');
         $generation=MailCacheGeneration::of($mailbox);if($generation===null)throw new BeforeEffectFailure('The source cache generation is unavailable. Use native Mail.');
-        $profile=$this->settings->readConnection($uid,(int)$args['account_id']);
+        $profile=$this->settings->profileRevision($uid,(int)$args['account_id'],(int)$mailbox->getId());
         $r=['account_id'=>(int)$account->getId(),'message_id'=>(int)$message->getId(),'mailbox_id'=>(int)$mailbox->getId(),'mailbox'=>(string)$mailbox->getName(),
-            'generation'=>$generation,'uid'=>(string)$message->getUid(),'flag'=>$args['flag'],'value'=>$args['value'],'profile_revision'=>$profile['revision'],
+            'generation'=>$generation,'uid'=>(string)$message->getUid(),'flag'=>$args['flag'],'value'=>$args['value'],'profile_revision'=>$profile,
             'cache_revision'=>hash('sha256',json_encode([$mailbox->getSyncNewToken(),$mailbox->getSyncChangedToken(),$mailbox->getSyncVanishedToken()],JSON_THROW_ON_ERROR))];
         if(!MutationRequest::valid($r))throw new BeforeEffectFailure('The native message identity is not supported.');
         return ['request'=>$r,'before'=>$args['flag']==='seen'?(bool)$message->getFlagSeen():(bool)$message->getFlagFlagged()];

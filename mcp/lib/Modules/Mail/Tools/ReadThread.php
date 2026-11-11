@@ -29,6 +29,7 @@ final class ReadThread implements Tool {
 		private MailGateway $accounts,
 		private UserTimezone $timezones,
 		private MailLinks $links,
+        private MailMessageGateway $messages,
         private ?\OCA\Mcp\Modules\Mail\Integration\MailContentReader $content = null,
 	) {
 	}
@@ -48,11 +49,11 @@ final class ReadThread implements Tool {
 	}
 
 	public function execute(array $arguments, ToolContext $context): array {
-		$messages = new MailMessageGateway($this->services);
+		$messages = $this->messages;
 		$rows = new MailMessageRows($this->timezones->forUser($context->userId), $this->links);
 		$answer = new MailMessageAnswer($rows);
 		$locator = new MailMessageLocator($this->accounts, $messages);
-		$reader = new ReadMessageHandler($locator, new MailBodyReader($this->services, content: $this->content, sourceTool: 'mail_read_thread'), $rows, $answer);
+		$reader = new ReadMessageHandler($locator, new MailBodyReader($this->services,$this->accounts, content: $this->content, sourceTool: 'mail_read_thread'), $rows, $answer);
 		return (new ReadThreadHandler($locator, $messages, $reader, $answer))->handle($arguments, $context->userId);
 	}
 }

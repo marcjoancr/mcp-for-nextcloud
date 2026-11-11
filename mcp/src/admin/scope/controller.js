@@ -30,9 +30,9 @@ import { createScope } from '../../platform/lifecycle.js'
 import { createScopeView } from './view.js'
 export function mountResourceScope({ root: pageRoot, request, t, n, events, policyChannel, getMatrix, getInspector }) {
     const lifetime = createScope()
-    const find = id => pageRoot.querySelector('#' + id)
+    const find = id => pageRoot.querySelector('#' + CSS.escape(id))
 
-	const MODULES = ['files', 'calendar', 'tasks']
+	const MODULES = ['files', 'calendar', 'tasks', 'mail']
 	const UNDO_SECONDS = 10
 	/** Delay before a message is written, so the same message twice in a row is announced twice (as in the matrix). */
 	const SAY_DELAY = 60
@@ -85,7 +85,7 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
     }
 
 	function title(module) {
-		return { files: t('mcp', 'Files: folders'), calendar: t('mcp', 'Calendar: calendars'), tasks: t('mcp', 'Tasks: task lists') }[module]
+		return { files: t('mcp', 'Files: folders'), calendar: t('mcp', 'Calendar: calendars'), tasks: t('mcp', 'Tasks: task lists'), mail: t('mcp', 'Mail: accounts and folders') }[module]
 	}
 
 	function failure(error) {
@@ -211,7 +211,7 @@ export function mountResourceScope({ root: pageRoot, request, t, n, events, poli
 
 	/** @return {string} the tab of a module: its saved state, and whether a draft is not saved */
 	function tabLabel(state) {
-		const name = { files: t('mcp', 'Files'), calendar: t('mcp', 'Calendar'), tasks: t('mcp', 'Tasks') }[state.module]
+		const name = { files: t('mcp', 'Files'), calendar: t('mcp', 'Calendar'), tasks: t('mcp', 'Tasks'), mail: t('mcp', 'Mail') }[state.module]
 		const saved = state.savedMode === 'restricted'
 			? t('mcp', '{module}: {count}', { module: name, count: state.savedItems.length }, undefined, { escape: false })
 			: t('mcp', '{module}: all', { module: name }, undefined, { escape: false })
