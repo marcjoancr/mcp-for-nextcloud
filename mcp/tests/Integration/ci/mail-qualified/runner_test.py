@@ -40,7 +40,7 @@ class RunnerTest(unittest.TestCase):
             private = Path(directory) / 'private'
             private.mkdir()
             (private / 'raw.log').write_text('AUTH_PRIVATE_CANARY MIME_PRIVATE_CANARY SQL_PRIVATE_CANARY')
-            f.result = {'status': 'failed', 'failureType': 'RuntimeError'}
+            f.result = {'status': 'failed', 'failureType': 'RuntimeError', 'operatorEnabled': None}
             f.stage = 'extras'
             f.started = run.time.monotonic()
             f.inputs = {'manifestSha256': 'a' * 64, 'nativeManifestSha256': 'b' * 64}
@@ -50,6 +50,9 @@ class RunnerTest(unittest.TestCase):
             self.assertEqual(set(run.PROFILE['artifactAllowlist']), {p.name for p in f.public.iterdir()})
             self.assertNotIn('PRIVATE_CANARY', ''.join(p.read_text() for p in f.public.iterdir()))
             self.assertTrue((private / 'raw.log').is_file())
+            outcome=json.loads((f.public / 'result.json').read_text())
+            self.assertEqual('failed',outcome['status'])
+            self.assertIsNone(outcome['operatorEnabled'])
 
     def test_qualified_tool_actors_use_shipping_admission_and_child_commands(self):
         for kind in ['Delivery', 'Snooze', 'Sieve', 'SignatureMode']:
@@ -57,6 +60,25 @@ class RunnerTest(unittest.TestCase):
             self.assertNotIn('FixtureBoundary::install()',source)
             self.assertTrue("Runner::class,'command'" not in source,kind + " must use its shipping child command")
             self.assertIn('MailCleanHttpActor::assertClean()',source)
+
+    def test_each_off_probe_invalidates_prior_evidence_until_confirmed(self):
+        f = run.Fixture.__new__(run.Fixture)
+        f.names = {'nc': 'synthetic-nc'}
+        f.result = {'operatorEnabled': None}
+        f.docker = Mock(return_value=b'{"ok":true,"result":{"operatorEnabled":false}}')
+        self.assertEqual({'operatorEnabled': False}, f.probe('off'))
+        self.assertIs(f.result['operatorEnabled'], False)
+        for failure in [RuntimeError('Synthetic transport failure'), b'{"ok":false}', b'{"ok":true,"result":{"operatorEnabled":true}}']:
+            f.result['operatorEnabled'] = False
+            if isinstance(failure, Exception):
+                f.docker = Mock(side_effect=failure)
+            else:
+                f.docker = Mock(return_value=failure)
+            with self.assertRaises(RuntimeError):
+                f.probe('off')
+            self.assertIsNone(f.result['operatorEnabled'], 'A failed observation cannot retain an earlier OFF claim')
+            self.assertEqual(1, f.docker.call_count, 'The observation must never force configuration to satisfy itself')
+            self.assertEqual('off', f.docker.call_args.args[-1])
 
     def test_plan_has_no_ports_and_all_digest_pins(self):
         self.assertEqual([], run.PROFILE['publishedPorts'])

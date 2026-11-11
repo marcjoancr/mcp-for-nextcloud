@@ -67,7 +67,7 @@ class Fixture:
         for directory in [self.kit, self.native]:
             if not directory.is_relative_to((ROOT / 'mcp/build').resolve()) or not directory.is_dir():
                 raise ValueError('Source kit inputs must be existing directories under this checkout mcp/build')
-        self.result = {'schemaVersion': 1, 'profile': PROFILE['id'], 'run': self.run, 'sourceCommit': self.sha, 'status': 'running', 'operatorEnabled': False}
+        self.result = {'schemaVersion': 1, 'profile': PROFILE['id'], 'run': self.run, 'sourceCommit': self.sha, 'status': 'running', 'operatorEnabled': None}
 
     def call(self, args, data=None, timeout=300, allow_failure=False):
         self.sequence += 1
@@ -90,11 +90,17 @@ class Fixture:
         return self.docker('exec', '-i', '-u', '1000:1000', self.names['nc'], 'php', '-d', 'apc.enable_cli=1', data=(BOOT + source).encode())
 
     def probe(self, action, payload=None):
+        if action == 'off':
+            self.result['operatorEnabled'] = None
         raw = self.docker('exec', '-i', '-u', '1000:1000', self.names['nc'], 'php', '-d', 'apc.enable_cli=1',
                           '/mcp-it-src/mcp/tests/Integration/ci/mail-qualified/probe.php', action, data=json.dumps(payload or {}).encode())
         value = json.loads(raw)
         if value.get('ok') is not True:
             raise RuntimeError('Missing successful probe marker')
+        if action == 'off':
+            if value.get('result', {}).get('operatorEnabled') is not False:
+                raise RuntimeError('Operator OFF observation was not confirmed')
+            self.result['operatorEnabled'] = False
         return value['result']
 
     def phase(self, name):
