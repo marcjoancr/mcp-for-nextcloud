@@ -14,6 +14,10 @@ use PHPUnit\Framework\TestCase;
 final class MailPlanRendererTest extends TestCase {
     use \OCA\Mcp\Tests\Support\Mcp\AssertsReadablePlans;
 
+    public function testSievePlanShowsCompleteReviewedConfigurationWithoutPrivateProofs():void {
+        $message=str_repeat('Reviewed absence ',1200)."\n# hostile heading";$rendered=(new MailPlanRenderer())->render('mail_enable_absence',['account_id'=>1,'following_system'=>true,'emits'=>true,'absence'=>['subject'=>'Away','message'=>$message],'revision'=>str_repeat('a',64),'plan_state'=>str_repeat('b',64)]);
+        self::assertIsString($rendered);self::assertStringContainsString(\OCA\Mcp\Mcp\Confirmation\PlanText::quoted($message),$rendered);self::assertStringNotContainsString(str_repeat('a',64),$rendered);self::assertStringNotContainsString(str_repeat('b',64),$rendered);self::assertStringNotContainsString("\n# hostile",$rendered);
+    }
     public function testEveryMailWriteHasAReadableInertPlan(): void {
         [$module, $plans] = MailWritePlanFixtures::create();
 

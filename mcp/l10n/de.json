@@ -2064,6 +2064,27 @@
     "The bounded Mail read arguments are invalid." : "Die Argumente für den begrenzten Mail-Lesezugriff sind ungültig.",
     "Bounded Mail metadata is unavailable until the installed native Mail source is verified." : "Begrenzte Mail-Metadaten sind nicht verfügbar, bis der installierte native Mail-Quellcode verifiziert wurde.",
     "Read mail message metadata" : "Mail-Nachrichtenmetadaten lesen",
-    "Read local mail outbox" : "Lokalen Mail-Ausgang lesen"
+    "Read local mail outbox" : "Lokalen Mail-Ausgang lesen",
+    "Read mail filters" : "Mailfilter lesen",
+    "Write safe mail filters" : "Sichere Mailfilter ändern",
+    "Read mail absence settings" : "Abwesenheitseinstellungen lesen",
+    "Write disabled mail absence settings" : "Deaktivierte Abwesenheit konfigurieren",
+    "Disable mail absence" : "Mailabwesenheit deaktivieren",
+    "Read mail filter change status" : "Status der Filteränderung lesen",
+    "Allow mail filter redirects" : "Mailweiterleitungen erlauben",
+    "Enable mail absence replies" : "Abwesenheitsantworten aktivieren",
+    "Apply reviewed mail filters and absence settings" : "Geprüfte Mailfilter und Abwesenheit anwenden",
+    "Original scripts are retained. External mail clients may still change the active script." : "Originalskripte bleiben erhalten. Andere Mailclients können das aktive Skript ändern.",
+    "Follow system absence" : "Systemabwesenheit übernehmen",
+    "May send future mail" : "Kann künftig Nachrichten senden",
+    "Unknown acknowledgements never repeat activation. Read status before making another change." : "Eine unklare Bestätigung wiederholt die Aktivierung nie. Vor weiteren Änderungen den Status lesen.",
+    "read_filters" : "Mailfilter lesen",
+    "write_filters" : "Sichere Mailfilter ändern",
+    "read_absence" : "Abwesenheitseinstellungen lesen",
+    "write_absence" : "Deaktivierte Abwesenheit konfigurieren",
+    "disable_absence" : "Mailabwesenheit deaktivieren",
+    "read_sieve_status" : "Status der Filteränderung lesen",
+    "transmit_filters" : "Mailweiterleitungen erlauben",
+    "enable_absence" : "Abwesenheitsantworten aktivieren"
 },"pluralForm" : "nplurals=2; plural=(n != 1);"
 }

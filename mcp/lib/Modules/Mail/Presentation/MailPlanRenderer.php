@@ -17,6 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
+        if(in_array($tool,['mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence'],true))return self::sieve($plan);
         if(in_array($tool,['mail_snooze','mail_wake','mail_cancel_snooze'],true))return self::snooze($tool,$plan);
         if($tool==='mail_import_draft')return self::importDraft($plan);
         if($tool==='mail_index_messages')return self::indexMessages($plan);
@@ -33,6 +34,16 @@ final class MailPlanRenderer {
 		};
 	}
 
+    private static function sieve(array $plan):string {
+        $lines=[Translator::t('Apply reviewed mail filters and absence settings'),'',Translator::t('Original scripts are retained. External mail clients may still change the active script.'),'- '.Translator::t('Account id').': '.(int)$plan['account_id'],'- '.Translator::t('Follow system absence').': '.($plan['following_system']?Translator::t('yes'):Translator::t('no')),'- '.Translator::t('May send future mail').': '.($plan['emits']?Translator::t('yes'):Translator::t('no'))];
+        foreach(['filters','absence']as$key)if(isset($plan[$key]))$lines=array_merge($lines,self::sieveFields($plan[$key],$key));
+        $lines[]='';$lines[]=Translator::t('Unknown acknowledgements never repeat activation. Read status before making another change.');return implode("\n",$lines);
+    }
+    /** Every approved value remains complete and independently inert, including multiline absence text. */
+    private static function sieveFields(array $data,string $path):array {
+        if($data===[])return ['- '.PlanText::inline($path).': []'];$lines=[];
+        foreach($data as$key=>$value){$field=$path.'.'.$key;if(is_array($value))$lines=array_merge($lines,self::sieveFields($value,$field));else $lines[]='- '.PlanText::inline($field).': '.(is_string($value)?PlanText::quoted($value):json_encode($value,JSON_THROW_ON_ERROR));}return $lines;
+    }
     private static function snooze(string $tool,array $plan):string {
         $title=match($tool){'mail_snooze'=>Translator::t('Snooze one mail message'),'mail_wake'=>Translator::t('Wake one snoozed message'),default=>Translator::t('Cancel a mail wake timer')};
         $lines=[$title,'',match($tool){'mail_snooze'=>Translator::t('Approve placement in Snooze and return to this exact original folder at the specified time.'),'mail_wake'=>Translator::t('Return the message now to its exact original folder.'),default=>Translator::t('Cancel only the future wake. Leave the message in its proven current folder.')}];

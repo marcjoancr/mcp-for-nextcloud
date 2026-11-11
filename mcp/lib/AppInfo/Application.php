@@ -774,7 +774,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
                 ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid),
             static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class)->pendingNativeEntry($uid,$id),
-            static fn(string $uid,string $id,string $tool):?array=>$c->get(\OCA\Mcp\Modules\Mail\Transmission\MailDeliveryOperations::class)->recover($uid,$id,$tool),$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class),static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Snooze\MailSnoozeOperations::class)->recover($uid,$id)
+            static fn(string $uid,string $id,string $tool):?array=>$c->get(\OCA\Mcp\Modules\Mail\Transmission\MailDeliveryOperations::class)->recover($uid,$id,$tool),$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class),static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Snooze\MailSnoozeOperations::class)->recover($uid,$id),static fn(string $uid,string $id,string $tool):?array=>$c->get(\OCA\Mcp\Modules\Mail\Sieve\MailSieveOperations::class)->recover($uid,$id,$tool)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class), $c->get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class),
@@ -899,6 +899,14 @@ class Application extends App implements IBootstrap {
             'mail_wake' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WakeMessage::class),
             'mail_cancel_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelSnooze::class),
             'mail_read_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadSnooze::class),
+            'mail_read_filters' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadFilters::class),
+            'mail_write_filters' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteFilters::class),
+            'mail_read_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadAbsence::class),
+            'mail_write_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteAbsence::class),
+            'mail_disable_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DisableAbsence::class),
+            'mail_read_sieve_status' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadSieveStatus::class),
+            'mail_transmit_filters' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\TransmitFilters::class),
+            'mail_enable_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\EnableAbsence::class),
             'mail_schedule' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ScheduleDraft::class),
             'mail_cancel_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelDelivery::class),
             'mail_read_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadDelivery::class),

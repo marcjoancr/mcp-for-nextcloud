@@ -8,7 +8,7 @@ Each permission starts denied, including on existing installations. `mail.read` 
 The native qualification fixture uses Mail 5.12.5 on Nextcloud 35; the API floor
 is not a promise that every Mail/server version combination is supported.
 
-The current development module publishes **57 tools**; the guarded snooze continuation below remains unqualified. The historical MCP2.7.0 metadata snapshot published 43 tools. The deployed PostgreSQL v9 snapshot contains the preceding 41; the two metadata reads below are a separate continuation. Sending, scheduling, enqueueing,
+The current development module publishes **65 tools**; the guarded snooze and structured Sieve continuations below remain unqualified. The historical MCP2.7.0 metadata snapshot published 43 tools. The deployed PostgreSQL v9 snapshot contains the preceding 41; the two metadata reads below are a separate continuation. Sending, scheduling, enqueueing,
 MDN transmission and outbox dispatch remain disabled. Acceptance covers the
 implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim complete parity with native Mail.
 
@@ -703,3 +703,77 @@ proven destination. Native account/user erasure removes exact captured intent ID
 without network cleanup. Original private actor and both mailbox references survive
 journal compaction, so moved/deleted-source history stays authorized for the same
 actor and inaccessible to a recreated UID.
+
+## Structured filters and absence (unqualified continuation)
+
+Eight appended tools have separate, default-denied permissions. They require a
+whole owned account; a selected folder alone never authorizes account-wide Sieve
+configuration. Configure the endpoint and credentials in native Mail first.
+The current source requires exact current-v11 native bytes, NC35/PHP8.4 or 8.5,
+and directly connected PostgreSQL. `SIEVE_QUALIFIED` remains **false** until final
+qualification; diagnostic fixture results do not enable shipping or transmission.
+
+| Tool / independent permission | Behavior |
+| --- | --- |
+| `mail_read_filters` / `mail.read_filters` | Recognized bounded filters, opaque-section flag, capabilities and opaque revision. |
+| `mail_write_filters` / `mail.write_filters` | Preview and confirm `fileinto`, `keep`, `stop`, native labels or `\\Seen`/`\\Flagged`. |
+| `mail_read_absence` / `mail.read_absence` | Recognized absence configuration and system-follow state. |
+| `mail_write_absence` / `mail.write_absence` | Save disabled absence configuration with system-follow off. |
+| `mail_disable_absence` / `mail.disable_absence` | Disable only a proven recognized absence block and system-follow. |
+| `mail_read_sieve_status` / `mail.read_sieve_status` | Inspect an opaque `sieve_id` under the original actor, connection and source grant. |
+| `mail_transmit_filters` / `mail.transmit_filters` | Separate permission for redirect-copy and final programs that can emit mail. |
+| `mail_enable_absence` / `mail.enable_absence` | Separate permission for vacation or system-follow enablement. |
+
+The two transmission actions also require the operator transmission gate, which
+remains off. Safe grants never inherit transmission permission. Safe writes and
+absence disable refuse if any final executable section emits mail or is unknown.
+There is no raw script editor, arbitrary extension/action string, blanket script
+deactivation, remote deletion, rollback, or automatic activation retry.
+
+Filter definitions contain at most 50 filters, ten tests/actions per filter and
+ten values per test. Tests accept only subject/to/from and is/contains/matches;
+values are at most 256 characters, names 255, and priorities 0–100000. Fileinto
+names must resolve to an existing selectable mailbox in the same owned account.
+Absence uses version 1, a 255-character subject and 20,000-character message.
+Enabled absence requires explicit ordered start/end timestamps with offsets.
+Only the native `${subject}` placeholder is accepted. Native vacation uses its
+four-day interval and current validated primary/alias recipient addresses.
+
+Native JSON comments are not executable authority: recognized blocks are
+regenerated with the pinned native builders and compared with their executable
+bytes. Modified/duplicate/unbalanced blocks and unknown executable code are
+opaque; reads do not expose that code and writes refuse it. Untouched comments
+and whitespace are preserved. Final output is capped at 256 KiB.
+
+Every fresh transport requires verified TLS and native stored credentials, with
+PLAIN, LOGIN or CRAM-MD5; other mechanisms refuse. There is no plaintext fallback,
+referral following, reconnect, debug logger, or inherited cached session. Bounds
+apply before greeting/authentication: 17 seconds total, two seconds per wait,
+1 MiB inbound and outbound, 8 KiB complete protocol lines/status or challenge
+literals, 1,024 lines, 32 commands, 100 script names of at most 255 bytes, and
+64 capabilities. Script literals are capped before reading at 256 KiB. Aggregate
+budgets can refuse a large multi-read change even below the individual script cap.
+
+A confirmed change records its original actor, persistent connection, private
+whole-account authorization and stable operation key before native admission.
+Under the shared native owner lease it checks the current active name/hash and
+profile, stores an immutable candidate attempt, PUTs a new unique name, GETs it
+for verification, rechecks the original, then records an activation attempt before
+one SETACTIVE and final readback. The original script remains on the server.
+Native filters, raw editor, manual/system absence, all five system events, alias
+changes and endpoint/secret updates share owner serialization. Endpoint/secret
+and system-follow changes bump the native authorization revision.
+
+This is **not external compare-and-swap**. Other ManageSieve clients can change
+the active script between observations. Status reports only the observed active
+candidate/original/other state; it cannot prove remote history. Unknown PUT or
+SETACTIVE acknowledgements never reinstall, activate, roll back or delete.
+Remote activation and local system-follow persistence are not one transaction.
+Use the original operation receipt and dedicated status after response loss;
+never issue a new operation merely to retry an uncertain change.
+
+Candidate programs remain sensitive native data and are excluded from receipts,
+status projections and application logs. Exact captured account/user erasure
+purges those local rows and quarantines pending erasure before access. Cleanup
+never contacts ManageSieve. Original journal identity and authorization survive
+compaction; recreating a UID or switching connections cannot claim old attempts.

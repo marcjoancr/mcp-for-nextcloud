@@ -27,6 +27,11 @@ final class MailWritePlanFixtures {
 
 		return [new MailModule($factories, new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())), [
 
+            'mail_write_filters' => ['account_id'=>1,'following_system'=>false,'emits'=>false,'filters'=>[['name'=>'Reviewed filter','enable'=>true,'actions'=>[['type'=>'keep']]]]],
+            'mail_write_absence' => ['account_id'=>1,'following_system'=>false,'emits'=>false,'absence'=>['version'=>1,'enabled'=>false,'subject'=>'Away','message'=>'Reviewed absence']],
+            'mail_disable_absence' => ['account_id'=>1,'following_system'=>false,'emits'=>false,'absence'=>['version'=>1,'enabled'=>false,'subject'=>'Away','message'=>'Reviewed absence']],
+            'mail_transmit_filters' => ['account_id'=>1,'following_system'=>false,'emits'=>false,'filters'=>[['name'=>'Reviewed filter','enable'=>true,'actions'=>[['type'=>'keep']]]]],
+            'mail_enable_absence' => ['account_id'=>1,'following_system'=>false,'emits'=>false,'absence'=>['version'=>1,'enabled'=>false,'subject'=>'Away','message'=>'Reviewed absence']],
             'mail_snooze' => ['action'=>'snooze','account_id'=>1,'message_id'=>42,'source'=>'Original','source_mailbox_id'=>3,'snooze'=>'Snoozed','snooze_mailbox_id'=>4,'wake_at'=>1794500000,'timezone'=>'Europe/Madrid','notice'=>'Move one message now, then return it only to the exact original folder.'],
             'mail_wake' => ['action'=>'mail_wake','snooze'=>['id'=>'opaque','accountId'=>1,'state'=>'snoozed','original'=>['mailboxId'=>3,'uid'=>'7'],'current'=>['mailboxId'=>4,'uid'=>'9'],'wakeAt'=>1794500000,'timezone'=>'Europe/Madrid'],'notice'=>'Wake now to the exact original folder.'],
             'mail_cancel_snooze' => ['action'=>'mail_cancel_snooze','snooze'=>['id'=>'opaque','accountId'=>1,'state'=>'snoozed','original'=>['mailboxId'=>3,'uid'=>'7'],'current'=>['mailboxId'=>4,'uid'=>'9'],'wakeAt'=>1794500000,'timezone'=>'Europe/Madrid'],'notice'=>'Cancel the timer and leave the message in its current folder.'],

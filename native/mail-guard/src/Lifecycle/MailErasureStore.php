@@ -18,7 +18,7 @@ final class MailErasureStore {
     public function capture(string $uid):string {
         return $this->transaction(function()use($uid):string {
             $id=bin2hex(random_bytes(32));$ids=[];
-            foreach(['mail_accounts'=>'id','mail_mcp_deliveries'=>'account_id','mail_mcp_snoozes'=>'account_id'] as $table=>$column)foreach($this->rows($this->query($table,['user_id'=>$uid])->select($column)->from($table)) as $row)$ids[(int)$row[$column]]=true;
+            foreach(['mail_accounts'=>'id','mail_mcp_deliveries'=>'account_id','mail_mcp_snoozes'=>'account_id','mail_mcp_sieve'=>'account_id'] as $table=>$column)foreach($this->rows($this->query($table,['user_id'=>$uid])->select($column)->from($table)) as $row)$ids[(int)$row[$column]]=true;
             $this->insert('mail_mcp_erasure',['id'=>$id,'user_id'=>$uid,'state'=>'prepared','created_at'=>time()]);
             foreach(array_keys($ids) as $account)$this->insert('mail_mcp_erase_accounts',['erasure_id'=>$id,'account_id'=>$account]);
             return $id;
@@ -35,7 +35,7 @@ final class MailErasureStore {
         if($this->rows($q)!==[])throw new \OCA\Mail\Transmission\BeforeWireBlock('Original account consent was erased.');
     }
     /** Caller holds the physical owner lease and the account-removal transaction. */
-    public function purgeAccount(string $uid,int $account):void {$this->query('mail_mcp_snoozes',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_snoozes')->executeStatement();$this->query('mail_mcp_body_index',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_body_index')->executeStatement();$this->query('mail_mcp_draft_copies',['user_id'=>$uid,'target_account_id'=>$account])->delete('mail_mcp_draft_copies')->executeStatement();$this->query('mail_mcp_deliveries',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_deliveries')->executeStatement();}
+    public function purgeAccount(string $uid,int $account):void {$this->query('mail_mcp_sieve',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_sieve')->executeStatement();$this->query('mail_mcp_snoozes',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_snoozes')->executeStatement();$this->query('mail_mcp_body_index',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_body_index')->executeStatement();$this->query('mail_mcp_draft_copies',['user_id'=>$uid,'target_account_id'=>$account])->delete('mail_mcp_draft_copies')->executeStatement();$this->query('mail_mcp_deliveries',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_deliveries')->executeStatement();}
     /** One bounded atomic batch; no ordinary hold bypass escapes this exact confirmed identity set. */
     public function erase(string $id,string $uid):void {
         $scope=\OCA\Mail\Drafts\DraftCoordinator::forDatabase($this->db)->scope();if($scope->uid!==$uid)throw new \RuntimeException('Erasure owner changed.');

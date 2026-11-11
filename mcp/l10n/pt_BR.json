@@ -2064,6 +2064,27 @@
     "The bounded Mail read arguments are invalid." : "Os argumentos da leitura limitada do Mail são inválidos.",
     "Bounded Mail metadata is unavailable until the installed native Mail source is verified." : "Os metadados limitados do Mail não estão disponíveis até que o código-fonte nativo instalado seja verificado.",
     "Read mail message metadata" : "Ler metadados da mensagem de e-mail",
-    "Read local mail outbox" : "Ler a caixa de saída local do Mail"
+    "Read local mail outbox" : "Ler a caixa de saída local do Mail",
+    "Read mail filters" : "Ler filtros de e-mail",
+    "Write safe mail filters" : "Alterar filtros seguros de e-mail",
+    "Read mail absence settings" : "Ler configurações de ausência",
+    "Write disabled mail absence settings" : "Configurar ausência desativada",
+    "Disable mail absence" : "Desativar ausência de e-mail",
+    "Read mail filter change status" : "Ler estado da alteração dos filtros",
+    "Allow mail filter redirects" : "Permitir redirecionamentos de e-mail",
+    "Enable mail absence replies" : "Ativar respostas de ausência",
+    "Apply reviewed mail filters and absence settings" : "Aplicar filtros e ausência revisados",
+    "Original scripts are retained. External mail clients may still change the active script." : "Os scripts originais são preservados. Outros clientes podem alterar o script ativo.",
+    "Follow system absence" : "Seguir ausência do sistema",
+    "May send future mail" : "Pode enviar e-mails futuros",
+    "Unknown acknowledgements never repeat activation. Read status before making another change." : "Uma confirmação incerta nunca repete a ativação. Consulte o estado antes de outra alteração.",
+    "read_filters" : "Ler filtros de e-mail",
+    "write_filters" : "Alterar filtros seguros de e-mail",
+    "read_absence" : "Ler configurações de ausência",
+    "write_absence" : "Configurar ausência desativada",
+    "disable_absence" : "Desativar ausência de e-mail",
+    "read_sieve_status" : "Ler estado da alteração dos filtros",
+    "transmit_filters" : "Permitir redirecionamentos de e-mail",
+    "enable_absence" : "Ativar respostas de ausência"
 },"pluralForm" : "nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;"
 }

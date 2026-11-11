@@ -173,7 +173,7 @@ final class OperationsMapper implements OperationStore {
             ->andWhere($q->expr()->neq('actor_uid',$q->createNamedParameter('')))->setMaxResults(100)->executeQuery();
         try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         foreach($rows as $row){
-            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['actor_incarnation','authorization','snooze_id','wake_revision','delivery_id','draft_id','file_id','tag_id','alias_id','account_id','source_tool','source_tools','native_state','source','user_expires_at','protocols','authentication_observation','reconciled_operation_id','mutation']));
+            $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['actor_incarnation','authorization','sieve_id','snooze_id','wake_revision','delivery_id','draft_id','file_id','tag_id','alias_id','account_id','source_tool','source_tools','native_state','source','user_expires_at','protocols','authentication_observation','reconciled_operation_id','mutation']));
             if(isset($refs['mutation']))$refs['mutation']=array_intersect_key($refs['mutation'],array_flip(['phase','remote','cache']));
             $u=$this->db->getQueryBuilder();
             $u->update(self::TABLE)->set('state',$u->createNamedParameter($row['state']==='awaiting_user'?'expired':$row['state']))->set('actor_uid',$u->createNamedParameter(''))

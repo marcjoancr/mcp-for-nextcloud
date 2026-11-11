@@ -67,6 +67,12 @@ switch ($action) {
         \OCA\Mcp\Tests\Integration\Mail\MailSavedScopeActor::scope($uid,[]);$out=['changed'=>true];break;
     case 'delivery-child':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailDeliveryActor::child($uid,$in);break;
+    case 'sieve-erasure':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSieveErasureActor::run();}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
+    case 'sieve-native':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSieveActor::run($uid,$in);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
+    case 'sieve-lease':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSieveLeaseActor::run($uid,$in);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
     case 'snooze-native':
         try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSnoozeActor::run($uid,$in);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e).': '.$e->getMessage(),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
     case 'delivery-native':

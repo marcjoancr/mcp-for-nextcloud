@@ -36,6 +36,8 @@ class MailNativeBoundary {
     }
     public const DELIVERY_QUALIFIED=false;
     public function deliverySourceVerified():bool {return (NativeGuardManifest::DATA['contract']??null)==='mcp-mail-mutations-v11'&&$this->apps->getAppVersion('mail')===(NativeGuardManifest::DATA['build_version']??null)&&$this->matches(NativeGuardManifest::DATA);}
+    public const SIEVE_QUALIFIED=false;
+    public function sieveVerified():bool {return self::SIEVE_QUALIFIED&&$this->deliverySourceVerified();}
     public const SNOOZE_QUALIFIED=false;
     public function snoozeVerified():bool {return self::SNOOZE_QUALIFIED&&$this->deliverySourceVerified();}
     public function deliveryVerified():bool {return self::DELIVERY_QUALIFIED&&$this->deliverySourceVerified();}
