@@ -42,10 +42,11 @@
 
 **Files:** Modules/Mail/Transmission/*, Tools/{SendDraft,ScheduleDraft,CancelDelivery,ReadDelivery,RepairSentCopy}.php; AppInfo/Application.php, MailToolCatalog, capabilities, WriteGate, journal/store receipts, permissions/UI/translations/public tools; native/mail-guard/build.php and native manifests/runtime boundary; background job/command as needed.
 
-**Interfaces:** Consume Task1 interface report. Produce separately granted send/schedule/cancel/read delivery/Sent repair tools, current connection checks and background authorization; journal admission succeeds with delivery ID, status reports native delivery evidence separately. Preserve first43 tools' order.
+**Interfaces:** Consume Task1 interface report. Produce mail_send/send, mail_schedule/schedule, mail_cancel_delivery/cancel_delivery, mail_read_delivery/read_delivery and mail_sent_repair/repair_sent tools with independent grants, current connection checks and background authorization; journal admission succeeds with delivery ID, status reports native delivery evidence separately. Preserve first43 tools' order.
 
 - [ ] RED tests for exact preview/plan changes, denied/revoked source selection, timezone/DST validation, read-only status, durable replay, operation receipt privacy and separately denied new grants.
-- [ ] Wire bounded worker with originating connection/user/app/grant/scope revalidation before native fence; avoid extending existing25s mutation tickets to represent schedules.
+- [ ] Wire a bounded job launching one signed fresh CLI child per item via existing NativeMutationProcess20-second process limit plus CLI alarm and a fresh25-second delivery ticket. Revalidate originating persistent OAuth connection/user/app/grant/scope before native fence; queue lifetime is independent of ticket lifetime. Basic/session connection zero refuses. Bound each job sweep to50 entries and an absolute budget, restore parent context.
+- [ ] Recover lost queue acknowledgements through native read-only findByOperation(uid,key), derived from journal scope/original operation ID. Add sanitized delivery_id to receipts/compaction and source_tool checks to cancel/repair/replay. Complete automatic normal Sent copy only with target bound in initial approval; pending copy remains explicit and never resends.
 - [ ] Generate native v11 artifact (Mail5.12.5.11, mcp-mail-mutations-v11), preserve immutable v10 manifest, extend API/runtime/source qualification without blessing stock/new untested pairs.
 - [ ] GREEN focused PHP/API/UI tests, update public tool contract and commit.
 

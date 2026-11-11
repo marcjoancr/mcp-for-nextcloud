@@ -39,7 +39,7 @@ $persist();
 while (($client = @stream_socket_accept($server, 3600)) !== false) {
     $config = json_decode((string)file_get_contents($configPath), true, 16, JSON_THROW_ON_ERROR);
     $mode = $config['mode'] ?? 'accept';
-    if (!in_array($mode, ['accept', 'reject_rcpt', 'reject_data', 'disconnect_data', 'ack_lost', 'timeout_data'], true)) {
+    if (!in_array($mode, ['accept', 'reject_rcpt', 'reject_data', 'disconnect_data', 'ack_lost', 'timeout_data', 'pause_before_ack'], true)) {
         fclose($client);
         continue;
     }
@@ -126,6 +126,18 @@ while (($client = @stream_socket_accept($server, 3600)) !== false) {
                     }
                 }
                 break;
+            }
+            if ($mode === 'pause_before_ack') {
+                $until = hrtime(true) + 15_000_000_000;
+                while (!is_file($directory . '/ack_continue') && hrtime(true) < $until) {
+                    usleep(10000);
+                }
+                if (!is_file($directory . '/ack_continue')) {
+                    break;
+                }
+                unlink($directory . '/ack_continue');
+                $state['messages'][$id - 1]['acknowledged'] = true;
+                $persist();
             }
             fwrite($client, "250 2.0.0 synthetic accepted\r\n");
         } elseif ($command === 'RSET') {
