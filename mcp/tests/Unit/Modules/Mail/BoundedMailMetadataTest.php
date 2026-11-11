@@ -13,7 +13,7 @@ final class BoundedMailMetadataTest extends TestCase {
     private function fixture(array $topology=[],string $provider=IDBConnection::PLATFORM_MYSQL):array {
         $path=dirname(__DIR__,5).'/native/mail-guard/src/Db/BoundedMailMetadata.php';
         if(!is_file($path))self::fail('The native bounded Mail metadata reader has not been added yet.');
-        require_once dirname(__DIR__,5).'/native/mail-guard/src/Db/PgDirectConnection.php';require_once $path;
+        require_once dirname(__DIR__,5).'/native/mail-guard/src/Lifecycle/AccountVisibility.php';require_once dirname(__DIR__,5).'/native/mail-guard/src/Db/PgDirectConnection.php';require_once $path;
         $base=new class extends SimpleMigrationStep {
             public function changeSchema(IOutput $output,\Closure $schemaClosure,array $options):?ISchemaWrapper {
                 $s=$schemaClosure();
@@ -23,7 +23,8 @@ final class BoundedMailMetadataTest extends TestCase {
                 return $s;
             }
         };
-        $sql=new SqliteDatabase($this,[$base]);
+        require_once dirname(__DIR__,5).'/native/mail-guard/src/Migration/Version5125Date20261111020000.php';
+        $sql=new SqliteDatabase($this,[$base,new \OCA\Mail\Migration\Version5125Date20261111020000()]);
         foreach([[1,'alice'],[2,'bob'],[3,'alice']] as [$id,$uid])$sql->dbal->insert('mail_accounts',['id'=>$id,'user_id'=>$uid]);
         foreach([[10,1],[11,2],[12,3]] as [$id,$account])$sql->dbal->insert('mail_mailboxes',['id'=>$id,'account_id'=>$account]);
         foreach([
@@ -82,5 +83,14 @@ final class BoundedMailMetadataTest extends TestCase {
     }
     public function testEmptyCacheBatchReturnsWithoutIssuingSql():void {
         [$sql,$reader]=$this->fixture();self::assertSame([],$reader->cachedMessages('alice',[]));self::assertSame(0,$sql->queryCount);
+    }
+
+    public function testConfirmedOriginalAccountsAreExcludedBeforePaginationAndPreparedAccountsRemainVisible():void {
+        [$sql,$reader]=$this->fixture();$sql->dbal->insert('mail_mcp_erasure',['id'=>'capture','user_id'=>'alice','state'=>'prepared','created_at'=>1]);$sql->dbal->insert('mail_mcp_erase_accounts',['erasure_id'=>'capture','account_id'=>3]);
+        self::assertSame([3],array_column($reader->outbox('alice',null,1,null)['items'],'id'));
+        $sql->dbal->update('mail_mcp_erasure',['state'=>'pending'],['id'=>'capture']);
+        $page=$reader->outbox('alice',null,1,null);self::assertSame([2],array_column($page['items'],'id'));self::assertSame(2,$page['next_before_id']);
+        self::assertSame([100],array_column($reader->cachedMessages('alice',[100,102]),'id'));
+        self::assertSame([], $reader->outbox('alice',3,50,null)['items']);
     }
 }

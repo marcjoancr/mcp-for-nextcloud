@@ -53,6 +53,7 @@ final class BoundedMailMetadata {
             ->orderBy('l.id','DESC')->setMaxResults($limit+1);
         if($accountId!==null)$q->andWhere($q->expr()->eq('l.account_id',$q->createNamedParameter($accountId,IQueryBuilder::PARAM_INT)));
         if($beforeId!==null)$q->andWhere($q->expr()->lt('l.id',$q->createNamedParameter($beforeId,IQueryBuilder::PARAM_INT)));
+        (new \OCA\Mail\Lifecycle\AccountVisibility($this->db))->excludePending($q,'a.id');
         $rows=$this->rows($q);$hasMore=count($rows)>$limit;if($hasMore)array_pop($rows);
         $items=[];
         foreach($rows as$row){$subject=self::subject($row);$items[]=[
@@ -77,6 +78,7 @@ final class BoundedMailMetadata {
             ->where($q->expr()->eq('a.user_id',$q->createNamedParameter($uid)))
             ->andWhere($q->expr()->in('m.id',$q->createNamedParameter(array_keys($seen),IQueryBuilder::PARAM_INT_ARRAY)))
             ->orderBy('m.id','ASC')->setMaxResults(self::MAX_PAGE);
+        (new \OCA\Mail\Lifecycle\AccountVisibility($this->db))->excludePending($q,'a.id');
         $rows=$this->rows($q);
         $items=[];
         foreach($rows as$row){$subject=self::subject($row);$items[]=[

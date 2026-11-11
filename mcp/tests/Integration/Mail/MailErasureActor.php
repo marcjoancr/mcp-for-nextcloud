@@ -33,7 +33,7 @@ final class MailErasureActor {
             try{self::retry();self::account($uid);$r['after_accounts']=self::count('mail_accounts',$uid);$r['after_payloads']=self::count('mail_mcp_deliveries',$uid);return $r;}finally{self::clear($uid);Server::get(IUserManager::class)->get($uid)?->delete();}
         }
 
-        $uid='mcp-it-erasure-'.bin2hex(random_bytes(8));$db=Server::get(IDBConnection::class);$users=Server::get(IUserManager::class);$user=$users->createUser($uid,bin2hex(random_bytes(24)));if($user===false)throw new \RuntimeException('Synthetic user unavailable.');$out=[];
+        $uid='mcp-it-erasure-'.bin2hex(random_bytes(8));$db=Server::get(IDBConnection::class);$users=Server::get(IUserManager::class);$user=$users->createUser($uid,bin2hex(random_bytes(24)));if($user===false)throw new \RuntimeException('Synthetic user unavailable.');$out=[];$privacy=null;
         try {
             if($in['scenario']==='ordinary'){
                 foreach([['cancelled','not_started'],['blocked','not_started'],['accepted','verified'],['queued','not_started'],['attempting','not_started'],['uncertain','not_started'],['accepted','pending']] as [$state,$sent]){
@@ -52,6 +52,7 @@ final class MailErasureActor {
             self::queue($uid,$a->getId()+100000000,'queued','not_started');
             $other=self::count('mail_accounts',MailActor::BOB);
             if(in_array($in['scenario'],['busy','reentrant'],true)){
+                $privacy=MailErasurePrivacyActor::prepare($uid,$a);
                 $independent=self::independent();$r=$independent->executeQuery('SELECT pg_backend_pid()');try{$pid=(int)$r->fetchOne();}finally{$r->closeCursor();}$r=$db->executeQuery('SELECT pg_backend_pid()');try{$different=$pid!==(int)$r->fetchOne();}finally{$r->closeCursor();}
                 $config=Server::get(\OCP\IConfig::class);$lease=null;
                 try {
@@ -66,8 +67,9 @@ final class MailErasureActor {
                 $store=Server::get('OCA\\Mail\\Transmission\\AttemptStore');$row=$store->find($uid,$id);$row['id']=bin2hex(random_bytes(32));$row['operation_key']=$row['id'];$row['draft_id']=(int)$row['draft_id']+200000000;$row['state']='queued';$out['admission_refused']=false;
                 try{$store->coordinator()->runOwner($uid,fn()=>$store->insert($row));}catch(\OCA\Mail\Transmission\BeforeWireBlock){$out['admission_refused']=true;}
                 $new=$users->createUser($uid,bin2hex(random_bytes(24)));$a=self::account($uid);self::queue($uid,$a->getId(),'queued','not_started');
+                $out['privacy']=MailErasurePrivacyActor::observe($uid,$a,$privacy);
                 self::retry();self::retry();Server::get(\OCP\EventDispatcher\IEventDispatcher::class)->dispatchTyped(new \OCP\User\Events\UserDeletedEvent($user));
-                $out['new_accounts']=self::count('mail_accounts',$uid);$out['new_payloads']=self::count('mail_mcp_deliveries',$uid);$user=$new;return $out;
+                $out['new_accounts']=self::count('mail_accounts',$uid);$out['new_payloads']=self::count('mail_mcp_deliveries',$uid);$out['privacy']+=MailErasurePrivacyActor::after($uid,$a,$privacy);$user=$new;return $out;
             }
             $deleted=$user->delete();
             $out=['deleted'=>$deleted,'accounts'=>self::count('mail_accounts',$uid),'payloads'=>self::count('mail_mcp_deliveries',$uid),'unrelated'=>self::count('mail_accounts',MailActor::BOB)===$other];
@@ -79,7 +81,7 @@ final class MailErasureActor {
                 $out['new_accounts']=self::count('mail_accounts',$uid);$out['new_payloads']=self::count('mail_mcp_deliveries',$uid);$user=$new;
             }
             return $out;
-        }finally{self::clear($uid);if($users->userExists($uid))$user->delete();}
+        }finally{if($privacy!==null)MailErasurePrivacyActor::clean($privacy);self::clear($uid);if($users->userExists($uid))$user->delete();}
     }
     private static function clear(string $uid):void {foreach(['mail_mcp_deliveries','mail_accounts'] as $table){$q=Server::get(IDBConnection::class)->getQueryBuilder();$q->delete($table)->where($q->expr()->eq('user_id',$q->createNamedParameter($uid)))->executeStatement();}}
 }

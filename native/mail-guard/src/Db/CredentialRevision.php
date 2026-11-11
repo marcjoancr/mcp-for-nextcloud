@@ -15,6 +15,7 @@ trait CredentialRevision {
     }
     private function mcpCredentialRow(int $id,bool $lock=false):array {
         $q=$this->db->getQueryBuilder();$q->select('user_id','mcp_auth_revision')->from('mail_accounts')->where($q->expr()->eq('id',$q->createNamedParameter($id,IQueryBuilder::PARAM_INT)));
+        (new \OCA\Mail\Lifecycle\AccountVisibility($this->db))->excludePending($q,'id');
         if($lock)$q->forUpdate();$r=$q->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}
         if($row===false)throw new DraftAdmissionFailure('The native account no longer exists.');return $row;
     }

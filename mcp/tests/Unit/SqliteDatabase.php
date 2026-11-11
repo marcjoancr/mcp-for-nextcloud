@@ -98,6 +98,7 @@ final class SqliteDatabase {
         foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'setFirstResult', 'orderBy', 'addOrderBy', 'leftJoin', 'groupBy'] as $method) {
             $chain($method);
         }
+        $qb->method('getSQL')->willReturnCallback(fn (): string => $inner->getSQL());
         $qb->method('selectDistinct')->willReturnCallback(function ($columns) use ($qb, $inner): IQueryBuilder {
             $inner->select(...(array)$columns)->distinct();
             return $qb;
@@ -174,6 +175,8 @@ final class SqliteDatabase {
         });
         $expr->method('isNull')->willReturnCallback(fn (string $x): string => $inner->expr()->isNull($x));
         $expr->method('isNotNull')->willReturnCallback(fn (string $x): string => $inner->expr()->isNotNull($x));
+        $expr->method('notIn')->willReturnCallback(fn ($x, $values): string => $inner->expr()->notIn(
+            (string)self::sqlArgument($x), self::sqlArgument($values)));
         $expr->method('in')->willReturnCallback(fn ($x, $values): string => $inner->expr()->in(
             (string)self::sqlArgument($x), self::sqlArgument($values)));
         return $expr;
