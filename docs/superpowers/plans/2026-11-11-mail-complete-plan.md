@@ -86,11 +86,11 @@ Execute after the Task2 implementation checkpoint and before its final review an
 
 **Interfaces:** Consume capped reader; produce explicit protected copy import, cached Drafts search, index selected IDs max20, indexed search max50 with coverage and keyset cursor.
 
-- [ ] RED tests prove original IMAP draft remains, exact supported content copied, crypto/unsupported MIME refuses, duplicate import replays, index cross-owner/stale generation exclusion and bounded results.
-- [ ] Implement safe copy without handleDraft/source-deletion events; index bounded extracted text explicitly, no unbounded crawl or body-search claims beyond coverage.
-- [ ] GREEN native/MCP tests, API/docs registration and commit.
+- [x] RED tests prove original IMAP draft remains, exact supported content copied, crypto/unsupported MIME refuses, duplicate import replays, index cross-owner/stale generation exclusion and bounded results.
+- [x] Implement safe copy without handleDraft/source-deletion events; index bounded extracted text explicitly, no unbounded crawl or body-search claims beyond coverage.
+- [x] GREEN native/MCP tests, API/docs registration and commit.
 
-**Task4 implementation checkpoint:** Commit2bd1596c12544414fc0cb91340c33e5bcfe0d031, native candidate6 manifestdaf52078ae22c86bf9c3dd9780b5aac6c851adc0c9b45b4e35924dc3e0ede335. Ten actual PostgreSQL/native/FPM tests/78 assertions pass, including real primary-session loss before index effects and lost-COMMIT copy recovery; reply fixture regression1/17 also passes. This is a mutable diagnostic checkpoint, not approval or shipping qualification. The broader native regression exposed the pre-existing mailbox-sync transaction incompatibility below; Task4 acceptance waits for its correction and combined fresh review.
+**Task4 implementation checkpoint:** Commit2bd1596c12544414fc0cb91340c33e5bcfe0d031, native candidate6 manifestdaf52078ae22c86bf9c3dd9780b5aac6c851adc0c9b45b4e35924dc3e0ede335. Ten actual PostgreSQL/native/FPM tests/78 assertions pass, including real primary-session loss before index effects and lost-COMMIT copy recovery; reply fixture regression1/17 also passes. This is a mutable diagnostic checkpoint, not approval or shipping qualification. The broader native regression exposed the pre-existing mailbox-sync transaction incompatibility below; its correction and combined acceptance are recorded after Task10.
 
 ### Task 10: Native mailbox-sync transaction compatibility
 
@@ -100,10 +100,12 @@ Execute after the Task4 implementation checkpoint, before its combined fresh rev
 
 **Interfaces:** Preserve native `MailboxSync::sync`/`MailManager::createMailbox` signatures. Reuse `DraftCoordinator::runOwner`, `DraftScope::markWrite/assertOwned` and the same authoritative physical DB connection. Ordinary mailbox synchronization must acquire the owner lease before starting its SQL transaction; nested noncredential account writes reuse only a proven matching owner/session scope. Arbitrary outer transactions and lost/reconnected sessions continue refusing.
 
-- [ ] Retain RED from `McpMailLifecycleTest::testUidValidityChangeBeforeReadWriteSelectionRefusesMutation`: native createMailbox calls MailboxSync atomic/persist, then noncredential account update tries to acquire the owner lease inside an existing SQL transaction. Verify exact unchanged callchain and actual ownership.
-- [ ] Fix the native outer transaction boundary with lease-before-transaction ordering, current owner/profile validation and pre-effect/pre-COMMIT ownership checks. Preserve credential revision/index purge, protected drafts/deliveries, quarantine, original transaction behavior and all source guards; never relax general assertNoTransaction or introduce an authorization bypass.
-- [ ] GREEN actual native create/sync plus the original selection-proof guarantee, independent DB-session contention, unrelated outer-transaction refusal and session-loss behavior. Run relevant credential/role/lifecycle/B/content/index regressions, regenerate only current v11 artifacts and commit.
-- [ ] Fresh combined Task4+Task10 spec/quality review closes all material findings before Task5. Source qualification remains false until Task7; production transmission stays disabled.
+- [x] Retain RED from `McpMailLifecycleTest::testUidValidityChangeBeforeReadWriteSelectionRefusesMutation`: native createMailbox calls MailboxSync atomic/persist, then noncredential account update tries to acquire the owner lease inside an existing SQL transaction. Verify exact unchanged callchain and actual ownership.
+- [x] Fix the native outer transaction boundary with lease-before-transaction ordering, current owner/profile validation and pre-effect/pre-COMMIT ownership checks. Preserve credential revision/index purge, protected drafts/deliveries, quarantine, original transaction behavior and all source guards; never relax general assertNoTransaction or introduce an authorization bypass.
+- [x] GREEN actual native create/sync plus the original selection-proof guarantee, independent DB-session contention, unrelated outer-transaction refusal and session-loss behavior. Run relevant credential/role/lifecycle/B/content/index regressions, regenerate only current v11 artifacts and commit.
+- [x] Fresh combined Task4+Task10 spec/quality review closes all material findings before Task5. Source qualification remains false until Task7; production transmission stays disabled.
+
+**Combined Task4+Task10 acceptance:** Fresh independent review accepted native synchronization and closed the sole draft-import finding after fixef44dec02473e86f9e7a86aef3ce53cfd39f2cf4. Unsupported semantic MIME headers now refuse across roots, leaves and internal containers before body retrieval/staging. Final native manifest3e4d39c41fddac03526e9e5f93a38a965daddf6d9cafc098d80f7b6eb8b2bf0f matches all138 materialized overlay files. Content/copy/index/FPM regression28/454, eleven-variant refusal1/88, native sync14/73 and related regression18/335 pass. These remain explicitly mutable diagnostic proofs; Task5 scopes and Task7 clean shipping qualification are still required. Production transmission remains disabled.
 
 ### Task 5: Complete account/folder resource scopes
 
