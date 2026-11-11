@@ -171,6 +171,12 @@ class MailServices {
     public function guardedDraftSearch(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDraftSearch',$uid);}
     public function guardedBodyIndex(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedBodyIndex',$uid);}
     public function guardedContentReader(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedContentReader',$uid);}
+    public function guardedSnooze(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedSnooze',$uid);}
+    /** Metadata audit is allowed after per-user app withdrawal; it never creates a client. */
+    public function snoozeAuthorization():object {
+        $this->appManager->loadApp(self::APP_ID);$class='OCA\\Mail\\Service\\GuardedSnooze';
+        if(!class_exists($class))throw new MailUnavailableException();$service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
+    }
     public function guardedDelivery(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDelivery',$uid);}
     public function sentCopyRepair(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\SentCopyRepair',$uid);}
     /** Global metadata query only. Every effect rechecks per-user enablement in its signed child. */

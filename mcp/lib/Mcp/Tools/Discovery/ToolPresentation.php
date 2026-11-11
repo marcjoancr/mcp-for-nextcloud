@@ -222,6 +222,10 @@ final class ToolPresentation {
             'mail_search_drafts' => Translator::t('Search cached mail drafts'),
             'mail_import_draft' => Translator::t('Import a protected mail draft'),
             'mail_index_messages' => Translator::t('Index selected mail messages'),
+            'mail_snooze' => Translator::t('Snooze one mail message'),
+            'mail_wake' => Translator::t('Wake one snoozed message'),
+            'mail_cancel_snooze' => Translator::t('Cancel a mail wake timer'),
+            'mail_read_snooze' => Translator::t('Read mail snooze status'),
             'mail_search_indexed_body' => Translator::t('Search indexed mail body text'),
 
             'mail_list_accounts' => Translator::t('List mail accounts'),

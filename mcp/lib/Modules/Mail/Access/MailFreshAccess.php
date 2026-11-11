@@ -25,6 +25,14 @@ final class MailFreshAccess {
         $this->assertContext($uid,$context);
         return fn()=> $this->assertContext($uid,$context);
     }
+    /** Original stored actor and references survive cache deletion and journal compaction. */
+    public function historicalFence(string $uid,string $operation,string $tool,array $extraTools=[]):\Closure {
+        $refs=$this->journal->privateResources($uid,$operation);
+        if(!is_string($refs['actor_incarnation']??null)||!is_array($refs['authorization']??null))throw new ToolFailure('Original Mail authorization unavailable.');
+        $authorization=$refs['authorization'];$authorization['tools']=array_values(array_unique([...($authorization['tools']??[]),...$extraTools]));
+        $context=['actor_incarnation'=>$refs['actor_incarnation'],'tool'=>$tool,'refs'=>$authorization];
+        $this->assertContext($uid,$context);return fn()=> $this->assertContext($uid,$context);
+    }
     /** Native code supplies an independently owner-verified resource before private reads. */
     public function assertResource(string $uid,string $tool,int $account,int $mailbox=0):void {
         $this->assertContext($uid,['actor_incarnation'=>$this->journal->actor($uid),'tool'=>$tool,'refs'=>['v'=>1,'mail'=>[['account'=>$account,'mailbox'=>$mailbox]],'global'=>false,'files'=>[],'tools'=>[]]]);

@@ -8,7 +8,7 @@ Each permission starts denied, including on existing installations. `mail.read` 
 The native qualification fixture uses Mail 5.12.5 on Nextcloud 35; the API floor
 is not a promise that every Mail/server version combination is supported.
 
-The module publishes **43 tools** on the current MCP2.7.0 source line. The deployed PostgreSQL v9 snapshot contains the preceding 41; the two metadata reads below are a separate continuation. Sending, scheduling, enqueueing,
+The current development module publishes **57 tools**; the guarded snooze continuation below remains unqualified. The historical MCP2.7.0 metadata snapshot published 43 tools. The deployed PostgreSQL v9 snapshot contains the preceding 41; the two metadata reads below are a separate continuation. Sending, scheduling, enqueueing,
 MDN transmission and outbox dispatch remain disabled. Acceptance covers the
 implemented A/D/C0–C6 slices and the D+ extensions below; it does not claim complete parity with native Mail.
 
@@ -638,3 +638,63 @@ is not provided; the grant covers the actor's owned accounts.
 [All tools](../tools.md) · [Permissions](../../guides/permissions.md)
 
 English · [Español](../../../es/reference/tools/mail.md) · [Català](../../../ca/reference/tools/mail.md) · [Português (Brasil)](../../../pt-BR/reference/tools/mail.md) · [Português (Portugal)](../../../pt-PT/reference/tools/mail.md)
+
+## Guarded one-message snooze (current v11 candidate)
+
+The current development catalog appends four independent, denied-by-default tools,
+bringing it to 57 tools: `mail_snooze` (`snooze`), `mail_wake` (`wake`),
+`mail_cancel_snooze` (`cancel_snooze`), and `mail_read_snooze` (`read_snooze`).
+`SNOOZE_QUALIFIED=false` keeps the shipping gateway closed until the final native
+source, protocol and deployment qualification. Diagnostic fixture acceptance does
+not open this gate. Mail scope activation and production transmission remain off.
+
+Configure an existing, distinct **Snoozed messages** folder under native Mail
+**Account settings → Default folders** first. Both folders must be selectable in
+one owned account and have verified native cache generations. Snooze cannot
+share Drafts, Sent, Trash, Junk or Archive; the original cannot be Trash because
+its inverse move would require a separate unapproved Trash hook. No folder is
+created automatically. Providers must support MOVE and UIDPLUS with stable
+UIDVALIDITY and exact single-UID COPYUID; there is no COPY/delete fallback.
+
+`mail_snooze` takes one `message_id`, `wake_at` (RFC3339 with an explicit offset)
+and matching IANA `timezone`. Approval covers placement and the exact future
+return destination and time, between one minute and 366 days ahead. Both snooze
+and wake authority are required. An originating persistent OAuth connection is
+mandatory; Basic/session zero cannot schedule a future wake. A saved folder scope
+must permit **both** original and Snooze folders. There is no mass/thread action.
+
+The operation receipt records intent admission. Inspect its opaque `snooze_id`
+with `mail_read_snooze` to see independent placement/wake phases, original and
+currently proven mailbox/UIDVALIDITY/UID tuples, nullable current cache ID, and
+remote/cache completion. Destination cache IDs appear only after ordinary native
+sync proves exactly one row; the old source cache ID is never reused or inferred.
+`mail_wake` requires separate approval to return the message now to the exact
+original folder. `mail_cancel_snooze` cancels only the future timer and leaves the
+message in its proven current folder. It refuses after an uncertain move claim.
+Neither action marks mail unread or sends mail.
+
+Each remote leg runs in a signed child with a 20-second process deadline and a
+25-second ticket, under physical owner and ordered mailbox session leases. Exact
+COPYUID proof persists natively before cache updates/events. A wire claim left by
+a crash is permanently uncertain and cannot be retried, cancelled, or inferred
+successful from source absence. Missing/renamed/replaced original folders and
+changed profiles block new effects; no INBOX fallback exists. Cache waiting is
+readiness, not evidence of an uncertain remote effect.
+
+The sweep reviews at most 25 metadata audit entries plus 25 due/prepared entries,
+at most 50 distinct intents within 55 seconds. Definite withdrawal of the original
+actor, connection, tools, grants, scopes or apps blocks before new wire and releases
+only known holds. Unknown policy availability preserves consent and holds. Future
+audits do not fetch mail or create transports. Prepared placement can be recovered
+after lost HTTP acknowledgement even when the wake time is far away. Unknown wire
+legs are excluded from executable selection.
+
+Dedicated intents never enter the stock executable snooze table or WakeJob.
+Native destructive actions, stock snooze, folder topology, roles, account/profile
+changes and lower IMAP mutation paths respect holds; whole-thread/folder actions
+preflight conservatively at account scope to prevent partially processed prefixes.
+Ordinary cache synchronization can remove vanished source rows and materialize the
+proven destination. Native account/user erasure removes exact captured intent IDs
+without network cleanup. Original private actor and both mailbox references survive
+journal compaction, so moved/deleted-source history stays authorized for the same
+actor and inaccessible to a recreated UID.

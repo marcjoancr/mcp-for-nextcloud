@@ -13,7 +13,7 @@ use OCA\Mcp\Platform\FileAccess\Paths\PathGuard;
 use OCP\Files\IRootFolder;
 /** Builds private immutable original authorization evidence before effects. Never stores body, MIME or credentials. */
 final class MailOperationAuthorization {
-    private const MESSAGE_WRITES=['mail_set_message_flag','mail_set_message_tag','mail_move_message','mail_archive_message','mail_trash_message','mail_restore_message','mail_refresh_mailbox','mail_export_message','mail_save_attachment','mail_index_messages'];
+    private const MESSAGE_WRITES=['mail_set_message_flag','mail_set_message_tag','mail_move_message','mail_archive_message','mail_trash_message','mail_restore_message','mail_refresh_mailbox','mail_export_message','mail_save_attachment','mail_index_messages','mail_snooze'];
     public function __construct(private MailAccessGuard $access,private MailServices $native,private OperationJournal $journal,
         private GrantPolicy $policy,private FilesScope $files,private FilesAccessGuard $fileGuard,private IRootFolder $roots,private \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility $tags,private MailDeliveryOrigin $deliveryOrigins){}
     public function capture(string $uid,string $tool,array $args):void {
@@ -39,6 +39,11 @@ final class MailOperationAuthorization {
         }
         if($tool==='mail_configure_mailboxes')foreach($args['roles']??[] as $id){$r=$this->identity($uid,'mailbox',(int)$id);if($r['account_id']!==(int)$args['account_id'])throw new ToolFailure('Mail resource not found.');$add($r['account_id'],$r['mailbox_id']);}
         if($tool==='mail_set_message_tag'){$visible=$this->tags->requireVisible($uid,(int)$args['tag_id']);if($visible!==null)$add($visible['account_id'],$visible['mailbox_id']);else $refs['global']=true;}
+        if($tool==='mail_snooze'){
+            $identity=$this->identity($uid,'message',(int)$args['message_id']);$account=$this->native->accountService($uid)->find($uid,$identity['account_id']);$dest=$account->getMailAccount()->getSnoozeMailboxId();
+            $r=$this->identity($uid,'mailbox',(int)$dest);if($r['account_id']!==$identity['account_id'])throw new ToolFailure('Mail resource not found.');$add($r['account_id'],$r['mailbox_id']);$refs['tools'][]='mail_wake';
+        }
+        if(isset($args['snooze_id'])){$r=$this->native->guardedSnooze($uid)->accessContext($uid,$args['snooze_id']);$this->deliveryOrigins->assertCurrent($uid,$r);foreach(['sourceMailboxId','snoozeMailboxId']as$key)$add($r['accountId'],$r[$key]);$refs['tools']=array_merge($refs['tools'],['mail_snooze','mail_wake']);}
         if(isset($args['delivery_id'])){$r=$this->native->guardedDelivery($uid)->accessContext($uid,$args['delivery_id']);$this->deliveryOrigins->assertCurrent($uid,$r);$add($r['accountId']);$refs['tools'][]=$r['sourceTool'];}
         foreach(['setup_operation_id','target_operation_id','evidence_operation_id','repair_of_operation_id'] as $key)if(isset($args[$key])){
             $old=$this->journal->privateResources($uid,$args[$key]);$original=$old['authorization']??null;

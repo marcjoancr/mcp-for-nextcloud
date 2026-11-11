@@ -17,6 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
+        if(in_array($tool,['mail_snooze','mail_wake','mail_cancel_snooze'],true))return self::snooze($tool,$plan);
         if($tool==='mail_import_draft')return self::importDraft($plan);
         if($tool==='mail_index_messages')return self::indexMessages($plan);
         if(in_array($tool,['mail_send','mail_schedule','mail_cancel_delivery','mail_sent_repair'],true))return self::delivery($tool,$plan);
@@ -32,6 +33,13 @@ final class MailPlanRenderer {
 		};
 	}
 
+    private static function snooze(string $tool,array $plan):string {
+        $title=match($tool){'mail_snooze'=>Translator::t('Snooze one mail message'),'mail_wake'=>Translator::t('Wake one snoozed message'),default=>Translator::t('Cancel a mail wake timer')};
+        $lines=[$title,'',match($tool){'mail_snooze'=>Translator::t('Approve placement in Snooze and return to this exact original folder at the specified time.'),'mail_wake'=>Translator::t('Return the message now to its exact original folder.'),default=>Translator::t('Cancel only the future wake. Leave the message in its proven current folder.')}];
+        if($tool==='mail_snooze')foreach(['message_id'=>Translator::t('Message id'),'source'=>Translator::t('Original folder'),'source_mailbox_id'=>Translator::t('Original folder id'),'snooze'=>Translator::t('Snooze folder'),'snooze_mailbox_id'=>Translator::t('Snooze folder id'),'wake_at'=>Translator::t('Wake instant UTC'),'timezone'=>Translator::t('Timezone')]as$key=>$label)$lines[]='- '.$label.': '.PlanText::quoted($key==='wake_at'?gmdate('c',(int)$plan[$key]):(string)$plan[$key]);
+        else {$r=$plan['snooze'];foreach(['id'=>Translator::t('Snooze id'),'state'=>Translator::t('Snooze state'),'timezone'=>Translator::t('Timezone')]as$key=>$label)$lines[]='- '.$label.': '.PlanText::quoted((string)$r[$key]);foreach(['original','current']as$key)$lines[]='- '.($key==='original'?Translator::t('Original folder id'):Translator::t('Current folder id')).': '.(int)$r[$key]['mailboxId'];}
+        $lines[]='';$lines[]=Translator::t('Uncertain moves never repeat automatically. Status does not move mail.');return implode("\n",$lines);
+    }
     private static function importDraft(array $plan):string {
         $sender=$plan['target']['sender']??[];$from=$plan['source_from']??[];$lines=[Translator::t('Import a protected mail draft'),'',Translator::t('The original is retained. A new protected local draft will be created.'),
             '- '.Translator::t('Message id').': '.(int)($plan['source']['message_id']??0),'- '.Translator::t('Account id').': '.(int)($plan['target']['account_id']??0),

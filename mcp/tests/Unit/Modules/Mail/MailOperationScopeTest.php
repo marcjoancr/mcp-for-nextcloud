@@ -28,8 +28,9 @@ final class MailOperationScopeTest extends TestCase {
         $scope=new ScopeStub();$access=new MailAccessGuard($scope);$policy=$this->createMock(GrantPolicy::class);$policy->method('scopeItems')->willReturn(null);
         $ids=new class {public bool $deleted=false;public int $calls=0;public function identities(string $uid,string $kind,array $ids):array {$this->calls++;if($this->deleted)return [];return array_map(static fn(int $id):array=>['id'=>$id,'account_id'=>$kind==='account'?$id:3,'mailbox_id'=>match($kind){'message'=>$id===102?8:7,'mailbox'=>$id,default=>0}],$ids);}};
         $native=$this->createMock(MailServices::class);$native->method('boundedMetadata')->willReturn($ids);
-        $native->method('accountService')->willReturn(new class{public function find(string $uid,int $id):object{return new class{public function getMailAccount():object{return new class{public function getArchiveMailboxId():int{return 8;}public function getTrashMailboxId():int{return 8;}};}};}});
+        $native->method('accountService')->willReturn(new class{public function find(string $uid,int $id):object{return new class{public function getMailAccount():object{return new class{public function getArchiveMailboxId():int{return 8;}public function getTrashMailboxId():int{return 8;}public function getSnoozeMailboxId():int{return 8;}};}};}});
         $native->method('guardedDelivery')->willReturn(new class{public function accessContext(string $uid,string $id):array{return ['accountId'=>3,'sourceTool'=>'mail_send'];}});
+        $native->method('guardedSnooze')->willReturn(new class{public function accessContext(string $uid,string $id):array{return ['accountId'=>3,'sourceTool'=>'mail_snooze','sourceMailboxId'=>7,'snoozeMailboxId'=>8];}});
         $files=$this->createMock(FilesScope::class);$files->method('candidates')->willReturn(['91']);
         $root=$this->createMock(\OCP\Files\Folder::class);$root->method('isReadable')->willReturn(true);$roots=$this->createMock(\OCP\Files\IRootFolder::class);$roots->method('getUserFolder')->willReturn($root);
         $authorization=new MailOperationAuthorization($access,$native,$journal,$policy,$files,$this->createMock(FilesAccessGuard::class),$roots,new \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility($native,$access),$this->createMock(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class));
@@ -48,7 +49,7 @@ final class MailOperationScopeTest extends TestCase {
         foreach(MailToolCatalog::definitions() as $name=>$d){
             if(!WriteGate::isWrite($d))continue;
             $args=[];$p=$d['inputSchema']['properties'];
-            foreach(['tag_id'=>7,'account_id'=>3,'draft_id'=>55,'message_id'=>101,'mailbox_id'=>7,'destination_mailbox_id'=>8,'target_account_id'=>4,'message_ids'=>[101,102],'delivery_id'=>'delivery','path'=>'/export.eml','target_operation_id'=>'prior','setup_operation_id'=>'prior'] as $k=>$v)if(isset($p[$k]))$args[$k]=$v;
+            foreach(['tag_id'=>7,'account_id'=>3,'draft_id'=>55,'message_id'=>101,'mailbox_id'=>7,'destination_mailbox_id'=>8,'target_account_id'=>4,'message_ids'=>[101,102],'delivery_id'=>'delivery','snooze_id'=>str_repeat('a',64),'path'=>'/export.eml','target_operation_id'=>'prior','setup_operation_id'=>'prior'] as $k=>$v)if(isset($p[$k]))$args[$k]=$v;
             // Add-account's account_id is absent; optional unrelated operation references are not selected.
             $cases[$name]=[$name,$args];
         }

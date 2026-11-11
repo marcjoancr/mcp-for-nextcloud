@@ -8,6 +8,7 @@ use OCA\Mail\Exception\DraftAdmissionFailure;
 /** Held sources and identities stay unavailable to every native mutation path. */
 final class DeliveryHolds {
     public static function assertFree(IDBConnection $db,string $column,int $id):void {
+        if($column==='account_id')\OCA\Mail\Snooze\SnoozeHolds::account($db,$id);
         if(!in_array($column,['draft_id','account_id','alias_id'],true))throw new \LogicException('Invalid hold selector.');
         $q=$db->getQueryBuilder();$q->select('id')->from('mail_mcp_deliveries')->where($q->expr()->eq($column,$q->createNamedParameter($id,\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))->andWhere($q->expr()->neq('state',$q->createNamedParameter('cancelled')))->andWhere($q->expr()->neq('state',$q->createNamedParameter('blocked')))->setMaxResults(1);
         if($column!=='draft_id')$q->andWhere($q->expr()->orX($q->expr()->neq('state',$q->createNamedParameter('accepted')),$q->expr()->neq('sent_state',$q->createNamedParameter('verified'))));

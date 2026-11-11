@@ -658,6 +658,26 @@ class Application extends App implements IBootstrap {
             }));
         $context->registerService(\OCA\Mcp\Modules\Mail\Attachments\MailAttachmentAccess::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Attachments\MailAttachmentAccess(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailBodyPreflight::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Snooze\SnoozeRunner::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Snooze\SnoozeRunner(
+            $c->get(\OCA\Mcp\Modules\Mail\Snooze\SnoozeTicket::class),$c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),static function()use($c):?array {
+                try{$root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;return ['command'=>[$cli,$root.'/occ','mcp:mail-snooze','--no-interaction','--no-ansi'],'cwd'=>$root];}catch(\Throwable){return null;}
+            }));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Snooze\SnoozeWorker::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Snooze\SnoozeWorker(
+            $c->get(\OCA\Mcp\Modules\Mail\Snooze\SnoozeTicket::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSnoozeGateway::class),
+            static function(string $uid,array $origin,string $operation,array $ticket)use($c):bool {
+                $user=$c->get(IUserManager::class)->get($uid);if($user===null||!$user->isEnabled())return false;$apps=$c->get(IAppManager::class);
+                if(!$apps->isEnabledForUser('mcp',$user)||!$apps->isEnabledForUser('mail',$user))return false;
+                $c->get(IUserSession::class)->setUser($user);$apps->loadApp('mail');$c->get(\OCA\Mcp\OAuth\ConnectionContext::class)->set($origin['connectionId']);
+                try{
+                    $fresh=$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class);($fresh->historicalFence($uid,$operation,'mail_snooze',['mail_wake']))();
+                    if($ticket['action']==='wake'){
+                        $journal=$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class);$r=$journal->get($uid,$ticket['operation']);$refs=$journal->privateResources($uid,$ticket['operation']);
+                        if(($r['tool']??null)!=='mail_wake'||($refs['snooze_id']??null)!==$ticket['id']||($refs['wake_revision']??null)!==$ticket['revision'])return false;
+                        ($fresh->historicalFence($uid,$ticket['operation'],'mail_wake'))();
+                    }
+                    return true;
+                }catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){return false;}
+            }));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class),$c->get(\OCP\IDBConnection::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailAccountRemoval::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Accounts\MailAccountRemoval(
@@ -754,7 +774,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
                 ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid),
             static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class)->pendingNativeEntry($uid,$id),
-            static fn(string $uid,string $id,string $tool):?array=>$c->get(\OCA\Mcp\Modules\Mail\Transmission\MailDeliveryOperations::class)->recover($uid,$id,$tool),$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class)
+            static fn(string $uid,string $id,string $tool):?array=>$c->get(\OCA\Mcp\Modules\Mail\Transmission\MailDeliveryOperations::class)->recover($uid,$id,$tool),$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class),static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Snooze\MailSnoozeOperations::class)->recover($uid,$id)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class), $c->get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class),
@@ -875,6 +895,10 @@ class Application extends App implements IBootstrap {
             'mail_delete_account' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteAccount::class),
             'mail_read_message_metadata' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadMessageMetadata($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
             'mail_send' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SendDraft::class),
+            'mail_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SnoozeMessage::class),
+            'mail_wake' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WakeMessage::class),
+            'mail_cancel_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelSnooze::class),
+            'mail_read_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadSnooze::class),
             'mail_schedule' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ScheduleDraft::class),
             'mail_cancel_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelDelivery::class),
             'mail_read_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadDelivery::class),

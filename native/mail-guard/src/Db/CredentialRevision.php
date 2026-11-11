@@ -49,7 +49,7 @@ trait CredentialRevision {
         if(!$entity instanceof MailAccount)return parent::update($entity);
         if(!$this->mcpCredentialFieldsChanged($entity->getUpdatedFields())){
             $id=(int)$entity->getId();$uid=$this->mcpCredentialRow($id)['user_id'];
-            return DraftCoordinator::forDatabase($this->db)->runOwner($uid,function(DraftScope $scope)use($entity,$id,$uid):Entity {if($this->mcpCredentialRow($id)['user_id']!==$uid||$entity->getUserId()!==$uid)throw new DraftAdmissionFailure('Account ownership changed.');$scope->markWrite();return parent::update($entity);});
+            return DraftCoordinator::forDatabase($this->db)->runOwner($uid,function(DraftScope $scope)use($entity,$id,$uid):Entity {if($this->mcpCredentialRow($id)['user_id']!==$uid||$entity->getUserId()!==$uid)throw new DraftAdmissionFailure('Account ownership changed.');if(array_intersect(array_keys($entity->getUpdatedFields()),['snoozeMailboxId','draftsMailboxId','sentMailboxId','trashMailboxId','junkMailboxId','archiveMailboxId'])!==[])\OCA\Mail\Snooze\SnoozeHolds::account($this->db,$id);$scope->markWrite();return parent::update($entity);});
         }
         $id=(int)$entity->getId();$guard=DraftCoordinator::forDatabase($this->db);
         $guard->assertNoTransaction();$uid=$this->mcpCredentialRow($id)['user_id'];
@@ -58,6 +58,7 @@ trait CredentialRevision {
             try{
                 $row=$this->mcpCredentialRow($id,true);
                 if($row['user_id']!==$uid||$entity->getUserId()!==$uid||$entity->getId()!==$id)throw new DraftAdmissionFailure('Credential writes must preserve native account ownership.');
+                \OCA\Mail\Snooze\SnoozeHolds::account($this->db,$id);
                 $current=filter_var($row['mcp_auth_revision'],FILTER_VALIDATE_INT);
                 if($current===false||$current<0||$current>=PHP_INT_MAX-1)throw new DraftAdmissionFailure('Native authorization revision unavailable.');
                 $scope->markWrite();$saved=parent::update($entity);$this->mcpStoreCredentialRevision($id,$current+1);

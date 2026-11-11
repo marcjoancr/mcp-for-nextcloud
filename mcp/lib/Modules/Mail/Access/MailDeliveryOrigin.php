@@ -19,10 +19,11 @@ class MailDeliveryOrigin {
         if(!is_string($key))throw new ActorRetired();
         $origin=$this->origins->get($key);if($origin===null)throw new ActorRetired();
         $connection=$native['connectionId']??null;$source=$native['sourceTool']??null;$account=$native['accountId']??null;
-        if(!is_int($connection)||$connection<1||!in_array($source,['mail_send','mail_schedule'],true)||!is_int($account)||$account<1||$origin['scope_key']!==hash('sha256',$uid."\0".$connection)
+        if(!is_int($connection)||$connection<1||!in_array($source,['mail_send','mail_schedule','mail_snooze'],true)||!is_int($account)||$account<1||$origin['scope_key']!==hash('sha256',$uid."\0".$connection)
             ||$key!==hash('sha256',hash('sha256',$origin['scope_key']."\0".$origin['operation_id'])))throw new ActorRetired();
         $row=$this->store->get($origin['scope_key'],$origin['operation_id']);$refs=$row['resource_refs']??[];
         if(!in_array($row['actor_uid']??null,[$uid,''],true)||($row['tool_name']??null)!==$source||($refs['account_id']??null)!==$account||!is_array($refs['authorization']??null)||!is_string($refs['actor_incarnation']??null))throw new ActorRetired();
+        if($source==='mail_snooze')foreach(['sourceMailboxId','snoozeMailboxId']as$field){$box=$native[$field]??null;if(!is_int($box)||$box<1||!in_array(['account'=>$account,'mailbox'=>$box],$refs['authorization']['mail']??[],true))throw new ActorRetired();}
         $this->actors->assertCurrent($uid,$refs['actor_incarnation']);
         return $origin['operation_id'];
     }
