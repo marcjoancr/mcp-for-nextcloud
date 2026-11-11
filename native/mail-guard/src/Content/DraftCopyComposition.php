@@ -6,6 +6,10 @@ namespace OCA\Mail\Content;
 /** Strict supported composition subset. Refusal is preferable to losing MIME or header semantics. */
 final class DraftCopyComposition {
     private static function reject():never {throw new \RuntimeException('Draft composition cannot be preserved by a protected local draft.');}
+    /** Parsed MIME headers must be representable before the reader projects fields or fetches bodies. */
+    public static function assertMimeHeaders(array $fields):void {
+        foreach(array_keys($fields) as $name){$name=strtolower($name);if(str_starts_with($name,'content-')&&!in_array($name,['content-type','content-transfer-encoding','content-disposition','content-id'],true))self::reject();}
+    }
     private static function addresses(string $raw):array {
         if(strlen($raw)>4096||preg_match('/[\x00-\x1f\x7f:;()]/',$raw)||!mb_check_encoding($raw,'UTF-8'))self::reject();
         if(trim($raw)==='')return [];

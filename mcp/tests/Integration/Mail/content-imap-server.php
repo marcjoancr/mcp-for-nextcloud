@@ -17,6 +17,21 @@ while(($client=@stream_socket_accept($server,$connections===0?($mode==='service_
    if(in_array($mode,['slow_line','slow_literal','service_http_slow_line'],true)){
     @fwrite($client,$mode!=='slow_literal'?"* OK ":"* 1 FETCH (UID 7 BODY[] {1024}\r\n");for($i=0;$i<220;$i++){if(@fwrite($client,'x')===false)break;usleep(100000);}break;
    }
+   if(str_starts_with($mode,'service_location_')){
+    [,,$placement,$metadata]=explode('_',$mode);$single=$placement==='single';$nested=$placement==='nested';$body='<img src="image.png">';$header=match($metadata){'base'=>'Content-Base','language'=>'Content-Language',default=>'cOnTeNt-LoCaTiOn'};$semantic=$header.': '.($metadata==='language'?'en':'https://example.test/message/page.html')."\r\n";
+    $html="Content-Type: text/html; charset=utf-8\r\n".($placement==='body'?$semantic:'')."\r\n";$attachment="Content-Type: image/png; name=image.png\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=image.png\r\n".($placement==='attachment'?$semantic:'')."\r\n";
+    $root="From: sender@example.test\r\nTo: recipient@example.test\r\nSubject: Synthetic location\r\nContent-Type: ".($single?'text/html; charset=utf-8':'multipart/mixed; boundary=b')."\r\n".(in_array($placement,['single','container'],true)?$semantic:'')."\r\n";
+    $leaf='("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "7BIT" '.strlen($body).' 1 NIL NIL NIL)';$tree=$single?$leaf:'('.$leaf.'("IMAGE" "PNG" ("NAME" "image.png") NIL NIL "BASE64" 4 NIL ("ATTACHMENT" ("FILENAME" "image.png")) NIL) "MIXED" ("BOUNDARY" "b") NIL NIL)';
+    $alternative="Content-Type: multipart/alternative; boundary=a\r\n".$semantic."\r\n";$plain="Content-Type: text/plain; charset=utf-8\r\n\r\n";
+    if($nested)$tree='((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT" 4 1 NIL NIL NIL)'.$leaf.' "ALTERNATIVE" ("BOUNDARY" "a") NIL NIL)("IMAGE" "PNG" ("NAME" "image.png") NIL NIL "BASE64" 4 NIL ("ATTACHMENT" ("FILENAME" "image.png")) NIL) "MIXED" ("BOUNDARY" "b") NIL NIL)';
+    if(str_contains($command,'FLAGS')){fwrite($client,"* 1 FETCH (UID 7 FLAGS (\\Draft))\r\n$tag OK flags\r\n");continue;}
+    if(str_contains($command,'BODYSTRUCTURE')){fwrite($client,"* 1 FETCH (UID 7 BODYSTRUCTURE $tree)\r\n$tag OK structure\r\n");continue;}
+    if(!preg_match('/BODY\.PEEK\[([^]]*)\]/',$command,$section)){++$writes;break;}$section=$section[1];
+    $payload=match($section){'HEADER'=>$root,'1.MIME'=>$html,'2.MIME'=>$attachment,'1'=>$body,'2'=>base64_encode('aaa'),''=>$root.($single?$body:"--b\r\n".$html.$body."\r\n--b\r\n".$attachment.base64_encode('aaa')."\r\n--b--\r\n"),default=>''};
+    if($nested)$payload=match($section){'1.MIME'=>$alternative,'1.1.MIME'=>$plain,'1.2.MIME'=>$html,'1.1'=>'text','1.2'=>$body,''=>$root."--b\r\n".$alternative."--a\r\n".$plain."text\r\n--a\r\n".$html.$body."\r\n--a--\r\n--b\r\n".$attachment.base64_encode('aaa')."\r\n--b--\r\n",default=>$payload};
+    if($section===''||preg_match('/^[0-9]+(?:\.[0-9]+)*$/D',$section)){++$bodies;$body_sections[]=$section;}
+    fwrite($client,"* 1 FETCH (UID 7 BODY[$section] {".strlen($payload)."}\r\n".$payload.")\r\n$tag OK fetched\r\n");continue;
+   }
    if(str_starts_with($mode,'service_related_')||str_starts_with($mode,'service_single_')){
     $related=str_starts_with($mode,'service_related_');$start=str_contains($mode,'_start_');$html=$related||str_contains($mode,'_html_');$primary=$start?'2':'1';$resource=$start?'1':'2';$media=$html?'text/html':'text/plain';$body=$html?'<p>primary</p>':'primary';
     $leaf='("TEXT" "'.($html?'HTML':'PLAIN').'" ("CHARSET" "UTF-8") "<primary@example.test>" NIL "7BIT" '.strlen($body).' 1 NIL ("INLINE" NIL) NIL)';

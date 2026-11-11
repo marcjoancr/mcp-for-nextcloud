@@ -101,7 +101,7 @@ final class GuardedContentReader {
             foreach(['from','to','cc','bcc'] as $name){$value=$root[$name]??'';if(substr_count($value,',')>=50||str_contains($value,';')||str_contains($value,':'))throw new \RuntimeException('Unsupported draft address list.');}
             $reply=$root['in-reply-to']??null;if($reply!==null&&preg_match('/^<[^<>\s]{1,996}>$/D',$reply)!==1)throw new \RuntimeException('Unsupported draft reply parent.');
             if(isset($root['references'])){if(preg_match('/^<[^<>\\s]{1,996}>(?: +<[^<>\\s]{1,996}>){0,49}$/D',$root['references'])!==1)throw new \RuntimeException('Unsupported draft references.');}
-            foreach($m['parts'] as $p){$h=$headers[$p['part_id']];$allowed=$p['leaf']?['charset','name']:['boundary','start','type'];if(array_diff(array_keys($h['parameters']),$allowed)!==[])throw new \RuntimeException('Unsupported draft MIME parameters.');
+            foreach($m['parts'] as $p){$h=$headers[$p['part_id']];\OCA\Mail\Content\DraftCopyComposition::assertMimeHeaders($h['fields']);$allowed=$p['leaf']?['charset','name']:['boundary','start','type'];if(array_diff(array_keys($h['parameters']),$allowed)!==[])throw new \RuntimeException('Unsupported draft MIME parameters.');
                 [, $dispositionParameters]=isset($h['fields']['content-disposition'])?BoundedHeaders::parameters($h['fields']['content-disposition']):['',[]];if(array_diff(array_keys($dispositionParameters),['filename'])!==[])throw new \RuntimeException('Unsupported draft disposition parameters.');
                 $name=$dispositionParameters['filename']??$h['parameters']['name']??null;if($name!==$p['filename'])throw new \RuntimeException('Draft filename cannot be preserved.');
             }
