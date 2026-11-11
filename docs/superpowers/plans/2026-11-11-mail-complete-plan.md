@@ -142,9 +142,11 @@ Execute after Task5's implementation checkpoint and before its combined fresh re
 
 **Execution:** Three sequential implementation/review units:6a guarded snooze/wake,6b bounded ManageSieve filters/absence,6c native signature mode. Complete Task6 only after all three pass; one implementation worker at a time.
 
-- [ ] RED worker/wake/cancel races, lost COPYUID, missing original folder, scope revocation; Sieve CAS/oversize/unknown-section preservation/lost install response/no secret logs; identity crypto/provisioning field preservation.
+- [ ] RED worker/wake/cancel races, lost COPYUID, missing original folder, scope revocation; Sieve native serialization/current-script revision/oversize/unknown-section preservation/lost install response/no secret logs; identity crypto/provisioning field preservation.
 - [ ] Implement one-message snooze/wake intent using existing qualified move proof and shared leases; configure/read/disable absence and safe filters with exact script revision/readback and dedicated status. Keep production gate false.
 - [ ] GREEN native/MCP tests and commit.
+
+**Task6a acceptance:** Guarded one-message snooze, explicit wake, timer-only cancellation and read-only status are implemented through `d838f247967a1a2d0947a5fffbd712230c3d5ff6`, with independent grants and original actor/resource provenance. Independent review closed all three findings: dispatch and metadata audit use separate fair cursors; native holds protect affected tuples, threads and folder references while unrelated legacy timers and Seen changes continue; locale scripts parse and register correctly. Actual PostgreSQL fairness reaches prepared/ready/revoked work behind 25 cache-waiting entries. Native grouped 30/530 plus 7/54, two-leg fault 1/48 and final corrective 6/66 pass; corrective host 22/3801, locale 3/3, API 4/452 and static/syntax/docs checks pass. Native manifest `99b60e119eb041611e9c3e8a5d57421a10b86b03a11cb168e6c126259a4f65c5` preserves v1–v10. The current v11 source remains a diagnostic candidate with SNOOZE_QUALIFIED and scope activation false until Task7. Task6b and Task6c remain pending; production transmission remains disabled.
 
 ### Task 7: Acceptance, PR and release
 
