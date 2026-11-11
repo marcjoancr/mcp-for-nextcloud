@@ -30,6 +30,7 @@ require_once __DIR__.'/patch-draft-lifecycle.php';$files=nativeDraftLifecycleOve
 require_once __DIR__.'/patch-credentials.php';$files=nativeCredentialOverlay($read,$files);
 require_once __DIR__.'/patch-delivery.php';$files=nativeDeliveryOverlay($read,$files);
 require_once __DIR__.'/patch-account-visibility.php';$files=nativeAccountVisibilityOverlay($read,$files);
+require_once __DIR__.'/patch-content.php';$files=nativeContentOverlay($read,$files);
 // v11 adds dedicated immutable delivery; historical artifact manifests stay immutable.
 $info=$files['appinfo/info.xml'];
 foreach(['<version>5.12.5.7</version>'=>'<version>5.12.5.8</version>','<nextcloud min-version="35" max-version="35" />'=>'<nextcloud min-version="33" max-version="35" />'] as $before=>$after){

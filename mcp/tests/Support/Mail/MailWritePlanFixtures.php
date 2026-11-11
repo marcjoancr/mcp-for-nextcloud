@@ -27,6 +27,7 @@ final class MailWritePlanFixtures {
 
 		return [new MailModule($factories), [
 
+            'mail_export_message' => ['action'=>'export_message','source'=>['message_id'=>7],'content_sha256'=>str_repeat('c',64),'byte_count'=>42,'destination'=>['path'=>'/Shared/message.eml','access'=>['scope'=>'shared'],'shared'=>[]]],
             'mail_send' => ['action'=>'mail_send','draft'=>['subject'=>'Reviewed subject','bodyPlain'=>'Reviewed complete body','sender'=>['email'=>'alice@example.test'],'to'=>[['email'=>'recipient@example.test']]],'delivery'=>['id'=>'opaque','state'=>'queued'],'send_at'=>123,'timezone'=>'UTC','notice'=>'Acceptance is not delivery. Never repeat uncertain attempts.'],
             'mail_schedule' => ['action'=>'mail_schedule','draft'=>['subject'=>'Reviewed subject','bodyPlain'=>'Reviewed complete body','sender'=>['email'=>'alice@example.test'],'to'=>[['email'=>'recipient@example.test']]],'delivery'=>['id'=>'opaque','state'=>'queued'],'send_at'=>123,'timezone'=>'UTC','notice'=>'Acceptance is not delivery. Never repeat uncertain attempts.'],
             'mail_cancel_delivery' => ['action'=>'mail_cancel_delivery','draft'=>['subject'=>'Reviewed subject','bodyPlain'=>'Reviewed complete body','sender'=>['email'=>'alice@example.test'],'to'=>[['email'=>'recipient@example.test']]],'delivery'=>['id'=>'opaque','state'=>'queued'],'send_at'=>123,'timezone'=>'UTC','notice'=>'Acceptance is not delivery. Never repeat uncertain attempts.'],

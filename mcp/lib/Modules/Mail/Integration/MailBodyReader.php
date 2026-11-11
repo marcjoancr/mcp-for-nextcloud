@@ -41,6 +41,8 @@ class MailBodyReader {
 	public function __construct(
 		private MailServices $services,
 		private MailBodyPreflight $preflight = new MailBodyPreflight(),
+        private ?MailContentReader $content = null,
+        private string $sourceTool = 'mail_read_message',
 	) {
 	}
 
@@ -57,6 +59,10 @@ class MailBodyReader {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function read(string $userId, object $account, object $mailbox, object $message): object {
+        if($this->content!==null){
+            if($this->content->available($userId))return new MailBodyView($this->content->readBody($userId,(int)$message->getId(),$this->sourceTool));
+            if($this->content->mustUseBounded())throw new ToolFailure(MailMessages::contentUnavailable());
+        }
 		$manager = $this->services->mailManager($userId);
 		$factory = $this->services->clientFactory($userId);
 		$cached = MailCacheGeneration::of($mailbox);

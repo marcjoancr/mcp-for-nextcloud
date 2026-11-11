@@ -16,6 +16,12 @@
     "cancel_delivery" : "E-Mail in Warteschlange abbrechen",
     "read_delivery" : "E-Mail-Sendestatus lesen",
     "repair_sent" : "Gesendet-Kopie reparieren",
+    "export_message" : "Originalnachricht in Dateien exportieren",
+    "The qualified bounded Mail content reader is unavailable." : "Der geprüfte, begrenzte Leser für Mail-Inhalte ist nicht verfügbar.",
+    "Mail content could not be read within the supported bounds." : "Der Mail-Inhalt konnte nicht innerhalb der unterstützten Grenzen gelesen werden.",
+    "Save these exact original message bytes to the shown Files destination. Existing files are never overwritten." : "Speichern Sie diese exakten Originalbytes der Nachricht am angezeigten Ziel in Dateien. Vorhandene Dateien werden niemals überschrieben.",
+    "The decoded message body exceeds the 1 MiB limit and was not returned. Open it in Mail." : "Der dekodierte Nachrichtentext überschreitet die Grenze von 1 MiB und wurde nicht zurückgegeben. Öffnen Sie ihn in Mail.",
+    "Export original mail to Files" : "Originalnachricht in Dateien exportieren",
 
     "Send mail" : "E-Mail senden",
     "Schedule mail" : "E-Mail planen",

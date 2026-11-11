@@ -19,7 +19,7 @@ use OCA\Mcp\Modules\Mail\Presentation\MailMessages;
 final class MailAttachmentSaver {
 	public const TOOL = 'mail_save_attachment';
 
-	public function __construct(private MailAttachmentAccess $attachments, private IncomingFileWriter $files, private PlanState $states) {}
+	public function __construct(private MailAttachmentAccess $attachments, private IncomingFileWriter $files, private PlanState $states, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal=null) {}
 
 	public function preview(array $arguments, string $userId): array {
 		$prepared = $this->prepare($arguments, $userId);
@@ -33,6 +33,7 @@ final class MailAttachmentSaver {
 		if (!PlanState::matches($plan[PlanState::ARGUMENT], $arguments)) {
 			throw new PlanChanged($plan + ['warnings' => [['message' => MailMessages::attachmentPlanChanged()]]]);
 		}
+        if($prepared['source']!==null){$this->attachments->assertSaveSource($userId,$prepared['source']);$this->journal?->checkpoint(['source_tool'=>self::TOOL,'content_source'=>$prepared['source'],'content_sha256'=>$prepared['hash'],'content_revision'=>$prepared['part_revision'],'content_part'=>$prepared['metadata']['attachment_id'],'destination'=>$prepared['path']]);}
 		$result = $this->files->save($userId, $prepared['path'], $prepared['content'], (bool)($arguments['confirm_shared'] ?? false));
 		if (($result['requiresConfirmation'] ?? false) === true) {
 			return $result + ['attachment' => $prepared['metadata']];
@@ -41,20 +42,16 @@ final class MailAttachmentSaver {
 	}
 
 	private function prepare(array $arguments, string $userId): array {
-		$attachment = $this->attachments->read($userId, (int)$arguments['message_id'], (string)$arguments['attachment_id']);
-		$content = base64_decode($attachment['content_base64'], true);
-		if (!is_string($content)) {
-			throw new ToolFailure(MailMessages::attachmentUnavailable());
-		}
-		$metadata = ['message_id' => (int)$arguments['message_id'], 'attachment_id' => $attachment['id'], 'name' => $attachment['name'], 'mimeType' => $attachment['mimeType'], 'size' => strlen($content)];
-		return ['path' => (string)$arguments['path'], 'content' => $content, 'metadata' => $metadata, 'hash' => hash('sha256', $content)];
+        $attachment=$this->attachments->readForSave($userId,(int)$arguments['message_id'],(string)$arguments['attachment_id']);
+        $metadata=['message_id'=>(int)$arguments['message_id'],'attachment_id'=>$attachment['part_id'],'name'=>$attachment['filename'],'mimeType'=>$attachment['mime_type'],'size'=>$attachment['byte_count']];
+        return ['path'=>(string)$arguments['path'],'content'=>$attachment['bytes'],'metadata'=>$metadata,'hash'=>$attachment['sha256'],'part_revision'=>hash('sha256',json_encode([$attachment['manifest_revision']??null,$attachment['header_revision']??null,$attachment['wire_sha256']??null],JSON_THROW_ON_ERROR)),'source'=>isset($attachment['source'])?\OCA\Mcp\Modules\Mail\Integration\MailContentReader::stableSource($attachment['source']):null];
 	}
 
 	private function plan(array $prepared, string $userId): array {
 		$destination = $this->files->preview($userId, $prepared['path'], strlen($prepared['content']));
-		$shown = ['source' => $prepared['metadata'], 'content_sha256' => $prepared['hash'], 'destination' => $destination];
+		$shown = ['source' => $prepared['metadata'], 'content_sha256' => $prepared['hash'], 'destination' => $destination, 'content_source'=>$prepared['source'],'part_revision'=>$prepared['part_revision']];
 		return ['action' => 'save_attachment', 'attachment' => $prepared['metadata'], 'content_sha256' => $prepared['hash'],
-			'destination' => $destination, PlanState::ARGUMENT => $this->states->of(self::TOOL, $userId, $shown),
+			'destination' => $destination, 'source'=>$prepared['source'], 'content_revision'=>$prepared['part_revision'], PlanState::ARGUMENT => $this->states->of(self::TOOL, $userId, $shown),
 			'message' => MailMessages::attachmentPlan()];
 	}
 }

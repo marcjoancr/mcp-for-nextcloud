@@ -18,16 +18,27 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
         if(in_array($tool,['mail_send','mail_schedule','mail_cancel_delivery','mail_sent_repair'],true))return self::delivery($tool,$plan);
-		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag', 'mail_set_message_tag', 'mail_refresh_mailbox', 'mail_reconcile_operation', 'mail_add_alias', 'mail_update_alias', 'mail_delete_alias'], true)) {
+		if (!in_array($tool, ['mail_export_message', 'mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag', 'mail_set_message_tag', 'mail_refresh_mailbox', 'mail_reconcile_operation', 'mail_add_alias', 'mail_update_alias', 'mail_delete_alias'], true)) {
 			return null;
 		}
 		return match ($tool) {
-			'mail_save_attachment' => self::attachment($plan),
+			'mail_export_message' => self::export($plan),
+            'mail_save_attachment' => self::attachment($plan),
 			'mail_write_draft', 'mail_attach_files' => self::draft($plan),
 			'mail_delete_draft' => self::deleteDraft($plan),
 			default => self::configuration($tool, $plan),
 		};
 	}
+
+    private static function export(array $plan):string {
+        $destination=$plan['destination']??[];
+        return implode("\n",[Translator::t('Export original mail to Files'),'',
+            '- '.Translator::t('Message id').': '.(int)($plan['source']['message_id']??0),
+            '- '.PlanText::quoted((string)($destination['path']??'')),
+            '- '.Translator::t('Size: %s bytes',[(int)($plan['byte_count']??0)]),
+            '- SHA-256: '.PlanText::inline((string)($plan['content_sha256']??'')),
+            ...self::configurationFields($destination)]);
+    }
 
     private static function delivery(string $tool,array $plan):string {
         $heading=match($tool){

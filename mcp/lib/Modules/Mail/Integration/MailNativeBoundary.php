@@ -29,6 +29,11 @@ class MailNativeBoundary {
         }
         return false;
     }
+    /** Version metadata only: a failed new boundary must never select an older parser. */
+    public function currentContentGeneration():bool {
+        $version=$this->apps->getAppVersion('mail');
+        return preg_match('/^[0-9]+\\.[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$/D',$version)!==1||version_compare($version,'5.12.5.11','>=');
+    }
     public const DELIVERY_QUALIFIED=false;
     public function deliverySourceVerified():bool {return (NativeGuardManifest::DATA['contract']??null)==='mcp-mail-mutations-v11'&&$this->apps->getAppVersion('mail')===(NativeGuardManifest::DATA['build_version']??null)&&$this->matches(NativeGuardManifest::DATA);}
     public function deliveryVerified():bool {return self::DELIVERY_QUALIFIED&&$this->deliverySourceVerified();}

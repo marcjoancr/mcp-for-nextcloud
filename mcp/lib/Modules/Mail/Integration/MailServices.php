@@ -164,6 +164,7 @@ class MailServices {
         $class='OCA\\Mail\\Transmission\\BeforeWireBlock';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();
         return new $class('Delivery authorization was withdrawn before claim.');
     }
+    public function guardedContentReader(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedContentReader',$uid);}
     public function guardedDelivery(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDelivery',$uid);}
     public function sentCopyRepair(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\SentCopyRepair',$uid);}
     /** Global metadata query only. Every effect rechecks per-user enablement in its signed child. */

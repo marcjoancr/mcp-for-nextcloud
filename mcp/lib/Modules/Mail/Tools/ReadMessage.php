@@ -29,6 +29,7 @@ final class ReadMessage implements Tool {
 		private MailGateway $accounts,
 		private UserTimezone $timezones,
 		private MailLinks $links,
+        private ?\OCA\Mcp\Modules\Mail\Integration\MailContentReader $content = null,
 	) {
 	}
 
@@ -47,7 +48,7 @@ final class ReadMessage implements Tool {
 		$rows = new MailMessageRows($this->timezones->forUser($context->userId), $this->links);
 		$answer = new MailMessageAnswer($rows);
 		$locator = new MailMessageLocator($this->accounts, $messages);
-		return (new ReadMessageHandler($locator, new MailBodyReader($this->services), $rows, $answer))
+		return (new ReadMessageHandler($locator, new MailBodyReader($this->services, content: $this->content, sourceTool: 'mail_read_message'), $rows, $answer))
 			->handle($arguments, $context->userId);
 	}
 }

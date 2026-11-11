@@ -18,18 +18,26 @@ use OCA\Mcp\Modules\Mail\Presentation\MailRows;
 
 /** Bounded attachment reads against the same cached message generation Mail synchronized. */
 class MailAttachmentAccess {
+    private ?\OCA\Mcp\Modules\Mail\Integration\MailContentReader $content=null;
 	public const MAX_ATTACHMENT_BYTES = 1048576;
 	public const MAX_ATTACHMENTS = 100;
 
-	public function __construct(private MailMessageLocator $locator, private MailServices $services, private MailBodyPreflight $preflight = new MailBodyPreflight()) {}
+	public function __construct(private MailMessageLocator $locator, private MailServices $services, private MailBodyPreflight $preflight = new MailBodyPreflight(), ?\OCA\Mcp\Modules\Mail\Integration\MailContentReader $content=null) {$this->content=$content;}
 
 	/** @return list<array{id:string,name:?string,mimeType:string,size:int}> */
 	public function list(string $userId, int $messageId): array {
+        if($this->bounded($userId)){
+            $manifest=$this->content->listParts($userId,$messageId,'mail_read_attachment');$rows=[];foreach($manifest['parts'] as $p)if($p['leaf']&&($p['disposition']==='attachment'||$p['filename']!==null||$p['content_id']!==null))$rows[]=['id'=>$p['part_id'],'name'=>$p['filename'],'mimeType'=>$p['mime_type'],'size'=>$p['advertised_size'],'size_verified'=>false];return $rows;
+        }
 		return array_map($this->metadata(...), array_slice($this->attachments($userId, $messageId), 0, self::MAX_ATTACHMENTS));
 	}
 
 	/** @return array{id:string,name:?string,mimeType:string,size:int,content_base64:string} */
 	public function read(string $userId, int $messageId, string $attachmentId): array {
+        if($this->bounded($userId)){
+            $r=$this->content->readPart($userId,$messageId,$attachmentId);if($r['byte_count']>self::MAX_ATTACHMENT_BYTES)throw new ToolFailure(MailMessages::attachmentTooLarge($r['byte_count'],self::MAX_ATTACHMENT_BYTES));
+            return ['id'=>$attachmentId,'name'=>$r['filename'],'mimeType'=>$r['mime_type'],'size'=>$r['byte_count'],'content_base64'=>base64_encode($r['bytes'])];
+        }
 		if (!preg_match('/^[0-9]+(?:\.[0-9]+)*$/D', $attachmentId)) {
 			throw new ToolFailure(MailMessages::attachmentNotFound());
 		}
@@ -45,6 +53,21 @@ class MailAttachmentAccess {
 		}
 		throw new ToolFailure(MailMessages::attachmentNotFound());
 	}
+
+    private function bounded(string $uid):bool {
+        if($this->content===null)return false;
+        if($this->content->available($uid))return true;
+        if($this->content->mustUseBounded())throw new ToolFailure(MailMessages::contentUnavailable());
+        return false;
+    }
+
+    /** Internal direct-to-Files bytes; never base64-encode the larger private result. */
+    public function readForSave(string $uid,int $message,string $part):array {
+        if($this->bounded($uid))return $this->content->readPart($uid,$message,$part,'mail_save_attachment');
+        $r=$this->read($uid,$message,$part);$bytes=base64_decode($r['content_base64'],true);if($bytes===false)throw new ToolFailure(MailMessages::attachmentUnavailable());
+        return ['bytes'=>$bytes,'byte_count'=>strlen($bytes),'sha256'=>hash('sha256',$bytes),'part_id'=>$r['id'],'filename'=>$r['name'],'mime_type'=>$r['mimeType']];
+    }
+    public function assertSaveSource(string $uid,array $source):void {$this->content?->assertSource($uid,$source,'mail_save_attachment');}
 
 	/** @return list<object> Mail Attachment objects */
 	private function attachments(string $userId, int $messageId): array {

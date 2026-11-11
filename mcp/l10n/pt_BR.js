@@ -18,6 +18,12 @@ OC.L10N.register(
     "cancel_delivery" : "Cancelar e-mail na fila",
     "read_delivery" : "Ler estado de envio",
     "repair_sent" : "Reparar cópia em Enviados",
+    "export_message" : "Exportar mensagem original para Arquivos",
+    "The qualified bounded Mail content reader is unavailable." : "O leitor limitado e validado de conteúdo do Mail não está disponível.",
+    "Mail content could not be read within the supported bounds." : "Não foi possível ler o conteúdo do Mail dentro dos limites suportados.",
+    "Save these exact original message bytes to the shown Files destination. Existing files are never overwritten." : "Salve estes bytes originais exatos da mensagem no destino de Arquivos mostrado. Arquivos existentes nunca são sobrescritos.",
+    "The decoded message body exceeds the 1 MiB limit and was not returned. Open it in Mail." : "O corpo decodificado da mensagem excede o limite de 1 MiB e não foi retornado. Abra-o no Mail.",
+    "Export original mail to Files" : "Exportar mensagem original para Arquivos",
 
     "Send mail" : "Enviar e-mail",
     "Schedule mail" : "Agendar e-mail",

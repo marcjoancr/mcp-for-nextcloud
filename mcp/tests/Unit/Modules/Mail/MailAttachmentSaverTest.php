@@ -49,4 +49,10 @@ final class MailAttachmentSaverTest extends TestCase {
 		$plan = $saver->preview(['message_id' => 1, 'attachment_id' => '1', 'path' => '/x.bin'], 'alice');
 		self::assertArrayHasKey('plan_state', $plan);
 	}
+    public function testEquivalentDecodedBytesWithChangedSourceEncodingRequireFreshApproval():void {
+        $reader=new class extends MailAttachmentAccess {public int $reads=0;public function __construct(){}public function readForSave(string $uid,int $message,string $part):array {return ['bytes'=>'a','byte_count'=>1,'sha256'=>hash('sha256','a'),'part_id'=>'2','filename'=>'a.bin','mime_type'=>'application/octet-stream','manifest_revision'=>str_repeat('a',64),'header_revision'=>str_repeat('b',64),'wire_sha256'=>str_repeat(++$this->reads===1?'c':'d',64)];}};
+        $files=$this->createMock(IncomingFileWriter::class);$files->method('preview')->willReturn(['path'=>'/a.bin']);$files->expects(self::never())->method('save');$saver=new MailAttachmentSaver($reader,$files,new PlanState((new InMemoryConfig())->mock($this)));
+        $args=['message_id'=>7,'attachment_id'=>'2','path'=>'/a.bin'];$plan=$saver->preview($args,'alice');$this->expectException(\OCA\Mcp\Mcp\Confirmation\PlanChanged::class);$saver->save($args+['plan_state'=>$plan['plan_state']],'alice');
+    }
+
 }
