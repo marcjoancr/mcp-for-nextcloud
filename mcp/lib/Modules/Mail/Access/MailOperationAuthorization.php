@@ -16,6 +16,8 @@ use OCA\Mcp\Platform\FileAccess\Paths\PathGuard;
 use OCP\Files\IRootFolder;
 /** Builds private immutable original authorization evidence before effects. Never stores body, MIME or credentials. */
 final class MailOperationAuthorization {
+    /** These reads owner-check account_id, then authorize/filter individual folders in their existing native handlers. */
+    private const FOLDER_FILTER_READS=['mail_list_mailboxes','mail_search_messages','mail_search_drafts'];
     private const MESSAGE_WRITES=['mail_set_message_flag','mail_set_message_tag','mail_move_message','mail_archive_message','mail_trash_message','mail_restore_message','mail_refresh_mailbox','mail_export_message','mail_save_attachment','mail_index_messages','mail_snooze'];
     public function __construct(private MailAccessGuard $access,private MailServices $native,private OperationJournal $journal,
         private GrantPolicy $policy,private FilesScope $files,private FilesAccessGuard $fileGuard,private IRootFolder $roots,private \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility $tags,private MailDeliveryOrigin $deliveryOrigins){}
@@ -33,7 +35,10 @@ final class MailOperationAuthorization {
             $row=['account'=>$account,'mailbox'=>$mailbox];if(!in_array($row,$refs['mail'],true))$refs['mail'][]=$row;
         };
         if(in_array($tool,['mail_add_account','mail_create_tag'],true)){$this->access->requireUnrestricted($uid);$refs['global']=true;}
-        if(isset($args['account_id'])&&!in_array($tool,self::MESSAGE_WRITES,true)){$r=$this->identity($uid,'account',(int)$args['account_id']);$add($r['account_id']);}
+        if(isset($args['account_id'])&&!in_array($tool,self::MESSAGE_WRITES,true)){
+            $r=$this->identity($uid,'account',(int)$args['account_id']);
+            if(!in_array($tool,self::FOLDER_FILTER_READS,true))$add($r['account_id']);
+        }
         if(isset($args['target_account_id'])){$r=$this->identity($uid,'account',(int)$args['target_account_id']);$add($r['account_id']);}
         if(isset($args['draft_id'])){$r=$this->identity($uid,'draft',(int)$args['draft_id']);$add($r['account_id']);}
         $sources=$args['message_ids']??[];
