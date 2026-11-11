@@ -90,12 +90,14 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
-# Fork-owned LinuxServer planning inputs; JSON cannot carry SPDX comments.
+# Fork-owned qualification planning inputs; JSON cannot carry SPDX comments.
 [[annotations]]
 path = [
   "mcp/tests/Integration/ci/linuxserver/alpine-ocr-packages.json",
   "mcp/tests/Integration/ci/linuxserver/profile.json",
   "mcp/tests/Integration/ci/linuxserver/profile-121.json",
+  "mcp/tests/Integration/ci/mail-qualified/catalog.json",
+  "mcp/tests/Integration/ci/mail-qualified/profile.json",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"

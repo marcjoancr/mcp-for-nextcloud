@@ -13,6 +13,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\TestCase;
 
 final class OperationJournalTest extends TestCase {
+    use \OCA\Mcp\Tests\Support\Mail\MailProjectionFixture;
     private array $rows = [];
     private int $now = 1000;
     private ConnectionContext $connection;
@@ -124,9 +125,9 @@ final class OperationJournalTest extends TestCase {
     public function testReceiptReadsRecheckOriginalActionPermission(): void {
         $args=['account_id'=>4];
         $p=$this->journal->plan('mail_write_draft','alice',$args,['plan_state'=>'proof']);
-        $this->journal->execute('mail_write_draft','alice',$args+['operation_id'=>$p['operation_id'],'plan_state'=>'proof'],fn():array=>['draft'=>['id'=>77]]);
+        $this->journal->execute('mail_write_draft','alice',$args+['operation_id'=>$p['operation_id'],'plan_state'=>'proof'],fn():array=>$this->projectedEffect($this->journal,fn():array=>['draft'=>['id'=>77]]));
         $allowed=true;
-        $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($this->journal,static function(string $uid,string $tool) use (&$allowed): bool {return $allowed;});
+        $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($this->journal,static function(string $uid,string $tool) use (&$allowed): bool {return $allowed;},fresh:$this->projectionAccess($this->journal,$this->connection));
         self::assertCount(1,$reader->list('alice',20,0)['operations']);
         $allowed=false;
         self::assertSame([],$reader->list('alice',20,0)['operations']);
@@ -146,8 +147,8 @@ final class OperationJournalTest extends TestCase {
     }
     public function testFormerActorPageIsHiddenWithoutTruncatingTheNextCurrentActorPage():void {
         $scope=$this->journal->scopeKey('alice');$token=$this->journal->actor('alice');
-        for($i=0;$i<51;$i++)$this->rows[$scope.$i]=['scope_key'=>$scope,'actor_uid'=>'alice','operation_id'=>(string)$i,'tool_name'=>'mail_create_tag','state'=>'succeeded','resource_refs'=>['actor_incarnation'=>$i===50?$token:str_repeat('f',64),'tag_id'=>$i],'updated_at'=>1000];
-        $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($this->journal,static fn()=>true);
+        for($i=0;$i<51;$i++)$this->rows[$scope.$i]=['scope_key'=>$scope,'actor_uid'=>'alice','operation_id'=>(string)$i,'tool_name'=>'mail_create_tag','state'=>'succeeded','resource_refs'=>['actor_incarnation'=>$i===50?$token:str_repeat('f',64),'tag_id'=>$i,'authorization'=>self::projectionRefs()],'updated_at'=>1000];
+        $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($this->journal,static fn()=>true,fresh:$this->projectionAccess($this->journal,$this->connection));
         $result=$reader->list('alice',20,0);self::assertCount(1,$result['operations']);self::assertSame('50',$result['operations'][0]['operation_id']);self::assertNull($result['next_offset']);
     }
 

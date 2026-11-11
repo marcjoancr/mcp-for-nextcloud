@@ -48,7 +48,7 @@ final class ResourceScopeWriterTest extends IntegrationTestCase {
             $this->assertInstanceOf($class, (new \ReflectionProperty($writer, $property))->getValue($writer), $property);
         }
         $this->assertInstanceOf(ResourceScopeMapper::class, (new \ReflectionProperty(GrantMatrix::class, 'scopes'))->getValue(Server::get(GrantMatrix::class)));
-        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true], Server::get(ScopeActivation::class)->modules());
+        $this->assertSame(['files' => true, 'calendar' => true, 'tasks' => true, 'mail' => true], Server::get(ScopeActivation::class)->modules());
         $this->assertSame([], (new ResourceScopeMapper($this->openIndependentConnection()))->forUser(Fixtures::ALICE));
 
         // Restricted to nothing needs no native lookup, so the container's own enumerator accepts it.
@@ -60,6 +60,25 @@ final class ResourceScopeWriterTest extends IntegrationTestCase {
         foreach (ResourceScopeMapper::MODULES as $module) {
             $this->assertSame([], $other->forModule(Fixtures::ALICE, $module)['items'], $module);
         }
+    }
+
+    public function testUnavailableMailInventoryDoesNotHideFilesOrAdmitGuessedScope(): void {
+        $resources=Server::get(NativeResourceEnumerator::class);
+        self::assertIsArray($resources->candidates(Fixtures::ALICE,'files','',1)['items']);
+        if(getenv('MCP_IT_MAIL_GUARD')==='1'){
+            self::assertIsArray($resources->candidates(Fixtures::ALICE,'mail','',1)['items']);
+            return;
+        }
+        $state=Server::get(PolicyStateMapper::class);$before=$state->state();
+        $scopes=Server::get(ResourceScopeMapper::class);$scopeBefore=$scopes->forModule(Fixtures::ALICE,'mail');
+        try{
+            Server::get(\OCA\Mcp\Access\ResourceScope\ResourceScopeWriter::class)->setResourceScope($before['revision'],'admin',Fixtures::ALICE,'mail',['mailbox:987654321']);
+            self::fail('Unqualified inventory admitted a guessed Mail resource.');
+        }catch(\OCA\Mcp\Access\Policy\PolicyUnavailable){
+            self::assertSame($before['revision'],$state->state()['revision']);
+            self::assertSame($scopeBefore,$scopes->forModule(Fixtures::ALICE,'mail'));
+        }
+        self::assertIsArray($resources->candidates(Fixtures::ALICE,'files','',1)['items']);
     }
 
     public function testAnOpenWriterCommitsTheScopeWithItsRevisionAndUndoRestoresAbsence(): void {

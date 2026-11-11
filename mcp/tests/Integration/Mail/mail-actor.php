@@ -311,7 +311,14 @@ switch ($action) {
 			$service->findByUserId($uid))];
 		break;
 	case 'observe':
-		Server::get(ConnectionContext::class)->setSelection(['mail_list_accounts', 'mail_list_mailboxes']);
+        $tools=['mail_list_accounts','mail_list_mailboxes'];
+        $credential=\OCA\Mcp\Tests\Integration\Support\LoginFactory::bearer($uid);
+        $token=Server::get(\OCA\Mcp\OAuth\OAuthStore::class)->findByAccess(Server::get(\OCA\Mcp\OAuth\TokenHasher::class)->hash(substr($credential->authorization(),7)));
+        if(!is_array($token))throw new RuntimeException('Synthetic OAuth connection unavailable.');
+        $connection=(int)$token['id'];$selection=Server::get(\OCA\Mcp\OAuth\ConnectionToolsStore::class);
+        try{
+            $prior=$selection->get($uid,$connection);$selection->save($uid,$connection,$tools,$prior['revision']);
+            Server::get(ConnectionContext::class)->set($connection);Server::get(ConnectionContext::class)->setSelection($tools);
 		$policy = Server::get(GrantPolicy::class);
 		$availability = Server::get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class);
         $registry = new ToolRegistry([Server::get(MailModule::class)], $availability, Server::get(\OCA\Mcp\Mcp\Tools\Execution\ToolExecutor::class));
@@ -322,7 +329,8 @@ switch ($action) {
 			'foreign' => callTool($registry, $policy, $uid, 'mail_list_mailboxes', ['account_id' => $in['foreign']]),
 			'missing' => callTool($registry, $policy, $uid, 'mail_list_mailboxes', ['account_id' => $in['missing']]),
 		];
-		break;
+        }finally{Server::get(ConnectionContext::class)->clear();Server::get(\OCA\Mcp\OAuth\TokenService::class)->revokeGrant($connection,$uid);}
+        break;
 	default:
 		throw new RuntimeException('Unknown Mail actor action ' . $action);
 }

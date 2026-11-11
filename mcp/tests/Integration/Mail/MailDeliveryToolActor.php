@@ -83,7 +83,7 @@ final class MailDeliveryToolActor {
         }
     }
     public static function run(string $uid,int $draftId,string $scenario):array {
-        DeliveryFixtureBoundary::install();
+        MailCleanHttpActor::assertClean();
         $config=Server::get(\OCP\IConfig::class);$appConfig=Server::get(\OCP\IAppConfig::class);$appConfig->clearCache(false);
         $oldScope=Server::get(\OCA\Mcp\Db\ResourceScopeMapper::class)->forModule($uid,'mail');$cancelScenario=str_starts_with($scenario,'mcp_cancel_');$scopeScenario=$cancelScenario||in_array($scenario,['mcp_scope_revoked','mcp_future_scope_revoked'],true);
         $mailEnabled=$config->getAppValue('mail','enabled','yes');$disabledGroup=null;
@@ -99,8 +99,6 @@ final class MailDeliveryToolActor {
             $basic=self::call($uid,'mail_send',['draft_id'=>$draftId]);
             $credential=LoginFactory::bearer($uid);$hash=Server::get(TokenHasher::class)->hash(substr($credential->authorization(),7));$row=Server::get(OAuthStore::class)->findByAccess($hash);$connection=(int)$row['id'];
             $store=Server::get(ConnectionToolsStore::class);$selected=$store->get($uid,$connection);$store->save($uid,$connection,self::TOOLS,$selected['revision']);$context->set($connection);$context->setSelection(self::TOOLS);
-            // The child uses the real registered worker/authorization closure with the same exact candidate check.
-            $command=new \ReflectionProperty(DeliveryRunner::class,'command');$command->setValue(Server::get(DeliveryRunner::class),static fn():array=>['command'=>[PHP_BINARY,__DIR__.'/delivery-tool-child.php'],'cwd'=>dirname(__DIR__)]);
             if($scenario==='mcp_repair'){
                 $native=Server::get('OCA\\Mail\\Service\\GuardedDelivery');$preview=$native->preview($uid,$draftId);
                 $journal=Server::get(\OCA\Mcp\Mcp\Operations\OperationJournal::class);$syntheticArgs=['draft_id'=>$draftId,'account_id'=>$preview['accountId']];$approved=$journal->plan('mail_send',$uid,$syntheticArgs,['plan_state'=>'synthetic-pending-sent']);
@@ -117,7 +115,7 @@ final class MailDeliveryToolActor {
                 return ['before'=>$initial['delivery']['sentState']??null,'after'=>$done['delivery']['sentState']??null,'state'=>$done['delivery']['state']??null,'replayed'=>$again['operation']['replayed']??false,'source_tool'=>$done['operation']['source_tool']??null];
             }
             if($scenario==='mcp_lost_ack'){
-                $proxy=new class(Server::get(MailServices::class),new DeliveryFixtureBoundary(Server::get(\OCP\App\IAppManager::class)),Server::get(\OCP\IConfig::class),Server::get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class),$db,Server::get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class))extends MailDeliveryGateway{
+                $proxy=new class(Server::get(MailServices::class),Server::get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),Server::get(\OCP\IConfig::class),Server::get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),Server::get(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class),$db,Server::get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class))extends MailDeliveryGateway{
                     public function queue(string $uid,int $draft,string $revision,string $operation,int $connection,string $source,int $at,string $zone,?array $sentTarget=null):array {parent::queue($uid,$draft,$revision,$operation,$connection,$source,$at,$zone,$sentTarget);throw new \RuntimeException('Synthetic lost queue response.');}
                 };
                 (new \ReflectionProperty(MailDeliveryOperations::class,'gateway'))->setValue(Server::get(MailDeliveryOperations::class),$proxy);

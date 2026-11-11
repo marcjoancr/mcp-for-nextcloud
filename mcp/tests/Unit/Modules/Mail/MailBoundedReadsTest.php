@@ -130,7 +130,7 @@ final class MailBoundedReadsTest extends TestCase {
 		$config->method('getSystemValueString')->with('version', '')->willReturn('35.0.2');
 		$reads = new MailBoundedReads($services, $boundary, $config, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 
-		$outbox = new ReadOutbox($reads)->execute(['account_id' => 7, 'limit' => 3, 'before_id' => 99], new ToolContext('alice'));
+		$outbox = (new ReadOutbox($reads))->execute(['account_id' => 7, 'limit' => 3, 'before_id' => 99], new ToolContext('alice'));
 		$outboxResult = json_decode($outbox['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
 		self::assertSame(['alice', 7, 3, 99], $native->calls['outbox']);
 		self::assertSame(39, $outboxResult['next_before_id']);
@@ -139,7 +139,7 @@ final class MailBoundedReadsTest extends TestCase {
 		self::assertStringNotContainsString('secret@example.test', $outbox['content'][0]['text']);
 		self::assertStringNotContainsString('private bytes', $outbox['content'][0]['text']);
 
-		$metadata = new ReadMessageMetadata($reads)->execute(['message_ids' => [19, 2]], new ToolContext('alice'));
+		$metadata = (new ReadMessageMetadata($reads))->execute(['message_ids' => [19, 2]], new ToolContext('alice'));
 		$metadataResult = json_decode($metadata['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
 		self::assertSame(['alice', [19, 2]], $native->calls['messages']);
 		self::assertSame([2, 19], array_column($metadataResult['items'], 'id'));

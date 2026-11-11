@@ -7,7 +7,7 @@
 # Nextcloud major, and one Mail account for each of two fixture users, configured through the Mail app's own occ
 # commands and synchronized once. A cell without MCP_IT_WITH_MAIL never pulls the image nor installs Mail.
 #
-# Usage: mail-cell.sh <provision|collect>
+# Usage: mail-cell.sh <provision|prepare|accounts|collect>
 #   provision  starts and seeds the IMAP server, installs and enables Mail, creates and synchronizes the accounts
 #   collect    copies the IMAP server log into the artifacts
 # Environment: the harness variables (MCP_IT_NC, MCP_IT_NET, MCP_IT_NC_NAME, RUNNER_TEMP) and MCP_IT_IMAP_NAME, the name
@@ -38,7 +38,7 @@ assert_owner() {
     [ "$owner" = "$MCP_IT_RUN_ID" ] || { echo "Refusing unrelated Mail fixture container" >&2; exit 2; }
 }
 # Provisioning is allowed only inside this run's owned Nextcloud/network.
-if [ "${1:-}" = provision ]; then
+if [ "${1:-}" = provision ] || [ "${1:-}" = prepare ] || [ "${1:-}" = accounts ]; then
     assert_owner "$NC"
     owner=$(docker network inspect --format '{{ index .Labels "mcp.integration.run" }}' "$NET")
     [ "$owner" = "$MCP_IT_RUN_ID" ] || exit 2
@@ -182,16 +182,24 @@ create_account() {
 }
 
 # cmd_provision: IMAP server, Mail app and the two accounts.
-cmd_provision() {
+cmd_prepare() {
 	start_imap
 	install_mail
 	install_forms
 	# The IMAP server has a private address on the run's network; Nextcloud refuses local remote hosts by default.
 	occ config:system:set allow_local_remote_servers --value=true --type=boolean
 	start_probe_servers
+}
+
+cmd_accounts() {
 	alice=$(create_account mcp-it-alice alice)
 	bob=$(create_account mcp-it-bob bob)
 	echo "Mail accounts: mcp-it-alice=$alice mcp-it-bob=$bob"
+}
+
+cmd_provision() {
+    cmd_prepare
+    cmd_accounts
 }
 
 # Authentication-only TLS endpoints inside the disposable Nextcloud container, with a run-local trusted certificate.
@@ -230,9 +238,11 @@ cmd_collect() {
 # Cleanup is owned by run-local.sh and guarded by this run's resource label.
 case "${1:-}" in
 	provision) cmd_provision ;;
+    prepare) cmd_prepare ;;
+    accounts) cmd_accounts ;;
 	collect) cmd_collect ;;
 	*)
-		echo "Usage: $0 <provision|collect>" >&2
+		echo "Usage: $0 <provision|prepare|accounts|collect>" >&2
 		exit 1
 		;;
 esac

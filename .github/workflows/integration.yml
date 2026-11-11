@@ -72,3 +72,45 @@ jobs:
           path: mcp/build/integration/*/mcp-it/artifacts/
           if-no-files-found: error
           retention-days: 14
+  mail-qualified:
+    name: Mail qualified / NC35 PG16 S3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, gd, zip, sqlite3
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: mcp/.node-version
+      - name: Install locked npm version
+        run: npm install --global npm@11.19.1
+      - name: Validate exhaustive Mail method and phase coverage
+        run: |
+          python3 -B mcp/tests/Integration/ci/mail-qualified/catalog_test.py
+          python3 -B mcp/tests/Integration/ci/mail-qualified/runner_test.py
+          python3 -B mcp/tests/Integration/ci/mail-qualified/run.py --plan
+      - name: Prepare exact MCP and native corresponding source
+        run: python3 -B mcp/tests/Integration/ci/mail-qualified/prepare.py
+      - name: Qualify the clean PG16 S3 native runtime without skipped methods
+        run: python3 -B mcp/tests/Integration/ci/mail-qualified/run.py --inputs mcp/build/mail-qualified-inputs.json --cleanup
+      - name: Upload only the explicit public evidence allowlist
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mail-qualified-nc35-pg16-s3
+          path: |
+            mcp/build/integration/*/qualified-evidence/result.json
+            mcp/build/integration/*/qualified-evidence/coverage.json
+            mcp/build/integration/*/qualified-evidence/inventories.json
+            mcp/build/integration/*/qualified-evidence/downloads.json
+            mcp/build/integration/*/qualified-evidence/test-summary.log
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "mail-qualified-nc35-pg16-s3-v11",
+  "platform": "linux/amd64",
+  "nextcloudVersion": "35.0.2",
+  "nativeBuild": "5.12.5.11",
+  "nativeContract": "mcp-mail-mutations-v11",
+  "images": {
+    "nextcloud": "lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac",
+    "postgres": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+    "s3": "quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+    "imap": "dovecot/dovecot:2.4.5@sha256:1b3041c09854aa53b6b57ac0e613fbfb9b859bbf976d808b1b12dba0444db4c6"
+  },
+  "upstreamRuntime": {
+    "url": "https://github.com/nextcloud-releases/mail/releases/download/v5.12.5/mail-v5.12.5.tar.gz",
+    "sha256": "c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0"
+  },
+  "preferredSource": {
+    "url": "https://codeload.github.com/nextcloud/mail/tar.gz/8a00bf1d914317127c53104c0c4d47baa8f72fb7",
+    "sha256": "ad77a29fbaecda976c2f1b323376bcb2e5daea099bbf39a42a7da4c30af56a60"
+  },
+  "limits": {"seconds": 7200, "readinessSeconds": 300},
+  "publishedPorts": [],
+  "artifactAllowlist": ["result.json", "coverage.json", "inventories.json", "downloads.json", "test-summary.log"]
+}

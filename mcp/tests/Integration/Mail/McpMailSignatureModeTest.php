@@ -13,7 +13,7 @@ final class McpMailSignatureModeTest extends IntegrationTestCase {
     }
 
     public function testActualToolsPreserveBothIdentitiesAndOriginalHistory():void {
-        $r=MailActor::run(MailActor::ALICE,'signature-mode-tool');self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));foreach(['fpm_shipping_refused','preview_modes','alias_preserved','completed','status','replayed','private_fields_hidden','account_preserved','stale_refused','other_connection_denied','scope_status_denied','scope_replay_denied','source_grant_denied']as$key)self::assertTrue($r[$key],$key);
+        $r=MailActor::run(MailActor::ALICE,'signature-mode-tool');self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));foreach(['fpm_shipping_available','preview_modes','alias_preserved','completed','status','replayed','private_fields_hidden','account_preserved','stale_refused','other_connection_denied','scope_status_denied','scope_replay_denied','source_grant_denied']as$key)self::assertTrue($r[$key],$key);
     }
     public function testLostLocalReceiptRecoversOnlyDurableCompletionWithoutRepeatingModeWrite():void {
         $r=MailActor::run(MailActor::ALICE,'signature-mode-tool',['scenario'=>'lost_finish']);self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));foreach(['lost_ack_retained','lost_replay_no_effect','completion_proven','reconciled','recovery_preserved']as$key)self::assertTrue($r[$key],$key);

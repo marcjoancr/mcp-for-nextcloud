@@ -57,8 +57,13 @@ final class MailOperationAuthorization {
             $identity=$this->identity($uid,'message',(int)$args['message_id']);$account=$this->native->accountService($uid)->find($uid,$identity['account_id']);$dest=$account->getMailAccount()->getSnoozeMailboxId();
             $r=$this->identity($uid,'mailbox',(int)$dest);if($r['account_id']!==$identity['account_id'])throw new ToolFailure('Mail resource not found.');$add($r['account_id'],$r['mailbox_id']);$refs['tools'][]='mail_wake';
         }
-        foreach(['snooze_id'=>'guardedSnooze','delivery_id'=>'guardedDelivery','sieve_id'=>'guardedSieve']as$key=>$service)if(isset($args[$key])){
-            $origin=$this->native->{$service}($uid)->accessContext($uid,$args[$key]);
+        foreach(['snooze_id','delivery_id','sieve_id']as$key)if(isset($args[$key])){
+            $service=match($key){
+                'snooze_id'=>$this->native->guardedSnooze($uid),
+                'delivery_id'=>$this->native->guardedDelivery($uid),
+                'sieve_id'=>$this->native->guardedSieve($uid),
+            };
+            $origin=$service->accessContext($uid,$args[$key]);
             $operation=$this->deliveryOrigins->assertCurrent($uid,$origin);
             $original=$this->journal->privateResources($uid,$operation)['authorization']??null;
             if(!is_array($original))throw new ToolFailure('Operation not found.');
