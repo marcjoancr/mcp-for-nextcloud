@@ -17,9 +17,7 @@ public function getGuardedClient(#[\SensitiveParameter] Account $account): Bound
     public function getClient(Account $account): ManageSieve {
 CODE
     );$s=$replace($s,"if (\$logFile !== null) {\n\t\t\t\$params['logger'] = new SieveLogger(\$logFile);\n\t\t}","// Sieve programs and authentication are never written to protocol debug logs.");$s=str_replace('$this->cache[$account->getId()]','$this->cache[$account->getId().":".$account->getMailAccount()->getMcpAuthRevision()]',$s);$files[$p]=$s;
-    foreach(['lib/Service/FilterService.php'=>['update'=>['$account','$filters','void']],'lib/Service/OutOfOfficeService.php'=>['update'=>['$account','$state','void'],'disable'=>['$account','','void'],'updateFromSystem'=>['$mailAccount','$user','return']]]as$p=>$methods){$s=$take($p);foreach($methods as$name=>[$account,$vars,$return])$s=nativeDraftReplaceBody($s,$name,static fn($body)=>'\OCA\Mail\Service\SieveSettingsFence::account('.$account.',function('.'\OCA\Mail\Db\MailAccount '.$account.')'.($vars!==''?'use('.$vars.')':'').' {'.$body.'});');
-        // updateFromSystem must return its native structured state.
-        if(isset($methods['updateFromSystem']))$s=$replace($s,'public function updateFromSystem(MailAccount $mailAccount, IUser $user): ?OutOfOfficeState {\OCA','public function updateFromSystem(MailAccount $mailAccount, IUser $user): ?OutOfOfficeState {return \OCA');
+    foreach(['lib/Service/FilterService.php'=>['parse'=>['$account','','return'],'update'=>['$account','$filters','void']],'lib/Service/OutOfOfficeService.php'=>['parseState'=>['$account','','return'],'update'=>['$account','$state','void'],'disable'=>['$account','','void'],'updateFromSystem'=>['$mailAccount','$user','return']]]as$p=>$methods){$s=$take($p);foreach($methods as$name=>[$account,$vars,$return])$s=nativeDraftReplaceBody($s,$name,static fn($body)=>($return==='return'?'return ':'').'\OCA\Mail\Service\SieveSettingsFence::account('.$account.',function('.'\OCA\Mail\Db\MailAccount '.$account.')'.($vars!==''?'use('.$vars.')':'').' {'.$body.'});');
         $s=preg_replace('/\$this->logger->error\(\x27Failed to save sieve script: \x27 \. \$e->getMessage\(\), \[.*?\]\);/s',"\$this->logger->error('Sieve update refused.');",$s);$files[$p]=$s;
     }
     $p='lib/Service/SieveService.php';$s=$take($p);
@@ -33,9 +31,9 @@ CODE
     $s=$replace($s,'foreach ($accounts as $account) {','foreach ($accounts as $account) { $account=$this->accountService->find($eventData->getUser()->getUID(),(int)$account->getId());');
     $s=preg_replace('/\$this->logger->error\(\x27Failed to apply out-of-office sieve script: \x27 \. \$e->getMessage\(\), \[.*?\]\);/s',"\$this->logger->error('Sieve system absence update refused.');",$s);$files[$p]=$s;
     // Native exceptions may be logged with PHP trace arguments enabled. Never retain script or credential inputs there.
-    foreach(['lib/Sieve/SieveClientFactory.php','lib/Service/FilterService.php','lib/Service/OutOfOfficeService.php','lib/Service/SieveService.php','lib/Controller/OutOfOfficeController.php','lib/Controller/SieveController.php','lib/Controller/FilterController.php']as$p){
+    foreach(['lib/Sieve/SieveClientFactory.php','lib/Service/FilterService.php','lib/Service/OutOfOfficeService.php','lib/Service/SieveService.php','lib/Controller/OutOfOfficeController.php','lib/Controller/SieveController.php','lib/Controller/FilterController.php','lib/Service/OutOfOffice/OutOfOfficeParser.php','lib/Service/OutOfOffice/OutOfOfficeState.php','lib/Service/MailFilter/FilterParser.php']as$p){
         $files[$p]=$files[$p]??$take($p);
-        $files[$p]=preg_replace('/(?<=[(,])(\\s*)(\\??string \\$(?:script|sievePassword|password|sieveUser|user|sieveHost|host|subject|message)\\b|array \\$filters\\b)/','${1}#[\\\\SensitiveParameter] ${2}',$files[$p]);
+        $files[$p]=preg_replace('/(?<=[(,])(\\s*)(\\??string \\$(?:script|sievePassword|password|sieveUser|user|sieveHost|host|subject|message|sieveScript|untouchedScript)\\b|array \\$(?:filters|data|allowedRecipients)\\b)/','${1}#[\\\\SensitiveParameter] ${2}',$files[$p]);
         $files[$p]=preg_replace('/(?<=[(,])(\\s*)((?:\\\\OCA\\\\Mail\\\\Db\\\\)?(?:Account|MailAccount|OutOfOfficeState) \\$[A-Za-z_][A-Za-z0-9_]*)/','${1}#[\\\\SensitiveParameter] ${2}',$files[$p]);
     }
     return $files;

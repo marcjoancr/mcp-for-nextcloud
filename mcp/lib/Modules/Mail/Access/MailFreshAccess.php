@@ -1,6 +1,9 @@
 <?php
-/* SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
- * SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
 declare(strict_types=1);
 namespace OCA\Mcp\Modules\Mail\Access;
 use OCA\Mcp\Access\Grants\GrantPolicy;
@@ -32,6 +35,11 @@ final class MailFreshAccess {
         $authorization=$refs['authorization'];$authorization['tools']=array_values(array_unique([...($authorization['tools']??[]),...$extraTools]));
         $context=['actor_incarnation'=>$refs['actor_incarnation'],'tool'=>$tool,'refs'=>$authorization];
         $this->assertContext($uid,$context);return fn()=> $this->assertContext($uid,$context);
+    }
+    /** Pin the original actor and connection for an unadmitted read/preview and its final projection. */
+    public function resourceFence(string $uid,string $tool,int $account,int $mailbox=0):\Closure {
+        $connection=$this->connection->current();$context=['actor_incarnation'=>$this->journal->actor($uid),'tool'=>$tool,'refs'=>['v'=>1,'mail'=>[['account'=>$account,'mailbox'=>$mailbox]],'global'=>false,'files'=>[],'tools'=>[]]];
+        $check=function()use($uid,$context,$connection):void {if($this->connection->current()!==$connection)throw new ToolFailure('Mail authorization changed.');$this->assertContext($uid,$context);};$check();return $check;
     }
     /** Native code supplies an independently owner-verified resource before private reads. */
     public function assertResource(string $uid,string $tool,int $account,int $mailbox=0):void {

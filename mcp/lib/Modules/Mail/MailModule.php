@@ -19,7 +19,7 @@ use OCA\Mcp\Mcp\Tools\ToolModule;
 /** Static publication and lazy dispatch for the Mail feature. */
 final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, RendersPlans {
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories, private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null, private ?Operations\MailOperationReader $receipts = null,private ?\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization $authorization=null) {
+    public function __construct(private array $factories, private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null, private ?Operations\MailOperationReader $receipts = null,private ?\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization $authorization=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $fresh=null) {
         $expected = array_keys(MailToolCatalog::definitions());
         if (array_diff($expected, array_keys($factories)) !== [] || array_diff(array_keys($factories), $expected) !== []) {
             throw new \LogicException('Factories must match the catalog exactly');
@@ -38,9 +38,10 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     public function call(string $name, array $arguments, string $userId): array {
         $this->operations?->actor($userId);
         $this->access->assertReadable($userId);
+        $project=$this->sieveProjectionFence($userId,$name,$arguments);
         $tool = $this->resolve($name);
         if ($this->operations === null || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
-            return $tool->execute($arguments, new ToolContext($userId));
+            $result=$tool->execute($arguments, new ToolContext($userId));$project?->__invoke();return $result;
         }
         try {
             $data = $this->operations->execute($name, $userId, $arguments, function () use ($tool, $arguments, $userId,$name): array {
@@ -53,21 +54,22 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
                     $this->receipts->assertAccess($userId,$receipt);
             });
             if(isset($data['operation'])&&$this->receipts!==null)$this->receipts->assertAccess($userId,$data['operation']);
-            return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($data);
+            $project?->__invoke();return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($data);
         } catch (\OCA\Mcp\Mcp\Confirmation\PlanChanged $e) {
-            throw new \OCA\Mcp\Mcp\Confirmation\PlanChanged($this->operations->plan($name, $userId, $arguments, $e->plan));
+            $plan=$this->operations->plan($name,$userId,$arguments,$e->plan);$project?->__invoke();throw new \OCA\Mcp\Mcp\Confirmation\PlanChanged($plan);
         }
     }
 
     public function preview(string $name, array $arguments, string $userId): array {
         $this->operations?->actor($userId);
         $this->access->assertReadable($userId);
+        $project=$this->sieveProjectionFence($userId,$name,$arguments);
         $tool = $this->resolve($name);
         if (!$tool instanceof WriteTool || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
             throw new \InvalidArgumentException('Unknown tool');
         }
         $plan = $tool->preview($arguments, new ToolContext($userId));
-        return $this->operations?->plan($name, $userId, $arguments, $plan) ?? $plan;
+        $plan=$this->operations?->plan($name,$userId,$arguments,$plan)??$plan;$project?->__invoke();return $plan;
     }
 
     public function renderPlan(string $tool, array $plan): ?string {
@@ -77,6 +79,11 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     /** @return list<string> short behaviour notes about this module */
     public function guideNotes(): array {
         return Presentation\MailMessages::guideNotes();
+    }
+
+    private function sieveProjectionFence(string $uid,string $tool,array $args):?\Closure {
+        if(!in_array($tool,['mail_read_filters','mail_read_absence','mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence'],true))return null;
+        if($this->fresh===null)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Fresh Mail projection unavailable.');return $this->fresh->resourceFence($uid,$tool,(int)($args['account_id']??0));
     }
 
     private function resolve(string $name): Tool {

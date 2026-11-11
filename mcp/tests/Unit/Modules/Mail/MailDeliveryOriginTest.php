@@ -31,6 +31,15 @@ final class MailDeliveryOriginTest extends TestCase {
         self::assertSame($lost?'alice':'',$store->get($scope,$id)['actor_uid']);
         foreach([['connectionId'=>13],['accountId'=>4],['sourceTool'=>'mail_send'],['operationKeyHash'=>str_repeat('f',64)]]as$change){try{$origin->assertCurrent('alice',array_replace($native,$change));self::fail('Foreign native context authorized');}catch(ActorRetired){self::assertTrue(true);}}
         if($source==='mail_snooze')foreach(['sourceMailboxId','snoozeMailboxId']as$field){try{$origin->assertCurrent('alice',array_replace($native,[$field=>9]));self::fail('Foreign historical folder authorized');}catch(ActorRetired){self::assertTrue(true);}}
-        $actors->generation='replacement';$this->expectException(ActorRetired::class);$origin->assertCurrent('alice',$native);
+        $actors->generation='replacement';
+        if(in_array($source,['mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence'],true)){
+            $nativeApi=new class($native){public bool $statusCalled=false;public function __construct(private array $origin){}public function accessContext(string $uid,string $id):array{return $this->origin;}public function status(string $uid,string $id,object $fence):array{$this->statusCalled=true;return ['private_attempt'=>'must never project'];}};
+            $services=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailServices::class);$services->method('guardedSieve')->willReturn($nativeApi);$boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);$boundary->method('runtimeMatches')->willReturn(true);$boundary->method('sieveVerified')->willReturn(true);$nativeDb=$this->createMock(\OCP\IDBConnection::class);$nativeDb->method('getDatabaseProvider')->willReturn(\OCP\IDBConnection::PLATFORM_POSTGRES);
+            // These later guards deliberately have no dependencies: original-actor rejection must precede them and the native private observation.
+            $guard=(new \ReflectionClass(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class))->newInstanceWithoutConstructor();$fresh=(new \ReflectionClass(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class))->newInstanceWithoutConstructor();
+            $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailSieveGateway($services,$boundary,$nativeDb,(new InMemoryConfig())->mock($this),$guard,$fresh,$origin,$connection);
+            try{$gateway->status('alice','synthetic-attempt');self::fail('Retired original actor received native status');}catch(ActorRetired){self::assertFalse($nativeApi->statusCalled);}
+        }
+        $this->expectException(ActorRetired::class);$origin->assertCurrent('alice',$native);
     }
 }

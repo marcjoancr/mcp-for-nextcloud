@@ -26,6 +26,17 @@ final class McpMailSieveTest extends IntegrationTestCase {
     public function testUnknownExecutableAndCandidateCollisionRefuseBeforeAnyEffect():void {
         foreach(['opaque','collision']as$scenario){$r=MailActor::run(MailActor::ALICE,'sieve-native',['scenario'=>$scenario]);self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));self::assertSame($scenario==='opaque',$r['opaque']);self::assertTrue($r['refused']);self::assertArrayNotHasKey('PUTSCRIPT',$r['peer']['commands']);self::assertArrayNotHasKey('SETACTIVE',$r['peer']['commands']);self::assertTrue($r['operator_off']);}
     }
+    public function testNativeProjectionWithdrawalRetainsRemoteProofWithoutPublicReceiptOrReplay():void {
+        $r=MailActor::run(MailActor::ALICE,'sieve-native',['scenario'=>'native_projection']);self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));self::assertSame(['preview_hidden'=>true,'catch_hidden'=>true,'status_hidden'=>true,'replay_hidden'=>true],array_intersect_key($r,array_flip(['preview_hidden','catch_hidden','status_hidden','replay_hidden'])));self::assertSame('active_observed',$r['private_phase']);self::assertSame(1,$r['peer']['commands']['PUTSCRIPT']);self::assertSame(1,$r['peer']['commands']['SETACTIVE']);self::assertTrue($r['operator_off']);
+    }
+    public function testActualScopeWithdrawalDuringNativePreviewCannotReuseOuterPolicySnapshot():void {
+        $r=MailActor::run(MailActor::ALICE,'sieve-native',['scenario'=>'projection_mcp']);self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));foreach(['snapshot_materialized','revocation_applied','projection_hidden','no_private_fields','operator_off']as$k)self::assertTrue($r[$k],$k);self::assertArrayNotHasKey('PUTSCRIPT',$r['peer']['commands']);self::assertArrayNotHasKey('SETACTIVE',$r['peer']['commands']);
+    }
+    public static function readParserModes():array {return [['read_absence_private'],['read_filter_private']];}
+    #[\PHPUnit\Framework\Attributes\DataProvider('readParserModes')]
+    public function testNativeReadParserErrorsDiscardRawScriptStateAndPreviousTraces(string $mode):void {
+        $r=MailActor::run(MailActor::ALICE,'sieve-native',['scenario'=>$mode]);self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));foreach(['refused','fixed_error','no_previous','trace_private','operator_off']as$key)self::assertTrue($r[$key],$mode.':'.$key);self::assertArrayNotHasKey('PUTSCRIPT',$r['peer']['commands']);self::assertArrayNotHasKey('SETACTIVE',$r['peer']['commands']);
+    }
     public function testNativeDebugFactoryNeverLogsAuthenticationOrRawProgram():void {
         $r=MailActor::run(MailActor::ALICE,'sieve-native',['scenario'=>'native_logger']);self::assertArrayNotHasKey('fixture_error',$r,json_encode($r));self::assertTrue($r['protocol_log_absent']);self::assertTrue($r['operator_off']);
     }

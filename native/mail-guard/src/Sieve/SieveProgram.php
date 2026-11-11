@@ -34,12 +34,13 @@ final class SieveProgram {
         if($a['enabled']&&(!isset($a['start'],$a['end'])||new \DateTimeImmutable($a['end'])<=new \DateTimeImmutable($a['start'])))throw new SieveFailure();
         if(!$a['enabled']){unset($a['start'],$a['end']);}return $a;
     }
+    /** Every inter-block span must independently be complete top-level trivia; never carry lexical context across a marker. */
     private function parts(#[\SensitiveParameter] string $script):array {
         if(strlen($script)>SieveBudget::SCRIPT||str_contains($script,"\0"))throw new SieveFailure();$parts=['filters'=>[],'absence'=>[],'untouched'=>''];$offset=0;
         $pattern='/^(### Nextcloud Mail: (?:Filters|Vacation Responder) ### DON\x27T EDIT ###)\r?\n/m';
-        while(preg_match($pattern,$script,$m,PREG_OFFSET_CAPTURE,$offset)===1){$start=$m[0][1];$marker=$m[1][0];$kind=array_search($marker,self::MARKERS,true);$after=$start+strlen($m[0][0]);$endPattern='/^'.preg_quote($marker,'/').'(?=\r?\n|$)/m';
-            if(preg_match($endPattern,$script,$end,PREG_OFFSET_CAPTURE,$after)!==1)throw new SieveFailure();$stop=$end[0][1]+strlen($marker);$block=substr($script,$start,$stop-$start);if(count($parts[$kind])>=2||substr_count($block,'### Nextcloud Mail:')!==2)throw new SieveFailure();$parts[$kind][]=str_replace("\r\n","\n",$block);$parts['untouched'].=substr($script,$offset,$start-$offset);$offset=$stop;
-        }$parts['untouched'].=substr($script,$offset);return $parts;
+        while(preg_match($pattern,$script,$m,PREG_OFFSET_CAPTURE,$offset)===1){$start=$m[0][1];$gap=substr($script,$offset,$start-$offset);if(!$this->comments($gap))throw new SieveFailure();$marker=$m[1][0];$kind=array_search($marker,self::MARKERS,true);$after=$start+strlen($m[0][0]);$endPattern='/^'.preg_quote($marker,'/').'(?=\r?\n|$)/m';
+            if(preg_match($endPattern,$script,$end,PREG_OFFSET_CAPTURE,$after)!==1)throw new SieveFailure();$stop=$end[0][1]+strlen($marker);$block=substr($script,$start,$stop-$start);if(count($parts[$kind])>=2||substr_count($block,'### Nextcloud Mail:')!==2)throw new SieveFailure();$parts[$kind][]=str_replace("\r\n","\n",$block);$parts['untouched'].=$gap;$offset=$stop;
+        }$tail=substr($script,$offset);if(!$this->comments($tail))throw new SieveFailure();$parts['untouched'].=$tail;return $parts;
     }
     private function comments(#[\SensitiveParameter] string $s):bool {if(str_contains($s,'### Nextcloud Mail:')||str_contains($s,'# FILTER:')||str_contains($s,'# DATA:'))return false;return preg_match('~\A(?:\s+|\#[^\r\n]*(?:\r\n|\n|$)|/\*[^*]*(?:\*(?!/)[^*]*)*\*/)*\z~D',$s)===1;}
     private function blocks(#[\SensitiveParameter] array $filters,#[\SensitiveParameter] ?array $absence,#[\SensitiveParameter] array $recipients):array {

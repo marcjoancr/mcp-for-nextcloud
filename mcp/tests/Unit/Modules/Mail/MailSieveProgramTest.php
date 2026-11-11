@@ -23,6 +23,11 @@ final class MailSieveProgramTest extends TestCase {
     public function testAbsenceDisablePreservesCommentsButNotUnknownOrEmittingRemainder():void {
         $p=$this->program();$rec=['test@example.invalid'];$a=['version'=>1,'enabled'=>true,'start'=>'2026-11-11T00:00:00+00:00','end'=>'2026-11-12T00:00:00+00:00','subject'=>'Re: ${subject}','message'=>'Away'];$enabled=$p->build($p->parse('# retained',$rec),[],$a,$rec,['vacation','date','relational','variables'],true);$parsed=$p->parse($enabled['script'],$rec);self::assertFalse($parsed['opaque']);$a['enabled']=false;$disabled=$p->build($parsed,null,$a,$rec,[],false);self::assertFalse($disabled['emits']);self::assertFalse($p->parse($disabled['script'],$rec)['opaque']);self::assertStringContainsString('# retained',$disabled['script']);self::assertStringNotContainsString('vacation :days',$disabled['script']);
     }
+    public function testDormantNativeBlocksNeverEscapeTheirLexicalContextDuringAbsenceDisable():void {
+        $p=$this->program();$rec=['test@example.invalid'];$f=$this->filter();$f[0]['actions']=[['type'=>'fileinto','mailbox'=>'Archive']];$native=$p->build($p->parse('',$rec),$f,null,$rec,['fileinto'],false)['script'];
+        foreach(["/*\r\n".$native."*/\r\n",'set "x" "'."\r\n".$native.'";',"set \"x\" text:\r\n".$native.".\r\n;"]as$script){$old=$p->parse($script,$rec);self::assertTrue($old['opaque'],'Markers inside comments/strings/text must not become executable blocks');try{$p->build($old,null,['version'=>1,'enabled'=>false,'subject'=>'','message'=>''],$rec,['fileinto'],false);self::fail('Absence disable activated a dormant filter');}catch(\OCA\Mail\Sieve\SieveFailure){self::assertTrue(true);}}
+        $trivia="/* complete safe comment */\r\n# retained\r\n";$safe=$p->parse($trivia.$native,$rec);self::assertFalse($safe['opaque']);self::assertStringContainsString($trivia,$p->build($safe,null,['version'=>1,'enabled'=>false,'subject'=>'','message'=>''],$rec,['fileinto'],false)['script']);
+    }
     public function testUnsupportedExtensionsAndMalformedAbsenceStayClosed():void {
         $p=$this->program();$f=$this->filter();$f[0]['actions']=[['type'=>'redirect','recipient'=>'other@example.invalid']];
         try{$p->build($p->parse('',[]),$f,null,[],[],true);self::fail('Missing copy extension admitted');}catch(\OCA\Mail\Sieve\SieveFailure){self::assertTrue(true);}

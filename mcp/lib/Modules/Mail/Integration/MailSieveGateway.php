@@ -15,7 +15,7 @@ class MailSieveGateway {
     public function __construct(private MailServices $services,private MailNativeBoundary $boundary,private IDBConnection $db,private IConfig $config,private MailAccessGuard $access,private MailFreshAccess $fresh,private MailDeliveryOrigin $origins,private ConnectionContext $connection){}
     private function native(string $uid):object {if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||$this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_POSTGRES||!$this->boundary->sieveVerified())throw new ToolFailure('Qualified structured Mail filters are unavailable.');return $this->services->guardedSieve($uid);}
     private function fence(string $uid,int $account,string $tool,bool $effect):object {
-        $this->access->requireAccount($uid,$account);$live=$effect?$this->fresh->activeFence($uid,$tool):null;$connection=$this->connection->current();if($effect&&$connection<1)throw new ToolFailure('Sieve changes require a persistent connection.');
+        $this->access->requireAccount($uid,$account);$live=$effect?$this->fresh->activeFence($uid,$tool):$this->fresh->resourceFence($uid,$tool,$account);$connection=$this->connection->current();if($effect&&$connection<1)throw new ToolFailure('Sieve changes require a persistent connection.');
         return new class($uid,$account,$tool,$connection,$live,$this->fresh,$this->origins,$this->config){
             public function __construct(private string $uid,private int $account,private string $tool,private int $connection,private ?\Closure $live,private MailFreshAccess $fresh,private MailDeliveryOrigin $origins,private IConfig $config){}
             public function authorize(string $uid,array $r):void {
@@ -38,5 +38,5 @@ class MailSieveGateway {
             public function authorize(string $uid,array $r):void {if($uid!==$this->uid||($r['accountId']??null)!==$this->origin['accountId']||(isset($r['operationKeyHash'])&&$r!==$this->origin))throw new ToolFailure('Sieve origin changed.');$this->origins->assertCurrent($uid,$this->origin);($this->fresh)();}
         };return $native->status($uid,$id,$fence);
     }
-    public function recover(string $uid,string $key,string $tool):?array {$r=$this->native($uid)->findByOperation($uid,$key);return $r===null?null:$this->status($uid,$r['id'],$tool);}
+    public function recover(string $uid,string $key,string $tool):?array {$r=$this->native($uid)->findByOperation($uid,$key);return $r===null?null:$this->status($uid,$r['id'],'mail_get_operation');}
 }
