@@ -12,19 +12,7 @@ use OCP\{IDBConnection,IConfig};
 /** Closed owned content APIs. Byte-bearing results are private integration data, never tool JSON or receipts. */
 final class GuardedContentReader {
     public function __construct(private IDBConnection $db,private IConfig $config,private AccountService $accounts,private IMAPClientFactory $clients){}
-    private function source(string $uid,int $id):array {
-        if($this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_POSTGRES)throw new \RuntimeException('Qualified content storage is unavailable.');
-        if($id<1||$uid==='')throw new \RuntimeException('Invalid content source.');
-        $visibility=new AccountVisibility($this->db);$q=$this->db->getQueryBuilder();
-        $q->select('m.id','m.uid','m.mailbox_id','m.tag_cache_generation','m.tag_cache_profile','b.account_id','b.name','b.selectable','b.sync_new_token','b.sync_changed_token','b.sync_vanished_token','a.inbound_host','a.inbound_port','a.inbound_ssl_mode','a.inbound_user','a.auth_method','a.protocol','a.email','a.mcp_auth_revision','a.drafts_mailbox_id')
-            ->from('mail_messages','m')->innerJoin('m','mail_mailboxes','b',$q->expr()->eq('m.mailbox_id','b.id'))->innerJoin('b','mail_accounts','a',$q->expr()->eq('b.account_id','a.id'))
-            ->where($q->expr()->eq('m.id',$q->createNamedParameter($id,IQueryBuilder::PARAM_INT)))->andWhere($q->expr()->eq('a.user_id',$q->createNamedParameter($uid)));
-        $visibility->excludePending($q,'a.id');$q->setMaxResults(2);$r=$q->executeQuery();try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
-        if(count($rows)!==1)throw new \RuntimeException('Owned content source unavailable.');$row=$rows[0];$visibility->assertVisible($uid,(int)$row['account_id']);
-        $generation=ExactTagAssociations::generation($row);$profile=TagProfile::row($row);
-        if(!$row['selectable']||$generation===null||$generation!==$row['tag_cache_generation']||!hash_equals($profile,(string)$row['tag_cache_profile'])||preg_match('/^[1-9][0-9]{0,9}$/D',(string)$row['uid'])!==1||(float)$row['uid']>4294967295)throw new \RuntimeException('Content source generation is unproven.');
-        return ['message_id'=>$id,'account_id'=>(int)$row['account_id'],'mailbox_id'=>(int)$row['mailbox_id'],'uid'=>(string)$row['uid'],'uidvalidity'=>$generation,'profile_revision'=>$profile,'auth_revision'=>(int)$row['mcp_auth_revision'],'mailbox_revision'=>hash('sha256',json_encode([$row['name'],$row['sync_new_token'],$row['sync_changed_token'],$row['sync_vanished_token']],JSON_THROW_ON_ERROR)),'mailbox'=>$row['name'],'drafts_mailbox_id'=>(int)$row['drafts_mailbox_id']];
-    }
+    private function source(string $uid,int $id):array {return (new \OCA\Mail\Content\ContentSource($this->db,$this->config))->message($uid,$id);}
     private function run(string $uid,int $id,object $fence,\Closure $read):array {
         $source=$this->source($uid,$id);$authorize=function()use($uid,$id,$fence,$source):void {if($source!==$this->source($uid,$id))throw new \RuntimeException('Content source changed.');$fence->authorize($uid,$source['account_id'],$source['mailbox_id'],$id);};$authorize();
         $account=$this->accounts->find($uid,$source['account_id']);
@@ -109,10 +97,14 @@ final class GuardedContentReader {
         return $this->run($uid,$messageId,$fence,function($c,$source):array {
             if($source['drafts_mailbox_id']!==$source['mailbox_id']||!in_array('\\draft',array_map('strtolower',$c->mcpContentFlags()),true))throw new \RuntimeException('Source is not a current configured draft.');
             $m=$this->manifest($c);$headers=$this->headers($c,$m);$root=$headers[$m['parts'][0]['part_id']]['fields'];
-            foreach(['sender','reply-to','disposition-notification-to','return-receipt-to','x-send-later','x-send-at','autocrypt','dkim-signature'] as $unsupported)if(isset($root[$unsupported]))throw new \RuntimeException('Unsupported draft composition controls.');
+            foreach(['sender','reply-to','disposition-notification-to','return-receipt-to','x-send-later','x-send-at','autocrypt','dkim-signature','x-ai-generated'] as $unsupported)if(isset($root[$unsupported]))throw new \RuntimeException('Unsupported draft composition controls.');
             foreach(['from','to','cc','bcc'] as $name){$value=$root[$name]??'';if(substr_count($value,',')>=50||str_contains($value,';')||str_contains($value,':'))throw new \RuntimeException('Unsupported draft address list.');}
             $reply=$root['in-reply-to']??null;if($reply!==null&&preg_match('/^<[^<>\s]{1,996}>$/D',$reply)!==1)throw new \RuntimeException('Unsupported draft reply parent.');
             if(isset($root['references'])){if(preg_match('/^<[^<>\\s]{1,996}>(?: +<[^<>\\s]{1,996}>){0,49}$/D',$root['references'])!==1)throw new \RuntimeException('Unsupported draft references.');}
+            foreach($m['parts'] as $p){$h=$headers[$p['part_id']];$allowed=$p['leaf']?['charset','name']:['boundary','start','type'];if(array_diff(array_keys($h['parameters']),$allowed)!==[])throw new \RuntimeException('Unsupported draft MIME parameters.');
+                [, $dispositionParameters]=isset($h['fields']['content-disposition'])?BoundedHeaders::parameters($h['fields']['content-disposition']):['',[]];if(array_diff(array_keys($dispositionParameters),['filename'])!==[])throw new \RuntimeException('Unsupported draft disposition parameters.');
+                $name=$dispositionParameters['filename']??$h['parameters']['name']??null;if($name!==$p['filename'])throw new \RuntimeException('Draft filename cannot be preserved.');
+            }
             $plain=null;$html=null;$attachments=[];$aggregate=0;$revisions=[];
             foreach($m['parts'] as $p){if(!$p['leaf']){if(!in_array($p['mime_type'],['multipart/mixed','multipart/alternative','multipart/related'],true))throw new \RuntimeException('Unsupported draft MIME structure.');continue;}
                 if(in_array($p['mime_type'],['text/calendar','application/ics'],true))throw new \RuntimeException('Unsupported draft invitation.');

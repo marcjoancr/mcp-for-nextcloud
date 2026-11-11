@@ -17,6 +17,8 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
+        if($tool==='mail_import_draft')return self::importDraft($plan);
+        if($tool==='mail_index_messages')return self::indexMessages($plan);
         if(in_array($tool,['mail_send','mail_schedule','mail_cancel_delivery','mail_sent_repair'],true))return self::delivery($tool,$plan);
 		if (!in_array($tool, ['mail_export_message', 'mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag', 'mail_set_message_tag', 'mail_refresh_mailbox', 'mail_reconcile_operation', 'mail_add_alias', 'mail_update_alias', 'mail_delete_alias'], true)) {
 			return null;
@@ -29,6 +31,24 @@ final class MailPlanRenderer {
 			default => self::configuration($tool, $plan),
 		};
 	}
+
+    private static function importDraft(array $plan):string {
+        $sender=$plan['target']['sender']??[];$from=$plan['source_from']??[];$lines=[Translator::t('Import a protected mail draft'),'',Translator::t('The original is retained. A new protected local draft will be created.'),
+            '- '.Translator::t('Message id').': '.(int)($plan['source']['message_id']??0),'- '.Translator::t('Account id').': '.(int)($plan['target']['account_id']??0),
+            '- '.Translator::t('Original sender: %s',[PlanText::quoted((string)($from['name']??'')).' '.PlanText::quoted((string)($from['email']??''))]),
+            '- '.Translator::t('Sender: %s',[PlanText::quoted((string)($sender['name']??'')).' '.PlanText::quoted((string)($sender['email']??''))]),
+            '- '.Translator::t('Subject: %s',[PlanText::quoted((string)($plan['subject']??''))])];
+        foreach(['to','cc','bcc'] as $key)foreach($plan[$key]??[] as $i=>$recipient)$plan[$key][$i]['label']=$recipient['name']??'';$lines=array_merge($lines,self::recipientLines($plan));
+        $lines[]='- '.Translator::t('Body sizes: plain %s characters; HTML %s characters.',[(int)($plan['body']['plain_characters']??0),(int)($plan['body']['html_characters']??0)]);
+        if(($plan['reply_to']??null)!==null)$lines[]='- In-Reply-To: '.PlanText::quoted((string)$plan['reply_to']);
+        foreach($plan['attachments']??[] as $attachment)$lines[]='- '.Translator::t('Attachment: %s',[PlanText::quoted((string)$attachment['filename'])]).' — '.(int)$attachment['byte_count'].' bytes; '.PlanText::quoted((string)$attachment['mime_type']).'; '.PlanText::quoted((string)$attachment['disposition']).'; CID '.PlanText::quoted((string)($attachment['content_id']??'')).'; SHA-256 '.PlanText::inline((string)$attachment['sha256']);
+        return implode("\n",$lines);
+    }
+    private static function indexMessages(array $plan):string {
+        $lines=[Translator::t('Index selected mail messages'),'',Translator::t('Only complete supported body text is searchable. Refused messages are excluded.')];
+        foreach($plan['items']??[] as $item)$lines[]='- '.Translator::t('Message id').': '.(int)($item['source']['message_id']??0).'; '.PlanText::quoted((string)($item['coverage_state']??'')).'; '.Translator::t('Size: %s bytes',[(int)($item['text_bytes']??0)]);
+        return implode("\n",$lines);
+    }
 
     private static function export(array $plan):string {
         $destination=$plan['destination']??[];

@@ -16,7 +16,7 @@ final class MailExactTagAssociationsTest extends TestCase {
         require_once dirname(__DIR__,5).'/native/mail-guard/src/Db/ExactTagAssociations.php';
         $base=new class extends SimpleMigrationStep {
             public function changeSchema(IOutput $output,\Closure $schemaClosure,array $options):?ISchemaWrapper {
-                $s=$schemaClosure();foreach(['mail_accounts'=>['user_id','email','inbound_host','inbound_port','inbound_ssl_mode','inbound_user','auth_method','protocol'],'mail_mailboxes'=>['account_id','sync_new_token','sync_changed_token','sync_vanished_token'],'mail_messages'=>['mailbox_id','uid','message_id','flag_important','flag_seen'],'mail_tags'=>['user_id','imap_label'],'mail_message_tags'=>['imap_message_id','tag_id']]as$name=>$cols){$t=$s->createTable($name);$t->addColumn('id','integer',['autoincrement'=>true]);$t->setPrimaryKey(['id']);foreach($cols as$c)$t->addColumn($c,in_array($c,['account_id','mailbox_id','uid','tag_id','flag_important','flag_seen'],true)?'integer':'string',['notnull'=>false]);}return $s;
+                $s=$schemaClosure();foreach(['mail_accounts'=>['user_id','email','inbound_host','inbound_port','inbound_ssl_mode','inbound_user','auth_method','protocol'],'mail_mailboxes'=>['account_id','sync_new_token','sync_changed_token','sync_vanished_token'],'mail_messages'=>['mailbox_id','uid','message_id','flag_important','flag_seen'],'mail_tags'=>['user_id','imap_label'],'mail_message_tags'=>['imap_message_id','tag_id'],'mail_mcp_body_index'=>['message_id','generation','profile']]as$name=>$cols){$t=$s->createTable($name);$t->addColumn('id','integer',['autoincrement'=>true]);$t->setPrimaryKey(['id']);foreach($cols as$c)$t->addColumn($c,in_array($c,['account_id','mailbox_id','uid','tag_id','flag_important','flag_seen'],true)?'integer':'string',['notnull'=>false]);}return $s;
             }
         };
         $sql=new SqliteDatabase($this,[$base,new \OCA\Mail\Migration\Version5125Date20261109000000()]);$sql->dbal->executeStatement('PRAGMA foreign_keys=ON');
@@ -78,7 +78,8 @@ final class MailExactTagAssociationsTest extends TestCase {
     }
     public function testFreshSnapshotResolvesOnlyOwnedMailboxUidAndNeverHeader():void {
         [$sql,$a]=$this->fixture();$sql->dbal->update('mail_messages',['tag_cache_generation'=>null],['id'=>1]);
-        self::assertSame(1,$this->replace($sql,$a,'42',[10]));self::assertTrue($a->has('alice',1,10));self::assertFalse($a->has('alice',2,10));self::assertTrue($a->verified('alice',1));
+        $sql->dbal->insert('mail_mcp_body_index',['message_id'=>1,'generation'=>'41','profile'=>'old']);
+        self::assertSame(1,$this->replace($sql,$a,'42',[10]));self::assertSame(0,(int)$sql->dbal->fetchOne('SELECT COUNT(*) FROM mail_mcp_body_index')); self::assertTrue($a->has('alice',1,10));self::assertFalse($a->has('alice',2,10));self::assertTrue($a->verified('alice',1));
         $refused=false;try{$this->replace($sql,$a,'43',[]);}catch(\RuntimeException){$refused=true;}self::assertTrue($refused);self::assertTrue($a->has('alice',1,10));
         $sql->dbal->update('mail_mailboxes',['sync_changed_token'=>base64_encode('V43')],['id'=>1]);self::assertFalse($a->verified('alice',1));
     }

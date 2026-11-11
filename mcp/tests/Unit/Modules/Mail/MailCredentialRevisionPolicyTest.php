@@ -15,7 +15,7 @@ final class MailCredentialRevisionPolicyTest extends TestCase {
         self::assertFalse($this->policy()->changes(['signature'=>true,'editorMode'=>true,'showSubscribedOnly'=>true]));
     }
     public function testManualAndBackgroundAuthorizationOrIdentityWritesAdvanceEvidence():void {
-        foreach(['name','inboundPassword','outboundPassword','oauthAccessToken','oauthRefreshToken','oauthTokenTtl','authMethod','inboundHost','outboundUser','userId'] as $field)self::assertTrue($this->policy()->changes([$field=>true]));
+        foreach(['name','inboundPassword','outboundPassword','oauthAccessToken','oauthRefreshToken','oauthTokenTtl','authMethod','inboundHost','outboundUser','userId','protocol'] as $field)self::assertTrue($this->policy()->changes([$field=>true]));
     }
     public function testCallersCannotSetThePrivateRevision():void {
         $p=$this->policy();$this->expectException(\OCA\Mail\Exception\DraftAdmissionFailure::class);$p->changes(['mcpAuthRevision'=>true]);

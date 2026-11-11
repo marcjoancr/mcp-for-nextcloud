@@ -19,6 +19,17 @@ final class MailLifecycleActor {
     private static function smtpCapture(): string {
         return hash('sha256',is_file('/tmp/mcp-mail-probe-smtp.log')?(string)file_get_contents('/tmp/mcp-mail-probe-smtp.log'):'');
     }
+    /** Establish this legacy synthetic seed's provenance only after a real selected-UID check. */
+    public static function seedReply(string $uid,int $messageId):array {
+        $manager=Server::get('OCA\\Mail\\Service\\MailManager');$m=$manager->getMessage($uid,$messageId);$box=$manager->getMailbox($uid,$m->getMailboxId());$a=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$box->getAccountId());
+        $client=Server::get('OCA\\Mail\\IMAP\\IMAPClientFactory')->getClient($a,false);
+        try{$client->openMailbox($box->getName(),\Horde_Imap_Client::OPEN_READONLY);$generation=(new MailBodyPreflight())->uidValidity($client,$box->getName());
+            if($generation!==\OCA\Mcp\Modules\Mail\Integration\MailCacheGeneration::of($box))throw new \RuntimeException('Synthetic reply seed generation changed.');
+            $query=new \Horde_Imap_Client_Fetch_Query();$query->uid();$query->envelope();$data=$client->fetch($box->getName(),$query,['ids'=>new \Horde_Imap_Client_Ids([$m->getUid()])])->first();
+            if($data===null||(int)$data->getUid()!==$m->getUid()||(string)$data->getEnvelope()->message_id!==(string)$m->getMessageId())throw new \RuntimeException('Synthetic reply source identity changed.');
+            $before=['generation'=>$m->getTagCacheGeneration(),'profile'=>$m->getTagCacheProfile()];$db=Server::get(\OCP\IDBConnection::class);$q=$db->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($generation))->set('tag_cache_profile',$q->createNamedParameter(\OCA\Mail\Db\TagProfile::account($a->getMailAccount())))->where($q->expr()->eq('id',$q->createNamedParameter($messageId)))->executeStatement();return $before;
+        }finally{$client->logout();}
+    }
     public static function selection(string $uid,int $accountId): array {
         $account=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$accountId);
         $manager=Server::get('OCA\\Mail\\Service\\MailManager');

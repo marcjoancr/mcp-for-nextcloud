@@ -35,7 +35,7 @@ final class MailErasureStore {
         if($this->rows($q)!==[])throw new \OCA\Mail\Transmission\BeforeWireBlock('Original account consent was erased.');
     }
     /** Caller holds the physical owner lease and the account-removal transaction. */
-    public function purgeAccount(string $uid,int $account):void {$this->query('mail_mcp_deliveries',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_deliveries')->executeStatement();}
+    public function purgeAccount(string $uid,int $account):void {$this->query('mail_mcp_body_index',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_body_index')->executeStatement();$this->query('mail_mcp_draft_copies',['user_id'=>$uid,'target_account_id'=>$account])->delete('mail_mcp_draft_copies')->executeStatement();$this->query('mail_mcp_deliveries',['user_id'=>$uid,'account_id'=>$account])->delete('mail_mcp_deliveries')->executeStatement();}
     /** One bounded atomic batch; no ordinary hold bypass escapes this exact confirmed identity set. */
     public function erase(string $id,string $uid):void {
         $scope=\OCA\Mail\Drafts\DraftCoordinator::forDatabase($this->db)->scope();if($scope->uid!==$uid)throw new \RuntimeException('Erasure owner changed.');

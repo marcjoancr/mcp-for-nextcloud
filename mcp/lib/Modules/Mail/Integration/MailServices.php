@@ -22,6 +22,8 @@ class MailServices {
 	/** App id of Nextcloud Mail. */
 	public const APP_ID = 'mail';
 
+	public const CONTENT_COMMIT_UNKNOWN_CLASS = 'OCA\\Mail\\Exception\\ContentCommitUnknown';
+
 	/** OCA\Mail\Service\AccountService: the accounts of a user, as the Mail app stores them. */
 	private const ACCOUNT_SERVICE_CLASS = 'OCA\\Mail\\Service\\AccountService';
 
@@ -164,6 +166,9 @@ class MailServices {
         $class='OCA\\Mail\\Transmission\\BeforeWireBlock';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();
         return new $class('Delivery authorization was withdrawn before claim.');
     }
+    public function guardedDraftImport(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDraftImport',$uid);}
+    public function guardedDraftSearch(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDraftSearch',$uid);}
+    public function guardedBodyIndex(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedBodyIndex',$uid);}
     public function guardedContentReader(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedContentReader',$uid);}
     public function guardedDelivery(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDelivery',$uid);}
     public function sentCopyRepair(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\SentCopyRepair',$uid);}

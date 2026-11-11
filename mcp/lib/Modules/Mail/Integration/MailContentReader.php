@@ -17,12 +17,20 @@ class MailContentReader {
     public function available(string $uid):bool {return $this->services->isEnabledFor($uid)&&$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))&&$this->db->getDatabaseProvider()===IDBConnection::PLATFORM_POSTGRES&&$this->boundary->deliveryVerified();}
     private function native(string $uid):object {if(!$this->available($uid))throw new ToolFailure(MailMessages::contentUnavailable());return $this->services->guardedContentReader($uid);}
     private function fence(string $uid,string $tool):object {
-        if(!in_array($tool,['mail_export_message','mail_save_attachment','mail_read_attachment','mail_read_message','mail_read_thread','mail_write_draft'],true))throw new ToolFailure(MailMessages::messageChanged());
+        if(!in_array($tool,['mail_export_message','mail_save_attachment','mail_read_attachment','mail_read_message','mail_read_thread','mail_write_draft','mail_search_drafts','mail_import_draft','mail_index_messages','mail_search_indexed_body'],true))throw new ToolFailure(MailMessages::messageChanged());
         $connection=$this->connection->current();$check=function(string $owner,int $account,int $mailbox,int $message)use($uid,$tool,$connection):void {
             if($owner!==$uid||$this->connection->current()!==$connection||!($this->authorize)($uid,$connection,$tool,$account,$mailbox,$message))throw new ToolFailure(MailMessages::messageChanged());
         };
         return new class($check){public function __construct(private \Closure $check){}public function authorize(string $uid,int $account,int $mailbox,int $message):void {($this->check)($uid,$account,$mailbox,$message);}};
     }
+    /** Only these four fixed origins may acquire a content-feature fence. */
+    public function featureFence(string $uid,string $tool,\Closure $checkpoint):object {
+        if(!in_array($tool,['mail_search_drafts','mail_import_draft','mail_index_messages','mail_search_indexed_body'],true))throw new ToolFailure(MailMessages::messageChanged());
+        $fence=$this->fence($uid,$tool);
+        return new class($fence,$checkpoint){public function __construct(private object $fence,private \Closure $checkpoint){}public function authorize(string $uid,int $account,int $mailbox,int $message):void {$this->fence->authorize($uid,$account,$mailbox,$message);}public function checkpoint(array $refs):void {($this->checkpoint)($refs);}};
+    }
+    public function readDraft(string $uid,int $message):array {try{return $this->native($uid)->readDraft($uid,$message,$this->fence($uid,'mail_import_draft'));}catch(\Throwable){throw new ToolFailure(MailMessages::contentReadUnavailable());}}
+    public function readIndexText(string $uid,int $message):array {try{return $this->native($uid)->readIndexText($uid,$message,$this->fence($uid,'mail_index_messages'));}catch(\Throwable){throw new ToolFailure(MailMessages::contentReadUnavailable());}}
     public function readBody(string $uid,int $message,string $tool):array {
         try{return $this->native($uid)->readBody($uid,$message,$this->fence($uid,$tool));}
         catch(\RuntimeException $e){if($e->getCode()===413)throw new MailBodyTooLargeException(1048577,true);throw new ToolFailure(MailMessages::contentReadUnavailable());}

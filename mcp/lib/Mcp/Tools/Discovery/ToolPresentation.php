@@ -218,6 +218,11 @@ final class ToolPresentation {
             'mail_read_delivery' => Translator::t('Read mail delivery status'),
             'mail_sent_repair' => Translator::t('Repair Sent copy'),
             'mail_read_outbox' => Translator::t('Read local mail outbox'),
+            'mail_search_drafts' => Translator::t('Search cached mail drafts'),
+            'mail_import_draft' => Translator::t('Import a protected mail draft'),
+            'mail_index_messages' => Translator::t('Index selected mail messages'),
+            'mail_search_indexed_body' => Translator::t('Search indexed mail body text'),
+
             'mail_list_accounts' => Translator::t('List mail accounts'),
             'mail_list_mailboxes' => Translator::t('List mail folders'),
             'logs_list' => Translator::t('Read server log'),

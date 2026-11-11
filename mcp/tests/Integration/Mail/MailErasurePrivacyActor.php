@@ -8,10 +8,16 @@ use OCP\{Server,IDBConnection};
 final class MailErasurePrivacyActor {
     private static function insert(string $table,array $values):int {$q=Server::get(IDBConnection::class)->getQueryBuilder();$q->insert($table);foreach($values as $k=>$v)$q->setValue($k,$q->createNamedParameter($v,is_int($v)?\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT:(is_bool($v)?\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_BOOL:\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR)));$q->executeStatement();return (int)$q->getLastInsertId();}
     private static function rows(int $account):array {
-        $box=self::insert('mail_mailboxes',['account_id'=>$account,'name'=>'INBOX','name_hash'=>hash('sha256','INBOX'),'messages'=>1,'unseen'=>1]);
-        $message=self::insert('mail_messages',['mailbox_id'=>$box,'uid'=>1,'sent_at'=>time(),'subject'=>'Synthetic account cache metadata']);
+        $entity=Server::get('OCA\\Mail\\Db\\MailAccountMapper')->findById($account);$profile=\OCA\Mail\Db\TagProfile::account($entity);$token=base64_encode('V42,U2,H1,M1');
+        $box=self::insert('mail_mailboxes',['account_id'=>$account,'name'=>'INBOX','name_hash'=>hash('sha256','INBOX'),'messages'=>1,'unseen'=>1,'selectable'=>true,'sync_new_token'=>$token,'sync_changed_token'=>$token,'sync_vanished_token'=>$token]);
+        $message=self::insert('mail_messages',['mailbox_id'=>$box,'uid'=>1,'sent_at'=>time(),'subject'=>'Synthetic account cache metadata','tag_cache_generation'=>'42','tag_cache_profile'=>$profile]);
+        self::bodyIndex($entity,$box,$message);
         $outbox=self::outbox($account);return ['mail_mailboxes'=>$box,'mail_messages'=>$message,'mail_local_messages'=>$outbox];
     }
+    private static function bodyIndex(object $account,int $box,int $message):void {
+        $row=['message_id'=>$message,'user_id'=>$account->getUserId(),'account_id'=>$account->getId(),'mailbox_id'=>$box,'imap_uid'=>'1','generation'=>'42','profile'=>\OCA\Mail\Db\TagProfile::account($account),'auth_revision'=>$account->getMcpAuthRevision(),'content_revision'=>hash('sha256','synthetic-index'),'body_text'=>'synthetic index body','policy_version'=>'complete-text-v1','coverage_state'=>'complete','indexed_at'=>time()];$q=Server::get(IDBConnection::class)->getQueryBuilder();$q->insert('mail_mcp_body_index');foreach($row as $k=>$v)$q->setValue($k,$q->createNamedParameter($v,is_int($v)?\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT:\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_STR));$q->executeStatement();
+    }
+    private static function indexed(int $id):int {$q=Server::get(IDBConnection::class)->getQueryBuilder();$r=$q->select('message_id')->from('mail_mcp_body_index')->where($q->expr()->eq('message_id',$q->createNamedParameter($id,\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))->executeQuery();try{return $r->fetch()===false?0:1;}finally{$r->closeCursor();}}
     private static function outbox(int $account):int {return self::insert('mail_local_messages',['account_id'=>$account,'type'=>0,'subject'=>'Synthetic account outbox metadata','html'=>false,'failed'=>true,'updated_at'=>time()]);}
     private static function ids(array $accounts):array {return array_map(static fn($a):int=>(int)$a->getId(),$accounts);}
     private static function missing(\Closure $read):bool {try{$read();return false;}catch(\OCP\AppFramework\Db\DoesNotExistException|\OCA\Mail\Exception\ClientException){return true;}}
@@ -39,11 +45,14 @@ final class MailErasurePrivacyActor {
         $page=$reader->outbox($uid,null,1,null);$out['outbox_new_only']=array_column($page['items'],'account_id')===[$newId]&&$page['next_before_id']===null;
         $out['outbox_old_empty']=$reader->outbox($uid,$oldId,1,null)['items']===[];
         $messages=$reader->cachedMessages($uid,[$context['rows'][0]['mail_messages'],$context['rows'][1]['mail_messages']]);$out['cache_new_only']=array_column($messages,'account_id')===[$newId];
+        $index=Server::get('OCA\\Mail\\Service\\GuardedBodyIndex');$fence=new class {public function authorize(string $uid,int $account,int $box,int $message):void {}};$out['index_pending_old_denied']=false;try{$index->search($uid,[$context['rows'][0]['mail_mailboxes']],'synthetic',1,null,$fence);}catch(\Throwable){$out['index_pending_old_denied']=true;}
+        $out['index_new_only']=array_column($index->search($uid,[$context['rows'][1]['mail_mailboxes']],'synthetic',1,null,$fence)['items'],'account_id')===[$newId];
         $old->setName('Synthetic rejected pending change');$out['update_old_denied']=self::missing(fn()=>$mapper->update($old));$new->setName('Synthetic permitted new change');$out['update_new_allowed']=$mapper->update($new)->getId()===$newId;
+        self::bodyIndex($new,$context['rows'][1]['mail_mailboxes'],$context['rows'][1]['mail_messages']);
         return $out;
     }
     public static function after(string $uid,object $new,array $context):array {
-        $old=$context['old'];$cached=$context['retained'];$newId=$new->getId();return ['purged_cached_old_denied'=>self::missing(fn()=>$cached->find($uid,$old->getId())),
+        $old=$context['old'];$cached=$context['retained'];$newId=$new->getId();return ['old_index_erased'=>self::indexed($context['rows'][0]['mail_messages'])===0,'recreated_index_retained'=>self::indexed($context['rows'][1]['mail_messages'])===1,'purged_cached_old_denied'=>self::missing(fn()=>$cached->find($uid,$old->getId())),
             'purged_cached_new_visible'=>!self::missing(fn()=>$cached->find($uid,$newId)),'purged_cached_list_new_only'=>self::ids($cached->findByUserId($uid))===[$newId],
             'purged_imap_old_denied'=>self::transportDenied($old,'imap'),'purged_smtp_old_denied'=>self::transportDenied($old,'smtp')];
     }

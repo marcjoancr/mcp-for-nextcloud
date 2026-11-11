@@ -106,6 +106,7 @@ final class ExactTagAssociations {
             if(TagProfile::row($row)!==$version->profile||(!$initial&&($row['tag_cache_profile']??null)!==$version->profile))throw new \RuntimeException('Snapshot header provenance is unknown. Rebuild the native mailbox cache.');
             foreach($tags as$tag){if(!is_int($tag)||$tag<1)throw new \RuntimeException('Invalid native tag identity.');$this->requireTag($owner,$tag);}
             $q=$this->db->getQueryBuilder();$q->delete('mail_message_tags')->where($q->expr()->eq('cached_message_id',$q->createNamedParameter($message,IQueryBuilder::PARAM_INT)))->executeStatement();foreach(array_unique($tags)as$tag)$this->write($message,$tag,true);
+            $q=$this->db->getQueryBuilder();$q->delete('mail_mcp_body_index')->where($q->expr()->eq('message_id',$q->createNamedParameter($message,IQueryBuilder::PARAM_INT)))->andWhere($q->expr()->orX($q->expr()->neq('generation',$q->createNamedParameter($generation)),$q->expr()->neq('profile',$q->createNamedParameter($version->profile))))->executeStatement();
             $q=$this->db->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($generation))->set('tag_cache_profile',$q->createNamedParameter($version->profile))->where($q->expr()->eq('id',$q->createNamedParameter($message,IQueryBuilder::PARAM_INT)))->executeStatement();return $message;
         });
     }

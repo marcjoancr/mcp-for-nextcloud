@@ -164,13 +164,13 @@ final class SqliteDatabase {
             $expr->method($method)->willReturnCallback(fn ($x, $y): string => $inner->expr()->{$method}(
                 (string)self::sqlArgument($x), (string)self::sqlArgument($y)));
         }
-        $expr->method('andX')->willReturnCallback(fn (...$parts) => new class ((string)$inner->expr()->and(
-            ...array_map(static fn ($part): string => (string)self::sqlArgument($part), $parts))) implements \OCP\DB\QueryBuilder\ICompositeExpression {
-            public function __construct(private string $sql) {}
+        foreach(['andX'=>'and','orX'=>'or'] as $method=>$native)$expr->method($method)->willReturnCallback(fn (...$parts) => new class ((string)$inner->expr()->{$native}(
+            ...array_map(static fn ($part): string => (string)self::sqlArgument($part), $parts)),strtoupper($native)) implements \OCP\DB\QueryBuilder\ICompositeExpression {
+            public function __construct(private string $sql,private string $type) {}
             public function addMultiple(array $parts = []): \OCP\DB\QueryBuilder\ICompositeExpression { throw new \LogicException('Not modeled'); }
             public function add($part): \OCP\DB\QueryBuilder\ICompositeExpression { throw new \LogicException('Not modeled'); }
             public function count(): int { return 1; }
-            public function getType(): string { return 'AND'; }
+            public function getType(): string { return $this->type; }
             public function __toString(): string { return $this->sql; }
         });
         $expr->method('isNull')->willReturnCallback(fn (string $x): string => $inner->expr()->isNull($x));

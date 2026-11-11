@@ -850,6 +850,11 @@ class Application extends App implements IBootstrap {
             'mail_cancel_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelDelivery::class),
             'mail_read_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadDelivery::class),
             'mail_export_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ExportMessage::class),
+            'mail_search_drafts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchDrafts::class),
+            'mail_import_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ImportDraft::class),
+            'mail_index_messages' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\IndexMessages::class),
+            'mail_search_indexed_body' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchIndexedBody::class),
+
             'mail_sent_repair' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RepairSentCopy::class),
             'mail_read_outbox' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadOutbox($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
 

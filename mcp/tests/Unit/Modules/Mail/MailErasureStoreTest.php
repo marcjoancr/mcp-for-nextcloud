@@ -12,6 +12,8 @@ final class MailErasureStoreTest extends TestCase {
         $migration=new \OCA\Mail\Migration\Version5125Date20261111020000();$db=new SqliteDatabase($this,[$migration,$migration]);
         $db->dbal->executeStatement('CREATE TABLE mail_accounts (id INTEGER PRIMARY KEY, user_id TEXT)');
         $db->dbal->executeStatement('CREATE TABLE mail_mcp_deliveries (id INTEGER PRIMARY KEY, user_id TEXT, account_id INTEGER, artifact TEXT)');
+        $db->dbal->executeStatement('CREATE TABLE mail_mcp_body_index (user_id TEXT, account_id INTEGER)');
+        $db->dbal->executeStatement('CREATE TABLE mail_mcp_draft_copies (user_id TEXT, target_account_id INTEGER)');
         $db->dbal->insert('mail_accounts',['id'=>1,'user_id'=>'original']);
         foreach([[1,'original',1],[2,'original',2],[3,'other',1]] as [$id,$uid,$account])$db->dbal->insert('mail_mcp_deliveries',['id'=>$id,'user_id'=>$uid,'account_id'=>$account,'artifact'=>'private synthetic bytes']);
         return [$db,new \OCA\Mail\Lifecycle\MailErasureStore($db->connection())];

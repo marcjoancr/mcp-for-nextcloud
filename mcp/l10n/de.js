@@ -1,6 +1,18 @@
 OC.L10N.register(
     "mcp",
     {
+    "The original is retained. A new protected local draft will be created." : "Das Original bleibt erhalten. Ein neuer geschützter lokaler Entwurf wird erstellt.",
+    "Original sender: %s" : "Ursprünglicher Absender: %s",
+    "Body sizes: plain %s characters; HTML %s characters." : "Textlänge: Klartext %s Zeichen; HTML %s Zeichen.",
+    "Only complete supported body text is searchable. Refused messages are excluded." : "Nur vollständiger unterstützter Nachrichtentext ist durchsuchbar. Abgelehnte Nachrichten werden ausgeschlossen.",
+    "search_drafts" : "Zwischengespeicherte E-Mail-Entwürfe suchen",
+    "import_draft" : "Geschützten E-Mail-Entwurf importieren",
+    "index_messages" : "Ausgewählte E-Mails indizieren",
+    "search_indexed_body" : "Indizierten E-Mail-Text durchsuchen",
+    "Search cached mail drafts" : "Zwischengespeicherte E-Mail-Entwürfe suchen",
+    "Import a protected mail draft" : "Geschützten E-Mail-Entwurf importieren",
+    "Index selected mail messages" : "Ausgewählte E-Mails indizieren",
+    "Search indexed mail body text" : "Indizierten E-Mail-Text durchsuchen",
     "Approve this frozen mail for one immediate attempt." : "Diese festgelegte E-Mail für einen sofortigen Versuch freigeben.",
     "Approve this frozen mail for the scheduled instant." : "Diese festgelegte E-Mail für den geplanten Zeitpunkt freigeben.",
     "Cancel this queued mail before its attempt." : "Diese E-Mail vor dem Versuch aus der Warteschlange entfernen.",

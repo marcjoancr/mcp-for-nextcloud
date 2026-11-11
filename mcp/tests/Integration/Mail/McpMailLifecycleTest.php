@@ -67,7 +67,7 @@ final class McpMailLifecycleTest extends IntegrationTestCase {
 
     public function testReplyParentAcrossNativeUiEditAndImapFlush():void {
         $id=$this->account();$alias=MailActor::run(MailActor::ALICE,'native-alias-fixture',['account_id'=>$id]);
-        $source=$this->sourceMessage($id);
+        $source=$this->sourceMessage($id);$seed=MailActor::run(MailActor::ALICE,'c0-reply-seed',['message_id'=>$source]);
         $draftId=null;
         try{
             $args=['account_id'=>$id,'subject'=>'C0 reply '.bin2hex(random_bytes(6)),'body_plain'=>'Approved local body','reply_to_message_id'=>$source,'alias_id'=>$alias['alias_id']];
@@ -90,6 +90,7 @@ final class McpMailLifecycleTest extends IntegrationTestCase {
             self::assertTrue($proof['outgoing_unchanged']);self::assertTrue($proof['smtp_unchanged']);
         } finally {
             if($draftId!==null){$a=['draft_id'=>$draftId];$p=$this->data($this->alice->tool('mail_delete_draft',$a));$this->alice->tool('mail_delete_draft',$a+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]);}
+            $q=$this->official()->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($seed['generation']))->set('tag_cache_profile',$q->createNamedParameter($seed['profile']))->where($q->expr()->eq('id',$q->createNamedParameter($source)))->executeStatement();
             MailActor::run(MailActor::ALICE,'native-alias-fixture',$alias);
         }
     }

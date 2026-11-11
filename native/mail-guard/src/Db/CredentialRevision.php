@@ -11,7 +11,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 trait CredentialRevision {
     private function mcpCredentialFieldsChanged(array $fields):bool {
         if(array_key_exists('mcpAuthRevision',$fields))throw new DraftAdmissionFailure('The private native authorization revision cannot be supplied.');
-        return array_intersect(array_keys($fields),['userId','name','email','authMethod','inboundPassword','outboundPassword','oauthAccessToken','oauthRefreshToken','oauthTokenTtl','inboundHost','inboundPort','inboundSslMode','inboundUser','outboundHost','outboundPort','outboundSslMode','outboundUser'])!==[];
+        return array_intersect(array_keys($fields),['userId','name','email','protocol','authMethod','inboundPassword','outboundPassword','oauthAccessToken','oauthRefreshToken','oauthTokenTtl','inboundHost','inboundPort','inboundSslMode','inboundUser','outboundHost','outboundPort','outboundSslMode','outboundUser'])!==[];
     }
     private function mcpCredentialRow(int $id,bool $lock=false):array {
         $q=$this->db->getQueryBuilder();$q->select('user_id','mcp_auth_revision')->from('mail_accounts')->where($q->expr()->eq('id',$q->createNamedParameter($id,IQueryBuilder::PARAM_INT)));
@@ -23,6 +23,7 @@ trait CredentialRevision {
         $q=$this->db->getQueryBuilder();$q->update('mail_accounts')->set('mcp_auth_revision',$q->createNamedParameter($revision,IQueryBuilder::PARAM_INT))
             ->where($q->expr()->eq('id',$q->createNamedParameter($id,IQueryBuilder::PARAM_INT)));
         if($q->executeStatement()!==1)throw new \RuntimeException('Native authorization revision could not be stored.');
+        $q=$this->db->getQueryBuilder();$q->delete('mail_mcp_body_index')->where($q->expr()->eq('account_id',$q->createNamedParameter($id,IQueryBuilder::PARAM_INT)))->executeStatement();
     }
     private function mcpCredentialWritten(Entity $saved,int $revision):Entity {
         $saved->mcpCaptureAuthRevision($revision);
