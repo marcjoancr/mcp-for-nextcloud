@@ -85,7 +85,7 @@ final class MailCleanHttpActor {
     public static function signature(string $uid):array {
         $mapper=Server::get('OCA\\Mail\\Db\\MailAccountMapper');$account=$mapper->findByUserId($uid)[0];$id=(int)$account->getId();$before=MailSignatureModeActor::row('mail_accounts',$id);$mode=(int)$account->getSignatureMode();
         try{return self::within($uid,$id,['mail_write_signature_mode','mail_get_operation'],function(McpClient $client,int $connection,array &$native)use($uid,$id,$before,$mode):array {
-            self::write($client,'mail_write_signature_mode',['account_id'=>$id,'alias_id'=>null,'signature_mode'=>1-$mode]);$after=MailSignatureModeActor::row('mail_accounts',$id);
+            self::write($client,'mail_write_signature_mode',['account_id'=>$id,'signature_mode'=>1-$mode]);$after=MailSignatureModeActor::row('mail_accounts',$id);
             $changed=$after['signature_mode']==1-$mode;unset($before['signature_mode'],$after['signature_mode']);
             return ['http_replayed'=>true,'changed'=>$changed,'other_columns_preserved'=>$before===$after];
         });}finally{$fresh=$mapper->findById($id);$fresh->setSignatureMode($mode);$mapper->update($fresh);}
