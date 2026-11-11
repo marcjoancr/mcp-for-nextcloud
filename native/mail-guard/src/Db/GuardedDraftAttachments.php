@@ -19,6 +19,7 @@ trait GuardedDraftAttachments {
         $row=$this->mcpAttachmentRow($id);if($row!==null&&$row['user_id']!==$uid)throw new DraftAdmissionFailure('Attachment ownership changed.');return $row;
     }
     public function mcpAttachmentParent(string $uid,int $id):?array {
+        \OCA\Mail\Transmission\DeliveryHolds::assertFree($this->db,'draft_id',$id);
         $q=$this->db->getQueryBuilder();$q->select('m.id','m.mcp_draft_only','a.user_id')->from('mail_local_messages','m')->innerJoin('m','mail_accounts','a',$q->expr()->eq('a.id','m.account_id'))->where($q->expr()->eq('m.id',$q->createNamedParameter($id,IQueryBuilder::PARAM_INT)));
         $r=$q->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}
         if($row===false)return null;

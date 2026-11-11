@@ -34,6 +34,7 @@ trait DraftOnlyStorage {
     public function update(Entity $entity):Entity {
         if(!$entity instanceof LocalMessage)return parent::update($entity);
         return $this->draftCoordinator()->runMessage($entity,function($scope)use($entity):Entity {
+            \OCA\Mail\Transmission\DeliveryHolds::assertFree($this->db,'draft_id',(int)$entity->getId());
             $this->db->beginTransaction();
             try {
                 $q=$this->db->getQueryBuilder();$q->select('mcp_draft_only','type','account_id','send_at','smime_sign','smime_encrypt','pgp_mime')->from('mail_local_messages')->where($q->expr()->eq('id',$q->createNamedParameter($entity->getId(),IQueryBuilder::PARAM_INT)));
@@ -54,6 +55,7 @@ trait DraftOnlyStorage {
     public function delete(Entity $entity):Entity {
         if(!$entity instanceof LocalMessage)return parent::delete($entity);
         return $this->draftCoordinator()->runMessage($entity,function($scope)use($entity):Entity {
+            \OCA\Mail\Transmission\DeliveryHolds::assertFree($this->db,'draft_id',(int)$entity->getId());
             $q=$this->db->getQueryBuilder();$q->select('mcp_draft_only')->from('mail_local_messages')->where($q->expr()->eq('id',$q->createNamedParameter($entity->getId(),IQueryBuilder::PARAM_INT)));
             $r=$q->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}
             if($row!==false&&(bool)$row['mcp_draft_only']&&!$scope->permits((int)$entity->getId(),['delete','convert']))throw new \OCA\Mail\Exception\DraftAdmissionFailure('Protected deletion requires its current native lifecycle.');

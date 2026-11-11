@@ -44,7 +44,11 @@ trait CredentialRevision {
         });
     }
     public function update(Entity $entity):Entity {
-        if(!$entity instanceof MailAccount||!$this->mcpCredentialFieldsChanged($entity->getUpdatedFields()))return parent::update($entity);
+        if(!$entity instanceof MailAccount)return parent::update($entity);
+        if(!$this->mcpCredentialFieldsChanged($entity->getUpdatedFields())){
+            $id=(int)$entity->getId();$uid=$this->mcpCredentialRow($id)['user_id'];
+            return DraftCoordinator::forDatabase($this->db)->runOwner($uid,function(DraftScope $scope)use($entity,$id,$uid):Entity {if($this->mcpCredentialRow($id)['user_id']!==$uid||$entity->getUserId()!==$uid)throw new DraftAdmissionFailure('Account ownership changed.');$scope->markWrite();return parent::update($entity);});
+        }
         $id=(int)$entity->getId();$guard=DraftCoordinator::forDatabase($this->db);
         $guard->assertNoTransaction();$uid=$this->mcpCredentialRow($id)['user_id'];
         return $guard->runOwner($uid,function(DraftScope $scope)use($entity,$guard,$uid,$id):Entity {

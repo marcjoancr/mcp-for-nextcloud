@@ -56,6 +56,12 @@ function callTool(ToolRegistry $registry, GrantPolicy $policy, string $uid, stri
 }
 
 switch ($action) {
+    case 'delivery-child':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDeliveryActor::child($uid,$in);break;
+    case 'delivery-native':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailDeliveryActor::run($uid,$in);}catch(\Throwable $error){$out=['fixture_error'=>get_class($error).': '.$error->getMessage(),'site'=>basename($error->getFile()).':'.$error->getLine()];}break;
+    case 'delivery-contender':
+        $out=\OCA\Mcp\Tests\Integration\Mail\MailDeliveryActor::contender($uid,$in);break;
     case 'credential-tabs-prepare':
         $out=\OCA\Mcp\Tests\Integration\Mail\MailCredentialEvidenceActor::tabsPrepare($uid,$in['mode']);break;
     case 'credential-tabs-inspect':

@@ -54,6 +54,7 @@ final class DraftCoordinator {
         $scope=$this->scope();if($scope->uid!==$uid)throw new DraftAdmissionFailure('Draft owner changed.');
         if($message->getId()===null){if($purpose!=='write')throw new DraftAdmissionFailure('A persisted draft is required.');return;}
         $id=(int)$message->getId();
+        \OCA\Mail\Transmission\DeliveryHolds::assertFree($this->db,'draft_id',$id);
         if($scope->permits($id,[$purpose]))return;
         $fresh=$this->current($mapper,$id,$uid);$expected=$message->mcpOriginalSnapshot();
         if($expected===null||!hash_equals($expected,DraftSnapshot::of($fresh)))throw new DraftAdmissionFailure('The draft changed; reopen its current version.');
