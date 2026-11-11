@@ -39,6 +39,24 @@ final class MailDeliveryActor {
             $observed=self::state($directory);$last=end($observed['messages']);return ['killed'=>true,'acceptance_persistence_blocked'=>$blocked,'server_accepted'=>$beforeClaim?false:(bool)$last['acknowledged']];
         }finally{if($db->inTransaction())$db->rollBack();$state=proc_get_status($process);if($state['running'])proc_terminate($process,9);fclose($pipes[1]);fclose($pipes[2]);proc_close($process);if(is_file($directory.'/ack_continue'))unlink($directory.'/ack_continue');}
     }
+    /** Close the lifetime control before collecting output; never wait indefinitely for a faulty peer. */
+    private static function finishCopyPeer($peer,array $pipes,bool $collect=true):array {
+        if(is_resource($pipes[0]))fclose($pipes[0]);
+        $wait=static function(float $seconds)use($peer):array {
+            $deadline=hrtime(true)+(int)($seconds*1e9);
+            do{$status=proc_get_status($peer);if(!$status['running'])return $status;usleep(10000);}while(hrtime(true)<$deadline);
+            return $status;
+        };
+        $status=$wait(5);$forced=$status['running'];
+        if($status['running']){proc_terminate($peer);$status=$wait(1);}
+        if($status['running']){proc_terminate($peer,9);$status=$wait(1);}
+        stream_set_blocking($pipes[1],false);$output=(string)stream_get_contents($pipes[1],8193);
+        foreach(array_slice($pipes,1) as $pipe)if(is_resource($pipe))fclose($pipe);
+        $exit=proc_close($peer);if($exit===-1)$exit=$status['exitcode'];
+        if(!$collect)return [];
+        if($forced||$exit!==0||strlen($output)>8192)throw new \RuntimeException('Synthetic APPEND peer did not complete normally.');
+        return json_decode($output,true,16,JSON_THROW_ON_ERROR);
+    }
     public static function run(string $uid,array $in):array {
         if(!class_exists('OCA\\Mail\\Service\\GuardedDelivery'))return ['implementation_available'=>false];
         if($uid!==MailActor::ALICE)throw new \RuntimeException('Unexpected delivery fixture owner.');
@@ -50,7 +68,7 @@ final class MailDeliveryActor {
         $drafts=Server::get('OCA\\Mail\\Service\\DraftsService');$attachments=Server::get('OCA\\Mail\\Service\\Attachment\\AttachmentService');$aliases=Server::get('OCA\\Mail\\Service\\AliasesService');$service=Server::get('OCA\\Mail\\Service\\GuardedDelivery');$store=Server::get('OCA\\Mail\\Transmission\\AttemptStore');$draft=null;$alias=null;$queued=null;$copyPeer=null;$copyPipes=[];
         try{
             if(in_array($scenario,['repair_lost','repair_bad_literal','repair_bad_uid','repair_missing_uid','repair_selected_generation','repair_uid_after','repair_duplicate_uid','repair_changed_during_fetch','repair_reconnect','repair_no_uidplus'],true)){
-                $copyPeer=proc_open([PHP_BINARY,__DIR__.'/delivery-imap-server.php',match($scenario){'repair_bad_literal'=>'oversized_literal','repair_bad_uid'=>'wrong_appenduid','repair_missing_uid'=>'missing_appenduid','repair_selected_generation'=>'selected_generation','repair_uid_after'=>'uid_after_literal','repair_duplicate_uid'=>'duplicate_uid','repair_changed_during_fetch'=>'generation_during_fetch','repair_reconnect'=>'reconnect_after_append','repair_no_uidplus'=>'no_uidplus',default=>'lost_ack'}],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$copyPipes);if(!is_resource($copyPeer))throw new \RuntimeException('Synthetic APPEND peer unavailable.');fclose($copyPipes[0]);$port=json_decode(fgets($copyPipes[1]),true,16,JSON_THROW_ON_ERROR)['port'];$entity->setInboundHost('127.0.0.1');$entity->setInboundPort($port);$entity->setInboundSslMode('none');
+                $copyPeer=proc_open([PHP_BINARY,__DIR__.'/delivery-imap-server.php',match($scenario){'repair_bad_literal'=>'oversized_literal','repair_bad_uid'=>'wrong_appenduid','repair_missing_uid'=>'missing_appenduid','repair_selected_generation'=>'selected_generation','repair_uid_after'=>'uid_after_literal','repair_duplicate_uid'=>'duplicate_uid','repair_changed_during_fetch'=>'generation_during_fetch','repair_reconnect'=>'reconnect_after_append','repair_no_uidplus'=>'no_uidplus',default=>'lost_ack'}],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$copyPipes);if(!is_resource($copyPeer))throw new \RuntimeException('Synthetic APPEND peer unavailable.');$port=json_decode(fgets($copyPipes[1]),true,16,JSON_THROW_ON_ERROR)['port'];$entity->setInboundHost('127.0.0.1');$entity->setInboundPort($port);$entity->setInboundSslMode('none');
             }
             $entity->setOutboundHost('localhost');$entity->setOutboundPort(33466);$entity->setOutboundSslMode('ssl');$entity->setDebug(false);$accounts->update($entity);
             $config->setSystemValue('app.mail.mcp-transmission.enabled',true);$config->setSystemValue('app.mail.verify-tls-peer',true);$config->setSystemValue('app.mail.debug',false);$config->setSystemValue('app.mail.smtp.timeout',2);
@@ -109,12 +127,12 @@ final class MailDeliveryActor {
             $out+=['state'=>$result['state'],'sent_state'=>$result['sentState'],'replay_state'=>$again['state'],'replay_no_connection'=>$beforeReplay['connections']===$after['connections'],'smtp_submissions'=>($after['commands']['MAIL']??0)-($before['commands']['MAIL']??0),'connections'=>$after['connections']-$before['connections'],'contenders'=>$fence->contenders,'cancel_too_late'=>self::refused(fn()=>$service->cancel($uid,$queued['id'],$queued['revision'],self::cancelFence()))];
             if($result['state']==='accepted'){
                 $row=$store->find($uid,$queued['id']);$artifact=json_decode($row['artifact'],true,512,JSON_THROW_ON_ERROR);$last=end($after['messages']);$out['exact_wire_bytes']=$last['sha256']===$artifact['smtpHash'];$out['bcc_private']=!str_contains($artifact['smtp'],'Bcc:')&&str_contains($artifact['fcc'],'Bcc:');
-                if(in_array($scenario,['repair','repair_lost','repair_bad_literal','repair_bad_uid','repair_missing_uid','repair_selected_generation','repair_uid_after','repair_duplicate_uid','repair_changed_during_fetch','repair_reconnect','repair_no_uidplus'],true)){$repair=Server::get('OCA\\Mail\\Service\\SentCopyRepair');$plan=$repair->preview($uid,$queued['id']);$out['copy_state']=$repair->repair($uid,$queued['id'],$plan['repairRevision'],$fence)['sentState'];$repair->repair($uid,$queued['id'],$plan['repairRevision'],$fence);$copyTransport=self::state($directory);$out['copy_smtp_unchanged']=$after['commands']===$copyTransport['commands']&&$after['connections']===$copyTransport['connections'];if($scenario==='repair')$out['terminal_identity_released']=!self::refused(function()use($db,$account,$aliases,$uid,$alias):void {\OCA\Mail\Transmission\DeliveryHolds::assertFree($db,'account_id',(int)$account->getId());$aliases->update($uid,$alias->getId(),$alias->getAlias(),'Updated after verified copy',null);});if($copyPeer!==null){$out['copy_peer']=json_decode((string)stream_get_contents($copyPipes[1]),true,16,JSON_THROW_ON_ERROR);fclose($copyPipes[1]);fclose($copyPipes[2]);proc_close($copyPeer);$copyPeer=null;}}
+                if(in_array($scenario,['repair','repair_lost','repair_bad_literal','repair_bad_uid','repair_missing_uid','repair_selected_generation','repair_uid_after','repair_duplicate_uid','repair_changed_during_fetch','repair_reconnect','repair_no_uidplus'],true)){$repair=Server::get('OCA\\Mail\\Service\\SentCopyRepair');$plan=$repair->preview($uid,$queued['id']);$out['copy_state']=$repair->repair($uid,$queued['id'],$plan['repairRevision'],$fence)['sentState'];$repair->repair($uid,$queued['id'],$plan['repairRevision'],$fence);$copyTransport=self::state($directory);$out['copy_smtp_unchanged']=$after['commands']===$copyTransport['commands']&&$after['connections']===$copyTransport['connections'];if($scenario==='repair')$out['terminal_identity_released']=!self::refused(function()use($db,$account,$aliases,$uid,$alias):void {\OCA\Mail\Transmission\DeliveryHolds::assertFree($db,'account_id',(int)$account->getId());$aliases->update($uid,$alias->getId(),$alias->getAlias(),'Updated after verified copy',null);});if($copyPeer!==null){$peer=$copyPeer;$copyPeer=null;$out['copy_peer']=self::finishCopyPeer($peer,$copyPipes);$copyPipes=[];}}
             }
             if($scenario==='short_write')$out['short_write']=MailSmtpShortWriteActor::proof();
             return $out;
         }finally{
-            if($copyPeer!==null){proc_terminate($copyPeer);foreach(array_slice($copyPipes,1) as $pipe)if(is_resource($pipe))fclose($pipe);proc_close($copyPeer);}
+            if(is_resource($copyPeer))self::finishCopyPeer($copyPeer,$copyPipes,false);
             // Test cleanup removes only this randomly keyed synthetic admission, after all assertions' evidence is captured.
             if($queued!==null){$q=$db->getQueryBuilder();$q->delete('mail_mcp_deliveries')->where($q->expr()->eq('id',$q->createNamedParameter($queued['id'])))->andWhere($q->expr()->eq('user_id',$q->createNamedParameter($uid)))->executeStatement();}
             if($draft!==null)try{$drafts->deleteMessage($uid,$drafts->getMessage($draft->getId(),$uid));}catch(\OCP\AppFramework\Db\DoesNotExistException){}
