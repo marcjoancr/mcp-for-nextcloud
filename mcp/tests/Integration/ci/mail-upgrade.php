@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 ini_set('zend.exception_ignore_args','1');
-set_exception_handler(static function(Throwable $error):void {fwrite(STDERR,'UPGRADE_PROBE_FAILED '.get_class($error)."\n");exit(1);});
+$failureHandler=static function(Throwable $error):void {fwrite(STDERR,'UPGRADE_PROBE_FAILED '.get_class($error)."\n");exit(1);};
+set_exception_handler($failureHandler);
 // Dedicated disposable v9 -> v11 upgrade/recovery probe. Never run against production.
 if(getenv('MCP_MAIL_UPGRADE_ACCEPTANCE')!=='1'||posix_geteuid()!==1000)throw new RuntimeException('Explicit disposable upgrade marker and service UID required.');
 define('OC_CONSOLE',true);require '/var/www/html/lib/base.php';
+set_exception_handler($failureHandler);
 use OCP\{Server,IConfig,IDBConnection};
 $c=Server::get(IConfig::class);$db=Server::get(IDBConnection::class);$apps=Server::get(\OCP\App\IAppManager::class);$apps->loadApp('mcp');$apps->loadApp('mail');
+set_exception_handler($failureHandler);
 if($db->getDatabaseProvider()!==IDBConnection::PLATFORM_POSTGRES||$c->getSystemValueBool('app.mail.mcp-transmission.enabled',false))throw new RuntimeException('PostgreSQL and transmission disabled required.');
 $mode=$argv[1]??'';$file=$argv[2]??'';
 if(!in_array($mode,['seed','snapshot','verify-v9','verify-v11'],true)||!str_starts_with($file,'/tmp/mcp-mail-upgrade-')||is_link($file))throw new RuntimeException('Closed upgrade probe input required.');
@@ -38,7 +41,7 @@ if($mode==='seed'){
     if(!is_string($code))throw new RuntimeException('Synthetic baseline consent failed.');
     $issued=$tokens->exchangeCode(['code'=>$code,'code_verifier'=>$verifier,'client_id'=>\OCA\Mcp\OAuth\NativeClient::CLIENT_ID,'redirect_uri'=>$redirect,'resource'=>$resource]);if(!isset($issued['access_token']))throw new RuntimeException('Synthetic baseline exchange failed.');unset($issued,$code,$verifier);
     $data=$root->newFile($path,'Synthetic S3 upgrade preservation. No production content.');
-    Server::get(\OCA\Mcp\Db\ResourceScopeMapper::class)->replace($uid,'files',['file:'.$data->getId()],Server::get(\OCA\Mcp\Db\PolicyStateMapper::class)->state()['revision']);
+    Server::get(\OCA\Mcp\Access\ResourceScope\ResourceScopeWriter::class)->setResourceScope(Server::get(\OCA\Mcp\Db\PolicyStateMapper::class)->state()['revision'],'admin',$uid,'files',[(string)$root->getId()]);
     $account=Server::get('OCA\\Mail\\Service\\AccountService')->findByUserId($uid)[0];$manager=Server::get('OCA\\Mail\\Service\\MailManager');$box=$manager->createMailbox($account,'task7-upgrade-synthetic');
     $client=Server::get('OCA\\Mail\\IMAP\\IMAPClientFactory')->getClient($account,false);$imap=Server::get('OCA\\Mail\\IMAP\\MessageMapper');$uids=[];
     try {foreach([1,2]as$i)$uids[]=$imap->save($client,$box,"From: fixture@example.test\r\nTo: fixture@example.test\r\nSubject: Upgrade $i\r\nMessage-ID: <same-upgrade@example.test>\r\n\r\nSynthetic upgrade $i",[]);Server::get('OCA\\Mail\\Service\\Sync\\ImapToDbSynchronizer')->sync($account,$client,$box,Server::get(\Psr\Log\LoggerInterface::class));}finally{$client->logout();}
