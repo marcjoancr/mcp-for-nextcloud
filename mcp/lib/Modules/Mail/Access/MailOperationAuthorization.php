@@ -95,7 +95,7 @@ final class MailOperationAuthorization {
         $reader=null;
         try{$reader=$this->native->boundedMetadata($uid);}catch(\OCA\Mcp\Modules\Mail\Integration\MailUnavailableException){/* Accepted older native artifacts have no scalar scope adapter. */}
         if($reader!==null&&is_callable([$reader,'identities'])){
-            $rows=$reader->identities($uid,$kind,[$id]);if(count($rows)!==1)throw new ToolFailure('Mail resource not found.');return $rows[0];
+            $rows=$reader->identities($uid,$kind,[$id]);if(count($rows)!==1)throw new ToolFailure($kind==='account'?'Mail account not found.':'Mail resource not found.');return $rows[0];
         }
         // Preserve the original owner-scoped APIs only for an unrestricted legacy caller.
         $this->access->requireUnrestricted($uid);$box=0;

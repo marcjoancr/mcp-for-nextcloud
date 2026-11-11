@@ -56,4 +56,41 @@ final class MailLegacyScopeTest extends TestCase {
         $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);$auth->references('alice','mail_list_mailboxes',['account_id'=>3]);
     }
 
+    public static function currentIdentityCases():array {
+        return [
+            'owned account'=>['account',3,null],
+            'foreign account'=>['account',5,'Mail account not found.'],
+            'missing account'=>['account',999,'Mail account not found.'],
+            'extra account rows'=>['account',8,'Mail account not found.'],
+            'missing message'=>['message',999,'Mail resource not found.'],
+            'extra message rows'=>['message',8,'Mail resource not found.'],
+            'missing mailbox'=>['mailbox',999,'Mail resource not found.'],
+            'missing draft'=>['draft',999,'Mail resource not found.'],
+        ];
+    }
+    #[DataProvider('currentIdentityCases')]
+    public function testCurrentNativeIdentityPreservesPublicNotFoundByResourceKind(string $kind,int $id,?string $error):void {
+        $sql=new SqliteDatabase($this,[new \OCA\Mcp\Migration\Version002700Date20261107000000()]);$journal=new OperationJournal(new OperationsMapper($sql->connection()),new PlanState((new InMemoryConfig())->mock($this)),new ConnectionContext(),$this->createStub(\OCP\AppFramework\Utility\ITimeFactory::class),new \OCA\Mcp\Tests\Support\OperationActors());
+        $scope=new ScopeStub();$native=$this->createMock(MailServices::class);
+        $reader=new class {
+            public array $calls=[];
+            public function identities(string $uid,string $kind,array $ids):array {
+                $this->calls[]=[$uid,$kind,$ids];
+                // The native adapter owner-filters the foreign account5 as well as absent999.
+                if($uid!=='alice'||in_array($ids[0],[5,999],true))return [];
+                $row=['id'=>$ids[0],'account_id'=>3,'mailbox_id'=>0];
+                return $ids[0]===8?[$row,$row]:[$row];
+            }
+        };
+        $native->expects(self::once())->method('boundedMetadata')->with('alice')->willReturn($reader);
+        $native->expects(self::never())->method('accountService');
+        $auth=new MailOperationAuthorization(new MailAccessGuard($scope),$native,$journal,$this->createMock(GrantPolicy::class),$this->createMock(FilesScope::class),$this->createMock(FilesAccessGuard::class),$this->createMock(\OCP\Files\IRootFolder::class),new \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility($native,new MailAccessGuard($scope)),$this->createMock(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class));
+        $failure=null;$refs=null;
+        try{$refs=$auth->references('alice','mail_read_account_settings',[$kind.'_id'=>$id]);}catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure $e){$failure=$e;}
+        self::assertSame([['alice',$kind,[$id]]],$reader->calls);
+        self::assertSame($error,$failure?->getMessage());
+        if($error===null)self::assertSame([['account'=>3,'mailbox'=>0]],$refs['mail']);
+        else {self::assertNull($refs);self::assertNull($failure?->getPrevious());}
+    }
+
 }
