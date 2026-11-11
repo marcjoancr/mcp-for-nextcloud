@@ -90,6 +90,21 @@ Execute after the Task2 implementation checkpoint and before its final review an
 - [ ] Implement safe copy without handleDraft/source-deletion events; index bounded extracted text explicitly, no unbounded crawl or body-search claims beyond coverage.
 - [ ] GREEN native/MCP tests, API/docs registration and commit.
 
+**Task4 implementation checkpoint:** Commit2bd1596c12544414fc0cb91340c33e5bcfe0d031, native candidate6 manifestdaf52078ae22c86bf9c3dd9780b5aac6c851adc0c9b45b4e35924dc3e0ede335. Ten actual PostgreSQL/native/FPM tests/78 assertions pass, including real primary-session loss before index effects and lost-COMMIT copy recovery; reply fixture regression1/17 also passes. This is a mutable diagnostic checkpoint, not approval or shipping qualification. The broader native regression exposed the pre-existing mailbox-sync transaction incompatibility below; Task4 acceptance waits for its correction and combined fresh review.
+
+### Task 10: Native mailbox-sync transaction compatibility
+
+Execute after the Task4 implementation checkpoint, before its combined fresh review and Task5. This prerequisite was added after a real native UI path failed; preserve all guards rather than skipping its regression.
+
+**Files:** native mailbox-sync patch integration in `native/mail-guard/patch-refresh.php` or a narrowly factored new patch, existing `src/Db/CredentialRevision.php` and `src/Drafts/DraftCoordinator.php` only as required, current v11 build/manifest, native lifecycle/credential/physical-session tests. No new public MCP tool.
+
+**Interfaces:** Preserve native `MailboxSync::sync`/`MailManager::createMailbox` signatures. Reuse `DraftCoordinator::runOwner`, `DraftScope::markWrite/assertOwned` and the same authoritative physical DB connection. Ordinary mailbox synchronization must acquire the owner lease before starting its SQL transaction; nested noncredential account writes reuse only a proven matching owner/session scope. Arbitrary outer transactions and lost/reconnected sessions continue refusing.
+
+- [ ] Retain RED from `McpMailLifecycleTest::testUidValidityChangeBeforeReadWriteSelectionRefusesMutation`: native createMailbox calls MailboxSync atomic/persist, then noncredential account update tries to acquire the owner lease inside an existing SQL transaction. Verify exact unchanged callchain and actual ownership.
+- [ ] Fix the native outer transaction boundary with lease-before-transaction ordering, current owner/profile validation and pre-effect/pre-COMMIT ownership checks. Preserve credential revision/index purge, protected drafts/deliveries, quarantine, original transaction behavior and all source guards; never relax general assertNoTransaction or introduce an authorization bypass.
+- [ ] GREEN actual native create/sync plus the original selection-proof guarantee, independent DB-session contention, unrelated outer-transaction refusal and session-loss behavior. Run relevant credential/role/lifecycle/B/content/index regressions, regenerate only current v11 artifacts and commit.
+- [ ] Fresh combined Task4+Task10 spec/quality review closes all material findings before Task5. Source qualification remains false until Task7; production transmission stays disabled.
+
 ### Task 5: Complete account/folder resource scopes
 
 **Files:** Access/ResourceScope, Db/ResourceScopeMapper, Mail gateways/module/worker/status/readers, native resource enumerator and admin selection UI/tests.
@@ -106,6 +121,8 @@ Execute after the Task2 implementation checkpoint and before its final review an
 
 **Interfaces:** Consume guarded moves/current scope/worker authorization; no silent wake destination fallback or replay after unknown MOVE. Structured bounded Sieve state with revision and exact supported actions only; transmission gate required for vacation enable/redirect.
 
+**Execution:** Three sequential implementation/review units:6a guarded snooze/wake,6b bounded ManageSieve filters/absence,6c native signature mode. Complete Task6 only after all three pass; one implementation worker at a time.
+
 - [ ] RED worker/wake/cancel races, lost COPYUID, missing original folder, scope revocation; Sieve CAS/oversize/unknown-section preservation/lost install response/no secret logs; identity crypto/provisioning field preservation.
 - [ ] Implement one-message snooze/wake intent using existing qualified move proof and shared leases; configure/read/disable absence and safe filters with exact script revision/readback and dedicated status. Keep production gate false.
 - [ ] GREEN native/MCP tests and commit.
@@ -116,6 +133,7 @@ Execute after the Task2 implementation checkpoint and before its final review an
 
 - [ ] Run real PostgreSQL/LinuxServer/S3 qualification with synthetic SMTP/IMAP/ManageSieve fault matrix for Tasks1–6, including process death and independent sessions; no skips for claimed features.
 - [ ] Run full catalog checks (PHP/static/UI/docs/API/package), source inventory/REUSE and fresh whole-branch review; fix material findings with RED→GREEN evidence.
+- [ ] Publish a separately pinned native source companion: original Mail runtime/archive and licenses, exact upstream preferred-source snapshot with locks/build configuration, reviewed overlay, complete assembled runtime inventory and reconstruction instructions. Preserve the exact five-file MCP source-kit schema; expose independently validated native source links through ordinary-user source journeys and verify public downloads.
 - [ ] Bump MCP to2.8.0 for the added tool surface; freeze reviewed commit/source/native hashes. Push feature branch, open reviewable PR against main and attach it; publish versioned release with runtime/native/source artifacts after required checks. No automatic merge if review/CI rejects.
 
 ### Task 8: Production deployment and final state
