@@ -104,6 +104,8 @@ class Fixture:
         return value['result']
 
     def phase(self, name):
+        # A previous phase's observation cannot establish the state after new work begins.
+        self.result['operatorEnabled'] = None
         self.stage = name
         print('Qualified phase:', name, flush=True)
 
@@ -237,6 +239,7 @@ class Fixture:
         self.docker('exec', '-d', '-u', '1000:1000', self.names['nc'], 'sh', '-c', 'php /mcp-it-src/mcp/tests/Integration/ci/mail/delivery-server.php /tmp/mcp-mail-delivery-fixture > /tmp/mcp-mail-delivery-fixture/private.log 2>&1')
         source = self.tools / 'source-offer'
         source.mkdir(mode=0o755)
+        source.chmod(0o755)
         assets = {}
         for directory, manifest, name, trusted in [(self.kit, self.m, 'manifest.json', self.inputs['manifestSha256']), (self.native, self.n, 'native-manifest.json', self.inputs['nativeManifestSha256'])]:
             rows = dict(manifest['files'])
