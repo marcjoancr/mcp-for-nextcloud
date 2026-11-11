@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 namespace OCA\Mail\Service;
-use OCA\Mail\Content\{ContentBudget,BoundedHeaders};
+use OCA\Mail\Content\{ContentBudget,BoundedHeaders,PartBodyRole};
 use OCA\Mail\Db\{TagProfile,ExactTagAssociations};
 use OCA\Mail\IMAP\IMAPClientFactory;
 use OCA\Mail\Lifecycle\AccountVisibility;
@@ -43,8 +43,16 @@ final class GuardedContentReader {
         if($current!==$source)throw new \RuntimeException('Content source reference changed.');$fence->authorize($uid,$current['account_id'],$current['mailbox_id'],$current['message_id']);
     }
     public function readRaw(string $uid,int $messageId,object $fence):array {return $this->run($uid,$messageId,$fence,static fn($c):array=>$c->mcpContentRaw());}
-    public function listParts(string $uid,int $messageId,object $fence):array {return $this->run($uid,$messageId,$fence,fn($c):array=>$this->manifest($c));}
+    public function listParts(string $uid,int $messageId,object $fence):array {return $this->run($uid,$messageId,$fence,function($c):array {$m=$this->manifest($c);$this->headers($c,$m);return $m;});}
     public function readPart(string $uid,int $messageId,string $partId,object $fence):array {return $this->run($uid,$messageId,$fence,function($c)use($partId):array {$m=$this->manifest($c);$headers=$this->headers($c,$m);return $this->part($c,$m,$headers,$partId);});}
+    /** Attachment grants must never select a primary body through the generic leaf reader. */
+    public function readAttachment(string $uid,int $messageId,string $partId,object $fence):array {
+        return $this->run($uid,$messageId,$fence,function($c)use($partId):array {
+            $m=$this->manifest($c);$headers=$this->headers($c,$m);
+            foreach($m['parts'] as $part)if($part['part_id']===$partId&&$part['role']==='attachment')return $this->part($c,$m,$headers,$partId);
+            throw new \RuntimeException('Content part is not an attachment.');
+        });
+    }
     private function manifest(object $client):array {
         $root=$client->mcpContentManifest();$parts=[];
         $walk=function(object $node,?string $parent,int $depth)use(&$walk,&$parts):void {
@@ -56,9 +64,9 @@ final class GuardedContentReader {
             $disposition=$node->getDisposition();if(!in_array($disposition,['','inline','attachment'],true))throw new \RuntimeException('Unsupported content disposition.');
             $name=$node->getName();if($name!==null){if(!mb_check_encoding($name,'UTF-8')||strlen($name)>1024)throw new \RuntimeException('Content filename exceeds bound.');$name=mb_substr(preg_replace('/[\x00-\x1f\x7f\/\\\\]/u','_',$name),0,255);}
             $cid=$node->getContentId();if($cid!==null&&(strlen($cid)>998||preg_match('/[\x00-\x20\x7f]/',$cid)))throw new \RuntimeException('Unsupported content identity.');
-            $parts[]=['part_id'=>$id,'parent_id'=>$parent,'mime_type'=>$type,'disposition'=>$disposition===''?null:$disposition,'filename'=>$name,'transfer_encoding'=>$encoding,'advertised_size'=>(int)$node->getBytes(),'size_verified'=>false,'content_id'=>$cid,'charset'=>$node->getContentTypeParameter('charset'),'leaf'=>$children===[]];
+            $parts[]=['part_id'=>$id,'parent_id'=>$parent,'mime_type'=>$type,'disposition'=>$disposition===''?null:$disposition,'filename'=>$name,'transfer_encoding'=>$encoding,'advertised_size'=>(int)$node->getBytes(),'size_verified'=>false,'content_id'=>$cid,'charset'=>$node->getContentTypeParameter('charset'),'leaf'=>$children===[],'related_start'=>$type==='multipart/related'?$node->getContentTypeParameter('start'):null,'related_type'=>$type==='multipart/related'&&$node->getContentTypeParameter('type')!==null?strtolower($node->getContentTypeParameter('type')):null];
             foreach($children as $child)$walk($child,$id,$depth+1);
-        };$walk($root,null,1);
+        };$walk($root,null,1);$parts=PartBodyRole::classify($parts);
         return ['parts'=>$parts,'manifest_revision'=>hash('sha256',json_encode($parts,JSON_THROW_ON_ERROR))];
     }
     /** Root and ancestor headers are checked before any body; server BODYSTRUCTURE is advisory. */
@@ -72,6 +80,7 @@ final class GuardedContentReader {
             if($type!==$part['mime_type']||($part['leaf']?$encoding!==$part['transfer_encoding']:!in_array($encoding,['7bit','8bit','binary'],true))||($disposition===''?null:$disposition)!==$part['disposition'])throw new \RuntimeException('Content metadata contradicts raw headers.');
             $filename=$unused['filename']??$parameters['name']??null;if($filename!==null)$filename=mb_substr(preg_replace('/[\x00-\x1f\x7f\/\\\\]/u','_',$filename),0,255);if($filename!==$part['filename'])throw new \RuntimeException('Content filename contradicts raw headers.');
             $cid=isset($fields['content-id'])?trim($fields['content-id'],'<>'):null;if($cid!==$part['content_id'])throw new \RuntimeException('Content identity contradicts raw headers.');
+            if($part['mime_type']==='multipart/related'&&(($parameters['start']??null)!==$part['related_start']||(isset($parameters['type'])?strtolower($parameters['type']):null)!==$part['related_type']))throw new \RuntimeException('Related root parameters contradict raw headers.');
             $headers[$part['part_id']]=['fields'=>$fields,'parameters'=>$parameters,'sha256'=>hash('sha256',$raw)];
         }
         return $headers;
@@ -88,7 +97,7 @@ final class GuardedContentReader {
             $addresses=[];foreach((new \Horde_Mail_Rfc822())->parseAddressList($reply,['validate'=>'eai','limit'=>51]) as $address){if(count($addresses)>=50)throw new \RuntimeException('Reply addresses exceed bound.');$addresses[]=['label'=>(string)$address->personal,'email'=>(string)$address->bare_address];}
             $plain='';$html='';$attachments=[];$hashes=[];$utf8Bytes=0;
             foreach($m['parts'] as $p){if(!$p['leaf'])continue;
-                if($p['disposition']==='attachment'||$p['filename']!==null||!in_array($p['mime_type'],['text/plain','text/html'],true)){$attachments[]=['id'=>$p['part_id'],'fileName'=>$p['filename'],'mime'=>$p['mime_type'],'size'=>null];continue;}
+                if($p['role']==='attachment'){$attachments[]=['id'=>$p['part_id'],'fileName'=>$p['filename'],'mime'=>$p['mime_type'],'size'=>null];continue;}
                 $r=$this->part($c,$m,$headers,$p['part_id']);$text=BoundedHeaders::text($r['bytes'],$r['charset']);$utf8Bytes+=strlen($text)+(($p['mime_type']==='text/plain'?$plain:$html)===''?0:1);if($utf8Bytes>1048576)throw new \RuntimeException('Display text exceeds bound.',413);
                 if($p['mime_type']==='text/plain')$plain.=($plain===''?'':"\n").$text;else $html.=($html===''?'':"\n").$text;
                 $hashes[]=hash('sha256',$r['header_revision'].$r['wire_sha256'].$r['sha256']);
@@ -108,7 +117,7 @@ final class GuardedContentReader {
             foreach($m['parts'] as $p){if(!$p['leaf']){if(!in_array($p['mime_type'],['multipart/mixed','multipart/alternative','multipart/related'],true))throw new \RuntimeException('Unsupported draft MIME structure.');continue;}
                 if(in_array($p['mime_type'],['text/calendar','application/ics'],true))throw new \RuntimeException('Unsupported draft invitation.');
                 $r=$this->part($c,$m,$headers,$p['part_id']);$revisions[]=[$r['header_revision'],$r['wire_sha256'],$r['sha256']];$aggregate+=$r['byte_count'];if($aggregate>ContentBudget::MAX_BYTES)throw new \RuntimeException('Draft content exceeds bound.');
-                if($p['disposition']!=='attachment'&&$p['filename']===null&&in_array($p['mime_type'],['text/plain','text/html'],true)){$text=BoundedHeaders::text($r['bytes'],$r['charset']);if(mb_strlen($text)>20000)throw new \RuntimeException('Draft body exceeds bound.');if($p['mime_type']==='text/plain'){if($plain!==null)throw new \RuntimeException('Ambiguous draft body.');$plain=$text;}else{if($html!==null)throw new \RuntimeException('Ambiguous draft body.');$html=$text;}}
+                if($p['role']==='body'){$text=BoundedHeaders::text($r['bytes'],$r['charset']);if(mb_strlen($text)>20000)throw new \RuntimeException('Draft body exceeds bound.');if($p['mime_type']==='text/plain'){if($plain!==null)throw new \RuntimeException('Ambiguous draft body.');$plain=$text;}else{if($html!==null)throw new \RuntimeException('Ambiguous draft body.');$html=$text;}}
                 else{if(count($attachments)>=10)throw new \RuntimeException('Draft attachments exceed bound.');$attachments[]=$r;}
             }
             $subject=iconv_mime_decode($root['subject']??'',ICONV_MIME_DECODE_STRICT,'UTF-8');if($subject===false||strlen($subject)>4096||preg_match('/[\x00-\x1f\x7f]/',$subject))throw new \RuntimeException('Unsupported draft subject.');
@@ -119,7 +128,7 @@ final class GuardedContentReader {
     public function readIndexText(string $uid,int $messageId,object $fence):array {
         return $this->run($uid,$messageId,$fence,function($c):array {
             $m=$this->manifest($c);$headers=$this->headers($c,$m);$text='';$hashes=[];$truncated=false;
-            foreach($m['parts'] as $p){if(!$p['leaf']||$p['disposition']==='attachment'||$p['filename']!==null||!in_array($p['mime_type'],['text/plain','text/html'],true))continue;
+            foreach($m['parts'] as $p){if($p['role']!=='body')continue;
                 $r=$this->part($c,$m,$headers,$p['part_id']);$hashes[]=hash('sha256',$r['header_revision'].$r['wire_sha256'].$r['sha256']);$body=BoundedHeaders::text($r['bytes'],$r['charset']);
                 if(strlen($body)>80000){$body=mb_strcut($body,0,80000,'UTF-8');$truncated=true;}
                 if($p['mime_type']==='text/html')$body=html_entity_decode(strip_tags($body),ENT_QUOTES|ENT_HTML5,'UTF-8');$text.=$body."\n";
