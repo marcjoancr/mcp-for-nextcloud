@@ -34,13 +34,13 @@ class MailNativeBoundary {
         $version=$this->apps->getAppVersion('mail');
         return preg_match('/^[0-9]+\\.[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$/D',$version)!==1||version_compare($version,'5.12.5.11','>=');
     }
-    public const DELIVERY_QUALIFIED=false;
+    public const DELIVERY_QUALIFIED=true;
     public function deliverySourceVerified():bool {return (NativeGuardManifest::DATA['contract']??null)==='mcp-mail-mutations-v11'&&$this->apps->getAppVersion('mail')===(NativeGuardManifest::DATA['build_version']??null)&&$this->matches(NativeGuardManifest::DATA);}
-    public const SIGNATURE_MODE_QUALIFIED=false;
+    public const SIGNATURE_MODE_QUALIFIED=true;
     public function signatureModeVerified():bool {return self::SIGNATURE_MODE_QUALIFIED&&$this->deliverySourceVerified();}
-    public const SIEVE_QUALIFIED=false;
+    public const SIEVE_QUALIFIED=true;
     public function sieveVerified():bool {return self::SIEVE_QUALIFIED&&$this->deliverySourceVerified();}
-    public const SNOOZE_QUALIFIED=false;
+    public const SNOOZE_QUALIFIED=true;
     public function snoozeVerified():bool {return self::SNOOZE_QUALIFIED&&$this->deliverySourceVerified();}
     public function deliveryVerified():bool {return self::DELIVERY_QUALIFIED&&$this->deliverySourceVerified();}
     public function verified():bool {return $this->matches(NativeGuardManifest::DATA)||$this->matches(NativeGuardManifest::LEGACY_FLAGS_DATA)||$this->matches(NativeGuardManifest::LEGACY_MOVES_DATA)||$this->matches(NativeGuardManifest::LEGACY_FOLDERS_DATA)||$this->matches(NativeGuardManifest::LEGACY_TAGS_DATA)||$this->matches(NativeGuardManifest::LEGACY_REFRESH_DATA)||$this->matches(NativeGuardManifest::LEGACY_DRAFTS_DATA)||$this->matches(NativeGuardManifest::LEGACY_CREDENTIALS_DATA)||$this->matches(NativeGuardManifest::LEGACY_RUNTIME_DATA)||$this->matches(NativeGuardManifest::LEGACY_POSTGRESQL_DATA)||$this->matches(NativeGuardManifest::LEGACY_METADATA_DATA);}

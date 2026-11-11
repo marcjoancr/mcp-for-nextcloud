@@ -28,6 +28,7 @@ class PersonalSettings implements ISettings {
         $uid = $this->userSession->getUser()?->getUID() ?? '';
         return new TemplateResponse('mcp', 'personal', [
             'sourceOffer' => $this->sourceOffer->get(),
+            'nativeSourceOffer' => $this->sourceOffer->getNative(),
             'endpoint' => $this->urlGenerator->linkToRouteAbsolute('mcp.mcp.post'),
             'action' => $this->urlGenerator->linkToRoute('mcp.settings.personal'),
             'token' => Util::callRegister(),

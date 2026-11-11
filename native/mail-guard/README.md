@@ -1,6 +1,6 @@
 # Native Mail mutation guard dependency
 
-This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**. The deployed **5.12.5.9** artifact remains qualified for NC35.0.2 with PostgreSQL. The immutable **5.12.5.8** artifact retains its qualified NC33.0.10, NC34.0.5 and NC35.0.2 MariaDB pairs. This branch adds **5.12.5.10** for bounded metadata reads, verified locally on NC35.0.2 / PostgreSQL16.15. It is not represented as deployed. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
+This is a custom, reviewable source overlay against **Nextcloud Mail 5.12.5**. The deployed **5.12.5.9** artifact remains qualified for NC35.0.2 with PostgreSQL. The immutable **5.12.5.8** artifact retains its qualified NC33.0.10, NC34.0.5 and NC35.0.2 MariaDB pairs. This branch adds **5.12.5.11** for bounded content, immutable delivery, protected draft import, explicit indexing, scopes, snooze, structured Sieve and stored signature mode. Native qualification uses NC35.0.2 / PostgreSQL16 / LinuxServer / primary S3; final clean-package installation is recorded separately. It is not represented as deployed. It is not an upstream release or a replacement IMAP implementation. It adds closed flag, single-UID MOVE, folder and exact message-tag operations inside Mail's existing Horde client and a native service that updates the exact cache identity. MCP's normal package does not install or modify Mail.
 
 The original archive must have SHA256 `c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0`. The build tool verifies that digest before reading fixed source members. It uses bounded streaming reads and writes only an overlay under this checkout's `mcp/build`; no full archive is expanded into the host temporary filesystem.
 
@@ -8,12 +8,12 @@ From the repository root, with that verified archive available:
 
 ```sh
 mkdir -p mcp/build/native-mail-guard
-php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/metadata-v10
-cmp mcp/build/native-mail-guard/metadata-v10/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v10-normalized-overlay.tar.gz -C mcp/build/native-mail-guard/metadata-v10 mail
+php native/mail-guard/build.php /path/to/mail-5.12.5.tar.gz mcp/build/native-mail-guard/current-v11
+cmp mcp/build/native-mail-guard/current-v11/NativeGuardManifest.php mcp/lib/Modules/Mail/Integration/NativeGuardManifest.php
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode='u=rwX,go=rX' -czf mcp/build/native-mail-guard/mail-guard-v11-normalized-overlay.tar.gz -C mcp/build/native-mail-guard/current-v11 mail
 ```
 
-`metadata-v10/mail` contains the v9 PostgreSQL coordination and adds bounded metadata projections to the native Mail source. The v10 manifest preserves v9 verbatim as `LEGACY_POSTGRESQL_DATA`; v9 continues to provide its previously qualified features but cannot provide bounded metadata. Earlier immutable manifests v1–v8 remain available. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
+`current-v11/mail` contains the complete reviewed overlay. The current manifest preserves v10 as `LEGACY_METADATA_DATA` and v9 as `LEGACY_POSTGRESQL_DATA`; all historical v1–v10 manifests retain their original bytes and qualified scopes. Current delivery and content never fall back to older parsers when the v11 boundary fails. The manifest also fingerprints native account/cache entities and mappers, account/ownership services, event classes/registration, the factory and bundled Horde Base/Socket implementation. The generated `NativeGuardManifest.php` must match MCP's committed boundary manifest; source changes require reviewed regeneration and renewed tests. A native version/method name or configuration flag cannot override a mismatch.
 
 The native `MutationFence` adapter exchanges only approved identifiers and DB stage transitions. It never passes a raw client to MCP. `setFlagGuarded` validates the actual selected generation and connection before each command, permits one UID STORE, does not swallow tagged NO responses, requires explicit permanent support for the selected system flag and verifies the desired state on the same generation. A missing flag or keyword wildcard alone does not prove permanence. Logout or reconnect invalidates the permit. The native cache stage locks immutable mailbox/message rows, revalidates their identity and synchronization tokens, commits the flag, then dispatches one webhook-compatible guarded flag event. The ordinary native cache listener skips the already-applied event. An uncertain listener/crash outcome is retained and never automatically redispatched.
 
@@ -299,5 +299,22 @@ rewritten. No migration or transport is added.
 The pinned UI does not consume `signatureMode` to choose Composer rendering: it
 uses content detection and `editorMode`. This API persists the native field and
 makes no formatting or visible rendering promise. Native source verification and
-shipping eligibility remain separate; the signature eligibility flag is false
-until final qualification. Historical v1–v10 manifests remain immutable.
+shipping eligibility remain separate from the operator transmission switch. The
+current v11 source-qualified signature boundary is enabled; production sending
+remains disabled. Historical v1–v10 manifests remain immutable.
+
+### Current v11 source distribution and SMTP framing
+
+The separate native source companion preserves the exact original upstream runtime,
+preferred-source snapshot, reviewed overlay and full assembled runtime inventory.
+Reconstruct it from the frozen MCP source bundle and pinned original archive as
+documented in `docs/en/development/source-delivery.md`. Deployment must replace
+the complete app tree and compare every file, including hashed JavaScript chunks;
+selected boundary fingerprints cannot prove a complete installed inventory.
+
+The SMTP writer rejects false, zero and positive short writes against the complete
+wire frame length and physically closes the channel before unwinding. It cannot
+continue framing or send QUIT after partial DATA. Native dispatch retains
+uncertainty, never automatically reconnects or resubmits, and redacts artifact
+arguments at public exception boundaries. These rules do not turn SMTP acceptance
+into a guarantee of recipient delivery.

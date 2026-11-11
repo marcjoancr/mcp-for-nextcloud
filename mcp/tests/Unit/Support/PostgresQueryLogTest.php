@@ -11,7 +11,10 @@ use PHPUnit\Framework\TestCase;
 
 final class PostgresQueryLogTest extends TestCase {
     public function testReadsTheRequestedWindowFromALargeConcurrentLogWithinABoundedMemoryLimit(): void {
-        $path = tempnam(sys_get_temp_dir(), 'mcp-pg-log-');
+        // This 64 MiB artifact belongs to this project, not a shared tmpfs.
+        $directory = dirname(__DIR__, 3) . '/build';
+        if (!is_dir($directory)) { mkdir($directory, 0777, true); }
+        $path = tempnam($directory, 'mcp-pg-log-');
         self::assertNotFalse($path);
         $file = fopen($path, 'wb');
         self::assertIsResource($file);

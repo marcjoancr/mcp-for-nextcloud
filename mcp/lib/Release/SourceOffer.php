@@ -11,7 +11,7 @@ use OCP\IConfig;
 
 /** Matches operator-controlled publication metadata to the packaged source identity; never fetches a URL. */
 final class SourceOffer {
-    public function __construct(private IConfig $config, private IAppManager $apps) {}
+    public function __construct(private IConfig $config, private IAppManager $apps, private ?\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary $nativeBoundary = null) {}
 
     /** @return array{version:string, sourceCommit:string, manifestSha256:string, files:array<string,string>}|null */
     public function get(): ?array {
@@ -42,6 +42,43 @@ final class SourceOffer {
                 'manifestSha256' => $offer['manifestSha256'], 'files' => $files];
         } catch (\Throwable) {
             // Source publication failure must not change authentication or advertise an unverified identity.
+            return null;
+        }
+    }
+
+    /**
+     * Optional companion publication, independent of sending permissions and feature qualification.
+     * This matches selected native code fingerprints; full inventories are verified at deployment.
+     * @return array{sourceCommit:string,nativeBuild:string,nativeManifestSha256:string,manifestSha256:string,files:array<string,string>}|null
+     */
+    public function getNative(): ?array {
+        try {
+            $mcp = $this->get();
+            $offer = $this->config->getSystemValue('mcp_native_source_offer', null);
+            if ($mcp === null || !is_array($offer)) { return null; }
+            $keys = array_keys($offer); sort($keys);
+            $expected = ['schemaVersion', 'sourceCommit', 'nativeBuild', 'nativeManifestSha256', 'manifestSha256', 'baseUrl']; sort($expected);
+            if ($keys !== $expected || $offer['schemaVersion'] !== 1) { return null; }
+            foreach (['sourceCommit', 'nativeBuild', 'nativeManifestSha256', 'manifestSha256', 'baseUrl'] as $key) {
+                if (!is_string($offer[$key])) { return null; }
+            }
+            $native = \OCA\Mcp\Modules\Mail\Integration\NativeGuardManifest::DATA;
+            $digest = hash('sha256', json_encode($native, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+            if ($offer['sourceCommit'] !== $mcp['sourceCommit']
+                || $offer['nativeBuild'] !== $native['build_version']
+                || $offer['nativeBuild'] !== $this->apps->getAppVersion('mail')
+                || !hash_equals($digest, $offer['nativeManifestSha256'])
+                || !preg_match('/\A[a-f0-9]{64}\z/', $offer['manifestSha256'])
+                || !$this->validDestination($offer['baseUrl'])
+                || !($this->nativeBoundary ?? new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary($this->apps))->deliverySourceVerified()) { return null; }
+            $files = [];
+            foreach (['native-manifest.json', 'mail-upstream-runtime.tar.gz', 'mail-upstream-source.tar.gz',
+                'mail-reviewed-overlay.tar.gz', 'mail-assembled-runtime.tar.gz', 'NATIVE-BUILDING.md'] as $name) {
+                $files[$name] = rtrim($offer['baseUrl'], '/') . '/' . $name;
+            }
+            return ['sourceCommit' => $offer['sourceCommit'], 'nativeBuild' => $offer['nativeBuild'],
+                'nativeManifestSha256' => $offer['nativeManifestSha256'], 'manifestSha256' => $offer['manifestSha256'], 'files' => $files];
+        } catch (\Throwable) {
             return null;
         }
     }

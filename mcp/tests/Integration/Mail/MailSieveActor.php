@@ -14,6 +14,7 @@ final class MailSieveActor {
         try{
             $a=clone $old;$a->setSieveEnabled(true);$a->setSieveHost('127.0.0.1');$a->setSievePort($port);$a->setSieveSslMode('ssl');$a->setSieveUser('synthetic');$a->setSievePassword(Server::get(\OCP\Security\ICrypto::class)->encrypt('AUTH_SYNTHETIC_PRIVATE'));$a->setOutOfOfficeFollowsSystem($scenario==='disable_follow_revoke');Server::get('OCA\\Mail\\Db\\MailAccountMapper')->update($a);
             $native=Server::get('OCA\\Mail\\Service\\GuardedSieveSettings');$fence=self::fence();$c=['filters'=>self::filter()];
+            if($scenario==='clean_http')return MailCleanHttpActor::sieve($uid,$id);
             if($scenario==='native_projection'){
                 $mapperProperty=new \ReflectionProperty($native,'accountMapper');$original=$mapperProperty->getValue($native);$f=new class {public bool $revoked=false;public function authorize(string $uid,array $origin):void{if($this->revoked)throw new \RuntimeException('Synthetic original authority withdrawn.');}};
                 $mapperProperty->setValue($native,new class($original,$f)extends \OCA\Mail\Db\MailAccountMapper {public function __construct(private object $original,private object $f){}public function assertSieveFollowing(string $uid,int $id,bool $following,int $revision):void{$this->original->assertSieveFollowing($uid,$id,$following,$revision);$this->f->revoked=true;}});

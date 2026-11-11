@@ -43,6 +43,7 @@ final class MailWritePlanFixtures {
             'mail_cancel_delivery' => ['action'=>'mail_cancel_delivery','draft'=>['subject'=>'Reviewed subject','bodyPlain'=>'Reviewed complete body','sender'=>['email'=>'alice@example.test'],'to'=>[['email'=>'recipient@example.test']]],'delivery'=>['id'=>'opaque','state'=>'queued'],'send_at'=>123,'timezone'=>'UTC','notice'=>'Acceptance is not delivery. Never repeat uncertain attempts.'],
             'mail_sent_repair' => ['action'=>'mail_sent_repair','draft'=>['subject'=>'Reviewed subject','bodyPlain'=>'Reviewed complete body','sender'=>['email'=>'alice@example.test'],'to'=>[['email'=>'recipient@example.test']]],'delivery'=>['id'=>'opaque','state'=>'queued'],'send_at'=>123,'timezone'=>'UTC','notice'=>'Acceptance is not delivery. Never repeat uncertain attempts.'],
             'mail_write_account_settings' => ['account_id'=>1,'before'=>['settings'=>['editor_mode'=>'plaintext']], 'after'=>['settings'=>['editor_mode'=>'html']]],
+            'mail_write_signature_mode' => ['account_id'=>1,'alias_id'=>null,'before'=>['signature_mode'=>0,'revision'=>'reviewed revision'],'after'=>['signature_mode'=>1]],
             'mail_write_signature' => ['account_id'=>1,'alias_id'=>null,'before'=>['signature'=>'Old signature'],'after'=>['signature'=>'New signature']],
             'mail_configure_connection' => ['account_id'=>1,'before'=>['imap'=>['host'=>'old.example.test']], 'requested'=>['imap'=>['host'=>'imap.example.test']]],
             'mail_add_account' => ['requested'=>['email'=>'alice@example.test']],

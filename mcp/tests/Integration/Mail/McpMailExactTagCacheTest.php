@@ -77,6 +77,7 @@ final class McpMailExactTagCacheTest extends IntegrationTestCase {
         if(getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Latest native guard qualification only');
         self::assertTrue(Server::get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class)->tagsSourceVerified(),'Every manifest path must match the installed native v4 bytes.');
         $uid=MailActor::ALICE;$accountId=MailActor::run($uid,'accounts')['accounts'][0]['id'];$account=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$accountId);
+        $accountMapper=Server::get('OCA\\Mail\\Db\\MailAccountMapper');$original=$account->getMailAccount();$isolated=new \OCA\Mail\Db\MailAccount();foreach(['UserId','Name','Email','InboundHost','InboundPort','InboundSslMode','InboundUser','InboundPassword','AuthMethod','Protocol']as$field)$isolated->{'set'.$field}($original->{'get'.$field}());$isolated->setName('Synthetic exact tag account');$isolated=$accountMapper->insert($isolated);$accountId=(int)$isolated->getId();$account=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$accountId);
         $manager=Server::get('OCA\\Mail\\Service\\MailManager');$mapper=Server::get('OCA\\Mail\\Db\\MessageMapper');$tags=Server::get('OCA\\Mail\\Db\\TagMapper');$boxes=Server::get('OCA\\Mail\\Db\\MailboxMapper');
         $tag=$manager->createTag('C5 exact '.bin2hex(random_bytes(6)),'#123456',$uid);$box=$manager->createMailbox($account,'c5-cache-'.bin2hex(random_bytes(6)));$client=Server::get('OCA\\Mail\\IMAP\\IMAPClientFactory')->getClient($account,false);
         $db=Server::get(IDBConnection::class);$legacyId=null;
@@ -96,7 +97,7 @@ final class McpMailExactTagCacheTest extends IntegrationTestCase {
             $mapper->deleteTagSnapshot($box,$tags->captureTagSnapshot($account,$box->getId(),$generation),10);self::assertSame([],$tags->getAllTagsForMessages([$b],$uid));
             $q=$db->getQueryBuilder();$r=$q->select('cached_message_id')->from('mail_message_tags')->where($q->expr()->eq('id',$q->createNamedParameter($legacyId)))->executeQuery();try{self::assertNull($r->fetchOne());}finally{$r->closeCursor();}
         } finally {
-            $client->logout();$manager->deleteMailbox($account,$box);$tags->delete($tag);
+            $client->logout();$manager->deleteMailbox($account,$box);$tags->delete($tag);$accountMapper->delete($isolated);
             if($legacyId!==null){$q=$db->getQueryBuilder();$q->delete('mail_message_tags')->where($q->expr()->eq('id',$q->createNamedParameter($legacyId)))->executeStatement();}
         }
     }

@@ -16860,7 +16860,7 @@
                             "create"
                         ]
                     },
-                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
+                    "description": "Saves one attachment from one of your own Mail messages into Files, up to 25 MiB on the qualified bounded reader. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -18868,6 +18868,921 @@
                         },
                         "required": [
                             "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_export_message",
+                    "module": "mail",
+                    "operation": "export_message",
+                    "app": "mail",
+                    "grantAllOf": {
+                        "files": [
+                            "create"
+                        ]
+                    },
+                    "description": "Exports exact original EML bytes from one owned Mail message to Files, up to 25 MiB. Preview the exact source hash, size, destination and Files access policy; obtain explicit approval and repeat with confirm=true, plan_state and operation_id. Shared destinations require confirm_shared=true. Never overwrites or sends mail. Encrypted or signed messages are preserved as opaque bytes. Requires mail.export_message and files.create grants.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2048,
+                                "description": "Full path of the new file in your Files area."
+                            },
+                            "confirm_shared": {
+                                "type": "boolean",
+                                "description": "Acknowledge saving in a shared destination after showing the shared access details."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_search_drafts",
+                    "module": "mail",
+                    "operation": "search_drafts",
+                    "app": "mail",
+                    "description": "Lists bounded cached drafts only in the currently configured owned Drafts folder. Requires a separate search_drafts grant. Cached discovery is not live Draft proof; import checks the live source. Deleted messages are excluded.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "subject_contains": {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "before_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_import_draft",
+                    "module": "mail",
+                    "operation": "import_draft",
+                    "app": "mail",
+                    "description": "Copies one supported IMAP draft into a new protected local draft, retaining the original. Preview exact recipients, sender replacement, body sizes, attachment hashes and source revision; obtain approval and repeat with confirm, plan_state and operation_id. Unsupported crypto, reference chains or MIME metadata refuse before staging. Never sends mail.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "target_account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_index_messages",
+                    "module": "mail",
+                    "operation": "index_messages",
+                    "app": "mail",
+                    "description": "Explicitly indexes up to twenty selected messages after approval. Searches only complete supported body text up to 20000 characters and 64 KiB; attachments are excluded. Truncation, unsupported content and PostgreSQL lexeme limits produce explicit refusal coverage without searchable prefixes. Requires separate index_messages permission; never crawls a mailbox.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_ids": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_ids"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_search_indexed_body",
+                    "module": "mail",
+                    "operation": "search_indexed_body",
+                    "app": "mail",
+                    "description": "Searches explicitly indexed current messages in up to twenty owned mailbox IDs. Uses PostgreSQL simple lexical all-term matching, not substring or provider BODY search. Returns at most fifty metadata rows with keyset pagination and explicit coverage; unindexed, stale and refused messages are not searched.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "mailbox_ids": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "query": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "before_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "mailbox_ids",
+                            "query"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_snooze",
+                    "module": "mail",
+                    "operation": "snooze",
+                    "app": "mail",
+                    "description": "Approves moving one message to the configured Snooze folder and its exact future return. Requires original persistent OAuth connection and current snooze and wake grants.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "wake_at": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "description": "RFC3339 instant with explicit offset"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "maxLength": 64,
+                                "description": "Matching IANA timezone"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "wake_at",
+                            "timezone"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_wake",
+                    "module": "mail",
+                    "operation": "wake",
+                    "app": "mail",
+                    "description": "Approves returning one guarded snoozed message now to its exact original folder. No fallback destination or retry after uncertain MOVE.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_cancel_snooze",
+                    "module": "mail",
+                    "operation": "cancel_snooze",
+                    "app": "mail",
+                    "description": "Cancels only a guarded future wake, leaving the message in its proven current folder. Refuses after unknown movement.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_snooze",
+                    "module": "mail",
+                    "operation": "read_snooze",
+                    "app": "mail",
+                    "description": "Reads original and currently proven UID identities and independent native snooze phases. Requires original actor, connection, snooze and wake permissions. Never moves or retries.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_filters",
+                    "module": "mail",
+                    "operation": "read_filters",
+                    "app": "mail",
+                    "description": "Read bounded recognized native filters. Unknown executable sections are opaque; no raw script is exposed.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_filters",
+                    "module": "mail",
+                    "operation": "write_filters",
+                    "app": "mail",
+                    "description": "Preview and confirm safe future-delivery filters. Refuses any final emitting or opaque program. Native Sieve setup and a whole-account grant are required.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "maxLength": 255
+                                        },
+                                        "enable": {
+                                            "type": "boolean"
+                                        },
+                                        "priority": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100000
+                                        },
+                                        "operator": {
+                                            "type": "string",
+                                            "enum": [
+                                                "allof",
+                                                "anyof"
+                                            ]
+                                        },
+                                        "tests": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "subject",
+                                                            "to",
+                                                            "from"
+                                                        ]
+                                                    },
+                                                    "operator": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "is",
+                                                            "contains",
+                                                            "matches"
+                                                        ]
+                                                    },
+                                                    "values": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "maxLength": 256
+                                                        },
+                                                        "minItems": 1,
+                                                        "maxItems": 10
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "operator",
+                                                    "values"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        },
+                                        "actions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "fileinto",
+                                                            "addflag",
+                                                            "keep",
+                                                            "stop"
+                                                        ]
+                                                    },
+                                                    "mailbox": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 255
+                                                    },
+                                                    "flag": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 63
+                                                    }
+                                                },
+                                                "required": [
+                                                    "type"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "enable",
+                                        "priority",
+                                        "operator",
+                                        "tests",
+                                        "actions"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "maxItems": 50
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "filters"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_absence",
+                    "module": "mail",
+                    "operation": "read_absence",
+                    "app": "mail",
+                    "description": "Read bounded recognized absence configuration and system-follow state, without raw script or credentials.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_absence",
+                    "module": "mail",
+                    "operation": "write_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm disabled absence configuration with system-follow off. Refuses any final emitting or opaque program.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "absence": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {
+                                        "type": "integer",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "enum": [
+                                            false
+                                        ]
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "maxLength": 20000
+                                    },
+                                    "start": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "end": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "required": [
+                                    "version",
+                                    "enabled",
+                                    "subject",
+                                    "message"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "follow_system": {
+                                "type": "boolean",
+                                "enum": [
+                                    false
+                                ]
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "absence",
+                            "follow_system"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_disable_absence",
+                    "module": "mail",
+                    "operation": "disable_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm disabling a recognized absence block and system-follow. Refuses other emitting or opaque executable sections.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_sieve_status",
+                    "module": "mail",
+                    "operation": "read_sieve_status",
+                    "app": "mail",
+                    "description": "Observe an original Sieve attempt under its original actor, connection and grants. Never reinstalls, reactivates, rolls back or deletes scripts; no external CAS is claimed.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "sieve_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "sieve_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_transmit_filters",
+                    "module": "mail",
+                    "operation": "transmit_filters",
+                    "app": "mail",
+                    "description": "Preview and confirm filters including redirect-copy. Requires this separate transmission permission and the operator transmission gate.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "maxLength": 255
+                                        },
+                                        "enable": {
+                                            "type": "boolean"
+                                        },
+                                        "priority": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100000
+                                        },
+                                        "operator": {
+                                            "type": "string",
+                                            "enum": [
+                                                "allof",
+                                                "anyof"
+                                            ]
+                                        },
+                                        "tests": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "subject",
+                                                            "to",
+                                                            "from"
+                                                        ]
+                                                    },
+                                                    "operator": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "is",
+                                                            "contains",
+                                                            "matches"
+                                                        ]
+                                                    },
+                                                    "values": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "maxLength": 256
+                                                        },
+                                                        "minItems": 1,
+                                                        "maxItems": 10
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "operator",
+                                                    "values"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        },
+                                        "actions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "fileinto",
+                                                            "addflag",
+                                                            "keep",
+                                                            "stop",
+                                                            "redirect"
+                                                        ]
+                                                    },
+                                                    "mailbox": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 255
+                                                    },
+                                                    "flag": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 63
+                                                    },
+                                                    "recipient": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 254
+                                                    }
+                                                },
+                                                "required": [
+                                                    "type"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "enable",
+                                        "priority",
+                                        "operator",
+                                        "tests",
+                                        "actions"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "maxItems": 50
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "filters"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_enable_absence",
+                    "module": "mail",
+                    "operation": "enable_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm bounded vacation or system-follow enablement. Requires this separate transmission permission and the operator transmission gate.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "absence": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {
+                                        "type": "integer",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "maxLength": 20000
+                                    },
+                                    "start": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "end": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "required": [
+                                    "version",
+                                    "enabled",
+                                    "subject",
+                                    "message"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "follow_system": {
+                                "type": "boolean"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "absence",
+                            "follow_system"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_signature_mode",
+                    "module": "mail",
+                    "operation": "write_signature_mode",
+                    "app": "mail",
+                    "description": "Preview and confirm the signature mode stored by native Mail: 0 plain text or 1 HTML, for this owned account or its exact owned alias. Preserves signature bytes, editor mode, identity, credentials and certificates. Current Mail UI and Composer infer presentation from content and editor mode; this stored mode does not promise a rendering or format conversion. Requires whole-account scope and an independent grant. Provisioned identities refuse. Review current mode and revision, then use the exact plan_state and operation_id. Inspect the same operation ID after a lost response; replay never writes again. No network or transmission.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "signature_mode": {
+                                "type": "integer",
+                                "enum": [
+                                    0,
+                                    1
+                                ]
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "signature_mode"
                         ],
                         "additionalProperties": false
                     }
@@ -40290,7 +41205,7 @@
                             "create"
                         ]
                     },
-                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
+                    "description": "Saves one attachment from one of your own Mail messages into Files, up to 25 MiB on the qualified bounded reader. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -42298,6 +43213,921 @@
                         },
                         "required": [
                             "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_export_message",
+                    "module": "mail",
+                    "operation": "export_message",
+                    "app": "mail",
+                    "grantAllOf": {
+                        "files": [
+                            "create"
+                        ]
+                    },
+                    "description": "Exports exact original EML bytes from one owned Mail message to Files, up to 25 MiB. Preview the exact source hash, size, destination and Files access policy; obtain explicit approval and repeat with confirm=true, plan_state and operation_id. Shared destinations require confirm_shared=true. Never overwrites or sends mail. Encrypted or signed messages are preserved as opaque bytes. Requires mail.export_message and files.create grants.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2048,
+                                "description": "Full path of the new file in your Files area."
+                            },
+                            "confirm_shared": {
+                                "type": "boolean",
+                                "description": "Acknowledge saving in a shared destination after showing the shared access details."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_search_drafts",
+                    "module": "mail",
+                    "operation": "search_drafts",
+                    "app": "mail",
+                    "description": "Lists bounded cached drafts only in the currently configured owned Drafts folder. Requires a separate search_drafts grant. Cached discovery is not live Draft proof; import checks the live source. Deleted messages are excluded.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "subject_contains": {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "before_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_import_draft",
+                    "module": "mail",
+                    "operation": "import_draft",
+                    "app": "mail",
+                    "description": "Copies one supported IMAP draft into a new protected local draft, retaining the original. Preview exact recipients, sender replacement, body sizes, attachment hashes and source revision; obtain approval and repeat with confirm, plan_state and operation_id. Unsupported crypto, reference chains or MIME metadata refuse before staging. Never sends mail.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "target_account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_index_messages",
+                    "module": "mail",
+                    "operation": "index_messages",
+                    "app": "mail",
+                    "description": "Explicitly indexes up to twenty selected messages after approval. Searches only complete supported body text up to 20000 characters and 64 KiB; attachments are excluded. Truncation, unsupported content and PostgreSQL lexeme limits produce explicit refusal coverage without searchable prefixes. Requires separate index_messages permission; never crawls a mailbox.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_ids": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_ids"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_search_indexed_body",
+                    "module": "mail",
+                    "operation": "search_indexed_body",
+                    "app": "mail",
+                    "description": "Searches explicitly indexed current messages in up to twenty owned mailbox IDs. Uses PostgreSQL simple lexical all-term matching, not substring or provider BODY search. Returns at most fifty metadata rows with keyset pagination and explicit coverage; unindexed, stale and refused messages are not searched.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "mailbox_ids": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "query": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "before_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "mailbox_ids",
+                            "query"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_snooze",
+                    "module": "mail",
+                    "operation": "snooze",
+                    "app": "mail",
+                    "description": "Approves moving one message to the configured Snooze folder and its exact future return. Requires original persistent OAuth connection and current snooze and wake grants.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "wake_at": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "description": "RFC3339 instant with explicit offset"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "maxLength": 64,
+                                "description": "Matching IANA timezone"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "wake_at",
+                            "timezone"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_wake",
+                    "module": "mail",
+                    "operation": "wake",
+                    "app": "mail",
+                    "description": "Approves returning one guarded snoozed message now to its exact original folder. No fallback destination or retry after uncertain MOVE.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_cancel_snooze",
+                    "module": "mail",
+                    "operation": "cancel_snooze",
+                    "app": "mail",
+                    "description": "Cancels only a guarded future wake, leaving the message in its proven current folder. Refuses after unknown movement.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_snooze",
+                    "module": "mail",
+                    "operation": "read_snooze",
+                    "app": "mail",
+                    "description": "Reads original and currently proven UID identities and independent native snooze phases. Requires original actor, connection, snooze and wake permissions. Never moves or retries.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_filters",
+                    "module": "mail",
+                    "operation": "read_filters",
+                    "app": "mail",
+                    "description": "Read bounded recognized native filters. Unknown executable sections are opaque; no raw script is exposed.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_filters",
+                    "module": "mail",
+                    "operation": "write_filters",
+                    "app": "mail",
+                    "description": "Preview and confirm safe future-delivery filters. Refuses any final emitting or opaque program. Native Sieve setup and a whole-account grant are required.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "maxLength": 255
+                                        },
+                                        "enable": {
+                                            "type": "boolean"
+                                        },
+                                        "priority": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100000
+                                        },
+                                        "operator": {
+                                            "type": "string",
+                                            "enum": [
+                                                "allof",
+                                                "anyof"
+                                            ]
+                                        },
+                                        "tests": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "subject",
+                                                            "to",
+                                                            "from"
+                                                        ]
+                                                    },
+                                                    "operator": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "is",
+                                                            "contains",
+                                                            "matches"
+                                                        ]
+                                                    },
+                                                    "values": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "maxLength": 256
+                                                        },
+                                                        "minItems": 1,
+                                                        "maxItems": 10
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "operator",
+                                                    "values"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        },
+                                        "actions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "fileinto",
+                                                            "addflag",
+                                                            "keep",
+                                                            "stop"
+                                                        ]
+                                                    },
+                                                    "mailbox": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 255
+                                                    },
+                                                    "flag": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 63
+                                                    }
+                                                },
+                                                "required": [
+                                                    "type"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "enable",
+                                        "priority",
+                                        "operator",
+                                        "tests",
+                                        "actions"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "maxItems": 50
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "filters"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_absence",
+                    "module": "mail",
+                    "operation": "read_absence",
+                    "app": "mail",
+                    "description": "Read bounded recognized absence configuration and system-follow state, without raw script or credentials.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_absence",
+                    "module": "mail",
+                    "operation": "write_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm disabled absence configuration with system-follow off. Refuses any final emitting or opaque program.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "absence": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {
+                                        "type": "integer",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "enum": [
+                                            false
+                                        ]
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "maxLength": 20000
+                                    },
+                                    "start": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "end": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "required": [
+                                    "version",
+                                    "enabled",
+                                    "subject",
+                                    "message"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "follow_system": {
+                                "type": "boolean",
+                                "enum": [
+                                    false
+                                ]
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "absence",
+                            "follow_system"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_disable_absence",
+                    "module": "mail",
+                    "operation": "disable_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm disabling a recognized absence block and system-follow. Refuses other emitting or opaque executable sections.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_sieve_status",
+                    "module": "mail",
+                    "operation": "read_sieve_status",
+                    "app": "mail",
+                    "description": "Observe an original Sieve attempt under its original actor, connection and grants. Never reinstalls, reactivates, rolls back or deletes scripts; no external CAS is claimed.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "sieve_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "sieve_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_transmit_filters",
+                    "module": "mail",
+                    "operation": "transmit_filters",
+                    "app": "mail",
+                    "description": "Preview and confirm filters including redirect-copy. Requires this separate transmission permission and the operator transmission gate.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "maxLength": 255
+                                        },
+                                        "enable": {
+                                            "type": "boolean"
+                                        },
+                                        "priority": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100000
+                                        },
+                                        "operator": {
+                                            "type": "string",
+                                            "enum": [
+                                                "allof",
+                                                "anyof"
+                                            ]
+                                        },
+                                        "tests": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "subject",
+                                                            "to",
+                                                            "from"
+                                                        ]
+                                                    },
+                                                    "operator": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "is",
+                                                            "contains",
+                                                            "matches"
+                                                        ]
+                                                    },
+                                                    "values": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "maxLength": 256
+                                                        },
+                                                        "minItems": 1,
+                                                        "maxItems": 10
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "operator",
+                                                    "values"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        },
+                                        "actions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "fileinto",
+                                                            "addflag",
+                                                            "keep",
+                                                            "stop",
+                                                            "redirect"
+                                                        ]
+                                                    },
+                                                    "mailbox": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 255
+                                                    },
+                                                    "flag": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 63
+                                                    },
+                                                    "recipient": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 254
+                                                    }
+                                                },
+                                                "required": [
+                                                    "type"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "enable",
+                                        "priority",
+                                        "operator",
+                                        "tests",
+                                        "actions"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "maxItems": 50
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "filters"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_enable_absence",
+                    "module": "mail",
+                    "operation": "enable_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm bounded vacation or system-follow enablement. Requires this separate transmission permission and the operator transmission gate.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "absence": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {
+                                        "type": "integer",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "maxLength": 20000
+                                    },
+                                    "start": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "end": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "required": [
+                                    "version",
+                                    "enabled",
+                                    "subject",
+                                    "message"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "follow_system": {
+                                "type": "boolean"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "absence",
+                            "follow_system"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_signature_mode",
+                    "module": "mail",
+                    "operation": "write_signature_mode",
+                    "app": "mail",
+                    "description": "Preview and confirm the signature mode stored by native Mail: 0 plain text or 1 HTML, for this owned account or its exact owned alias. Preserves signature bytes, editor mode, identity, credentials and certificates. Current Mail UI and Composer infer presentation from content and editor mode; this stored mode does not promise a rendering or format conversion. Requires whole-account scope and an independent grant. Provisioned identities refuse. Review current mode and revision, then use the exact plan_state and operation_id. Inspect the same operation ID after a lost response; replay never writes again. No network or transmission.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "signature_mode": {
+                                "type": "integer",
+                                "enum": [
+                                    0,
+                                    1
+                                ]
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "signature_mode"
                         ],
                         "additionalProperties": false
                     }
@@ -63720,7 +65550,7 @@
                             "create"
                         ]
                     },
-                    "description": "Saves one attachment from one of your own Mail messages into Files. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
+                    "description": "Saves one attachment from one of your own Mail messages into Files, up to 25 MiB on the qualified bounded reader. First call without confirm to see the exact destination, filename, size and Files access plan. Show the plan and get explicit approval; then repeat with confirm=true, the same arguments, plan_state and operation_id. A shared destination also requires confirm_shared=true. Existing files are never overwritten. The save requires both mail.save_attachment and files.create grants.",
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -65728,6 +67558,921 @@
                         },
                         "required": [
                             "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_export_message",
+                    "module": "mail",
+                    "operation": "export_message",
+                    "app": "mail",
+                    "grantAllOf": {
+                        "files": [
+                            "create"
+                        ]
+                    },
+                    "description": "Exports exact original EML bytes from one owned Mail message to Files, up to 25 MiB. Preview the exact source hash, size, destination and Files access policy; obtain explicit approval and repeat with confirm=true, plan_state and operation_id. Shared destinations require confirm_shared=true. Never overwrites or sends mail. Encrypted or signed messages are preserved as opaque bytes. Requires mail.export_message and files.create grants.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2048,
+                                "description": "Full path of the new file in your Files area."
+                            },
+                            "confirm_shared": {
+                                "type": "boolean",
+                                "description": "Acknowledge saving in a shared destination after showing the shared access details."
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_search_drafts",
+                    "module": "mail",
+                    "operation": "search_drafts",
+                    "app": "mail",
+                    "description": "Lists bounded cached drafts only in the currently configured owned Drafts folder. Requires a separate search_drafts grant. Cached discovery is not live Draft proof; import checks the live source. Deleted messages are excluded.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "subject_contains": {
+                                "type": "string",
+                                "maxLength": 256
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "before_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_import_draft",
+                    "module": "mail",
+                    "operation": "import_draft",
+                    "app": "mail",
+                    "description": "Copies one supported IMAP draft into a new protected local draft, retaining the original. Preview exact recipients, sender replacement, body sizes, attachment hashes and source revision; obtain approval and repeat with confirm, plan_state and operation_id. Unsupported crypto, reference chains or MIME metadata refuse before staging. Never sends mail.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "target_alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "target_account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_index_messages",
+                    "module": "mail",
+                    "operation": "index_messages",
+                    "app": "mail",
+                    "description": "Explicitly indexes up to twenty selected messages after approval. Searches only complete supported body text up to 20000 characters and 64 KiB; attachments are excluded. Truncation, unsupported content and PostgreSQL lexeme limits produce explicit refusal coverage without searchable prefixes. Requires separate index_messages permission; never crawls a mailbox.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_ids": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_ids"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_search_indexed_body",
+                    "module": "mail",
+                    "operation": "search_indexed_body",
+                    "app": "mail",
+                    "description": "Searches explicitly indexed current messages in up to twenty owned mailbox IDs. Uses PostgreSQL simple lexical all-term matching, not substring or provider BODY search. Returns at most fifty metadata rows with keyset pagination and explicit coverage; unindexed, stale and refused messages are not searched.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "mailbox_ids": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "uniqueItems": true,
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "query": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 50,
+                                "default": 20
+                            },
+                            "before_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "mailbox_ids",
+                            "query"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_snooze",
+                    "module": "mail",
+                    "operation": "snooze",
+                    "app": "mail",
+                    "description": "Approves moving one message to the configured Snooze folder and its exact future return. Requires original persistent OAuth connection and current snooze and wake grants.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "message_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "wake_at": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "description": "RFC3339 instant with explicit offset"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "maxLength": 64,
+                                "description": "Matching IANA timezone"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "message_id",
+                            "wake_at",
+                            "timezone"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_wake",
+                    "module": "mail",
+                    "operation": "wake",
+                    "app": "mail",
+                    "description": "Approves returning one guarded snoozed message now to its exact original folder. No fallback destination or retry after uncertain MOVE.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_cancel_snooze",
+                    "module": "mail",
+                    "operation": "cancel_snooze",
+                    "app": "mail",
+                    "description": "Cancels only a guarded future wake, leaving the message in its proven current folder. Refuses after unknown movement.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_snooze",
+                    "module": "mail",
+                    "operation": "read_snooze",
+                    "app": "mail",
+                    "description": "Reads original and currently proven UID identities and independent native snooze phases. Requires original actor, connection, snooze and wake permissions. Never moves or retries.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "snooze_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "snooze_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_filters",
+                    "module": "mail",
+                    "operation": "read_filters",
+                    "app": "mail",
+                    "description": "Read bounded recognized native filters. Unknown executable sections are opaque; no raw script is exposed.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_filters",
+                    "module": "mail",
+                    "operation": "write_filters",
+                    "app": "mail",
+                    "description": "Preview and confirm safe future-delivery filters. Refuses any final emitting or opaque program. Native Sieve setup and a whole-account grant are required.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "maxLength": 255
+                                        },
+                                        "enable": {
+                                            "type": "boolean"
+                                        },
+                                        "priority": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100000
+                                        },
+                                        "operator": {
+                                            "type": "string",
+                                            "enum": [
+                                                "allof",
+                                                "anyof"
+                                            ]
+                                        },
+                                        "tests": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "subject",
+                                                            "to",
+                                                            "from"
+                                                        ]
+                                                    },
+                                                    "operator": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "is",
+                                                            "contains",
+                                                            "matches"
+                                                        ]
+                                                    },
+                                                    "values": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "maxLength": 256
+                                                        },
+                                                        "minItems": 1,
+                                                        "maxItems": 10
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "operator",
+                                                    "values"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        },
+                                        "actions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "fileinto",
+                                                            "addflag",
+                                                            "keep",
+                                                            "stop"
+                                                        ]
+                                                    },
+                                                    "mailbox": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 255
+                                                    },
+                                                    "flag": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 63
+                                                    }
+                                                },
+                                                "required": [
+                                                    "type"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "enable",
+                                        "priority",
+                                        "operator",
+                                        "tests",
+                                        "actions"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "maxItems": 50
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "filters"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_absence",
+                    "module": "mail",
+                    "operation": "read_absence",
+                    "app": "mail",
+                    "description": "Read bounded recognized absence configuration and system-follow state, without raw script or credentials.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_absence",
+                    "module": "mail",
+                    "operation": "write_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm disabled absence configuration with system-follow off. Refuses any final emitting or opaque program.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "absence": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {
+                                        "type": "integer",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "enum": [
+                                            false
+                                        ]
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "maxLength": 20000
+                                    },
+                                    "start": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "end": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "required": [
+                                    "version",
+                                    "enabled",
+                                    "subject",
+                                    "message"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "follow_system": {
+                                "type": "boolean",
+                                "enum": [
+                                    false
+                                ]
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "absence",
+                            "follow_system"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_disable_absence",
+                    "module": "mail",
+                    "operation": "disable_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm disabling a recognized absence block and system-follow. Refuses other emitting or opaque executable sections.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_sieve_status",
+                    "module": "mail",
+                    "operation": "read_sieve_status",
+                    "app": "mail",
+                    "description": "Observe an original Sieve attempt under its original actor, connection and grants. Never reinstalls, reactivates, rolls back or deletes scripts; no external CAS is claimed.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "sieve_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "sieve_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_transmit_filters",
+                    "module": "mail",
+                    "operation": "transmit_filters",
+                    "app": "mail",
+                    "description": "Preview and confirm filters including redirect-copy. Requires this separate transmission permission and the operator transmission gate.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "maxLength": 255
+                                        },
+                                        "enable": {
+                                            "type": "boolean"
+                                        },
+                                        "priority": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 100000
+                                        },
+                                        "operator": {
+                                            "type": "string",
+                                            "enum": [
+                                                "allof",
+                                                "anyof"
+                                            ]
+                                        },
+                                        "tests": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "subject",
+                                                            "to",
+                                                            "from"
+                                                        ]
+                                                    },
+                                                    "operator": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "is",
+                                                            "contains",
+                                                            "matches"
+                                                        ]
+                                                    },
+                                                    "values": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string",
+                                                            "maxLength": 256
+                                                        },
+                                                        "minItems": 1,
+                                                        "maxItems": 10
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "operator",
+                                                    "values"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        },
+                                        "actions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "fileinto",
+                                                            "addflag",
+                                                            "keep",
+                                                            "stop",
+                                                            "redirect"
+                                                        ]
+                                                    },
+                                                    "mailbox": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 255
+                                                    },
+                                                    "flag": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 63
+                                                    },
+                                                    "recipient": {
+                                                        "type": "string",
+                                                        "minLength": 1,
+                                                        "maxLength": 254
+                                                    }
+                                                },
+                                                "required": [
+                                                    "type"
+                                                ],
+                                                "additionalProperties": false
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 10
+                                        }
+                                    },
+                                    "required": [
+                                        "name",
+                                        "enable",
+                                        "priority",
+                                        "operator",
+                                        "tests",
+                                        "actions"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "maxItems": 50
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "filters"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_enable_absence",
+                    "module": "mail",
+                    "operation": "enable_absence",
+                    "app": "mail",
+                    "description": "Preview and confirm bounded vacation or system-follow enablement. Requires this separate transmission permission and the operator transmission gate.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "absence": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {
+                                        "type": "integer",
+                                        "enum": [
+                                            1
+                                        ]
+                                    },
+                                    "enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "subject": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "message": {
+                                        "type": "string",
+                                        "maxLength": 20000
+                                    },
+                                    "start": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "end": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    }
+                                },
+                                "required": [
+                                    "version",
+                                    "enabled",
+                                    "subject",
+                                    "message"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "follow_system": {
+                                "type": "boolean"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "absence",
+                            "follow_system"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_write_signature_mode",
+                    "module": "mail",
+                    "operation": "write_signature_mode",
+                    "app": "mail",
+                    "description": "Preview and confirm the signature mode stored by native Mail: 0 plain text or 1 HTML, for this owned account or its exact owned alias. Preserves signature bytes, editor mode, identity, credentials and certificates. Current Mail UI and Composer infer presentation from content and editor mode; this stored mode does not promise a rendering or format conversion. Requires whole-account scope and an independent grant. Provisioned identities refuse. Review current mode and revision, then use the exact plan_state and operation_id. Inspect the same operation ID after a lost response; replay never writes again. No network or transmission.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "account_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "alias_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "signature_mode": {
+                                "type": "integer",
+                                "enum": [
+                                    0,
+                                    1
+                                ]
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "account_id",
+                            "signature_mode"
                         ],
                         "additionalProperties": false
                     }

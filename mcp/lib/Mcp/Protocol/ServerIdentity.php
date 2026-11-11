@@ -27,6 +27,12 @@ final class ServerIdentity {
             'Download these release files without sending Nextcloud credentials. Keep the complete kit together.'];
         foreach ($offer['files'] as $name => $url) { $lines[] = $name . ': ' . $url; }
         $lines[] = 'Expected manifest SHA-256: ' . $offer['manifestSha256'];
+        $native = $this->sourceOffer->getNative();
+        if ($native !== null) {
+            $lines[] = 'Corresponding source companion for guarded Mail ' . $native['nativeBuild'] . ' (same MCP source commit).';
+            foreach ($native['files'] as $name => $url) { $lines[] = $name . ': ' . $url; }
+            $lines[] = 'Expected native companion manifest SHA-256: ' . $native['manifestSha256'];
+        }
         return implode("\n", $lines);
     }
 

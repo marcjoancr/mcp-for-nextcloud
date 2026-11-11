@@ -113,6 +113,18 @@ $canConnect = $_['connected'] || ($_['eligible'] === true && $_['global']);
             </ul>
             <p><?php p($l->t('Expected manifest SHA-256: %s', [$sourceOffer['manifestSha256']])); ?></p>
         <?php endif; ?>
+        <?php $nativeOffer = $_['nativeSourceOffer'] ?? null; ?>
+        <?php if ($nativeOffer !== null): ?>
+            <h3><?php p($l->t('Guarded Mail source companion')); ?></h3>
+            <p><?php p($l->t('Version: %s', [$nativeOffer['nativeBuild']])); ?></p>
+            <p><?php p($l->t('Source revision: %s', [$nativeOffer['sourceCommit']])); ?></p>
+            <ul>
+                <?php foreach ($nativeOffer['files'] as $name => $url): ?>
+                    <li><a href="<?php p($url); ?>" rel="noreferrer noopener"><?php p($name); ?></a></li>
+                <?php endforeach; ?>
+            </ul>
+            <p><?php p($l->t('Expected manifest SHA-256: %s', [$nativeOffer['manifestSha256']])); ?></p>
+        <?php endif; ?>
         <p><?php p($l->t('Developed by Sintax')); ?> · <a href="https://sintax.tech" rel="noreferrer noopener">sintax.tech</a></p>
     </div>
 </div>

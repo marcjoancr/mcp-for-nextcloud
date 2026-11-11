@@ -9,7 +9,7 @@ namespace OCA\Mcp\Access\ResourceScope;
 
 /**
  * Names the modules whose complete consumer graph enforces resource scope. Unknown modules are refused.
- * Files, Calendar and Tasks are active in the final composition; there is no runtime administrator flag
+ * Files, Calendar, Tasks and Mail are active in the final composition; there is no runtime administrator flag
  * that can claim a restriction before its tools, resources and cross-module references enforce it.
  */
 class ScopeActivation {
@@ -18,7 +18,7 @@ class ScopeActivation {
         'files' => true,
         'calendar' => true,
         'tasks' => true,
-        'mail' => false,
+        'mail' => true,
     ];
 
     /**

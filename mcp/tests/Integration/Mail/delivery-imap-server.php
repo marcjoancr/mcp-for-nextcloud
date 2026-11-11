@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 // Synthetic APPEND ambiguity peer, including BINARY advertisement which triggers stock Horde replay.
-$mode=$argv[1]??'lost_ack';if(!in_array($mode,['lost_ack','oversized_literal','wrong_appenduid','missing_appenduid','selected_generation','uid_after_literal','duplicate_uid','generation_during_fetch','reconnect_after_append'],true))exit(2);$payload='';
+$mode=$argv[1]??'lost_ack';if(!in_array($mode,['lost_ack','oversized_literal','wrong_appenduid','missing_appenduid','selected_generation','uid_after_literal','duplicate_uid','generation_during_fetch','reconnect_after_append','no_uidplus'],true))exit(2);$payload='';
 $server=stream_socket_server('tcp://127.0.0.1:0',$errno,$error);if($server===false)exit(2);
 echo json_encode(['port'=>(int)substr(strrchr(stream_socket_get_name($server,false),':'),1)])."\n";flush();
 $appends=0;$connections=0;$searches=0;$fetches=0;
@@ -11,7 +11,7 @@ while(($client=@stream_socket_accept($server,$connections===0?30:3))!==false){
     ++$connections;stream_set_timeout($client,3);fwrite($client,"* OK synthetic append fixture\r\n");
     while(($line=fgets($client))!==false){
         if(!preg_match('/^(\S+) (.*)\r\n$/D',$line,$m))break;$tag=$m[1];$command=strtoupper($m[2]);
-        if(str_starts_with($command,'CAPABILITY'))fwrite($client,"* CAPABILITY IMAP4rev1 AUTH=PLAIN SASL-IR UIDPLUS BINARY\r\n$tag OK capabilities\r\n");
+        if(str_starts_with($command,'CAPABILITY'))fwrite($client,"* CAPABILITY IMAP4rev1 AUTH=PLAIN SASL-IR".($mode==='no_uidplus'?'':' UIDPLUS')." BINARY\r\n$tag OK capabilities\r\n");
         elseif(str_starts_with($command,'LOGIN')||str_starts_with($command,'AUTHENTICATE'))fwrite($client,"$tag OK authenticated\r\n");
         elseif(str_starts_with($command,'STATUS')&&preg_match('/^STATUS (.+) \(/i',$m[2],$box))fwrite($client,"* STATUS {$box[1]} (UIDVALIDITY 42)\r\n$tag OK status\r\n");
         elseif(str_starts_with($command,'APPEND')){

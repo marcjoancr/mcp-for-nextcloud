@@ -49,4 +49,8 @@ final class McpMailDeliveryTest extends IntegrationTestCase {
     public function testCopyVerificationBindsActualSelectionAndRejectsGenerationChanges():void {foreach(['repair_selected_generation','repair_changed_during_fetch','repair_reconnect'] as $scenario){$r=$this->proof($scenario);self::assertSame('uncertain',$r['copy_state'],$scenario);self::assertSame(1,$r['copy_peer']['appends']);self::assertTrue($r['copy_smtp_unchanged']);if($scenario==='repair_selected_generation')self::assertSame(0,$r['copy_peer']['fetches']);}}
     public function testCopyReadbackSupportsUidAfterLiteralAndRefusesDuplicateTrailer():void {$r=$this->proof('repair_uid_after');self::assertSame('verified',$r['copy_state']);self::assertSame(1,$r['copy_peer']['appends']);self::assertSame(1,$r['copy_peer']['fetches']);self::assertTrue($r['copy_smtp_unchanged']);$r=$this->proof('repair_duplicate_uid');self::assertSame('uncertain',$r['copy_state']);self::assertSame(1,$r['copy_peer']['appends']);}
 
+    public function testProviderWithoutUidplusRefusesBeforeAppendAndNeverResendsSmtp():void {$r=$this->proof('repair_no_uidplus');self::assertSame('uncertain',$r['copy_state']);self::assertSame(0,$r['copy_peer']['appends']);self::assertSame(0,$r['copy_peer']['searches']);self::assertTrue($r['copy_smtp_unchanged']);}
+
+    public function testPartialSmtpDataClosesBeforeQuitAndRetainsUncertainWithoutSecondSubmission():void {$r=$this->proof('short_write');self::assertSame('uncertain',$r['state']);self::assertSame('uncertain',$r['replay_state']);self::assertTrue($r['replay_no_connection']);self::assertSame(1,$r['smtp_submissions']);self::assertSame(['closed'=>true,'faulted'=>true,'quit'=>false,'partialBytes'=>3],$r['short_write']);}
+
 }

@@ -1,6 +1,7 @@
 OC.L10N.register(
     "mcp",
     {
+    "Guarded Mail source companion" : "Fontes complementares do Mail protegido",
     "Account" : "Conta",
     "Folder" : "Pasta",
     "Export a mail message" : "Exportar uma mensagem de e-mail",

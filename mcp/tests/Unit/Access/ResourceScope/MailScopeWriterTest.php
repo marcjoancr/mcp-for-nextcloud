@@ -17,6 +17,21 @@ final class MailScopeWriterTest extends TestCase {
         self::assertSame(['mailbox:8'],$resources->inaccessible('alice','mail',['account:9','mailbox:8']));
         $undo=$fx->services(activation:$active)->undo->restoreReceipt($r['receiptId'],$r['revision'],'root');
         self::assertSame(1,$undo['changed']);self::assertNull($fx->scopes->forModule('alice','mail'));
-        self::assertFalse((new ScopeActivation())->isActive('mail'),'Do not activate until every consumer is verified');
+        self::assertTrue((new ScopeActivation())->isActive('mail'),'The qualified Mail consumer graph must expose the canonical scope writer');
     }
+    public function testUnreadableNativeInventoryRefusesGuessedMailIdsWithoutChangingPolicy():void {
+        $fx=new ScopeFixture($this);$owned=(new FakeMailApp())->withAccount(9,'alice','Main','a@example.test');
+        $fx->commands(resources:$fx->enumerator($owned),activation:new ScopeActivation())->setResourceScope($fx->revision(),'root','alice','mail',['account:9']);
+        $storedMail=$fx->scopes->forModule('alice','mail');$native=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailServices::class);
+        $native->method('isEnabledFor')->willReturn(true);
+        $native->method('boundedMetadata')->willThrowException(new \OCA\Mcp\Modules\Mail\Integration\MailUnavailableException('Native source unavailable'));
+        $writer=$fx->commands(resources:$fx->enumerator($native),activation:new ScopeActivation());$before=$fx->snapshot();
+        foreach(['account:9','mailbox:9']as$id){
+            try{$writer->setResourceScope($fx->revision(),'root','alice','mail',[$id]);self::fail('Unknown native inventory must refuse guessed resource ids');}
+            catch(\OCA\Mcp\Access\Policy\PolicyUnavailable){self::assertSame($before,$fx->snapshot());}
+        }
+        $writer->setResourceScope($fx->revision(),'root','alice','files',[]);
+        self::assertSame($storedMail,$fx->scopes->forModule('alice','mail'));
+    }
+
 }

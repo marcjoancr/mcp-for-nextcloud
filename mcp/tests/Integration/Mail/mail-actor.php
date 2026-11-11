@@ -69,6 +69,8 @@ switch ($action) {
         $out=\OCA\Mcp\Tests\Integration\Mail\MailDeliveryActor::child($uid,$in);break;
     case 'sieve-erasure':
         try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSieveErasureActor::run();}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
+    case 'clean-http-signature':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailCleanHttpActor::signature($uid);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
     case 'signature-mode-contender':
         try{Server::get('OCA\\Mail\\Service\\GuardedSignatureMode')->read($uid,(int)$in['account_id'],null,static fn()=>null);$out=['refused'=>false];}catch(\Throwable){$out=['refused'=>true];}break;
     case 'signature-mode-tool':

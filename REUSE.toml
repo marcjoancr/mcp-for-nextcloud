@@ -100,3 +100,58 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# Fork-owned Mail qualification documentation and immutable generated hash manifests.
+[[annotations]]
+path = [
+  "docs/superpowers/plans/2026-11-07-mail-completion-plan.md",
+  "docs/superpowers/plans/2026-11-08-mail-mutation-guard-plan.md",
+  "docs/superpowers/plans/2026-11-08-mail-settings-plan.md",
+  "docs/superpowers/plans/2026-11-09-mail-c7-acceptance-plan.md",
+  "docs/superpowers/plans/2026-11-09-mail-d-plus-plan.md",
+  "docs/superpowers/plans/2026-11-09-mail-tag-assignment-plan.md",
+  "docs/superpowers/plans/2026-11-09-mail-tag-creation-plan.md",
+  "docs/superpowers/plans/2026-11-10-mail-draft-lifecycle-plan.md",
+  "docs/superpowers/plans/2026-11-10-mail-native-credential-evidence-plan.md",
+  "docs/superpowers/plans/2026-11-10-mail-postgresql-deployment-plan.md",
+  "docs/superpowers/plans/2026-11-10-mail-refresh-plan.md",
+  "docs/superpowers/plans/2026-11-10-mail-runtime-qualification-plan.md",
+  "docs/superpowers/plans/2026-11-11-mail-complete-plan.md",
+  "docs/superpowers/specs/2026-11-07-mail-completion-design.md",
+  "docs/superpowers/specs/2026-11-08-mail-c0-native-evidence.md",
+  "docs/superpowers/specs/2026-11-08-mail-c1-guard-evidence.md",
+  "docs/superpowers/specs/2026-11-08-mail-c2-continuation-evidence.md",
+  "docs/superpowers/specs/2026-11-08-mail-c3-guard-evidence.md",
+  "docs/superpowers/specs/2026-11-08-mail-mutation-guard-design.md",
+  "docs/superpowers/specs/2026-11-08-mail-settings-design.md",
+  "docs/superpowers/specs/2026-11-09-mail-c7-acceptance-evidence.md",
+  "docs/superpowers/specs/2026-11-09-mail-d-plus-evidence.md",
+  "docs/superpowers/specs/2026-11-09-mail-tag-assignment-evidence.md",
+  "docs/superpowers/specs/2026-11-09-mail-tag-creation-evidence.md",
+  "docs/superpowers/specs/2026-11-10-mail-bounded-metadata-evidence.md",
+  "docs/superpowers/specs/2026-11-10-mail-draft-lifecycle-design.md",
+  "docs/superpowers/specs/2026-11-10-mail-draft-lifecycle-evidence.md",
+  "docs/superpowers/specs/2026-11-10-mail-native-credential-evidence-design.md",
+  "docs/superpowers/specs/2026-11-10-mail-native-credentials-evidence.md",
+  "docs/superpowers/specs/2026-11-10-mail-postgresql-deployment-evidence.md",
+  "docs/superpowers/specs/2026-11-10-mail-postgresql-design.md",
+  "docs/superpowers/specs/2026-11-10-mail-refresh-evidence.md",
+  "docs/superpowers/specs/2026-11-10-mail-runtime-qualification-design.md",
+  "docs/superpowers/specs/2026-11-10-mail-runtime-qualification-evidence.md",
+  "docs/superpowers/specs/2026-11-11-mail-complete-design.md",
+  "mcp/tests/fixtures/mail-sieve/README.md",
+  "native/mail-guard/README.md",
+  "native/mail-guard/auth-v7-manifest.json",
+  "native/mail-guard/drafts-v6-manifest.json",
+  "native/mail-guard/flags-v1-manifest.json",
+  "native/mail-guard/folders-v3-manifest.json",
+  "native/mail-guard/metadata-v10-manifest.json",
+  "native/mail-guard/moves-v2-manifest.json",
+  "native/mail-guard/postgresql-v9-manifest.json",
+  "native/mail-guard/refresh-v5-manifest.json",
+  "native/mail-guard/runtime-v8-manifest.json",
+  "native/mail-guard/tags-v4-manifest.json",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

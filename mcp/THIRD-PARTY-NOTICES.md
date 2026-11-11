@@ -156,6 +156,25 @@ and MIT terms with file-specific exceptions; its image retains component notices
 included in the production package. See the projects' retained license files in
 those inputs; human license review remains pending.
 
+## Optional guarded Mail corresponding-source companion
+
+The MCP source bundle includes the reviewed Mail overlay/build sources under
+`native/mail-guard/`. The separate 2.8.0 native companion additionally preserves
+the original Mail 5.12.5 runtime archive, its dependency source and license files,
+its original embedded JavaScript source maps, and the preferred upstream source
+at commit `8a00bf1d914317127c53104c0c4d47baa8f72fb7` with dependency locks and build
+configuration. These assets are separate from the MCP runtime and its five-file
+source kit. The companion manifest pins every asset and the complete assembled
+native runtime inventory; `NATIVE-BUILDING.md` explains reconstruction.
+
+The reviewed SMTP connection change preserves Horde's original copyright and
+LGPL notice and requires complete writes, closing the connection on short or
+failed writes. Original Mail and dependency license texts remain in both the
+original and assembled native runtime archives. Runtime reconstruction uses the
+exact upstream shipped chunks and readable overlay transformations; it does not
+claim an independently identical upstream webpack rebuild. Source completeness
+and technical inventory verification do not substitute for a legal opinion.
+
 ## Files sidebar browser dependencies
 
 The self-contained `js/files.js` bundle includes the following packages from

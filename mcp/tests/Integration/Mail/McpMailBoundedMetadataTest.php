@@ -13,7 +13,7 @@ use PHPUnit\Framework\Attributes\Group;
 final class McpMailBoundedMetadataTest extends IntegrationTestCase {
     public function testV10BoundedMetadataReadsUseTheQualifiedDirectPostgresPrimary():void {
         if($this->cellDatabase()!=='pgsql')self::markTestSkipped('This contract runs in the PostgreSQL fixture.');
-        if(Server::get(IAppManager::class)->getAppVersion('mail')!=='5.12.5.10')self::markTestSkipped('The v10 native artifact is required.');
+        self::assertSame(\OCA\Mcp\Modules\Mail\Integration\NativeGuardManifest::DATA['build_version'],Server::get(IAppManager::class)->getAppVersion('mail'),'The current pinned native artifact is required.');
 
         $apps=Server::get(IAppManager::class);$boundary=new MailNativeBoundary($apps);
         self::assertTrue(MailRuntimePairs::matches(Server::get(\OCP\IConfig::class)->getSystemValueString('version',''),$apps->getAppVersion('mail')));

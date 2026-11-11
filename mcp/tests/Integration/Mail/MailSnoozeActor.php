@@ -18,6 +18,7 @@ final class MailSnoozeActor {
         $account=Server::get('OCA\\Mail\\Service\\AccountService')->findByUserId($uid)[0];$fixture=MailNativeMoveActor::fixture($uid,(int)$account->getId());$entity=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,(int)$account->getId())->getMailAccount();$old=$entity->getSnoozeMailboxId();$entity->setSnoozeMailboxId($fixture['boxes']['destination']);Server::get('OCA\\Mail\\Db\\MailAccountMapper')->update($entity);
         $id=null;$before=MailNativeMutationActor::safety($uid);$scenario=$in['scenario'];$out=['implementation_available'=>true];
         try{
+            if($scenario==='clean_http')return MailCleanHttpActor::snooze($uid,$fixture);
             if(str_starts_with($scenario,'mcp_'))return $out+MailSnoozeToolActor::run($uid,$fixture,$scenario);
             $at=time()+3600;$preview=$service->preview($uid,$fixture['messages'][0],$at,'UTC',$fence);$key=bin2hex(random_bytes(32));$queued=$service->schedule($uid,$fixture['messages'][0],$at,'UTC',$preview['revision'],$key,1,$fence);$id=$queued['id'];
             $held=fn():bool=>self::refused(fn()=>\OCA\Mail\Snooze\SnoozeHolds::account($db,(int)$account->getId()));

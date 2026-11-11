@@ -67,6 +67,11 @@ final class ImapProbe {
 	 * @return void
 	 * @throws RuntimeException when the server refuses
 	 */
+    public function removeFixtureMailbox(string $name):void {
+        if(!preg_match('/^mcp-cache-canary-[a-f0-9]{16}$/D',$name))throw new RuntimeException('Not an owned cache canary.');
+        $this->command('DELETE ' . self::quote($name));
+    }
+
 	public function create(string $name): void {
 		$this->command('CREATE ' . self::quote($name));
 	}

@@ -17,7 +17,7 @@ use OCP\{Server,IDBConnection,IConfig};
 use OCP\DB\QueryBuilder\IQueryBuilder;
 /** Synthetic users/resources only. Test writer opens its own activation barrier; shipping composition stays closed. */
 final class MailSavedScopeActor {
-    private static function writer():ResourceScopeWriter {return new ResourceScopeWriter(Server::get(PolicyTransaction::class),Server::get(PolicyUsers::class),new ScopeActivation(['mail'=>true,'files'=>true]),Server::get(NativeResourceEnumerator::class),Server::get(ScopeMutations::class));}
+    private static function writer():ResourceScopeWriter {if(getenv('MCP_IT_CLEAN_MAIL')==='1')return Server::get(ResourceScopeWriter::class);return new ResourceScopeWriter(Server::get(PolicyTransaction::class),Server::get(PolicyUsers::class),new ScopeActivation(['mail'=>true,'files'=>true]),Server::get(NativeResourceEnumerator::class),Server::get(ScopeMutations::class));}
     public static function scope(string $uid,?array $items):void {self::writer()->setResourceScope(Server::get(PolicyStateMapper::class)->state()['revision'],'admin',$uid,'mail',$items);}
     private static function data(ToolReply $r):array {if(!$r->ok())throw new \RuntimeException('Synthetic scoped HTTP call unexpectedly refused.');return $r->structured()!==[]?$r->structured():$r->json();}
     private static function count(string $table,string $column,int $id):int {$q=Server::get(IDBConnection::class)->getQueryBuilder();$r=$q->selectAlias($q->func()->count('*'),'n')->from($table)->where($q->expr()->eq($column,$q->createNamedParameter($id,IQueryBuilder::PARAM_INT)))->executeQuery();try{return (int)$r->fetchOne();}finally{$r->closeCursor();}}

@@ -34,6 +34,7 @@ final class McpMailThreadTest extends IntegrationTestCase {
 		$serviceBefore = $config->getAppValue('mcp', GrantPolicy::SERVICE_KEY, '__missing__');
 		$toolSnapshot = \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::capture([MailActor::ALICE, MailActor::BOB], ['mail_read_thread']);
 		$aliceImap = new ImapProbe((string)getenv('MCP_IT_IMAP_HOST'), (int)getenv('MCP_IT_IMAP_PORT'), 'alice', (string)getenv('MCP_IT_IMAP_PASSWORD'));
+        $fresh=[];
 		$bobImap = new ImapProbe((string)getenv('MCP_IT_IMAP_HOST'), (int)getenv('MCP_IT_IMAP_PORT'), 'bob', (string)getenv('MCP_IT_IMAP_PASSWORD'));
 		try {
 			$policy->setGlobalEnabled(true);
@@ -42,6 +43,7 @@ final class McpMailThreadTest extends IntegrationTestCase {
 				$policy->setConnected($uid, true);
 				\OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::assign($uid, ['mail_read_thread' => 'allow']);
 			}
+            if(Server::get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class)->currentContentGeneration()){$key='fresh-thread-'.bin2hex(random_bytes(12));$fresh['alice']=new MailFreshContentFixture(MailActor::ALICE,['Seen message','Flagged message'],$key);$fresh['bob']=new MailFreshContentFixture(MailActor::BOB,['Message of bob'],$key);}
 			$aliceState = $aliceImap->state();
 			$bobState = $bobImap->state();
 			self::assertNotSame([], array_filter($aliceState['INBOX']['flags'], static fn (array $flags): bool => !in_array('\\Seen', $flags, true)), 'Alice must have unread messages before reading');
@@ -51,6 +53,7 @@ final class McpMailThreadTest extends IntegrationTestCase {
 			$aliceRoot = $this->messageId($aliceAccount, 'Seen message');
 			$aliceReply = $this->messageId($aliceAccount, 'Flagged message');
 			$bobDuplicate = $this->messageId($bobAccount, 'Message of bob');
+            if($fresh!==[]){$aliceRoot=$fresh['alice']->messages['Seen message'];$aliceReply=$fresh['alice']->messages['Flagged message'];$bobDuplicate=$fresh['bob']->messages['Message of bob'];}
 			$alice = new McpClient(LoginFactory::basic(MailActor::ALICE));
 			$bob = new McpClient(LoginFactory::basic(MailActor::BOB));
 
@@ -91,6 +94,7 @@ final class McpMailThreadTest extends IntegrationTestCase {
 			self::assertSame($aliceState, $aliceImap->state(), 'thread reads changed Alice IMAP flags/modseq');
 			self::assertSame($bobState, $bobImap->state(), 'thread reads changed Bob IMAP flags/modseq');
 		} finally {
+            foreach($fresh as$fixture)$fixture->close();
 			$aliceImap->close();
 			$bobImap->close();
 			if ($serviceBefore === '__missing__') {

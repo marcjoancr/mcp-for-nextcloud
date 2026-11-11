@@ -24,6 +24,7 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
     private string $serviceBefore = '__missing__';
     private McpClient $alice;
     private McpClient $bob;
+    private ?MailFreshContentFixture $fresh = null;
 
     protected function setUp(): void {
         parent::setUp();
@@ -44,10 +45,12 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
         }
         $this->alice = new McpClient(LoginFactory::basic(MailActor::ALICE));
         $this->bob = new McpClient(LoginFactory::basic(MailActor::BOB));
+        if(Server::get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class)->currentContentGeneration())$this->fresh=new MailFreshContentFixture(MailActor::ALICE,['Unread message'],'fresh-'.bin2hex(random_bytes(12)));
     }
 
     protected function tearDown(): void {
         try {
+            if($this->fresh!==null){$this->fresh->close();$this->fresh=null;}
             if ($this->toolSnapshot !== []) {
                 ToolPermissionFixture::restore($this->toolSnapshot);
                 $config = Server::get(IConfig::class);
@@ -224,6 +227,7 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
         finally { $result->closeCursor(); }
     }
     private function messageId(int $account, string $subject): int {
+        if($this->fresh!==null&&isset($this->fresh->messages[$subject]))return $this->fresh->messages[$subject];
         $query = $this->official()->getQueryBuilder();
         $result = $query->select('m.id')->from('mail_messages', 'm')->innerJoin('m', 'mail_mailboxes', 'b', 'm.mailbox_id = b.id')
             ->where($query->expr()->eq('b.account_id', $query->createNamedParameter($account, IQueryBuilder::PARAM_INT)))

@@ -23,10 +23,11 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('mail')]
 final class McpMailReadTest extends IntegrationTestCase {
+    private ?MailFreshContentFixture $fresh=null;
 	private array $toolPermissionSnapshot = [];
 
 	/** Folder created on the server after Mail cached the account. */
-	private const CANARY = 'Canary';
+    private ?string $canary=null;
 
 	/** Account id no Mail account has. */
 	private const MISSING = 987654321;
@@ -46,6 +47,8 @@ final class McpMailReadTest extends IntegrationTestCase {
 
 	protected function tearDown(): void {
 		try {
+            if($this->fresh!==null){$this->fresh->close();$this->fresh=null;}
+            if($this->canary!==null){$probe=$this->imap('alice');try{$probe->removeFixtureMailbox($this->canary);}finally{$probe->close();}$this->canary=null;}
 			if ($this->toolPermissionSnapshot !== []) { \OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture::restore($this->toolPermissionSnapshot); }
 		} finally {
 			parent::tearDown();
@@ -67,7 +70,8 @@ final class McpMailReadTest extends IntegrationTestCase {
 		$foreign = $bob[0]['id'];
 
 		$imap = $this->imap('alice');
-		$imap->create(self::CANARY);
+        $this->canary='mcp-cache-canary-'.bin2hex(random_bytes(8));
+		$imap->create($this->canary);
 		$this->resetLastMailboxSync($own);
 		$serverBefore = $imap->state();
 		$cacheBefore = $this->cache($own);
@@ -84,8 +88,8 @@ final class McpMailReadTest extends IntegrationTestCase {
 
 		$mailboxes = $this->decoded($out['own']);
 		$byPath = array_column($mailboxes['mailboxes'], null, 'path');
-		$this->assertArrayNotHasKey(self::CANARY, $byPath, 'a folder only the server has was listed: the tool synchronized');
-		$this->assertArrayHasKey(self::CANARY, $serverBefore);
+		$this->assertArrayNotHasKey($this->canary, $byPath, 'a folder only the server has was listed: the tool synchronized');
+		$this->assertArrayHasKey($this->canary, $serverBefore);
 		foreach (['INBOX', 'Sent', 'Archive', 'Projects', 'Projects/2026'] as $path) {
 			$this->assertArrayHasKey($path, $byPath, "folder $path");
 		}
@@ -115,18 +119,21 @@ final class McpMailReadTest extends IntegrationTestCase {
 		$this->assertCount(1, $foreignAccounts);
 		$ownAccount = (int)$accounts[0]['id'];
 		$foreignAccount = (int)$foreignAccounts[0]['id'];
+        if(\OCP\Server::get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class)->currentContentGeneration())$this->fresh=new MailFreshContentFixture(MailActor::ALICE,['Unread message'],'fresh-'.bin2hex(random_bytes(12)));
 		$inbox = $this->mailboxId($ownAccount, 'INBOX');
 		$foreignMessage = $this->messageId((int)$foreignAccounts[0]['id'], 'Message of bob');
 		$unreadId = $this->messageId($ownAccount, 'Unread message');
 
 		$imap = $this->imap('alice');
 		$before = $imap->state();
-		$this->assertNotContains('\\Seen', $before['INBOX']['flags'][3] ?? [], 'fixture message must begin unread');
+        $boxName=$this->fresh?->mailboxName??'INBOX';$remote=$this->fresh?->remoteUids['Unread message']??3;
+		$this->assertNotContains('\\Seen', $before[$boxName]['flags'][$remote] ?? [], 'the selected fixture message must begin unread');
 		$client = new \OCA\Mcp\Tests\Integration\Support\McpClient(\OCA\Mcp\Tests\Integration\Support\LoginFactory::basic(MailActor::ALICE));
 		$ownSearch = $client->tool('mail_search_messages', ['mailbox_id' => $inbox, 'unread' => true]);
 		$this->assertTrue($ownSearch->ok(), $ownSearch->describe());
 		$ids = array_column($ownSearch->json()['messages'], 'id');
-		$this->assertContains($unreadId, $ids);
+		$row=MailSignatureModeActor::row('mail_messages',$unreadId);
+        $this->assertContains($unreadId, $ids,json_encode(['ids'=>$ids,'seen'=>$row['flag_seen'],'deleted'=>$row['flag_deleted'],'mailbox'=>$row['mailbox_id'],'selected'=>$inbox,'thread'=>$row['thread_root_id']!==null]));
 		$this->assertNotContains($foreignMessage, $ids);
 		$foreignSearch = $client->tool('mail_search_messages', ['account_id' => $foreignAccount]);
 		$missingSearch = $client->tool('mail_search_messages', ['account_id' => 987654321]);
@@ -168,6 +175,7 @@ final class McpMailReadTest extends IntegrationTestCase {
 	}
 
 	private function mailboxId(int $accountId, string $path): int {
+        if($this->fresh!==null&&$path==='INBOX')return $this->fresh->mailboxId;
 		$qb = $this->official()->getQueryBuilder();
 		$result = $qb->select('id')->from('mail_mailboxes')
 			->where($qb->expr()->eq('account_id', $qb->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
@@ -181,6 +189,7 @@ final class McpMailReadTest extends IntegrationTestCase {
 	}
 
 	private function messageId(int $accountId, string $subject): int {
+        if($this->fresh!==null&&isset($this->fresh->messages[$subject]))return $this->fresh->messages[$subject];
 		$qb = $this->official()->getQueryBuilder();
 		$qb->select('m.id')->from('mail_messages', 'm')->innerJoin('m', 'mail_mailboxes', 'b', 'm.mailbox_id = b.id')
 			->where($qb->expr()->eq('b.account_id', $qb->createNamedParameter($accountId, IQueryBuilder::PARAM_INT)))
