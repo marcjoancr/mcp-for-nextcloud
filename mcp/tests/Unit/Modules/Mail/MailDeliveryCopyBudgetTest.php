@@ -10,4 +10,11 @@ final class MailDeliveryCopyBudgetTest extends TestCase {
     public function testRejectsAppendUidRangeBeforeNativeExpansion():void {$b=$this->budget();$b->beginResponse();$this->expectException(\RuntimeException::class);$b->line('A1 OK [APPENDUID 42 1:4294967295] accepted');}
     public function testAdmitsOneExactCopyAndPositiveSingleAppendUid():void {$b=$this->budget();$b->expectValidity(42);$b->beginResponse();$b->line('A1 OK [APPENDUID 42 1] accepted');$b->beginResponse();$b->line('* 1 FETCH (UID 1 BODY[] {100}');$b->literal(100);$b->consume(100);$b->line(')');$b->beginResponse();$b->line('A2 OK fetched');self::assertTrue(true);}    public function testAppendUidMustMatchApprovedMailboxGeneration():void {$b=$this->budget();self::assertTrue(method_exists($b,'expectValidity'),'APPENDUID must bind the approved UIDVALIDITY before the native parser drops it.');$b->expectValidity(42);$b->beginResponse();$this->expectException(\RuntimeException::class);$b->line('A1 OK [APPENDUID 43 1] accepted');}
 
+    public function testSelectedGenerationCannotChangeAfterAppendProof():void {$b=$this->budget();$b->expectValidity(42);$b->beginResponse();$b->line('A1 OK [APPENDUID 42 1] accepted');$b->beginResponse();$this->expectException(\RuntimeException::class);$b->line('* OK [UIDVALIDITY 43] selected');}
+    public function testUidCanFollowTheBodyLiteral():void {$b=$this->budget();$b->beginResponse();$b->line('* 1 FETCH (BODY[] {100}');$b->literal(100);$b->consume(100);$accepted=true;try{$b->line(' UID 1)');$b->beginResponse();$b->line('A2 OK fetched');}catch(\RuntimeException){$accepted=false;}self::assertTrue($accepted,'A single valid UID after the body literal must be accepted.');}
+    public function testMalformedAndDuplicateUidTrailersAreRefused():void {
+        foreach([' UID 0)',' UID 1:2)',' UID 4294967296)',' UID 1 UID 2)',')'] as $trailer){$b=$this->budget();$b->beginResponse();$b->line('* 1 FETCH (BODY[] {100}');$b->literal(100);$refused=false;try{$b->line($trailer);}catch(\RuntimeException){$refused=true;}self::assertTrue($refused,$trailer);}
+        $b=$this->budget();$b->beginResponse();$b->line('* 1 FETCH (UID 1 BODY[] {100}');$b->literal(100);$this->expectException(\RuntimeException::class);$b->line(' UID 1)');
+    }
+
 }

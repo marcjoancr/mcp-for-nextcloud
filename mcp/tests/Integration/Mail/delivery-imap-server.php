@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 // Synthetic APPEND ambiguity peer, including BINARY advertisement which triggers stock Horde replay.
-$mode=$argv[1]??'lost_ack';if(!in_array($mode,['lost_ack','oversized_literal','wrong_appenduid','missing_appenduid'],true))exit(2);$payload='';
+$mode=$argv[1]??'lost_ack';if(!in_array($mode,['lost_ack','oversized_literal','wrong_appenduid','missing_appenduid','selected_generation','uid_after_literal','duplicate_uid','generation_during_fetch','reconnect_after_append'],true))exit(2);$payload='';
 $server=stream_socket_server('tcp://127.0.0.1:0',$errno,$error);if($server===false)exit(2);
 echo json_encode(['port'=>(int)substr(strrchr(stream_socket_get_name($server,false),':'),1)])."\n";flush();
-$appends=0;$connections=0;$searches=0;
+$appends=0;$connections=0;$searches=0;$fetches=0;
 while(($client=@stream_socket_accept($server,$connections===0?30:3))!==false){
     ++$connections;stream_set_timeout($client,3);fwrite($client,"* OK synthetic append fixture\r\n");
     while(($line=fgets($client))!==false){
@@ -19,13 +19,13 @@ while(($client=@stream_socket_accept($server,$connections===0?30:3))!==false){
             if(!str_ends_with($m[2],'+}'))fwrite($client,"+ literal ready\r\n");$read=0;$payload='';while($read<$size){$chunk=fread($client,$size-$read);if($chunk===false||$chunk==='')break 2;$read+=strlen($chunk);$payload.=$chunk;}fgets($client);
             // Bytes accepted, response lost. No remote delivery exists. Another APPEND is counted as a replay.
             if($mode==='lost_ack')break;
-            $proof=$mode==='missing_appenduid'?'':('[APPENDUID '.($mode==='wrong_appenduid'?'43':'42').' 1] ');fwrite($client,"$tag OK {$proof}synthetic stored\r\n");
-        }elseif(str_starts_with($command,'EXAMINE'))fwrite($client,"* 1 EXISTS\r\n* OK [UIDVALIDITY 42] generation\r\n$tag OK [READ-ONLY] selected\r\n");
-        elseif(str_starts_with($command,'UID FETCH')){if($mode==='oversized_literal'){fwrite($client,"* 1 FETCH (UID 1 BODY[] {41943041}\r\n");break;}fwrite($client,"* 1 FETCH (UID 1 BODY[] {".strlen($payload)."}\r\n".$payload.")\r\n$tag OK fetched\r\n");}
+            $proof=$mode==='missing_appenduid'?'':('[APPENDUID '.($mode==='wrong_appenduid'?'43':'42').' 1] ');fwrite($client,"$tag OK {$proof}synthetic stored\r\n");if($mode==='reconnect_after_append')break;
+        }elseif(str_starts_with($command,'EXAMINE')){$generation=$mode==='selected_generation'?43:42;fwrite($client,"* 1 EXISTS\r\n* OK [UIDVALIDITY $generation] generation\r\n$tag OK [READ-ONLY] selected\r\n");}
+        elseif(str_starts_with($command,'UID FETCH')){++$fetches;if($mode==='generation_during_fetch')fwrite($client,"* OK [UIDVALIDITY 43] changed\r\n");if($mode==='oversized_literal'){fwrite($client,"* 1 FETCH (UID 1 BODY[] {41943041}\r\n");break;}$prefix=in_array($mode,['uid_after_literal','duplicate_uid'],true)?'':'UID 1 ';$trailer=match($mode){'uid_after_literal'=>' UID 1','duplicate_uid'=>' UID 1 UID 2',default=>''};fwrite($client,"* 1 FETCH (".$prefix."BODY[] {".strlen($payload)."}\r\n".$payload.$trailer.")\r\n$tag OK fetched\r\n");}
         elseif(str_starts_with($command,'UID SEARCH')){++$searches;fwrite($client,"* SEARCH\r\n$tag OK search\r\n");}
         elseif(str_starts_with($command,'LOGOUT')){fwrite($client,"* BYE closed\r\n$tag OK logout\r\n");break;}
         else fwrite($client,"$tag BAD unsupported synthetic command\r\n");
     }
     fclose($client);if($connections>=4)break;
 }
-fclose($server);echo json_encode(['appends'=>$appends,'connections'=>$connections,'searches'=>$searches])."\n";
+fclose($server);echo json_encode(['appends'=>$appends,'connections'=>$connections,'searches'=>$searches,'fetches'=>$fetches])."\n";
