@@ -117,6 +117,21 @@ Execute after the Task4 implementation checkpoint, before its combined fresh rev
 - [ ] Implement shared scope guard/enumerator/canonical validation, integrate complete consumer graph and UI, then open activation barrier only after checks pass.
 - [ ] GREEN scope/policy/UI regression and commit.
 
+**Task5 implementation checkpoint:** Commit55231733dc491ac0f2f9b21609d52f0bbff6d5ff implements the53-tool scope graph, typed storage/receipts/UI, fresh policy fences and durable historical references. Host690/12081, native21/386, UI60+6, architecture283/24299 and both static-analysis scopes pass. An active real Basic-HTTP user-recreation regression remains RED: UID plus connection0 repeats the journal namespace, allowing a recreated actor to read the prior actor's receipt. Task11 must resolve it before combined Task5+11 review and Task6. Scope activation remains false.
+
+### Task 11: Durable operation actor-incarnation isolation
+
+Execute after Task5's implementation checkpoint and before its combined fresh review. Keep existing operation namespaces and native operation keys unchanged; an occupied old operation ID must never become a new mutation after recreation.
+
+**Files:** MCP migration and narrow Db actor-incarnation registry/tombstone; existing `Listener/ConnectionToolsCreationListener.php`/lifecycle registration and policy transaction as required; `Mcp/Operations/OperationJournal.php`, Mail private authorization/fresh fences/child and delivery audit integration; focused core/real-user lifecycle tests. No new public tool or native historical artifact modification.
+
+**Interfaces:** Preserve `OperationJournal::scopeKey` and all existing operation-key derivations. Capture a trusted original actor incarnation at admission, retain it immutably across checkpoints, and check it before status/replay projection and every Mail effect/commit fence. Establish a new incarnation durably before native UID publication, with a persistent tombstone and evidence for missed/disabled listeners. Same-actor history with deleted/moved sources remains authorized through original references; legacy identity that cannot be proved fails closed without reissuing the write.
+
+- [ ] Retain real RED `McpMailActorIncarnationTest`: actual user creation, Basic app-password HTTP write, successful core deletion, same UID recreation/new password/regrant; old status and replay must refuse with no new effect.
+- [ ] Implement minimal registry/lifecycle binding and immutable original-context checks without changing scopeKey/opkey. Do not rely on UID, mutable profile fields, a sole post-delete listener or ordinary preferences alone; core clears all preferences before and after UserDeletedEvent. Never blindly adopt missing legacy tokens as an initial owner.
+- [ ] GREEN same-actor deleted-source history, old inflight callback after recreation, failed deletion, late/missed/disabled listener events, concurrent first-use/recreation and durable pre-publication failure. Preserve namespaces byte-for-byte; old IDs stay occupied. Metadata-only consent retirement and exact orphan cleanup remain functional without granting transport access.
+- [ ] Run relevant core journal/policy/non-Mail callers/API/static and native Mail regressions, commit, then fresh combined Task5+11 specification/quality review. Source qualification and Mail scope activation remain closed until the final Task7 shipping qualification; production transmission stays disabled.
+
 ### Task 6: Guarded snooze and native structured filters/absence/identity modes
 
 **Files:** native guarded snooze intent/wake worker, capped ManageSieve settings and native UI/background fencing; MCP independent tools/grants and identity signature mode; tests.
@@ -135,6 +150,7 @@ Execute after the Task4 implementation checkpoint, before its combined fresh rev
 
 - [ ] Run real PostgreSQL/LinuxServer/S3 qualification with synthetic SMTP/IMAP/ManageSieve fault matrix for Tasks1–6, including process death and independent sessions; no skips for claimed features.
 - [ ] Run full catalog checks (PHP/static/UI/docs/API/package), source inventory/REUSE and fresh whole-branch review; fix material findings with RED→GREEN evidence.
+- [ ] Open Mail scope activation and current native delivery/content qualification only after the complete consumer/lifecycle graph and exact frozen native guarantees pass; verify the final clean package through normal HTTP with no diagnostic eligibility overrides. Production transmission remains false.
 - [ ] Publish a separately pinned native source companion: original Mail runtime/archive and licenses, exact upstream preferred-source snapshot with locks/build configuration, reviewed overlay, complete assembled runtime inventory and reconstruction instructions. Preserve the exact five-file MCP source-kit schema; expose independently validated native source links through ordinary-user source journeys and verify public downloads.
 - [ ] Bump MCP to2.8.0 for the added tool surface; freeze reviewed commit/source/native hashes. Push feature branch, open reviewable PR against main and attach it; publish versioned release with runtime/native/source artifacts after required checks. No automatic merge if review/CI rejects.
 
