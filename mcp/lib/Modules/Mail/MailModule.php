@@ -36,9 +36,9 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function call(string $name, array $arguments, string $userId): array {
-        $this->operations?->actor($userId);
+        if(!isset($this->factories[$name]))throw new \InvalidArgumentException('Unknown tool');
         $this->access->assertReadable($userId);
-        $project=$this->sieveProjectionFence($userId,$name,$arguments);
+        $project=$this->projectionFence($userId,$name,$arguments);
         $tool = $this->resolve($name);
         if ($this->operations === null || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
             $result=$tool->execute($arguments, new ToolContext($userId));$project?->__invoke();return $result;
@@ -61,9 +61,9 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function preview(string $name, array $arguments, string $userId): array {
-        $this->operations?->actor($userId);
+        if(!isset($this->factories[$name]))throw new \InvalidArgumentException('Unknown tool');
         $this->access->assertReadable($userId);
-        $project=$this->sieveProjectionFence($userId,$name,$arguments);
+        $project=$this->projectionFence($userId,$name,$arguments);
         $tool = $this->resolve($name);
         if (!$tool instanceof WriteTool || !WriteGate::isWrite(MailToolCatalog::definitions()[$name])) {
             throw new \InvalidArgumentException('Unknown tool');
@@ -81,9 +81,12 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
         return Presentation\MailMessages::guideNotes();
     }
 
-    private function sieveProjectionFence(string $uid,string $tool,array $args):?\Closure {
-        if(!in_array($tool,['mail_read_filters','mail_read_absence','mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence','mail_write_signature_mode'],true))return null;
-        if($this->fresh===null)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Fresh Mail projection unavailable.');return $this->fresh->resourceFence($uid,$tool,(int)($args['account_id']??0));
+    private function projectionFence(string $uid,string $tool,array $args):\Closure {
+        if($this->fresh===null)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Fresh Mail projection unavailable.');
+        // A stored operation must keep its original references, even after its source was deleted.
+        $historical=isset($args['operation_id'])&&$this->operations!==null&&$this->operations->get($uid,$args['operation_id'])!==null;
+        $references=$historical||$this->authorization===null?null:fn():array=>$this->authorization->references($uid,$tool,$args);
+        return $this->fresh->projectionFence($uid,$tool,$references);
     }
 
     private function resolve(string $name): Tool {

@@ -14,6 +14,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\TestCase;
 final class MailOperationReconcilerTest extends TestCase {
     use MailSettingsFixture;
+    use \OCA\Mcp\Tests\Support\Mail\MailProjectionFixture;
     private function setupCase(array $refs, string $state='uncertain', string $tool='mail_add_alias'): array {
         [$gateway,,,, $proof]=$this->fixture();
         $sql=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);
@@ -21,16 +22,16 @@ final class MailOperationReconcilerTest extends TestCase {
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(2000);
         $journal=new OperationJournal($store,$proof,$context,$clock, new \OCA\Mcp\Tests\Support\OperationActors());$access=(object)['denied'=>[]];
         $allows=static fn(string $uid,string $tool):bool=>!in_array($tool,$access->denied,true);
-        $reader=new MailOperationReader($journal,$allows);
+        $reader=new MailOperationReader($journal,$allows,fresh:$this->projectionAccess($journal,$context));
         $service=new MailOperationReconciler($store,new MailSetupWorkflowsMapper($sql->connection()),$gateway,$journal,$reader,$proof,$clock,$sql->connection(),$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailJournalStorage::class));
-        $old=['scope_key'=>$journal->scopeKey('alice'),'actor_uid'=>'alice','operation_id'=>'original','tool_name'=>$tool,'effect_digest'=>'effect','target_key'=>hash('sha256',"alice\0account:4"),'state'=>$state,'resource_refs'=>['actor_incarnation'=>$journal->actor('alice'),'account_id'=>4]+$refs,'created_at'=>100,'updated_at'=>100];
+        $old=['scope_key'=>$journal->scopeKey('alice'),'actor_uid'=>'alice','operation_id'=>'original','tool_name'=>$tool,'effect_digest'=>'effect','target_key'=>hash('sha256',"alice\0account:4"),'state'=>$state,'resource_refs'=>['authorization'=>self::projectionRefs(),'actor_incarnation'=>$journal->actor('alice'),'account_id'=>4]+$refs,'created_at'=>100,'updated_at'=>100];
         $store->reserve($old);return [$service,$journal,$store,$old,$context,$sql,$reader,$access];
     }
     public function testProvenLocalCompletionReconcilesOnceWithoutRepeatingTheEffect():void {
         [$s,$j,$store,$old]=$this->setupCase(['alias_id'=>7,'local_completed'=>true]);
         $args=['account_id'=>4,'target_operation_id'=>'original'];$p=$j->plan('mail_reconcile_operation','alice',$args,$s->preview($args,'alice'));
         $a=$args+['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
-        $result=$j->execute('mail_reconcile_operation','alice',$a,fn():array=>$s->write($a,'alice'));
+        $result=$j->execute('mail_reconcile_operation','alice',$a,fn():array=>$this->projectedEffect($j,fn():array=>$s->write($a,'alice')));
         self::assertSame('succeeded',$result['operation']['state']);self::assertSame('succeeded',$j->get('alice','original')['state']);
         self::assertNull($store->get($old['scope_key'],'original')['target_key']);
         self::assertFalse($store->reserve($old),'Original non-replay key must survive');
@@ -66,7 +67,7 @@ final class MailOperationReconcilerTest extends TestCase {
                 continue;
             }
             $p=$j->plan('mail_reconcile_operation','alice',$args,$s->preview($args,'alice'));$a=$args+['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
-            $j->execute('mail_reconcile_operation','alice',$a,fn():array=>$s->write($a,'alice'));
+            $j->execute('mail_reconcile_operation','alice',$a,fn():array=>$this->projectedEffect($j,fn():array=>$s->write($a,'alice')));
             $access->denied=['mail_set_message_flag'];
             $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);$reader->get('alice',$p['operation_id']);
         }
@@ -75,16 +76,16 @@ final class MailOperationReconcilerTest extends TestCase {
         [$s,$j,$store,$old,,$sql]=$this->setupCase(['source_operation_id'=>'setup','source_tool'=>'mail_configure_connection'],'uncertain','mail_complete_account_setup');
         $flow=new MailSetupWorkflowsMapper($sql->connection());$flow->create($old['scope_key'],'setup','configure_connection',4,[],'intent','before',1,3000);
         self::assertTrue($flow->claim($old['scope_key'],'setup','original',100));self::assertTrue($flow->complete($old['scope_key'],'setup','original',4));
-        $store->reserve(array_replace($old,['operation_id'=>'setup','tool_name'=>'mail_configure_connection','target_key'=>null,'state'=>'succeeded','resource_refs'=>['actor_incarnation'=>$j->actor('alice'),'account_id'=>4,'native_state'=>'observed_in_mail']]));
+        $store->reserve(array_replace($old,['operation_id'=>'setup','tool_name'=>'mail_configure_connection','target_key'=>null,'state'=>'succeeded','resource_refs'=>['authorization'=>self::projectionRefs(),'actor_incarnation'=>$j->actor('alice'),'account_id'=>4,'native_state'=>'observed_in_mail']]));
         $args=['account_id'=>4,'target_operation_id'=>'original'];$p=$j->plan('mail_reconcile_operation','alice',$args,$s->preview($args,'alice'));$a=$args+['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
-        $j->execute('mail_reconcile_operation','alice',$a,fn():array=>$s->write($a,'alice'));self::assertSame('succeeded',$j->get('alice','original')['state']);
+        $j->execute('mail_reconcile_operation','alice',$a,fn():array=>$this->projectedEffect($j,fn():array=>$s->write($a,'alice')));self::assertSame('succeeded',$j->get('alice','original')['state']);
     }
     public function testSucceededExplicitRepairTransfersOnlyItsVerifiedSnapshots():void {
         $snap=['attachment_id'=>7,'file_id'=>9,'sha256'=>'integrity'];
         [$s,$j,$store,$old]=$this->setupCase(['staged'=>[$snap]],'repairing','mail_write_draft');
-        $store->reserve(array_replace($old,['operation_id'=>'repair','target_key'=>null,'state'=>'succeeded','resource_refs'=>['actor_incarnation'=>$j->actor('alice'),'account_id'=>4,'draft_id'=>8,'repair_source_operation_id'=>'original','staged'=>[$snap]]]));
+        $store->reserve(array_replace($old,['operation_id'=>'repair','target_key'=>null,'state'=>'succeeded','resource_refs'=>['authorization'=>self::projectionRefs(),'actor_incarnation'=>$j->actor('alice'),'account_id'=>4,'draft_id'=>8,'repair_source_operation_id'=>'original','staged'=>[$snap]]]));
         $args=['account_id'=>4,'target_operation_id'=>'original','evidence_operation_id'=>'repair'];$p=$j->plan('mail_reconcile_operation','alice',$args,$s->preview($args,'alice'));$a=$args+['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
-        $j->execute('mail_reconcile_operation','alice',$a,fn():array=>$s->write($a,'alice'));
+        $j->execute('mail_reconcile_operation','alice',$a,fn():array=>$this->projectedEffect($j,fn():array=>$s->write($a,'alice')));
         self::assertSame('repaired',$j->get('alice','original')['state']);self::assertSame([],$store->get($old['scope_key'],'original')['resource_refs']['staged']);
     }
 

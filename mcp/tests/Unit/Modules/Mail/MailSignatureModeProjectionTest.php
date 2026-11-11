@@ -36,7 +36,7 @@ final class MailSignatureModeProjectionTest extends TestCase {
             public function preview(array $arguments,\OCA\Mcp\Mcp\Tools\ToolContext $context):array{return ($this->preview)();}
             public function execute(array $arguments,\OCA\Mcp\Mcp\Tools\ToolContext $context):array{return ($this->effect)();}
         };
-        $reader=new MailOperationReader($journal,fn()=> $policy->toolGranted($uid,$name,'mail','write_signature_mode'),null,null,null,null,null,$fresh);
+        $reader=new MailOperationReader($journal,fn()=> $policy->toolGranted($uid,$name,'mail','write_signature_mode'),null,null,null,null,$fresh);
         $module=new MailModule(array_fill_keys(array_keys(MailToolCatalog::definitions()),fn()=>$tool),$access,$journal,$reader,null,$fresh);
         $args=['account_id'=>3,'plan_state'=>'proof'];$plan=$journal->plan($name,$uid,$args,['plan_state'=>'proof']);$args['operation_id']=$plan['operation_id'];
         if(in_array($phase,['recovery','replay'],true)){$journal->execute($name,$uid,$args,function()use($journal,$uid,$refs):array{$journal->recordAuthorization($uid,$refs);$journal->checkpoint(['account_id'=>3,'alias_id'=>7,'signature_mode'=>1]);return [];});$store->compact(1001);self::assertSame(['account_id'=>3,'alias_id'=>7,'signature_mode'=>1],$journal->get($uid,$args['operation_id'])['resource_refs']);}

@@ -81,6 +81,15 @@ Raw `.eml` export is not exposed. Native Mail currently fetches the complete raw
 message before checking actual bytes; safe export needs a hard-capped stream bound
 to the same UID/generation and a confirmed, bounded Files write with status/replay.
 
+Before returning any Mail result, preview or operation status, MCP rechecks the
+original caller, connection, tool permissions and resource scopes. A concurrent
+change to the Mail or Files scope can deny the response even when the change
+concerns another resource or the write already completed. The original
+`operation_id` and durable native facts remain authoritative. Inspect that same
+operation when access is permitted again; never create a replacement operation
+or automatically repeat an effect because its response was denied. A read or
+preview may be requested again under the current permissions.
+
 ## Message flags
 
 `mail_set_message_flag` previews and confirms `seen` or `flagged` as an explicit

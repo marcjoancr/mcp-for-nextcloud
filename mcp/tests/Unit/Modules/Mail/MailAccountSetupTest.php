@@ -21,6 +21,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\TestCase;
 final class MailAccountSetupTest extends TestCase {
     use MailSettingsFixture;
+    use \OCA\Mcp\Tests\Support\Mail\MailProjectionFixture;
     private int $now=1000;
     private bool $allowed=true;
     private bool $creationAllowed=true;
@@ -40,7 +41,7 @@ final class MailAccountSetupTest extends TestCase {
     private function begin(MailAccountSetup $s,OperationJournal $j,array $args,string $tool='mail_add_account'): array {
         $p=$j->plan($tool,'alice',$args,$s->preview($args,'alice'));
         $confirmed=$args+['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
-        return [$j->execute($tool,'alice',$confirmed,fn():array=>$s->begin($confirmed,'alice')),$confirmed];
+        return [$j->execute($tool,'alice',$confirmed,fn():array=>$this->projectedEffect($j,fn():array=>$s->begin($confirmed,'alice'))),$confirmed];
     }
     public function testRepeatedBeginAndStatusNeverCreateAccountsOrStoreProfiles(): void {
         [$s,$j,$store,$native,,$db]=$this->setupService();$args=['intent'=>['email'=>'new@example.test']];
@@ -112,13 +113,13 @@ final class MailAccountSetupTest extends TestCase {
         self::assertSame('succeeded',$r['operation']['state']);self::assertSame(0,$native->writes);
     }
     public function testCompletionReplayRechecksItsSourcePermissionWithoutRepeatingBinding():void {
-        [$s,$j,, $native,$entity]=$this->setupService();$intent=['email'=>'new@example.test'];
+        [$s,$j,, $native,$entity,,$context]=$this->setupService();$fresh=$this->projectionAccess($j,$context);$intent=['email'=>'new@example.test'];
         [, $original]=$this->begin($s,$j,['intent'=>$intent]);
         $new=clone $entity;$new->setId(5);$new->setEmail('new@example.test');$native->accounts[5]=new SettingsNativeAccount($new);
-        $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($j,fn(string $uid,string $tool):bool=>$this->allowed||$tool==='mail_complete_account_setup');
+        $reader=new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader($j,fn(string $uid,string $tool):bool=>$this->allowed||$tool==='mail_complete_account_setup',fresh:$fresh);
         $factories=array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()),static fn()=>throw new \LogicException('Unused tool'));
         $factories['mail_complete_account_setup']=static fn()=>new \OCA\Mcp\Modules\Mail\Tools\CompleteAccountSetup($s);
-        $module=new \OCA\Mcp\Modules\Mail\MailModule($factories, new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()),$j,$reader);
+        $module=new \OCA\Mcp\Modules\Mail\MailModule($factories, new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()),$j,$reader,$this->projectionAuthorization($j),$fresh);
         $args=['setup_operation_id'=>$original['operation_id'],'account_id'=>5,'intent'=>$intent];
         $p=$module->preview('mail_complete_account_setup',$args,'alice');
         $args+=['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state'],'confirm'=>true];

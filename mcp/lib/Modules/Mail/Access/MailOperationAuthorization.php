@@ -20,6 +20,12 @@ final class MailOperationAuthorization {
     public function __construct(private MailAccessGuard $access,private MailServices $native,private OperationJournal $journal,
         private GrantPolicy $policy,private FilesScope $files,private FilesAccessGuard $fileGuard,private IRootFolder $roots,private \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility $tags,private MailDeliveryOrigin $deliveryOrigins){}
     public function capture(string $uid,string $tool,array $args):void {
+        $refs=$this->references($uid,$tool,$args);
+        $this->access->authorizeReferences($uid,$refs);
+        $this->journal->recordAuthorization($uid,$refs);
+    }
+    /** Pin owned resource identities and dependencies before reads/previews; never invoke for a historical replay. */
+    public function references(string $uid,string $tool,array $args):array {
         $this->access->assertReadable($uid);
         $refs=['v'=>1,'mail'=>[],'global'=>false,'files'=>[],'tools'=>[]];
         $add=function(int $account,int $mailbox=0)use(&$refs,$uid):void {
@@ -46,13 +52,22 @@ final class MailOperationAuthorization {
             $identity=$this->identity($uid,'message',(int)$args['message_id']);$account=$this->native->accountService($uid)->find($uid,$identity['account_id']);$dest=$account->getMailAccount()->getSnoozeMailboxId();
             $r=$this->identity($uid,'mailbox',(int)$dest);if($r['account_id']!==$identity['account_id'])throw new ToolFailure('Mail resource not found.');$add($r['account_id'],$r['mailbox_id']);$refs['tools'][]='mail_wake';
         }
-        if(isset($args['snooze_id'])){$r=$this->native->guardedSnooze($uid)->accessContext($uid,$args['snooze_id']);$this->deliveryOrigins->assertCurrent($uid,$r);foreach(['sourceMailboxId','snoozeMailboxId']as$key)$add($r['accountId'],$r[$key]);$refs['tools']=array_merge($refs['tools'],['mail_snooze','mail_wake']);}
-        if(isset($args['delivery_id'])){$r=$this->native->guardedDelivery($uid)->accessContext($uid,$args['delivery_id']);$this->deliveryOrigins->assertCurrent($uid,$r);$add($r['accountId']);$refs['tools'][]=$r['sourceTool'];}
+        foreach(['snooze_id'=>'guardedSnooze','delivery_id'=>'guardedDelivery','sieve_id'=>'guardedSieve']as$key=>$service)if(isset($args[$key])){
+            $origin=$this->native->{$service}($uid)->accessContext($uid,$args[$key]);
+            $operation=$this->deliveryOrigins->assertCurrent($uid,$origin);
+            $original=$this->journal->privateResources($uid,$operation)['authorization']??null;
+            if(!is_array($original))throw new ToolFailure('Operation not found.');
+            $this->assertReferences($uid,$original);
+            foreach($original['mail']as$r)$add($r['account'],$r['mailbox']);
+            $refs['global']=$refs['global']||$original['global'];
+            $refs['files']=array_merge($refs['files'],$original['files']??[]);
+            $refs['tools']=array_merge($refs['tools'],[$origin['sourceTool']],$original['tools']??[]);
+        }
         foreach(['setup_operation_id','target_operation_id','evidence_operation_id','repair_of_operation_id'] as $key)if(isset($args[$key])){
             $old=$this->journal->privateResources($uid,$args[$key]);$original=$old['authorization']??null;
             if(!is_array($original))throw new ToolFailure('Operation not found.');$this->assertReferences($uid,$original);
             foreach($original['mail'] as $r)$add($r['account'],$r['mailbox']);$refs['global']=$refs['global']||$original['global'];
-            $refs['files']=array_merge($refs['files'],$original['files']??[]);$refs['tools']=array_merge($refs['tools'],$original['tools']??[]);
+            $refs['files']=array_merge($refs['files'],$original['files']??[]);$refs['tools']=array_merge($refs['tools'],[$this->journal->get($uid,$args[$key])['tool']],$original['tools']??[]);
         }
         $paths=$args['add_files']??[];
         if($paths!==[])$refs['tools'][]='files_read';
@@ -63,8 +78,8 @@ final class MailOperationAuthorization {
         $refs['tools']=array_values(array_unique($refs['tools']));
         if(!empty($args['forward_attachment_ids']))$refs['tools'][]='mail_read_attachment';
         if(!empty($args['add_files'])||!empty($args['remove_attachment_ids']))$refs['tools']=array_values(array_unique([...$refs['tools'],'files_read','mail_attach_files']));
-        $this->access->authorizeReferences($uid,$refs);
-        $this->journal->recordAuthorization($uid,$refs);
+        if($refs['global']||$refs['mail']!==[])$this->access->authorizeReferences($uid,$refs);
+        return $refs;
     }
     private function identity(string $uid,string $kind,int $id):array {
         $reader=null;

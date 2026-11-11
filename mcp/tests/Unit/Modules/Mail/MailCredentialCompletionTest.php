@@ -22,6 +22,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use PHPUnit\Framework\TestCase;
 final class MailCredentialCompletionTest extends TestCase {
     use MailSettingsFixture;
+    use \OCA\Mcp\Tests\Support\Mail\MailProjectionFixture;
     private bool $allowed=true;
     private int $now=1000;
     private int $revision=7;
@@ -71,7 +72,7 @@ final class MailCredentialCompletionTest extends TestCase {
     private function begin(MailAccountSetup $s,OperationJournal $j):array {
         $args=['account_id'=>4,'intent'=>[]];$p=$j->plan('mail_configure_connection','alice',$args,$s->preview($args,'alice'));
         $args+=['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
-        return [$j->execute('mail_configure_connection','alice',$args,fn():array=>$s->begin($args,'alice')),$args];
+        return [$j->execute('mail_configure_connection','alice',$args,fn():array=>$this->projectedEffect($j,fn():array=>$s->begin($args,'alice'))),$args];
     }
     private function completion(MailAccountSetup $s,OperationJournal $j,string $source):array {
         $args=['setup_operation_id'=>$source,'account_id'=>4,'intent'=>[]];
@@ -79,8 +80,8 @@ final class MailCredentialCompletionTest extends TestCase {
         return $args+['operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
     }
     public function testSameValueWriteCanCompleteAndConsumeExactlyOnceWithStatusRecovery():void {
-        [$s,$j,$store,$db,,$native]=$this->setupService();[$start,$source]=$this->begin($s,$j);
-        $reader=new MailOperationReader($j,fn(string $uid,string $tool):bool=>$this->allowed,fn(string $uid,string $id):?array=>$s->pendingNativeEntry($uid,$id));
+        [$s,$j,$store,$db,$context,$native]=$this->setupService();[$start,$source]=$this->begin($s,$j);
+        $reader=new MailOperationReader($j,fn(string $uid,string $tool):bool=>$this->allowed,fn(string $uid,string $id):?array=>$s->pendingNativeEntry($uid,$id),fresh:$this->projectionAccess($j,$context));
         self::assertSame($start['url'],$reader->get('alice',$source['operation_id'])['native_setup']['url']);
         self::assertStringContainsString('?mcpSetup='.str_repeat('a',64),$start['url']);
         self::assertSame(str_repeat('a',64),$store->get($j->scopeKey('alice'),$source['operation_id'])['native_context_id']);
