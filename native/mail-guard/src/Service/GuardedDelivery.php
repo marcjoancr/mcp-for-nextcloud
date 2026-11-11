@@ -30,8 +30,16 @@ final class GuardedDelivery {
     public function due(int $limit=50):array {if(!$this->config->getSystemValueBool('app.mail.mcp-transmission.enabled',false))return [];return $this->store->due($limit);}
     public function queuedAfter(string $cursor,int $limit=25):array {return $this->store->queuedAfter($cursor,$limit);}
     public function hasUnresolved(string $uid,int $accountId):bool {return $this->store->hasUnresolved($uid,$accountId);}
-    public function cancel(string $uid,string $id,string $revision):array {
-        return $this->store->coordinator()->runOwner($uid,function()use($uid,$id,$revision):array {$r=$this->store->find($uid,$id);if(!hash_equals($r['revision'],$revision))throw new \RuntimeException('Delivery approval changed.');if($r['state']!=='cancelled'&&!$this->store->transition($r,'cancelled'))throw new \RuntimeException('Transmission may already have started; cancellation is too late.');return $this->status($uid,$id);});
+    public function cancel(string $uid,string $id,string $revision,object $fence):array {
+        return $this->store->coordinator()->runOwner($uid,function()use($uid,$id,$revision,$fence):array {
+            $r=$this->store->metadata($uid,$id);
+            $origin=['operationKeyHash'=>$r['operation_key'],'accountId'=>(int)$r['account_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'draftId'=>(int)$r['draft_id']];
+            $authorize=static fn()=>$fence->authorize($uid,$origin);
+            $authorize();
+            if(!hash_equals($r['revision'],$revision))throw new \RuntimeException('Delivery approval changed.');
+            if($r['state']!=='cancelled'&&!$this->store->cancel($r,$authorize))throw new \RuntimeException('Transmission may already have started; cancellation is too late.');
+            return $this->status($uid,$id);
+        });
     }
     /** Definite withdrawn authorization before claim is terminal and releases local native holds. No transport exists. */
     public function blockBeforeWire(string $uid,string $id):array {

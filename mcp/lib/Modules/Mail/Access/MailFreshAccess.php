@@ -18,6 +18,13 @@ final class MailFreshAccess {
     public function assertActive(string $uid):void {
         $context=$this->journal->activeAuthorization($uid);$this->assertContext($uid,$context);
     }
+    /** Pin the original request once; native callbacks must never adopt a later active operation. */
+    public function activeFence(string $uid,string $tool):\Closure {
+        $context=$this->journal->activeAuthorization($uid);
+        if($context['tool']!==$tool)throw new ToolFailure('Mail authorization changed.');
+        $this->assertContext($uid,$context);
+        return fn()=> $this->assertContext($uid,$context);
+    }
     /** Native code supplies an independently owner-verified resource before private reads. */
     public function assertResource(string $uid,string $tool,int $account,int $mailbox=0):void {
         $this->assertContext($uid,['actor_incarnation'=>$this->journal->actor($uid),'tool'=>$tool,'refs'=>['v'=>1,'mail'=>[['account'=>$account,'mailbox'=>$mailbox]],'global'=>false,'files'=>[],'tools'=>[]]]);

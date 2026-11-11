@@ -11,6 +11,11 @@ final class McpMailDeliveryTest extends IntegrationTestCase {
         if(getenv('MCP_IT_WITH_MAIL')!=='1'||getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Qualified native delivery fixture only.');
         $r=MailActor::run(MailActor::ALICE,'delivery-native',['scenario'=>$scenario]+$extra);if(isset($r['fixture_error']))self::fail(json_encode($r));self::assertTrue($r['implementation_available'],'Native immutable delivery is required.');return $r;
     }
+    public static function cancellationRevocations():array {return ['scope'=>['scope'],'tool'=>['tool'],'actor'=>['actor'],'precommit rollback'=>['commit']];}
+    #[\PHPUnit\Framework\Attributes\DataProvider('cancellationRevocations')]
+    public function testPublicCancellationRevocationInsideNativeOwnerPreservesQueueAndHold(string $mode):void {
+        $r=$this->proof('mcp_cancel_'.$mode);self::assertSame('queued',$r['status']);self::assertTrue($r['changed']);self::assertSame('queued',$r['state']);self::assertTrue($r['held']);self::assertSame(0,$r['cancelled_transitions']);self::assertTrue($r['refused']);self::assertTrue($r['smtp_unchanged']);if($mode==='commit')self::assertSame(3,$r['checks']);
+    }
     public function testSavedScopeRevocationStopsSignedChildAndOffGateFutureAuditAndHidesOriginalReceipts():void {
         foreach(['mcp_scope_revoked','mcp_future_scope_revoked'] as $mode){$r=$this->proof($mode);self::assertSame('blocked',$r['native_state'],$mode);self::assertFalse($r['has_unresolved']);self::assertTrue($r['scope_status_denied']);self::assertTrue($r['scope_replay_denied']);self::assertTrue($r['smtp_unchanged']);if($mode==='mcp_scope_revoked')self::assertSame('refused',$r['child']);else self::assertTrue($r['gate_off']);}
     }

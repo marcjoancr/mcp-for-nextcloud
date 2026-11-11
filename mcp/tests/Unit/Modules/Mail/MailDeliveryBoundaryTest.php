@@ -22,6 +22,15 @@ final class MailDeliveryBoundaryTest extends TestCase {
             $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,new \OCA\Mcp\Modules\Mail\Integration\MailGateway(new FakeMailApp(),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())),new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()),$this->createMock(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class),$db);self::assertSame($expected,$gateway->available('alice'));
         }
     }
+    public function testPublicCancellationWithoutARealFreshGuardFailsClosed():void {
+        $native=new class {public int $effects=0;public function accessContext(string $uid,string $id):array{return ['accountId'=>3];}public function cancel(string $uid,string $id,string $revision,?object $fence=null):array{$this->effects++;return [];}};
+        $services=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailServices::class);$services->method('isEnabledFor')->willReturn(true);$services->method('guardedDelivery')->willReturn($native);
+        $boundary=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);$boundary->method('runtimeMatches')->willReturn(true);$boundary->method('deliveryVerified')->willReturn(true);
+        $config=$this->createMock(\OCP\IConfig::class);$config->method('getSystemValueString')->willReturn('35.0.2.2');$db=$this->createMock(\OCP\IDBConnection::class);$db->method('getDatabaseProvider')->willReturn(\OCP\IDBConnection::PLATFORM_POSTGRES);
+        $access=new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub());
+        $gateway=new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway($services,$boundary,$config,new \OCA\Mcp\Modules\Mail\Integration\MailGateway((new FakeMailApp())->withAccount(3,'alice','A','a@example.test'),$access),$access,$this->createMock(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class),$db);
+        try{$gateway->cancel('alice',str_repeat('a',64),'revision');self::fail('Cancellation admitted without a fresh guard.');}catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){self::assertSame(0,$native->effects);}
+    }
     public function testNewNativeRuntimeDoesNotExtendUnqualifiedCorePairs():void {
         self::assertTrue(MailRuntimePairs::matches('35.0.2.2','5.12.5.11'));
         self::assertFalse(MailRuntimePairs::matches('34.0.5','5.12.5.11'));

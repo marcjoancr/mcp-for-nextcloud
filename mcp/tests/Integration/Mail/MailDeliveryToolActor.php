@@ -40,10 +40,52 @@ final class MailDeliveryToolActor {
         }while(microtime(true)<$deadline);
         throw new \RuntimeException('Private SQL mirror did not acknowledge audit boundary.');
     }
+    /** Interleave only after the real native owner lease is held; the public gateway check already succeeded. */
+    private static function cancellationRace(string $uid,string $id,string $mode):array {
+        $gateway=Server::get(MailDeliveryGateway::class);$property=new \ReflectionProperty(MailDeliveryGateway::class,'services');$original=$property->getValue($gateway);
+        $native=Server::get('OCA\Mail\Service\GuardedDelivery');$store=Server::get('OCA\Mail\Transmission\AttemptStore');$context=$native->accessContext($uid,$id);
+        $witness=Server::get(\OCP\Config\IUserConfig::class);$key=\OCA\Mcp\Mcp\Operations\DurableActorIdentity::WITNESS;$oldWitness=$witness->getValueString($uid,'mcp',$key,'');
+        $changed=false;$checks=0;$change=function()use($uid,$mode,$witness,$key,&$changed):void {
+            $changed=true;
+            if($mode==='scope')MailSavedScopeActor::scope($uid,[]);
+            elseif($mode==='actor')$witness->deleteUserConfig($uid,'mcp',$key);
+            elseif($mode==='commit'){if((MailActor::run($uid,'delivery-cancel-scope-revoke')['changed']??false)!==true)throw new \RuntimeException('Independent scope revocation failed.');}
+            else Server::get(PolicyTransaction::class)->runInternal([$uid],static fn()=>null,static function()use($uid):bool{Server::get(ToolGrantsMapper::class)->set('user',$uid,'mail_cancel_delivery','deny');return true;});
+        };
+        $proxy=new class($native,$store,$change,$mode,$checks){
+            public function __construct(private object $native,private object $store,private \Closure $change,private string $mode,public int &$checks){}
+            public function __call(string $name,array $args):mixed{return $this->native->$name(...$args);}
+            public function cancel(string $uid,string $id,string $revision,?object $fence=null):array {
+                return $this->store->coordinator()->runOwner($uid,function()use($uid,$id,$revision,$fence):array {
+                    if($this->mode!=='commit')($this->change)();
+                    $wrapped=$fence===null?null:new class($fence,$this->change,$this->mode,$this->checks){
+                        public function __construct(private object $base,private \Closure $change,private string $mode,public int &$checks){}
+                        public function authorize(string $uid,array $origin):void {++$this->checks;if($this->mode==='commit'&&$this->checks===3)($this->change)();$this->base->authorize($uid,$origin);}
+                    };
+                    return $this->native->cancel($uid,$id,$revision,...($wrapped===null?[]:[$wrapped]));
+                });
+            }
+        };
+        $services=new class($original,$proxy)extends MailServices{
+            public function __construct(private MailServices $original,private object $proxy){}
+            public function isEnabledFor(string $uid):bool{return $this->original->isEnabledFor($uid);}
+            public function guardedDelivery(string $uid):object{return $this->proxy;}
+        };
+        $plan=self::call($uid,'mail_cancel_delivery',['delivery_id'=>$id]);if(!isset($plan['plan_state']))throw new \RuntimeException('Initial cancellation was not authorized.');
+        $property->setValue($gateway,$services);
+        try{
+            $result=self::confirm($uid,'mail_cancel_delivery',['delivery_id'=>$id],$plan);
+            $state=$native->status($uid,$id)['state'];$held=false;try{$store->assertFree($uid,$context['draftId']);}catch(\Throwable){$held=true;}
+            return ['changed'=>$changed,'checks'=>$checks,'refused'=>($result['error']??false)||(($result['operation']['state']??null)==='uncertain'&&!isset($result['delivery'])),'state'=>$state,'held'=>$held,'cancelled_transitions'=>$state==='cancelled'?1:0];
+        }finally{
+            $property->setValue($gateway,$original);
+            if($mode==='actor')$witness->setValueString($uid,'mcp',$key,$oldWitness,false,\OCP\Config\IUserConfig::FLAG_SENSITIVE|\OCP\Config\IUserConfig::FLAG_INTERNAL);
+        }
+    }
     public static function run(string $uid,int $draftId,string $scenario):array {
         DeliveryFixtureBoundary::install();
         $config=Server::get(\OCP\IConfig::class);$appConfig=Server::get(\OCP\IAppConfig::class);$appConfig->clearCache(false);
-        $oldScope=Server::get(\OCA\Mcp\Db\ResourceScopeMapper::class)->forModule($uid,'mail');$scopeScenario=in_array($scenario,['mcp_scope_revoked','mcp_future_scope_revoked'],true);
+        $oldScope=Server::get(\OCA\Mcp\Db\ResourceScopeMapper::class)->forModule($uid,'mail');$cancelScenario=str_starts_with($scenario,'mcp_cancel_');$scopeScenario=$cancelScenario||in_array($scenario,['mcp_scope_revoked','mcp_future_scope_revoked'],true);
         $mailEnabled=$config->getAppValue('mail','enabled','yes');$disabledGroup=null;
         $auditCursor=$config->getAppValue('mcp','mail_delivery_audit_cursor','__mcp_fixture_absent__');
         $legacy=[];foreach([GrantPolicy::ELIGIBLE_KEY,GrantPolicy::CONNECTED_KEY]as$key)$legacy[$key]=$config->getUserValue($uid,'mcp',$key,'__mcp_fixture_absent__');
@@ -80,8 +122,8 @@ final class MailDeliveryToolActor {
                 };
                 (new \ReflectionProperty(MailDeliveryOperations::class,'gateway'))->setValue(Server::get(MailDeliveryOperations::class),$proxy);
             }
-            $tool=in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_scope_revoked','mcp_future_paused','mcp_mail_revoked'],true)?'mail_schedule':'mail_send';$args=['draft_id'=>$draftId];
-            if(in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_scope_revoked','mcp_future_paused','mcp_mail_revoked'],true))$args+=['send_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600),'timezone'=>'UTC'];
+            $tool=$cancelScenario||in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_scope_revoked','mcp_future_paused','mcp_mail_revoked'],true)?'mail_schedule':'mail_send';$args=['draft_id'=>$draftId];
+            if($cancelScenario||in_array($scenario,['mcp_schedule','mcp_future_revoked','mcp_future_scope_revoked','mcp_future_paused','mcp_mail_revoked'],true))$args+=['send_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600),'timezone'=>'UTC'];
             $plan=self::call($uid,$tool,$args);if(!isset($plan['plan_state']))throw new \RuntimeException('Actual tool preview failed: '.json_encode($plan));
             $accepted=self::confirm($uid,$tool,$args,$plan);if($scenario==='mcp_lost_ack'){
                 $key=hash('sha256',Server::get(\OCA\Mcp\Mcp\Operations\OperationJournal::class)->scopeKey($uid)."\0".$plan['operation_id']);
@@ -93,6 +135,7 @@ final class MailDeliveryToolActor {
             $id=$accepted['delivery']['id']??null;if(!is_string($id))throw new \RuntimeException('Actual tool admission failed: '.json_encode($accepted));$ids[]=$id;
             $replay=self::confirm($uid,$tool,$args,$plan);$status=self::call($uid,'mail_read_delivery',['delivery_id'=>$id]);
             $out=['basic_refused'=>($basic['error']??false),'admission'=>$accepted['operation']['state']??null,'replayed'=>$replay['operation']['replayed']??false,'delivery_id_preserved'=>($accepted['operation']['resource_refs']['delivery_id']??null)===$id,'status'=>$status['delivery']['state']??null];
+            if($cancelScenario)return $out+self::cancellationRace($uid,$id,substr($scenario,11));
             if($scenario==='mcp_schedule'){
                 $cancel=self::call($uid,'mail_cancel_delivery',['delivery_id'=>$id]);$done=self::confirm($uid,'mail_cancel_delivery',['delivery_id'=>$id],$cancel);$out['cancelled']=$done['delivery']['state']??null;
                 $context->setSelection(array_values(array_diff(self::TOOLS,[$tool])));$out['source_revoked_read']=self::call($uid,'mail_read_delivery',['delivery_id'=>$id])['error']??false;$out['source_revoked_replay']=self::confirm($uid,'mail_cancel_delivery',['delivery_id'=>$id],$cancel)['error']??false;

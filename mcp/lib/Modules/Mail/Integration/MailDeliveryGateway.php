@@ -23,7 +23,20 @@ class MailDeliveryGateway {
     public function findByOperation(string $uid,string $key):?array {$this->access->assertReadable($uid);$r=$this->native($uid)->findByOperation($uid,$key);if($r!==null)$this->accessContext($uid,$r['id']);return $r;}
     public function accessContext(string $uid,string $id):array {$this->access->assertReadable($uid);$r=$this->native($uid)->accessContext($uid,$id);$this->origins->assertCurrent($uid,$r);$this->access->requireAccount($uid,(int)$r['accountId']);return $r;}
     public function status(string $uid,string $id):array {$this->accessContext($uid,$id);return $this->native($uid)->status($uid,$id);}
-    public function cancel(string $uid,string $id,string $revision):array {$this->accessContext($uid,$id);$this->freshAccess?->assertActive($uid);return $this->native($uid)->cancel($uid,$id,$revision);}
+    public function cancel(string $uid,string $id,string $revision):array {
+        $origin=$this->accessContext($uid,$id);
+        if($this->freshAccess===null)throw new ToolFailure('Mail cancellation authorization is unavailable.');
+        $current=$this->freshAccess->activeFence($uid,'mail_cancel_delivery');
+        $fence=new class($uid,$origin,$current,$this->origins){
+            public function __construct(private string $uid,private array $origin,private \Closure $current,private \OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin $origins){}
+            public function authorize(string $uid,array $origin):void {
+                if($uid!==$this->uid||$origin!==$this->origin)throw new ToolFailure('Mail cancellation identity changed.');
+                $this->origins->assertCurrent($uid,$this->origin);
+                ($this->current)();
+            }
+        };
+        return $this->native($uid)->cancel($uid,$id,$revision,$fence);
+    }
     public function beforeWireBlock(string $uid):\Throwable {$this->admit($uid);return $this->services->beforeWireBlock($uid);}
     public function blockBeforeWire(string $uid,string $id):array {return $this->native($uid)->blockBeforeWire($uid,$id);}
     public function dispatch(string $uid,string $id,object $fence):array {return $this->native($uid)->dispatch($uid,$id,$fence);}
