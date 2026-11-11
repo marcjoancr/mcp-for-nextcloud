@@ -311,8 +311,25 @@ class Fixture:
         self.docker('exec', self.names['nc'], 's6-rc', '-d', 'change', 'svc-php-fpm')
         self.docker('exec', self.names['nc'], 's6-rc', '-u', 'change', 'svc-php-fpm')
 
+    def prepare_test_runtime(self):
+        self.phase('test-cli-runtime')
+        pin = PROFILE['testRuntime']['tokenizer']
+        archive = self.tools / 'tokenizer.apk'
+        self.call(['sh', CI / 'fetch-release.sh', pin['url'], archive])
+        if digest(archive) != pin['sha256']:
+            raise RuntimeError('Test tokenizer archive integrity mismatch')
+        archive.chmod(0o644)
+        self.docker('exec', self.names['nc'], 'apk', '--no-network', 'verify', '/mcp-it-tools/tokenizer.apk')
+        self.docker('exec', self.names['nc'], 'mkdir', '-p', '/tmp/mcp-qualified-tokenizer', '/tmp/mcp-qualified-php')
+        self.docker('exec', self.names['nc'], 'apk', '--no-network', 'extract', '--destination', '/tmp/mcp-qualified-tokenizer', '/mcp-it-tools/tokenizer.apk')
+        self.docker('exec', '-i', self.names['nc'], 'sh', '-c', 'cat > /tmp/mcp-qualified-php/tokenizer.ini; chmod 755 /tmp/mcp-qualified-php /tmp/mcp-qualified-tokenizer; chmod 644 /tmp/mcp-qualified-php/tokenizer.ini',
+                    data=b'extension=/tmp/mcp-qualified-tokenizer/usr/lib/php85/modules/tokenizer.so\n')
+        self.docker('exec', '-u', '1000:1000', '-e', 'PHP_INI_SCAN_DIR=/etc/php85/conf.d:/tmp/mcp-qualified-php', self.names['nc'], 'php', '-r',
+                    'if (!extension_loaded("tokenizer") || !function_exists("token_get_all") || PHP_VERSION !== ' + json.dumps(PROFILE['testRuntime']['phpVersion']) + ') exit(1);')
+        self.result['testRuntime'] = {'phpVersion': PROFILE['testRuntime']['phpVersion'], 'tokenizerSha256': pin['sha256'], 'alpineSignature': 'verified', 'scope': 'test CLI only'}
+
     def test_env(self):
-        return {'NEXTCLOUD_ROOT': '/var/www/html', 'MCP_IT_NC': '35', 'MCP_IT_DB': 'pgsql', 'MCP_IT_MODE': 'fresh', 'MCP_IT_WITH_MAIL': '1', 'MCP_IT_WITH_FORMS': '1',
+        return {'PHP_INI_SCAN_DIR': '/etc/php85/conf.d:/tmp/mcp-qualified-php', 'NEXTCLOUD_ROOT': '/var/www/html', 'MCP_IT_NC': '35', 'MCP_IT_DB': 'pgsql', 'MCP_IT_MODE': 'fresh', 'MCP_IT_WITH_MAIL': '1', 'MCP_IT_WITH_FORMS': '1',
                 'MCP_IT_MAIL_GUARD': '1', 'MCP_IT_EXPECTED_VERSION': self.m['version'], 'MCP_IT_SOURCE_COMMIT': self.sha, 'MCP_IT_CLEAN_MAIL': '1',
                 'MCP_IT_QUALIFIED_PROFILE': PROFILE['id'], 'MCP_IT_LEGACY_UNKNOWN': '1', 'MCP_IT_LEGACY_UID': 'mcp-it-legacy', 'MCP_IT_NATIVE_SOURCE_OFFER': '1', 'MCP_IT_PROJECTION_HTTP': '1',
                 'MCP_IT_PG_LOG': '/mcp-it-pglog/postgresql.log', 'MCP_IT_IMAP_HOST': self.names['imap'], 'MCP_IT_IMAP_PORT': '31143', 'MCP_IT_IMAP_PASSWORD': 'mcp-it-imap-password',
@@ -388,6 +405,7 @@ def main():
         fixture.bootstrap()
         fixture.install_native()
         fixture.services()
+        fixture.prepare_test_runtime()
         fixture.tests()
         if args.cleanup:
             fixture.cleanup()

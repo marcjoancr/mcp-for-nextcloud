@@ -105,7 +105,9 @@ final class MailOperationAuthorization {
             $manager=$this->native->mailManager($uid);$box=$kind==='message'?(int)$manager->getMessage($uid,$id)->getMailboxId():$id;
             $account=(int)$manager->getMailbox($uid,$box)->getAccountId();
         }
-        $owned=$this->native->accountService($uid)->find($uid,$account);
+        $missing=MailServices::CLIENT_EXCEPTION_CLASS;
+        try{$owned=$this->native->accountService($uid)->find($uid,$account);}
+        catch(\Exception $e){if(!$e instanceof $missing)throw $e;throw new ToolFailure($kind==='account'?'Mail account not found.':'Mail resource not found.');}
         if((string)$owned->getUserId()!==$uid||(int)$owned->getId()!==$account)throw new ToolFailure('Mail resource not found.');
         return ['id'=>$id,'account_id'=>$account,'mailbox_id'=>$box];
     }

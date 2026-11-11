@@ -105,7 +105,7 @@ final class McpMailOrganizationTest extends IntegrationTestCase {
             $manual=['account_id'=>$account,'subject'=>'Manual forward','forward_message_id'=>$message,'body_plain'=>'Explicit final text'];$p=$this->data($this->alice->tool('mail_write_draft',$manual));self::assertSame('Explicit final text',$p['after']['body_plain']);self::assertSame([],$p['after']['attachments']);
         }finally{
             if($draft!==null){$a=['draft_id'=>$draft];$p=$this->data($this->alice->tool('mail_delete_draft',$a));$this->alice->tool('mail_delete_draft',$a+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]);}
-            $file->delete();$q=$this->official()->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($seed['generation']))->set('tag_cache_profile',$q->createNamedParameter($seed['profile']))->where($q->expr()->eq('id',$q->createNamedParameter($message)))->executeStatement();MailActor::run(MailActor::ALICE,'native-alias-fixture',$alias);
+            $file->delete();MailLifecycleActor::restoreReply($message,$seed);MailActor::run(MailActor::ALICE,'native-alias-fixture',$alias);
         }
         self::assertSame($safe,MailActor::run(MailActor::ALICE,'c1-safety'));
     }

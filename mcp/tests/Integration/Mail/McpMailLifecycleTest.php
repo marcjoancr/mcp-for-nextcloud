@@ -90,7 +90,7 @@ final class McpMailLifecycleTest extends IntegrationTestCase {
             self::assertTrue($proof['outgoing_unchanged']);self::assertTrue($proof['smtp_unchanged']);
         } finally {
             if($draftId!==null){$a=['draft_id'=>$draftId];$p=$this->data($this->alice->tool('mail_delete_draft',$a));$this->alice->tool('mail_delete_draft',$a+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]);}
-            $q=$this->official()->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($seed['generation']))->set('tag_cache_profile',$q->createNamedParameter($seed['profile']))->where($q->expr()->eq('id',$q->createNamedParameter($source)))->executeStatement();
+            MailLifecycleActor::restoreReply($source,$seed);
             MailActor::run(MailActor::ALICE,'native-alias-fixture',$alias);
         }
     }

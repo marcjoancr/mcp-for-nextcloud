@@ -32,4 +32,28 @@ final class MailLegacyScopeTest extends TestCase {
         self::assertSame($allowed,$captured);self::assertSame($allowed,($r['operation']['state']??null)==='succeeded');
         if($allowed)self::assertSame([['account'=>3,'mailbox'=>7]],$journal->privateResources('alice',$plan['operation_id'])['authorization']['mail']);
     }
+    public function testLegacyAccountFailuresKeepThePublicContractWithoutMaskingOtherFailures():void {
+        require_once __DIR__.'/../../../stubs/OCA/Mail/Exception/ClientException.php';
+        $sql=new SqliteDatabase($this,[new \OCA\Mcp\Migration\Version002700Date20261107000000()]);$journal=new OperationJournal(new OperationsMapper($sql->connection()),new PlanState((new InMemoryConfig())->mock($this)),new ConnectionContext(),$this->createStub(\OCP\AppFramework\Utility\ITimeFactory::class), new \OCA\Mcp\Tests\Support\OperationActors());
+        $scope=new ScopeStub();$native=$this->createMock(MailServices::class);
+        $native->method('boundedMetadata')->willThrowException(new MailUnavailableException());
+        $native->method('accountService')->willReturn(new class {
+            public function find(string $uid,int $id):object {
+                if(in_array($id,[5,999],true))throw new \OCA\Mail\Exception\ClientException('PRIVATE_NATIVE_ACCOUNT_CANARY');
+                if($id===99)throw new \RuntimeException('Unrelated native storage failure');
+                return new class($uid,$id){public function __construct(private string $uid,private int $id){}public function getId():int{return $this->id;}public function getUserId():string{return $this->id===6?'bob':$this->uid;}};
+            }
+        });
+        $auth=new MailOperationAuthorization(new MailAccessGuard($scope),$native,$journal,$this->createMock(GrantPolicy::class),$this->createMock(FilesScope::class),$this->createMock(FilesAccessGuard::class),$this->createMock(\OCP\Files\IRootFolder::class),new \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility($native,new MailAccessGuard($scope)),$this->createMock(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class));
+        foreach([5,999]as$id){
+            try{$auth->references('alice','mail_list_mailboxes',['account_id'=>$id]);self::fail('Unavailable account admitted');}
+            catch(\Throwable $e){self::assertInstanceOf(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class,$e);self::assertSame('Mail account not found.',$e->getMessage());self::assertNull($e->getPrevious());}
+        }
+        self::assertSame([], $auth->references('alice','mail_list_mailboxes',['account_id'=>3])['mail']);
+        try{$auth->references('alice','mail_list_mailboxes',['account_id'=>6]);self::fail('Wrong native owner admitted');}catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){self::assertTrue(true);}
+        try{$auth->references('alice','mail_list_mailboxes',['account_id'=>99]);self::fail('Storage error hidden');}catch(\RuntimeException $e){self::assertSame('Unrelated native storage failure',$e->getMessage());}
+        $scope->restrict('mail',[]);
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);$auth->references('alice','mail_list_mailboxes',['account_id'=>3]);
+    }
+
 }

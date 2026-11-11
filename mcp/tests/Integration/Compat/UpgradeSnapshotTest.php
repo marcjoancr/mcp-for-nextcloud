@@ -39,6 +39,7 @@ use OCP\Server;
  */
 final class UpgradeSnapshotTest extends IntegrationTestCase {
     private array $seed = [];
+    private static ?array $actorWitnesses = null;
     private IConfig $config;
     private IAppConfig $appConfig;
     private IUserConfig $userConfig;
@@ -54,10 +55,25 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
         $this->config = Server::get(IConfig::class);
         $this->appConfig = Server::get(IAppConfig::class);
         $this->userConfig = Server::get(IUserConfig::class);
+        $this->raw(); // Validate new-user lifecycle metadata separately before any legacy comparisons.
     }
 
     private function raw(): array {
-        return SnapshotProbe::raw($this->config, $this->appConfig, $this->userConfig, SnapshotProbe::uids());
+        return LegacyCatalogContract::legacyPreferences(SnapshotProbe::raw($this->config, $this->appConfig, $this->userConfig, SnapshotProbe::uids()),$this->actors());
+    }
+
+    /** Registry/witness values must survive migrations, reads and token refresh unchanged; never print them. */
+    private function actors():array {
+        $registry=Server::get(\OCA\Mcp\Db\ActorIncarnationsMapper::class);$current=[];
+        foreach(SnapshotProbe::uids()as$uid){
+            $value=$registry->get($uid);
+            if(!is_string($value)||preg_match('/^[a-f0-9]{64}$/D',$value)!==1)throw new \UnexpectedValueException('Missing snapshot actor registry.');
+            $current[$uid]=$value;
+        }
+        if(count(array_unique($current))!==9)throw new \UnexpectedValueException('Snapshot actors must be distinct.');
+        if(self::$actorWitnesses===null)self::$actorWitnesses=$current;
+        elseif(self::$actorWitnesses!==$current)throw new \UnexpectedValueException('Snapshot actor registry rotated.');
+        return $current;
     }
 
     public function testThePlanCoversEveryOperationInEveryStateAndTheBaselineStoredExactlyIt(): void {
@@ -148,7 +164,7 @@ final class UpgradeSnapshotTest extends IntegrationTestCase {
         $this->assertContains('OCA\\Mcp\\Service\\GrantPolicy', $read['loaded']);
         $this->assertContains('OCA\\Mcp\\OAuth\\OAuthStore', $read['loaded']);
         $this->assertSame($this->seed['answers'], $read['answers']);
-        $this->assertSame($this->seed['raw'], $read['raw']);
+        $this->assertSame($this->seed['raw'], LegacyCatalogContract::legacyPreferences($read['raw'],$this->actors()));
         $this->assertSame($this->seed['raw'], $this->raw());
     }
 

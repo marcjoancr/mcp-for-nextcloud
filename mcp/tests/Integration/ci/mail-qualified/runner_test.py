@@ -159,7 +159,7 @@ class RunnerTest(unittest.TestCase):
                     return b'{"ok":true,"result":{}}'
                 f.call = command
                 f.docker = docker
-                for name in ['verify_inputs', 'images', 'bootstrap', 'install_native', 'services', 'publish']:
+                for name in ['verify_inputs', 'images', 'bootstrap', 'install_native', 'services', 'prepare_test_runtime', 'publish']:
                     setattr(f, name, Mock())
                 descriptor = base / 'inputs.json'
                 descriptor.write_text('{}')
@@ -275,6 +275,44 @@ class RunnerTest(unittest.TestCase):
                             f.s3_ready()
                         self.assertNotIn('s3', f.result)
                         self.assertLessEqual(f.docker.call_count, 1, 'Incomplete writes must never be replayed')
+
+    def test_tokenizer_requires_exact_hash_alpine_signature_and_matching_cli_abi(self):
+        import hashlib
+        for failure in [None, 'hash', 'signature', 'abi']:
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                f = run.Fixture.__new__(run.Fixture)
+                f.tools = Path(directory)
+                f.names = {'nc': 'synthetic-nc', 'imap': 'synthetic-imap'}
+                f.result = {'operatorEnabled': False}
+                f.m, f.sha = {'version': '2.8.0'}, 'a' * 40
+                payload = b'synthetic-public-apk'
+                def call(args, **kwargs):
+                    Path(args[-1]).write_bytes(payload)
+                    return subprocess.CompletedProcess(args, 0)
+                def docker(*args, **kwargs):
+                    if failure == 'signature' and 'verify' in args:raise RuntimeError('Invalid package signature')
+                    if failure == 'abi' and '-r' in args:raise RuntimeError('Wrong PHP ABI')
+                    return b''
+                f.call, f.docker = Mock(side_effect=call), Mock(side_effect=docker)
+                pin = {'url': 'https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64/php85-tokenizer-8.5.12-r0.apk', 'sha256': ('0' * 64 if failure == 'hash' else hashlib.sha256(payload).hexdigest())}
+                with patch.dict(run.PROFILE, testRuntime={'phpVersion': '8.5.12', 'tokenizer': pin}), contextlib.redirect_stdout(io.StringIO()):
+                    if failure:
+                        with self.assertRaises(RuntimeError):f.prepare_test_runtime()
+                        self.assertNotIn('testRuntime', f.result)
+                    else:
+                        f.prepare_test_runtime()
+                        self.assertEqual('verified', f.result['testRuntime']['alpineSignature'])
+                        self.assertEqual('/etc/php85/conf.d:/tmp/mcp-qualified-php', f.test_env()['PHP_INI_SCAN_DIR'])
+                calls = [c.args for c in f.docker.call_args_list]
+                self.assertFalse(any('install' in c or 'add' in c for c in calls), 'The test dependency must not install packages')
+                if failure == 'hash':self.assertEqual([], calls)
+                if failure == 'signature':self.assertFalse(any('extract' in c for c in calls))
+                if failure is None:
+                    verify = next(i for i,c in enumerate(calls) if 'verify' in c)
+                    extract = next(i for i,c in enumerate(calls) if 'extract' in c)
+                    self.assertLess(verify, extract)
+                    self.assertTrue(all('--no-network' in c for c in calls if 'apk' in c))
+                    self.assertTrue(any('extension=/tmp/mcp-qualified-tokenizer/usr/lib/php85/modules/tokenizer.so' in c.kwargs.get('data', b'').decode() for c in f.docker.call_args_list))
 
     def test_plan_has_no_ports_and_all_digest_pins(self):
         self.assertEqual([], run.PROFILE['publishedPorts'])

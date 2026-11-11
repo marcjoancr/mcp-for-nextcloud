@@ -27,8 +27,20 @@ final class MailLifecycleActor {
             if($generation!==\OCA\Mcp\Modules\Mail\Integration\MailCacheGeneration::of($box))throw new \RuntimeException('Synthetic reply seed generation changed.');
             $query=new \Horde_Imap_Client_Fetch_Query();$query->uid();$query->envelope();$data=$client->fetch($box->getName(),$query,['ids'=>new \Horde_Imap_Client_Ids([$m->getUid()])])->first();
             if($data===null||(int)$data->getUid()!==$m->getUid()||(string)$data->getEnvelope()->message_id!==(string)$m->getMessageId())throw new \RuntimeException('Synthetic reply source identity changed.');
-            $before=['generation'=>$m->getTagCacheGeneration(),'profile'=>$m->getTagCacheProfile()];$db=Server::get(\OCP\IDBConnection::class);$q=$db->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($generation))->set('tag_cache_profile',$q->createNamedParameter(\OCA\Mail\Db\TagProfile::account($a->getMailAccount())))->where($q->expr()->eq('id',$q->createNamedParameter($messageId)))->executeStatement();return $before;
+            $before=self::replyProvenance($m);if(!$before['supported'])return $before;$db=Server::get(\OCP\IDBConnection::class);$q=$db->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($generation))->set('tag_cache_profile',$q->createNamedParameter(\OCA\Mail\Db\TagProfile::account($a->getMailAccount())))->where($q->expr()->eq('id',$q->createNamedParameter($messageId)))->executeStatement();return $before;
         }finally{$client->logout();}
+    }
+    /** Native Entity accessors are dynamic; field types distinguish stock from complete guarded provenance. */
+    public static function replyProvenance(object $message):array {
+        $fields=$message->getFieldTypes();$generation=array_key_exists('tagCacheGeneration',$fields);$profile=array_key_exists('tagCacheProfile',$fields);
+        if(!$generation&&!$profile)return ['supported'=>false];
+        if(!$generation||!$profile)throw new \RuntimeException('Incomplete native reply provenance fields.');
+        return ['supported'=>true,'generation'=>$message->getTagCacheGeneration(),'profile'=>$message->getTagCacheProfile()];
+    }
+    public static function restoreReply(int $messageId,array $before):void {
+        if(($before['supported']??null)===false)return;
+        if(($before['supported']??null)!==true||!array_key_exists('generation',$before)||!array_key_exists('profile',$before))throw new \RuntimeException('Missing reply provenance checkpoint.');
+        $q=Server::get(\OCP\IDBConnection::class)->getQueryBuilder();$q->update('mail_messages')->set('tag_cache_generation',$q->createNamedParameter($before['generation']))->set('tag_cache_profile',$q->createNamedParameter($before['profile']))->where($q->expr()->eq('id',$q->createNamedParameter($messageId)))->executeStatement();
     }
     /** A different native PHP request attempts a noncredential write while sync owns the account. */
     public static function syncContender(string $uid,int $accountId):array {

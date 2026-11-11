@@ -11,6 +11,13 @@
     "s3": "chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
     "imap": "dovecot/dovecot:2.4.5@sha256:1b3041c09854aa53b6b57ac0e613fbfb9b859bbf976d808b1b12dba0444db4c6"
   },
+  "testRuntime": {
+    "phpVersion": "8.5.12",
+    "tokenizer": {
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/community/x86_64/php85-tokenizer-8.5.12-r0.apk",
+      "sha256": "5020af709d77e877db0bd5ed4b3fa3fa8eed037bfbcc4e5852aa5a72390accd1"
+    }
+  },
   "upstreamRuntime": {
     "url": "https://github.com/nextcloud-releases/mail/releases/download/v5.12.5/mail-v5.12.5.tar.gz",
     "sha256": "c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0"
