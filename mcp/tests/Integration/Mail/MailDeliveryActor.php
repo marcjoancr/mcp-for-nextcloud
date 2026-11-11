@@ -44,7 +44,7 @@ final class MailDeliveryActor {
         $directory=getenv('MCP_IT_DELIVERY_DIRECTORY');if(!is_string($directory)||$directory===''||!is_file($directory.'/mode.json'))throw new \RuntimeException('Synthetic delivery recorder required.');
         $mode=json_decode((string)file_get_contents($directory.'/mode.json'),true,16,JSON_THROW_ON_ERROR);if(($mode['fixture']??null)!=='mcp-synthetic-delivery-v1'||($mode['port']??33466)!==33466)throw new \RuntimeException('Unexpected synthetic SMTP identity.');
         $scenario=$in['scenario'];$config=Server::get(IConfig::class);$db=Server::get(IDBConnection::class);$accounts=Server::get('OCA\\Mail\\Service\\AccountService');$account=$accounts->findByUserId($uid)[0];$entity=$account->getMailAccount();
-        $original=[];foreach(['OutboundHost','OutboundPort','OutboundSslMode','InboundHost','InboundPort','InboundSslMode','Debug'] as $field)$original[$field]=$entity->{'get'.$field}();
+        $original=[];foreach(['OutboundHost','OutboundPort','OutboundSslMode','InboundHost','InboundPort','InboundSslMode','Debug','SentMailboxId'] as $field)$original[$field]=$entity->{'get'.$field}();
         $settings=[];foreach(['app.mail.mcp-transmission.enabled','app.mail.verify-tls-peer','app.mail.debug','app.mail.smtp.timeout'] as $key)$settings[$key]=$config->getSystemValue($key,null);
         $drafts=Server::get('OCA\\Mail\\Service\\DraftsService');$attachments=Server::get('OCA\\Mail\\Service\\Attachment\\AttachmentService');$aliases=Server::get('OCA\\Mail\\Service\\AliasesService');$service=Server::get('OCA\\Mail\\Service\\GuardedDelivery');$store=Server::get('OCA\\Mail\\Transmission\\AttemptStore');$draft=null;$alias=null;$queued=null;$copyPeer=null;$copyPipes=[];
         try{
@@ -58,7 +58,8 @@ final class MailDeliveryActor {
             $a=$attachments->addFileFromString($uid,'synthetic.txt','text/plain',"Synthetic attachment\0bytes",null,'attachment');
             $m=new \OCA\Mail\Db\LocalMessage();$m->setType(1);$m->setAccountId($account->getId());$m->setAliasId($alias->getId());$m->setSubject('Synthetic immutable delivery');$m->setBodyPlain(".first\n.second\r\nlast");$m->setBodyHtml('');$m->setEditorBody($m->getBodyPlain());$m->setHtml(false);$m->setFailed(true);$m->setMcpDraftOnly(true);$m->setUpdatedAt(time());
             $draft=$drafts->saveMessage($account,$m,[['email'=>'one@example.test']],[],[['email'=>'hidden@example.test']],[['type'=>'local','id'=>$a->getId()]]);
-            $preview=$service->preview($uid,$draft->getId());$key=bin2hex(random_bytes(16));$admit=fn()=>$service->queue($uid,$draft->getId(),$preview['revision'],$key,1,'mail_send',0,'UTC');
+            if(in_array($scenario,['mcp_send','mcp_schedule','mcp_revoked','mcp_repair','mcp_lost_ack','mcp_future_revoked'],true)){$actual=MailDeliveryToolActor::run($uid,$draft->getId(),$scenario);return ['implementation_available'=>true]+$actual+['smtp_unchanged'=>$before['commands']===self::state($directory)['commands']];}
+            $preview=$service->preview($uid,$draft->getId());$key=bin2hex(random_bytes(16));$admit=fn()=>$service->queue($uid,$draft->getId(),$preview['revision'],$key,1,'mail_send',0,'UTC',in_array($scenario,['automatic_sent','automatic_target_changed'],true)?($preview['sentTarget']??null):null);
             if($scenario==='stale'){
                 $aliases->update($uid,$alias->getId(),'changed@example.test','Changed identity',null);$changed=self::refused($admit);$aliases->delete($uid,$alias->getId());$alias=null;$missing=self::refused(fn()=>$service->preview($uid,$draft->getId()));
                 return ['implementation_available'=>true,'changed_sender_refused'=>$changed,'missing_sender_refused'=>$missing,'smtp_unchanged'=>$before['commands']===self::state($directory)['commands']];
@@ -85,12 +86,23 @@ final class MailDeliveryActor {
                 public function __construct(private string $scenario,private string $owner,private array $queued){}
                 public function authorize(string $uid,int $connection,string $tool,int $account):void {
                     if($uid!==$this->owner||$connection!==1||!in_array($tool,['mail_send','mail_sent_repair'],true)||$account!==$this->queued['accountId'])throw new \RuntimeException('Current authorization mismatch.');
-                    if($this->scenario==='revoked')throw new \RuntimeException('Current authorization revoked.');
+                    if($this->scenario==='revoked'){if(class_exists('OCA\\Mail\\Transmission\\BeforeWireBlock'))throw new \OCA\Mail\Transmission\BeforeWireBlock('Current authorization revoked.');throw new \RuntimeException('Current authorization revoked.');}
+                    if($this->scenario==='unavailable')throw new \RuntimeException('Synthetic policy read unavailable.',503);
                     if($this->scenario==='concurrent'&&!$this->called){$this->called=true;foreach([false,true] as $cancel)$this->contenders[]=MailActor::run($uid,'delivery-contender',['id'=>$this->queued['id'],'revision'=>$this->queued['revision'],'cancel'=>$cancel])['refused'];}
                 }
             };
             if(in_array($scenario,['kill_before','kill_after_data'],true)){$out['kill_proof']=self::killProof($uid,$queued,$directory,$before,$scenario==='kill_before');$out['state_after_kill']=$service->status($uid,$queued['id'])['state'];}
+            if($scenario==='automatic_target_changed'){
+                $mailboxes=Server::get('OCA\\Mail\\Db\\MailboxMapper')->findAll($account);$replacement=null;
+                foreach($mailboxes as$mailbox)if((int)$mailbox->getId()!==(int)$entity->getSentMailboxId()){$replacement=(int)$mailbox->getId();break;}
+                if($replacement===null)throw new \RuntimeException('A second owned folder is required by this fixture.');
+                $entity->setSentMailboxId($replacement);$accounts->update($entity);
+            }
             $result=$service->dispatch($uid,$queued['id'],$fence);$beforeReplay=self::state($directory);$again=$service->dispatch($uid,$queued['id'],$fence);$after=self::state($directory);
+            if(in_array($result['state'],['queued','blocked','uncertain'],true)){
+                $out['source_mutation_refused']=self::refused(function()use($uid,$drafts,$draft,$account):void {$fresh=$drafts->getMessage($draft->getId(),$uid);$fresh->setBodyPlain('Owner recovery after proven before-wire block.');$drafts->updateMessage($account,$fresh,[['email'=>'one@example.test']],[],[]);});
+                $out['has_unresolved']=$service->hasUnresolved($uid,$account->getId());
+            }
             $out+=['state'=>$result['state'],'sent_state'=>$result['sentState'],'replay_state'=>$again['state'],'replay_no_connection'=>$beforeReplay['connections']===$after['connections'],'smtp_submissions'=>($after['commands']['MAIL']??0)-($before['commands']['MAIL']??0),'connections'=>$after['connections']-$before['connections'],'contenders'=>$fence->contenders,'cancel_too_late'=>self::refused(fn()=>$service->cancel($uid,$queued['id'],$queued['revision']))];
             if($result['state']==='accepted'){
                 $row=$store->find($uid,$queued['id']);$artifact=json_decode($row['artifact'],true,512,JSON_THROW_ON_ERROR);$last=end($after['messages']);$out['exact_wire_bytes']=$last['sha256']===$artifact['smtpHash'];$out['bcc_private']=!str_contains($artifact['smtp'],'Bcc:')&&str_contains($artifact['fcc'],'Bcc:');

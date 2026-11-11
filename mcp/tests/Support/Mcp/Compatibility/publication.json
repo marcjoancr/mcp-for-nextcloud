@@ -18711,6 +18711,166 @@
                             }
                         }
                     }
+                },
+                {
+                    "name": "mail_send",
+                    "module": "mail",
+                    "operation": "send",
+                    "app": "mail",
+                    "description": "Approves one immutable local draft for one immediate SMTP attempt. Requires persistent OAuth source selection. Acceptance is not delivery; never repeat uncertain attempts.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "draft_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_schedule",
+                    "module": "mail",
+                    "operation": "schedule",
+                    "app": "mail",
+                    "description": "Approves one immutable local draft for an explicit RFC3339 instant and matching IANA timezone. Live original authorization is required when due.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "send_at": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "description": "RFC3339 with explicit offset"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "maxLength": 100,
+                                "description": "Matching IANA timezone"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "draft_id",
+                            "send_at",
+                            "timezone"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_cancel_delivery",
+                    "module": "mail",
+                    "operation": "cancel_delivery",
+                    "app": "mail",
+                    "description": "Cancels an owned queued delivery before its attempt. Requires original connection and current source permission. Cannot recall mail.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_delivery",
+                    "module": "mail",
+                    "operation": "read_delivery",
+                    "app": "mail",
+                    "description": "Reads sanitized durable delivery and Sent-copy evidence. Requires the original OAuth connection and current source selection. Never dispatches, retries, repairs or searches the mailbox.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_sent_repair",
+                    "module": "mail",
+                    "operation": "repair_sent",
+                    "app": "mail",
+                    "description": "Copies accepted frozen mail to the approved exact Sent target through a bounded IMAP-only child. Never sends SMTP or repeats an uncertain APPEND.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ],
             [
@@ -41981,6 +42141,166 @@
                             }
                         }
                     }
+                },
+                {
+                    "name": "mail_send",
+                    "module": "mail",
+                    "operation": "send",
+                    "app": "mail",
+                    "description": "Approves one immutable local draft for one immediate SMTP attempt. Requires persistent OAuth source selection. Acceptance is not delivery; never repeat uncertain attempts.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "draft_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_schedule",
+                    "module": "mail",
+                    "operation": "schedule",
+                    "app": "mail",
+                    "description": "Approves one immutable local draft for an explicit RFC3339 instant and matching IANA timezone. Live original authorization is required when due.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "send_at": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "description": "RFC3339 with explicit offset"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "maxLength": 100,
+                                "description": "Matching IANA timezone"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "draft_id",
+                            "send_at",
+                            "timezone"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_cancel_delivery",
+                    "module": "mail",
+                    "operation": "cancel_delivery",
+                    "app": "mail",
+                    "description": "Cancels an owned queued delivery before its attempt. Requires original connection and current source permission. Cannot recall mail.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_delivery",
+                    "module": "mail",
+                    "operation": "read_delivery",
+                    "app": "mail",
+                    "description": "Reads sanitized durable delivery and Sent-copy evidence. Requires the original OAuth connection and current source selection. Never dispatches, retries, repairs or searches the mailbox.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_sent_repair",
+                    "module": "mail",
+                    "operation": "repair_sent",
+                    "app": "mail",
+                    "description": "Copies accepted frozen mail to the approved exact Sent target through a bounded IMAP-only child. Never sends SMTP or repeats an uncertain APPEND.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
                 }
             ],
             [
@@ -65250,6 +65570,166 @@
                                 }
                             }
                         }
+                    }
+                },
+                {
+                    "name": "mail_send",
+                    "module": "mail",
+                    "operation": "send",
+                    "app": "mail",
+                    "description": "Approves one immutable local draft for one immediate SMTP attempt. Requires persistent OAuth source selection. Acceptance is not delivery; never repeat uncertain attempts.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "draft_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_schedule",
+                    "module": "mail",
+                    "operation": "schedule",
+                    "app": "mail",
+                    "description": "Approves one immutable local draft for an explicit RFC3339 instant and matching IANA timezone. Live original authorization is required when due.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "draft_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "send_at": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "description": "RFC3339 with explicit offset"
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "maxLength": 100,
+                                "description": "Matching IANA timezone"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "draft_id",
+                            "send_at",
+                            "timezone"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_cancel_delivery",
+                    "module": "mail",
+                    "operation": "cancel_delivery",
+                    "app": "mail",
+                    "description": "Cancels an owned queued delivery before its attempt. Requires original connection and current source permission. Cannot recall mail.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_read_delivery",
+                    "module": "mail",
+                    "operation": "read_delivery",
+                    "app": "mail",
+                    "description": "Reads sanitized durable delivery and Sent-copy evidence. Requires the original OAuth connection and current source selection. Never dispatches, retries, repairs or searches the mailbox.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "name": "mail_sent_repair",
+                    "module": "mail",
+                    "operation": "repair_sent",
+                    "app": "mail",
+                    "description": "Copies accepted frozen mail to the approved exact Sent target through a bounded IMAP-only child. Never sends SMTP or repeats an uncertain APPEND.",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "delivery_id": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "operation_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Repeat operation_id from the approved plan with confirm:true; reuse it to inspect/recover a lost response, never generate a replacement after an uncertain result."
+                            },
+                            "plan_state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Opaque value of the plan. Send it back unchanged together with confirm: true. If the state changed since the plan, nothing is written and the answer is the new plan."
+                            }
+                        },
+                        "required": [
+                            "delivery_id"
+                        ],
+                        "additionalProperties": false
                     }
                 }
             ],

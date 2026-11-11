@@ -24,7 +24,7 @@ final class MailBoundedReadsContractTest extends TestCase {
 		$currentMailNames = array_keys(MailToolCatalog::definitions());
 
 		self::assertSame(array_slice($frozenMailNames, 0, 41), array_slice($currentMailNames, 0, 41));
-		self::assertSame(['mail_read_outbox', 'mail_read_message_metadata'], array_slice($currentMailNames, 41));
+		self::assertSame(['mail_read_outbox', 'mail_read_message_metadata'], array_slice($currentMailNames, 41, 2));
 	}
 
 	public function testOutboxAndMetadataReadsArePublishedWithSeparateSafeContracts(): void {
@@ -34,7 +34,7 @@ final class MailBoundedReadsContractTest extends TestCase {
 		self::assertSame('read_outbox', $definitions['mail_read_outbox']['operation']);
 		self::assertTrue(WriteGate::isWrite($definitions['mail_read_outbox']) === false);
 		self::assertContains('read_outbox', GrantPolicy::CATALOG['mail']);
-		self::assertArrayNotHasKey('mail_send', $definitions);
+		self::assertSame('send',$definitions['mail_send']['operation']);
 
 		self::assertArrayHasKey('mail_read_message_metadata', $definitions);
 		self::assertSame('read_message', $definitions['mail_read_message_metadata']['operation']);

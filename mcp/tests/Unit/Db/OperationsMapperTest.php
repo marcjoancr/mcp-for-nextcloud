@@ -30,6 +30,12 @@ final class OperationsMapperTest extends TestCase {
         self::assertFalse($store->reserve($row),'Completed operation keys remain non-replay tombstones.');
         self::assertNull($store->get(str_repeat('f',64),'one'));
     }
+    public function testDeliveryReceiptSurvivesCompactionWithoutContentOrPrivateArtifact():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $row=['scope_key'=>'scope','operation_id'=>'send','actor_uid'=>'alice','tool_name'=>'mail_send','effect_digest'=>'digest','target_key'=>null,'state'=>'running','resource_refs'=>[],'created_at'=>100,'updated_at'=>100];
+        $store->reserve($row);$id=str_repeat('a',64);$store->finish('scope','send','succeeded',['delivery_id'=>$id,'source_tool'=>'mail_send','body'=>'private','artifact'=>'private'],100);
+        $store->compact(1000);self::assertSame(['delivery_id'=>$id,'source_tool'=>'mail_send'],$store->get('scope','send')['resource_refs']);
+    }
     public function testOnlyOneRepairOrCleanupCanClaimAPartialOperation(): void {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);
         $store=new OperationsMapper($db->connection());

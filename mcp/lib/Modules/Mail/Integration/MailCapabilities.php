@@ -20,6 +20,7 @@ final class MailCapabilities {
         private IConfig $config,
         private ?MailNativeBoundary $boundary = null,
         private ?MailTagBoundary $tagBoundary = null,
+        private ?MailDeliveryGateway $delivery = null,
     ) {}
 
     /** Read-only metadata: never instantiate an IMAP/SMTP client or run a lifecycle experiment here. */
@@ -73,7 +74,9 @@ final class MailCapabilities {
             $capabilities['reply_parent_imap']=['status'=>'verified','reason'=>'native_draft_identity_v6'];
             $capabilities['sender_alias_imap']=['status'=>'verified','reason'=>'native_owned_draft_alias_v6'];
         }
-        $capabilities['send'] = ['status' => 'disabled', 'reason' => 'sending_not_authorized'];
+        $delivery=$known&&$this->delivery?->available($uid);
+        foreach(['cancel_delivery','read_delivery','repair_sent']as$key)$capabilities[$key]=$delivery?['status'=>'verified','reason'=>'native_frozen_delivery_v11']:['status'=>'unverified','reason'=>'native_delivery_not_qualified'];
+        foreach(['send','schedule']as$key)$capabilities[$key]=$delivery&&$this->delivery->enabled()?['status'=>'verified','reason'=>'native_frozen_delivery_v11']:['status'=>'disabled','reason'=>'sending_not_authorized'];
         return ['native_pair' => ['nextcloud' => $server, 'mail' => $mail], 'evidence' => $evidence,
             'capabilities' => $capabilities];
     }

@@ -160,6 +160,19 @@ class MailServices {
     public function guardedMailboxes(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxMutations',$uid);}
     public function guardedMutations(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\GuardedMessageMutations',$uid);}
 
+    public function beforeWireBlock(string $uid):\Throwable {
+        $class='OCA\\Mail\\Transmission\\BeforeWireBlock';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();
+        return new $class('Delivery authorization was withdrawn before claim.');
+    }
+    public function guardedDelivery(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDelivery',$uid);}
+    public function sentCopyRepair(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\SentCopyRepair',$uid);}
+    /** Global metadata query only. Every effect rechecks per-user enablement in its signed child. */
+    public function guardedDeliveryWorker():object {
+        if(!AppEnablement::forAnyone($this->appManager,self::APP_ID))throw new MailUnavailableException();
+        $this->appManager->loadApp(self::APP_ID);
+        $class='OCA\\Mail\\Service\\GuardedDelivery';if(!class_exists($class))throw new MailUnavailableException();
+        $service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
+    }
     public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}
 
     public function newAliasMapper(string $uid,\OCP\IDBConnection $db):object {

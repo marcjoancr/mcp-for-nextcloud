@@ -18,13 +18,26 @@ final class SentCopyRepair {
         $client->mcpExpectCopyValidity($validity);
         $revision=hash('sha256',json_encode([$account->getId(),(int)$account->getMailAccount()->getMcpAuthRevision(),$id,$mailbox->getName(),$validity],JSON_THROW_ON_ERROR));return [$client,$mailbox,$validity,$revision];
     }
+    /** Read-only target evidence used by the initial send approval; absent evidence leaves a separate repair. */
+    public function approvalTarget(string $uid,int $accountId):?array {
+        try {
+            [$client,$mailbox,$validity,$revision]=$this->target($uid,['state'=>'accepted','sent_state'=>'pending','account_id'=>$accountId,'artifact'=>'{"fcc":"x"}']);
+            try{return ['mailboxId'=>(int)$mailbox->getId(),'revision'=>$revision];}finally{try{$client->logout();}catch(\Throwable){}}
+        }catch(\Throwable){return null;}
+    }
+    /** Initial queue approval already bound this target. This path requires only the originating source tool. */
+    public function copyApproved(string $uid,string $id,array $target,object $fence):array {
+        $r=$this->store->find($uid,$id);
+        return $this->copy($uid,$id,hash('sha256',$r['revision'].':'.$target['revision']),$fence,false);
+    }
     public function preview(string $uid,string $id):array {
         return $this->store->coordinator()->runOwner($uid,function()use($uid,$id):array {$r=$this->store->find($uid,$id);[$client,$mailbox,$validity,$target]=$this->target($uid,$r);try{return DeliveryState::receipt($r)+['targetMailboxId'=>(int)$mailbox->getId(),'targetRevision'=>$target,'repairRevision'=>hash('sha256',$r['revision'].':'.$target)];}finally{try{$client->logout();}catch(\Throwable){}}});
     }
-    public function repair(string $uid,string $id,string $approvedRevision,object $fence):array {
-        return $this->store->coordinator()->runOwner($uid,function($scope)use($uid,$id,$approvedRevision,$fence):array {
+    public function repair(string $uid,string $id,string $approvedRevision,object $fence):array {return $this->copy($uid,$id,$approvedRevision,$fence,true);}
+    private function copy(string $uid,string $id,string $approvedRevision,object $fence,bool $separate):array {
+        return $this->store->coordinator()->runOwner($uid,function($scope)use($uid,$id,$approvedRevision,$fence,$separate):array {
             $r=$this->store->find($uid,$id);if($r['state']!=='accepted'||$r['sent_state']!=='pending')return DeliveryState::receipt($r);
-            $authorize=function()use($uid,$r,$scope,$fence):void {$scope->assertOwned();$fence->authorize($uid,(int)$r['connection_id'],$r['source_tool'],(int)$r['account_id']);$fence->authorize($uid,(int)$r['connection_id'],'mail_sent_repair',(int)$r['account_id']);$scope->assertOwned();};$authorize();
+            $authorize=function()use($uid,$r,$scope,$fence,$separate):void {$scope->assertOwned();$fence->authorize($uid,(int)$r['connection_id'],$r['source_tool'],(int)$r['account_id']);if($separate)$fence->authorize($uid,(int)$r['connection_id'],'mail_sent_repair',(int)$r['account_id']);$scope->assertOwned();};$authorize();
             [$client,$mailbox,$validity,$target]=$this->target($uid,$r);
             try{
                 if(!hash_equals(hash('sha256',$r['revision'].':'.$target),$approvedRevision))throw new \RuntimeException('Sent repair target changed.');

@@ -17,6 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
+        if(in_array($tool,['mail_send','mail_schedule','mail_cancel_delivery','mail_sent_repair'],true))return self::delivery($tool,$plan);
 		if (!in_array($tool, ['mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag', 'mail_set_message_tag', 'mail_refresh_mailbox', 'mail_reconcile_operation', 'mail_add_alias', 'mail_update_alias', 'mail_delete_alias'], true)) {
 			return null;
 		}
@@ -27,6 +28,33 @@ final class MailPlanRenderer {
 			default => self::configuration($tool, $plan),
 		};
 	}
+
+    private static function delivery(string $tool,array $plan):string {
+        $heading=match($tool){
+            'mail_send'=>Translator::t('Approve this frozen mail for one immediate attempt.'),
+            'mail_schedule'=>Translator::t('Approve this frozen mail for the scheduled instant.'),
+            'mail_cancel_delivery'=>Translator::t('Cancel this queued mail before its attempt.'),
+            default=>Translator::t('Copy this accepted mail to the reviewed Sent folder.'),
+        };
+        $lines=[$heading,''];$draft=$plan['draft']??null;
+        if(is_array($draft)){
+            $lines[]='- '.Translator::t('Draft id: %s',[(int)($draft['draftId']??0)]);
+            $lines[]='- '.Translator::t('Account id').': '.(int)($draft['accountId']??0);
+            $lines[]='- '.Translator::t('Sender: %s',[PlanText::quoted((string)($draft['sender']['name']??'')).' '.PlanText::quoted((string)($draft['sender']['email']??''))]);
+            foreach(['to','cc','bcc']as$key)foreach($draft[$key]??[]as$i=>$recipient)$draft[$key][$i]['label']=$recipient['name']??'';
+            $draft['body_plain']=$draft['bodyPlain']??'';$draft['body_html']=$draft['bodyHtml']??'';$draft['is_html']=($draft['bodyHtml']??null)!==null;
+            $lines=array_merge($lines,self::draftFields($draft));
+            foreach($draft['attachments']??[]as$attachment)$lines[]='- '.Translator::t('Attachment: %s',[PlanText::quoted((string)$attachment['name'])]).' — '.(int)($attachment['bytes']??0).' bytes; SHA256 '.PlanText::inline((string)($attachment['sha256']??''));
+            $lines[]='- '.Translator::t('Sent folder').': '.(isset($draft['sentTarget']['mailboxId'])?(int)$draft['sentTarget']['mailboxId']:Translator::t('Separate repair required'));
+        }
+        $delivery=$plan['delivery']??[];
+        foreach(['id'=>Translator::t('Delivery id'),'state'=>Translator::t('Attempt state'),'sentState'=>Translator::t('Sent-copy state'),'targetMailboxId'=>Translator::t('Sent folder')]as$key=>$label)if(isset($delivery[$key]))$lines[]='- '.$label.': '.PlanText::quoted(self::value($delivery[$key]));
+        if(isset($plan['send_at']))$lines[]='- '.Translator::t('Scheduled UTC epoch').': '.(int)$plan['send_at'];
+        if(isset($plan['timezone']))$lines[]='- '.Translator::t('Timezone').': '.PlanText::quoted((string)$plan['timezone']);
+        if(isset($plan['sending_enabled']))$lines[]='- '.Translator::t('Transmission enabled').': '.($plan['sending_enabled']?Translator::t('yes'):Translator::t('no'));
+        if(isset($plan['notice']))$lines[]=PlanText::quoted((string)$plan['notice']);
+        return implode("\n",$lines);
+    }
 
     private static function configuration(string $tool, array $plan): string {
         $heading = match ($tool) {

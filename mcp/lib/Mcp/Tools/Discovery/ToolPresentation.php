@@ -40,7 +40,7 @@ final class ToolPresentation {
      * else to remove them, which is exactly the confirmation a client offers on a destructive tool. Editing is in
      * the list for the same reason a client marks it: what is written over the old content is gone from the file.
      */
-    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts'];
+    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'];
     /**
      * Operations a client may repeat with the same result. A read obviously, and a rollback: restoring the same
      * version twice leaves the same content, however many versions the second attempt adds to the history.
@@ -212,6 +212,11 @@ final class ToolPresentation {
             'talk_read_message_context' => Translator::t('Read Talk message context'),
             'mail_read_message' => Translator::t('Read mail message'),
             'mail_read_message_metadata' => Translator::t('Read mail message metadata'),
+            'mail_send' => Translator::t('Send mail'),
+            'mail_schedule' => Translator::t('Schedule mail'),
+            'mail_cancel_delivery' => Translator::t('Cancel queued mail'),
+            'mail_read_delivery' => Translator::t('Read mail delivery status'),
+            'mail_sent_repair' => Translator::t('Repair Sent copy'),
             'mail_read_outbox' => Translator::t('Read local mail outbox'),
             'mail_list_accounts' => Translator::t('List mail accounts'),
             'mail_list_mailboxes' => Translator::t('List mail folders'),
@@ -224,7 +229,7 @@ final class ToolPresentation {
     /**
      * MCP tool annotations derived from the grant operation the module declares.
      *
-     * `openWorldHint` is always false: every tool works inside the caller's own Nextcloud.
+     * `openWorldHint` identifies explicit SMTP release, which can affect external recipients.
      *
      * @param string $name technical tool name
      * @param string $operation grant operation of the tool definition (read, create, edit, delete, move, transfer, restore)
@@ -239,7 +244,7 @@ final class ToolPresentation {
             'destructiveHint' => $destructiveHint || in_array($operation, self::DESTRUCTIVE_OPERATIONS, true)
                 || in_array($name, self::DESTRUCTIVE_TOOLS, true),
             'idempotentHint' => $readOnly || in_array($operation, self::IDEMPOTENT_OPERATIONS, true),
-            'openWorldHint' => false,
+            'openWorldHint' => in_array($name,['mail_send','mail_schedule'],true),
         ];
     }
 

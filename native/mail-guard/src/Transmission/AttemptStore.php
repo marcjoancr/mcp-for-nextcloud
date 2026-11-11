@@ -20,7 +20,7 @@ final class AttemptStore {
     }
     public function replay(string $uid,string $key):?array {$r=$this->query(['user_id'=>$uid,'operation_key'=>hash('sha256',$key)])->executeQuery();try{$row=$r->fetch();}finally{$r->closeCursor();}return $row===false?null:$row;}
     public function assertFree(string $uid,int $draftId):void {
-        $q=$this->query(['user_id'=>$uid,'draft_id'=>$draftId],['id']);$q->andWhere($q->expr()->neq('state',$q->createNamedParameter('cancelled')))->setMaxResults(1);$r=$q->executeQuery();try{$held=$r->fetch()!==false;}finally{$r->closeCursor();}if($held)throw new \RuntimeException('Draft is held by an approved delivery.');
+        $q=$this->query(['user_id'=>$uid,'draft_id'=>$draftId],['id']);$q->andWhere($q->expr()->neq('state',$q->createNamedParameter('cancelled')))->andWhere($q->expr()->neq('state',$q->createNamedParameter('blocked')))->setMaxResults(1);$r=$q->executeQuery();try{$held=$r->fetch()!==false;}finally{$r->closeCursor();}if($held)throw new \RuntimeException('Draft is held by an approved delivery.');
     }
     private function transaction(string $uid,\Closure $effect):mixed {
         $guard=$this->coordinator();$scope=$guard->scope();if($scope->uid!==$uid)throw new \RuntimeException('Delivery owner changed.');$guard->assertNoTransaction();
@@ -48,8 +48,16 @@ final class AttemptStore {
         $r=$q->executeQuery();try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         return array_map(static fn(array $r):array=>['id'=>$r['id'],'uid'=>$r['user_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'accountId'=>(int)$r['account_id']],$rows);
     }
+    /** Bounded owner/connection metadata only; no artifact reads and no transmission-gate dependency. */
+    public function queuedAfter(string $cursor,int $limit=25):array {
+        if($cursor!==''&&preg_match('/^[a-f0-9]{64}$/D',$cursor)!==1)throw new \RuntimeException('Invalid queue audit cursor.');
+        $q=$this->query(['state'=>'queued'],['id','user_id','connection_id','source_tool','account_id']);
+        if($cursor!=='')$q->andWhere($q->expr()->gt('id',$q->createNamedParameter($cursor)));
+        $q->orderBy('id')->setMaxResults(max(1,min(25,$limit)));$r=$q->executeQuery();try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
+        return array_map(static fn(array $r):array=>['id'=>$r['id'],'uid'=>$r['user_id'],'connectionId'=>(int)$r['connection_id'],'sourceTool'=>$r['source_tool'],'accountId'=>(int)$r['account_id']],$rows);
+    }
     public function hasUnresolved(string $uid,int $accountId):bool {
-        $q=$this->query(['user_id'=>$uid,'account_id'=>$accountId],['id']);$q->andWhere($q->expr()->neq('state',$q->createNamedParameter('cancelled')))->andWhere($q->expr()->orX($q->expr()->neq('state',$q->createNamedParameter('accepted')),$q->expr()->neq('sent_state',$q->createNamedParameter('verified'))))->setMaxResults(1);
+        $q=$this->query(['user_id'=>$uid,'account_id'=>$accountId],['id']);$q->andWhere($q->expr()->neq('state',$q->createNamedParameter('cancelled')))->andWhere($q->expr()->neq('state',$q->createNamedParameter('blocked')))->andWhere($q->expr()->orX($q->expr()->neq('state',$q->createNamedParameter('accepted')),$q->expr()->neq('sent_state',$q->createNamedParameter('verified'))))->setMaxResults(1);
         $r=$q->executeQuery();try{return $r->fetch()!==false;}finally{$r->closeCursor();}
     }
 }

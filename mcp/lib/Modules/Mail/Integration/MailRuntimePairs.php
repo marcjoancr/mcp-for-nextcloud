@@ -12,7 +12,7 @@ final class MailRuntimePairs {
     public static function matches(string $core,string $mail):bool {
         $segment='(?:0|[1-9][0-9]*)';
         if(preg_match('/^('.$segment.'\.'.$segment.'\.'.$segment.')(?:\.'.$segment.')?$/D',$core,$m)!==1)return false;
-        if($m[1]==='35.0.2')return in_array($mail,['5.12.5','5.12.5.6','5.12.5.7','5.12.5.8','5.12.5.9','5.12.5.10'],true);
+        if($m[1]==='35.0.2')return in_array($mail,['5.12.5','5.12.5.6','5.12.5.7','5.12.5.8','5.12.5.9','5.12.5.10','5.12.5.11'],true);
         return $mail==='5.12.5.8'&&in_array($m[1],self::EXTENDED_CORES,true);
     }
 }

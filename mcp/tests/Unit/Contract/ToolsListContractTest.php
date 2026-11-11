@@ -238,7 +238,7 @@ final class ToolsListContractTest extends TestCase {
             foreach (['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint'] as $hint) {
                 $this->assertIsBool($tool->annotations->$hint ?? null, "$tool->name: annotations.$hint must be a boolean");
             }
-            $this->assertFalse($tool->annotations->openWorldHint, "$tool->name: tools stay inside the caller's Nextcloud");
+            $this->assertSame(in_array($tool->name,['mail_send','mail_schedule'],true),$tool->annotations->openWorldHint,"$tool->name: explicit SMTP may affect external recipients");
             if ($tool->annotations->readOnlyHint) {
                 $this->assertTrue($tool->annotations->idempotentHint, "$tool->name: a read-only tool is idempotent");
                 $this->assertFalse($tool->annotations->destructiveHint, "$tool->name: a read-only tool cannot be destructive");
@@ -253,7 +253,7 @@ final class ToolsListContractTest extends TestCase {
      */
     public function testTitlesFollowTheUsersLanguageAndDescriptionsStayEnglish(): void {
         $expectedTitles = [
-            'en' => ['notes_list' => 'List notes', 'deck_read_card' => 'Read Deck card', 'talk_reply' => 'Reply in Talk', 'mail_read_message_metadata' => 'Read mail message metadata', 'mail_read_outbox' => 'Read local mail outbox'],
+            'en' => ['notes_list' => 'List notes', 'deck_read_card' => 'Read Deck card', 'talk_reply' => 'Reply in Talk', 'mail_read_message_metadata' => 'Read mail message metadata', 'mail_read_outbox' => 'Read local mail outbox', 'mail_send'=>'Send mail', 'mail_schedule'=>'Schedule mail', 'mail_cancel_delivery'=>'Cancel queued mail', 'mail_read_delivery'=>'Read mail delivery status', 'mail_sent_repair'=>'Repair Sent copy'],
             'pt_BR' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Ler card do Deck', 'talk_reply' => 'Responder no Talk', 'mail_read_message_metadata' => 'Ler metadados da mensagem de e-mail', 'mail_read_outbox' => 'Ler a caixa de saída local do Mail'],
             'es' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Leer tarjeta de Deck', 'talk_reply' => 'Responder en Talk', 'mail_read_message_metadata' => 'Leer los metadatos del mensaje de correo', 'mail_read_outbox' => 'Leer la cola local de salida de correo'],
         ];
@@ -351,11 +351,19 @@ final class ToolsListContractTest extends TestCase {
      * new tool from breaking at runtime, so a missing entry must fail here instead.
      */
     public function testSensitiveGrantsPublishOnlyTheirOwnTools(): void {
+        $garbageCollectionWasEnabled=gc_enabled();gc_enable();
+        try {
         foreach ([
             ['mail', 'read', ['mail_list_accounts', 'mail_list_mailboxes']],
             ['mail', 'search', ['mail_search_messages']],
             ['mail', 'read_message', ['mail_read_message', 'mail_read_message_metadata', 'mail_read_thread']],
             ['mail', 'read_outbox', ['mail_read_outbox']],
+            ['mail', 'send', ['mail_send']],
+            ['mail', 'schedule', ['mail_schedule']],
+            ['mail', 'cancel_delivery', ['mail_cancel_delivery']],
+            ['mail', 'read_delivery', ['mail_read_delivery']],
+            ['mail', 'repair_sent', ['mail_sent_repair']],
+
             ['mail', 'read_attachment', ['mail_read_attachment']],
             ['mail', 'read_drafts', ['mail_read_drafts']],
             ['mail', 'write_drafts', ['mail_write_draft']],
@@ -380,18 +388,19 @@ final class ToolsListContractTest extends TestCase {
                     continue;
                 }
                 $names[] = $tool->name;
-                self::assertSame(!in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true), $tool->annotations->readOnlyHint);
-                self::assertSame(in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true), property_exists($tool->inputSchema->properties, 'confirm'));
+                self::assertSame(!in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'], true), $tool->annotations->readOnlyHint);
+                self::assertSame(in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'], true), property_exists($tool->inputSchema->properties, 'confirm'));
             }
             self::assertEqualsCanonicalizing($expected, $names);
         }
+        } finally {if(!$garbageCollectionWasEnabled)gc_disable();}
     }
 
     public function testNewToolsRequireIndependentAssignmentsDespiteLegacyOperationGrants(): void {
         $garbageCollectionWasEnabled = gc_enabled();
         gc_enable();
         try {
-            $newTools = ['forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
+            $newTools = ['mail_send','mail_schedule','mail_cancel_delivery','mail_read_delivery','mail_sent_repair','forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
                 'mail_read_message', 'mail_read_message_metadata', 'mail_read_outbox', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
                 'mail_write_draft', 'mail_delete_draft', 'talk_search_messages', 'talk_read_message_context'];
             $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';

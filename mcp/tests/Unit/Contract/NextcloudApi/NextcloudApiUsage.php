@@ -32,6 +32,9 @@ final class NextcloudApiUsage {
     /** Custom dependency markers: qualified native source/native integration, never upstream API fixtures. */
     public const QUALIFIED_NATIVE_CLASSES = [
         'OCA\\Mail\\Db\\PgDirectConnection' => ['Modules/Mail/Integration/MailDraftStorage.php','Modules/Mail/Integration/MailCredentialStorage.php'],
+        'OCA\\Mail\\Transmission\\BeforeWireBlock' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedDelivery' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\SentCopyRepair' => ['Modules/Mail/Integration/MailServices.php'],
         'OCA\\Mail\\Db\\BoundedMailMetadata' => ['Modules/Mail/Integration/MailServices.php'],
         'OCA\\Mail\\Exception\\DraftAdmissionFailure' => ['Modules/Mail/Integration/NativeDraftWrites.php','Modules/Mail/Integration/NativeSetupEvidence.php'],
         'OCA\\Mail\\Authorization\\SetupEvidence' => ['Modules/Mail/Integration/MailServices.php'],
@@ -378,6 +381,9 @@ final class NextcloudApiUsage {
         'OCA\\Mail\\Service\\GuardedMailboxRefresh' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         // Custom dependency, absent from every pinned stock Mail. Fingerprints admit the separately tested native artifact.
         'OCA\\Mail\\Db\\ExactTagAssociations' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Transmission\\BeforeWireBlock' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedDelivery' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\SentCopyRepair' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Db\\BoundedMailMetadata' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Db\\Message::getTagCacheGeneration' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCA\\Mail\\Db\\Mailbox::getSyncNewToken','by'=>\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class],
         'OCA\\Mail\\Service\\GuardedMailboxMutations' => [

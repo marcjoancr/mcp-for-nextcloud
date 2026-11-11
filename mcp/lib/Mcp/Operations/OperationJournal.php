@@ -200,11 +200,12 @@ final class OperationJournal {
         if($state==='running' && isset($row['resource_refs']['mutation']['expires_at']) && $this->clock->getTime()>(int)$row['resource_refs']['mutation']['expires_at'])$state='uncertain';
         if ($state === 'running' && $this->clock->getTime() - (int)$row['updated_at'] > self::TTL) $state = 'uncertain';
         if($state==='awaiting_user' && $this->clock->getTime()>(int)($row['resource_refs']['user_expires_at']??0))$state='expired';
+        if(isset($row['resource_refs']['delivery_id'])&&(!is_string($row['resource_refs']['delivery_id'])||preg_match('/^[a-f0-9]{64}$/D',$row['resource_refs']['delivery_id'])!==1))unset($row['resource_refs']['delivery_id']);
         $extra=array_intersect_key($row['resource_refs'],array_flip(['native_state','source','source_tool','source_tools','authentication_observation','reconciled_operation_id']));
         if ($row['tool_name']==='mail_test_connection' && isset($row['resource_refs']['protocols'])) $extra['protocols']=ProtocolDiagnostics::sanitize($row['resource_refs']['protocols']);
         if(isset($row['resource_refs']['mutation']))$extra['mutation']=array_intersect_key($row['resource_refs']['mutation'],array_flip(['phase','remote','cache']));
         return $extra+['operation_id' => $row['operation_id'], 'tool' => $row['tool_name'], 'state' => $state,
-            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(array_merge(['draft_id', 'file_id','account_id'],$row['tool_name']==='mail_create_tag'?['tag_id']:(in_array($row['tool_name'],['mail_add_alias','mail_update_alias','mail_delete_alias'],true)?['alias_id']:[])))), 'replayed' => $replayed, 'safe_to_retry' => false,
+            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(array_merge(['delivery_id','draft_id', 'file_id','account_id'],$row['tool_name']==='mail_create_tag'?['tag_id']:(in_array($row['tool_name'],['mail_add_alias','mail_update_alias','mail_delete_alias'],true)?['alias_id']:[])))), 'replayed' => $replayed, 'safe_to_retry' => false,
             'updated_at' => (int)$row['updated_at']];
     }
 

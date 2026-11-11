@@ -45,7 +45,7 @@ export function createPresentation({ t }) {
             move_messages: t('mcp', 'move mail messages'), archive_messages: t('mcp', 'archive mail messages'), trash_messages: t('mcp', 'trash mail messages'), restore_messages: t('mcp', 'restore mail messages'), create_mailboxes: t('mcp', 'create mail folders'), rename_mailboxes: t('mcp', 'rename mail folders'), subscribe_mailboxes: t('mcp', 'change mail folder subscriptions'), configure_mailboxes: t('mcp', 'configure mail folder roles'), read_identities: t('mcp', 'read mail sender identities'), refresh: t('mcp', 'refresh mail folders'), reconcile_operations: t('mcp', 'reconcile mail operations'), create_identities: t('mcp', 'create mail aliases'), edit_identities: t('mcp', 'edit mail aliases'), delete_identities: t('mcp', 'delete mail aliases'), tag_messages: t('mcp', 'assign mail tags'), create_tags: t('mcp', 'create tags'), read_tags: t('mcp', 'read mail tags'), set_flags: t('mcp', 'set mail flags'), test_connection: t('mcp', 'test_connection'),
             create_accounts: t('mcp', 'create_accounts'),
             complete_setup: t('mcp', 'complete_setup'),
-            delete_accounts: t('mcp', 'delete_accounts'),
+            delete_accounts: t('mcp', 'delete_accounts'), send: t('mcp', 'Send mail'), schedule: t('mcp', 'Schedule mail'), cancel_delivery: t('mcp', 'Cancel queued mail'), read_delivery: t('mcp', 'Read mail delivery status'), repair_sent: t('mcp', 'Repair Sent copy'),
 
 			read_comments: t('mcp', 'read card comments'),
 			read_responses: t('mcp', 'read form responses'), summarize_responses: t('mcp', 'summarize form responses'), export_responses: t('mcp', 'export form responses'), availability: t('mcp', 'check calendar availability'),
@@ -109,6 +109,7 @@ export function createPresentation({ t }) {
             create_accounts: t('mcp', 'Add Mail account'),
             complete_setup: t('mcp', 'Complete Mail account setup'),
             delete_accounts: t('mcp', 'Remove Mail account'),
+            send: t('mcp', 'Send mail'), schedule: t('mcp', 'Schedule mail'), cancel_delivery: t('mcp', 'Cancel queued mail'), read_delivery: t('mcp', 'Read mail delivery status'), repair_sent: t('mcp', 'Repair Sent copy'),
 
 			read_comments: t('mcp', 'Read comments on accessible Deck cards'),
 			read_responses: t('mcp', 'Read responses with native form results permission'),

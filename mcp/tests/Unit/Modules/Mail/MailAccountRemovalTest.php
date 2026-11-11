@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 final class MailAccountRemovalTest extends TestCase {
     use MailSettingsFixture;
     private bool $busy=false;
+    private bool $deliveryBusy=false;
     private function removal():array {
         [$gateway,$entity,$native,, $states,$services]=$this->fixture();
         $services->method('localDraftType')->willReturn(1);$services->method('localOutgoingType')->willReturn(0);
@@ -24,8 +25,9 @@ final class MailAccountRemovalTest extends TestCase {
         $services->method('mailboxMapper')->willReturn(new class{public function findAll(object $a):array{return [];}});
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000(),new Version002700Date20261108000000()]);$store=new OperationsMapper($db->connection());
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
+        $delivery=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class);$delivery->method('hasUnresolved')->willReturnCallback(fn():bool=>$this->deliveryBusy);
         $j=new OperationJournal($store,$states,new ConnectionContext(),$clock);
-        return [new MailAccountRemoval($gateway,$services,$states,$store,new MailSetupWorkflowsMapper($db->connection()),$clock),$j,$native,$store];
+        return [new MailAccountRemoval($gateway,$services,$states,$store,new MailSetupWorkflowsMapper($db->connection()),$clock,$delivery),$j,$native,$store];
     }
     public function testEmptyNativeAccountRemovalIsConfirmedAndNeverRepeatedOnLostResponse():void {
         [$s,$j,$native]=$this->removal();$args=['account_id'=>4];$p=$j->plan('mail_delete_account','alice',$args,$s->preview($args,'alice'));
@@ -33,6 +35,11 @@ final class MailAccountRemovalTest extends TestCase {
         $a=$args+['plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']];$r=$j->execute('mail_delete_account','alice',$a,fn():array=>$s->write($a,'alice'));
         self::assertSame('succeeded',$r['operation']['state']);self::assertSame(1,$native->writes);self::assertSame([],$native->accounts);
         self::assertTrue($j->execute('mail_delete_account','alice',$a,fn():array=>throw new \LogicException('Deletion replayed'))['operation']['replayed']);
+    }
+    public function testNativeDeliveryBlocksDeletionEvenWhenAdmissionJournalHasSucceeded():void {
+        [$service,, $native]=$this->removal();$this->deliveryBusy=true;
+        try{$service->preview(['account_id'=>4],'alice');self::fail('Accepted queue admission lost its unresolved native delivery hold.');}
+        catch(\OCA\Mcp\Mcp\Operations\BeforeEffectFailure){self::assertSame(0,$native->writes);}
     }
     public function testLocalMessagesOrUncertainHistoryBlockDeletionWithoutErasingHistory():void {
         [$s,$j,$native,$store]=$this->removal();$this->busy=true;

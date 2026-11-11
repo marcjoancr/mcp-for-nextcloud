@@ -14,11 +14,11 @@ use OCA\Mcp\Db\{OperationsMapper,MailSetupWorkflowsMapper};
 use OCP\AppFramework\Utility\ITimeFactory;
 class MailAccountRemoval {
     public function __construct(private MailSettingsGateway $gateway,private MailServices $native,private PlanState $states,
-        private OperationsMapper $operations,private MailSetupWorkflowsMapper $workflows,private ITimeFactory $clock){}
+        private OperationsMapper $operations,private MailSetupWorkflowsMapper $workflows,private ITimeFactory $clock,private ?\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway $delivery=null){}
     public function preview(array $args,string $uid): array {
         $id=(int)$args['account_id'];$profile=$this->gateway->readConnection($uid,$id);
         if(!$profile['editable'])throw new BeforeEffectFailure('Provisioned accounts must be managed by their administrator.');
-        if($this->operations->unresolvedAccount($uid,$id,$args['operation_id']??'')||$this->workflows->pendingForAccount($id,$this->clock->getTime()))throw new BeforeEffectFailure('Inspect pending or uncertain operations before removing this account.');
+        if(($this->delivery?->hasUnresolved($uid,$id)??false)||$this->operations->unresolvedAccount($uid,$id,$args['operation_id']??'')||$this->workflows->pendingForAccount($id,$this->clock->getTime()))throw new BeforeEffectFailure('Inspect pending or uncertain operations before removing this account.');
         $mapper=$this->native->localMessageMapper($uid);$counts=[];
         foreach(['local_drafts'=>$this->native->localDraftType($uid),'outgoing_items'=>$this->native->localOutgoingType($uid)] as $key=>$type){
             $counts[$key]=count(array_filter($mapper->getAllForUser($uid,$type),static fn(object $m):bool=>(int)$m->getAccountId()===$id));

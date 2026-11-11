@@ -218,7 +218,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_outbox', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_outbox', 'read_delivery', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 
@@ -238,8 +238,8 @@ final class WriteGateContractTest extends TestCase {
                 // 2. Annotations
                 $annotations = $listedTool['annotations'];
                 $this->assertFalse($annotations['readOnlyHint'], "$name: readOnlyHint must be false for write tools");
-                $this->assertFalse($annotations['openWorldHint'], "$name: openWorldHint must always be false");
-                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true)
+                $this->assertSame(in_array($name,['mail_send','mail_schedule'],true),$annotations['openWorldHint'],"$name: SMTP release can affect external recipients");
+                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'], true)
                     || in_array($name, ['talk_create_group'], true)
                     || ($definition['destructiveHint'] ?? false) === true;
                 $this->assertSame($expectedDestructive, $annotations['destructiveHint'], "$name: destructiveHint mismatch");

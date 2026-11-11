@@ -17,6 +17,7 @@ final class MailDeliveryStateTest extends TestCase {
     }
     public function testAdmissionIdentityBindsEveryApprovalInput():void {
         $s=$this->state();$args=['alice',1,str_repeat('a',64),'operation',3,'mail_send',0,'UTC'];$first=$s::admission(...$args);
+        self::assertNotSame($first,$s::admission(...array_merge($args,[['mailboxId'=>8,'revision'=>str_repeat('c',64)]])));
         foreach([0=>'bob',1=>2,2=>str_repeat('b',64),3=>'other',4=>4,5=>'mail_schedule',6=>2000000000,7=>'Europe/Madrid'] as $i=>$v){$changed=$args;$changed[$i]=$v;self::assertNotSame($first,$s::admission(...$changed));}
     }
 }
