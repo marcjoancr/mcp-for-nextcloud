@@ -160,18 +160,69 @@ class Fixture:
                 raise RuntimeError('Image digest/platform mismatch')
             self.result['images'][name] = {'reference': reference, 'imageId': row['Id'], 'platform': PROFILE['platform']}
 
+    def start_s3(self, volume, key, secret):
+        # Same credentials, persistent filer and bounded volume layout as linuxserver/fixture.mjs.
+        directory = self.private / 's3'
+        directory.mkdir(mode=0o700)
+        files = {
+            's3.json': json.dumps({'identities': [{'name': 'fixture', 'credentials': [{'accessKey': key, 'secretKey': secret}], 'actions': ['Admin', 'Read', 'Write', 'List', 'Tagging']}]}),
+            'filer.toml': '[leveldb2]\nenabled = true\ndir = "/data/filerldb2"\n',
+            'master.toml': '[master.volume_growth]\ncopy_1 = 1\ncopy_2 = 1\ncopy_3 = 1\ncopy_other = 1\n[master.maintenance]\nscripts = ""\n',
+        }
+        for name, content in files.items():
+            path = directory / name
+            path.write_text(content)
+            path.chmod(0o600)
+        env = self.private / 'nc-s3.env'
+        env.write_text(f'MCP_S3_KEY={key}\nMCP_S3_SECRET={secret}\n')
+        env.chmod(0o600)
+        probes = self.tools / 's3-probes'
+        probes.mkdir()
+        probes.chmod(0o755)
+        for source in [CI / 'linuxserver/probe.php', CI.parent / 'Support/ProbeCompletion.php']:
+            destination = probes / source.name
+            shutil.copyfile(source, destination)
+            destination.chmod(0o644)
+        self.docker('run', '-d', '--platform', PROFILE['platform'], '--pull', 'never', '--label', 'mcp.integration.run=' + self.run, '--name', self.names['s3'], '--network', self.net,
+                    '--network-alias', 's3', '--cpus', '.5', '--memory', '1024m', '--memory-swap', '1024m', '--pids-limit', '256', '--entrypoint', 'weed',
+                    '-v', volume + ':/data', '-v', str(directory) + ':/etc/seaweedfs:ro', PROFILE['images']['s3'],
+                    'server', '-dir=/data', '-master.dir=/data', '-ip=s3', '-ip.bind=0.0.0.0', '-filer', '-s3', '-s3.config=/etc/seaweedfs/s3.json',
+                    '-volume.max=4', '-master.volumeSizeLimitMB=512', '-volume.preStopSeconds=1')
+        return env
+
+    def s3_ready(self):
+        # Reuse the historical S3 protocol checks, including its explicit completion marker.
+        curl = ['docker', 'exec', self.names['nc'], 'curl', '--silent', '--max-time', '3', '-o', '/dev/null', '-w', '%{http_code}']
+        for _ in range(PROFILE['limits']['readinessSeconds'] // 2):
+            reply = self.call([*curl, 'http://s3:8333/'], allow_failure=True)
+            if reply.returncode == 0 and reply.stdout == b'403':
+                break
+            time.sleep(2)
+        else:
+            raise RuntimeError('Authenticated S3 readiness deadline')
+        denied = self.call([*curl, '--aws-sigv4', 'aws:amz:us-east-1:s3', '--user', 'invalid:invalid', 'http://s3:8333/mcp-l1/'], allow_failure=True)
+        if denied.returncode or denied.stdout != b'403':
+            raise RuntimeError('S3 accepted invalid signing credentials')
+        modes = ['s3-create', 's3-read', 's3-delete']
+        for mode in modes:
+            raw = self.docker('exec', '-u', '1000:1000', self.names['nc'], 'php', '/fixture-probes/probe.php', mode)
+            markers = [line.removeprefix(b'MCP_L1_COMPLETE=') for line in raw.splitlines() if line.startswith(b'MCP_L1_COMPLETE=')]
+            if len(markers) != 1:
+                raise RuntimeError('Missing S3 probe completion')
+            result = json.loads(markers[0])
+            if result.get('ok') is not True or type(result.get('checks')) is not int or result['checks'] < 1:
+                raise RuntimeError('Incomplete S3 protocol checks')
+        self.result['s3'] = {'implementation': 'seaweedfs', 'anonymousDenied': True, 'invalidSignatureDenied': True, 'authenticatedProbes': modes}
+
     def bootstrap(self):
         self.phase('bootstrap-pg16-s3')
         self.step('tools')
         self.step('start-db')
         appvol, cfgvol, datavol, s3vol = [self.volume(s) for s in ['app', 'config', 'data', 's3data']]
         s3key, s3secret = secrets.token_hex(12), secrets.token_hex(24)
-        s3env = self.private / 's3.env'
-        s3env.write_text(f'MINIO_ROOT_USER={s3key}\nMINIO_ROOT_PASSWORD={s3secret}\n')
-        self.docker('run', '-d', '--platform', PROFILE['platform'], '--pull', 'never', '--label', 'mcp.integration.run=' + self.run, '--name', self.names['s3'], '--network', self.net,
-                    '--network-alias', 'mail-s3', '--env-file', s3env, '-v', s3vol + ':/data', PROFILE['images']['s3'], 'server', '/data')
+        s3env = self.start_s3(s3vol, s3key, s3secret)
         self.docker('run', '-d', '--platform', PROFILE['platform'], '--pull', 'never', '--label', 'mcp.integration.run=' + self.run, '--name', self.names['nc'], '--network', self.net,
-                    '-e', 'PUID=1000', '-e', 'PGID=1000', '-e', 'TZ=UTC', '-v', appvol + ':/app/www/public', '-v', cfgvol + ':/config', '-v', datavol + ':/data',
+                    '-e', 'PUID=1000', '-e', 'PGID=1000', '-e', 'TZ=UTC', '--env-file', s3env, '-v', str(self.tools / 's3-probes') + ':/fixture-probes:ro', '-v', appvol + ':/app/www/public', '-v', cfgvol + ':/config', '-v', datavol + ':/data',
                     '-v', str(self.w / 'test-source') + ':/mcp-it-src:ro', '-v', str(self.tools) + ':/mcp-it-tools:ro', '-v', str(self.w / 'pglog') + ':/mcp-it-pglog:ro', PROFILE['images']['nextcloud'])
         ready = False
         for _ in range(PROFILE['limits']['readinessSeconds'] // 2):
@@ -186,13 +237,13 @@ class Fixture:
         self.docker('exec', self.names['nc'], 'sh', '-c', "mkdir -p /var/www; ln -s /app/www/public /var/www/html; ln -s /config/www/nextcloud/apps /app/www/public/custom_apps; printf '\nwww-data:x:1000:1000:fixture:/config:/bin/sh\n' >> /etc/passwd")
         cfg = {'appstoreenabled': False, 'updatechecker': False, 'allow_local_remote_servers': True,
                'apps_paths': [{'path': '/var/www/html/custom_apps', 'url': '/custom_apps', 'writable': True}],
-               'objectstore': {'class': '\\OC\\Files\\ObjectStore\\S3', 'arguments': {'bucket': 'mail-qualified', 'hostname': 'mail-s3', 'port': 9000, 'use_ssl': False, 'use_path_style': True, 'region': 'us-east-1', 'key': s3key, 'secret': s3secret, 'autocreate': True}}}
+               'objectstore': {'class': '\\OC\\Files\\ObjectStore\\S3', 'arguments': {'bucket': 'mail-qualified', 'hostname': 's3', 'port': 8333, 'use_ssl': False, 'use_path_style': True, 'region': 'us-east-1', 'key': s3key, 'secret': s3secret, 'autocreate': True}}}
         encoded = __import__("base64").b64encode(json.dumps(cfg).encode()).decode()
         config_php = "<?php $CONFIG=json_decode(base64_decode('" + encoded + "'),true,512,JSON_THROW_ON_ERROR);"
         self.docker('exec', '-i', self.names['nc'], 'sh', '-c', 'cat > /config/www/nextcloud/config/fixture.config.php; chown 1000:1000 /config/www/nextcloud/config/fixture.config.php', data=config_php.encode())
+        self.s3_ready()
         credentials = dict(line.split('=', 1) for line in (self.w / 'credentials').read_text().splitlines())
         self.occ('maintenance:install', '--database', 'pgsql', '--database-host', self.names['db'], '--database-name', 'nextcloud', '--database-user', 'nextcloud', '--database-pass', credentials['DB_PASSWORD'], '--admin-user', 'admin', '--admin-pass', credentials['ADMIN_PASSWORD'], '--data-dir', '/data')
-        self.docker('exec', self.names['nc'], 'php', '-r', "exit(@file_get_contents('http://mail-s3:9000/minio/health/ready')===false?1:0);")
         self.occ('config:system:set', 'trusted_domains', '1', '--value=localhost')
         self.occ('config:system:set', 'memcache.local', '--value=\\OC\\Memcache\\APCu')
         self.occ('config:system:set', 'filelocking.enabled', '--value=true', '--type=boolean')

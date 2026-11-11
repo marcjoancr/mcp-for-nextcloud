@@ -185,6 +185,97 @@ class RunnerTest(unittest.TestCase):
                     self.assertIs(f.result['operatorEnabled'], False)
                     self.assertEqual(['policy', 'legacy', 'regression', 'core', 'extras', 'clean', 'source', 'projection'], off)
 
+    def test_s3_uses_public_pin_private_credentials_and_existing_probe(self):
+        historical = json.loads((run.CI / 'linuxserver/profile.json').read_text())
+        self.assertEqual(historical['images']['seaweedfs']['reference'], run.PROFILE['images']['s3'])
+        with tempfile.TemporaryDirectory() as directory:
+            f = run.Fixture.__new__(run.Fixture)
+            f.private = Path(directory) / 'private'
+            f.tools = Path(directory) / 'tools'
+            f.private.mkdir(mode=0o700)
+            f.tools.mkdir()
+            f.run, f.net, f.names = 'synthetic-run', 'synthetic-net', {'s3': 'synthetic-s3'}
+            f.docker = Mock()
+            env = f.start_s3('synthetic-volume', 'SYNTHETIC_KEY', 'SYNTHETIC_SECRET')
+            config = json.loads((f.private / 's3/s3.json').read_text())
+            self.assertEqual([{'name': 'fixture', 'credentials': [{'accessKey': 'SYNTHETIC_KEY', 'secretKey': 'SYNTHETIC_SECRET'}], 'actions': ['Admin', 'Read', 'Write', 'List', 'Tagging']}], config['identities'])
+            self.assertEqual(0o700, stat.S_IMODE((f.private / 's3').stat().st_mode))
+            for private in [env, *list((f.private / 's3').iterdir())]:
+                self.assertEqual(0o600, stat.S_IMODE(private.stat().st_mode))
+            self.assertIn('MCP_S3_SECRET=SYNTHETIC_SECRET', env.read_text())
+            argv = list(map(str, f.docker.call_args.args))
+            self.assertNotIn('SYNTHETIC_SECRET', ' '.join(argv))
+            self.assertNotIn('-p', argv)
+            self.assertNotIn('--publish', argv)
+            self.assertIn(str(f.private / 's3') + ':/etc/seaweedfs:ro', argv)
+            self.assertIn('-s3.config=/etc/seaweedfs/s3.json', argv)
+            self.assertIn('-volume.max=4', argv)
+            self.assertIn('-master.volumeSizeLimitMB=512', argv)
+            self.assertEqual('weed', argv[argv.index('--entrypoint') + 1])
+            for name, original in [('probe.php', run.CI / 'linuxserver/probe.php'), ('ProbeCompletion.php', run.CI.parent / 'Support/ProbeCompletion.php')]:
+                copied = f.tools / 's3-probes' / name
+                self.assertEqual(original.read_bytes(), copied.read_bytes())
+                self.assertEqual(0o644, stat.S_IMODE(copied.stat().st_mode))
+                self.assertNotIn('SYNTHETIC_SECRET', copied.read_text())
+            self.assertEqual(0o755, stat.S_IMODE((f.tools / 's3-probes').stat().st_mode))
+
+    def test_bootstrap_wires_private_s3_credentials_and_checks_before_install(self):
+        with tempfile.TemporaryDirectory() as directory:
+            f = run.Fixture.__new__(run.Fixture)
+            f.w = Path(directory)
+            f.tools = f.w / 'tools'
+            f.result = {'operatorEnabled': False}
+            f.run, f.net = 'synthetic-run', 'synthetic-net'
+            f.names = {'nc': 'synthetic-nc', 'db': 'synthetic-db'}
+            (f.w / 'credentials').write_text('DB_PASSWORD=synthetic\nADMIN_PASSWORD=synthetic\n')
+            env = f.w / 'private-s3.env'
+            f.step = Mock()
+            f.volume = Mock(side_effect=lambda name: 'synthetic-' + name)
+            f.start_s3 = Mock(return_value=env)
+            f.call = Mock(return_value=subprocess.CompletedProcess([], 0))
+            f.docker = Mock()
+            order = []
+            f.s3_ready = Mock(side_effect=lambda: order.append('s3-ready'))
+            def stop_at_install(*args):
+                order.append(args[0])
+                raise RuntimeError('Stop before install')
+            f.occ = stop_at_install
+            with contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(RuntimeError, 'Stop before install'):
+                f.bootstrap()
+            self.assertEqual(['s3-ready', 'maintenance:install'], order)
+            args = f.docker.call_args_list[0].args
+            self.assertEqual(env, args[args.index('--env-file') + 1])
+            self.assertIn(str(f.tools / 's3-probes') + ':/fixture-probes:ro', args)
+            config_call = next(c for c in f.docker.call_args_list if 'data' in c.kwargs)
+            import base64
+            encoded = config_call.kwargs['data'].decode().split("base64_decode('")[1].split("'")[0]
+            cfg = json.loads(base64.b64decode(encoded))['objectstore']['arguments']
+            self.assertEqual(('s3', 8333, 'mail-qualified'), (cfg['hostname'], cfg['port'], cfg['bucket']))
+            self.assertEqual(f.start_s3.call_args.args[1:], (cfg['key'], cfg['secret']))
+
+    def test_s3_checks_require_denial_and_complete_authenticated_probes(self):
+        for anonymous, invalid, marker in [('403', '403', 'MCP_L1_COMPLETE={"ok":true,"checks":2}'), ('200', '403', ''), ('403', '200', ''), ('403', '403', ''), ('403', '403', 'MCP_L1_COMPLETE={"ok":false,"checks":0}')]:
+            with self.subTest(anonymous=anonymous, invalid=invalid, marker=marker):
+                f = run.Fixture.__new__(run.Fixture)
+                f.names = {'nc': 'synthetic-nc'}
+                f.result = {}
+                def call(args, **kwargs):
+                    status = invalid if '--aws-sigv4' in args else anonymous
+                    return subprocess.CompletedProcess(args, 0, status.encode())
+                f.call = Mock(side_effect=call)
+                f.docker = Mock(return_value=marker.encode())
+                good = anonymous == invalid == '403' and 'true' in marker
+                with patch.dict(run.PROFILE['limits'], readinessSeconds=2), patch.object(run.time, 'sleep'):
+                    if good:
+                        f.s3_ready()
+                        self.assertEqual({'implementation': 'seaweedfs', 'anonymousDenied': True, 'invalidSignatureDenied': True, 'authenticatedProbes': ['s3-create', 's3-read', 's3-delete']}, f.result['s3'])
+                        self.assertEqual(['s3-create', 's3-read', 's3-delete'], [c.args[-1] for c in f.docker.call_args_list])
+                    else:
+                        with self.assertRaises(RuntimeError):
+                            f.s3_ready()
+                        self.assertNotIn('s3', f.result)
+                        self.assertLessEqual(f.docker.call_count, 1, 'Incomplete writes must never be replayed')
+
     def test_plan_has_no_ports_and_all_digest_pins(self):
         self.assertEqual([], run.PROFILE['publishedPorts'])
         self.assertEqual('linux/amd64', run.PROFILE['platform'])
