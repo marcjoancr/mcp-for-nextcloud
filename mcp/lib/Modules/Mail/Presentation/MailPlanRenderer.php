@@ -17,6 +17,7 @@ use OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations;
 /** Renders complete draft and file plans without truncating body text or interpreting it as Markdown. */
 final class MailPlanRenderer {
 	public function render(string $tool, array $plan): ?string {
+        if($tool==='mail_write_signature_mode')return implode("\n",[Translator::t('Change stored mail signature mode'),'',Translator::t('Preserve signature content and editor mode. Mail determines presentation from content and editor settings.'),'- '.Translator::t('Account id').': '.(int)$plan['account_id'],'- alias_id: '.json_encode($plan['alias_id']),'- signature_mode: '.(int)$plan['before']['signature_mode'].' → '.(int)$plan['after']['signature_mode'].' (0: plain text; 1: HTML)','- revision: '.PlanText::inline($plan['before']['revision'])]);
         if(in_array($tool,['mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence'],true))return self::sieve($plan);
         if(in_array($tool,['mail_snooze','mail_wake','mail_cancel_snooze'],true))return self::snooze($tool,$plan);
         if($tool==='mail_import_draft')return self::importDraft($plan);

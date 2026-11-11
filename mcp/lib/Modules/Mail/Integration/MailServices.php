@@ -192,6 +192,7 @@ class MailServices {
         $class='OCA\\Mail\\Service\\DeliveryAuthorization';if(!class_exists($class))throw new MailUnavailableException();
         $service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
     }
+    public function guardedSignatureMode(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedSignatureMode',$uid);}
     public function guardedSieve(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedSieveSettings',$uid);}
     public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}
 

@@ -35,7 +35,7 @@ final class MailOperationReader {
         return true;
     }
     private function freshSieve(string $uid,array $receipt,array $extra=[]):void {
-        if(!in_array($receipt['tool'],['mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence'],true))return;
+        if(!in_array($receipt['tool'],['mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence','mail_write_signature_mode'],true))return;
         if($this->fresh===null)throw new ToolFailure('Fresh Mail projection unavailable.');($this->fresh->historicalFence($uid,$receipt['operation_id'],$receipt['tool'],$extra))();
     }
     public function list(string $uid, int $limit, int $offset): array {

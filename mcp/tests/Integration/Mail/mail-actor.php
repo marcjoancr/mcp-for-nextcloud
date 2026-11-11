@@ -69,6 +69,12 @@ switch ($action) {
         $out=\OCA\Mcp\Tests\Integration\Mail\MailDeliveryActor::child($uid,$in);break;
     case 'sieve-erasure':
         try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSieveErasureActor::run();}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
+    case 'signature-mode-contender':
+        try{Server::get('OCA\\Mail\\Service\\GuardedSignatureMode')->read($uid,(int)$in['account_id'],null,static fn()=>null);$out=['refused'=>false];}catch(\Throwable){$out=['refused'=>true];}break;
+    case 'signature-mode-tool':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSignatureModeToolActor::run($uid,$in['scenario']??'normal');}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
+    case 'signature-mode-native':
+        try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSignatureModeActor::run($uid);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine(),'frames'=>array_map(static fn($f)=>['file'=>basename($f['file']??''),'line'=>$f['line']??0,'function'=>$f['function']??''],array_slice($e->getTrace(),0,12))];}break;
     case 'sieve-native':
         try{$out=\OCA\Mcp\Tests\Integration\Mail\MailSieveActor::run($uid,$in);}catch(\Throwable $e){$out=['fixture_error'=>get_class($e),'site'=>basename($e->getFile()).':'.$e->getLine()];}break;
     case 'sieve-lease':

@@ -233,6 +233,7 @@ final class ToolPresentation {
             'mail_disable_absence' => Translator::t('Disable mail absence'),
             'mail_read_sieve_status' => Translator::t('Read mail filter change status'),
             'mail_transmit_filters' => Translator::t('Allow mail filter redirects'),
+            'mail_write_signature_mode' => Translator::t('Change stored mail signature mode'),
             'mail_enable_absence' => Translator::t('Enable mail absence replies'),
             'mail_search_indexed_body' => Translator::t('Search indexed mail body text'),
 

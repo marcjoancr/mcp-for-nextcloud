@@ -82,7 +82,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     private function sieveProjectionFence(string $uid,string $tool,array $args):?\Closure {
-        if(!in_array($tool,['mail_read_filters','mail_read_absence','mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence'],true))return null;
+        if(!in_array($tool,['mail_read_filters','mail_read_absence','mail_write_filters','mail_transmit_filters','mail_write_absence','mail_enable_absence','mail_disable_absence','mail_write_signature_mode'],true))return null;
         if($this->fresh===null)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Fresh Mail projection unavailable.');return $this->fresh->resourceFence($uid,$tool,(int)($args['account_id']??0));
     }
 

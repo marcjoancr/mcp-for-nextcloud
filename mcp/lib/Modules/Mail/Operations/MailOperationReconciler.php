@@ -30,6 +30,7 @@ class MailOperationReconciler {
             $m=$refs['mutation']??[];
             if(($m['phase']??null)==='completed'&&MutationRequest::valid($m['descriptor']??[])&&MutationRequest::tool($m['descriptor'])===$row['tool_name']&&isset($m['remote'],$m['cache']))$proof='native_completed_receipt';
             if(($refs['local_completed']??false)===true&&in_array($row['tool_name'],['mail_add_alias','mail_update_alias','mail_delete_alias'],true)&&is_int($refs['alias_id']??null)&&$refs['alias_id']>0)$proof='atomic_local_completion';
+            if(($refs['local_completed']??false)===true&&$row['tool_name']==='mail_write_signature_mode'&&in_array($refs['signature_mode']??null,[0,1],true)&&array_key_exists('alias_id',$refs))$proof='atomic_local_completion';
             if(($refs['local_completed']??false)===true&&$row['tool_name']==='mail_reconcile_operation'&&is_string($refs['reconciled_operation_id']??null))$proof='atomic_reconciliation_completion';
             if($row['tool_name']==='mail_complete_account_setup'&&isset($refs['source_operation_id'])){
                 $flow=$this->flows->get($scope,$refs['source_operation_id']);$source=$this->reader->get($uid,$refs['source_operation_id'])['operation'];

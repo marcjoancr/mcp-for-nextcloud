@@ -906,6 +906,7 @@ class Application extends App implements IBootstrap {
             'mail_disable_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DisableAbsence::class),
             'mail_read_sieve_status' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadSieveStatus::class),
             'mail_transmit_filters' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\TransmitFilters::class),
+            'mail_write_signature_mode' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteSignatureMode::class),
             'mail_enable_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\EnableAbsence::class),
             'mail_schedule' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ScheduleDraft::class),
             'mail_cancel_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelDelivery::class),

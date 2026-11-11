@@ -283,3 +283,21 @@ Normalized overlay SHA-256:
 See the [B0 evidence](../../docs/superpowers/specs/2026-11-10-mail-bounded-metadata-evidence.md)
 for qualification, full regression and limits. Native v9 remains the recorded
 production deployment; no transmission/schedule/cancel capability is added.
+
+
+### Current v11 stored signature mode
+
+`GuardedSignatureMode` adds an owner-serialized local mode transition for an
+owned account or its exact alias. Its closed API accepts only native constants
+PLAIN=0 and HTML=1, refuses provisioned identities, compares a keyed revision of
+the current account/alias metadata, and uses native mapper dirty-field tracking.
+It requires the caller's shared journal transaction and original-authorization
+callback; the caller also fences after its durable checkpoint and before commit.
+Signature bytes, editor mode, credential state and certificate bindings are not
+rewritten. No migration or transport is added.
+
+The pinned UI does not consume `signatureMode` to choose Composer rendering: it
+uses content detection and `editorMode`. This API persists the native field and
+makes no formatting or visible rendering promise. Native source verification and
+shipping eligibility remain separate; the signature eligibility flag is false
+until final qualification. Historical v1–v10 manifests remain immutable.

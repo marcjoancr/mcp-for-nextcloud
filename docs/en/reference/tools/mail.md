@@ -777,3 +777,35 @@ status projections and application logs. Exact captured account/user erasure
 purges those local rows and quarantines pending erasure before access. Cleanup
 never contacts ManageSieve. Original journal identity and authorization survive
 compaction; recreating a UID or switching connections cannot claim old attempts.
+
+
+## Stored signature mode
+
+`mail_write_signature_mode` has its own default-denied `write_signature_mode`
+grant. It accepts `account_id`, optional `alias_id`, and integer `signature_mode`:
+`0` is native plain text, `1` is native HTML. Omitting `alias_id` selects the
+account itself; it does not pick or create a default identity. The whole account
+must be in scope. An alias must belong to that account and its owner. Provisioned
+accounts or aliases refuse this action.
+
+Preview returns the current mode and a revision bound to both the account and
+alias. Confirmation requires that exact `plan_state` and `operation_id`. A changed
+mode, signature, identity, editor setting, credential revision, certificate or
+provisioning binding invalidates the reviewed state. Only the mode field is
+written; signature bytes, editor mode, credentials, certificates and all omitted
+identity fields remain intact. No transport is opened.
+
+This changes the **stored native field**, not the signature's content or format.
+The pinned Mail UI and Composer currently infer presentation from signature
+content and editor settings; changing the stored mode does not promise a visible
+rendering change. Signature text remains managed by `mail_write_signature`.
+
+The native owner lease and shared local journal transaction cover mutation,
+readback, checkpoint and final authority validation. Current grants, scopes,
+connection selection and the original actor are checked afresh. Use
+`mail_get_operation` with the same operation ID after response loss; replay never
+performs the update again. An uncertain local commit remains held until exact
+journal completion evidence permits reconciliation. Historical status does not
+re-read a moved or removed identity. Shipping qualification stays closed until
+the final release qualification; a diagnostic native fixture is not deployment
+approval.

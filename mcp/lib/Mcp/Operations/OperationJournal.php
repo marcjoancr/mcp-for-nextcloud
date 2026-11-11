@@ -106,12 +106,12 @@ final class OperationJournal {
     }
 
     /** DB-only native mapper work and its checkpoint must use this same connection. No remote effects are allowed. */
-    public function atomicLocal(\OCP\IDBConnection $db, \Closure $write): mixed {
+    public function atomicLocal(\OCP\IDBConnection $db, \Closure $write, ?\Closure $beforeCommit=null): mixed {
         if($this->active===null||isset($this->active['delegated'])||$db->inTransaction())throw new BeforeEffectFailure('An independent local operation transaction is required.');
         $this->assertActiveActor();
         $before=$this->active['refs'];
         try{$db->beginTransaction();}catch(\Throwable){throw new BeforeEffectFailure('The local transaction could not start.');}
-        try{$result=$write();if(!$db->inTransaction())throw new \RuntimeException('The local transaction ended before its completion checkpoint.');$this->checkpoint(['local_completed'=>true]);$this->assertActiveActor();}
+        try{$result=$write();if(!$db->inTransaction())throw new \RuntimeException('The local transaction ended before its completion checkpoint.');$this->checkpoint(['local_completed'=>true]);$beforeCommit?->__invoke();$this->assertActiveActor();}
         catch(\Throwable $e){
             try{$db->rollBack();}catch(\Throwable){try{$db->close();}catch(\Throwable){throw new LocalCommitUnknown('Local connection could not be discarded.',false);}throw new LocalCommitUnknown('Local rollback outcome unavailable.');}
             $this->active['refs']=$before;
@@ -267,7 +267,7 @@ final class OperationJournal {
         if ($row['tool_name']==='mail_test_connection' && isset($row['resource_refs']['protocols'])) $extra['protocols']=ProtocolDiagnostics::sanitize($row['resource_refs']['protocols']);
         if(isset($row['resource_refs']['mutation']))$extra['mutation']=array_intersect_key($row['resource_refs']['mutation'],array_flip(['phase','remote','cache']));
         return $extra+['operation_id' => $row['operation_id'], 'tool' => $row['tool_name'], 'state' => $state,
-            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(array_merge(['sieve_id','snooze_id','delivery_id','draft_id', 'file_id','account_id'],$row['tool_name']==='mail_create_tag'?['tag_id']:(in_array($row['tool_name'],['mail_add_alias','mail_update_alias','mail_delete_alias'],true)?['alias_id']:[])))), 'replayed' => $replayed, 'safe_to_retry' => false,
+            'resource_refs' => array_intersect_key($row['resource_refs'], array_flip(array_merge(['sieve_id','snooze_id','delivery_id','draft_id', 'file_id','account_id'],$row['tool_name']==='mail_write_signature_mode'?['alias_id','signature_mode']:($row['tool_name']==='mail_create_tag'?['tag_id']:(in_array($row['tool_name'],['mail_add_alias','mail_update_alias','mail_delete_alias'],true)?['alias_id']:[]))))), 'replayed' => $replayed, 'safe_to_retry' => false,
             'updated_at' => (int)$row['updated_at']];
     }
 

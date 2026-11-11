@@ -21,6 +21,12 @@ final class LocalOperationTransactionTest extends TestCase {
         $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);$connection=new ConnectionContext();$journal=new OperationJournal(new OperationsMapper($base),new PlanState((new InMemoryConfig())->mock($this)),$connection,$clock, new \OCA\Mcp\Tests\Support\OperationActors());
         $args=['name'=>'Reviewed','color'=>'#123456'];$p=$journal->plan('mail_create_tag','alice',$args,['plan_state'=>'proof']);$args+=['operation_id'=>$p['operation_id'],'plan_state'=>'proof'];return [$sql,$db,$journal,$args,$connection];
     }
+    public function testFinalAuthorityFenceRollsBackTheEffectAndCompletionCheckpoint():void {
+        [$sql,$db,$j,$args]=$this->fixture();$state=(object)['checked'=>false];$refused=false;
+        try{$j->execute('mail_create_tag','alice',$args,fn():array=>$j->atomicLocal($db,function()use($sql):array{$sql->dbal->insert('fixture_tags',['name'=>'Must roll back']);return [];},function()use($state):void{$state->checked=true;throw new \RuntimeException('Authority withdrawn after checkpoint');}));}catch(BeforeEffectFailure){$refused=true;}
+        self::assertTrue($state->checked);self::assertTrue($refused);self::assertSame(0,(int)$sql->dbal->fetchOne('SELECT COUNT(*) FROM fixture_tags'));
+        self::assertArrayNotHasKey('local_completed',$j->privateResources('alice',$args['operation_id']));
+    }
     public function testNativeRowAndOpaqueCheckpointCommitTogetherAndNeverReplay():void {
         [$sql,$db,$j,$args]=$this->fixture();$calls=0;$r=$j->execute('mail_create_tag','alice',$args,function()use($sql,$db,$j,&$calls):array{return $j->atomicLocal($db,function()use($sql,$j,&$calls):array{$calls++;$sql->dbal->insert('fixture_tags',['name'=>'Reviewed']);$id=(int)$sql->dbal->lastInsertId();$j->checkpoint(['tag_id'=>$id]);return ['tag'=>['tag_id'=>$id]];});});
         self::assertSame('succeeded',$r['operation']['state']);self::assertSame(1,$r['operation']['resource_refs']['tag_id']);self::assertSame(1,(int)$sql->dbal->fetchOne('SELECT COUNT(*) FROM fixture_tags'));$replay=$j->execute('mail_create_tag','alice',$args,static fn():array=>throw new \LogicException('No second insert'));self::assertTrue($replay['operation']['replayed']);self::assertSame(1,$calls);

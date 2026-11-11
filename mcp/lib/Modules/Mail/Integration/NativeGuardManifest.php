@@ -159,6 +159,7 @@ final class NativeGuardManifest {
     'lib/Service/GuardedMailboxRefresh.php' => 'ffae0e40aabe3cb3c9f81284010d6c760ca8142518c40e5f2807c96bee43727b',
     'lib/Service/GuardedMessageMutations.php' => '2fbc6c296c6b026efbe3e03ca4f515a00e73fe92c38548efd43814dcd55dd040',
     'lib/Service/GuardedSieveSettings.php' => 'b82dffa48241c03ed6a28705091f677b59adab1c285cfd6c837c0bba6216e4fa',
+    'lib/Service/GuardedSignatureMode.php' => 'b297ca8ce59fcbab1824f127c6f3c8daaa6a751c0535305941a5c727f945a4d7',
     'lib/Service/GuardedSnooze.php' => '09988c19f1c0e2543870c50d9f7f8f0799fd2b5efb120bcae502c88b5f66fffe',
     'lib/Service/LocalDraftEditor.php' => '7d4965692e592b5abe49a452d4abbf4d3b749d3654890e761c29cde132a32f70',
     'lib/Service/MailFilter/FilterBuilder.php' => '322c0b222188a3c05cfafc322a57100b646f24d22b6f2d64ec355007b568c4de',
