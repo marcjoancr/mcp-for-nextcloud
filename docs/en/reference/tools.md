@@ -4,12 +4,12 @@
 
 # Tools
 
-The module catalogs contain at most **104 module tools**, plus `mcp_status` and
-`mcp_guide` (106 total). Three Deck dependency tools are conditional on compatible
-NC34/35 native APIs, leaving at most 101 module tools (103 total) without them.
+The module catalogs contain at most **110 module tools**, plus `mcp_status` and
+`mcp_guide` (112 total). Three Deck dependency tools are conditional on compatible
+NC34/35 native APIs, leaving at most 107 module tools (109 total) without them.
 App availability and each account's access further reduce these counts.
 
-Each tool only appears in `tools/list` and can only be called when the user has the grant for the operation and the required app is enabled for them. Grant and app are checked again on every call. Everything runs as the authenticated user, through their own Nextcloud folder, and the Nextcloud permissions and shares keep applying.
+Each tool only appears in `tools/list` and can only be called when it is assigned to the user, selected for the connection, and its required apps and operation prerequisites are enabled for that user. Grant and app are checked again on every call. Everything runs as the authenticated user, through their own Nextcloud folder, and the Nextcloud permissions and shares keep applying.
 
 ### Tool guide (`mcp_guide`)
 

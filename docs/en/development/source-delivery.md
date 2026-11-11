@@ -8,8 +8,8 @@ committed revision. By default, it is marked as an unpublished candidate. For a
 final release kit, pass `--release`; this marks the manifest `release-ready` and
 uses wording that remains accurate after publication. It does not publish a
 release, install an app, sign a Nextcloud package or configure an updater. See
-[production packaging](packaging.md) and [F3 delivery evidence and deployment
-gates](fork-f3-delivery.md).
+[production packaging](packaging.md) and [testing and verification](testing.md)
+for the separate artifact, native-host and client acceptance layers.
 
 ## Build a frozen kit
 
@@ -174,7 +174,8 @@ non-admin with Basic and Bearer credentials, varies Files grants, downloads ever
 kit file without credentials, preserves anonymous/connection denial and checks
 unavailable/mismatched metadata. The host verifier checks retrieved bytes and an
 intentional tampering probe. Source reconstruction from that retrieved kit is a
-separate required acceptance step; a successful download alone does not close F3.
+separate required acceptance step; a successful download alone does not prove
+that the delivered source rebuilds the installed application.
 This focused fixture does not run the full native platform matrix, qualify HTTPS,
 exercise ChatGPT or replace human review and target-host acceptance.
 

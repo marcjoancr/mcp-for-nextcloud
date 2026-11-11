@@ -5,8 +5,10 @@
 
 Use a source checkout, PHP 8.2–8.5 and Composer **2.8 or newer**. Composer's script
 argument controls require that minimum. CI provisions the current Composer 2 release.
-PHP lint and static analysis need no Node.js. Documentation checks, PHPUnit, browser
-tests and source packaging require the pinned Node/npm toolchain below because they build assets.
+PHP lint and static analysis need no Node.js. Documentation checks use Node for
+Markdown parsing and link/provenance validation. PHPUnit, browser tests and source
+packaging also require the pinned Node/npm toolchain below to build assets.
+The installed app itself requires PHP 8.4+; PHP 8.2/8.3 are contributor test runtimes.
 Make, Docker, devbox and a live Nextcloud are not required.
 Packaging additionally uses a POSIX shell and tar. Documentation provenance and
 packaging require a full Git checkout with the recorded English source commits.

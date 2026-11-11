@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/clients.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../en/guides/clients.md).
@@ -78,7 +78,7 @@ Los controles de clientes exigen administrador, protección CSRF y revisión de 
 
 ### Otros clientes MCP (contraseña de aplicación)
 
-Crea una contraseña de aplicación en *Ajustes personales → Seguridad*, habilita la conexión en *Ajustes personales → Nextcloud MCP* y configura el cliente con la URL anterior y autenticación HTTP Basic (`usuario:contraseña-de-aplicación`). Comprobación rápida:
+Crea una contraseña de aplicación en *Ajustes personales → Seguridad*, habilita la conexión en *Ajustes personales → Nextcloud MCP* y configura el cliente con la URL anterior y autenticación HTTP Basic (`username:app-password`). Comprobación rápida:
 
 ```bash
 curl -u 'alice:APP-PASSWORD' \

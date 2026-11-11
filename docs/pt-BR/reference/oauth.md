@@ -3,16 +3,18 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/oauth.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
-> **Revisão pendente:** conteúdo preservado da documentação existente; a tradução e as diferenças em relação à reorganização precisam de revisão humana. Consulte [English](../../en/reference/oauth.md).
+> **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/reference/oauth.md).
 
 # OAuth
 
 Os metadados do recurso protegido ficam em `/apps/mcp/.well-known/oauth-protected-resource`. O desafio `401` identifica esse documento. Os metadados do servidor de autorização ficam em `/apps/mcp/.well-known/openid-configuration` e `/apps/mcp/.well-known/oauth-authorization-server`, com emissor `https://<instance>/apps/mcp`.
 
 `oauth/authorize` oferece consentimento no navegador; `oauth/token` troca códigos de autorização com PKCE S256 e rotaciona tokens de renovação. Tokens de acesso duram uma hora e os de renovação, 30 dias. O banco de dados armazena hashes de credenciais, não os valores em texto puro. É autenticação de cliente público (`none`); um ID de cliente é um identificador, não um segredo nem uma concessão de permissões.
+
+Ao conectar um cliente, a tela de consentimento começa sem ferramentas de dados selecionadas. Expanda um catálogo para escolher ferramentas e ações individuais, ou selecione e limpe ferramentas de um catálogo ou de todos. Selecionar tudo inclui todas as ações permitidas pelo administrador. Também é possível autorizar uma conexão sem nenhuma ferramenta de dados. Suas escolhas se aplicam apenas a essa conexão.
 
 ## Clientes publicados, nativos e registrados
 

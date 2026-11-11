@@ -3,7 +3,7 @@
 
 # Adding a tool
 
-Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People and Logs are implemented examples
+Files, Deck, Talk, Calendar, Contacts, Tasks, Notes, People, Logs, Mail and Forms are implemented examples
 of capability-based authoring. Their tools use explicit catalogs and focused
 capabilities; see the [architecture catalog counts](architecture-specification.md#capability-ownership)
 for maximum and conditional availability. Shared MCP infrastructure now has final owners; administration remains
@@ -424,6 +424,27 @@ Tests mirror capabilities under `tests/Unit/Modules/Logs`; synthetic log support
 immutable pre-extraction fixtures live under `tests/Support/Logs`. Real Application
 closure tests cover access, privacy changes and audit failure. The boundary scanner
 rejects retired routes and containers.
+
+## Mail and Forms: independent tool assignments
+
+Mail separates owned account/mailbox reads, cached message searches, content and
+attachment reads, Files attachment saving and local unsent draft operations.
+The explicit catalog and Application factory map must stay in sync. Native service
+resolution and version checks stay behind the module's integration owners. Never
+infer message, thread or draft permission from account/folder reading. Mail content
+reads preserve unread flags; draft mutation does not send or schedule messages.
+
+Forms separates structure reads, native results reads, deterministic page summaries
+and bounded CSV export. Results require native permission independently of question
+reading. Export is a write and additionally requires Files creation, native destination
+access and its confirmation/scope/policy safeguards. Uploaded file answers are excluded.
+
+Register each new tool with an independent assignment and connection selection.
+Do not add it to the frozen legacy catalog or grant it through an older tool's
+operation fallback. Static discovery must not resolve optional native services.
+See [Mail](../reference/tools/mail.md), [Forms](../reference/tools/forms.md) and
+[permissions](../guides/permissions.md) for public contracts. Tests mirror each
+module under `tests/Unit/Modules`; native fixtures remain explicit acceptance work.
 
 ## Shared MCP ownership
 

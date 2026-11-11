@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/calendar.md -->
-<!-- translation-source-revision: a24d67927e4a1a55c6da5d64a09cb0bf3c870590 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../../en/reference/tools/calendar.md).
@@ -23,7 +23,7 @@
 | `calendar_delete_event` | calendar.delete | Exclui a série no lixo; exige retenção ativa. |
 | `calendar_transfer_event` | calendar.transfer | MOVE para agenda de outro proprietário partilhada com permissão de escrita; recusa participantes. |
 
-Calendário expõe leitura e as cinco escritas, sem nenhum passo no terminal. As escritas nascem desligadas na matriz da administração (Administração → MCP) e só aparecem para quem recebeu o grant; toda escrita exige ainda `confirm: true`, a ACL do Nextcloud (e `confirm_shared` em agenda alheia) e o ETag opcional. Compatibilidade: a aplicação declara `min-version` 32 e `max-version` 35 em `info.xml`; a parte interna (`EmbeddedCalDavServer` do core) é coberta pelos testes e por essa faixa, e uma versão nova do Nextcloud exige uma nova versão do app. O app Calendário precisa estar ativado para o utilizador. Sabre e Symfony Console vêm do core do Nextcloud e ficam fora do `vendor/` do pacote.
+Calendário expõe leitura e as cinco escritas, sem nenhum passo no terminal. As escritas nascem desligadas na matriz da administração (Administração → MCP) e só aparecem para quem recebeu o grant; toda escrita exige ainda `confirm: true`, a ACL do Nextcloud (e `confirm_shared` em agenda alheia) e o ETag opcional. Compatibilidade: a aplicação declara `min-version` 33 e `max-version` 35 em `info.xml`; a parte interna (`EmbeddedCalDavServer` do core) é coberta pelos testes e por essa faixa, e uma versão nova do Nextcloud exige uma nova versão do app. O app Calendário precisa estar ativado para o utilizador. Sabre e Symfony Console vêm do core do Nextcloud e ficam fora do `vendor/` do pacote.
 
 | Tool de escrita | Grant | Comportamento |
 | --- | --- | --- |
@@ -42,3 +42,11 @@ Consulte `mcp_guide` para o esquema e as operações disponíveis.
 [Guias de operação](../../guides/README.md).
 
 [English](../../../en/reference/tools/calendar.md) · [Español](../../../es/reference/tools/calendar.md) · [Català](../../../ca/reference/tools/calendar.md) · [Português (Brasil)](../../../pt-BR/reference/tools/calendar.md) · Português (Portugal)
+
+## Disponibilidade e conflitos
+
+`calendar_check_availability` exige a permissão independente `calendar.availability` e seleção explícita da ferramenta. Indique `from` (inclusivo) e `to` (exclusivo), com uma janela máxima de 31 dias. Use `calendars` opcional para selecionar até 20 caminhos de calendários acessíveis; omita-o para usar todos os calendários visíveis, sujeitos ao mesmo limite. `min_duration_minutes` filtra intervalos livres (30 por predefinição, intervalo 5–1440).
+
+A resposta contém intervalos ocupados UTC, conflitos por sobreposição e intervalos livres comuns. Intervalos que apenas se tocam não entram em conflito. Eventos recorrentes, exceções de recorrência e fusos horários seguem as regras existentes de expansão do calendário; eventos cancelados e transparentes não bloqueiam tempo. Argumentos apenas de data e valores flutuantes de dia inteiro seguem a convenção existente de data civil UTC.
+
+Não são devolvidos títulos, descrições ou dados de participantes de eventos. Aplicam-se partilhas nativas, restrições de âmbito Calendar e classificação de eventos. Se eventos ocultos, dados inválidos ou limites de análise impedirem um cálculo fiável, a ferramenta devolve erro em vez de afirmar que o período está livre. A análise permite até 2.000 objetos de calendário por calendário e 10.000 ocorrências no total. Eventos de duração zero também tornam a disponibilidade indisponível nesta política conservadora. A disponibilidade é um retrato dos calendários acessíveis, não uma reserva nem uma afirmação sobre calendários a que quem chama não pode aceder.

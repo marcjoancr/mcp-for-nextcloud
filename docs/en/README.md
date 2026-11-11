@@ -2,15 +2,26 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
-# English documentation
+# Nextcloud MCP documentation
 
 **English** · [Español](../es/README.md) · [Català](../ca/README.md) · [Português (Brasil)](../pt-BR/README.md) · [Português (Portugal)](../pt-PT/README.md)
 
-Connect an MCP client to your own Nextcloud. Search files, read notes, follow Talk conversations or manage tasks through one endpoint. Each request runs with the permissions of the signed-in user.
+Use your Nextcloud from an MCP assistant, with the signed-in user's permissions. Start with installation, enable access, then connect a client.
 
-- [Install the fork](installation.md)
-- [Connect a client](guides/clients.md)
-- [Explore the tools](reference/tools.md)
-- [Configure permissions](guides/permissions.md)
+| I want to… | Read |
+| --- | --- |
+| Install or upgrade this fork | [Installation and recovery](installation.md) |
+| Connect an assistant | [Client setup](guides/clients.md) |
+| Enable users, groups and operations | [Permissions and administration](guides/permissions.md) |
+| Choose which data is exposed | [File protection](guides/file-protection.md) |
+| Find a supported action | [Tool catalog](reference/tools.md) |
+| Diagnose a failed connection or call | [Troubleshooting](guides/troubleshooting.md) |
+| Read server logs through MCP | [Server-log access](guides/server-logs.md) |
 
-[Documentation](guides/README.md) · [Development (English)](development/README.md)
+## Reference
+
+[Configuration](reference/configuration.md) · [OAuth](reference/oauth.md) · [MCP resources](reference/resources.md) · [All operational guides](guides/README.md)
+
+## Contribute
+
+[Development guide](development/README.md) covers setup, architecture, tests, packaging and documentation maintenance. English is canonical; translations retain their source revision and visible human-review status.

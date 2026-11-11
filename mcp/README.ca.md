@@ -2,29 +2,33 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: b93ec95263f3db1d7b208b7cb3c17cef2e1f3f20 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](README.md).
 
 # Nextcloud MCP
 
+**El teu Nextcloud, dins de la conversa.** Cerca fitxers, treballa amb notes, calendaris, contactes i tasques, gestiona targetes de Deck i posa't al dia del Talk des d'un client MCP. Mail llegeix missatges i adjunts propis i gestiona esborranys locals sense enviar correu; Forms llegeix resultats permesos i exporta pàgines CSV limitades. Els operadors autoritzats poden consultar els registres del servidor.
+
 [English](README.md) · [Español](README.es.md) · **Català** · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
-
-Connecta un client MCP al teu Nextcloud. Cerca fitxers, llegeix notes, segueix converses del Talk o gestiona tasques des d’un únic punt d’accés. Cada petició respecta els permisos de qui ha iniciat la sessió.
-
-Nextcloud MCP és un fork independent de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud), de Sintax (Jhonatan Jaworski). El desenvolupament es fa a [`main`](https://github.com/marcjoancr/mcp-for-nextcloud/tree/main).
-
-La **versió 2.7.0** conserva l’identificador `mcp`. La botiga d’aplicacions del Nextcloud distribueix el projecte original. Consulta la guia d’instal·lació abans de substituir una instal·lació existent.
 
 ## Primers passos
 
-URL del servidor · `https://cloud.example.com/apps/mcp/`
+Requereix **Nextcloud 33–35** i **PHP 8.4+**. Aquest fork mantingut independentment de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versió **2.7.0** i conserva l'identificador `mcp`. L'edició de la botiga és el projecte original; fes servir el paquet revisat d'aquest fork per instal·lar-lo o substituir-la.
 
-- [Instal·la el fork](../docs/ca/installation.md)
-- [Connecta un client](../docs/ca/guides/clients.md)
-- [Explora les eines](../docs/ca/reference/tools.md)
-- [Configura els permisos](../docs/ca/guides/permissions.md)
+1. [Instal·la l'aplicació](../docs/ca/installation.md).
+2. [Habilita el servei, l'elegibilitat de l'usuari i la connexió personal](../docs/ca/guides/permissions.md#habilitar-laccés).
+3. [Connecta un client](../docs/ca/guides/clients.md) a `https://cloud.example.com/apps/mcp/` amb OAuth o una contrasenya d'aplicació i selecciona les seves eines permeses.
+4. Demana la **Guia d'eines** i prova «Quines converses del Talk tenen missatges sense llegir?» o «Troba la proposta del projecte i resumeix-la». Són exemples de peticions, no transcripcions enregistrades.
+
+## L'accés continua sota el teu control
+
+Fins a **112 eines** d’onze mòduls, incloses guia i estat, es filtren segons les aplicacions disponibles, les assignacions d'eines i les seleccions de connexió. Els permisos natius de Nextcloud s'apliquen a cada petició. Els administradors poden limitar l'accés a carpetes, calendaris i llistes de tasques seleccionats i excloure fitxers etiquetats. Les eines d'escriptura retornen una previsualització si no es confirmen explícitament; l'assistent ha d'obtenir l'aprovació de l'usuari. No hi ha cap eina de supressió de fitxers. Les eines de Mail, Forms i registres requereixen permisos explícits. Els esborranys de Mail, el desament d'adjunts i les exportacions de Forms requereixen confirmació; els registres continuen sent de només lectura i Mail mai no envia missatges.
+
+Els resultats de les eines s'envien al client d'IA triat i queden subjectes a les seves polítiques de tractament i retenció.
+
+[Eines](../docs/ca/reference/tools.md) · [Permisos](../docs/ca/guides/permissions.md) · [Protecció de fitxers](../docs/ca/guides/file-protection.md) · [Resolució de problemes](../docs/ca/guides/troubleshooting.md)
 
 ## Llicència
 
@@ -39,6 +43,6 @@ Smalot PdfParser, Symfony Polyfill Mbstring i l'autoloader de Composer estan inc
 
 Jerarquia de tasques: [@mturgeonferland](https://github.com/sintax-tech/mcp-for-nextcloud/pull/18).
 
-Sintax / Jhonatan Jaworski · [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw).
+La documentació original també reconeix la contribució de Sintax/Jhonatan Jaworski a [XERJ Corpus Hub](https://hub.xerj.org/contributors/jhowjaw). Conservem aquest crèdit històric sense donar a entendre que XERJ hagi revisat aquest fork.
 
 Developed by Sintax — https://sintax.tech

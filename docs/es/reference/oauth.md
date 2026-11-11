@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/oauth.md -->
-<!-- translation-source-revision: a1b11b5ee002d138ee7fd9155d6c524a448838f4 -->
+<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../en/reference/oauth.md).
@@ -13,7 +13,7 @@ Los metadatos del recurso protegido están en `/apps/mcp/.well-known/oauth-prote
 
 `oauth/authorize` ofrece consentimiento en el navegador; `oauth/token` intercambia códigos de autorización con PKCE S256 y rota tokens de renovación. Los tokens de acceso duran una hora y los de renovación, 30 días. La base de datos almacena hashes de credenciales, no sus valores en claro. Es autenticación de cliente público (`none`); un ID de cliente es un identificador, no un secreto ni una concesión de permisos.
 
-Al conectar un cliente, la pantalla de consentimiento empieza sin herramientas de datos seleccionadas. Abre un catálogo para elegir herramientas y acciones concretas. También puedes seleccionar o deseleccionar un catálogo o toda la lista. Seleccionar todas incluye las acciones permitidas por el administrador. Puedes autorizar una conexión sin herramientas de datos. La selección solo se aplica a esa conexión.
+Al conectar un cliente, la pantalla de consentimiento empieza sin herramientas de datos seleccionadas. Abre un catálogo para elegir herramientas y acciones individuales o selecciona y quita herramientas de un catálogo o de todos. Seleccionar todas incluye las acciones permitidas por la administración. También puedes permitir una conexión sin herramientas de datos. La selección solo se aplica a esa conexión.
 
 ## Clientes publicados, nativos y registrados
 
