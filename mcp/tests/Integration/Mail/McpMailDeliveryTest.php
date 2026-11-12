@@ -62,7 +62,7 @@ final class McpMailDeliveryTest extends IntegrationTestCase {
         $r=$this->proof('inline_protocol');
         self::assertSame('accepted',$r['state']);self::assertSame(1,$r['smtp_submissions']);
         self::assertTrue($r['exact_wire_bytes']);self::assertTrue($r['bcc_private']);
-        self::assertTrue($r['inline_image_bytes_exact']);self::assertTrue($r['related_mime']);self::assertTrue($r['cid_matches']);
+        self::assertTrue($r['inline_image_bytes_exact']);self::assertTrue($r['related_mime']);self::assertTrue($r['cid_matches']);self::assertTrue($r['body_attributes_preserved']);self::assertTrue($r['head_style_preserved']);
     }
 
 }

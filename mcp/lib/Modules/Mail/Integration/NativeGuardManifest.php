@@ -149,7 +149,7 @@ final class NativeGuardManifest {
     'lib/Service/DeliveryAuthorization.php' => 'cebb1cdbdb994b8eab490de9914f873f4541a4982dc1e25757f93b9229b5f9df',
     'lib/Service/DraftsService.php' => 'e959cd76cd0a9f0ff20b02d270631acf6af977a9e59416ed17191b006bd6434c',
     'lib/Service/FilterService.php' => '7727aba6d1e76c654acc5364367c2d52bd40dff30313c030e55fc7ef819155f5',
-    'lib/Service/FrozenInlineImages.php' => 'c5620f279c6d376b6c79083bacd23c6b90a9da58bf7d01db2102cf33481ba443',
+    'lib/Service/FrozenInlineImages.php' => '2e9064b9cd75e444e3c42eccdb3817b6d8138b241e8084266741409aacb9c807',
     'lib/Service/FrozenMessageRenderer.php' => 'f24619773f178574a9c9203328b0c1f55cafe945f7f11749a1063fdcab239b07',
     'lib/Service/GuardedBodyIndex.php' => 'ee814344d8d1a45bb3d8664787b000638bdda1b08759e881f2bbcda19ee4b337',
     'lib/Service/GuardedContentReader.php' => '77cd35c1626610be22d8e83b704aaee4e481bec1b55bf0e9070306bb77c2dd2a',

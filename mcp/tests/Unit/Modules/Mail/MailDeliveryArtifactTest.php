@@ -67,5 +67,14 @@ final class MailDeliveryArtifactTest extends TestCase {
         $c=$this->content();$c['bodyHtml']=str_repeat('<img src="data:image/png;base64,YQ==">',11);
         $this->expectException(\RuntimeException::class);$this->renderer()->preview($c);
     }
+    public function testImageConversionPreservesFullDocumentStylesAndBodyAttributes():void {
+        $path=dirname(__DIR__,5).'/native/mail-guard/src/Service/FrozenInlineImages.php';require_once $path;
+        $html='<html><head><style>.signature { color: red; }</style></head><body style="background:blue"><p class="signature">Signature</p><img src="data:image/png;base64,YQ=="></body></html>';
+        [$converted,$parts]=(new \OCA\Mail\Service\FrozenInlineImages())->extract($html);
+        self::assertStringContainsString('background:blue',$converted);
+        self::assertStringContainsString('.signature { color: red; }',$converted);
+        self::assertStringContainsString('Signature',$converted);self::assertCount(1,$parts);
+        self::assertStringNotContainsString('data:image',$converted);
+    }
 
 }

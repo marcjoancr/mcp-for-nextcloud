@@ -12,7 +12,7 @@ final class FrozenInlineImages {
         if(strlen($html)>3145728)throw new \RuntimeException('HTML body bound exceeded.');
         if(!str_contains(strtolower($html),'data:')){if(strlen($html)>80000)throw new \RuntimeException('HTML text bound exceeded.');return [$html,[]];}
         $doc=new \DOMDocument();$previous=libxml_use_internal_errors(true);
-        try{$ok=$doc->loadHTML('<?xml encoding="UTF-8"><html><body>'.$html.'</body></html>',LIBXML_NONET);}
+        try{$source=stripos($html,'<html')===false?'<html><body>'.$html.'</body></html>':$html;$ok=$doc->loadHTML('<?xml encoding="UTF-8">'.$source,LIBXML_NONET);}
         finally{libxml_clear_errors();libxml_use_internal_errors($previous);}
         if(!$ok)throw new \RuntimeException('Unsupported HTML body.');
         $parts=[];$total=0;
@@ -27,8 +27,8 @@ final class FrozenInlineImages {
             $image->setAttribute('src','cid:'.$cid);
         }
         if($parts===[]){if(strlen($html)>80000)throw new \RuntimeException('HTML text bound exceeded.');return [$html,[]];}
-        $body=$doc->getElementsByTagName('body')->item(0);if($body===null)throw new \RuntimeException('Unsupported HTML document.');
-        $out='';foreach($body->childNodes as $child)$out.=$doc->saveHTML($child);
+        foreach(iterator_to_array($doc->childNodes) as $child)if($child->nodeType===XML_PI_NODE)$doc->removeChild($child);
+        $doc->encoding='UTF-8';$out=$doc->saveHTML();if($out===false)throw new \RuntimeException('Unsupported HTML document.');
         // Binary data is outside the HTML text budget; visible content is never truncated.
         if(strlen($out)>80000)throw new \RuntimeException('HTML text bound exceeded.');
         return [$out,$parts];
