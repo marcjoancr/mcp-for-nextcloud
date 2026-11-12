@@ -11,6 +11,12 @@ final class McpMailDeliveryTest extends IntegrationTestCase {
         if(getenv('MCP_IT_WITH_MAIL')!=='1'||getenv('MCP_IT_MAIL_GUARD')!=='1')self::markTestSkipped('Qualified native delivery fixture only.');
         $r=MailActor::run(MailActor::ALICE,'delivery-native',['scenario'=>$scenario]+$extra);if(isset($r['fixture_error']))self::fail(json_encode($r));self::assertTrue($r['implementation_available'],'Native immutable delivery is required.');return $r;
     }
+    public function testNativeEditorModeSelectsOnlyReviewedBodyAndNeverPrefersEmptyHtml():void {
+        $r=$this->proof('body_modes');self::assertTrue($r['smtp_unchanged']);$c=$r['cases'];
+        foreach(['plain-empty','plain-stale']as$key){self::assertSame('Visible plain',$c[$key]['plain']);self::assertNull($c[$key]['html']);self::assertFalse($c[$key]['wireHtml']);self::assertFalse($c[$key]['staleHtmlOnWire']);self::assertSame(1,$c[$key]['attachmentCount']);}
+        self::assertSame('Plain fallback',$c['html']['plain']);self::assertSame('<p>Visible HTML</p>',$c['html']['html']);self::assertTrue($c['html']['wireHtml']);
+        self::assertNull($c['html-empty']['plain']);self::assertSame('',$c['html-empty']['html']);self::assertFalse($c['html-empty']['wireHtml']);self::assertFalse($c['html-empty']['stalePlainOnWire']);
+    }
     public static function cancellationRevocations():array {return ['scope'=>['scope'],'tool'=>['tool'],'actor'=>['actor'],'precommit rollback'=>['commit']];}
     #[\PHPUnit\Framework\Attributes\DataProvider('cancellationRevocations')]
     public function testPublicCancellationRevocationInsideNativeOwnerPreservesQueueAndHold(string $mode):void {

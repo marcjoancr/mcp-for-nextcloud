@@ -26,7 +26,7 @@ case 'legacy-before':
 case 'migrate':
     if(!$apps->upgradeApp('mail'))throw new RuntimeException('Native registration failed.');
     foreach(['mcp','mail']as$app){$m=new \OC\DB\MigrationService($app,Server::get(\OC\DB\Connection::class));if(array_diff($m->getAvailableVersions(),$m->getMigratedVersions())!==[])throw new RuntimeException('Pending migration.');}
-    if($apps->getAppVersion('mail')!=='5.12.5.11')throw new RuntimeException('Unexpected native build.');
+    if($apps->getAppVersion('mail')!=='5.12.5.12')throw new RuntimeException('Unexpected native build.');
     $out=['marker'=>'FULL_NATIVE_REGISTERED_ALL_MIGRATIONS_OK'];break;
 case 'legacy-after':
     $proof=json_decode((string)file_get_contents('/tmp/mcp-qualified-legacy.json'),true,512,JSON_THROW_ON_ERROR);$rows=$legacy();$actual=[];

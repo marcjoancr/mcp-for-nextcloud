@@ -11,6 +11,9 @@ final class MailDeliveryBoundaryTest extends TestCase {
         $accepted=json_decode((string)file_get_contents(dirname(__DIR__,5).'/native/mail-guard/metadata-v10-manifest.json'),true,512,JSON_THROW_ON_ERROR);
         self::assertSame('mcp-mail-mutations-v10',$accepted['contract']);
         self::assertSame($accepted,NativeGuardManifest::LEGACY_METADATA_DATA);
+        $delivery=json_decode((string)file_get_contents(dirname(__DIR__,5).'/native/mail-guard/delivery-v11-manifest.json'),true,512,JSON_THROW_ON_ERROR);
+        self::assertSame('mcp-mail-mutations-v11',$delivery['contract']);
+        self::assertSame($delivery,NativeGuardManifest::LEGACY_DELIVERY_DATA);
     }
     public function testProviderEligibilityIsSharedWithCapabilityMetadata():void {
         $services=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailServices::class);$services->method('isEnabledFor')->willReturn(true);
@@ -32,9 +35,9 @@ final class MailDeliveryBoundaryTest extends TestCase {
         try{$gateway->cancel('alice',str_repeat('a',64),'revision');self::fail('Cancellation admitted without a fresh guard.');}catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){self::assertSame(0,$native->effects);}
     }
     public function testNewNativeRuntimeDoesNotExtendUnqualifiedCorePairs():void {
-        self::assertTrue(MailRuntimePairs::matches('35.0.2.2','5.12.5.11'));
-        self::assertFalse(MailRuntimePairs::matches('34.0.5','5.12.5.11'));
-        self::assertFalse(MailRuntimePairs::matches('35.0.3','5.12.5.11'));
+        self::assertTrue(MailRuntimePairs::matches('35.0.2.2','5.12.5.12'));
+        self::assertFalse(MailRuntimePairs::matches('34.0.5','5.12.5.12'));
+        self::assertFalse(MailRuntimePairs::matches('35.0.3','5.12.5.12'));
     }
     public function testInternalMetadataLaneCanRecordAppWithdrawalWithoutOpeningOrdinaryUserAccess():void {
         $native=new class {public bool $reviewed=false;public function context(string $uid,string $id):array{return ['accountId'=>3,'connectionId'=>12,'sourceTool'=>'mail_schedule'];}public function review(string $uid,string $id,object $fence):array{$this->reviewed=true;return ['state'=>'blocked'];}};

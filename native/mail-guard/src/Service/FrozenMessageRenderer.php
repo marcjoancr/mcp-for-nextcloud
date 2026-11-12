@@ -47,7 +47,7 @@ final class FrozenMessageRenderer {
         $headers.='Subject: '.$this->encoded($content['subject']??'')."\r\nMIME-Version: 1.0\r\n";
         if(($content['replyTo']??null)!==null){$reply=$this->safe($content['replyTo']);if(!preg_match('/^<[^<>\s]+@[^<>\s]+>$/D',$reply))throw new \RuntimeException('Unsupported reply identity.');$headers.='In-Reply-To: '.$reply."\r\nReferences: ".$reply."\r\n";}
         if($content['aiGenerated']??false)$headers.="X-AI-Generated: 1\r\n";
-        $parts=[];if($content['bodyPlain']!==null)$parts[]=$this->textPart('text/plain',$content['bodyPlain']);if($content['bodyHtml']!==null)$parts[]=$this->textPart('text/html',$content['bodyHtml']);
+        $parts=[];if($content['bodyPlain']!==null&&$content['bodyPlain']!=='')$parts[]=$this->textPart('text/plain',$content['bodyPlain']);if($content['bodyHtml']!==null&&$content['bodyHtml']!=='')$parts[]=$this->textPart('text/html',$content['bodyHtml']);
         $body=count($parts)>1?$this->multipart('alternative',$parts):($parts[0]??$this->textPart('text/plain',''));
         $parts=[$body];$total=0;if(count($content['attachments'])>10)throw new \RuntimeException('Attachment bound exceeded.');
         foreach($content['attachments'] as $a){

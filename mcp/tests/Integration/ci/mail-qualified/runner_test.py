@@ -319,7 +319,7 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual('linux/amd64', run.PROFILE['platform'])
         for pin in run.PROFILE['images'].values():
             self.assertRegex(pin, r'@sha256:[a-f0-9]{64}$')
-        self.assertEqual('mail-qualified-nc35-pg16-s3-v11', run.PROFILE['id'])
+        self.assertEqual('mail-qualified-nc35-pg16-s3-v12', run.PROFILE['id'])
 
 if __name__ == '__main__':
     unittest.main()

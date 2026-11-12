@@ -57,7 +57,7 @@ if($mode==='seed'){
 if($mode==='snapshot'){
     if(file_exists($file))throw new RuntimeException('Unique snapshot required.');$state=['schemaVersion'=>1,'tables'=>snapshot($prefix),'fileId'=>(int)$root->get($path)->getId(),'fileSha256'=>hash('sha256',$root->get($path)->getContent())];file_put_contents($file,json_encode($state,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR)."\n");chmod($file,0600);echo json_encode(['snapshotSha256'=>hash_file('sha256',$file),'tables'=>count($state['tables'])],JSON_THROW_ON_ERROR)."\n";exit;
 }
-$state=json_decode(file_get_contents($file),true,512,JSON_THROW_ON_ERROR);$expected=$mode==='verify-v9'?['2.7.0','5.12.5.9']:['2.8.0','5.12.5.11'];
+$state=json_decode(file_get_contents($file),true,512,JSON_THROW_ON_ERROR);$expected=$mode==='verify-v9'?['2.7.0','5.12.5.9']:['2.8.1','5.12.5.12'];
 if([$apps->getAppVersion('mcp'),$apps->getAppVersion('mail')]!==$expected)throw new RuntimeException('Exact candidate versions required.');
 foreach($state['tables']as$table=>$proof){$actual=digestRows($table,$proof['columns']);if($actual['rows']!==$proof['rows']||!hash_equals($proof['sha256'],$actual['sha256']))throw new RuntimeException('Preserved old-column table differs: '.$table);}
 if((int)$root->get($path)->getId()!==$state['fileId']||!hash_equals($state['fileSha256'],hash('sha256',$root->get($path)->getContent())))throw new RuntimeException('Synthetic S3 object differs.');

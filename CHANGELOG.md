@@ -2,6 +2,11 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.8.1
+
+- Freeze Mail bodies according to the native editor mode, excluding inactive stale content and empty HTML alternatives. Keep the delivery preview consistent with the MIME content.
+- Require the corresponding Mail 5.12.5.12 native dependency for new guarded delivery; retain the immutable v11 manifest and existing frozen delivery receipts. Status reads never retransmit a running or uncertain attempt.
+
 ## Unreleased
 
 ## 2.8.0

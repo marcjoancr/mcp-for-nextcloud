@@ -93,7 +93,7 @@ final class MailPlanRenderer {
             $lines[]='- '.Translator::t('Account id').': '.(int)($draft['accountId']??0);
             $lines[]='- '.Translator::t('Sender: %s',[PlanText::quoted((string)($draft['sender']['name']??'')).' '.PlanText::quoted((string)($draft['sender']['email']??''))]);
             foreach(['to','cc','bcc']as$key)foreach($draft[$key]??[]as$i=>$recipient)$draft[$key][$i]['label']=$recipient['name']??'';
-            $draft['body_plain']=$draft['bodyPlain']??'';$draft['body_html']=$draft['bodyHtml']??'';$draft['is_html']=($draft['bodyHtml']??null)!==null;
+            $draft['body_plain']=$draft['bodyPlain']??'';$draft['body_html']=$draft['bodyHtml']??'';$draft['is_html']=($draft['bodyHtml']??'')!=='';
             $lines=array_merge($lines,self::draftFields($draft));
             foreach($draft['attachments']??[]as$attachment)$lines[]='- '.Translator::t('Attachment: %s',[PlanText::quoted((string)$attachment['name'])]).' — '.(int)($attachment['bytes']??0).' bytes; SHA256 '.PlanText::inline((string)($attachment['sha256']??''));
             $lines[]='- '.Translator::t('Sent folder').': '.(isset($draft['sentTarget']['mailboxId'])?(int)$draft['sentTarget']['mailboxId']:Translator::t('Separate repair required'));

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "id": "mail-qualified-nc35-pg16-s3-v11",
+  "id": "mail-qualified-nc35-pg16-s3-v12",
   "platform": "linux/amd64",
   "nextcloudVersion": "35.0.2",
-  "nativeBuild": "5.12.5.11",
-  "nativeContract": "mcp-mail-mutations-v11",
+  "nativeBuild": "5.12.5.12",
+  "nativeContract": "mcp-mail-mutations-v12",
   "images": {
     "nextcloud": "lscr.io/linuxserver/nextcloud:version-35.0.2@sha256:e7f790011bf023d33517b4be70231d7aa2e19d54c619664a8533e8bedd4716ac",
     "postgres": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",

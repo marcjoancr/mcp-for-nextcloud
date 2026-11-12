@@ -144,6 +144,7 @@ path = [
   "mcp/tests/fixtures/mail-sieve/README.md",
   "native/mail-guard/README.md",
   "native/mail-guard/auth-v7-manifest.json",
+  "native/mail-guard/delivery-v11-manifest.json",
   "native/mail-guard/drafts-v6-manifest.json",
   "native/mail-guard/flags-v1-manifest.json",
   "native/mail-guard/folders-v3-manifest.json",

@@ -20,7 +20,7 @@ final class MailBoundedAttachmentGateTest extends TestCase {
         $access=new MailAttachmentAccess($locator,$this->createMock(MailServices::class),content:$reader);$this->expectExceptionMessage('Legacy locator reached.');$access->list('alice',7);
     }
     public function testVersionMetadataNeverTreatsAnUnqualifiedNewArtifactAsOld():void {
-        foreach(['5.12.5'=>false,'5.12.5.10'=>false,'5.12.5.11'=>true,'5.13.0'=>true,'broken'=>true] as $version=>$expected){$apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('getAppVersion')->willReturn($version);$b=new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary($apps);self::assertSame($expected,$b->currentContentGeneration(),$version);}
+        foreach(['5.12.5'=>false,'5.12.5.10'=>false,'5.12.5.12'=>true,'5.13.0'=>true,'broken'=>true] as $version=>$expected){$apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('getAppVersion')->willReturn($version);$b=new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary($apps);self::assertSame($expected,$b->currentContentGeneration(),$version);}
     }
     public function testCurrentDisplayUnavailableCannotReachLegacyManager():void {
         $reader=$this->createMock(MailContentReader::class);$reader->method('available')->willReturn(false);$reader->method('mustUseBounded')->willReturn(true);

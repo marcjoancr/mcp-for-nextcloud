@@ -77,6 +77,16 @@ final class MailDeliveryActor {
             $a=$attachments->addFileFromString($uid,'synthetic.txt','text/plain',"Synthetic attachment\0bytes",null,'attachment');
             $m=new \OCA\Mail\Db\LocalMessage();$m->setType(1);$m->setAccountId($account->getId());$m->setAliasId($alias->getId());$m->setSubject('Synthetic immutable delivery');$m->setBodyPlain(".first\n.second\r\nlast");$m->setBodyHtml('');$m->setEditorBody($m->getBodyPlain());$m->setHtml(false);$m->setFailed(true);$m->setMcpDraftOnly(true);$m->setUpdatedAt(time());
             $draft=$drafts->saveMessage($account,$m,[['email'=>'one@example.test']],[],[['email'=>'hidden@example.test']],[['type'=>'local','id'=>$a->getId()]]);
+            if($scenario==='body_modes'){
+                $source=Server::get('OCA\\Mail\\Transmission\\DeliverySource');$renderer=Server::get('OCA\\Mail\\Service\\FrozenMessageRenderer');$cases=[];
+                foreach([['plain-empty',false,'Visible plain',''],['plain-stale',false,'Visible plain','<p>Stale HTML</p>'],['html',true,'Plain fallback','<p>Visible HTML</p>'],['html-empty',true,'Stale plain','']]as[$name,$html,$plain,$rich]){
+                    $draft=$drafts->getMessage($draft->getId(),$uid);$draft->setHtml($html);$draft->setBodyPlain($plain);$draft->setBodyHtml($rich);$draft->setEditorBody($html?$rich:$plain);
+                    $draft=$drafts->updateMessage($account,$draft,[['email'=>'one@example.test']],[],[],[['type'=>'local','id'=>$a->getId()]]);
+                    $content=$source->read($uid,$draft->getId());$frozen=$renderer->freeze($content);
+                    $cases[$name]=['plain'=>$content['bodyPlain'],'html'=>$content['bodyHtml'],'wireHtml'=>str_contains($frozen['smtp'],'Content-Type: text/html'),'staleHtmlOnWire'=>str_contains($frozen['smtp'],base64_encode('<p>Stale HTML</p>')),'stalePlainOnWire'=>str_contains($frozen['smtp'],base64_encode('Stale plain')),'attachmentCount'=>count($content['attachments'])];
+                }
+                return ['implementation_available'=>true,'cases'=>$cases,'smtp_unchanged'=>$before['commands']===self::state($directory)['commands']];
+            }
             if($scenario==='clean_http')return MailCleanHttpActor::delivery($uid,$draft->getId(),(int)$account->getId());
             if(str_starts_with($scenario,'mcp_cancel_')||in_array($scenario,['mcp_scope_revoked','mcp_future_scope_revoked','mcp_send','mcp_schedule','mcp_revoked','mcp_repair','mcp_lost_ack','mcp_future_revoked','mcp_due_paused','mcp_future_paused','mcp_mail_revoked'],true)){$actual=MailDeliveryToolActor::run($uid,$draft->getId(),$scenario);return ['implementation_available'=>true]+$actual+['smtp_unchanged'=>$before['commands']===self::state($directory)['commands']];}
             $preview=$service->preview($uid,$draft->getId());$key=bin2hex(random_bytes(16));$admit=fn()=>$service->queue($uid,$draft->getId(),$preview['revision'],$key,1,'mail_send',0,'UTC',in_array($scenario,['automatic_sent','automatic_target_changed'],true)?($preview['sentTarget']??null):null);

@@ -93,14 +93,14 @@ final class SourceOfferTest extends TestCase {
             ['mcp_native_source_offer', null, $native],
         ]);
         $apps = $this->createMock(IAppManager::class);
-        $apps->method('getAppVersion')->willReturnMap([['mcp', '2.0.0'], ['mail', '5.12.5.11']]);
+        $apps->method('getAppVersion')->willReturnMap([['mcp', '2.0.0'], ['mail', '5.12.5.12']]);
         $apps->method('getAppPath')->with('mcp')->willReturn($this->directory);
         $boundary = $this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class);
         $boundary->method('deliverySourceVerified')->willReturn($matches);
         return new SourceOffer($config, $apps, $boundary);
     }
     private function nativeConfiguration(): array {
-        return ['schemaVersion' => 1, 'sourceCommit' => str_repeat('a', 40), 'nativeBuild' => '5.12.5.11',
+        return ['schemaVersion' => 1, 'sourceCommit' => str_repeat('a', 40), 'nativeBuild' => '5.12.5.12',
             'nativeManifestSha256' => hash('sha256', json_encode(\OCA\Mcp\Modules\Mail\Integration\NativeGuardManifest::DATA, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"),
             'manifestSha256' => str_repeat('c', 64), 'baseUrl' => 'https://sources.example.invalid/native'];
     }
@@ -109,7 +109,7 @@ final class SourceOfferTest extends TestCase {
         self::assertCount(5, $service->get()['files']);
         $offer = $service->getNative();
         self::assertSame(str_repeat('a', 40), $offer['sourceCommit']);
-        self::assertSame('5.12.5.11', $offer['nativeBuild']);
+        self::assertSame('5.12.5.12', $offer['nativeBuild']);
         self::assertSame(['native-manifest.json', 'mail-upstream-runtime.tar.gz', 'mail-upstream-source.tar.gz',
             'mail-reviewed-overlay.tar.gz', 'mail-assembled-runtime.tar.gz', 'NATIVE-BUILDING.md'], array_keys($offer['files']));
         $apps = $this->createMock(IAppManager::class);

@@ -261,7 +261,7 @@ class Fixture:
         self.result['legacyBefore'] = self.probe('legacy-before')
 
     def install_native(self):
-        self.phase('full-native-v11-migration')
+        self.phase('full-native-v12-migration')
         self.docker('exec', self.names['nc'], 's6-rc', '-d', 'change', 'svc-php-fpm', 'svc-cron')
         self.docker('exec', self.names['nc'], 'mkdir', '-p', '/config/mcp-qualified-retained')
         self.docker('exec', self.names['nc'], 'mv', '/config/www/nextcloud/apps/mail', '/config/mcp-qualified-retained/mail-stock')

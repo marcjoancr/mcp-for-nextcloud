@@ -18,6 +18,25 @@ final class MailDeliveryArtifactTest extends TestCase {
         self::assertStringContainsString(base64_encode(".line\nbody"),$f['smtp']);self::assertSame(0,preg_match('/(?<!\r)\n/',$f['smtp']));
         self::assertSame($r->revision($c),$r->revision($c));$c['sender']['email']='changed@example.test';self::assertNotSame($r->revision($c),$r->revision($this->content()));
     }
+    public static function absentHtmlBodies():array {return ['native empty HTML'=>[''], 'absent HTML'=>[null]];}
+    #[\PHPUnit\Framework\Attributes\DataProvider('absentHtmlBodies')]
+    public function testPlainMailNeverContainsAnEmptyPreferredHtmlAlternative(?string $html):void {
+        $c=$this->content();$c['bodyHtml']=$html;$f=$this->renderer()->freeze($c);
+        self::assertStringNotContainsString('Content-Type: text/html',$f['smtp']);
+        self::assertStringNotContainsString('multipart/alternative',$f['smtp']);
+        self::assertStringContainsString('Content-Type: text/plain',$f['smtp']);
+        self::assertStringContainsString(base64_encode($c['bodyPlain']),$f['smtp']);
+    }
+    public function testNonemptyHtmlAndPlainFallbackSurviveWithAttachments():void {
+        $c=$this->content();$c['bodyHtml']='<p>Visible HTML</p>';
+        $c['attachments']=[['id'=>4,'name'=>'proof.txt','mime'=>'text/plain','disposition'=>'attachment','contentId'=>null,'bytes'=>3,'sha256'=>hash('sha256','one'),'content'=>'one']];
+        $f=$this->renderer()->freeze($c);
+        self::assertStringContainsString('multipart/mixed',$f['smtp']);
+        self::assertStringContainsString('multipart/alternative',$f['smtp']);
+        self::assertStringContainsString(base64_encode('<p>Visible HTML</p>'),$f['smtp']);
+        self::assertStringContainsString(base64_encode($c['bodyPlain']),$f['smtp']);
+        self::assertStringContainsString('filename*=UTF-8\'\'proof.txt',$f['smtp']);
+    }
     public function testAttachmentBytesAndIdentityAreApproved():void {
         $r=$this->renderer();$c=$this->content();$c['attachments']=[['id'=>4,'name'=>'a.txt','mime'=>'text/plain','disposition'=>'attachment','contentId'=>null,'bytes'=>3,'sha256'=>hash('sha256','one'),'content'=>'one']];
         $a=$r->revision($c);$c['attachments'][0]['content']='two';$c['attachments'][0]['sha256']=hash('sha256','two');self::assertNotSame($a,$r->revision($c));
