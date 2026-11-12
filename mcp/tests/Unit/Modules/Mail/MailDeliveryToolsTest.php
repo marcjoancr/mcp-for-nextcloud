@@ -8,10 +8,13 @@ use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Mcp\Confirmation\WriteGate;
 use PHPUnit\Framework\TestCase;
 final class MailDeliveryToolsTest extends TestCase {
-    public function testOriginalDefinitionsOnlyChangeTheApprovedAttachmentSizeDescription():void {
+    public function testOriginalDefinitionsIncludeReviewedCompositionPreferences():void {
+        $catalog=MailToolCatalog::definitions();
+        self::assertSame(['user_preferences','complete_body'],$catalog['mail_write_draft']['inputSchema']['properties']['composition']['enum']);
+        self::assertContains('richtext',$catalog['mail_write_account_settings']['inputSchema']['properties']['changes']['properties']['editor_mode']['enum']);
         $first=array_slice(array_values(MailToolCatalog::definitions()),0,43);
         $first[6]['description']=str_replace('into Files, up to 25 MiB on the qualified bounded reader.','into Files.',$first[6]['description']);
-        self::assertSame('2d86648684f729952583c270a410b7938c9090944ab3c6c8f012f4ccec2344d9',hash('sha256',json_encode($first,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)));
+        self::assertSame('6c7c281ab013a782c657728086a005cf0a836912d1e6224f5a02c22302230179',hash('sha256',json_encode($first,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)));
     }
     public function testSendingAnnotationsExposeTheExternalIrreversibleEffect():void {
         foreach(['mail_send'=>'send','mail_schedule'=>'schedule']as$name=>$operation){

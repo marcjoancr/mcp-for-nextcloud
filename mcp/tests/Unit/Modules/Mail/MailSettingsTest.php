@@ -21,11 +21,28 @@ final class MailSettingsTest extends TestCase {
     public function testNativeSerializationAndSecretsNeverEscapeTheProjection(): void {
         [$g]=$this->fixture();
         $settings=$g->readSettings('alice',4);$connection=$g->readConnection('alice',4);
-        self::assertSame(['editor_mode'=>'html','signature_above_quote'=>true,'show_subscribed_only'=>false],$settings['settings']);
+        self::assertSame(['editor_mode'=>'richtext','signature_above_quote'=>true,'show_subscribed_only'=>false],$settings['settings']);
         self::assertSame('imap.example.test',$connection['imap']['host']);
         self::assertStringNotContainsString('SECRET',json_encode([$settings,$connection]));
         self::assertArrayNotHasKey('signature',$settings);
         self::assertArrayNotHasKey('imap',$settings);
+    }
+    public function testNativeRichtextPreferenceIsReadableAndWritable():void {
+        [$g,$entity,$native,, $states]=$this->fixture();
+        $entity->setEditorMode('richtext');
+        self::assertSame('richtext',$g->readSettings('alice',4)['settings']['editor_mode']);
+        $entity->setEditorMode('plaintext');
+        $s=new MailSettings($g,$states);$args=['account_id'=>4,'changes'=>['editor_mode'=>'richtext']];
+        $p=$s->preview($args,'alice');$s->write($args+['plan_state'=>$p['plan_state']],'alice');
+        self::assertSame('richtext',$entity->getEditorMode());
+    }
+    public function testLegacyHtmlInputWritesTheNativeRichtextValue():void {
+        [$g,$entity,$native,, $states]=$this->fixture();
+        $s=new MailSettings($g,$states);$args=['account_id'=>4,'changes'=>['editor_mode'=>'html']];
+        $p=$s->preview($args,'alice');
+        self::assertSame('richtext',$p['after']['settings']['editor_mode']);
+        $s->write($args+['plan_state'=>$p['plan_state']],'alice');
+        self::assertSame('richtext',$entity->getEditorMode());
     }
     public function testForeignAndMissingAccountsHaveTheSameRefusal(): void {
         [$g]=$this->fixture();$messages=[];

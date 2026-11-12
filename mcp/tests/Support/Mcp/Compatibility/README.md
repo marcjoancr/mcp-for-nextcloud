@@ -156,3 +156,11 @@ prior definition unchanged, and removing those two properties plus restoring the
 prior description exactly recovers that old definition. Historical unknown-version
 publication, protocol and result captures remain unchanged; no whole capture was
 regenerated. Current Mail/native and grant tests exercise the new actions.
+
+The 2026-11-12 composition correction changes only two raw Mail definitions per
+locale: mail_write_draft adds the explicit composition mode and updates the
+forward-body description; mail_write_account_settings accepts native richtext
+while retaining html input compatibility. A guarded patch verified that removing
+those additions and restoring the former description recovers each old definition
+exactly. Other publication, protocol and result bytes are preserved. Behavioral
+tests cover native user quote position, selected identity signatures and MIME mode.

@@ -30,12 +30,12 @@ final class ReplyComposer {
         return ['sender' => $sender, 'own' => $own];
     }
 
-    public function reply(string $uid, int $accountId, int $messageId, bool $all, array $own): array {
+    public function reply(string $uid, int $accountId, int $messageId, bool $all, array $own, bool $withQuote = false): array {
         $this->accounts->requireAccount($uid,$accountId);
         if (!($this->allowsTool)($uid, 'mail_read_message')) throw new ToolFailure('Reading the source message is not permitted.');
         $found = $this->locator->locate($uid, $messageId);
         if ((int)$found['account']->getId() !== $accountId) throw new ToolFailure('The source message is unavailable in this account.');
-        $row = ($this->reader)($uid)->readRow($uid, $found, 1);
+        $row = ($this->reader)($uid)->readRow($uid, $found, $withQuote ? 20000 : 1);
         $id = (string)$found['message']->getMessageId();
         if ($id === '' || strlen($id) > 998 || preg_match('/[\r\n\x00]/', $id)) {
             throw new ToolFailure('This message has no usable Message-ID; create an explicitly new message instead.');
@@ -46,7 +46,15 @@ final class ReplyComposer {
             if ($group['count'] > count($group['addresses'])) throw new ToolFailure('The complete recipient list is unavailable.');
             $addresses[$field] = array_map(static fn(array $r): array => ['email' => $r['email'], 'label' => $r['name'] ?? ''], $group['addresses']);
         }
+        $quote = null;
+        if ($withQuote) {
+            if (!is_array($row['body'] ?? null) || ($row['body']['truncated'] ?? true) || ($row['encrypted'] ?? false) || ($row['signed'] ?? false)) {
+                throw new ToolFailure('Automatic quoting requires a complete unencrypted unsigned source. Use complete_body or native Mail.');
+            }
+            $senders = array_map(static fn(array $a): string => ($a['name'] ?? '') . ' <' . $a['email'] . '>', $row['from']['addresses'] ?? []);
+            $quote = ['text' => $row['body']['text'], 'attribution' => implode(', ', $senders) . ' – ' . ($row['date'] ?? '')];
+        }
         return ReplyRecipients::derive($addresses, $own, $all)
-            + ['in_reply_to' => $id, 'reply_to_message_id' => $messageId];
+            + ['in_reply_to' => $id, 'reply_to_message_id' => $messageId, 'quote' => $quote];
     }
 }

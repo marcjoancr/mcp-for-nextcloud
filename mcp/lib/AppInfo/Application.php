@@ -743,7 +743,7 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
             $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ReplyComposer::class),
-            $c->get(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ForwardComposer::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)
+            $c->get(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ForwardComposer::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\MessageComposer::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup(
             $c->get(\OCA\Mcp\Db\OperationsMapper::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),

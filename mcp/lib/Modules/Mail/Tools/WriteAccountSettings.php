@@ -15,7 +15,7 @@ final class WriteAccountSettings implements WriteTool {
     public function __construct(private MailSettings $service){}
     public static function definition():ToolDefinition {return new ToolDefinition('mail_write_account_settings','mail','write_settings',
         'Previews and confirms an allowlisted preference patch. Omission preserves fields and authentication. Reuse the approved operation_id after a lost response.',
-        Schema::object(['account_id'=>Schema::id(),'changes'=>['type'=>'object','properties'=>['editor_mode'=>['type'=>'string','enum'=>['plaintext','html']],'signature_above_quote'=>['type'=>'boolean'],'show_subscribed_only'=>['type'=>'boolean']],'additionalProperties'=>false]],['account_id','changes'],true),app:'mail');}
+        Schema::object(['account_id'=>Schema::id(),'changes'=>['type'=>'object','properties'=>['editor_mode'=>['type'=>'string','enum'=>['plaintext','richtext','html']],'signature_above_quote'=>['type'=>'boolean'],'show_subscribed_only'=>['type'=>'boolean']],'additionalProperties'=>false]],['account_id','changes'],true),app:'mail');}
     public function preview(array $arguments,ToolContext $context):array {return $this->service->preview($arguments,$context->userId);}
     public function execute(array $arguments,ToolContext $context):array {
         if(!WriteGate::confirmed($arguments))return ToolResult::json($this->preview($arguments,$context));

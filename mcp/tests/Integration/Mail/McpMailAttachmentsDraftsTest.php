@@ -108,6 +108,48 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
         }
     }
 
+    public function testNativeCompositionPreferencesReachTheApprovedAndPersistedDraft():void {
+        $id=$this->account(MailActor::ALICE);
+        $native=Server::get(\OCA\Mail\Service\AccountService::class);
+        $entity=$native->find(MailActor::ALICE,$id)->getMailAccount();
+        $before=[$entity->getSignature(),$entity->getEditorMode(),$entity->isSignatureAboveQuote()];
+        $config=Server::get(IConfig::class);$position=$config->getUserValue(MailActor::ALICE,'mail','reply-mode','__missing__');
+        $imap=$this->imap('alice');$draft=null;
+        try {
+            $remote=$imap->state();
+            $entity->setSignature('Native Alice signature');$entity->setEditorMode('plaintext');$entity->setSignatureAboveQuote(true);$native->update($entity);
+            $config->setUserValue(MailActor::ALICE,'mail','reply-mode','bottom');
+            $args=['account_id'=>$id,'subject'=>'Re: Native preferences','body_plain'=>'New answer below original',
+                'reply_to_message_id'=>$this->messageId($id,'Unread message')];
+            $p=$this->data($this->alice->tool('mail_write_draft',$args));
+            $body=$p['after']['body_plain'];
+            self::assertLessThan(strpos($body,'> '),strpos($body,'-- '));
+            self::assertLessThan(strpos($body,'New answer below original'),strpos($body,'> '));
+            self::assertStringContainsString('Native Alice signature',$body);
+            $confirmed=$args+['confirm'=>true,'operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']];
+            $saved=$this->data($this->alice->tool('mail_write_draft',$confirmed));$draft=$saved['draft']['id'];
+            $read=$this->data($this->alice->tool('mail_read_drafts',['draft_id'=>$draft]));
+            self::assertSame($body,$read['draft']['body_plain']);self::assertFalse($read['draft']['is_html']);
+            $stored=Server::get(\OCA\Mail\Service\DraftsService::class)->getMessage($draft,MailActor::ALICE);
+            self::assertSame($body,$stored->getEditorBody());
+            $entity->setSignature('<img src="data:image/png;base64,YQ==">');$native->update($entity);
+            $imageArgs=['account_id'=>$id,'subject'=>'Native image signature','body_plain'=>'Active native plain body',
+                'body_html'=>'<p>Inactive stale HTML</p>','is_html'=>false];
+            $imagePlan=$this->data($this->alice->tool('mail_write_draft',$imageArgs));
+            self::assertTrue($imagePlan['after']['is_html']);
+            self::assertStringContainsString('Active native plain body',$imagePlan['after']['body_html']);
+            self::assertStringNotContainsString('Inactive stale HTML',$imagePlan['after']['body_html']);
+            $replayed=$this->data($this->alice->tool('mail_write_draft',$confirmed));
+            self::assertTrue($replayed['operation']['replayed']);
+            self::assertSame($remote,$imap->state(),'Composition must never send or mark the original as read.');
+        } finally {
+            if($draft!==null){$p=$this->data($this->alice->tool('mail_delete_draft',['draft_id'=>$draft]));$this->alice->tool('mail_delete_draft',['draft_id'=>$draft,'confirm'=>true,'operation_id'=>$p['operation_id'],'plan_state'=>$p['plan_state']]);}
+            $entity->setSignature($before[0]);$entity->setEditorMode($before[1]);$entity->setSignatureAboveQuote($before[2]);$native->update($entity);
+            if($position==='__missing__')$config->deleteUserValue(MailActor::ALICE,'mail','reply-mode');else $config->setUserValue(MailActor::ALICE,'mail','reply-mode',$position);
+            $imap->close();
+        }
+    }
+
     public function testDraftLifecycleRequiresMatchingConfirmationAndNeverCrossesUsersOrSends(): void {
         $account = $this->account(MailActor::ALICE);
         $subject = 'Draft proof ' . bin2hex(random_bytes(5));

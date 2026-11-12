@@ -2,6 +2,12 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.8.2
+
+- Compose new Mail drafts using the user's native reply position and the selected account/alias signature placement before confirmation. Preserve existing draft edits and support an explicit complete-body mode.
+- Respect native richtext preferences and preserve the active body when an image signature switches composition to HTML. Reject incomplete automatic quotes and bind composition preferences to approval.
+- Keep sending under the existing operator switch, independent send/status grants, connection selections and duplicate-prevention guarantees.
+
 ## 2.8.1
 
 - Freeze Mail bodies according to the native editor mode, excluding inactive stale content and empty HTML alternatives. Keep the delivery preview consistent with the MIME content.

@@ -12,15 +12,16 @@ Mail debe estar activado para la cuenta y tener una versión conocida de al meno
 Cada permiso empieza denegado, también en instalaciones existentes.
 `mail.read` solo concede acceso al inventario de cuentas y carpetas.
 La versión mínima de la API no garantiza la compatibilidad de todas las
-combinaciones de Mail y servidor. MCP 2.8.0 define **66 herramientas**. La
-continuación actual v11 requiere las fuentes nativas exactas de Mail 5.12.5.11,
+combinaciones de Mail y servidor. MCP define **66 herramientas**. La
+continuación actual v12 requiere las fuentes nativas exactas de Mail 5.12.5.12,
 Nextcloud 35.0.2, PostgreSQL 16 primario y las comprobaciones de proveedor y
 esquema correspondientes; la aceptación usa LinuxServer y almacenamiento S3.
 Los artefactos anteriores conservan únicamente sus capacidades cualificadas.
 Consulta la [matriz completa de compatibilidad](../../../en/reference/tools/mail.md)
 para cada combinación. La dependencia nativa se instala por separado: su número
-de versión no basta para habilitar funciones. El envío de producción permanece
-desactivado en el despliegue registrado.
+de versión no basta para habilitar funciones. El envío requiere el interruptor del
+operador, permiso explícito y selección de la herramienta en cada conexión.
+Escribir borradores por sí solo nunca concede permiso de envío.
 
 | Herramienta | Comportamiento |
 | --- | --- |
@@ -58,8 +59,9 @@ proceso PHP seguro o el transporte no cumple las condiciones, indican
 `unsupported`. Consultar o repetir una operación no vuelve a probar ni escribir.
 Los resultados de cada protocolo se conservan en `operation.protocols`, también
 al consultar o repetir una operación tras perder la respuesta.
-El envío continúa desactivado. Las firmas no se añaden silenciosamente a los
-borradores creados por MCP.
+El interruptor de envío lo controla el operador y el permiso de enviar sigue
+separado de la escritura de borradores. Los nuevos borradores muestran la firma
+y la cita completas en la vista previa antes de confirmar.
 
 La eliminación requiere una vista previa y aprobación. Se bloquea si hay
 borradores locales, elementos de salida u operaciones pendientes o inciertas.
@@ -202,3 +204,23 @@ de nuevo con los permisos actuales.
 [Todas las herramientas](../tools.md) · [Permisos](../../guides/permissions.md)
 
 [English](../../../en/reference/tools/mail.md) · [Español](../../../es/reference/tools/mail.md) · [Català](../../../ca/reference/tools/mail.md) · [Português (Brasil)](../../../pt-BR/reference/tools/mail.md) · [Português (Portugal)](../../../pt-PT/reference/tools/mail.md)
+
+## Composición según las preferencias nativas
+
+Al crear un borrador, `composition: "user_preferences"` es el valor predeterminado.
+Proporciona solo el texto nuevo. La preferencia personal `reply-mode` coloca la
+respuesta encima (`top`, valor predeterminado) o debajo del original. El ajuste
+`signatureAboveQuote` de la cuenta coloca la firma de la cuenta o del alias elegido
+encima de la cita o al final del correo, independientemente de la posición de la
+respuesta. Se respetan los modos nativos `plaintext` y `richtext`; `html` sigue
+admitido por compatibilidad. Las firmas con imágenes seleccionan HTML como en Mail.
+
+La vista previa contiene el cuerpo completo que se guardará, incluida la firma y
+la cita. Cambiar esas preferencias, la firma o el texto citado exige una nueva vista
+previa. No se cita automáticamente una fuente truncada, firmada o cifrada. La cita
+se incorpora como texto acotado y escapado; nunca se ejecuta HTML del original.
+
+Usa `composition: "complete_body"` para aportar un cuerpo ya compuesto sin insertar
+firma ni cita. Las actualizaciones de borradores existentes conservan el contenido
+omitido y no añaden otra firma o cita. El límite final sigue siendo de 20.000
+caracteres: excederlo se rechaza antes de escribir, sin recortar el correo.
