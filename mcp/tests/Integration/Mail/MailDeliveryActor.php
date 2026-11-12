@@ -76,6 +76,7 @@ final class MailDeliveryActor {
             $alias=$aliases->create($uid,$account->getId(),'approved@example.test','Approved identity');
             $a=$attachments->addFileFromString($uid,'synthetic.txt','text/plain',"Synthetic attachment\0bytes",null,'attachment');
             $m=new \OCA\Mail\Db\LocalMessage();$m->setType(1);$m->setAccountId($account->getId());$m->setAliasId($alias->getId());$m->setSubject('Synthetic immutable delivery');$m->setBodyPlain(".first\n.second\r\nlast");$m->setBodyHtml('');$m->setEditorBody($m->getBodyPlain());$m->setHtml(false);$m->setFailed(true);$m->setMcpDraftOnly(true);$m->setUpdatedAt(time());
+            if($scenario==='inline_protocol'){$m->setHtml(true);$m->setBodyPlain('Signature fallback');$m->setBodyHtml('<p>Signature</p><img src="data:image/png;base64,'.base64_encode(str_repeat('synthetic-image',6000)).'">');$m->setEditorBody($m->getBodyHtml());}
             $draft=$drafts->saveMessage($account,$m,[['email'=>'one@example.test']],[],[['email'=>'hidden@example.test']],[['type'=>'local','id'=>$a->getId()]]);
             if($scenario==='body_modes'){
                 $source=Server::get('OCA\\Mail\\Transmission\\DeliverySource');$renderer=Server::get('OCA\\Mail\\Service\\FrozenMessageRenderer');$cases=[];
@@ -137,6 +138,14 @@ final class MailDeliveryActor {
             $out+=['state'=>$result['state'],'sent_state'=>$result['sentState'],'replay_state'=>$again['state'],'replay_no_connection'=>$beforeReplay['connections']===$after['connections'],'smtp_submissions'=>($after['commands']['MAIL']??0)-($before['commands']['MAIL']??0),'connections'=>$after['connections']-$before['connections'],'contenders'=>$fence->contenders,'cancel_too_late'=>self::refused(fn()=>$service->cancel($uid,$queued['id'],$queued['revision'],self::cancelFence()))];
             if($result['state']==='accepted'){
                 $row=$store->find($uid,$queued['id']);$artifact=json_decode($row['artifact'],true,512,JSON_THROW_ON_ERROR);$last=end($after['messages']);$out['exact_wire_bytes']=$last['sha256']===$artifact['smtpHash'];$out['bcc_private']=!str_contains($artifact['smtp'],'Bcc:')&&str_contains($artifact['fcc'],'Bcc:');
+                if($scenario==='inline_protocol'){
+                    $out['inline_image_bytes_exact']=str_contains($artifact['smtp'],chunk_split(base64_encode(str_repeat('synthetic-image',6000)),76,"\r\n"));
+                    $out['related_mime']=str_contains($artifact['smtp'],'multipart/related')&&str_contains($artifact['smtp'],'Content-Type: image/png');
+                    preg_match('/Content-ID: <([^>]+)>/',$artifact['smtp'],$cid);
+                    preg_match('/Content-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/',$artifact['smtp'],$part);
+                    $html=base64_decode(preg_replace('/\s+/','',$part[1]??''),true);
+                    $out['cid_matches']=is_string($html)&&isset($cid[1])&&str_contains($html,'cid:'.$cid[1])&&!str_contains($html,'data:image');
+                }
                 if(in_array($scenario,['repair','repair_lost','repair_bad_literal','repair_bad_uid','repair_missing_uid','repair_selected_generation','repair_uid_after','repair_duplicate_uid','repair_changed_during_fetch','repair_reconnect','repair_no_uidplus'],true)){$repair=Server::get('OCA\\Mail\\Service\\SentCopyRepair');$plan=$repair->preview($uid,$queued['id']);$out['copy_state']=$repair->repair($uid,$queued['id'],$plan['repairRevision'],$fence)['sentState'];$repair->repair($uid,$queued['id'],$plan['repairRevision'],$fence);$copyTransport=self::state($directory);$out['copy_smtp_unchanged']=$after['commands']===$copyTransport['commands']&&$after['connections']===$copyTransport['connections'];if($scenario==='repair')$out['terminal_identity_released']=!self::refused(function()use($db,$account,$aliases,$uid,$alias):void {\OCA\Mail\Transmission\DeliveryHolds::assertFree($db,'account_id',(int)$account->getId());$aliases->update($uid,$alias->getId(),$alias->getAlias(),'Updated after verified copy',null);});if($copyPeer!==null){$peer=$copyPeer;$copyPeer=null;$out['copy_peer']=self::finishCopyPeer($peer,$copyPipes);$copyPipes=[];}}
             }
             if($scenario==='short_write')$out['short_write']=MailSmtpShortWriteActor::proof();

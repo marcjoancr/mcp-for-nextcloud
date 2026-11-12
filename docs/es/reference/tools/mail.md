@@ -13,7 +13,7 @@ Cada permiso empieza denegado, también en instalaciones existentes.
 `mail.read` solo concede acceso al inventario de cuentas y carpetas.
 La versión mínima de la API no garantiza la compatibilidad de todas las
 combinaciones de Mail y servidor. MCP define **66 herramientas**. La
-continuación actual v12 requiere las fuentes nativas exactas de Mail 5.12.5.12,
+continuación actual v12 requiere las fuentes nativas exactas de Mail 5.12.5.13,
 Nextcloud 35.0.2, PostgreSQL 16 primario y las comprobaciones de proveedor y
 esquema correspondientes; la aceptación usa LinuxServer y almacenamiento S3.
 Los artefactos anteriores conservan únicamente sus capacidades cualificadas.
@@ -224,3 +224,5 @@ Usa `composition: "complete_body"` para aportar un cuerpo ya compuesto sin inser
 firma ni cita. Las actualizaciones de borradores existentes conservan el contenido
 omitido y no añaden otra firma o cita. El límite final sigue siendo de 20.000
 caracteres: excederlo se rechaza antes de escribir, sin recortar el correo.
+
+Las firmas nativas pueden incluir imágenes raster incrustadas. Las vistas previas de borrador y envío resumen los datos binarios grandes por tipo MIME, tamaño y SHA-256; `body_html_preview` es una proyección para revisión y nunca debe reutilizarse como cuerpo real al editar. La aprobación incluye la huella del HTML completo. El texto de revisión de nuevos borradores tiene un límite de 20.000 caracteres (el envío nativo conserva sus 80.000 bytes); el HTML original admite hasta 3 MiB y las imágenes hasta 2 MiB decodificados (diez imágenes). Requiere Mail protegido 5.12.5.13.

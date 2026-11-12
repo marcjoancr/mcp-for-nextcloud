@@ -132,13 +132,29 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
             self::assertSame($body,$read['draft']['body_plain']);self::assertFalse($read['draft']['is_html']);
             $stored=Server::get(\OCA\Mail\Service\DraftsService::class)->getMessage($draft,MailActor::ALICE);
             self::assertSame($body,$stored->getEditorBody());
-            $entity->setSignature('<img src="data:image/png;base64,YQ==">');$native->update($entity);
+            $image=base64_encode(str_repeat('synthetic-image',6000));$signature='<p>Native Alice signature</p><img src="data:image/png;base64,'.$image.'">';
+            $entity->setSignature($signature);$native->update($entity);
             $imageArgs=['account_id'=>$id,'subject'=>'Native image signature','body_plain'=>'Active native plain body',
                 'body_html'=>'<p>Inactive stale HTML</p>','is_html'=>false];
             $imagePlan=$this->data($this->alice->tool('mail_write_draft',$imageArgs));
             self::assertTrue($imagePlan['after']['is_html']);
-            self::assertStringContainsString('Active native plain body',$imagePlan['after']['body_html']);
-            self::assertStringNotContainsString('Inactive stale HTML',$imagePlan['after']['body_html']);
+            self::assertStringContainsString('Active native plain body',$imagePlan['after']['body_html_preview']);
+            self::assertStringNotContainsString('Inactive stale HTML',$imagePlan['after']['body_html_preview']);
+            self::assertArrayNotHasKey('body_html',$imagePlan['after']);
+            self::assertSame(hash('sha256',str_repeat('synthetic-image',6000)),$imagePlan['after']['inline_images'][0]['sha256']);
+            $imageSaved=$this->data($this->alice->tool('mail_write_draft',$imageArgs+['confirm'=>true,'operation_id'=>$imagePlan['operation_id'],'plan_state'=>$imagePlan['plan_state']]));
+            $imageDraft=$imageSaved['draft']['id'];
+            try {
+                $imageStored=Server::get(\OCA\Mail\Service\DraftsService::class)->getMessage($imageDraft,MailActor::ALICE);
+                self::assertStringContainsString($signature,$imageStored->getBodyHtml());
+                self::assertSame(hash('sha256',$imageStored->getBodyHtml()),$imagePlan['after']['body_html_sha256']);
+                $imageRead=$this->data($this->alice->tool('mail_read_drafts',['draft_id'=>$imageDraft]));
+                self::assertFalse($imageRead['draft']['bodyTruncated']);
+                self::assertSame($imagePlan['after']['body_html_sha256'],$imageRead['draft']['body_html_sha256']);
+            } finally {
+                $delete=$this->data($this->alice->tool('mail_delete_draft',['draft_id'=>$imageDraft]));
+                $this->alice->tool('mail_delete_draft',['draft_id'=>$imageDraft,'confirm'=>true,'operation_id'=>$delete['operation_id'],'plan_state'=>$delete['plan_state']]);
+            }
             $replayed=$this->data($this->alice->tool('mail_write_draft',$confirmed));
             self::assertTrue($replayed['operation']['replayed']);
             self::assertSame($remote,$imap->state(),'Composition must never send or mark the original as read.');

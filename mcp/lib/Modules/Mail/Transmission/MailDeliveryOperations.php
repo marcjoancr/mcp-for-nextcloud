@@ -27,7 +27,7 @@ class MailDeliveryOperations {
         if(!($this->allowsTool)($uid,$source))throw new ToolFailure('Mail action unavailable.');
         // Resolve only the owned draft identity before any private content.
         if($this->assertDraft!==null)($this->assertDraft)($uid,$id);
-        $snapshot=$this->gateway->preview($uid,$id,$source);
+        $snapshot=\OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::delivery($this->gateway->preview($uid,$id,$source));
         if($this->assertAccount!==null)($this->assertAccount)($uid,$snapshot['accountId']);
         $plan=['action'=>$schedule?'schedule_mail':'send_mail','draft'=>$snapshot,'send_at'=>$at,'timezone'=>$schedule?$args['timezone']:'UTC',
             'sending_enabled'=>$this->gateway->enabled(),'notice'=>'Approval releases a frozen copy for one attempt. SMTP acceptance is not delivery. An uncertain attempt is never automatically repeated.'];

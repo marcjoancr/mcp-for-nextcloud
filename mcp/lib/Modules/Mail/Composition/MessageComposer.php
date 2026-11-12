@@ -22,7 +22,7 @@ final class MessageComposer {
         }
         $signature = $identity->getSignature() ?? '';
         $mode = $a->getEditorMode();
-        if (!is_string($signature) || mb_strlen($signature) > 20000 || !in_array($mode, ['plaintext', 'richtext', 'html'], true)) {
+        if (!is_string($signature) || strlen($signature) > 2097152 || !in_array($mode, ['plaintext', 'richtext', 'html'], true)) {
             throw new ToolFailure('Native composition settings exceed the supported draft limits. Use Mail.');
         }
         return ['signature' => $signature, 'editor_mode' => $mode,
@@ -73,10 +73,10 @@ final class MessageComposer {
         if ($preferences['signature_above_quote'] && $quoted !== '') array_splice($parts, $preferences['reply_on_top'] ? 1 : 0, 0, [$sig]);
         else $parts[] = $sig;
         $body = implode($html ? '' : "\n\n", array_values(array_filter($parts, static fn(string $part): bool => $part !== '')));
-        if (mb_strlen($body) > 20000) throw new ToolFailure('Composed body exceeds the draft limit. Use a shorter body or complete_body.');
         $fields['is_html'] = $html;
         $fields['body_plain'] = $html ? '' : $body;
         $fields['body_html'] = $html ? $body : '';
+        \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields($fields);
         $fields['composition'] = ['mode' => 'user_preferences', 'reply_on_top' => $preferences['reply_on_top'],
             'signature_above_quote' => $preferences['signature_above_quote'], 'signature_included' => $sig !== '',
             'quote_included' => $quote !== null];

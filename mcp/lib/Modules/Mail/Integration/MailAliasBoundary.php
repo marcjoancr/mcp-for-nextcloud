@@ -18,8 +18,8 @@ class MailAliasBoundary {
     public function __construct(private IAppManager $apps,private IDBConnection $db,private IConfig $config){}
     public function requireSupported():void {
         if(!MailRuntimePairs::matches($this->config->getSystemValueString('version',''),$this->apps->getAppVersion('mail')))throw new BeforeEffectFailure('This native Mail pair has no qualified alias write boundary.');
-        if($this->apps->getAppVersion('mail')==='5.12.5.12'){
-            // Current alias ownership overlays belong to the exact complete v12 source artifact.
+        if($this->apps->getAppVersion('mail')==='5.12.5.13'){
+            // Current alias ownership overlays belong to the exact complete v13 source artifact.
             if(!(new MailNativeBoundary($this->apps))->deliverySourceVerified())throw new BeforeEffectFailure('The native alias mapper source is not qualified.');
         }else{
             $root=$this->apps->getAppPath('mail');foreach(self::FILES as $path=>$hash)if(!is_file($root.'/'.$path)||!hash_equals($hash,(string)hash_file('sha256',$root.'/'.$path)))throw new BeforeEffectFailure('The native alias mapper source is not qualified.');

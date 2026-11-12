@@ -149,6 +149,7 @@
         "testInitialApprovalBindsAndVerifiesTheNormalSentCopy",
         "testKilledAfterDataAcceptanceBeforeDatabaseCommitCanNeverResubmit",
         "testKilledBeforeCheckpointCanSubmitOnlyOnceAfterFreshDispatch",
+        "testLargeInlineSignatureSurvivesOneExactSyntheticSmtpSubmission",
         "testLostAppendAcknowledgementCannotTriggerHordeBinaryRetryOrRepairReplay",
         "testMalformedCopyProofAndOversizedLiteralRemainUncertainWithoutReplay",
         "testMissingAttachmentCannotBeSilentlyOmitted",

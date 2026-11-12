@@ -73,5 +73,20 @@ final class MessageComposerTest extends TestCase {
         $p=(new MessageComposer($native))->preferences('alice',4,3);
         self::assertSame('Alias',$p['signature']);self::assertFalse($p['reply_on_top']);self::assertTrue($p['signature_above_quote']);
     }
+    public function testLargeNativeImageSignatureKeepsEveryByteWithACompactReview():void {
+        $image=base64_encode(str_repeat('image-bytes',6000));
+        $signature='<p>Alice</p><img src="data:image/png;base64,'.$image.'">';
+        $composer=new MessageComposer($this->createMock(MailServices::class));
+        $f=$composer->compose($this->fields(),['body_plain'=>'Answer'],['signature'=>$signature,'editor_mode'=>'richtext','reply_on_top'=>true,'signature_above_quote'=>true],['text'=>'Question']);
+        self::assertStringContainsString($signature,$f['body_html']);
+        $p=\OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields($f);
+        self::assertArrayNotHasKey('body_html',$p);
+        self::assertStringContainsString('Question',$p['body_html_preview']);
+        self::assertStringNotContainsString($image,json_encode($p));
+        self::assertSame(hash('sha256',$f['body_html']),$p['body_html_sha256']);
+        self::assertSame(66000,$p['inline_images'][0]['bytes']);
+        $g=$f;$g['body_html']=str_replace($image,base64_encode(str_repeat('other-bytes',6000)),$g['body_html']);
+        self::assertNotSame($p['body_html_sha256'],\OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields($g)['body_html_sha256']);
+    }
     private function fields():array {return ['body_plain'=>'Answer','body_html'=>'','is_html'=>false];}
 }

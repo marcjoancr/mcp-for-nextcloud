@@ -86,7 +86,7 @@ final class MailDraftOperations {
 			'account' => ['id' => $prepared['accountId'], 'email' => (string)$prepared['account']->getEmail()],
 			'draft_id' => $prepared['draft'] === null ? null : (int)$prepared['draft']->getId(),
 			'before' => $prepared['draft'] === null ? null : $this->row($prepared['draft'], true),
-			'after' => $prepared['fields'],
+			'after' => \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields($prepared['fields']),
 			PlanState::ARGUMENT => $this->states->of(self::WRITE_TOOL, $userId, $this->writeState($prepared)),
 			'message' => MailMessages::draftPlan(),
             'warnings' => ($prepared['fields']['draft_only']??false) ? [['message'=>MailMessages::draftOnlyEditor()]] : array_merge($prepared['fields']['in_reply_to'] === null ? [] : [['message' => 'This reply stays local in Mail to preserve its thread; IMAP auto-sync is held. Editing it in the native UI may change that state.']],$prepared['fields']['alias_id'] === null ? [] : [['message'=>'Native Mail may use the account sender when synchronizing this alias draft. Review the sender in Mail.']]),
@@ -184,9 +184,10 @@ final class MailDraftOperations {
 			throw new ToolFailure(MailMessages::draftNotFound());
 		}
 
-		if ($draft !== null && (mb_strlen((string)($draft->getBodyPlain() ?? '')) > self::MAX_BODY_CHARS || mb_strlen((string)($draft->getBodyHtml() ?? '')) > self::MAX_BODY_CHARS)) {
-			throw new ToolFailure(MailMessages::draftTooLarge(self::MAX_BODY_CHARS));
-		}
+        if ($draft !== null) {
+            try { \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields(['body_plain'=>$draft->getBodyPlain()??'', 'body_html'=>$draft->getBodyHtml()??'']); }
+            catch (ToolFailure) { throw new ToolFailure(MailMessages::draftTooLarge(self::MAX_BODY_CHARS)); }
+        }
 		$currentRecipients = $draft === null ? ['to' => [], 'cc' => [], 'bcc' => []] : $this->recipientFields($draft);
 		$fields = [
 			'subject' => (string)($arguments['subject'] ?? $draft?->getSubject() ?? ''),
@@ -262,6 +263,7 @@ final class MailDraftOperations {
             if($draft!==null&&(self::native($draft,'getSendAt')!==null||self::native($draft,'getSmimeSign')||self::native($draft,'getSmimeEncrypt')||self::native($draft,'isPgpMime')))throw new ToolFailure('Use native Mail for scheduled or cryptographic drafts.');
             $fields['draft_only']=true;
         }
+        \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields($fields);
         return compact('account', 'accountId', 'draft', 'fields', 'retained', 'add_manifest', 'reusable', 'forward_manifest', 'preferences');
 	}
 
@@ -311,9 +313,8 @@ final class MailDraftOperations {
 		if ($includeBody) {
 			$plain = (string)($draft->getBodyPlain() ?? '');
 			$html = (string)($draft->getBodyHtml() ?? '');
-			$row['body_plain'] = mb_substr($plain, 0, self::MAX_BODY_CHARS);
-			$row['body_html'] = mb_substr($html, 0, self::MAX_BODY_CHARS);
-			$row['bodyTruncated'] = mb_strlen($plain) > self::MAX_BODY_CHARS || mb_strlen($html) > self::MAX_BODY_CHARS;
+            try { $row += \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields(['body_plain'=>$plain,'body_html'=>$html]); $row['bodyTruncated']=false; }
+            catch (ToolFailure) { $row['body_plain']=mb_substr($plain,0,self::MAX_BODY_CHARS);$row['body_html']=mb_substr($html,0,self::MAX_BODY_CHARS);$row['bodyTruncated']=true; }
 		}
 		return $row;
 	}
