@@ -51,12 +51,16 @@ final class ReplaceSourceTest extends FilesToolsTestCase {
 	}
 
 	/** The ceiling itself is still readable, through getContent(), and every byte comes back. */
+	// Isolate 20 MiB boundary work from the long-lived API/catalog matrix footprint.
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	#[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
 	public function testAFileExactlyAtTheCeilingIsRead(): void {
 		$bytes = $this->atCeiling('UNIQ');
 		$file = $this->sized(TextExtractor::MAX_BYTES);
 		$file->expects($this->once())->method('getContent')->willReturn($bytes);
 		$file->expects($this->never())->method('fopen');
-		$this->assertSame($bytes, ReplaceSource::read($file));
+		// Keep exact byte equality without PHPUnit formatting another 20 MiB diagnostic string.
+		$this->assertTrue($bytes === ReplaceSource::read($file), 'Reading at the size ceiling must preserve every byte.');
 	}
 
 	/** A normal file is read with getContent() and returned as stored. */
@@ -149,6 +153,9 @@ final class ReplaceSourceTest extends FilesToolsTestCase {
 	}
 
 	/** A file of exactly the ceiling is planned and written. getContent() does run, because the size allows it. */
+	// Isolate 20 MiB boundary work from the long-lived API/catalog matrix footprint.
+	#[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+	#[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
 	public function testAFileExactlyAtTheCeilingIsReplaced(): void {
 		$marker = 'UNIQ';
 		$content = $this->atCeiling($marker);

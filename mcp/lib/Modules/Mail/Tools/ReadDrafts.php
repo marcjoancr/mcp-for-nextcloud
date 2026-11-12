@@ -21,6 +21,8 @@ final class ReadDrafts implements Tool {
 	public static function definition(): ToolDefinition {
 		return new ToolDefinition('mail_read_drafts', 'mail', 'read_drafts', MailMessages::TOOL_READ_DRAFTS, [
 			'type' => 'object', 'properties' => [
+                'account_id' => ['type'=>'integer','minimum'=>1,'description'=>'Filter the local draft list to one owned account; not used with draft_id.'],
+                'subject_contains' => ['type'=>'string','minLength'=>1,'maxLength'=>1000,'description'=>'Case-insensitive subject fragment for local draft listings only.'],
 				'draft_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Omit to list drafts; supply a draft id returned by that list to read one draft.'],
 				'limit' => ['type' => 'integer', 'minimum' => 1, 'maximum' => MailDraftOperations::MAX_DRAFTS],
 				'offset' => ['type' => 'integer', 'minimum' => 0],

@@ -1,0 +1,63 @@
+<?php
+/** SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+declare(strict_types=1);
+// Build a dependency overlay against one pinned upstream archive. Never installs into a live Nextcloud.
+if($argc!==3)throw new RuntimeException('Usage: build.php PINNED_ARCHIVE OUTPUT_UNDER_MCP_BUILD');
+$archive=$argv[1];$destination=$argv[2];$root=dirname(__DIR__,2);$build=realpath($root.'/mcp/build');
+if($build===false||!is_dir(dirname($destination))||!str_starts_with(realpath(dirname($destination)).'/', $build.'/'))throw new RuntimeException('Output must stay under this project mcp/build.');
+if(hash_file('sha256',$archive)!=='c52dab18a4de1710854038d95810f9ae4eb76a8656d89800e7dceb5aff0034e0')throw new RuntimeException('Unsupported native source archive.');
+// Stream only bounded, fixed members. PharData expands the whole release into the host tmpfs.
+$read=static function(string $path)use($archive):string {
+    $process=proc_open(['tar','-xOzf',$archive,'--occurrence=1','mail/'.$path],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+    if(!is_resource($process))throw new RuntimeException('Cannot read pinned native source.');
+    fclose($pipes[0]);$bytes=stream_get_contents($pipes[1],2097153);$error=stream_get_contents($pipes[2],8192);fclose($pipes[1]);fclose($pipes[2]);
+    if(proc_close($process)!==0||strlen($bytes)>2097152)throw new RuntimeException('Pinned native source member unavailable.');
+    return $bytes;
+};$files=[];
+$iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator(__DIR__.'/src',FilesystemIterator::SKIP_DOTS));
+foreach($iterator as $file){if($file->isFile()&&$file->getExtension()==='php')$files['lib/'.substr($file->getPathname(),strlen(__DIR__.'/src/'))]=file_get_contents($file->getPathname());}
+$p='lib/IMAP/HordeImapClient.php';$s=$read($p);$needle="class HordeImapClient extends Horde_Imap_Client_Socket {";
+if(substr_count($s,$needle)!==1)throw new RuntimeException('Unexpected native client source.');$files[$p]=str_replace($needle,$needle."\n\tuse GuardedFlagMutation, GuardedMoveMutation, GuardedMailboxMutation;",$s);
+$p='lib/Listener/MessageCacheUpdaterListener.php';$s=$read($p);$needle='public function handle(Event $event): void {';
+if(substr_count($s,$needle)!==1)throw new RuntimeException('Unexpected native listener source.');$files[$p]=str_replace($needle,$needle."\n\t\tif (\$event instanceof \\OCA\\Mail\\Events\\GuardedMessageFlaggedEvent || \$event instanceof \\OCA\\Mail\\Events\\GuardedMessageDeletedEvent) { return; }",$s);
+$p='lib/Listener/MailboxesSynchronizedSpecialMailboxesUpdater.php';$s=$read($p);$needle='public function handle(Event $event): void {';
+if(substr_count($s,$needle)!==1)throw new RuntimeException('Unexpected role listener source.');$files[$p]=str_replace($needle,$needle."\n\t\tif (\$event instanceof \\OCA\\Mail\\Events\\GuardedMailboxesSynchronizedEvent) { return; }",$s);
+require_once __DIR__.'/patch-tags.php';$files=nativeTagOverlay($read,$files);
+require_once __DIR__.'/patch-refresh.php';$files=nativeRefreshOverlay($read,$files);
+require_once __DIR__.'/patch-drafts.php';$files=nativeDraftOverlay($read,$files);
+require_once __DIR__.'/patch-draft-lifecycle.php';$files=nativeDraftLifecycleOverlay($read,$files);
+require_once __DIR__.'/patch-credentials.php';$files=nativeCredentialOverlay($read,$files);
+require_once __DIR__.'/patch-delivery.php';$files=nativeDeliveryOverlay($read,$files);
+require_once __DIR__.'/patch-account-visibility.php';$files=nativeAccountVisibilityOverlay($read,$files);
+require_once __DIR__.'/patch-content.php';$files=nativeContentOverlay($read,$files);
+require_once __DIR__.'/patch-mailbox-sync.php';$files=nativeMailboxSyncOverlay($read,$files);
+require_once __DIR__.'/patch-snooze.php';$files=nativeSnoozeOverlay($read,$files);
+require_once __DIR__.'/patch-sieve.php';$files=nativeSieveOverlay($read,$files);
+// v12 fixes effective MIME bodies; historical artifact manifests stay immutable.
+$info=$files['appinfo/info.xml'];
+foreach(['<version>5.12.5.7</version>'=>'<version>5.12.5.8</version>','<nextcloud min-version="35" max-version="35" />'=>'<nextcloud min-version="33" max-version="35" />'] as $before=>$after){
+    if(substr_count($info,$before)!==1)throw new RuntimeException('Unexpected v7 native installation metadata.');$info=str_replace($before,$after,$info);
+}
+$info=str_replace(['<version>5.12.5.8</version>','<nextcloud min-version="33" max-version="35" />'],['<version>5.12.5.9</version>','<nextcloud min-version="35" max-version="35" />'],$info);
+$files['appinfo/info.xml']=str_replace('<version>5.12.5.9</version>','<version>5.12.5.12</version>',$info);
+$hashes=[];foreach($files as $p=>$bytes){$target=$destination.'/mail/'.$p;if(!is_dir(dirname($target)))mkdir(dirname($target),0755,true);file_put_contents($target,$bytes);$hashes[$p]=hash('sha256',$bytes);}
+foreach(['lib/Controller/FilterController.php','lib/Sieve/NamedSieveScript.php','lib/Service/MailFilter/FilterParserResult.php','lib/Service/OutOfOffice/OutOfOfficeParserResult.php','lib/Service/MailFilter/FilterBuilder.php','lib/Service/MailFilter/FilterParser.php','lib/Service/OutOfOffice/OutOfOfficeParser.php','lib/Service/OutOfOffice/OutOfOfficeState.php','lib/Service/AllowedRecipientsService.php','lib/Sieve/SieveUtils.php','vendor/nextcloud/horde-managesieve/lib/Horde/ManageSieve.php','lib/Service/MailTransmission.php','lib/Service/DraftsService.php','lib/Controller/DraftsController.php','lib/Service/AliasesService.php','lib/Db/Alias.php','lib/Db/AliasMapper.php','lib/Db/LocalMessage.php','lib/Db/LocalMessageMapper.php','lib/Address.php','lib/AddressList.php','lib/Service/TransmissionService.php','lib/Service/Attachment/AttachmentService.php','lib/Service/Attachment/AttachmentStorage.php','lib/Db/LocalAttachment.php','lib/Db/LocalAttachmentMapper.php','lib/Db/Recipient.php','lib/Db/RecipientMapper.php','lib/AppInfo/Application.php','lib/Events/MailboxesSynchronizedEvent.php','lib/Events/BeforeMessageDeletedEvent.php','lib/Events/MessageDeletedEvent.php','lib/Db/Mailbox.php','lib/Db/Message.php','lib/Db/MailAccount.php','lib/Db/MailAccountMapper.php','lib/Service/AccountService.php','lib/Service/SetupService.php','lib/Service/OauthStateService.php','lib/Controller/AccountsController.php','lib/Controller/OauthController.php','lib/Controller/GoogleIntegrationController.php','lib/Controller/MicrosoftIntegrationController.php','lib/Integration/GoogleIntegration.php','lib/Integration/MicrosoftIntegration.php','lib/Exception/InvalidOauthStateException.php','lib/Service/MailManager.php','lib/IMAP/IMAPClientFactory.php','lib/Db/MailboxMapper.php','lib/Db/MessageMapper.php','lib/IMAP/Sync/Synchronizer.php','lib/IMAP/Sync/Response.php','lib/IMAP/Sync/Request.php','lib/IMAP/MessageMapper.php','lib/Cache/HordeCacheFactory.php','lib/Cache/HordeSyncTokenParser.php','lib/Cache/HordeSyncToken.php','lib/Cache/Cache.php','lib/Db/Tag.php','lib/IMAP/ImapFlag.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Data/Sync.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Base.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Socket.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Socket/Connection/Base.php','vendor/bytestream/horde-socket-client/lib/Horde/Socket/Client.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Tokenize.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Interaction/Server.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Interaction/Server/Untagged.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Interaction/Server/Tagged.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Interaction/Server/Continuation.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Search/Query.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Data/Capability.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Fetch/Query.php','lib/IMAP/ImapMessageFetcher.php','lib/IMAP/ImapMessageFetcherFactory.php','lib/SMTP/SmtpClientFactory.php','vendor/bytestream/horde-mail/lib/Horde/Mail/Transport/Smtphorde.php','vendor/nextcloud/horde-smtp/lib/Horde/Smtp.php','vendor/nextcloud/horde-smtp/lib/Horde/Smtp/Connection.php','vendor/nextcloud/horde-smtp/lib/Horde/Smtp/Filter/Data.php','vendor/nextcloud/horde-smtp/lib/Horde/Smtp/Filter/Body.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Data/Format/String/Nonascii.php','vendor/bytestream/horde-imap-client/lib/Horde/Imap/Client/Interaction/Command.php'] as $p)if(!isset($hashes[$p]))$hashes[$p]=hash('sha256',$read($p));
+ksort($hashes);file_put_contents($destination.'/manifest.json',json_encode(['contract'=>'mcp-mail-mutations-v12','mail'=>'5.12.5','build_version'=>'5.12.5.12','files'=>$hashes],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");
+$phpHeader="<?php\n/*\n * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>\n * SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors\n * SPDX-License-Identifier: AGPL-3.0-or-later\n */\ndeclare(strict_types=1);\nnamespace OCA\\Mcp\\Modules\\Mail\\Integration;\n/** Generated from the pinned native source and reviewed overlay. No credentials. */\nfinal class NativeGuardManifest {\n    public const DATA = ";
+file_put_contents($destination.'/NativeGuardManifest.php',$phpHeader.var_export(['contract'=>'mcp-mail-mutations-v12','mail'=>'5.12.5','build_version'=>'5.12.5.12','files'=>$hashes],true).";\n    public const LEGACY_FLAGS_DATA = ".var_export(json_decode(file_get_contents(__DIR__.'/flags-v1-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n    public const LEGACY_MOVES_DATA = ".var_export(json_decode(file_get_contents(__DIR__.'/moves-v2-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n    public const LEGACY_FOLDERS_DATA = ".var_export(json_decode(file_get_contents(__DIR__.'/folders-v3-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n    public const LEGACY_TAGS_DATA = ".var_export(json_decode(file_get_contents(__DIR__.'/tags-v4-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n    public const LEGACY_REFRESH_DATA = ".var_export(json_decode(file_get_contents(__DIR__.'/refresh-v5-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n    public const LEGACY_DRAFTS_DATA = ".var_export(json_decode(file_get_contents(__DIR__.'/drafts-v6-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n}\n");
+$generated=$destination.'/NativeGuardManifest.php';
+$generatedSource=file_get_contents($generated);
+if(!str_ends_with($generatedSource,"}\n"))throw new RuntimeException('Unexpected native manifest class footer.');
+file_put_contents($generated,substr($generatedSource,0,-2).'    public const LEGACY_CREDENTIALS_DATA = '.var_export(json_decode(file_get_contents(__DIR__.'/auth-v7-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n}\n");
+$generatedSource=file_get_contents($generated);
+file_put_contents($generated,substr($generatedSource,0,-2).'    public const LEGACY_RUNTIME_DATA = '.var_export(json_decode(file_get_contents(__DIR__.'/runtime-v8-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n}\n");
+$generatedSource=file_get_contents($generated);
+file_put_contents($generated,substr($generatedSource,0,-2).'    public const LEGACY_POSTGRESQL_DATA = '.var_export(json_decode(file_get_contents(__DIR__.'/postgresql-v9-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n}\n");
+$generatedSource=file_get_contents($generated);
+file_put_contents($generated,substr($generatedSource,0,-2).'    public const LEGACY_METADATA_DATA = '.var_export(json_decode(file_get_contents(__DIR__.'/metadata-v10-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n}\n");
+file_put_contents($generated,preg_replace('/[ \t]+$/m','',file_get_contents($generated)));
+$generatedSource=file_get_contents($generated);
+file_put_contents($generated,substr($generatedSource,0,-2).'    public const LEGACY_DELIVERY_DATA = '.var_export(json_decode(file_get_contents(__DIR__.'/delivery-v11-manifest.json'),true,512,JSON_THROW_ON_ERROR),true).";\n}\n");
+file_put_contents($generated,preg_replace('/[ \t]+$/m','',file_get_contents($generated)));
+echo 'Native overlay built: '.count($files).' files, manifest '.hash_file('sha256',$destination.'/manifest.json')."\n";

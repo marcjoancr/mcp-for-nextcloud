@@ -7,12 +7,15 @@ export function createScopeView({ lifetime, t, el, tabs, title, dirty, rerender,
 			files: t('mcp', 'Nothing selected: the Files tools of this user reach no folder.'),
 			calendar: t('mcp', 'Nothing selected: the Calendar tools of this user reach no calendar.'),
 			tasks: t('mcp', 'Nothing selected: the Tasks tools of this user reach no task list.'),
+            mail: t('mcp', 'Nothing selected: the Mail tools of this user reach no account or folder.'),
 		}[module]
 	}
 	/** What a saved or selected item is called on screen: its path for a folder, its name otherwise. */
 	function label(item) {
 		if (item.found === false) return t('mcp', 'Resource no longer found ({id})', { id: item.id }, undefined, { escape: false })
-		return item.path || item.name
+		if (item.id.startsWith('account:')) return t('mcp', 'Account: {name}', { name: item.name }, undefined, { escape: false })
+        if (item.id.startsWith('mailbox:')) return t('mcp', 'Folder: {name}', { name: [item.path, item.name].filter(Boolean).join(' / ') }, undefined, { escape: false })
+        return item.path || item.name
 	}
 	function badges(item) {
 		const out = []
@@ -27,6 +30,7 @@ export function createScopeView({ lifetime, t, el, tabs, title, dirty, rerender,
 		const heading = el('h3', { id: 'mcp-scope-heading-' + module, textContent: title(module), tabIndex: -1 })
 		section.setAttribute('aria-labelledby', heading.id)
 		section.append(heading)
+        if (module === 'mail') section.append(el('p', { textContent: t('mcp', 'An account includes its folders. A folder permits message actions only; account settings, local drafts and sending require the account. Global actions require all resources.') }))
 		if (state.stale) {
 			section.append(el('p', { className: 'mcp-scope-inactive', textContent: t('mcp', 'Changed before the policy moved, so saving will be refused. Discard the changes to load the saved scope.') }))
 		}
@@ -113,7 +117,7 @@ export function createScopeView({ lifetime, t, el, tabs, title, dirty, rerender,
 		const run = () => { state.search = search.value; state.page = 1; state.results = null; browse(state, searchId) }
 		lifetime.on(go, 'click', run)
 		lifetime.on(search, 'keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); run() } })
-		picker.append(el('label', { htmlFor: searchId, textContent: module === 'files' ? t('mcp', 'Find a folder of the user') : t('mcp', 'Find a calendar or task list of the user') }), search, go)
+		picker.append(el('label', { htmlFor: searchId, textContent: module === 'files' ? t('mcp', 'Find a folder of the user') : module === 'mail' ? t('mcp', 'Find a Mail account or folder of the user') : t('mcp', 'Find a calendar or task list of the user') }), search, go)
 		if (module === 'files') {
 			const here = state.parents[state.parents.length - 1]
 			picker.append(el('p', { className: 'mcp-scope-where', textContent: here ? t('mcp', 'In folder {path}', { path: here.path }, undefined, { escape: false }) : t('mcp', 'In the top folder of the user') }))

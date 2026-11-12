@@ -10,6 +10,7 @@ namespace OCA\Mcp\Db;
 use InvalidArgumentException;
 use LogicException;
 use OCA\Mcp\Access\Policy\DecimalCounter;
+use OCA\Mcp\Access\ResourceScope\ResourceIdentity;
 use OCP\DB\Exception;
 use OCP\IDBConnection;
 use UnexpectedValueException;
@@ -27,7 +28,7 @@ class ResourceScopeMapper {
     public const MODES_TABLE = 'mcp_scope_modes';
     public const ITEMS_TABLE = 'mcp_scope_items';
     /** Modules a scope can restrict (decision D1). */
-    public const MODULES = ['files', 'calendar', 'tasks'];
+    public const MODULES = ['files', 'calendar', 'tasks', 'mail'];
     /** Most resources one user may keep in the scope of one module. */
     public const MAX_ITEMS = 200;
 
@@ -137,7 +138,7 @@ class ResourceScopeMapper {
         self::checkModule($module);
         $userKey = IdentityKey::user($uid);
         DecimalCounter::validate($policyRev, DecimalCounter::MAX);
-        $items = $resourceIds === null ? null : self::checkedItems($resourceIds);
+        $items = $resourceIds === null ? null : self::checkedItems($module, $resourceIds);
 
         // Verifies the stored mode and items of this (user, module) before deleting them.
         $this->modeRows($uid, $userKey, $module);
@@ -321,7 +322,7 @@ class ResourceScopeMapper {
                     continue; // the user has no item row at all
                 }
                 if (!is_string($itemModule) || !in_array($itemModule, self::MODULES, true)
-                    || !is_string($id) || !self::canonical($id) || $key !== IdentityKey::resource($itemModule, $id)) {
+                    || !is_string($id) || !ResourceIdentity::valid($itemModule, $id) || $key !== IdentityKey::resource($itemModule, $id)) {
                     throw new UnexpectedValueException('Invalid stored resource scope');
                 }
                 // The join repeats each item once per mode row of the user; the primary key keeps them distinct.
@@ -332,7 +333,7 @@ class ResourceScopeMapper {
         }
         foreach ($scopes as $stored => &$scope) {
             $ids = array_map('strval', array_keys($items[$stored] ?? []));
-            usort($ids, DecimalCounter::compare(...));
+            usort($ids, static fn (string $a, string $b): int => ResourceIdentity::compare($stored, $a, $b));
             $scope['items'] = self::checkedCount($ids);
         }
         unset($scope);
@@ -398,7 +399,7 @@ class ResourceScopeMapper {
                 $stored = $row['module'] ?? null;
                 $id = $row['resource_id'] ?? null;
                 if (!is_string($stored) || !in_array($stored, self::MODULES, true) || ($module !== null && $stored !== $module)
-                    || !is_string($id) || !self::canonical($id)
+                    || !is_string($id) || !ResourceIdentity::valid($stored, $id)
                     || ($row['resource_key'] ?? null) !== IdentityKey::resource($stored, $id)) {
                     throw new UnexpectedValueException('Invalid stored resource scope');
                 }
@@ -407,8 +408,8 @@ class ResourceScopeMapper {
         } finally {
             $result->closeCursor();
         }
-        foreach ($items as &$ids) {
-            usort($ids, DecimalCounter::compare(...));
+        foreach ($items as $stored => &$ids) {
+            usort($ids, static fn (string $a, string $b): int => ResourceIdentity::compare($stored, $a, $b));
         }
         unset($ids);
         return $items;
@@ -431,29 +432,20 @@ class ResourceScopeMapper {
      * @return list<string> the ids, in ascending numeric order
      * @throws InvalidArgumentException for a non-list, a non-canonical id, a duplicate or more than MAX_ITEMS ids
      */
-    private static function checkedItems(mixed $resourceIds): array {
+    private static function checkedItems(string $module, mixed $resourceIds): array {
         if (!is_array($resourceIds) || !array_is_list($resourceIds) || count($resourceIds) > self::MAX_ITEMS) {
             throw new InvalidArgumentException('Invalid resource scope');
         }
         $unique = [];
         foreach ($resourceIds as $id) {
-            if (!is_string($id) || !self::canonical($id) || isset($unique[$id])) {
+            if (!is_string($id) || !ResourceIdentity::valid($module, $id) || isset($unique[$id])) {
                 throw new InvalidArgumentException('Invalid resource scope');
             }
             $unique[$id] = true;
         }
         $ids = array_map('strval', array_keys($unique));
-        usort($ids, DecimalCounter::compare(...));
+        usort($ids, static fn (string $a, string $b): int => ResourceIdentity::compare($module, $a, $b));
         return $ids;
-    }
-
-    /** Whether an id is a positive canonical decimal that fits a signed BIGINT. */
-    private static function canonical(string $id): bool {
-        try {
-            return DecimalCounter::validate($id, DecimalCounter::MAX) !== '0';
-        } catch (InvalidArgumentException) {
-            return false;
-        }
     }
 
     /** @throws InvalidArgumentException for a module outside MODULES */

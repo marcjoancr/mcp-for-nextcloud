@@ -110,7 +110,7 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
     }
 
     /** Public only for the one-time external baseline capture command. */
-    public function capture(): array {
+    public function capture(?string $selectedLocale = null): array {
         $modules = [];
         foreach (Application::MODULES as $class) {
             if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {
@@ -124,7 +124,7 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
         }
         [$registry, $policy, $protocol, $resources, $configuration] = $this->boot($modules);
         $publication = [];
-        foreach (['en', 'pt_BR', 'es'] as $locale) {
+        foreach ($selectedLocale === null ? ['en', 'pt_BR', 'es'] : [$selectedLocale] as $locale) {
             Translator::use(new JsonL10n($locale));
             foreach (['default', 'none', 'all', 'link'] as $mode) {
                 $uid = $mode;
@@ -160,7 +160,7 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
             }
         }
         $results = [];
-        foreach (['en', 'pt_BR', 'es'] as $locale) {
+        foreach ($selectedLocale === null ? ['en', 'pt_BR', 'es'] : [$selectedLocale] as $locale) {
             Translator::use(new JsonL10n($locale));
             [$registry, $policy] = $this->boot();
             $this->grants($policy, 'alice', true);
@@ -178,14 +178,19 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
         return ['publication' => $publication, 'protocol' => $protocolCases, 'results' => $results];
     }
 
-    public function testFrozenSharedContracts(): void {
-        // This capture creates many short-lived SQLite query stubs whose callbacks form cycles. PHPUnit normally
+    public static function captureLocales(): array { return ['English' => ['en'], 'Portuguese' => ['pt_BR'], 'Spanish' => ['es']]; }
+    #[\PHPUnit\Framework\Attributes\DataProvider('captureLocales')]
+    public function testFrozenSharedContracts(string $locale): void {
+        // Each locale is a separate case so PHPUnit releases invocation/config histories between captures.
+        // This capture also creates short-lived SQLite query stubs whose callbacks form cycles. PHPUnit normally
         // pauses PHP's automatic cycle collection and collects only between tests, too late for this one large test.
         $garbageCollectionWasEnabled = gc_enabled();
         gc_enable();
         try {
-            foreach ($this->capture() as $name => $data) {
+            $capture = $this->capture($locale);
+            foreach ($capture as $name => $data) {
                 $expected = file_get_contents(dirname(__DIR__, 2).'/Support/Mcp/Compatibility/'.$name.'.json');
+                if ($name !== 'protocol') { $decoded = json_decode($expected, false, 512, JSON_THROW_ON_ERROR); $expected = json_encode([$locale => $decoded->{$locale}], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n"; }
                 $actual = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
                 if ($expected !== $actual) {
                     self::fail($name . ' differs at ' . self::firstDifference(json_decode($expected), json_decode($actual)));

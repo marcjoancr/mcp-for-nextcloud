@@ -1,0 +1,38 @@
+<?php
+/* SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+declare(strict_types=1);
+namespace OCA\Mcp\Tests\Integration\Mail;
+use OCP\{Server,IDBConnection};
+/** Isolated known future hold alongside native legacy timers and unrelated native work. */
+final class MailSnoozeCoexistActor {
+    private static function allowed(\Closure $f):bool {try{$f();return true;}catch(\Throwable){return false;}}
+    public static function run(string $uid,array &$fixture,string $id):array {
+        $db=Server::get(IDBConnection::class);$manager=Server::get('OCA\\Mail\\Service\\MailManager');$a=Server::get('OCA\\Mail\\Service\\AccountService')->find($uid,$fixture['account_id']);$native=Server::get('OCA\\Mail\\Service\\SnoozeService');$store=Server::get('OCA\\Mail\\Snooze\\SnoozeStore');$r=$store->find($uid,$id);
+        MailNativeMoveActor::inspect($uid,$fixture,$fixture['boxes']['destination'],true);$dest=$manager->getMailbox($uid,$fixture['boxes']['destination']);$src=$manager->getMailbox($uid,$fixture['boxes']['source']);$extra=$manager->createMailbox($a,'mcp-c3-unrelated-'.bin2hex(random_bytes(6)));$fixture['boxes']['extra']=$extra->getId();$empty=$manager->createMailbox($a,'mcp-c3-empty-'.bin2hex(random_bytes(6)));$fixture['boxes']['empty']=$empty->getId();
+        $client=Server::get('OCA\\Mail\\IMAP\\IMAPClientFactory')->getClient($a,false);$lower=Server::get('OCA\\Mail\\IMAP\\MessageMapper');$out=[];
+        $flags=function(int $uid)use($client,$dest):array{$q=new \Horde_Imap_Client_Fetch_Query();$q->flags();return $client->fetch($dest->getName(),$q,['ids'=>new \Horde_Imap_Client_Ids([$uid])])[$uid]->getFlags();};
+        $setRoot=function(int $message,string $root)use($db):void{$q=$db->getQueryBuilder();$q->update('mail_messages')->set('thread_root_id',$q->createNamedParameter($root))->where($q->expr()->eq('id',$q->createNamedParameter($message)))->executeStatement();};
+        try{
+            $heldUid=(int)$r['current_uid'];$out['seen_allowed']=self::allowed(fn()=>$manager->flagMessage($a,$dest->getName(),$heldUid,'seen',true))&&in_array(\Horde_Imap_Client::FLAG_SEEN,$flags($heldUid),true);$out['unseen_allowed']=self::allowed(fn()=>$manager->flagMessage($a,$dest->getName(),$heldUid,'seen',false))&&!in_array(\Horde_Imap_Client::FLAG_SEEN,$flags($heldUid),true);
+            $out['deleted_refused']=!self::allowed(fn()=>$lower->addFlag($client,$dest,[$heldUid],'\\Deleted'))&&!in_array(\Horde_Imap_Client::FLAG_DELETED,$flags($heldUid),true);
+            $root='unrelated-'.bin2hex(random_bytes(8));$setRoot($fixture['messages'][1],$root);$out['unrelated_thread']=self::allowed(fn()=>$manager->moveThread($a,$src,$a,$extra,$root));
+            $root='unrelated-delete-'.bin2hex(random_bytes(8));$setRoot($fixture['messages'][2],$root);$out['unrelated_delete_thread']=self::allowed(fn()=>$manager->deleteThread($a,$src,$root));
+            $out['unrelated_clear']=self::allowed(fn()=>$manager->clearMailbox($a,$extra));$out['unrelated_rename']=self::allowed(function()use($manager,$a,&$empty,&$fixture):void{$empty=$manager->renameMailbox($a,$empty,$empty->getName().'-renamed');$fixture['boxes']['empty']=$empty->getId();});$out['unrelated_delete_folder']=self::allowed(function()use($manager,$a,$extra,&$fixture):void{$manager->deleteMailbox($a,$extra);unset($fixture['boxes']['extra']);});
+            $root='mixed-'.bin2hex(random_bytes(8));$heldId=Server::get('OCA\\Mail\\Snooze\\SnoozeSource')->resolve($r);$setRoot($fixture['messages'][3],$root);$setRoot($heldId,$root);$before=[MailNativeMoveActor::inspect($uid,$fixture,$src->getId()),MailNativeMoveActor::inspect($uid,$fixture,$dest->getId())];
+            $out['mixed_thread_refused']=!self::allowed(fn()=>$manager->moveThread($a,$src,$a,$empty,$root));$out['no_partial_prefix']=$before===[MailNativeMoveActor::inspect($uid,$fixture,$src->getId()),MailNativeMoveActor::inspect($uid,$fixture,$dest->getId())];$out['held_folder_refused']=!self::allowed(fn()=>$manager->clearMailbox($a,$src));
+            $legacy=Server::get('OCA\\Mail\\Db\\MessageMapper')->findByUids($dest,[1])[0];$out['legacy_admitted']=self::allowed(fn()=>$native->snoozeMessageDB($legacy,time()-1,$src));$out['legacy_woke']=false;
+            if($out['legacy_admitted']){
+                // Simulate a colliding old stock row: it must be skipped before the implicit seen=false.
+                $manager->flagMessage($a,$dest->getName(),$heldUid,'seen',true);$q=$db->getQueryBuilder();$q->insert('mail_messages_snoozed');foreach(['mailbox_id'=>$dest->getId(),'uid'=>$heldUid,'snoozed_until'=>time()-1,'src_mailbox_id'=>$src->getId()]as$key=>$value)$q->setValue($key,$q->createNamedParameter($value));$q->executeStatement();
+                $out['legacy_woke']=self::allowed(fn()=>(new \ReflectionMethod($native,'wakeMessagesByAccount'))->invoke($native,$a))&&!in_array(1,MailNativeMoveActor::inspect($uid,$fixture,$dest->getId())['remote'],true);$out['legacy_held_skipped_before_flag']=in_array(\Horde_Imap_Client::FLAG_SEEN,$flags($heldUid),true);
+            }
+            $out['held_survives']=in_array($heldUid,MailNativeMoveActor::inspect($uid,$fixture,$dest->getId())['remote'],true)&&$store->find($uid,$id)['state']==='snoozed';
+            $setRoot($fixture['messages'][3],'stock-unrelated-'.bin2hex(random_bytes(8)));$stock=$manager->getMessage($uid,$fixture['messages'][3]);$out['unrelated_stock_thread']=self::allowed(fn()=>$native->snoozeThread($stock,time()+3600,$a,$src,$a,$dest))&&!in_array((int)$stock->getUid(),MailNativeMoveActor::inspect($uid,$fixture,$src->getId())['remote'],true);
+            $store->coordinator()->runOwner($uid,fn()=>$store->update($store->find($uid,$id),['state'=>'waking','wake_phase'=>'wire_may_start']));$unrelated=$manager->getMessage($uid,$fixture['messages'][4]);$out['unknown_potential_folder_held']=!self::allowed(fn()=>$manager->moveMessage($a,$src->getName(),$unrelated->getUid(),$a,$empty->getName()));$out['unknown_unrelated_folder_allowed']=self::allowed(fn()=>$manager->clearMailbox($a,$empty));
+            $store->coordinator()->runOwner($uid,fn()=>$store->update($store->find($uid,$id),['state'=>'placing','placement_phase'=>'wire_may_start','wake_phase'=>'prepared']));$before=MailNativeMoveActor::inspect($uid,$fixture,$src->getId());$readLegacy=function()use($db,$dest):array{$q=$db->getQueryBuilder();$r=$q->select('id','uid','snoozed_until','src_mailbox_id')->from('mail_messages_snoozed')->where($q->expr()->eq('mailbox_id',$q->createNamedParameter($dest->getId())))->orderBy('uid')->setMaxResults(10)->executeQuery();try{return $r->fetchAll();}finally{$r->closeCursor();}};$readFlags=function()use($client,$src,$unrelated):array{$q=new \Horde_Imap_Client_Fetch_Query();$q->flags();return $client->fetch($src->getName(),$q,['ids'=>new \Horde_Imap_Client_Ids([$unrelated->getUid()])])->first()->getFlags();};$beforeLegacy=$readLegacy();$beforeFlags=$readFlags();
+            $out['unknown_stock_destination_refused']=!self::allowed(fn()=>$native->snoozeMessage($unrelated,time()+3600,$a,$src,$a,$dest));$out['unknown_stock_thread_refused']=!self::allowed(fn()=>$native->snoozeThread($unrelated,time()+3600,$a,$src,$a,$dest));$out['unknown_stock_no_partial_move']=$before===MailNativeMoveActor::inspect($uid,$fixture,$src->getId());$out['unknown_stock_legacy_unchanged']=$beforeLegacy===$readLegacy();$out['unknown_stock_flags_unchanged']=$beforeFlags===$readFlags();
+            return $out;
+        }finally{$client->logout();$q=$db->getQueryBuilder();$q->delete('mail_messages_snoozed')->where($q->expr()->eq('mailbox_id',$q->createNamedParameter($dest->getId())))->executeStatement();}
+    }
+}

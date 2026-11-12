@@ -40,7 +40,7 @@ final class ToolPresentation {
      * else to remove them, which is exactly the confirmation a client offers on a destructive tool. Editing is in
      * the list for the same reason a client marks it: what is written over the old content is gone from the file.
      */
-    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts'];
+    private const DESTRUCTIVE_OPERATIONS = ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'];
     /**
      * Operations a client may repeat with the same result. A read obviously, and a rollback: restoring the same
      * version twice leaves the same content, however many versions the second attempt adds to the history.
@@ -174,12 +174,69 @@ final class ToolPresentation {
             'mail_read_thread' => Translator::t('Read mail thread'),
             'mail_read_attachment' => Translator::t('Read mail attachments'),
             'mail_save_attachment' => Translator::t('Save a mail attachment'),
+            'mail_export_message' => Translator::t('Export a mail message'),
             'mail_read_drafts' => Translator::t('Read mail drafts'),
             'mail_write_draft' => Translator::t('Save a mail draft'),
             'mail_delete_draft' => Translator::t('Delete a mail draft'),
+            'mail_attach_files' => Translator::t('Attach Files to a mail draft'),
+            'mail_read_account_settings' => Translator::t('Read Mail preferences'),
+            'mail_write_account_settings' => Translator::t('Update Mail preferences'),
+            'mail_read_signature' => Translator::t('Read Mail signature'),
+            'mail_write_signature' => Translator::t('Update Mail signature'),
+            'mail_read_connection' => Translator::t('Read Mail connection settings'),
+            'mail_configure_connection' => Translator::t('Configure Mail connection'),
+            'mail_move_message' => Translator::t('Move Mail message'),
+            'mail_archive_message' => Translator::t('Archive Mail message'),
+            'mail_trash_message' => Translator::t('Move Mail message to Trash'),
+            'mail_refresh_mailbox' => Translator::t('Refresh Mail folder'),
+            'mail_reconcile_operation' => Translator::t('Reconcile Mail operation'),
+            'mail_add_alias' => Translator::t('Add Mail alias'),
+            'mail_update_alias' => Translator::t('Update Mail alias'),
+            'mail_delete_alias' => Translator::t('Delete Mail alias'),
+            'mail_set_message_tag' => Translator::t('Set Mail message tag'),
+            'mail_create_tag' => Translator::t('Create Mail tag'),
+            'mail_list_tags' => Translator::t('List Mail tags'),
+            'mail_list_aliases' => Translator::t('List Mail sender identities'),
+            'mail_create_mailbox' => Translator::t('Create Mail folder'),
+            'mail_rename_mailbox' => Translator::t('Rename Mail folder'),
+            'mail_set_mailbox_subscription' => Translator::t('Set Mail folder subscription'),
+            'mail_configure_mailboxes' => Translator::t('Configure Mail folder roles'),
+            'mail_restore_message' => Translator::t('Restore Mail message'),
+            'mail_set_message_flag' => Translator::t('Set Mail message flag'),
+            'mail_test_connection' => Translator::t('Test Mail connection'),
+            'mail_add_account' => Translator::t('Add Mail account'),
+            'mail_complete_account_setup' => Translator::t('Complete Mail account setup'),
+            'mail_delete_account' => Translator::t('Remove Mail account'),
+            'mail_get_operation' => Translator::t('Read a mail write outcome'),
+            'mail_list_operations' => Translator::t('List mail write outcomes'),
             'talk_search_messages' => Translator::t('Search Talk messages'),
             'talk_read_message_context' => Translator::t('Read Talk message context'),
             'mail_read_message' => Translator::t('Read mail message'),
+            'mail_read_message_metadata' => Translator::t('Read mail message metadata'),
+            'mail_send' => Translator::t('Send mail'),
+            'mail_schedule' => Translator::t('Schedule mail'),
+            'mail_cancel_delivery' => Translator::t('Cancel queued mail'),
+            'mail_read_delivery' => Translator::t('Read mail delivery status'),
+            'mail_sent_repair' => Translator::t('Repair Sent copy'),
+            'mail_read_outbox' => Translator::t('Read local mail outbox'),
+            'mail_search_drafts' => Translator::t('Search cached mail drafts'),
+            'mail_import_draft' => Translator::t('Import a protected mail draft'),
+            'mail_index_messages' => Translator::t('Index selected mail messages'),
+            'mail_snooze' => Translator::t('Snooze one mail message'),
+            'mail_wake' => Translator::t('Wake one snoozed message'),
+            'mail_cancel_snooze' => Translator::t('Cancel a mail wake timer'),
+            'mail_read_snooze' => Translator::t('Read mail snooze status'),
+            'mail_read_filters' => Translator::t('Read mail filters'),
+            'mail_write_filters' => Translator::t('Write safe mail filters'),
+            'mail_read_absence' => Translator::t('Read mail absence settings'),
+            'mail_write_absence' => Translator::t('Write disabled mail absence settings'),
+            'mail_disable_absence' => Translator::t('Disable mail absence'),
+            'mail_read_sieve_status' => Translator::t('Read mail filter change status'),
+            'mail_transmit_filters' => Translator::t('Allow mail filter redirects'),
+            'mail_write_signature_mode' => Translator::t('Change stored mail signature mode'),
+            'mail_enable_absence' => Translator::t('Enable mail absence replies'),
+            'mail_search_indexed_body' => Translator::t('Search indexed mail body text'),
+
             'mail_list_accounts' => Translator::t('List mail accounts'),
             'mail_list_mailboxes' => Translator::t('List mail folders'),
             'logs_list' => Translator::t('Read server log'),
@@ -191,7 +248,7 @@ final class ToolPresentation {
     /**
      * MCP tool annotations derived from the grant operation the module declares.
      *
-     * `openWorldHint` is always false: every tool works inside the caller's own Nextcloud.
+     * `openWorldHint` identifies explicit SMTP release, which can affect external recipients.
      *
      * @param string $name technical tool name
      * @param string $operation grant operation of the tool definition (read, create, edit, delete, move, transfer, restore)
@@ -206,7 +263,7 @@ final class ToolPresentation {
             'destructiveHint' => $destructiveHint || in_array($operation, self::DESTRUCTIVE_OPERATIONS, true)
                 || in_array($name, self::DESTRUCTIVE_TOOLS, true),
             'idempotentHint' => $readOnly || in_array($operation, self::IDEMPOTENT_OPERATIONS, true),
-            'openWorldHint' => false,
+            'openWorldHint' => in_array($name,['mail_send','mail_schedule'],true),
         ];
     }
 

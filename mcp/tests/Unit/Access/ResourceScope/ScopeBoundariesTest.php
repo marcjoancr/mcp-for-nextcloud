@@ -49,6 +49,7 @@ final class ScopeBoundariesTest extends TestCase {
             'files' => ['mode' => 'restricted', 'count' => 2],
             'calendar' => ['mode' => 'unrestricted', 'count' => null],
             'tasks' => ['mode' => 'restricted', 'count' => 0],
+            'mail' => ['mode' => 'unrestricted', 'count' => null],
         ], $rows[0]['scope']);
         $this->assertSame(['unrestricted'], array_values(array_unique(array_column($rows[1]['scope'], 'mode'))));
         $this->assertStringNotContainsString($this->fx->projects, (string)json_encode($rows));

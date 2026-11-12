@@ -72,14 +72,23 @@ final class StoreDoublesContractTest extends TestCase {
     }
 
     public function testNoProductionCodeCallsATestOnlyHelper(): void {
-        $source = '';
+        $scanned = false;
+        $matches = [];
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(__DIR__ . '/../../lib', \FilesystemIterator::SKIP_DOTS)) as $file) {
-            $source .= $file->getExtension() === 'php' ? (string)file_get_contents($file->getPathname()) : '';
+            if ($file->getExtension() !== 'php') continue;
+            $source = (string)file_get_contents($file->getPathname());
+            $scanned = $scanned || $source !== '';
+            // Keep only match results; retaining all lib/ source duplicates several MiB near the suite's heap limit.
+            foreach (self::TEST_ONLY as $helpers) foreach ($helpers as $helper) {
+                $match = preg_match('/->' . $helper . '\\s*\\(/', $source);
+                if ($match !== 0) $matches[$helper] = $match;
+            }
         }
-        $this->assertNotSame('', $source);
+        $this->assertTrue($scanned, 'Production source was scanned.');
         foreach (self::TEST_ONLY as $helpers) {
             foreach ($helpers as $helper) {
-                $this->assertDoesNotMatchRegularExpression('/->' . $helper . '\s*\(/', $source, "lib/ calls $helper()");
+                // Pass only the scalar match result to PHPUnit; exporting the whole source duplicates several MiB.
+                $this->assertSame(0, ($matches[$helper] ?? 0), "lib/ calls $helper()");
                 $this->assertFalse(method_exists(CheckoutTokenStore::class, $helper), "$helper() is no longer test-only");
             }
         }

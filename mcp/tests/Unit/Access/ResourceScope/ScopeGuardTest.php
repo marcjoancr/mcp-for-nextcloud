@@ -195,6 +195,7 @@ final class ScopeGuardTest extends TestCase {
 
     #[DataProvider('brokenReads')]
     public function testS11AFailedReadIsUnavailableForEveryScopeModuleAndNeverUnrestricted(\Closure $break): void {
+        $this->fx->config->user['alice']['mcp']['grant_mail_read']='1';
         $break($this);
 
         $context = $this->resolver->begin('alice');

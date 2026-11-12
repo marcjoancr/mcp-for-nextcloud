@@ -1,0 +1,172 @@
+# Complete Mail B and extras implementation plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Complete B and optional Mail parity, qualify it, publish PR/release and deploy with production sending disabled.
+
+**Architecture:** Dedicated native immutable delivery queue and closed guarded services; MCP handles exact previews, journal admission, current permissions/connection/resource selection and bounded worker dispatch. Reuse physical-session owner/mailbox leases and capped native transport reads.
+
+**Tech Stack:** PHP, Nextcloud35.0.2, Mail5.12.5 guarded dependency, PostgreSQL16, PHPUnit, browser/native fault fixtures.
+
+**Spec:** [Complete Mail design](../specs/2026-11-11-mail-complete-design.md).
+
+## Global Constraints
+
+- Production sending stays disabled; tests submit only to synthetic fixtures.
+- Native v1–v10 artifacts remain immutable; new features require exact new source/runtime/schema qualification.
+- No credentials/private MIME/body in receipts/logs; no implicit crypto downgrade or destructive source import.
+- Every mutation uses exact preview/confirmation, durable operation ID and read-only status/replay; uncertainty never permits automatic repeat.
+- Existing grants/selections/scopes remain intact; new permissions denied by default.
+- Harness ledger/briefs/reports remain outside repository at /tmp/mail-complete-20261111; project build outputs stay in mcp/build. This overrides skill scratch-directory defaults per AGENTS instructions.
+
+## Review Focus
+
+- Crash after remote acceptance must not produce another SMTP/move/APPEND command.
+- Concurrent native UI/account/alias/draft changes must not change approved identity/content.
+- Scope or connection revocation must affect delayed work and receipt access.
+- Malicious provider literals must be bounded before allocation, including unsolicited responses.
+- Unsupported crypto, MIME, provider extensions or cache generations must refuse without data loss.
+
+### Task 1: Native immutable delivery queue and dispatch
+
+**Files:** Create native/mail-guard/src/Transmission/*, native/mail-guard/src/Service/{GuardedDelivery,FrozenMessageRenderer,SentCopyRepair}.php, migration; modify native draft coordinator/storage and patch generators only as necessary. Add focused mcp/tests/Unit/Modules/Mail/MailDelivery*Test.php and mcp/tests/Integration/Mail/McpMailDeliveryTest.php. Builder/source manifest integration belongs to Task2.
+
+**Interfaces:** Produce native GuardedDelivery::preview(string uid,int draftId):array (safe exact content/identity/revisions); queue(string uid,int draftId,string approvedRevision,string operationKey,int connectionId,string sourceTool,int sendAt,string timezone):array; status(string uid,string id):array; due(int limit):array; cancel(string uid,string id,string revision):array; dispatch(string uid,string id,object fence):array. Fence authorizes current uid/connection/sourceTool/account immediately before effect. Produce SentCopyRepair::preview/repair closed IMAP-only methods. IDs are opaque, receipts sanitized. Settle exact signatures in /tmp/mail-complete-20261111/native-delivery-interface.md before MCP implementation.
+
+- [x] Write failing behavioral tests for changed/missing sender/attachment, native protected source edit fence, idempotent queue admission, queued/attempting/accepted/uncertain/cancelled transitions, two-worker/cancel CAS, source privacy and no auto replay. Observe RED.
+- [x] Implement dedicated native queue/migration, frozen canonical content revision, exact MIME/envelope/FCC snapshot, source association and current identity proof under existing owner lease. No normal outbox conversion.
+- [x] Implement durable pre-wire claim, current authorization fence, bounded due selection, conservative SMTP uncertainty and independent Sent-copy-only repair. Gate execution by disabled-by-default native setting. Preserve existing ordinary native behavior outside guarded queue.
+- [x] Run focused tests/lint, add deterministic native protocol fault scenarios and commit. Expected: no repeated SMTP submission after ambiguous outcome; repair never resolves SMTP client.
+
+### Task 2: MCP B tools, worker and native artifact admission
+
+**Files:** Modules/Mail/Transmission/*, Tools/{SendDraft,ScheduleDraft,CancelDelivery,ReadDelivery,RepairSentCopy}.php; AppInfo/Application.php, MailToolCatalog, capabilities, WriteGate, journal/store receipts, permissions/UI/translations/public tools; native/mail-guard/build.php and native manifests/runtime boundary; background job/command as needed.
+
+**Interfaces:** Consume Task1 interface report. Produce mail_send/send, mail_schedule/schedule, mail_cancel_delivery/cancel_delivery, mail_read_delivery/read_delivery and mail_sent_repair/repair_sent tools with independent grants, current connection checks and background authorization; journal admission succeeds with delivery ID, status reports native delivery evidence separately. Preserve first43 tools' order.
+
+- [x] RED tests for exact preview/plan changes, denied/revoked source selection, timezone/DST validation, read-only status, durable replay, operation receipt privacy and separately denied new grants.
+- [x] Wire a bounded job launching one signed fresh CLI child per item via existing NativeMutationProcess20-second process limit plus CLI alarm and a fresh25-second delivery ticket. Sent-copy repair must use the same absolute child bound, including its APPEND write; include action and approved repairRevision in the signed ticket. Revalidate originating persistent OAuth connection/user/app/grant/scope before native fence; queue lifetime is independent of ticket lifetime. Basic/session connection zero refuses. Bound each job sweep to50 entries and an absolute budget, restore parent context. Review up to25 future queued entries using a persistent metadata audit cursor as well as up to25 due entries; audit runs with transmission off, never opens a transport for valid future/off-gate entries, and blocks only authoritative revocation. Terminal before-wire blocked entries release native source/identity holds; uncertain attempts remain held.
+- [x] Recover lost queue acknowledgements through native read-only findByOperation(uid,key), derived from journal scope/original operation ID. Add sanitized delivery_id to receipts/compaction and source_tool checks to cancel/repair/replay. Complete automatic normal Sent copy only with target bound in initial approval; pending copy remains explicit and never resends.
+- [x] Generate native v11 artifact (Mail5.12.5.11, mcp-mail-mutations-v11), preserve immutable v10 manifest, extend API/runtime/source qualification without blessing stock/new untested pairs.
+- [x] GREEN focused PHP/API/UI tests, update public tool contract and commit.
+
+### Task 9: Native private-payload account and user lifecycle
+
+Execute after the Task2 implementation checkpoint and before its final review and Task3. Review Tasks2 and9 together as one B safety deliverable; Task2 remains pending approval until this prerequisite passes. This dependency was added after source inspection proved a native lifecycle gap; keep delivery qualification closed until its native acceptance and review pass.
+
+**Files:** native/mail-guard/src/Transmission/AttemptStore.php and HeldAccountDeletion.php; new Lifecycle/MailErasureStore.php, MailErasureService.php, background cleanup job and migration; pinned UserDeletedListener/AccountService integration through build patch; native/MCP tests and current v11 manifest only.
+
+**Interfaces:** Consume existing DraftCoordinator physical owner lease and immutable queue. Produce narrow native account-payload cleanup plus durable user-erasure capture/retry for exact original account identities. Ordinary account deletion retains unresolved-delivery denial and erases derived private payload only with admitted account removal. User deletion captures old account IDs and queue references before the nonblocking lease attempt; pending erasure fences those identities against fresh admission/dispatch. Retry shares the lease and cannot target a later recreated UID's new accounts. No new MCP administrative erasure tool.
+
+- [x] RED ordinary account deletion for cancelled/blocked/accepted+verified deliveries proves no orphan frozen payload; unresolved ordinary deletion refuses and preserves source/payload.
+- [x] RED actual native UserDeletedEvent path across all queue states proves native accounts/credentials and frozen payload are removed without SMTP/IMAP/APPEND; active-worker independent-session lease permits no partial erasure and persists a retry.
+- [x] Implement SQL-only exact-account payload purge in the successful account-removal transaction; add idempotent durable native erasure marker/retry, shared owner exclusion and pre-effect erased-consent fence. Do not load/log body to erase it. Retry also handles already-missing accounts/orphan rows. Keep all unrelated owners intact.
+- [x] RED→GREEN repeated event/job, after-busy retry, original user recreation with new account IDs, and worker pre-wire denial. Preserve uncertainty/no-repeat semantics; erasure cannot recall already accepted remote mail and must not claim it can.
+- [x] Regenerate current native v11 source hashes, run focused native PostgreSQL/LinuxServer/S3 lifecycle plus delivery regression, focused API/runtime tests and commit. Qualification remains closed until fresh task review accepts the guarantees.
+
+**B safety acceptance:** Reviewed implementation through `4a9cdc4a78560b3c4b4c6ec70035957b6f5fc5e8`; all four review findings closed. Native delivery/lifecycle regression:36 tests/320 assertions. Clean committed MCP package SHA256 `395619d570377668e3002d700473f56986450b4b1cdb1af5ba9f74d0fdf294ce` passed9 actual tool/child tests/60 assertions. Native manifest `ee3a6de7a415c4f2538e62b9e0ae808ab1bf1ad2db13f7cec91b76cdec55024e` matches the installed source. Qualification remains false until Task7 freezes and accepts the complete v11 feature set; production transmission remains false. This checkpoint is not the final2.8.0 release.
+
+### Task 3: Hard-capped content and Files export
+
+**Files:** native Content/IMAP/Service capped reader and transport budget integration; MCP Integration/MailContentReader.php, Files export and larger attachment saver, Tools export; tests native/MCP.
+
+**Interfaces:** Native GuardedContentReader readRaw/listParts/readPart/readDraft/readIndexText closed owned APIs (see external content-reader-design report) bind actual selected connection/mailbox/UIDVALIDITY/UID and narrow authorization fence; raw/part return private bytes+generation+hash, listParts bounded scalar metadata only. MCP export uses IncomingFileWriter, operation checkpoint and exact destination/content plan.
+
+- [x] RED malicious oversized literal/line/count/deadline and UIDVALIDITY/reselection tests; no mark-read or implicit decryption. Opaque encrypted raw export preserves bytes; parsed crypto refuses. Include UID before/after literal, missing tagged completion and public fetch retry refusal.
+- [x] Implement bounded BODYSTRUCTURE part discovery with pre-token grammar limits and conditional node/parameter hooks BEFORE Horde object construction; do not materialize every attachment or require whole-message25MiB for listing a25MiB decoded base64 part. Share this closed manifest with draft/import/index readers; avoid unbounded Horde parseMessage recursion.
+- [x] Implement25MiB raw/decoded part and40MiB wire cap before reads; fresh client and exact selection proof. Keep existing small base64 response bound; larger parts save directly to Files.
+- [x] Route current-v11 message/thread/composition body reads through fixed native `readBody(uid,messageId,fence)` using the same closed session/manifest, actual decoded body<=1MiB and metadata-only attachment listing. Preserve text/max_chars output and independent read-thread grant; lying RFC822.SIZE, reconnects or unavailable new-source qualification never fall back to the legacy parser. Genuine older source paths retain their prior behavior. Test large-attachment/small-body reads, no Seen and thread-only OAuth.
+- [x] Implement confirmed EML/part export with no overwrite, policy recheck/status/replay and changed content refusal. GREEN focused tests and commit.
+
+**Content acceptance:** Reviewed through commit4b1f8821430642aa3f96838be70d942f74a30cd4. Both MIME/permission findings and single-part root coverage are closed. C8 native manifest214d817e619dda6b10b7ba98f982e640db3cc8782908f0e9d4d49f70b5986f63 passed22 native/FPM/OAuth/TLS tests/355 assertions and7 root/B/Sent/refresh regressions/102 assertions. These are explicitly mutable diagnostic tests with content eligibility overridden only in the fixture; Task7 still owns clean shipping qualification. Production transmission remains disabled.
+
+### Task 4: IMAP draft search/import and indexed body search
+
+**Files:** native draft import/content parsing and generation-bound PostgreSQL body index/migration; MCP Drafts importer/search/index tools and tests.
+
+**Interfaces:** Consume capped reader; produce explicit protected copy import, cached Drafts search, index selected IDs max20, indexed search max50 with coverage and keyset cursor.
+
+- [x] RED tests prove original IMAP draft remains, exact supported content copied, crypto/unsupported MIME refuses, duplicate import replays, index cross-owner/stale generation exclusion and bounded results.
+- [x] Implement safe copy without handleDraft/source-deletion events; index bounded extracted text explicitly, no unbounded crawl or body-search claims beyond coverage.
+- [x] GREEN native/MCP tests, API/docs registration and commit.
+
+**Task4 implementation checkpoint:** Commit2bd1596c12544414fc0cb91340c33e5bcfe0d031, native candidate6 manifestdaf52078ae22c86bf9c3dd9780b5aac6c851adc0c9b45b4e35924dc3e0ede335. Ten actual PostgreSQL/native/FPM tests/78 assertions pass, including real primary-session loss before index effects and lost-COMMIT copy recovery; reply fixture regression1/17 also passes. This is a mutable diagnostic checkpoint, not approval or shipping qualification. The broader native regression exposed the pre-existing mailbox-sync transaction incompatibility below; its correction and combined acceptance are recorded after Task10.
+
+### Task 10: Native mailbox-sync transaction compatibility
+
+Execute after the Task4 implementation checkpoint, before its combined fresh review and Task5. This prerequisite was added after a real native UI path failed; preserve all guards rather than skipping its regression.
+
+**Files:** native mailbox-sync patch integration in `native/mail-guard/patch-refresh.php` or a narrowly factored new patch, existing `src/Db/CredentialRevision.php` and `src/Drafts/DraftCoordinator.php` only as required, current v11 build/manifest, native lifecycle/credential/physical-session tests. No new public MCP tool.
+
+**Interfaces:** Preserve native `MailboxSync::sync`/`MailManager::createMailbox` signatures. Reuse `DraftCoordinator::runOwner`, `DraftScope::markWrite/assertOwned` and the same authoritative physical DB connection. Ordinary mailbox synchronization must acquire the owner lease before starting its SQL transaction; nested noncredential account writes reuse only a proven matching owner/session scope. Arbitrary outer transactions and lost/reconnected sessions continue refusing.
+
+- [x] Retain RED from `McpMailLifecycleTest::testUidValidityChangeBeforeReadWriteSelectionRefusesMutation`: native createMailbox calls MailboxSync atomic/persist, then noncredential account update tries to acquire the owner lease inside an existing SQL transaction. Verify exact unchanged callchain and actual ownership.
+- [x] Fix the native outer transaction boundary with lease-before-transaction ordering, current owner/profile validation and pre-effect/pre-COMMIT ownership checks. Preserve credential revision/index purge, protected drafts/deliveries, quarantine, original transaction behavior and all source guards; never relax general assertNoTransaction or introduce an authorization bypass.
+- [x] GREEN actual native create/sync plus the original selection-proof guarantee, independent DB-session contention, unrelated outer-transaction refusal and session-loss behavior. Run relevant credential/role/lifecycle/B/content/index regressions, regenerate only current v11 artifacts and commit.
+- [x] Fresh combined Task4+Task10 spec/quality review closes all material findings before Task5. Source qualification remains false until Task7; production transmission stays disabled.
+
+**Combined Task4+Task10 acceptance:** Fresh independent review accepted native synchronization and closed the sole draft-import finding after fixef44dec02473e86f9e7a86aef3ce53cfd39f2cf4. Unsupported semantic MIME headers now refuse across roots, leaves and internal containers before body retrieval/staging. Final native manifest3e4d39c41fddac03526e9e5f93a38a965daddf6d9cafc098d80f7b6eb8b2bf0f matches all138 materialized overlay files. Content/copy/index/FPM regression28/454, eleven-variant refusal1/88, native sync14/73 and related regression18/335 pass. These remain explicitly mutable diagnostic proofs; Task5 scopes and Task7 clean shipping qualification are still required. Production transmission remains disabled.
+
+### Task 5: Complete account/folder resource scopes
+
+**Files:** Access/ResourceScope, Db/ResourceScopeMapper, Mail gateways/module/worker/status/readers, native resource enumerator and admin selection UI/tests.
+
+**Interfaces:** Typed Mail resource IDs account:<positive decimal> and mailbox:<positive decimal> within existing string storage, module mail; account permits owned folder descendants, mailbox permits message actions only. All sources/destinations/status/current workers enforce scope; no selected resource grants tool permission.
+
+- [x] RED denial/filter tests across all43 baseline tools and additions, hidden reply/forward/attachment/destination IDs, account-only mutations, failed policy reads, saved restriction and worker/replay revocation.
+- [x] Implement shared scope guard/enumerator/canonical validation, integrate complete consumer graph and UI; retain activation barrier until Task7 clean shipping qualification.
+- [x] GREEN scope/policy/UI regression and commit.
+
+**Task5 implementation checkpoint:** Commit55231733dc491ac0f2f9b21609d52f0bbff6d5ff implements the53-tool scope graph, typed storage/receipts/UI, fresh policy fences and durable historical references. Host690/12081, native21/386, UI60+6, architecture283/24299 and both static-analysis scopes pass. At that checkpoint, a real Basic-HTTP user-recreation regression was RED: UID plus connection0 repeats the journal namespace, allowing a recreated actor to read the prior actor's receipt. Task11 resolved it before the combined review below. Scope activation remains false until Task7.
+
+### Task 11: Durable operation actor-incarnation isolation
+
+Execute after Task5's implementation checkpoint and before its combined fresh review. Keep existing operation namespaces and native operation keys unchanged; an occupied old operation ID must never become a new mutation after recreation.
+
+**Files:** MCP migration and narrow Db actor-incarnation registry/tombstone; existing `Listener/ConnectionToolsCreationListener.php`/lifecycle registration and policy transaction as required; `Mcp/Operations/OperationJournal.php`, Mail private authorization/fresh fences/child and delivery audit integration; focused core/real-user lifecycle tests. No new public tool or native historical artifact modification.
+
+**Interfaces:** Preserve `OperationJournal::scopeKey` and all existing operation-key derivations. Capture a trusted original actor incarnation at admission, retain it immutably across checkpoints, and check it before status/replay projection and every Mail effect/commit fence. Establish a new incarnation durably before native UID publication, with a persistent tombstone and evidence for missed/disabled listeners. Same-actor history with deleted/moved sources remains authorized through original references; legacy identity that cannot be proved fails closed without reissuing the write.
+
+- [x] Retain real RED `McpMailActorIncarnationTest`: actual user creation, Basic app-password HTTP write, successful core deletion, same UID recreation/new password/regrant; old status and replay must refuse with no new effect.
+- [x] Implement minimal registry/lifecycle binding and immutable original-context checks without changing scopeKey/opkey. Do not rely on UID, mutable profile fields, a sole post-delete listener or ordinary preferences alone; core clears all preferences before and after UserDeletedEvent. Never blindly adopt missing legacy tokens as an initial owner.
+- [x] GREEN same-actor deleted-source history, old inflight callback after recreation, failed deletion, late/missed/disabled listener events, concurrent first-use/recreation and durable pre-publication failure. Preserve namespaces byte-for-byte; old IDs stay occupied. Metadata-only consent retirement and exact orphan cleanup remain functional without granting transport access.
+- [x] Run relevant core journal/policy/non-Mail callers/API/static and native Mail regressions, commit, then fresh combined Task5+11 specification/quality review. Source qualification and Mail scope activation remain closed until the final Task7 shipping qualification; production transmission stays disabled.
+
+**Combined Task5+Task11 acceptance:** Independent specification and quality review accepted the implementation through `85f72d3fead26747f0199ab1e1fac085165053ab`. Its sole finding is closed: public delivery cancellation now rechecks immutable actor/origin and current policy inside native owner admission and before commit, rolling back on withdrawal and retaining the source hold. The original Basic deletion/recreation regression is GREEN; unknown legacy ownership remains denied and its operation IDs remain occupied, without reissuing effects or purging data. Relevant host 5573/39294, final actor/worker 35/124, native 15/136 and cancellation host 32/164/native 8/80 pass, with both static scopes and 1872-file syntax checks. Current native manifest `31d4b674c3b603fbee312da3397729aa1610370f90c1500dfed2a90450a129ef` preserves v1–v10 artifacts. These are diagnostic proofs; Task7 still owns clean shipping qualification and scope activation. Production transmission remains disabled.
+
+### Task 6: Guarded snooze and native structured filters/absence/identity modes
+
+**Files:** native guarded snooze intent/wake worker, capped ManageSieve settings and native UI/background fencing; MCP independent tools/grants and identity signature mode; tests.
+
+**Interfaces:** Consume guarded moves/current scope/worker authorization; no silent wake destination fallback or replay after unknown MOVE. Structured bounded Sieve state with revision and exact supported actions only; transmission gate required for vacation enable/redirect.
+
+**Execution:** Three sequential implementation/review units:6a guarded snooze/wake,6b bounded ManageSieve filters/absence,6c native signature mode. Complete Task6 only after all three pass; one implementation worker at a time.
+
+- [x] RED worker/wake/cancel races, lost COPYUID, missing original folder, scope revocation; Sieve native serialization/current-script revision/oversize/unknown-section preservation/lost install response/no secret logs; identity crypto/provisioning field preservation.
+- [x] Implement one-message snooze/wake intent using existing qualified move proof and shared leases; configure/read/disable absence and safe filters with exact script revision/readback and dedicated status. Keep production gate false.
+- [x] GREEN native/MCP tests and commit.
+
+**Task6a acceptance:** Guarded one-message snooze, explicit wake, timer-only cancellation and read-only status are implemented through `d838f247967a1a2d0947a5fffbd712230c3d5ff6`, with independent grants and original actor/resource provenance. Independent review closed all three findings: dispatch and metadata audit use separate fair cursors; native holds protect affected tuples, threads and folder references while unrelated legacy timers and Seen changes continue; locale scripts parse and register correctly. Actual PostgreSQL fairness reaches prepared/ready/revoked work behind 25 cache-waiting entries. Native grouped 30/530 plus 7/54, two-leg fault 1/48 and final corrective 6/66 pass; corrective host 22/3801, locale 3/3, API 4/452 and static/syntax/docs checks pass. Native manifest `99b60e119eb041611e9c3e8a5d57421a10b86b03a11cb168e6c126259a4f65c5` preserves v1–v10. The current v11 source remains a diagnostic candidate with SNOOZE_QUALIFIED and scope activation false until Task7. Task6b and Task6c subsequently passed independent review; production transmission remains disabled.
+
+**Task6 completion:** All three units are approved through `0dd50ad328ab8b79d575884fdee321cccfc0051f`. The final native candidate has 169 overlay files and 219 selected fingerprints (manifest `f18616e88bb29645ba25859dc48962f94cbf67876ba1460ea7cdc0f40231bb86`). Global qualification and release/publication remain Task7 gates.
+
+### Task 7: Acceptance, PR and release
+
+**Candidate progress:** Primary native qualification is complete for the short-write-safe v11 candidate (manifest `04f403df547a373648600ead424a60daa4ffbb5ab39c4f8629699a159d3d5284`, 170 overlays and 219 selected fingerprints). Current source opens the four qualification flags and Mail scope activation; production transmission remains disabled. Final clean-package HTTP/source acceptance, exact old-v9 upgrade/recovery, source packaging and independent release review remain gates. This does not mark publication or deployment complete.
+
+**Files:** Complete native fixtures, public tool docs/translations, changelog/version/release source kit and evidence.
+
+- [ ] Run real PostgreSQL/LinuxServer/S3 qualification with synthetic SMTP/IMAP/ManageSieve fault matrix for Tasks1–6, including process death and independent sessions; no skips for claimed features.
+- [ ] Run full catalog checks (PHP/static/UI/docs/API/package), source inventory/REUSE and fresh whole-branch review; fix material findings with RED→GREEN evidence.
+- [ ] Open Mail scope activation and current native delivery/content qualification only after the complete consumer/lifecycle graph and exact frozen native guarantees pass; verify the final clean package through normal HTTP with no diagnostic eligibility overrides. Production transmission remains false.
+- [ ] Publish a separately pinned native source companion: original Mail runtime/archive and licenses, exact upstream preferred-source snapshot with locks/build configuration, reviewed overlay, complete assembled runtime inventory and reconstruction instructions. Preserve the exact five-file MCP source-kit schema; expose independently validated native source links through ordinary-user source journeys and verify public downloads.
+- [ ] Bump MCP to2.8.0 for the added tool surface; freeze reviewed commit/source/native hashes. Push feature branch, open reviewable PR against main and attach it; publish versioned release with runtime/native/source artifacts after required checks. No automatic merge if review/CI rejects.
+
+### Task 8: Production deployment and final state
+
+**Files:** External operator plan/backups and deployment evidence docs.
+
+- [ ] Inspect live versions/policy/cache provenance and available resources; create exact staged artifacts and consistent recovery backup, preview exact changes.
+- [ ] Freeze admission/drain workers, install coherent MCP/native source, migrate via fresh same-image isolated worker with private writable config, restart/verify before reopening.
+- [ ] Verify HTTPS/native/runtime/schema, unchanged policy/connections/scopes, bounded capability checks, cron and disabled send gate. Preserve originals and recovery backups. Native rebuild/provenance work only if it preserves original messages and tag history without unapproved bulk reset.
+- [ ] Update master plan/evidence and give PR/release/deployment links and honest feature/provider limits.

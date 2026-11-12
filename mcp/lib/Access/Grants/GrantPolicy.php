@@ -58,7 +58,7 @@ class GrantPolicy implements ScopeReader {
         'talk' => ['read', 'reply', 'attach', 'quote', 'create', 'publish_summary', 'search'],
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
-        'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'],
+        'mail' => ['read', 'search', 'read_message', 'read_outbox', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts', 'set_flags', 'move_messages', 'archive_messages', 'trash_messages', 'restore_messages', 'create_mailboxes', 'rename_mailboxes', 'subscribe_mailboxes', 'configure_mailboxes', 'read_identities', 'read_tags', 'create_tags', 'tag_messages', 'refresh', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities', 'send', 'schedule', 'cancel_delivery', 'read_delivery', 'repair_sent', 'export_message', 'search_drafts', 'import_draft', 'index_messages', 'search_indexed_body', 'snooze', 'wake', 'cancel_snooze', 'read_snooze', 'read_filters','write_filters','read_absence','write_absence','disable_absence','read_sieve_status','transmit_filters','enable_absence','write_signature_mode'],
         'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses'],
     ];
 
@@ -96,6 +96,17 @@ class GrantPolicy implements ScopeReader {
         private PolicyResolver $resolver,
         private PolicyTransaction $transaction,
     ) {}
+
+    /**
+     * A native effect fence must not inherit an enclosing HTTP snapshot.
+     * @template T
+     * @param Closure(self):T $work
+     * @return T
+     */
+    public function freshWithin(string $uid,Closure $work):mixed {
+        $fresh=new self($this->config,$this->userConfig,$this->commands,$this->service,$this->resolver,$this->transaction);
+        return $fresh->within($uid,static fn()=>$work($fresh));
+    }
 
     /**
      * Runs one operation of $uid (a request of the MCP endpoint, a checkout step) over one policy snapshot: every

@@ -178,3 +178,31 @@ separate required acceptance step; a successful download alone does not prove
 that the delivered source rebuilds the installed application.
 This focused fixture does not run the full native platform matrix, qualify HTTPS,
 exercise ChatGPT or replace human review and target-host acceptance.
+
+## Guarded Mail source companion
+
+MCP 2.8.0 keeps its exact five-file kit. A separate companion distributes the original Mail 5.12.5 runtime (including dependency sources, notices and embedded maps), the preferred upstream source at `8a00bf1d914317127c53104c0c4d47baa8f72fb7` (including locks and build configuration), the reviewed overlay, the assembled native runtime and reconstruction instructions. The preferred overlay/build code remains in the MCP source bundle. This reproduces the modified runtime from pinned upstream shipped chunks; it does not claim a bit-identical independent upstream webpack build or a fully offline toolchain.
+
+After preparing a clean committed MCP kit, run the following from `mcp/`, using absolute paths. The output parent must already exist below this project's `mcp/build`; the output itself must be new:
+
+```sh
+node scripts/release/cli.mjs native KIT MCP_MANIFEST_SHA256 ORIGINAL_MAIL_ARCHIVE UPSTREAM_SOURCE_ARCHIVE OUTPUT
+node scripts/release/cli.mjs verify-native OUTPUT NATIVE_MANIFEST_SHA256 SOURCE_COMMIT
+```
+
+The companion has exactly six public files: `native-manifest.json`, `mail-upstream-runtime.tar.gz`, `mail-upstream-source.tar.gz`, `mail-reviewed-overlay.tar.gz`, `mail-assembled-runtime.tar.gz`, and `NATIVE-BUILDING.md`. The reviewed overlay archive also retains its generated JSON and PHP boundary manifests. Publish it separately from the sealed MCP kit. Record the companion manifest digest in independently trusted release metadata. Preparation checks both upstream archive pins, rejects any contract/build/XML identity other than the current guarded Mail v11, matches its generated boundary against the same frozen MCP source, rebuilds twice from the frozen MCP bundle and compares complete assembled inventories. The manifest records every native runtime file's size and SHA-256; selected `NativeGuardManifest` fingerprints alone are not a complete runtime inventory. Verify the deployed native tree against the companion inventory in a quiescent installation window.
+
+The optional system configuration `mcp_native_source_offer` has a closed schema:
+
+```php
+'mcp_native_source_offer' => [
+    'schemaVersion' => 1,
+    'sourceCommit' => 'FULL_SAME_MCP_SOURCE_COMMIT',
+    'nativeBuild' => '5.12.5.11',
+    'nativeManifestSha256' => 'EXACT_GENERATED_NATIVE_BOUNDARY_MANIFEST_SHA256',
+    'manifestSha256' => 'TRUSTED_NATIVE_COMPANION_MANIFEST_SHA256',
+    'baseUrl' => 'https://example.invalid/releases/native',
+],
+```
+
+Replace the placeholders with the exact release values. The offer requires a valid MCP source offer for that same installed source commit, the exact native build and matching selected installed-code fingerprints. It performs bounded local identity reads, never fetches a URL, and permits HTTPS destinations (literal loopback HTTP only for isolated acceptance). Missing, extra or mismatching metadata fails closed. Personal settings and MCP initialize/discover expose the independently validated companion without requiring Mail sending permission, an account, provider capabilities or enabled production transmission. Before advertising it, download every asset without maintainer credentials and verify its trusted manifest and complete inventory. Source publication does not enable sending.

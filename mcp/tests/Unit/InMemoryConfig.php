@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 final class InMemoryConfig {
     public array $app = [];
     public array $user = [];
-    /** @var array<string, string|int> system values served by getSystemValueString and getSystemValueInt */
+    /** @var array<string, mixed> system values served by getSystemValue and its typed variants */
     public array $system = [];
     /** @var list<array{string, string, string}> every [scope, app, key] read or written ('app' or 'user') */
     public array $accessed = [];
@@ -337,6 +337,9 @@ final class InMemoryConfig {
         });
         $config->method('getSystemValueString')->willReturnCallback(function ($key, $default = '') {
             return (string)($this->system[$key] ?? $default);
+        });
+        $config->method('getSystemValue')->willReturnCallback(function ($key, $default = '') {
+            return $this->system[$key] ?? $default;
         });
         $config->method('getSystemValueInt')->willReturnCallback(function ($key, $default = 0) {
             return (int)($this->system[$key] ?? $default);

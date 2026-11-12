@@ -121,3 +121,38 @@ line and count from nine to eleven. The metadata-only app-version fixture keeps
 Mail unpublished; supported Mail publication has separate contract coverage.
 Protocol changes contain only the two additive Talk tools. All other protocol
 fields and the complete result capture remain unchanged.
+
+Mail delivery A on the 2.7.0 base updates only the three existing raw Mail write
+schemas/descriptions (operation IDs and draft composition inputs) and appends the
+attachment action plus two receipt readers. A guarded, explicit patch verified
+every other existing definition unchanged before updating those three raw
+catalogs. Mail remains unpublished in this historical unknown-version capture;
+protocol and result captures remain unchanged. Behavioral tests independently
+exercise scoped receipts, repeat confirmation, native reply retention and Files
+attachment preservation. The complete captures were not regenerated.
+
+
+Mail delivery D appends ten raw definitions to the existing 13-tool Mail catalog
+in each frozen locale. All prior tool objects are byte-equivalent after JSON
+normalization. Historical publication/results remain unchanged because that
+capture has no supported Mail version. Native settings/probes and permission
+contracts exercise explicitly enabled Mail separately.
+
+Mail C1 appends only `mail_set_message_flag` to each locale's raw Mail catalog.
+A guarded additive patch verifies that removing those three new entries restores
+the previous capture exactly; no existing tool, protocol or result is regenerated.
+The unknown-version historical fixture keeps Mail unpublished. Flags remain
+independently denied/selected and require the verified native dependency artifact.
+
+The 2026-11-08 C3 addition appends four Mail definitions to the three full
+locale catalogs and extends the existing Mail flag-guide paragraph to explain
+the qualified v2 MOVE/COPYUID path, separate permissions and pending native
+destination cache sync. Existing schemas, protocol and result captures are retained.
+
+Mail D+ appends four raw definitions (reconciliation and alias CRUD) to each
+locale and extends only mail_test_connection with optional setup_operation_id /
+intent correlation and its description. A guarded patch verified every other
+prior definition unchanged, and removing those two properties plus restoring the
+prior description exactly recovers that old definition. Historical unknown-version
+publication, protocol and result captures remain unchanged; no whole capture was
+regenerated. Current Mail/native and grant tests exercise the new actions.

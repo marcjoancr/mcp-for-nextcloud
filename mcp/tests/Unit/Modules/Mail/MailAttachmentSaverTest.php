@@ -23,7 +23,7 @@ final class MailAttachmentSaverTest extends TestCase {
 		};
 		$destination = ['path' => '/Shared/report.pdf', 'folder' => '/Shared', 'size' => 6, 'access' => ['scope' => 'shared'], 'shared' => [], 'requiresSharedConfirmation' => true];
 		$files = $this->createMock(IncomingFileWriter::class);
-		$files->expects(self::exactly(2))->method('preview')->with('alice', '/Shared/report.pdf', 6)->willReturn($destination);
+		$files->expects(self::exactly(4))->method('preview')->with('alice', '/Shared/report.pdf', self::logicalOr(self::equalTo(0),self::equalTo(6)))->willReturn($destination);
 		$files->expects(self::once())->method('save')->with('alice', '/Shared/report.pdf', 'binary', false)
 			->willReturn(['requiresConfirmation' => true, 'scope' => 'shared', 'message' => 'Confirm the shared destination.']);
 		$saver = new MailAttachmentSaver($reader, $files, new PlanState((new InMemoryConfig())->mock($this)));
@@ -43,10 +43,22 @@ final class MailAttachmentSaverTest extends TestCase {
 			public function read(string $userId, int $messageId, string $attachmentId): array { return $this->row; }
 		};
 		$files = $this->createMock(IncomingFileWriter::class);
-		$files->expects(self::once())->method('preview')->willReturn(['path' => '/x.bin']);
+		$files->expects(self::exactly(2))->method('preview')->willReturn(['path' => '/x.bin']);
 		$files->expects(self::never())->method('save');
 		$saver = new MailAttachmentSaver($reader, $files, new PlanState((new InMemoryConfig())->mock($this)));
 		$plan = $saver->preview(['message_id' => 1, 'attachment_id' => '1', 'path' => '/x.bin'], 'alice');
 		self::assertArrayHasKey('plan_state', $plan);
 	}
+    public function testDeniedDestinationPrecedesAttachmentBytes():void {
+        $reader=$this->createMock(MailAttachmentAccess::class);$reader->expects(self::never())->method('readForSave');
+        $files=$this->createMock(IncomingFileWriter::class);$files->method('preview')->willThrowException(new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Destination unavailable.'));
+        $saver=new MailAttachmentSaver($reader,$files,new PlanState((new InMemoryConfig())->mock($this)));
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);$saver->preview(['message_id'=>7,'attachment_id'=>'2','path'=>'/hidden/a.bin'],'alice');
+    }
+    public function testEquivalentDecodedBytesWithChangedSourceEncodingRequireFreshApproval():void {
+        $reader=new class extends MailAttachmentAccess {public int $reads=0;public function __construct(){}public function readForSave(string $uid,int $message,string $part):array {return ['bytes'=>'a','byte_count'=>1,'sha256'=>hash('sha256','a'),'part_id'=>'2','filename'=>'a.bin','mime_type'=>'application/octet-stream','manifest_revision'=>str_repeat('a',64),'header_revision'=>str_repeat('b',64),'wire_sha256'=>str_repeat(++$this->reads===1?'c':'d',64)];}};
+        $files=$this->createMock(IncomingFileWriter::class);$files->method('preview')->willReturn(['path'=>'/a.bin']);$files->expects(self::never())->method('save');$saver=new MailAttachmentSaver($reader,$files,new PlanState((new InMemoryConfig())->mock($this)));
+        $args=['message_id'=>7,'attachment_id'=>'2','path'=>'/a.bin'];$plan=$saver->preview($args,'alice');$this->expectException(\OCA\Mcp\Mcp\Confirmation\PlanChanged::class);$saver->save($args+['plan_state'=>$plan['plan_state']],'alice');
+    }
+
 }

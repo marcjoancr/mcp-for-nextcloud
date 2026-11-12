@@ -322,6 +322,7 @@ cmd_fixtures() {
         *"- password_policy:"*) occ app:disable password_policy ;;
     esac
     password=$(openssl rand -hex 24)
+    if [ "${MCP_IT_MAIL_UI:-0}" = 1 ] || [ "${MCP_IT_MAIL_CREDENTIAL_UI:-0}" = 1 ]; then printf 'FIXTURE_PASSWORD=%s\n' "$password" >> "$WORK/credentials"; fi
     for uid in mcp-it-alice mcp-it-bob mcp-it-legacy mcp-it-deck-owner mcp-it-deck-editor mcp-it-deck-reader mcp-it-deck-outsider; do
         docker exec -u www-data -e OC_PASS="$password" "$NC" php /var/www/html/occ user:add --password-from-env "$uid"
     done
@@ -553,7 +554,7 @@ REPORT
 cmd_test() {
     expected=$(cat "$WORK/expected-version")
     set -- -e NEXTCLOUD_ROOT=/var/www/html -e MCP_IT_NC="$MCP_IT_NC" -e MCP_IT_DB="$MCP_IT_DB" \
-        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json \
+        -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_MAIL_RUNTIME_PHASE="${MCP_IT_MAIL_RUNTIME_PHASE:-}" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json \
         -e MCP_IT_SNAPSHOT=/tmp/mcp-it-snapshot.json -e MCP_IT_BASELINE_APP=/tmp/mcp-previous \
         -e MCP_IT_PROVISION_FAILURES="$(tr '\n' ' ' < "$WORK/provision-failures" 2>/dev/null || true)" \
         -e MCP_IT_GF_NAME="$GF_NAME"
@@ -562,7 +563,7 @@ cmd_test() {
     fi
     if [ "${MCP_IT_WITH_MAIL:-0}" = 1 ]; then
         # Fixed public fixture values only; no user-controlled shell expansion.
-        set -- "$@" -e MCP_IT_WITH_MAIL=1 -e MCP_IT_IMAP_HOST="$MCP_IT_IMAP_NAME" -e MCP_IT_IMAP_PORT=31143 \
+        set -- "$@" -e MCP_IT_MAIL_GUARD="${MCP_IT_MAIL_GUARD:-0}" -e MCP_IT_WITH_MAIL=1 -e MCP_IT_IMAP_HOST="$MCP_IT_IMAP_NAME" -e MCP_IT_IMAP_PORT=31143 \
             -e MCP_IT_IMAP_PASSWORD=mcp-it-imap-password
     fi
     if [ "${MCP_IT_WITH_FORMS:-0}" = 1 ]; then
@@ -575,6 +576,23 @@ cmd_test() {
 }
 
 # One full coordinated restore rehearsal, isolated from the policy tests and never against a real installation.
+cmd_draft_ui() {
+    if [ "${MCP_IT_MAIL_UI:-0}" != 1 ]; then echo 'Native draft browser acceptance not requested.'; return; fi
+    case "${MCP_IT_WITH_MAIL:-0}:$MCP_IT_NC:${MCP_IT_MAIL_GUARD:-0}" in 1:33:1|1:34:1|1:35:1) ;; *) echo 'Native draft browser acceptance requires a pinned owned guarded Mail cell.' >&2; return 1 ;; esac
+    for format in plain html; do
+        MCP_IT_MAIL_UI_FORMAT="$format" node "$REPO_ROOT/mcp/tests/Integration/ci/mail-draft-ui.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
+    done
+}
+
+cmd_credential_ui() {
+    if [ "${MCP_IT_MAIL_CREDENTIAL_UI:-0}" != 1 ]; then echo 'Native credential browser acceptance not requested.'; return; fi
+    case "${MCP_IT_WITH_MAIL:-0}:$MCP_IT_NC:${MCP_IT_MAIL_GUARD:-0}" in 1:33:1|1:34:1|1:35:1) ;; *) echo 'Native credential acceptance requires a pinned owned guarded Mail cell.' >&2; return 1 ;; esac
+    if [ "${MCP_IT_MAIL_TABS_ONLY:-0}" != 1 ]; then
+        node "$REPO_ROOT/mcp/tests/Integration/ci/mail-credential-ui.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
+    fi
+    node "$REPO_ROOT/mcp/tests/Integration/ci/mail-credential-tabs.mjs" "$NC" "$MCP_IT_RUN_ID" "$WORK/credentials"
+}
+
 cmd_recovery() {
     if [ "$MCP_IT_NC:$MCP_IT_DB:$MCP_IT_MODE" != 35:sqlite:fresh ]; then
         echo 'Coordinated recovery is covered by the NC35/SQLite/fresh cell.'
@@ -623,6 +641,8 @@ case "${1:-}" in
     provision) cmd_provision ;;
     report) cmd_report ;;
     test) cmd_test ;;
+    draft-ui) cmd_draft_ui ;;
+    credential-ui) cmd_credential_ui ;;
     recovery) cmd_recovery ;;
     collect) cmd_collect ;;
     *)

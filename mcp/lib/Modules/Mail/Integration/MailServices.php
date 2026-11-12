@@ -22,6 +22,8 @@ class MailServices {
 	/** App id of Nextcloud Mail. */
 	public const APP_ID = 'mail';
 
+	public const CONTENT_COMMIT_UNKNOWN_CLASS = 'OCA\\Mail\\Exception\\ContentCommitUnknown';
+
 	/** OCA\Mail\Service\AccountService: the accounts of a user, as the Mail app stores them. */
 	private const ACCOUNT_SERVICE_CLASS = 'OCA\\Mail\\Service\\AccountService';
 
@@ -132,7 +134,79 @@ class MailServices {
 		return $class::TYPE_DRAFT;
 	}
 
-	public function clientFactory(string $userId): object {
+	public function attachmentService(string $userId): object {
+        return $this->resolve('OCA\\Mail\\Service\\Attachment\\AttachmentService', $userId);
+    }
+
+    public function localOutgoingType(string $userId): int {
+        $class=self::LOCAL_MESSAGE_CLASS;if(!$this->isEnabledFor($userId)||!class_exists($class))throw new MailUnavailableException();
+        return $class::TYPE_OUTGOING;
+    }
+
+    public function tagCodec(string $uid):object {
+        $class='OCA\\Mail\\IMAP\\ImapFlag';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
+    }
+    public function newTagMapper(string $uid,\OCP\IDBConnection $db,\OCP\IL10N $l10n):object {
+        $class='OCA\\Mail\\Db\\TagMapper';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class($db,$l10n);
+    }
+    public function newTag(string $uid):object {
+        $class='OCA\\Mail\\Db\\Tag';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
+    }
+    public function setupEvidence(string $uid):object {return $this->resolve('OCA\\Mail\\Authorization\\SetupEvidence',$uid);}
+    public function refreshSnapshots(string $uid):object {return $this->resolve('OCA\\Mail\\Sync\\CacheSnapshot',$uid);}
+    public function guardedRefresh(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxRefresh',$uid);}
+    public function exactTags(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\ExactTagAssociations',$uid);}
+    /** Native bounded scalar metadata reader; callers gate this on the v10 source boundary. */
+    public function scopedMetadataAvailable():bool {return class_exists('OCA\\Mail\\Db\\BoundedMailMetadata')&&method_exists('OCA\\Mail\\Db\\BoundedMailMetadata','draftIds');}
+    public function boundedMetadata(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\BoundedMailMetadata',$uid);}
+    public function tagMapper(string $uid):object {return $this->resolve('OCA\\Mail\\Db\\TagMapper',$uid);}
+    public function guardedMailboxes(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedMailboxMutations',$uid);}
+    public function guardedMutations(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\GuardedMessageMutations',$uid);}
+
+    public function beforeWireBlock(string $uid):\Throwable {
+        $class='OCA\\Mail\\Transmission\\BeforeWireBlock';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();
+        return new $class('Delivery authorization was withdrawn before claim.');
+    }
+    public function guardedDraftImport(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDraftImport',$uid);}
+    public function guardedDraftSearch(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDraftSearch',$uid);}
+    public function guardedBodyIndex(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedBodyIndex',$uid);}
+    public function guardedContentReader(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedContentReader',$uid);}
+    public function guardedSnooze(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedSnooze',$uid);}
+    /** Metadata audit is allowed after per-user app withdrawal; it never creates a client. */
+    public function snoozeAuthorization():object {
+        $this->appManager->loadApp(self::APP_ID);$class='OCA\\Mail\\Service\\GuardedSnooze';
+        if(!class_exists($class))throw new MailUnavailableException();$service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
+    }
+    public function guardedDelivery(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedDelivery',$uid);}
+    public function sentCopyRepair(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\SentCopyRepair',$uid);}
+    /** Global metadata query only. Every effect rechecks per-user enablement in its signed child. */
+    public function guardedDeliveryWorker():object {
+        if(!AppEnablement::forAnyone($this->appManager,self::APP_ID))throw new MailUnavailableException();
+        $this->appManager->loadApp(self::APP_ID);
+        $class='OCA\\Mail\\Service\\GuardedDelivery';if(!class_exists($class))throw new MailUnavailableException();
+        $service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
+    }
+    /** Internal qualified metadata lane remains available to record withdrawal after app access is revoked. */
+    public function deliveryAuthorization():object {
+        $this->appManager->loadApp(self::APP_ID);
+        $class='OCA\\Mail\\Service\\DeliveryAuthorization';if(!class_exists($class))throw new MailUnavailableException();
+        $service=($this->resolver)($class);if(!is_object($service))throw new MailUnavailableException();return $service;
+    }
+    public function guardedSignatureMode(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedSignatureMode',$uid);}
+    public function guardedSieve(string $uid):object {return $this->resolve('OCA\\Mail\\Service\\GuardedSieveSettings',$uid);}
+    public function smtpFactory(string $userId): object {return $this->resolve('OCA\\Mail\\SMTP\\SmtpClientFactory',$userId);}
+
+    public function newAliasMapper(string $uid,\OCP\IDBConnection $db):object {
+        $class='OCA\\Mail\\Db\\AliasMapper';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class($db);
+    }
+    public function newAlias(string $uid):object {
+        $class='OCA\\Mail\\Db\\Alias';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
+    }
+    public function aliasesService(string $userId): object {
+        return $this->resolve('OCA\\Mail\\Service\\AliasesService', $userId);
+    }
+
+    public function clientFactory(string $userId): object {
 		return $this->resolve(self::CLIENT_FACTORY_CLASS, $userId);
 	}
 

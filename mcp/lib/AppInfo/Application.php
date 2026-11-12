@@ -82,6 +82,10 @@ class Application extends App implements IBootstrap {
             static fn (ContainerInterface $c): \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard => new \OCA\Mcp\Platform\FileAccess\Policy\FileTypeGuard(
                 $c->get(\OCA\Mcp\Access\FileWritePolicy\FileWritePolicy::class),
             ));
+        $context->registerService(\OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard::class,
+            static fn (ContainerInterface $c): \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard => new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard(
+                $c->get(IConfig::class),
+            ));
         $context->registerService(\OCA\Mcp\Access\Guests\GuestRestrictions::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Access\Guests\GuestRestrictions(
             $c->get(IAppManager::class), $c->get(\OCP\IRequest::class),
             static fn () => $c->get('OCA\\Guests\\GuestManager'),
@@ -637,8 +641,80 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\FormsReader::class), $c->get(\OCA\Mcp\Modules\Forms\FormsResponseReader::class),
             $c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
         ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard($c->get(GrantPolicy::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(
             $c->get(IAppManager::class), static fn (string $class) => $c->get($class), $c->get(IUserManager::class)));
+        $context->registerService(\OCA\Mcp\Access\ResourceScope\MailResourceInventory::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\NativeMailResourceInventory($c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailTagVisibility::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailTagVisibility(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailTagTarget(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagVisibility::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailContentReader(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),$c->get(\OCP\IConfig::class),$c->get(\OCP\IDBConnection::class),$c->get(\OCA\Mcp\OAuth\ConnectionContext::class),
+            static function(string $uid,int $connection,string $tool,int $account,int $mailbox,int $message)use($c):bool {
+                if($c->get(\OCA\Mcp\OAuth\ConnectionContext::class)->current()!==$connection)return false;
+                $c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)->assertResource($uid,$tool,$account,$mailbox);
+                return true;
+            }));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Attachments\MailAttachmentAccess::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Attachments\MailAttachmentAccess(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailBodyPreflight::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Snooze\SnoozeRunner::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Snooze\SnoozeRunner(
+            $c->get(\OCA\Mcp\Modules\Mail\Snooze\SnoozeTicket::class),$c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),static function()use($c):?array {
+                try{$root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;return ['command'=>[$cli,$root.'/occ','mcp:mail-snooze','--no-interaction','--no-ansi'],'cwd'=>$root];}catch(\Throwable){return null;}
+            }));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Snooze\SnoozeWorker::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Snooze\SnoozeWorker(
+            $c->get(\OCA\Mcp\Modules\Mail\Snooze\SnoozeTicket::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSnoozeGateway::class),
+            static function(string $uid,array $origin,string $operation,array $ticket)use($c):bool {
+                $user=$c->get(IUserManager::class)->get($uid);if($user===null||!$user->isEnabled())return false;$apps=$c->get(IAppManager::class);
+                if(!$apps->isEnabledForUser('mcp',$user)||!$apps->isEnabledForUser('mail',$user))return false;
+                $c->get(IUserSession::class)->setUser($user);$apps->loadApp('mail');$c->get(\OCA\Mcp\OAuth\ConnectionContext::class)->set($origin['connectionId']);
+                try{
+                    $fresh=$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class);($fresh->historicalFence($uid,$operation,'mail_snooze',['mail_wake']))();
+                    if($ticket['action']==='wake'){
+                        $journal=$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class);$r=$journal->get($uid,$ticket['operation']);$refs=$journal->privateResources($uid,$ticket['operation']);
+                        if(($r['tool']??null)!=='mail_wake'||($refs['snooze_id']??null)!==$ticket['id']||($refs['wake_revision']??null)!==$ticket['revision'])return false;
+                        ($fresh->historicalFence($uid,$ticket['operation'],'mail_wake'))();
+                    }
+                    return true;
+                }catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){return false;}
+            }));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailDeliveryOrigin::class),$c->get(\OCP\IDBConnection::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailAccountRemoval::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Accounts\MailAccountRemoval(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+            $c->get(\OCA\Mcp\Db\OperationsMapper::class),$c->get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Transmission\DeliveryRunner::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Transmission\DeliveryRunner(
+            $c->get(\OCA\Mcp\Modules\Mail\Transmission\DeliveryTicket::class),$c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),
+            static function()use($c):?array {
+                try{$root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';
+                    if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;
+                    return ['command'=>[$cli,$root.'/occ','mcp:mail-delivery','--no-interaction','--no-ansi'],'cwd'=>$root];
+                }catch(\Throwable){return null;}
+            }));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Transmission\MailDeliveryOperations::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Transmission\MailDeliveryOperations(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),
+            $c->get(\OCA\Mcp\OAuth\ConnectionContext::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool),$c->get(\OCA\Mcp\Modules\Mail\Transmission\DeliveryRunner::class),static fn(string $uid,int $account)=>$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class)->requireAccount($uid,$account),static fn(string $uid,int $draft)=>$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class)->requireDraft($uid,$draft)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Transmission\DeliveryWorker::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Transmission\DeliveryWorker(
+            $c->get(\OCA\Mcp\Modules\Mail\Transmission\DeliveryTicket::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class),
+            static function(string $uid,int $connection,string $source,int $account,bool $repair,string $operation)use($c):bool {
+                // This closure runs only in the dedicated child, never in the sweep's parent context.
+                if($connection<1||!in_array($source,['mail_send','mail_schedule'],true))return false;
+                $user=$c->get(IUserManager::class)->get($uid);if($user===null||!$user->isEnabled())return false;
+                $apps=$c->get(IAppManager::class);if(!$apps->isEnabledForUser('mcp',$user)||!$apps->isEnabledForUser('mail',$user))return false;
+                $c->get(IUserSession::class)->setUser($user);$apps->loadApp('mail');
+                $context=$c->get(\OCA\Mcp\OAuth\ConnectionContext::class);$context->set($connection);
+                return $c->get(GrantPolicy::class)->within($uid,static function()use($c,$uid,$connection,$context,$source,$account,$repair,$operation):bool {
+                    $selection=$c->get(\OCA\Mcp\OAuth\ConnectionToolsStore::class)->get($uid,$connection);
+                    if($selection===null||!$c->get(GrantPolicy::class)->canConnect($uid))return false;$context->setSelection($selection['tools'],$selection['variants']);
+                    // Historical scope denial is definitive; storage/PolicyUnavailable still propagates as unknown.
+                    try{$dependencies=$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class)->historical($uid,$operation);}
+                    catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure){return false;}
+                    foreach($dependencies as $dependency)if(!self::mailToolAllowed($c,$uid,$dependency))return false;
+                    return self::mailToolAllowed($c,$uid,$source)&&(!$repair||self::mailToolAllowed($c,$uid,'mail_sent_repair'))&&$c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class)->accountAllowed($uid,$account);
+                });
+            }));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailBoundedReads(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class), $c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class));
         foreach ([\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class, \OCA\Mcp\Modules\Mail\Tools\ReadMessage::class, \OCA\Mcp\Modules\Mail\Tools\ReadThread::class] as $tool) {
             $context->registerService($tool, static fn (ContainerInterface $c) => new $tool(
@@ -646,8 +722,135 @@ class Application extends App implements IBootstrap {
                 $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
                 $c->get(UserTimezone::class),
                 $c->get(\OCA\Mcp\Modules\Mail\Presentation\Link\MailLinks::class),
+                $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageGateway::class),
+                ...($tool===\OCA\Mcp\Modules\Mail\Tools\SearchMessages::class?[]:[$c->get(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class)]),
             ));
         }
+        $context->registerService(\OCA\Mcp\Mcp\Operations\ActorIdentity::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Mcp\Operations\DurableActorIdentity::class));
+        $context->registerService(\OCA\Mcp\Mcp\Operations\OperationStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\OperationsMapper::class));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Files\MailMessageExport::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Files\MailMessageExport(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class),$c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Files\MailAttachmentSaver::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Files\MailAttachmentSaver(
+            $c->get(\OCA\Mcp\Modules\Mail\Attachments\MailAttachmentAccess::class),$c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCP\IAppConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailAliasGateway::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailAliasGateway(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailAliasBoundary::class),$c->get(\OCA\Mcp\Db\OperationsMapper::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCP\IDBConnection::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailTagGateway::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\MailTagGateway(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagBoundary::class),$c->get(\OCP\IDBConnection::class),$c->get(\OCP\L10N\IFactory::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class, static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Drafts\MailDraftOperations(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
+            $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ReplyComposer::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Composition\ForwardComposer::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks::class), $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup(
+            $c->get(\OCA\Mcp\Db\OperationsMapper::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+            $c->get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class),$c->get(\OCA\Mcp\Db\MailProbeSlotsMapper::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Files\MailFilesSource::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Files\MailFilesSource(
+            $c->get(IRootFolder::class), $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class), $c->get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
+                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid), $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Composition\ForwardComposer::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Composition\ForwardComposer(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class), static function(string $uid)use($c):\OCA\Mcp\Modules\Mail\Handlers\ReadMessageHandler {
+                $rows=new \OCA\Mcp\Modules\Mail\Presentation\MailMessageRows($c->get(UserTimezone::class)->forUser($uid),$c->get(\OCA\Mcp\Modules\Mail\Presentation\Link\MailLinks::class));
+                return new \OCA\Mcp\Modules\Mail\Handlers\ReadMessageHandler($c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),new \OCA\Mcp\Modules\Mail\Integration\MailBodyReader($c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class), content: $c->get(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class)),$rows,new \OCA\Mcp\Modules\Mail\Presentation\MailMessageAnswer($rows));
+            },$c->get(\OCA\Mcp\Modules\Mail\Attachments\MailAttachmentAccess::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Composition\ReplyComposer::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Composition\ReplyComposer(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class), static function(string $uid) use ($c): \OCA\Mcp\Modules\Mail\Handlers\ReadMessageHandler {
+                $rows = new \OCA\Mcp\Modules\Mail\Presentation\MailMessageRows($c->get(UserTimezone::class)->forUser($uid), $c->get(\OCA\Mcp\Modules\Mail\Presentation\Link\MailLinks::class));
+                return new \OCA\Mcp\Modules\Mail\Handlers\ReadMessageHandler($c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),
+                    new \OCA\Mcp\Modules\Mail\Integration\MailBodyReader($c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class), content: $c->get(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class)), $rows,
+                    new \OCA\Mcp\Modules\Mail\Presentation\MailMessageAnswer($rows));
+            },
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
+                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Operations\MailOperationReader(
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), static fn(string $uid, string $tool): bool => $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed(
+                ($tool === 'files_read' ? \OCA\Mcp\Modules\Files\FilesToolCatalog::definitions() : \OCA\Mcp\Modules\Mail\MailToolCatalog::definitions())[$tool], $uid),
+            static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class)->pendingNativeEntry($uid,$id),
+            static fn(string $uid,string $id,string $tool):?array=>$c->get(\OCA\Mcp\Modules\Mail\Transmission\MailDeliveryOperations::class)->recover($uid,$id,$tool),static fn(string $uid,string $id):?array=>$c->get(\OCA\Mcp\Modules\Mail\Snooze\MailSnoozeOperations::class)->recover($uid,$id),static fn(string $uid,string $id,string $tool):?array=>$c->get(\OCA\Mcp\Modules\Mail\Sieve\MailSieveOperations::class)->recover($uid,$id,$tool),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class), $c->get(\OCA\Mcp\Db\MailSetupWorkflowsMapper::class),
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class), $c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeAccountSetupLinks::class), static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeSetupEvidence::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Connection\MailConnection::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Connection\MailConnection(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),
+            $c->get(\OCA\Mcp\Db\MailProbeSlotsMapper::class),$c->get(\OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbe::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),$c->get(\OCA\Mcp\Modules\Mail\Accounts\MailAccountSetup::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbe::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbe(
+            $c->get(\OCA\Mcp\Platform\Process\NativeProbeProcess::class),$c->get(\OCA\Mcp\Modules\Mail\Connection\ProbeTicket::class),$c->get(\OCA\Mcp\OAuth\ConnectionContext::class),
+            static function()use($c):?array {
+                try{$root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';
+                    if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;
+                    return ['command'=>[$cli,$root.'/occ','mcp:mail-connection-probe','--no-interaction','--no-ansi'],'cwd'=>$root];
+                }catch(\Throwable){return null;}
+            }
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbeWorker::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Connection\NativeConnectionProbeWorker(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\NativeAccountSetupLinks::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Connection\ProbeTicket::class),
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),static function(string $uid,int $connection,array $sources=[],?int $account=null,?\Closure $target=null,?string $operation=null)use($c):bool {
+                $user=$c->get(IUserManager::class)->get($uid);if($user===null||!$user->isEnabled())return false;
+                $c->get(\OCP\IUserSession::class)->setUser($user);$c->get(IAppManager::class)->loadApp('mail');
+                $context=$c->get(\OCA\Mcp\OAuth\ConnectionContext::class);$context->set($connection);
+                return $c->get(GrantPolicy::class)->within($uid,static function()use($c,$uid,$connection,$context,$sources,$account,$target,$operation):bool {
+                    $selection=$c->get(\OCA\Mcp\OAuth\ConnectionToolsStore::class)->get($uid,$connection);
+                    if($selection===null||!$c->get(GrantPolicy::class)->canConnect($uid))return false;$context->setSelection($selection['tools'],$selection['variants']);
+                    if(!self::mailToolAllowed($c,$uid,'mail_test_connection')||count($sources)>8||($account!==null&&!$c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class)->accountAllowed($uid,$account)))return false;
+                    if($operation!==null)$sources=array_merge($sources,$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class)->historical($uid,$operation));
+                    foreach($sources as $tool)if(!is_string($tool)||!self::mailToolAllowed($c,$uid,$tool))return false;
+                    return $target===null||$target();
+                });
+            }
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailMutationTarget::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailMutationTarget(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailMoveTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailboxMutationTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailRefreshTarget::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary(
+            $c->get(IAppManager::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDraftStorage::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailCapabilities(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(IAppManager::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagBoundary::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Mutations\NativeMutationRunner::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Mutations\NativeMutationRunner(
+            $c->get(\OCA\Mcp\Modules\Mail\Mutations\MutationTicket::class),$c->get(\OCA\Mcp\OAuth\ConnectionContext::class),$c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),
+            static function()use($c):?array {
+                try{$root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';
+                    if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;
+                    return ['command'=>[$cli,$root.'/occ','mcp:mail-mutation','--no-interaction','--no-ansi'],'cwd'=>$root];
+                }catch(\Throwable){return null;}
+            }
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Mutations\NativeMutationWorker::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Mutations\NativeMutationWorker(
+            $c->get(\OCA\Mcp\Modules\Mail\Mutations\MutationTicket::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailMutationTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationStore::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+            static function(string $uid,int $connection,string $tool,?\Closure $target=null,?string $operation=null)use($c):bool {
+                $user=$c->get(IUserManager::class)->get($uid);if($user===null||!$user->isEnabled())return false;
+                $c->get(\OCP\IUserSession::class)->setUser($user);$c->get(IAppManager::class)->loadApp('mail');
+                $context=$c->get(\OCA\Mcp\OAuth\ConnectionContext::class);$context->set($connection);
+                return $c->get(GrantPolicy::class)->within($uid,static function()use($c,$uid,$connection,$context,$tool,$target,$operation):bool {
+                    $selection=$c->get(\OCA\Mcp\OAuth\ConnectionToolsStore::class)->get($uid,$connection);
+                    if($selection===null||!$c->get(GrantPolicy::class)->canConnect($uid))return false;$context->setSelection($selection['tools'],$selection['variants']);
+                    if(!self::mailToolAllowed($c,$uid,$tool))return false;
+                    if($operation!==null)foreach($c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class)->historical($uid,$operation) as $dependency)if(!self::mailToolAllowed($c,$uid,$dependency))return false;
+                    return $target===null||$target();
+                });
+            }
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Tags\MailTagCreation::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tags\MailTagCreation(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\IDBConnection::class),$c->get(\OCA\Mcp\Db\MailProbeSlotsMapper::class),$c->get(\OCP\AppFramework\Utility\ITimeFactory::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration(
+            $c->get(\OCA\Mcp\Modules\Mail\Integration\MailAliasGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\IDBConnection::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class)
+        ));
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
@@ -659,7 +862,65 @@ class Application extends App implements IBootstrap {
             'mail_read_drafts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadDrafts::class),
             'mail_write_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteDraft::class),
             'mail_delete_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteDraft::class),
-        ]));
+            'mail_attach_files' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AttachFiles::class),
+            'mail_get_operation' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\GetOperation::class),
+            'mail_list_operations' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListOperations::class),
+            'mail_read_account_settings' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadAccountSettings::class),
+            'mail_write_account_settings' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteAccountSettings::class),
+            'mail_read_signature' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadSignature::class),
+            'mail_write_signature' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteSignature::class),
+            'mail_read_connection' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadConnection::class),
+            'mail_configure_connection' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ConfigureConnection::class),
+            'mail_test_connection' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\TestConnection::class),
+            'mail_add_account' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AddAccount::class),
+            'mail_complete_account_setup' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CompleteAccountSetup::class),
+            'mail_set_message_flag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMessageFlag::class),
+            'mail_move_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\MoveMessage::class),
+            'mail_archive_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ArchiveMessage::class),
+            'mail_trash_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\TrashMessage::class),
+            'mail_restore_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RestoreMessage::class),
+            'mail_create_mailbox' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CreateMailbox::class),
+            'mail_rename_mailbox' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RenameMailbox::class),
+            'mail_set_mailbox_subscription' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMailboxSubscription::class),
+            'mail_create_tag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CreateTag::class),
+            'mail_refresh_mailbox' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RefreshMailbox::class),
+            'mail_reconcile_operation' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReconcileOperation::class),
+            'mail_add_alias' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AddAlias::class),
+            'mail_update_alias' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\UpdateAlias::class),
+            'mail_delete_alias' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteAlias::class),
+            'mail_set_message_tag' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SetMessageTag::class),
+            'mail_list_tags' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListTags::class),
+            'mail_list_aliases' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAliases::class),
+            'mail_configure_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ConfigureMailboxes::class),
+            'mail_delete_account' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteAccount::class),
+            'mail_read_message_metadata' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadMessageMetadata($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
+            'mail_send' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SendDraft::class),
+            'mail_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SnoozeMessage::class),
+            'mail_wake' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WakeMessage::class),
+            'mail_cancel_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelSnooze::class),
+            'mail_read_snooze' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadSnooze::class),
+            'mail_read_filters' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadFilters::class),
+            'mail_write_filters' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteFilters::class),
+            'mail_read_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadAbsence::class),
+            'mail_write_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteAbsence::class),
+            'mail_disable_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DisableAbsence::class),
+            'mail_read_sieve_status' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadSieveStatus::class),
+            'mail_transmit_filters' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\TransmitFilters::class),
+            'mail_write_signature_mode' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteSignatureMode::class),
+            'mail_enable_absence' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\EnableAbsence::class),
+            'mail_schedule' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ScheduleDraft::class),
+            'mail_cancel_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\CancelDelivery::class),
+            'mail_read_delivery' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadDelivery::class),
+            'mail_export_message' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ExportMessage::class),
+            'mail_search_drafts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchDrafts::class),
+            'mail_import_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ImportDraft::class),
+            'mail_index_messages' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\IndexMessages::class),
+            'mail_search_indexed_body' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SearchIndexedBody::class),
+
+            'mail_sent_repair' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RepairSentCopy::class),
+            'mail_read_outbox' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadOutbox($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
+
+        ], $c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes($c->get(\OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Files\Creation\IncomingFileCreation::class));
@@ -688,6 +949,11 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Mcp\Protocol\ResourceRequests::class),
             $c->get(LoggerInterface::class),
         ));
+    }
+
+    private static function mailToolAllowed(ContainerInterface $c,string $uid,string $tool):bool {
+        $definitions=\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions();
+        return isset($definitions[$tool]) && $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed($definitions[$tool],$uid);
     }
 
     /** @param IBootContext $context unused; the app needs no boot-time work */

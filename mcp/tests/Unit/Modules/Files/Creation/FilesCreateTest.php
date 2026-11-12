@@ -34,6 +34,12 @@ use Psr\Log\LoggerInterface;
  * Both refuse an occupied name, a missing folder and a name Nextcloud itself refuses, before anything is written.
  */
 final class FilesCreateTest extends FilesToolsTestCase {
+    protected function setUp(): void {
+        parent::setUp();
+        $this->config->system['memcache.locking'] = '';
+        $this->config->system['filelocking.excluded'] = [];
+    }
+
     /** @return \OCA\Mcp\Modules\Files\Checkout\CheckoutToken|null the create link minted so far, if any */
     private function createToken(): ?CheckoutToken {
         return $this->store->ofKind(CheckoutToken::KIND_CREATE);
@@ -311,12 +317,13 @@ final class FilesCreateTest extends FilesToolsTestCase {
      * written over it.
      */
     public function testARaceWithAnotherCreatorNeverWritesOverTheirFile(): void {
-        $this->tree->beforeCreate = function (string $path): void {
-            $this->tree->addFile($path, 'do outro', 'text/plain');
+        $this->tree->beforeFolderLock = function (string $path): void {
+            $this->tree->addFile($path . '/notas.md', 'do outro', 'text/plain');
         };
         $this->assertSame(CreationMessages::fileExists(), $this->failure('files_create', ['path' => '/Documentos/notas.md', 'content' => 'meu']));
         $this->assertSame('do outro', $this->tree->nodes['/alice/files/Documentos/notas.md']['content']);
         $this->assertNotContains('write /alice/files/Documentos/notas.md', $this->tree->ops);
+        $this->assertNotContains('create /alice/files/Documentos/notas.md', $this->tree->ops);
     }
 
     public function testASharedFolderNeedsTheConfirmationBeforeTheInlineFileIsWritten(): void {
@@ -353,6 +360,93 @@ final class FilesCreateTest extends FilesToolsTestCase {
         $out = $this->json('files_create', ['path' => '/Documentos/notas.md', 'content' => 'meu']);
         $this->assertSame('meu', $this->tree->nodes['/alice/files/Documentos/notas.md']['content']);
         $this->assertSame(3, $out['size']);
+    }
+
+    public function testANameTakenAfterTheParentLockIsAcquiredIsRefusedWithoutChangingItsBytes(): void {
+        $this->tree->beforeFolderLock = function (string $path, int $type): void {
+            $this->assertSame('/alice/files/Documentos', $path);
+            if ($type === \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE) {
+                $this->tree->addFile($path . '/collision.md', ' ', 'text/plain');
+            }
+        };
+
+        $this->assertSame(CreationMessages::fileExists(), $this->failure('files_create', ['path' => '/Documentos/collision.md', 'content' => 'new']));
+        $this->assertSame(' ', $this->tree->nodes['/alice/files/Documentos/collision.md']['content']);
+        $expected = [
+            ['path' => '/alice/files/Documentos', 'type' => \OCP\Lock\ILockingProvider::LOCK_SHARED],
+            ['path' => '/alice/files/Documentos', 'type' => \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE],
+        ];
+        $this->assertSame($expected, $this->tree->folderLocks);
+        $this->assertSame($expected, $this->tree->folderUnlocks);
+        $this->assertNotContains('write /alice/files/Documentos/collision.md', $this->tree->ops);
+    }
+
+    public function testCreationFailsClosedWhenDistributedLockingIsNotProvenSafe(): void {
+        foreach ([
+            'disabled' => ['filelocking.enabled' => false, 'memcache.locking' => ''],
+            'wrong boolean type' => ['filelocking.enabled' => 'true', 'memcache.locking' => ''],
+            'apcu' => ['filelocking.enabled' => true, 'memcache.locking' => '\\OC\\Memcache\\APCu'],
+            'redis' => ['filelocking.enabled' => true, 'memcache.locking' => '\\OC\\Memcache\\Redis'],
+            'unknown backend' => ['filelocking.enabled' => true, 'memcache.locking' => 'unknown'],
+            'debug locks' => ['filelocking.enabled' => true, 'memcache.locking' => '', 'filelocking.debug' => true],
+            'excluded paths' => ['filelocking.enabled' => true, 'memcache.locking' => '', 'filelocking.excluded' => ['/alice/files']],
+            'unknown exclusions' => ['filelocking.enabled' => true, 'memcache.locking' => '', 'filelocking.excluded' => 'unknown'],
+        ] as $case => $system) {
+            $this->tree->ops = [];
+            foreach ($system as $key => $value) {
+                $this->config->system[$key] = $value;
+            }
+            $this->assertSame('File creation is unavailable because safe distributed file locking is not configured.',
+                $this->failure('files_create', ['path' => '/Documentos/unsafe-' . str_replace(' ', '-', $case) . '.md', 'content' => 'x']), $case);
+            $this->assertSame([], $this->tree->ops, $case . ' must fail before creating a node');
+        }
+    }
+
+    public function testCliWorkersCannotCreateFilesEvenWithOtherwiseSafeLockConfig(): void {
+        $this->creationSapi = 'cli';
+
+        $this->assertSame('File creation is unavailable because safe distributed file locking is not configured.',
+            $this->failure('files_create', ['path' => '/Documentos/cli.md', 'content' => 'x']));
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    public function testUnknownWebSapiCannotCreateFiles(): void {
+        $this->creationSapi = 'unknown-sapi';
+
+        $this->assertSame('File creation is unavailable because safe distributed file locking is not configured.',
+            $this->failure('files_create', ['path' => '/Documentos/unknown-sapi.md', 'content' => 'x']));
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    public function testUnsupportedLockingBlocksUploadPreviewAndLinkIssuance(): void {
+        $this->config->system['memcache.locking'] = '\\OC\\Memcache\\APCu';
+
+        $message = 'File creation is unavailable because safe distributed file locking is not configured.';
+        $this->assertSame($message, $this->planFailure('files_upload', ['path' => '/Documentos/apcu.docx']));
+        $this->assertSame($message, $this->failure('files_upload', ['path' => '/Documentos/apcu.docx']));
+        $this->assertNull($this->createToken(), 'unsupported locking must refuse before minting a checkout link');
+        $this->assertSame([], $this->tree->ops);
+    }
+
+    public function testExplicitEmptyCreationWorksWhenTouchWouldWriteOneSpaceAndReleasesTheParentLock(): void {
+        $this->tree->touchContent = ' ';
+
+        $empty = $this->json('files_create', ['path' => '/Documentos/empty.md', 'content' => '']);
+        $this->assertSame(0, $empty['size']);
+        $this->assertSame('', $this->tree->nodes['/alice/files/Documentos/empty.md']['content']);
+        $this->assertSame($this->tree->folderLocks, $this->tree->folderUnlocks);
+
+        $normal = $this->json('files_create', ['path' => '/Documentos/normal.md', 'content' => 'bytes']);
+        $this->assertSame('bytes', $this->tree->nodes['/alice/files/Documentos/normal.md']['content']);
+        $this->assertSame(5, $normal['size']);
+        $this->assertSame($this->tree->folderLocks, $this->tree->folderUnlocks);
+    }
+
+    public function testParentLockIsReleasedWhenCreationWriteFails(): void {
+        $this->tree->writeFailure = new \RuntimeException('storage failure');
+
+        $this->assertSame(CreationMessages::createFailed(), $this->failure('files_create', ['path' => '/Documentos/failure.md', 'content' => 'x']));
+        $this->assertSame($this->tree->folderLocks, $this->tree->folderUnlocks);
     }
 
     /** M1: the file changes between the empty creation and the write (another client touched or wrote it): 409, nothing written. */

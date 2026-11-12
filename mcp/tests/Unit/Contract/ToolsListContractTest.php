@@ -37,7 +37,7 @@ final class ToolsListContractTest extends TestCase {
             return \OCA\Mcp\Modules\Forms\FormsModule::withReader($this->createStub(\OCA\Mcp\Modules\Forms\FormsReader::class));
         }
         if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
-            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
+            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')), new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
         }
 
         if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {
@@ -238,7 +238,7 @@ final class ToolsListContractTest extends TestCase {
             foreach (['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint'] as $hint) {
                 $this->assertIsBool($tool->annotations->$hint ?? null, "$tool->name: annotations.$hint must be a boolean");
             }
-            $this->assertFalse($tool->annotations->openWorldHint, "$tool->name: tools stay inside the caller's Nextcloud");
+            $this->assertSame(in_array($tool->name,['mail_send','mail_schedule'],true),$tool->annotations->openWorldHint,"$tool->name: explicit SMTP may affect external recipients");
             if ($tool->annotations->readOnlyHint) {
                 $this->assertTrue($tool->annotations->idempotentHint, "$tool->name: a read-only tool is idempotent");
                 $this->assertFalse($tool->annotations->destructiveHint, "$tool->name: a read-only tool cannot be destructive");
@@ -253,9 +253,9 @@ final class ToolsListContractTest extends TestCase {
      */
     public function testTitlesFollowTheUsersLanguageAndDescriptionsStayEnglish(): void {
         $expectedTitles = [
-            'en' => ['notes_list' => 'List notes', 'deck_read_card' => 'Read Deck card', 'talk_reply' => 'Reply in Talk'],
-            'pt_BR' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Ler card do Deck', 'talk_reply' => 'Responder no Talk'],
-            'es' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Leer tarjeta de Deck', 'talk_reply' => 'Responder en Talk'],
+            'en' => ['notes_list' => 'List notes', 'deck_read_card' => 'Read Deck card', 'talk_reply' => 'Reply in Talk', 'mail_read_message_metadata' => 'Read mail message metadata', 'mail_read_outbox' => 'Read local mail outbox', 'mail_send'=>'Send mail', 'mail_schedule'=>'Schedule mail', 'mail_cancel_delivery'=>'Cancel queued mail', 'mail_read_delivery'=>'Read mail delivery status', 'mail_sent_repair'=>'Repair Sent copy'],
+            'pt_BR' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Ler card do Deck', 'talk_reply' => 'Responder no Talk', 'mail_read_message_metadata' => 'Ler metadados da mensagem de e-mail', 'mail_read_outbox' => 'Ler a caixa de saída local do Mail'],
+            'es' => ['notes_list' => 'Listar notas', 'deck_read_card' => 'Leer tarjeta de Deck', 'talk_reply' => 'Responder en Talk', 'mail_read_message_metadata' => 'Leer los metadatos del mensaje de correo', 'mail_read_outbox' => 'Leer la cola local de salida de correo'],
         ];
         $descriptions = [];
         try {
@@ -351,10 +351,19 @@ final class ToolsListContractTest extends TestCase {
      * new tool from breaking at runtime, so a missing entry must fail here instead.
      */
     public function testSensitiveGrantsPublishOnlyTheirOwnTools(): void {
+        $garbageCollectionWasEnabled=gc_enabled();gc_enable();
+        try {
         foreach ([
             ['mail', 'read', ['mail_list_accounts', 'mail_list_mailboxes']],
             ['mail', 'search', ['mail_search_messages']],
-            ['mail', 'read_message', ['mail_read_message', 'mail_read_thread']],
+            ['mail', 'read_message', ['mail_read_message', 'mail_read_message_metadata', 'mail_read_thread']],
+            ['mail', 'read_outbox', ['mail_read_outbox']],
+            ['mail', 'send', ['mail_send']],
+            ['mail', 'schedule', ['mail_schedule']],
+            ['mail', 'cancel_delivery', ['mail_cancel_delivery']],
+            ['mail', 'read_delivery', ['mail_read_delivery']],
+            ['mail', 'repair_sent', ['mail_sent_repair']],
+
             ['mail', 'read_attachment', ['mail_read_attachment']],
             ['mail', 'read_drafts', ['mail_read_drafts']],
             ['mail', 'write_drafts', ['mail_write_draft']],
@@ -379,27 +388,36 @@ final class ToolsListContractTest extends TestCase {
                     continue;
                 }
                 $names[] = $tool->name;
-                self::assertSame(!in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true), $tool->annotations->readOnlyHint);
-                self::assertSame(in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true), property_exists($tool->inputSchema->properties, 'confirm'));
+                self::assertSame(!in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'], true), $tool->annotations->readOnlyHint);
+                self::assertSame(in_array($operation, ['comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'], true), property_exists($tool->inputSchema->properties, 'confirm'));
             }
             self::assertEqualsCanonicalizing($expected, $names);
         }
+        } finally {if(!$garbageCollectionWasEnabled)gc_disable();}
     }
 
     public function testNewToolsRequireIndependentAssignmentsDespiteLegacyOperationGrants(): void {
-        $newTools = ['forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
-            'mail_read_message', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
-            'mail_write_draft', 'mail_delete_draft', 'talk_search_messages', 'talk_read_message_context'];
-        $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
-        $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;
-        $legacy = json_decode($this->handle($request, $version, '{}', true, null, []), true)['result']['tools'];
-        self::assertSame([], array_values(array_intersect($newTools, array_column($legacy, 'name'))),
-            'Legacy operation grants cannot silently enable new tools');
-        foreach ($newTools as $name) {
-            $response = json_decode($this->handle($request, $version, '{}', true,
-                static fn (): bool => false, [$name => true]), true);
-            $published = array_values(array_diff(array_column($response['result']['tools'], 'name'), ['mcp_status', 'mcp_guide']));
-            self::assertSame([$name], $published, 'One tool assignment must not enable another capability');
+        $garbageCollectionWasEnabled = gc_enabled();
+        gc_enable();
+        try {
+            $newTools = ['mail_send','mail_schedule','mail_cancel_delivery','mail_read_delivery','mail_sent_repair','forms_summarize_responses', 'deck_search_cards', 'calendar_check_availability', 'forms_list', 'forms_read', 'forms_read_responses', 'mail_search_messages',
+                'mail_read_message', 'mail_read_message_metadata', 'mail_read_outbox', 'mail_read_thread', 'deck_list_comments', 'deck_add_comment', 'talk_publish_summary', 'mail_read_attachment', 'mail_read_drafts',
+                'mail_write_draft', 'mail_delete_draft', 'talk_search_messages', 'talk_read_message_context'];
+            $request = '{"jsonrpc":"2.0","id":1,"method":"tools/list"}';
+            $version = \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION;
+            $legacy = json_decode($this->handle($request, $version, '{}', true, null, []), true)['result']['tools'];
+            self::assertSame([], array_values(array_intersect($newTools, array_column($legacy, 'name'))),
+                'Legacy operation grants cannot silently enable new tools');
+            foreach ($newTools as $name) {
+                $response = json_decode($this->handle($request, $version, '{}', true,
+                    static fn (): bool => false, [$name => true]), true);
+                $published = array_values(array_diff(array_column($response['result']['tools'], 'name'), ['mcp_status', 'mcp_guide']));
+                self::assertSame([$name], $published, 'One tool assignment must not enable another capability');
+            }
+        } finally {
+            if (!$garbageCollectionWasEnabled) {
+                gc_disable();
+            }
         }
     }
 

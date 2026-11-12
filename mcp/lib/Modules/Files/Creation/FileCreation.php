@@ -29,6 +29,7 @@ use OCP\Files\IFilenameValidator;
 use OCP\Files\InvalidPathException;
 use OCP\Files\NotEnoughSpaceException;
 use OCP\Files\NotFoundException;
+use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
 use Psr\Log\LoggerInterface;
 
@@ -62,6 +63,7 @@ final class FileCreation {
         private FilesAccessGuard $visibilityGuard,
         private LoggerInterface $logger,
         private LockAwareWrite $locks,
+        private FileCreationLockGuard $creationLocks,
     ) {}
 
     /**
@@ -224,23 +226,26 @@ final class FileCreation {
             }
             throw new FileExists(CreationMessages::fileExists());
         }
+        $this->creationLocks->assertAvailable();
         return ['path' => $path, 'name' => $name, 'folderPath' => $folderPath, 'folder' => $folder];
     }
 
     /**
      * Creates the file and writes its content, never over a file with somebody else's content.
      *
-     * Nextcloud has no create-if-absent: Folder::newFile() with content overwrites a file that appeared since the
-     * check. So the file is first created empty — newFile() without content is View::touch(), which keeps the bytes
-     * of a file that is already there — and a file that turns out not to be empty belongs to somebody else and is
-     * left alone. Right before the content is written the file is read again, and any change since the creation (its
-     * id, its ETag, a size) is a 409 that writes nothing.
+     * A distributed exclusive folder lock protects the final collision check and the empty-file creation. It is
+     * released before the ordinary content write because Nextcloud's database locking provider does not support
+     * holding an exclusive folder lock while acquiring the shared parent locks required by a child write. The file
+     * is created with explicit empty content: on object storage a touch can create a one-space marker. The new file's
+     * id, ETag and size are captured while the folder lock is held. Right before writing content the file is read
+     * again, and any change since creation is a 409 that writes nothing.
      *
-     * What stays possible: an EMPTY file with the same name that another client created in the instant before ours
-     * is taken over, and a client writing that very name between the second read and our write overwrites us or is
-     * overwritten as with any other write, its content kept as a version. A write that fails after the empty file
-     * appeared leaves it in place; nothing is deleted. A lock taken on the new file before its content arrives
-     * (files_lock, also a WebDAV token lock the storage would not refuse) is checked right before the content.
+     * The parent lock prevents another Nextcloud client from creating the name between the final collision check
+     * and the empty-file creation. After releasing it, a client can still write that name between our second read
+     * and content write; as with any other write, its content is retained as a version. A write that fails after
+     * the empty file appeared leaves it in place; nothing is deleted. A lock taken on the new file before its
+     * content arrives (files_lock, also a WebDAV token lock the storage would not refuse) is checked right before
+     * the content.
      *
      * @param Folder $folder destination folder, already checked
      * @param string $name file name, already validated
@@ -257,21 +262,48 @@ final class FileCreation {
         if ($folder->nodeExists($name)) {
             throw new FileExists(CreationMessages::fileExists());
         }
+        $this->creationLocks->assertAvailable();
+        $locked = false;
         try {
-            $file = NodeAccess::requireFile(NodeAccess::mutate(fn () => $this->fileTypes->writeName($name, fn () => BackupWriteBoundary::writeNode($folder, $this->backupLocation, fn () => $folder->newFile($name), $name)), $this->visibilityGuard));
+            /** @var array{0:File,1:array{int,string,int}} $created */
+            $created = NodeAccess::mutate(function () use ($folder, $name, &$locked): array {
+                return NodeAccess::run(function () use ($folder, $name, &$locked): array {
+                    // Warm the DBLockingProvider's shared-path cache before promoting this folder to exclusive.
+                    // The provider disables that cache under CLI; FileCreationLockGuard admits only qualified web SAPIs.
+                    $folder->lock(ILockingProvider::LOCK_SHARED);
+                    $folder->unlock(ILockingProvider::LOCK_SHARED);
+                    $folder->lock(ILockingProvider::LOCK_EXCLUSIVE);
+                    $locked = true;
+                    try {
+                        if ($folder->nodeExists($name)) {
+                            throw new FileExists(CreationMessages::fileExists());
+                        }
+                        $file = NodeAccess::requireFile($this->fileTypes->writeName($name, fn () => BackupWriteBoundary::writeNode(
+                            $folder, $this->backupLocation, fn () => $folder->newFile($name, ''), $name,
+                        )));
+                        return [$file, [(int)$file->getId(), (string)$file->getEtag(), (int)$file->getSize()]];
+                    } finally {
+                        if ($locked) {
+                            $folder->unlock(ILockingProvider::LOCK_EXCLUSIVE);
+                            $locked = false;
+                        }
+                    }
+                });
+            }, $this->visibilityGuard);
         } catch (InvalidPathException) {
             throw self::invalidName();
         }
+        $file = $created[0];
+        $snapshot = $created[1];
         $this->visibilityGuard->assertVisible($file);
-        if ((int)$file->getSize() > 0) {
+        if ($snapshot[2] !== 0) {
             throw new FileExists(CreationMessages::fileExists());
         }
         if ($content === '') {
             return $file;
         }
-        $created = [(int)$file->getId(), (string)$file->getEtag()];
         $current = NodeAccess::requireFile($folder->get($name));
-        if ([(int)$current->getId(), (string)$current->getEtag()] !== $created || (int)$current->getSize() > 0) {
+        if ([(int)$current->getId(), (string)$current->getEtag(), (int)$current->getSize()] !== $snapshot || (int)$current->getSize() > 0) {
             throw new FileExists(CreationMessages::fileExists());
         }
         try {

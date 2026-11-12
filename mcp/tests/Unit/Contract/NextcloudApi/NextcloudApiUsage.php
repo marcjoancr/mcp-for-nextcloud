@@ -29,6 +29,26 @@ final class NextcloudApiUsage {
         '35' => ['server' => '35.0.0', 'deck' => '1.19.0', 'spreed' => '25.0.0'],
     ];
 
+    /** Custom dependency markers: qualified native source/native integration, never upstream API fixtures. */
+    public const QUALIFIED_NATIVE_CLASSES = [
+        'OCA\\Mail\\Db\\PgDirectConnection' => ['Modules/Mail/Integration/MailDraftStorage.php','Modules/Mail/Integration/MailCredentialStorage.php'],
+        'OCA\\Mail\\Transmission\\BeforeWireBlock' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\DeliveryAuthorization' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedDelivery' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedSnooze' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedSieveSettings' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedSignatureMode' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\SentCopyRepair' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Exception\\ContentCommitUnknown' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedContentReader' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedDraftImport' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedDraftSearch' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Service\\GuardedBodyIndex' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Db\\BoundedMailMetadata' => ['Modules/Mail/Integration/MailServices.php'],
+        'OCA\\Mail\\Exception\\DraftAdmissionFailure' => ['Modules/Mail/Integration/NativeDraftWrites.php','Modules/Mail/Integration/NativeSetupEvidence.php'],
+        'OCA\\Mail\\Authorization\\SetupEvidence' => ['Modules/Mail/Integration/MailServices.php'],
+    ];
+
     /**
      * Classes lib/ names that the fixtures do not carry, by app: the Guests app is not part of the trees the fixtures are
      * generated from. {@see \OCA\Mcp\Access\Guests\GuestRestrictions} resolves these services by name and refuses the
@@ -47,10 +67,12 @@ final class NextcloudApiUsage {
     public const EXTRA_CLASSES = [
         'OCP\\User\\Events\\BeforeUserCreatedEvent',
         'OCA\\Mail\\Account',
+        'OCA\\Mail\\Db\\MailAccount',
         'OCA\\Mail\\Attachment',
         'OCA\\Mail\\Db\\LocalAttachment',
         'OCA\\Mail\\Db\\Recipient',
         'OCA\\Mail\\Db\\Mailbox',
+        'OCA\\Mail\\Db\\Tag',
         'OCA\\Circles\\Model\\Circle',
         'OCA\\Talk\\Participant',
         'OCP\\FilesMetadata\\Model\\IFilesMetadata',
@@ -65,6 +87,10 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Mail\\Db\\TagMapper::getAllTagsForUser' => ['userId'],
+        'OCA\\Mail\\Db\\TagMapper::getTagForUser' => ['id','userId'],
+        'OCA\\Mail\\Db\\TagMapper::__construct' => ['db','l10n'],
+        'OCA\\Mail\\IMAP\\ImapFlag::create' => ['label'],
         'OCA\\Deck\\Db\\LabelMapper::findAssignedLabelsForCards' => ['cardIds', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::list' => ['cardId', 'limit', 'offset'],
         'OCA\\Deck\\Service\\CommentService::create' => ['cardId', 'message'],
@@ -360,6 +386,34 @@ final class NextcloudApiUsage {
      * @var array<string, array{missing: list<string>, fallback: string, by: string, elsewhere?: array<string, string>}>
      */
     public const VERSION_GATED = [
+        'OCA\\Mail\\Sync\\CacheSnapshot' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedMailboxRefresh' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        // Custom dependency, absent from every pinned stock Mail. Fingerprints admit the separately tested native artifact.
+        'OCA\\Mail\\Db\\ExactTagAssociations' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Transmission\\BeforeWireBlock' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\DeliveryAuthorization' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::loadApp','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedDelivery' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedSnooze' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedSieveSettings' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedSignatureMode' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\SentCopyRepair' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Exception\\ContentCommitUnknown' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedContentReader' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedDraftImport' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedDraftSearch' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Service\\GuardedBodyIndex' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Db\\BoundedMailMetadata' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
+        'OCA\\Mail\\Db\\Message::getTagCacheGeneration' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCA\\Mail\\Db\\Mailbox::getSyncNewToken','by'=>\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class],
+        'OCA\\Mail\\Service\\GuardedMailboxMutations' => [
+            'missing' => ['31','32','33','34','35'],
+            'fallback' => 'OCP\\App\\IAppManager::isEnabledForUser',
+            'by' => \OCA\Mcp\Modules\Mail\Integration\MailServices::class,
+        ],
+        'OCA\\Mail\\Service\\GuardedMessageMutations' => [
+            'missing' => ['31','32','33','34','35'],
+            'fallback' => 'OCP\\App\\IAppManager::isEnabledForUser',
+            'by' => \OCA\Mcp\Modules\Mail\Integration\MailServices::class,
+        ],
         'OCA\\Mail\\Service\\Search\\SearchQuery::setThreaded' => [
             'missing' => ['31', '32'],
             'fallback' => 'OCA\\Mail\\Db\\MessageMapper::findIdsByQuery',
@@ -417,7 +471,7 @@ final class NextcloudApiUsage {
             'missing' => ['31', '32', '33'],
             'fallback' => 'OCA\\Deck\\Service\\CardService::update',
             'by' => \OCA\Mcp\Modules\Deck\Cards\CardUpdateArguments::class,
-            'elsewhere' => ['Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor', 'Modules/Deck/Labels/LabelListing.php' => 'OCA\\Deck\\Db\\Label::getColor', 'Modules/Deck/Labels/NativeLabels.php' => 'OCA\\Deck\\Db\\Label::getColor'],
+            'elsewhere' => ['Modules/Mail/Integration/MailTagTarget.php' => 'OCA\\Mail\\Db\\Tag::getColor', 'Modules/Mail/Tags/MailTags.php' => 'OCA\\Mail\\Db\\Tag::getColor', 'Modules/Mail/Integration/MailTagGateway.php' => 'OCA\\Mail\\Db\\Tag::getColor', 'Modules/Deck/Presentation/DeckFormatter.php' => 'OCA\\Deck\\Db\\Board::getColor', 'Modules/Deck/Labels/LabelListing.php' => 'OCA\\Deck\\Db\\Label::getColor', 'Modules/Deck/Labels/NativeLabels.php' => 'OCA\\Deck\\Db\\Label::getColor'],
         ],
         // Up to Talk 23 Room::getLobbyState() opens a lobby whose timer has passed by itself.
         'OCA\\Talk\\Service\\RoomService::validateLobbyTimer' => [
@@ -433,6 +487,7 @@ final class NextcloudApiUsage {
      * @var array<string, string> "Class::method" => the call it really is
      */
     public const NAME_CLASHES = [
+        'OCA\\Deck\\Db\\Card::setColor' => 'OCA\\Mail\\Db\\Tag::setColor, in Modules/Mail/Integration/MailTagGateway',
         'OCA\\Talk\\Room::getAttributes' => 'OCP\\Share\\IShare::getAttributes, in Modules/Files/Sharing/ShareAccess',
         'OCP\\Files\\File::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',
         'OCP\\Files\\Folder::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',

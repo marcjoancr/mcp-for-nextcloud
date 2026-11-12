@@ -121,6 +121,7 @@ final class NextcloudApiContractTest extends TestCase {
                 if ($class === \OCP\Config\IUserConfig::class && !in_array($major, self::declaredMajors(), true)) {
                     continue;
                 }
+                if (isset(NextcloudApiUsage::QUALIFIED_NATIVE_CLASSES[$class])) { continue; }
                 if (in_array($class, array_merge(...array_values(NextcloudApiUsage::OUTSIDE_FIXTURES)), true)) {
                     continue;
                 }
@@ -128,6 +129,18 @@ final class NextcloudApiContractTest extends TestCase {
             }
         }
         return $cases;
+    }
+
+    public function testQualifiedNativeMarkersStayInsideTheirClosedIntegrationBoundary(): void {
+        foreach (NextcloudApiUsage::QUALIFIED_NATIVE_CLASSES as $class => $expectedFiles) {
+            $actualFiles=self::scanner()->classes()[$class]??[];sort($actualFiles);sort($expectedFiles);
+            self::assertSame($expectedFiles,$actualFiles,$class);
+            foreach (self::checkedMajors() as $major) self::assertArrayNotHasKey($class,self::fixture($major)['classes']);
+            // Source and runtime proof belongs to the custom dependency, not stock Mail's fixtures.
+            $relative=str_replace('OCA\\Mail\\','',$class);
+            $path=dirname(__DIR__,5).'/native/mail-guard/src/'.str_replace('\\','/',$relative).'.php';
+            self::assertFileExists($path);
+        }
     }
 
     /** The classes left outside the fixtures are exactly the ones lib/ names from those apps: none goes unnoticed. */

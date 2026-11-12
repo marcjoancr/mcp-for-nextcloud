@@ -27,7 +27,7 @@ use Psr\Log\LoggerInterface;
 
 final class WriteGateContractTest extends TestCase {
     public function testAnalysisAndAvailabilityReadsNeverNeedWriteConfirmationButExportDoes(): void {
-        foreach ([['forms', 'summarize_responses'], ['deck', 'search'], ['calendar', 'availability']] as [$module, $operation]) {
+        foreach ([['forms', 'summarize_responses'], ['deck', 'search'], ['calendar', 'availability'], ['mail', 'read_identities'], ['mail', 'read_tags']] as [$module, $operation]) {
             self::assertFalse(WriteGate::isWrite(['module' => $module, 'operation' => $operation]));
         }
         self::assertTrue(WriteGate::isWrite(['module' => 'forms', 'operation' => 'export_responses']));
@@ -39,7 +39,7 @@ final class WriteGateContractTest extends TestCase {
             return \OCA\Mcp\Modules\Forms\FormsModule::withReader($this->createStub(\OCA\Mcp\Modules\Forms\FormsReader::class));
         }
         if ($class === \OCA\Mcp\Modules\Mail\MailModule::class) {
-            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')));
+            return new \OCA\Mcp\Modules\Mail\MailModule(array_fill_keys(array_keys(\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions()), static fn () => throw new \LogicException('Metadata only')), new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
         }
 
         if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {
@@ -194,7 +194,7 @@ final class WriteGateContractTest extends TestCase {
     }
 
     public function testMailAttachmentsAndDraftsSeparateReadsFromConfirmedWrites(): void {
-        foreach (['read_attachment', 'read_drafts'] as $operation) {
+        foreach (['read_attachment', 'read_drafts', 'read_operations'] as $operation) {
             self::assertFalse(WriteGate::isWrite(['module' => 'mail', 'operation' => $operation]));
         }
         foreach (['save_attachment', 'write_drafts', 'delete_drafts'] as $operation) {
@@ -218,7 +218,7 @@ final class WriteGateContractTest extends TestCase {
                 $isWrite = WriteGate::isWrite($definition);
 
                 if (!$isWrite) {
-                    $this->assertContains($definition['operation'], ['read', 'search', 'read_message', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
+                    $this->assertContains($definition['operation'], ['read', 'read_snooze', 'read_filters', 'read_absence', 'read_sieve_status', 'search', 'search_drafts', 'search_indexed_body', 'read_message', 'read_outbox', 'read_delivery', 'read_comments', 'read_responses', 'read_attachment', 'read_drafts', 'read_operations', 'read_settings', 'read_signatures', 'read_connection', 'read_identities', 'read_tags', 'summarize_responses', 'availability', 'description_read', 'tags_read'], "$name is marked as non-write but has operation {$definition['operation']}");
                     continue;
                 }
 
@@ -238,8 +238,8 @@ final class WriteGateContractTest extends TestCase {
                 // 2. Annotations
                 $annotations = $listedTool['annotations'];
                 $this->assertFalse($annotations['readOnlyHint'], "$name: readOnlyHint must be false for write tools");
-                $this->assertFalse($annotations['openWorldHint'], "$name: openWorldHint must always be false");
-                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts'], true)
+                $this->assertSame(in_array($name,['mail_send','mail_schedule'],true),$annotations['openWorldHint'],"$name: SMTP release can affect external recipients");
+                $expectedDestructive = in_array($definition['operation'], ['delete', 'restore', 'transfer', 'move', 'edit', 'replace', 'reply', 'attach', 'quote', 'comment', 'publish_summary', 'write_drafts', 'delete_drafts', 'send', 'schedule', 'cancel_delivery', 'repair_sent'], true)
                     || in_array($name, ['talk_create_group'], true)
                     || ($definition['destructiveHint'] ?? false) === true;
                 $this->assertSame($expectedDestructive, $annotations['destructiveHint'], "$name: destructiveHint mismatch");

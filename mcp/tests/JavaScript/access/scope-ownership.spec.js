@@ -6,6 +6,7 @@ function twoUsers(app) {
     const saved = {}
     for (const uid of ['alice', 'bob']) {
         saved[uid] = {}
+        app.on('GET', `/api/scope/${uid}/mail`, () => ({ body: { module: 'mail', available: false } }))
         for (const module of ['files', 'calendar', 'tasks']) {
             saved[uid][module] = { uid, module, active: true, mode: 'restricted', limit: 200,
                 items: [{ id: uid === 'alice' ? '11' : '22', name: `${uid} folder`, path: null, found: true }] }

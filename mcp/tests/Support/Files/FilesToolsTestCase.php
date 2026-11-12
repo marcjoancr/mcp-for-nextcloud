@@ -116,6 +116,7 @@ use PHPUnit\Framework\TestCase;
  * a real time, plus the tools built exactly the way the registry builds them.
  */
 abstract class FilesToolsTestCase extends TestCase {
+    protected string $creationSapi = 'fpm-fcgi';
     /** Explicit file-policy backend, absent until a scenario configures it. */
     protected ?\OCA\Mcp\Tests\Unit\InMemoryAppConfig $fileTypeConfig = null;
 
@@ -213,6 +214,9 @@ abstract class FilesToolsTestCase extends TestCase {
         $this->batches = new InMemoryBatchStore($db);
         $db->method('escapeLikeParameter')->willReturnCallback(fn (string $s) => addcslashes($s, '\\_%'));
         $this->config = new InMemoryConfig();
+        // FileCreationLockGuard: unit tests model the qualified DB-backed Nextcloud lock provider by default.
+        $this->config->system['memcache.locking'] = '';
+        $this->config->system['filelocking.excluded'] = [];
         $config = $this->configMock = $this->config->mock($this);
         $urls = $this->createMock(IURLGenerator::class);
         $urls->method('linkToRouteAbsolute')->willReturnCallback(function (string $route, array $args = []): string {
@@ -282,9 +286,9 @@ abstract class FilesToolsTestCase extends TestCase {
             'files_version_restore' => fn () => new RestoreVersion($root, new VersionRestorer(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::plan($this, $this->config), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), new VersionReader($this->apps, $this->users, $extractor, $access, fn () => ($this->createMock(\Psr\Container\ContainerInterface::class))->get(VersionReader::MANAGER), new OcrSupport($this->apps)), $backup, $access, new SharedWriteGuard($access), $this->visibilityGuard, $locks, null)),
             'files_checkout' => fn () => new CheckoutFile(new FileCheckout(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config), \OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::plan($this, $this->config), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $root, $checkout, $access, new SharedWriteGuard($access), $this->visibilityGuard, $locks)),
             'files_upload' => fn () => new UploadFile($root, new FileCreation(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames,
-                $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->tagMapper, $this->visibilityRoot()), $this->creationLogger, $locks)),
+                $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->tagMapper, $this->visibilityRoot()), $this->creationLogger, $locks, new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard($config, $this->creationSapi))),
             'files_create' => fn () => new CreateFile($root, new FileCreation(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this, $this->config), \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this), $access, new SharedWriteGuard($access), $checkout, $this->filenames,
-                $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->tagMapper, $this->visibilityRoot()), $this->creationLogger, $locks)),
+                $this->visibilityGuard ?? \OCA\Mcp\Tests\Support\Files\FilesGuards::unrestricted($this, $config, $this->tagMapper, $this->visibilityRoot()), $this->creationLogger, $locks, new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard($config, $this->creationSapi))),
             'files_image_view' => fn () => new ViewImage($root, $imageTools),
             'files_images_view' => fn () => new ViewImages($root, $imageTools),
             'files_image_search' => fn () => new SearchImages($root, $imageSearch),

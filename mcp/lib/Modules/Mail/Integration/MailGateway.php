@@ -33,6 +33,8 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 */
 	public function __construct(
 		private MailServices $services,
+        private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access,
+        private ?MailNativeBoundary $boundary=null,
 	) {
 	}
 
@@ -44,12 +46,13 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function accounts(string $userId): array {
+        $this->access->assertReadable($userId);
 		$rows = [];
 		foreach ($this->services->accountService($userId)->findByUserId($userId) as $account) {
 			if ((string)$account->getUserId() !== $userId) {
 				continue;
 			}
-			$rows[] = $this->accountRow($account);
+			if ($this->visibleAccount($userId,$account)) $rows[] = $this->accountRow($account);
 		}
 		return $rows;
 	}
@@ -63,6 +66,7 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 * @throws MailUnavailableException when Mail is not available for the user
 	 */
 	public function ownedAccount(string $userId, int $accountId): ?object {
+        $this->access->assertReadable($userId);
 		$exception = MailServices::CLIENT_EXCEPTION_CLASS;
 		try {
 			$account = $this->services->accountService($userId)->find($userId, $accountId);
@@ -85,9 +89,10 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 */
 	public function mailboxes(string $userId, int $accountId): ?array {
 		$account = $this->ownedAccount($userId, $accountId);
-		if ($account === null) { return null; }
+		if ($account === null || !$this->visibleAccount($userId,$account)) { return null; }
 		$rows = [];
 		foreach ($this->services->mailboxMapper($userId)->findAll($account) as $mailbox) {
+            if (!$this->access->mailboxAllowed($userId,$accountId,(int)$mailbox->getId())) continue;
 			$rows[] = [
 				'id' => (int)$mailbox->getId(),
 				'name' => (string)$mailbox->getName(),
@@ -96,6 +101,7 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 				'unread' => $mailbox->getUnseen() === null ? null : (int)$mailbox->getUnseen(),
 				'total' => $mailbox->getMessages() === null ? null : (int)$mailbox->getMessages(),
 				'selectable' => $mailbox->getSelectable() === null ? null : (bool)$mailbox->getSelectable(),
+                'freshness' => $this->freshness($userId,$accountId,(int)$mailbox->getId()),
 			];
 		}
 		return ['account' => $this->accountRow($account), 'mailboxes' => $rows];
@@ -107,6 +113,42 @@ final class MailGateway implements \OCA\Mcp\Modules\Mail\Contracts\MailReader {
 	 * @param object $account OCA\Mail\Account
 	 * @return array{id:int, name:string, email:string} the row of the account
 	 */
+    /** Whole-account selections only; null retains unrestricted semantics. */
+    public function allowedAccounts(string $uid):?array {
+        $items=$this->access->items($uid);if($items===null)return null;
+        return array_values(array_map(static fn(string $id):int=>(int)substr($id,8),array_filter($items,static fn(string $id):bool=>str_starts_with($id,'account:'))));
+    }
+    /** Admit a local draft through its owned scalar identity before loading body/recipients/attachments. */
+    public function requireDraft(string $uid,int $draft):void {
+        $this->access->assertReadable($uid);if($this->access->unrestricted($uid))return;
+        $rows=$this->services->boundedMetadata($uid)->identities($uid,'draft',[$draft]);
+        if(count($rows)!==1)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Mail draft not found.');
+        $this->access->requireAccount($uid,$rows[0]['account_id']);
+    }
+    public function unrestricted(string $uid):bool {return $this->access->unrestricted($uid);}
+    public function requireUnrestricted(string $uid):void {$this->access->requireUnrestricted($uid);}
+    public function requireMailbox(string $uid,int $account,int $mailbox):void {
+        $this->access->assertReadable($uid);
+        if(!$this->access->unrestricted($uid)){
+            $rows=$this->services->boundedMetadata($uid)->identities($uid,'mailbox',[$mailbox]);
+            if(count($rows)!==1||$rows[0]['account_id']!==$account)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Mail resource not found.');
+        }
+        $this->access->requireMailbox($uid,$account,$mailbox);
+    }
+    public function requireAccount(string $uid,int $id):object {
+        $this->access->requireAccount($uid,$id);
+        return $this->ownedAccount($uid,$id) ?? throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Mail account not found.');
+    }
+    private function visibleAccount(string $uid,object $account):bool {
+        $id=(int)$account->getId();if($this->access->accountAllowed($uid,$id))return true;
+        foreach($this->services->mailboxMapper($uid)->findAll($account) as $box)if($this->access->mailboxAllowed($uid,$id,(int)$box->getId()))return true;
+        return false;
+    }
+    private function freshness(string $uid,int $account,int $box):array {
+        if(!$this->boundary?->refreshSourceVerified())return ['status'=>'unknown'];
+        try{return $this->services->refreshSnapshots($uid)->freshness($uid,$account,$box);}catch(\Throwable){return ['status'=>'unknown'];}
+    }
+
 	private function accountRow(object $account): array {
 		return [
 			'id' => (int)$account->getId(),

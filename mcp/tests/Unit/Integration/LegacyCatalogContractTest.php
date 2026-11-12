@@ -18,7 +18,7 @@ final class LegacyCatalogContractTest extends TestCase {
         $expected['deck'] = [...$expected['deck'], 'read_comments', 'comment', 'search'];
         $expected['calendar'] = [...$expected['calendar'], 'availability'];
         $expected['talk'] = [...$expected['talk'], 'publish_summary', 'search'];
-        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$expected, 'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], 'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses']]));
+        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$expected, 'mail' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'], 'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses']]));
         foreach ([$baseline, ['files' => ['read'], 'logs' => ['read'], 'mail' => ['read']],
             [...$baseline, 'mail' => ['read', 'write']], [...$baseline, 'unknown' => ['read']],
             ['mail' => ['read']]] as $current) {
@@ -35,7 +35,7 @@ final class LegacyCatalogContractTest extends TestCase {
         $branch = $legacy;
         $files = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
         $branch['1']['matrix']['alice']['grants']['files'] += array_fill_keys($files, false);
-        $branch['1']['matrix']['alice']['grants']['mail'] = ['read' => false, 'search' => false, 'read_message' => false, 'read_attachment' => false, 'save_attachment' => false, 'read_drafts' => false, 'write_drafts' => false, 'delete_drafts' => false];
+        $branch['1']['matrix']['alice']['grants']['mail'] = array_fill_keys(\OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'],false);
         $branch['1']['matrix']['alice']['grants']['forms'] = ['read' => false, 'read_responses' => false, 'summarize_responses' => false, 'export_responses' => false];
         $branch['1']['matrix']['alice']['grants']['talk'] += ['publish_summary' => false, 'search' => false];
         $branch['1']['matrix']['alice']['grants']['deck'] += ['read_comments' => false, 'comment' => false, 'search' => false];
@@ -67,8 +67,44 @@ final class LegacyCatalogContractTest extends TestCase {
             try { LegacyCatalogContract::answers($branch); self::fail('Unsafe Mail default accepted'); }
             catch (\UnexpectedValueException) { self::assertTrue(true); }
         }
+        foreach(\OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail']as$operation){
+            foreach([true,0,null]as$invalid){
+                $bad=$branch;$bad['1']['matrix']['alice']['grants']['mail']=array_fill_keys(\OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'],false);
+                if($invalid===null)unset($bad['1']['matrix']['alice']['grants']['mail'][$operation]);else $bad['1']['matrix']['alice']['grants']['mail'][$operation]=$invalid;
+                try{LegacyCatalogContract::answers($bad);self::fail('New Mail capability must be explicitly denied');}catch(\UnexpectedValueException){self::assertTrue(true);}
+            }
+        }
         unset($branch['1']['matrix']['alice']['grants']['mail']);
         $this->expectException(\UnexpectedValueException::class);
         LegacyCatalogContract::answers($branch);
     }
+    public function testOnlyValidatedUniqueStableActorWitnessesAreSeparatedFromExactLegacyBytes():void {
+        $raw=['users'=>[],'service'=>null,'tokens'=>['access_hash'=>'OLD_TOKEN_BYTES']];$actors=[];
+        foreach(\OCA\Mcp\Tests\Integration\Compat\SnapshotProbe::uids()as$uid){$actors[$uid]=hash('sha256',$uid);$raw['users'][$uid]=['eligible'=>['value'=>'1','type'=>'MIXED','lazy'=>false,'flags'=>0]];}
+        $current=$raw;
+        foreach($actors as$uid=>$value)$current['users'][$uid]['operation_actor_incarnation']=['value'=>$value,'type'=>'STRING','lazy'=>false,'flags'=>5];
+        self::assertSame($raw,LegacyCatalogContract::legacyPreferences($current,$actors));
+        self::assertArrayHasKey('operation_actor_incarnation',$current['users']['mcp-it-snap-0']);
+        foreach(['flags','type','lazy','value','missing','duplicate','rotation']as$bad){
+            $broken=$current;$expected=$actors;$uid='mcp-it-snap-0';
+            switch($bad){
+                case 'flags':$broken['users'][$uid]['operation_actor_incarnation']['flags']=0;break;
+                case 'type':$broken['users'][$uid]['operation_actor_incarnation']['type']='MIXED';break;
+                case 'lazy':$broken['users'][$uid]['operation_actor_incarnation']['lazy']=true;break;
+                case 'value':$broken['users'][$uid]['operation_actor_incarnation']['value']='invalid';break;
+                case 'missing':unset($broken['users'][$uid]['operation_actor_incarnation']);break;
+                case 'duplicate':$expected[$uid]=$expected['mcp-it-snap-1'];$broken['users'][$uid]['operation_actor_incarnation']['value']=$expected[$uid];break;
+                case 'rotation':$broken['users'][$uid]['operation_actor_incarnation']['value']=hash('sha256','replacement');break;
+            }
+            try{LegacyCatalogContract::legacyPreferences($broken,$expected);self::fail('Invalid lifecycle witness accepted');}catch(\UnexpectedValueException){self::assertTrue(true);}
+        }
+        foreach(['old-value','extra-key','token-bytes']as$change){
+            $changed=$current;
+            if($change==='old-value')$changed['users']['mcp-it-snap-0']['eligible']['value']='0';
+            elseif($change==='extra-key')$changed['users']['mcp-it-snap-0']['unexpected']='must remain visible';
+            else $changed['tokens']['access_hash']='CHANGED_TOKEN_BYTES';
+            self::assertNotSame($raw,LegacyCatalogContract::legacyPreferences($changed,$actors),'Every non-witness change must remain visible');
+        }
+    }
+
 }

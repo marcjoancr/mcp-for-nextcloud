@@ -12,7 +12,7 @@ use OCA\Mcp\Modules\Mail\Presentation\MailMessages;
 
 /** Expected refusal for a server-declared message body fetch exceeding the fixed size budget. */
 final class MailBodyTooLargeException extends ToolFailure {
-	public function __construct(int $bytes) {
-		parent::__construct(MailMessages::bodyTooLarge($bytes, MailBodyPreflight::MAX_MESSAGE_BYTES));
+	public function __construct(int $bytes, bool $decoded = false) {
+		parent::__construct($decoded ? MailMessages::decodedBodyTooLarge() : MailMessages::bodyTooLarge($bytes, MailBodyPreflight::MAX_MESSAGE_BYTES));
 	}
 }

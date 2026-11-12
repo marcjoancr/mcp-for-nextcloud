@@ -5,17 +5,23 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { prepareKit } from './source.mjs';
+import { prepareNativeCompanion, verifyNativeCompanion } from './native-source.mjs';
 import { verifyKit, verifyInstalled } from './integrity.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 try {
   const [command, ...args] = process.argv.slice(2);
-  const usage = 'Usage: prepare FULL_COMMIT [--release] | verify KIT TRUSTED_MANIFEST_SHA256 | installed KIT TRUSTED_MANIFEST_SHA256 APP_DIRECTORY | test';
+  const usage = 'Usage: prepare FULL_COMMIT [--release] | verify KIT TRUSTED_MANIFEST_SHA256 | installed KIT TRUSTED_MANIFEST_SHA256 APP_DIRECTORY | native KIT MCP_DIGEST ORIGINAL_RUNTIME PREFERRED_SOURCE OUTPUT | verify-native COMPANION DIGEST SOURCE_COMMIT | test';
   const valid = command === 'prepare'
     ? (args.length === 1 || (args.length === 2 && args[1] === '--release'))
-    : ({ verify: 2, installed: 3, test: 0 }[command] === args.length);
+    : ({ verify: 2, installed: 3, native: 5, 'verify-native': 3, test: 0 }[command] === args.length);
   if (!valid) throw new Error(usage);
   if (command === 'prepare') console.log(JSON.stringify(await prepareKit(root, args[0], { release: args[1] === '--release' }), null, 2));
+  else if (command === 'native') console.log(JSON.stringify(await prepareNativeCompanion(root, ...args), null, 2));
+  else if (command === 'verify-native') {
+    const native = await verifyNativeCompanion(...args);
+    console.log(`Verified native companion: ${native.sourceCommit} / ${native.nativeBuild} / ${Object.keys(native.runtimeFiles).length} runtime files`);
+  }
   else if (command === 'verify' || command === 'installed') {
     const manifest = await (command === 'verify' ? verifyKit(...args) : verifyInstalled(...args));
     console.log(`Verified ${command}: ${manifest.sourceCommit} / ${manifest.version}`);

@@ -37,6 +37,8 @@ final class SqliteDatabase {
     public int $queryCount = 0;
     /** One-shot interleaving hook, invoked just before a database write. */
     public $beforeStatement = null;
+    /** One-shot lost acknowledgement after the database actually committed. */
+    public $afterCommit = null;
 
     /**
      * @param TestCase $test the test that owns the mocks
@@ -63,7 +65,11 @@ final class SqliteDatabase {
         $db = $this->stub(IDBConnection::class);
         $db->method('getQueryBuilder')->willReturnCallback(fn (): IQueryBuilder => $this->builder());
         $db->method('beginTransaction')->willReturnCallback(fn () => $this->dbal->beginTransaction());
-        $db->method('commit')->willReturnCallback(fn () => $this->dbal->commit());
+        $db->method('commit')->willReturnCallback(function () {
+            $result=$this->dbal->commit();
+            if($this->afterCommit!==null){$hook=$this->afterCommit;$this->afterCommit=null;$hook();}
+            return $result;
+        });
         $db->method('rollBack')->willReturnCallback(fn () => $this->dbal->rollBack());
         $db->method('inTransaction')->willReturnCallback(fn (): bool => $this->dbal->isTransactionActive());
         $db->method('lastInsertId')->willReturnCallback(fn (): int => (int)$this->dbal->lastInsertId());
@@ -89,9 +95,10 @@ final class SqliteDatabase {
                 return $qb;
             });
         };
-        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'orderBy', 'addOrderBy', 'leftJoin', 'groupBy'] as $method) {
+        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'setFirstResult', 'orderBy', 'addOrderBy', 'leftJoin', 'groupBy'] as $method) {
             $chain($method);
         }
+        $qb->method('getSQL')->willReturnCallback(fn (): string => $inner->getSQL());
         $qb->method('selectDistinct')->willReturnCallback(function ($columns) use ($qb, $inner): IQueryBuilder {
             $inner->select(...(array)$columns)->distinct();
             return $qb;
@@ -105,6 +112,13 @@ final class SqliteDatabase {
             $functions->method('count')->willReturnCallback(function ($count = '', $alias = '') {
                 $function = $this->stub(\OCP\DB\QueryBuilder\IQueryFunction::class);
                 $function->method('__toString')->willReturn('COUNT(' . ($count === '' ? '*' : (string)self::sqlArgument($count)) . ')' . ($alias === '' ? '' : ' AS ' . $alias));
+                return $function;
+            });
+            $functions->method('substring')->willReturnCallback(function ($input, $start, $length = null) {
+                $args = [$input, $start];
+                if ($length !== null) $args[] = $length;
+                $function = $this->stub(\OCP\DB\QueryBuilder\IQueryFunction::class);
+                $function->method('__toString')->willReturn('SUBSTRING(' . implode(', ', array_map(static fn ($arg): string => (string)self::sqlArgument($arg), $args)) . ')');
                 return $function;
             });
             return $functions;
@@ -150,17 +164,19 @@ final class SqliteDatabase {
             $expr->method($method)->willReturnCallback(fn ($x, $y): string => $inner->expr()->{$method}(
                 (string)self::sqlArgument($x), (string)self::sqlArgument($y)));
         }
-        $expr->method('andX')->willReturnCallback(fn (...$parts) => new class ((string)$inner->expr()->and(
-            ...array_map(static fn ($part): string => (string)self::sqlArgument($part), $parts))) implements \OCP\DB\QueryBuilder\ICompositeExpression {
-            public function __construct(private string $sql) {}
+        foreach(['andX'=>'and','orX'=>'or'] as $method=>$native)$expr->method($method)->willReturnCallback(fn (...$parts) => new class ((string)$inner->expr()->{$native}(
+            ...array_map(static fn ($part): string => (string)self::sqlArgument($part), $parts)),strtoupper($native)) implements \OCP\DB\QueryBuilder\ICompositeExpression {
+            public function __construct(private string $sql,private string $type) {}
             public function addMultiple(array $parts = []): \OCP\DB\QueryBuilder\ICompositeExpression { throw new \LogicException('Not modeled'); }
             public function add($part): \OCP\DB\QueryBuilder\ICompositeExpression { throw new \LogicException('Not modeled'); }
             public function count(): int { return 1; }
-            public function getType(): string { return 'AND'; }
+            public function getType(): string { return $this->type; }
             public function __toString(): string { return $this->sql; }
         });
         $expr->method('isNull')->willReturnCallback(fn (string $x): string => $inner->expr()->isNull($x));
         $expr->method('isNotNull')->willReturnCallback(fn (string $x): string => $inner->expr()->isNotNull($x));
+        $expr->method('notIn')->willReturnCallback(fn ($x, $values): string => $inner->expr()->notIn(
+            (string)self::sqlArgument($x), self::sqlArgument($values)));
         $expr->method('in')->willReturnCallback(fn ($x, $values): string => $inner->expr()->in(
             (string)self::sqlArgument($x), self::sqlArgument($values)));
         return $expr;
@@ -179,6 +195,9 @@ final class SqliteDatabase {
         $result = $this->stub(IResult::class);
         $result->method('fetch')->willReturnCallback(function () use (&$rows) {
             return $rows === [] ? false : array_shift($rows);
+        });
+        $result->method('fetchOne')->willReturnCallback(function () use (&$rows) {
+            return $rows === [] ? false : array_values(array_shift($rows))[0];
         });
         $result->method('fetchAll')->willReturnCallback(function () use (&$rows): array {
             [$all, $rows] = [$rows, []];

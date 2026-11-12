@@ -32,7 +32,7 @@ final class MailDraftOperationsTest extends TestCase {
 		$draftService = new class($draft) { public function __construct(private object $draft) {} public function getMessage(int $id, string $uid): object { return $this->draft; } };
 		$services = $this->createMock(MailServices::class);
 		$services->method('draftsService')->willReturn($draftService);
-		$accounts = new MailGateway((new FakeMailApp())->withAccount(4, 'alice', 'Alice', 'alice@example.test'));
+		$accounts = new MailGateway((new FakeMailApp())->withAccount(4, 'alice', 'Alice', 'alice@example.test'), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 		$operations = new MailDraftOperations($services, $accounts, new PlanState((new InMemoryConfig())->mock($this)));
 
 		$plan = $operations->previewWrite(['account_id' => 4, 'draft_id' => 77, 'subject' => 'After'], 'alice');
@@ -119,7 +119,7 @@ final class MailDraftOperationsTest extends TestCase {
 		$services->method('draftsService')->willReturn(new \stdClass());
 		$services->method('localMessageMapper')->willReturn($mapper);
 		$services->method('localDraftType')->willReturn(1);
-		$accounts = new MailGateway((new FakeMailApp())->withAccount(4, 'alice', 'Alice', 'alice@example.test'));
+		$accounts = new MailGateway((new FakeMailApp())->withAccount(4, 'alice', 'Alice', 'alice@example.test'), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 		$operations = new MailDraftOperations($services, $accounts, new PlanState((new InMemoryConfig())->mock($this)));
 
 		$page = $operations->read(['limit' => 1, 'offset' => 1], 'alice');
@@ -150,7 +150,7 @@ final class MailDraftOperationsTest extends TestCase {
 	private function operations(object $draftService): MailDraftOperations {
 		$services = $this->createMock(MailServices::class);
 		$services->method('draftsService')->willReturn($draftService);
-		$accounts = new MailGateway((new FakeMailApp())->withAccount(4, 'alice', 'Alice', 'alice@example.test'));
+		$accounts = new MailGateway((new FakeMailApp())->withAccount(4, 'alice', 'Alice', 'alice@example.test'), access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub()));
 		return new MailDraftOperations($services, $accounts, new PlanState((new InMemoryConfig())->mock($this)));
 	}
 }

@@ -10,6 +10,8 @@ namespace OCA\Mcp\Tests\Integration\Compat;
 
 /** Keeps the legacy matrix intact except for explicitly reviewed additions. */
 final class LegacyCatalogContract {
+	/** Closed reviewed Mail additions; any unreviewed addition must fail this upgrade seam. */
+	private const MAIL_ADDITIONS = ['read', 'search', 'read_message', 'read_outbox', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts', 'set_flags', 'move_messages', 'archive_messages', 'trash_messages', 'restore_messages', 'create_mailboxes', 'rename_mailboxes', 'subscribe_mailboxes', 'configure_mailboxes', 'read_identities', 'read_tags', 'create_tags', 'tag_messages', 'refresh', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities', 'send', 'schedule', 'cancel_delivery', 'read_delivery', 'repair_sent', 'export_message', 'search_drafts', 'import_draft', 'index_messages', 'search_indexed_body', 'snooze', 'wake', 'cancel_snooze', 'read_snooze', 'read_filters','write_filters','read_absence','write_absence','disable_absence','read_sieve_status','transmit_filters','enable_absence','write_signature_mode'];
 	private const FILES_ADDITIONS = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
 
 	/**
@@ -24,7 +26,7 @@ final class LegacyCatalogContract {
 		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment', 'search'];
 		$expected['calendar'] = [...$baseline['calendar'], 'availability'];
 		$expected['talk'] = [...$baseline['talk'], 'publish_summary', 'search'];
-		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => ['read', 'search', 'read_message', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts'], 'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses']]) {
+		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => self::MAIL_ADDITIONS, 'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses']]) {
 			throw new \UnexpectedValueException('Unexpected change to legacy permissions');
 		}
 		return $baseline;
@@ -44,7 +46,7 @@ final class LegacyCatalogContract {
 					}
 					unset($row['grants']['files'][$operation]);
 				}
-				if (($row['grants']['mail'] ?? null) !== ['read' => false, 'search' => false, 'read_message' => false, 'read_attachment' => false, 'save_attachment' => false, 'read_drafts' => false, 'write_drafts' => false, 'delete_drafts' => false]
+				if (($row['grants']['mail'] ?? null) !== array_fill_keys(self::MAIL_ADDITIONS, false)
 					|| ($row['grants']['forms'] ?? null) !== ['read' => false, 'read_responses' => false, 'summarize_responses' => false, 'export_responses' => false]
 					|| ($row['grants']['talk']['publish_summary'] ?? null) !== false
 					|| ($row['grants']['talk']['search'] ?? null) !== false
@@ -61,4 +63,16 @@ final class LegacyCatalogContract {
 		unset($state);
 		return $answers;
 	}
+    /** Separate only the lifecycle witness of the nine users created after the legacy snapshot. */
+    public static function legacyPreferences(array $raw,array $actors):array {
+        if(array_keys($actors)!==SnapshotProbe::uids()||count(array_unique($actors))!==9)throw new \UnexpectedValueException('Missing or duplicate snapshot actor witnesses.');
+        foreach($actors as$uid=>$expected){
+            if(!is_string($expected)||preg_match('/^[a-f0-9]{64}$/D',$expected)!==1)throw new \UnexpectedValueException('Invalid snapshot actor witness.');
+            $cell=$raw['users'][$uid]['operation_actor_incarnation']??null;
+            if($cell!==['value'=>$expected,'type'=>'STRING','lazy'=>false,'flags'=>5])throw new \UnexpectedValueException('Snapshot actor metadata changed.');
+            unset($raw['users'][$uid]['operation_actor_incarnation']);
+        }
+        return $raw;
+    }
+
 }

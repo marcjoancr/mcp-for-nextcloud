@@ -1,0 +1,478 @@
+{
+  "schemaVersion": 1,
+  "tests": {
+    "CollaborationFlowTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testFormsResponseCanBePreviewedAndConfirmedAsATalkSummary"
+      ]
+    },
+    "FormsResponsesTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testAnonymousFormResponsesDoNotExposeOrPersistTheSubmitterIdentity",
+        "testResultsReaderSeesPaginatedAnswersButSubmitOnlyForeignAndRevokedAccessDoNot",
+        "testSummaryUsesNativeResultsAclAndItsOwnMcpPermission"
+      ]
+    },
+    "MailProjectionHttpTest.php": {
+      "phase": "projection",
+      "stock": false,
+      "methods": [
+        "testWithdrawalAfterActualNativeWorkDeniesProjectionWithoutRepeatingEffect"
+      ]
+    },
+    "McpFormsIsolationTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testListAndReadStayWithinOwnedAndSharedFormsAndExposeOnlySchema"
+      ]
+    },
+    "McpMailAcceptanceTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testHeldReplyAndFilesSurviveResetRoleChangeAndArchive"
+      ]
+    },
+    "McpMailActorIncarnationTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "testConcurrentFirstAdmissionUsesOneDurableIdentityAcrossIndependentProcesses",
+        "testCreationPersistenceFailureAbortsBeforeBackendPublication",
+        "testMissedCreationHookAndLateDeletionEventCannotRestoreOldOwnership",
+        "testOldInflightTransactionRollsBackAfterIndependentRealRecreation",
+        "testRecreatedBasicUidCannotReadOrReplayPreviousActorsMailOperation",
+        "testRegistryIsDurableBeforeBackendPublicationAndFailedDeletePreservesIt"
+      ]
+    },
+    "McpMailAttachmentsDraftsTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testAttachmentReadsAndConfirmedFilesSavePreserveUnreadStateAndUserIsolation",
+        "testDraftLifecycleRequiresMatchingConfirmationAndNeverCrossesUsersOrSends",
+        "testReplyFilesReceiptsAndNativeDraftRetention"
+      ]
+    },
+    "McpMailBoundedMetadataTest.php": {
+      "phase": "core",
+      "stock": false,
+      "methods": [
+        "testV10BoundedMetadataReadsUseTheQualifiedDirectPostgresPrimary"
+      ]
+    },
+    "McpMailC5TagAssignmentTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testReviewedAddRemoveNoopReplayAndSourceRevocationAreExactAndKeepReplyHeld"
+      ]
+    },
+    "McpMailCleanHttpTest.php": {
+      "phase": "clean",
+      "stock": false,
+      "methods": [
+        "testCleanOAuthNonEmittingSieveWorksWithOperatorOff",
+        "testCleanOAuthSendUsesShippingSignedChildAndExactSource",
+        "testCleanOAuthSignatureModePreservesAllOtherColumns",
+        "testCleanOAuthSnoozeAndWakeUseShippingSignedChildren"
+      ]
+    },
+    "McpMailContentHttpTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "test25MiBAttachmentSavesDirectlyWhileSmallBase64ToolRefuses",
+        "testAttachmentOnlyOAuthCannotReadOrSavePrimaryBodyButKeepsAttachmentAccess",
+        "testFpmAbsoluteDeadlineRefusesSlowDripWithoutPrivateBytes",
+        "testOriginalEncryptedEmlExportsThroughActualOAuthFpmAndReplaysWithoutRead",
+        "testThreadOnlyOAuthGrantReadsBoundedBodyAndPreservesMaxChars"
+      ]
+    },
+    "McpMailContentTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "testAbsoluteDeadlineInterruptsSlowDripBeforeLineOrLiteralCompletes",
+        "testBoundedDisplayReadsSmallTextWithoutLargeAttachmentBody",
+        "testDisplayBodyActualDecodedLimitRefusesLyingMetadata",
+        "testDraftRevisionBindsRawHeadersAndRetainsCompositionManifest",
+        "testExactOpaqueBytesAndLateUidDoNotMarkSeen",
+        "testIndexDoesNotReadAttachmentsAndDraftRequiresLiveFlag",
+        "testLargeEncodedPartListsWithoutBodiesAndDecodesExact25MiB",
+        "testLyingMetadataAndDecodedOverflowRefuseBeforeExport",
+        "testManifestNeverFetchesBodiesAndRejectsUnboundedTrees",
+        "testOwnedServiceRequiresCurrentVisibleSourceAndFence",
+        "testPendingQuarantinePrecedesNetworkAndChangedSourceCannotReturnBytes",
+        "testRelatedInlineTextResourceNeverEntersBodyOrIndexAndListingRetainsIt",
+        "testRelatedRawStartOrTypeContradictionRefusesBeforeBodyFetch",
+        "testRelatedStartSelectsPrimaryCidAndDraftKeepsResourceAsAttachment",
+        "testSinglePartRootsUseHeaderAndSectionOneWithoutHeaderBytesInBody",
+        "testTlsContentPreservesExactLateUidBytesAndInterruptsSlowLineAndLiteral",
+        "testWireFaultsDoNotReturnPartialBytesOrRetry"
+      ]
+    },
+    "McpMailDPlusTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testAliasCrudCommitLossReconciliationAndHeldReferencesNeverSend",
+        "testWorkflowLinkedAuthenticationDoesNotAttestToCredentialChangesOrCompleteSetup"
+      ]
+    },
+    "McpMailDeliveryTest.php": {
+      "phase": "core",
+      "stock": false,
+      "methods": [
+        "testActualChildReloadsRevokedOriginalConnectionSelection",
+        "testActualFutureRevokedConsentIsAuditedWithTransmissionOffAndNoTransport",
+        "testActualOperationReadRecoversLostQueueAcknowledgementWithoutResubmission",
+        "testActualPerUserMailDisableIsTerminalEvenAfterReenable",
+        "testActualSendToolAndSignedChildProduceNativeAcceptanceEvidence",
+        "testActualSentRepairToolUsesTheSignedImapOnlyChild",
+        "testActualToolsScheduleCancelAndDenyRevokedSourceReplay",
+        "testActualValidDueOffGateAuditPreservesConsentWithoutReadingPayload",
+        "testActualValidFutureOffGateAuditPreservesConsentWithoutReadingPayload",
+        "testAdmissionIsIdempotentPrivateAndProtectsEveryNativeSourcePath",
+        "testChangedInitialSentTargetLeavesAcceptancePendingForSeparateRepair",
+        "testChangedOrMissingAliasRefusesBeforeAdmission",
+        "testCopyReadbackSupportsUidAfterLiteralAndRefusesDuplicateTrailer",
+        "testCopyVerificationBindsActualSelectionAndRejectsGenerationChanges",
+        "testCrashedAttemptNeverConstructsAnotherTransport",
+        "testDisabledGateCannotCreateLatentApproval",
+        "testInitialApprovalBindsAndVerifiesTheNormalSentCopy",
+        "testKilledAfterDataAcceptanceBeforeDatabaseCommitCanNeverResubmit",
+        "testKilledBeforeCheckpointCanSubmitOnlyOnceAfterFreshDispatch",
+        "testLostAppendAcknowledgementCannotTriggerHordeBinaryRetryOrRepairReplay",
+        "testMalformedCopyProofAndOversizedLiteralRemainUncertainWithoutReplay",
+        "testMissingAttachmentCannotBeSilentlyOmitted",
+        "testNativeEditorModeSelectsOnlyReviewedBodyAndNeverPrefersEmptyHtml",
+        "testPartialSmtpDataClosesBeforeQuitAndRetainsUncertainWithoutSecondSubmission",
+        "testProtocolFaultsAreTerminalAndNeverResubmitEnvelope",
+        "testProvenBeforeWireBlockAllowsOwnerRecoveryWhileUncertainSmtpRemainsHeld",
+        "testProviderWithoutUidplusRefusesBeforeAppendAndNeverResendsSmtp",
+        "testPublicCancellationRevocationInsideNativeOwnerPreservesQueueAndHold",
+        "testRawTlsAdapterPreservesFrozenBytesInBothPipeliningModes",
+        "testRevokedCurrentFenceBlocksBeforeTransport",
+        "testSavedScopeRevocationStopsSignedChildAndOffGateFutureAuditAndHidesOriginalReceipts",
+        "testSentRepairCannotConstructSmtpOrAppendAgain",
+        "testTwoWorkersAndCancellationShareThePhysicalOwnerLease",
+        "testUnavailableAuthorizationBeforeClaimPreservesQueuedConsentAndHolds"
+      ]
+    },
+    "McpMailDraftConcurrencyTest.php": {
+      "phase": "core",
+      "stock": false,
+      "methods": [
+        "testBackgroundSnapshotCannotAppendOrDeleteAReviewedLegacyAdoption",
+        "testExplicitConversionSnapshotCannotDeleteLaterBodyOrAttachmentEdits",
+        "testLostPhysicalSessionAfterAppendCannotDeleteSuccessor",
+        "testLostPhysicalSessionRefusesBeforeAppendAndPreservesSuccessor",
+        "testOwnerSessionSpansAppendAndLocalCleanup",
+        "testOwnerSessionSpansNativeBodyRecipientAndAttachmentUpdate",
+        "testProtectedAttachmentCannotBeReassignedOrDeletedByPreviousParent"
+      ]
+    },
+    "McpMailDraftIndexTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "testActualFpmToolsKeepIndependentGrantsAndHistoricalReplayAfterSourceDeletion",
+        "testCryptoAndUnsupportedReferencesRefuseBeforeAnyStaging",
+        "testDerivedIndexSchemaIntrospectionRetainsNativePrimaryGuard",
+        "testExplicitBodyIndexExcludesForeignAndStaleSourcesAndPurgesChangedProfile",
+        "testLostPrimaryLeaseBeforeIndexEffectRefusesWithoutPersisting",
+        "testNativeCopyRecoversLostCommitAcknowledgementWithoutRefetchOrDuplicate",
+        "testPostgresqlLexemeBoundaryAndBoundedVectorSize",
+        "testProtectedCopyPreservesSourceAndRetryCreatesNoSecondDraft",
+        "testProtocolIdentityChangePurgesDerivedBody",
+        "testTruncatedAndLongLexemeBodiesAreExplicitlyRefused",
+        "testUnrepresentableMimeLocationsRefuseBeforeAnyCopyEffect"
+      ]
+    },
+    "McpMailErasureTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testActualCoreUserDeletionErasesEveryDeliveryStateAndOrphanWithoutTouchingOthers",
+        "testCaptureExcludesConcurrentCreationAndUnmatchedPostCannotConfirm",
+        "testDelayedDuplicateEventAndRetryCannotEraseRecreatedUidAccounts",
+        "testFailedCoreBackendDeletionNeverActivatesErasureOrStrandsNextRequestCreation",
+        "testIndependentPhysicalOwnerLeasePreventsPartialErasureAndPersistsExactRetry",
+        "testOrdinaryRemovalPurgesOnlyTerminalPayloadsAndPreservesUnresolvedAccounts",
+        "testReentrantLifecycleCannotPurgeAnActiveWorkerOnTheSameSession"
+      ]
+    },
+    "McpMailExactTagCacheTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testAConcurrentCacheWriterInvalidatesTheNativeUiWriteSnapshot",
+        "testCachedQresyncFlagsCannotAdoptAnInterveningC5Assignment",
+        "testCachedQresyncFlagsCannotUndoTheirOwnNewMessageClassification",
+        "testLegacyQueuedHeaderClassificationIsIgnoredBeforeCallingTheLlm",
+        "testNativeImportUpdateRelatedDataAndDeletionNeverShareHeaderAssociations",
+        "testNativeKeywordConversionCannotInventATagByTruncatingAServerKeyword",
+        "testNativeOAuthEmailPrincipalChangeInvalidatesTheCachedIncarnation",
+        "testNativeSingleAndBulkUiPathsUseExactIdsAndLegacyRefusalPrecedesNetwork"
+      ]
+    },
+    "McpMailHttpTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testAuthenticatedEndpointDiscoversAndReadsOnlyOwnedCachedMail"
+      ]
+    },
+    "McpMailLegacyContentTest.php": {
+      "phase": "legacy",
+      "stock": false,
+      "methods": [
+        "testUnknownLegacyGenerationAndProfileRemainRefusedWithoutStamping"
+      ]
+    },
+    "McpMailLifecycleTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testNativeCacheEventIsRequiredAndNoLifecycleProbeDispatchesOutboxOrSmtpSubmission",
+        "testReplyParentAcrossNativeUiEditAndImapFlush",
+        "testUidValidityChangeBeforeReadWriteSelectionRefusesMutation"
+      ]
+    },
+    "McpMailMailboxMutationsTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testCacheRevocationRaceAndEventFailureRetainRemoteProofWithoutReplay",
+        "testInterruptedCreateNeverRepeatsOrDeduplicatesByName",
+        "testNativeFoldersPreserveMessagesRolesAndNoSendState"
+      ]
+    },
+    "McpMailMessageFlagsTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testApprovedFlagUpdatesRemoteAndCacheWithReadOnlyDurableStatus"
+      ]
+    },
+    "McpMailMessageMovesTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testFourApprovedMovesAreExactAndReplayAndStatusAreReadOnly"
+      ]
+    },
+    "McpMailMutationJournalTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testChildProofWinsOverStaleParentAndUncertainClaimBlocksAnotherOperation"
+      ]
+    },
+    "McpMailNativeBoundaryTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testOnlyQualifiedV2AdmitsMovesAndLegacyStillAdmitsFlagsAndTamperAdmitsNeither"
+      ]
+    },
+    "McpMailNativeMovesTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testCacheRevocationGenerationResetAndListenerFailureRetainProofAndNeverRepeat",
+        "testCommandBoundMoveMappingAndFaultsNeverUseCopyDeleteOrHeuristics",
+        "testNativeMovePreservesDuplicateMessageIdsAndRemovesOnlyProvenSourceCache"
+      ]
+    },
+    "McpMailNativeMutationTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testGuardedStoreUsesOneSelectionAndRefusesReconnectAndNewGeneration",
+        "testServerNoLostAcknowledgementAndUnsolicitedGenerationNeverReplay"
+      ]
+    },
+    "McpMailNativeTagsTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testCanonicalKeywordAddRemoveNoopAndSelectedGenerationPreserveEveryOtherFlag",
+        "testNativeCacheRefusalAndLostDurableReceiptsRetainEvidenceWithoutReplay",
+        "testRefusalsLostAcknowledgementsAndUnrelatedFlagChangesNeverReplayStore"
+      ]
+    },
+    "McpMailOrganizationTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testFoldersAndRolePatchesAreBoundedConfirmedAndReplayReadOnly",
+        "testForwardingIdentitiesTagsAndDraftFiltersKeepEverythingUnsent"
+      ]
+    },
+    "McpMailReadTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testMessageSearchAndBodyReadPreserveUnreadStateAndAccountIsolation",
+        "testTheToolsReadTheCacheAndChangeNothing"
+      ]
+    },
+    "McpMailRefreshHttpTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testReviewedRefreshReplayRevocationAndHeldReplyStaySafe"
+      ]
+    },
+    "McpMailRefreshTest.php": {
+      "phase": "regression",
+      "stock": false,
+      "methods": [
+        "testActualWireReaderRejectsUnboundedOrUnstableObservations",
+        "testBoundedNativeSnapshotUpdatesOnlyItsCacheAndPreservesExactIncarnations",
+        "testCacheRaceConnectionLossAndReceiptLossNeverReplay",
+        "testLegacyResetRequiresReviewAndAllocatesNewIds",
+        "testNativeSessionMutexSurvivesOldDtoUnlockAndReleasesWhenChildIsKilled",
+        "testOrdinaryNativeReadCacheCannotDeletePersistentRows"
+      ]
+    },
+    "McpMailRuntimeQualificationTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testRuntimeAdmissionAndAllAdaptersAgreeWithoutNativeSideEffects"
+      ]
+    },
+    "McpMailSavedScopeTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "testActualHttpFolderScopeAndAllLocalHistoryRevocation",
+        "testRealInlineNativeEffectSeesRevocationInsideEnclosingHttpSnapshot"
+      ]
+    },
+    "McpMailSettingsTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testNativeAssistantBindingIndependentAuthenticationAndMeasuredRemovalNeverSend",
+        "testNativePreferenceAndSignatureWritesPreserveAuthenticationAndOwnerIsolation"
+      ]
+    },
+    "McpMailSieveTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "testActualScopeWithdrawalDuringNativePreviewCannotReuseOuterPolicySnapshot",
+        "testActualToolsRetainOriginalConnectionWholeAccountAndSourceGrant",
+        "testCapturedNativeErasureQuarantinesAndPurgesSensitiveOrphanCandidates",
+        "testDurableNativeInstallAndLostAcknowledgementsNeverReplayEffects",
+        "testLocalSystemFollowCommitRechecksCurrentAuthorityAndRollsBack",
+        "testNativeDebugFactoryNeverLogsAuthenticationOrRawProgram",
+        "testNativeProjectionWithdrawalRetainsRemoteProofWithoutPublicReceiptOrReplay",
+        "testNativeReadParserErrorsDiscardRawScriptStateAndPreviousTraces",
+        "testPhysicalOwnerExcludesNativeFilterAbsenceAndRawReadBuildWrite",
+        "testRecognizedAbsenceEnableAndSafeDisablePreserveObservedRemoteProof",
+        "testUnknownExecutableAndCandidateCollisionRefuseBeforeAnyEffect"
+      ]
+    },
+    "McpMailSignatureModeTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "testActualOriginalAuthorityWithdrawalRollsBackNativeModeAndCheckpoint",
+        "testActualToolsPreserveBothIdentitiesAndOriginalHistory",
+        "testLostLocalReceiptRecoversOnlyDurableCompletionWithoutRepeatingModeWrite",
+        "testNativeSignatureModeBoundaryExists"
+      ]
+    },
+    "McpMailSnoozeTest.php": {
+      "phase": "extras",
+      "stock": false,
+      "methods": [
+        "testActualCancellationReauthorizesImmediatelyBeforeCommit",
+        "testActualExplicitWakeUsesBoundedSignedChild",
+        "testActualFairSweepReachesPreparedReadyAndRevokedIntentBehindTwentyFiveWaitingRows",
+        "testActualFutureScopeWithdrawalBlocksAndHidesHistory",
+        "testActualLostAdmissionAcknowledgementRecoversBeforePlacementWire",
+        "testActualToolsBindOriginalConnectionAndBothFolders",
+        "testCancellationLeavesTheMessageAndReleasesKnownHold",
+        "testCancellationRevocationAtPrecommitRollsBack",
+        "testDurableWireClaimCannotBeCancelledOrRetried",
+        "testEventFailureRetainsDurableMoveProofAndNeverRedispatches",
+        "testFutureMetadataWithdrawalBlocksAndUnknownPolicyPreservesHold",
+        "testKnownFutureSnoozeCoexistsWithUnrelatedNativeTimersThreadsFoldersAndSeen",
+        "testMissingOriginalFolderBlocksWakeWithoutInboxFallback",
+        "testNativeErasureCapturesOrphanSnoozesAndHonorsPhysicalOwnerLease",
+        "testNativeSnoozeProtocolFaultsNeverRetryUnknownMoves",
+        "testNativeUiAndLowerDestructivePathsRefuseBeforeAnyMove",
+        "testOriginalGenerationChangeBlocksWakeWithoutFallback",
+        "testPhysicalOwnerAndBothMailboxLeasesRefuseIndependentSession",
+        "testPlacementAndWakeUseNewExactUidsAndNeverTheStockTimer",
+        "testUnsupportedProviderRefusesBeforeWireAndCannotAutoRetry",
+        "testWakeWaitsForNativeCacheThenRefusesDuplicateUidRows"
+      ]
+    },
+    "McpMailTagCreationTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testNativeHttpCreationIsReviewedUserOwnedAndNeverReplayed",
+        "testNativeInsertAndJournalEvidenceRollbackOrCommitTogether"
+      ]
+    },
+    "McpMailThreadTest.php": {
+      "phase": "regression",
+      "stock": true,
+      "methods": [
+        "testThreadPagingIsAccountScopedAndDoesNotChangeImapState"
+      ]
+    },
+    "NativeMailboxSyncTest.php": {
+      "phase": "core",
+      "stock": false,
+      "methods": [
+        "testChangedInboundProfileOnUnpersistedObjectRefusesBeforeProviderRead",
+        "testChangedProfileAfterProviderReadCannotPersistOldFolderResults",
+        "testClosedPhysicalSessionAfterNativeAccountWriteCannotCommitPartialCache",
+        "testClosedPhysicalSessionAfterProviderReadRefusesWithoutSqlEffects",
+        "testCredentialRevisionAfterProviderReadCannotPersistOldFolderResults",
+        "testForeignOuterTransactionRefusesBeforeProviderReadEvenWithOwnerScope",
+        "testLostOwnerLockBeforeCommitRollsBackNativeCacheOnLiveConnection",
+        "testNativeClientCreationCanPersistFreshCredentialsBeforeProviderReads",
+        "testNativeSyncHoldsOwnerBeforeProviderReadAndNestedAccountWrite",
+        "testNativeUiControllerCreatesAndResynchronizesMailbox",
+        "testStaleCredentialRevisionRefusesBeforeProviderRead"
+      ]
+    },
+    "NativeSmtpWriteTest.php": {
+      "phase": "core",
+      "stock": false,
+      "methods": [
+        "testIncompleteDataWriteCannotBeAcceptedAsComplete"
+      ]
+    },
+    "NativeSourceOfferHttpTest.php": {
+      "phase": "source",
+      "stock": false,
+      "methods": [
+        "testOrdinaryUserSeesBothIndependentKitsAndInvalidNativeMetadataFailsClosed"
+      ]
+    },
+    "PgSessionLeaseTest.php": {
+      "phase": "core",
+      "stock": false,
+      "methods": [
+        "testClosedSessionLeaseCannotReleaseSuccessor",
+        "testLocksAreSessionScopedNonRecursiveAndSurviveTransactionRollback"
+      ]
+    }
+  }
+}

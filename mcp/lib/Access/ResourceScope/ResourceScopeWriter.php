@@ -33,14 +33,14 @@ final class ResourceScopeWriter {
         if (!$this->activation->isActive($module)) {
             throw new ScopeInactive('Resource scope is not active for this module');
         }
-        $items = $items === null ? null : self::scopeItems($items);
+        $items = $items === null ? null : self::scopeItems($module, $items);
         $resources = $this->resources;
         $receiptId = null;
         $result = $this->transaction->runAdmin($expectedRevision, [$uid], function () use ($uid, $module, $items, $resources): void {
             $this->users->assertKnown($uid);
             $missing = $items === null ? [] : $resources->inaccessible($uid, $module, $items);
             if ($missing !== []) {
-                usort($missing, DecimalCounter::compare(...));
+                usort($missing, static fn (string $a, string $b): int => ResourceIdentity::compare($module, $a, $b));
                 throw new ScopeItemsInaccessible($missing);
             }
         }, function ($snapshot, PolicyAttempt $attempt) use ($actor, $uid, $module, $items, &$receiptId): bool {
@@ -60,14 +60,14 @@ final class ResourceScopeWriter {
     }
 
     /** @return list<string> canonical, distinct resource ids in decimal order */
-    private static function scopeItems(array $items): array {
+    private static function scopeItems(string $module, array $items): array {
         if (!array_is_list($items)) {
             throw new \InvalidArgumentException('Invalid command');
         }
         $unique = [];
         foreach ($items as $id) {
             try {
-                if (!is_string($id) || DecimalCounter::validate($id, DecimalCounter::MAX) === '0') {
+                if (!is_string($id) || !ResourceIdentity::valid($module, $id)) {
                     throw new \InvalidArgumentException('Invalid command');
                 }
             } catch (\InvalidArgumentException $e) {
@@ -79,7 +79,7 @@ final class ResourceScopeWriter {
             }
         }
         $ids = array_map('strval', array_keys($unique));
-        usort($ids, DecimalCounter::compare(...));
+        usort($ids, static fn (string $a, string $b): int => ResourceIdentity::compare($module, $a, $b));
         return $ids;
     }
 }

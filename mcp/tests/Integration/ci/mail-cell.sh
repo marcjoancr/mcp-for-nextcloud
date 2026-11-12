@@ -7,7 +7,7 @@
 # Nextcloud major, and one Mail account for each of two fixture users, configured through the Mail app's own occ
 # commands and synchronized once. A cell without MCP_IT_WITH_MAIL never pulls the image nor installs Mail.
 #
-# Usage: mail-cell.sh <provision|collect>
+# Usage: mail-cell.sh <provision|prepare|accounts|collect>
 #   provision  starts and seeds the IMAP server, installs and enables Mail, creates and synchronizes the accounts
 #   collect    copies the IMAP server log into the artifacts
 # Environment: the harness variables (MCP_IT_NC, MCP_IT_NET, MCP_IT_NC_NAME, RUNNER_TEMP) and MCP_IT_IMAP_NAME, the name
@@ -38,7 +38,7 @@ assert_owner() {
     [ "$owner" = "$MCP_IT_RUN_ID" ] || { echo "Refusing unrelated Mail fixture container" >&2; exit 2; }
 }
 # Provisioning is allowed only inside this run's owned Nextcloud/network.
-if [ "${1:-}" = provision ]; then
+if [ "${1:-}" = provision ] || [ "${1:-}" = prepare ] || [ "${1:-}" = accounts ]; then
     assert_owner "$NC"
     owner=$(docker network inspect --format '{{ index .Labels "mcp.integration.run" }}' "$NET")
     [ "$owner" = "$MCP_IT_RUN_ID" ] || exit 2
@@ -132,9 +132,27 @@ install_mail() {
 	# The archive is public source; www-data must read it across the tools mount.
 	chmod 0644 "$archive"
 	docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/mail.tar.gz -C /var/www/html/custom_apps
+	if [ "${MCP_IT_MAIL_GUARD:-0}" = legacy ] || [ "${MCP_IT_MAIL_GUARD:-0}" = v2 ]; then
+        # Explicit local regression only: accept the immutable original C1 overlay, never an arbitrary native build.
+        legacy=${MCP_IT_MAIL_LEGACY_ARCHIVE:?Immutable legacy overlay required}
+        digest=01e2475f324e67440cc75e59c33e714b14eda22a1e9a612a2b771e180b003f6a
+        if [ "$MCP_IT_MAIL_GUARD" = v2 ]; then digest=3c42624bf41deafce9429f7e02d2fdb4442e71285264309091e8dac6c41175fc; fi
+        echo "$digest  $legacy" | sha256_check
+        cp "$legacy" "$TOOLS_DIR/mail-guard-overlay.tar.gz"
+        chmod 0644 "$TOOLS_DIR/mail-guard-overlay.tar.gz"
+        docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/mail-guard-overlay.tar.gz -C /var/www/html/custom_apps
+    fi
+	if [ "${MCP_IT_MAIL_GUARD:-0}" = 1 ]; then
+		php "$HERE/../../../../native/mail-guard/build.php" "$archive" "$TOOLS_DIR/native-mail-guard"
+		tar -czf "$TOOLS_DIR/mail-guard-overlay.tar.gz" -C "$TOOLS_DIR/native-mail-guard" mail
+		chmod 0644 "$TOOLS_DIR/mail-guard-overlay.tar.gz"
+		docker exec -u www-data "$NC" tar -xzf /mcp-it-tools/mail-guard-overlay.tar.gz -C /var/www/html/custom_apps
+	fi
 	occ app:enable mail
 	actual=$(occ config:app:get mail installed_version)
-	[ "$actual" = "${MAIL_TAG#v}" ] || { echo "Unexpected installed Mail $actual" >&2; return 1; }
+	expected_mail=${MAIL_TAG#v}
+    if [ "${MCP_IT_MAIL_GUARD:-0}" = 1 ]; then expected_mail=$(php -r '$m=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $m["build_version"];' "$TOOLS_DIR/native-mail-guard/manifest.json"); fi
+	[ "$actual" = "$expected_mail" ] || { echo "Unexpected installed Mail $actual" >&2; return 1; }
 	echo "Mail $actual enabled"
 }
 
@@ -164,15 +182,49 @@ create_account() {
 }
 
 # cmd_provision: IMAP server, Mail app and the two accounts.
-cmd_provision() {
+cmd_prepare() {
 	start_imap
 	install_mail
 	install_forms
 	# The IMAP server has a private address on the run's network; Nextcloud refuses local remote hosts by default.
 	occ config:system:set allow_local_remote_servers --value=true --type=boolean
+	start_probe_servers
+}
+
+cmd_accounts() {
 	alice=$(create_account mcp-it-alice alice)
 	bob=$(create_account mcp-it-bob bob)
 	echo "Mail accounts: mcp-it-alice=$alice mcp-it-bob=$bob"
+}
+
+cmd_provision() {
+    cmd_prepare
+    cmd_accounts
+}
+
+# Authentication-only TLS endpoints inside the disposable Nextcloud container, with a run-local trusted certificate.
+start_probe_servers() {
+    assert_owner "$NC"
+    openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=127.0.0.1' \
+        -addext 'subjectAltName=IP:127.0.0.1,DNS:oauth2.googleapis.com,DNS:login.microsoftonline.com,DNS:imap.gmail.com' -keyout "$WORK/mcp-mail-probe.key" -out "$WORK/mcp-mail-probe.crt" >/dev/null 2>&1
+    docker cp "$WORK/mcp-mail-probe.crt" "$NC:/usr/local/share/ca-certificates/mcp-mail-probe.crt"
+    docker cp "$WORK/mcp-mail-probe.crt" "$NC:/tmp/mcp-mail-probe.crt"
+    docker cp "$WORK/mcp-mail-probe.key" "$NC:/tmp/mcp-mail-probe.key"
+    docker cp "$HERE/mail/probe-server.php" "$NC:/tmp/mcp-mail-probe-server.php"
+    docker exec "$NC" update-ca-certificates >/dev/null
+    docker exec "$NC" chown www-data:www-data /tmp/mcp-mail-probe.key
+    docker exec "$NC" chmod 600 /tmp/mcp-mail-probe.key
+    docker exec "$NC" chmod 644 /tmp/mcp-mail-probe.crt /tmp/mcp-mail-probe-server.php
+    docker exec -d -u www-data "$NC" sh -c 'php /tmp/mcp-mail-probe-server.php imap > /tmp/mcp-mail-probe-imap-errors.log 2>&1'
+    docker exec -d -u www-data "$NC" sh -c 'php /tmp/mcp-mail-probe-server.php smtp > /tmp/mcp-mail-probe-smtp-errors.log 2>&1'
+    if [ "${MCP_IT_MAIL_CREDENTIAL_UI:-0}" = 1 ]; then
+        docker cp "$HERE/mail/oauth-provider.php" "$NC:/tmp/mcp-mail-oauth-provider.php"
+        docker exec "$NC" sh -c 'printf "127.0.0.1 oauth2.googleapis.com login.microsoftonline.com imap.gmail.com\\n" >> /etc/hosts'
+        docker exec -u www-data "$NC" php /var/www/html/occ config:system:set allow_local_remote_servers --type=boolean --value=true >/dev/null
+        docker exec -u www-data "$NC" php /var/www/html/occ config:system:set default_certificates_bundle_path --value=/etc/ssl/certs/ca-certificates.crt >/dev/null
+        docker exec -d "$NC" sh -c 'php /tmp/mcp-mail-oauth-provider.php > /tmp/mcp-mail-oauth-provider-errors.log 2>&1'
+    fi
+    docker exec -u www-data "$NC" php -r 'foreach ([33493,33465] as $port) { $ready=false; for($attempt=0;$attempt<30;$attempt++) { $s=@stream_socket_client("tls://127.0.0.1:".$port,$code,$message,1); if($s) {fclose($s);$ready=true;break;} usleep(100000); } if(!$ready) {fwrite(STDERR,"TLS fixture unavailable: ".$message." ".json_encode(error_get_last())."\n");exit(2);} }'
 }
 
 # cmd_collect: the IMAP server log, which lists every login and every flag change (mail_log), into the artifacts.
@@ -180,14 +232,17 @@ cmd_collect() {
 	mkdir -p "$ARTIFACTS"
 	assert_owner "$IMAP"
 	docker logs "$IMAP" > "$ARTIFACTS/imap-container.log" 2>&1 || true
+    for protocol in imap smtp; do docker cp "$NC:/tmp/mcp-mail-probe-$protocol-errors.log" "$ARTIFACTS/probe-$protocol-errors.log" >/dev/null 2>&1 || true; docker cp "$NC:/tmp/mcp-mail-probe-$protocol.log" "$ARTIFACTS/probe-$protocol.log" >/dev/null 2>&1 || true; done
 }
 
 # Cleanup is owned by run-local.sh and guarded by this run's resource label.
 case "${1:-}" in
 	provision) cmd_provision ;;
+    prepare) cmd_prepare ;;
+    accounts) cmd_accounts ;;
 	collect) cmd_collect ;;
 	*)
-		echo "Usage: $0 <provision|collect>" >&2
+		echo "Usage: $0 <provision|prepare|accounts|collect>" >&2
 		exit 1
 		;;
 esac

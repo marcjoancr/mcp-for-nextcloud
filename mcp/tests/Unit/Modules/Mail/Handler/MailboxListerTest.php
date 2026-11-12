@@ -66,10 +66,10 @@ final class MailboxListerTest extends TestCase {
 
 		$this->assertSame(['id' => 3, 'name' => 'Work', 'email' => 'alice@example.com'], $answer['account']);
 		$this->assertSame([
-			['id' => 10, 'path' => 'INBOX', 'name' => 'INBOX', 'delimiter' => '.', 'special' => 'inbox', 'unread' => 2, 'total' => 3, 'selectable' => true],
-			['id' => 13, 'path' => 'Projects', 'name' => 'Projects', 'delimiter' => '.', 'special' => 'archive', 'unread' => null, 'total' => null, 'selectable' => false],
-			['id' => 12, 'path' => 'Projects.2026', 'name' => '2026', 'delimiter' => '.', 'special' => null, 'unread' => 0, 'total' => 2, 'selectable' => true],
-			['id' => 11, 'path' => 'Sent', 'name' => 'Sent', 'delimiter' => '.', 'special' => 'sent', 'unread' => 0, 'total' => 5, 'selectable' => true],
+			['id' => 10, 'path' => 'INBOX', 'name' => 'INBOX', 'delimiter' => '.', 'special' => 'inbox', 'unread' => 2, 'total' => 3, 'selectable' => true, 'freshness'=>['status'=>'unknown']],
+			['id' => 13, 'path' => 'Projects', 'name' => 'Projects', 'delimiter' => '.', 'special' => 'archive', 'unread' => null, 'total' => null, 'selectable' => false, 'freshness'=>['status'=>'unknown']],
+			['id' => 12, 'path' => 'Projects.2026', 'name' => '2026', 'delimiter' => '.', 'special' => null, 'unread' => 0, 'total' => 2, 'selectable' => true, 'freshness'=>['status'=>'unknown']],
+			['id' => 11, 'path' => 'Sent', 'name' => 'Sent', 'delimiter' => '.', 'special' => 'sent', 'unread' => 0, 'total' => 5, 'selectable' => true, 'freshness'=>['status'=>'unknown']],
 		], $answer['mailboxes']);
 		$this->assertSame(4, $answer['mailboxCount']);
 		$this->assertFalse($answer['hasMore']);
@@ -239,7 +239,7 @@ final class MailboxListerTest extends TestCase {
 	 * @return array<string, mixed> the answer
 	 */
 	private function answer(FakeMailApp $app, array $arguments, string $userId = 'alice'): array {
-		$result = (new MailboxLister(new MailGateway($app), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute($arguments, $userId);
+		$result = (new MailboxLister(new MailGateway($app, access: new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard(new \OCA\Mcp\Tests\Support\Dav\ScopeStub())), new \OCA\Mcp\Modules\Mail\Presentation\MailRows()))->execute($arguments, $userId);
 		return json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
 	}
 }

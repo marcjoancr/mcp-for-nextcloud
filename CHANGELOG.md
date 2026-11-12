@@ -2,7 +2,20 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.8.1
+
+- Freeze Mail bodies according to the native editor mode, excluding inactive stale content and empty HTML alternatives. Keep the delivery preview consistent with the MIME content.
+- Require the corresponding Mail 5.12.5.12 native dependency for new guarded delivery; retain the immutable v11 manifest and existing frozen delivery receipts. Status reads never retransmit a running or uncertain attempt.
+
 ## Unreleased
+
+## 2.8.0
+
+- Add guarded Mail delivery and scheduling with immutable approved content, original connection authorization, durable status/cancellation and exact Sent-copy repair. Unknown remote outcomes never automatically resend.
+- Add bounded message export and attachment-to-Files saves, protected IMAP draft import, indexed body search, persistent account/folder scopes and actor incarnation checks.
+- Add one-message snooze/wake, bounded structured filters and out-of-office settings, and native signature mode while preserving unrelated native identity settings.
+- Keep readable resource-scope controls available when an optional module inventory cannot be read; failed modules expose no names or writable controls.
+- Provide a separately pinned guarded Mail source companion alongside the unchanged five-file MCP source kit, with ordinary-user download links and complete native reconstruction inventories. Production sending remains an explicit operator-controlled setting.
 
 ## 2.7.0
 

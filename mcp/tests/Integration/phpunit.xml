@@ -16,7 +16,24 @@
     <testsuites>
         <testsuite name="compat"><directory>Compat</directory></testsuite>
         <!-- LinuxServer-only fixtures use ci/linuxserver/l3-tests.xml and its private bootstrap. -->
-        <testsuite name="integration"><directory>.</directory><exclude>Compat</exclude><exclude>Last</exclude><exclude>ci/linuxserver</exclude></testsuite>
+        <testsuite name="integration"><directory>.</directory><exclude>Compat</exclude><exclude>Last</exclude><exclude>ci/linuxserver</exclude><exclude>ci/mail-qualified</exclude><exclude>Mail</exclude></testsuite>
+        <!-- Stock compatibility does not load qualified Mail classes. catalog.py checks this exact list. -->
+        <testsuite name="mail-stock">
+            <file>Mail/CollaborationFlowTest.php</file>
+            <file>Mail/FormsResponsesTest.php</file>
+            <file>Mail/McpFormsIsolationTest.php</file>
+            <file>Mail/McpMailAttachmentsDraftsTest.php</file>
+            <file>Mail/McpMailDPlusTest.php</file>
+            <file>Mail/McpMailHttpTest.php</file>
+            <file>Mail/McpMailLifecycleTest.php</file>
+            <file>Mail/McpMailNativeBoundaryTest.php</file>
+            <file>Mail/McpMailOrganizationTest.php</file>
+            <file>Mail/McpMailReadTest.php</file>
+            <file>Mail/McpMailRuntimeQualificationTest.php</file>
+            <file>Mail/McpMailSettingsTest.php</file>
+            <file>Mail/McpMailTagCreationTest.php</file>
+            <file>Mail/McpMailThreadTest.php</file>
+        </testsuite>
         <testsuite name="last"><directory>Last</directory></testsuite>
     </testsuites>
 </phpunit>
