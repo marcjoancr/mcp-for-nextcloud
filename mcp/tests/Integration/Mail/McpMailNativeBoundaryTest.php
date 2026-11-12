@@ -63,19 +63,19 @@ final class McpMailNativeBoundaryTest extends IntegrationTestCase {
             }else{
                 self::assertFalse($setupBaseline,'A source profile without SetupEvidence.php cannot provide native credential setup evidence.');
             }
-            if($installedVersion==='5.12.5.12'){
+            if($installedVersion==='5.12.5.13'){
                 $aliasBoundary=new \OCA\Mcp\Modules\Mail\Integration\MailAliasBoundary($mockApps,$db,$config);
                 $aliasBoundary->requireSupported();self::addToAssertionCount(1);
                 $aliasPath=$root.'/lib/Db/AliasMapper.php';$original=file_get_contents($aliasPath);
                 try{file_put_contents($aliasPath,$original."\n// copied alias mapper tamper\n");clearstatcache(true,$aliasPath);
                     try{$aliasBoundary->requireSupported();self::fail('Tampered current alias source admitted.');}catch(\OCA\Mcp\Mcp\Operations\BeforeEffectFailure){self::addToAssertionCount(1);}
                 }finally{file_put_contents($aliasPath,$original);clearstatcache(true,$aliasPath);}
-                $unknown=$this->createMock(IAppManager::class);$unknown->method('getAppPath')->willReturn($root);$unknown->method('getAppVersion')->willReturn('5.12.5.13');
+                $unknown=$this->createMock(IAppManager::class);$unknown->method('getAppPath')->willReturn($root);$unknown->method('getAppVersion')->willReturn('5.12.5.14');
                 try{(new \OCA\Mcp\Modules\Mail\Integration\MailAliasBoundary($unknown,$db,$config))->requireSupported();self::fail('Unknown alias generation admitted.');}catch(\OCA\Mcp\Mcp\Operations\BeforeEffectFailure){self::addToAssertionCount(1);}
             }
             $boundedBaseline=$copyBoundary->boundedMetadataSourceVerified();
             self::assertSame((new MailNativeBoundary($realApps))->boundedMetadataSourceVerified(),$boundedBaseline,'Only the exact installed v10 source may provide bounded native metadata.');
-            self::assertSame(in_array($installedVersion,['5.12.5.10','5.12.5.12'],true),$boundedBaseline,'Only exact v10/v12 fingerprints admit bounded native metadata; v9 remains historical.');
+            self::assertSame(in_array($installedVersion,['5.12.5.10','5.12.5.13'],true),$boundedBaseline,'Only exact v10/v13 fingerprints admit bounded native metadata; v9 remains historical.');
             $boundedTarget=$root.'/lib/Db/BoundedMailMetadata.php';
             if(is_file($boundedTarget)){
                 $boundedOriginal=file_get_contents($boundedTarget);if(!is_string($boundedOriginal))throw new \RuntimeException('Cannot read copied bounded metadata fingerprint.');
