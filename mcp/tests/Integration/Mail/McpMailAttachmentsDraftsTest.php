@@ -132,7 +132,9 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
             self::assertSame($body,$read['draft']['body_plain']);self::assertFalse($read['draft']['is_html']);
             $stored=Server::get(\OCA\Mail\Service\DraftsService::class)->getMessage($draft,MailActor::ALICE);
             self::assertSame($body,$stored->getEditorBody());
-            $image=base64_encode(str_repeat('synthetic-image',6000));$signature='<p>Native Alice signature</p><img src="data:image/png;base64,'.$image.'">';
+            // Native MariaDB stores signatures in TEXT (64 KiB); PostgreSQL exercises the >80 KB source bound.
+            $imageBytes=str_repeat('synthetic-image',Server::get(\OCP\IDBConnection::class)->getDatabaseProvider()===\OCP\IDBConnection::PLATFORM_MYSQL?2000:6000);
+            $image=base64_encode($imageBytes);$signature='<p>Native Alice signature</p><img src="data:image/png;base64,'.$image.'">';
             $entity->setSignature($signature);$native->update($entity);
             $imageArgs=['account_id'=>$id,'subject'=>'Native image signature','body_plain'=>'Active native plain body',
                 'body_html'=>'<p>Inactive stale HTML</p>','is_html'=>false];
@@ -141,7 +143,7 @@ final class McpMailAttachmentsDraftsTest extends IntegrationTestCase {
             self::assertStringContainsString('Active native plain body',$imagePlan['after']['body_html_preview']);
             self::assertStringNotContainsString('Inactive stale HTML',$imagePlan['after']['body_html_preview']);
             self::assertArrayNotHasKey('body_html',$imagePlan['after']);
-            self::assertSame(hash('sha256',str_repeat('synthetic-image',6000)),$imagePlan['after']['inline_images'][0]['sha256']);
+            self::assertSame(hash('sha256',$imageBytes),$imagePlan['after']['inline_images'][0]['sha256']);
             $imageSaved=$this->data($this->alice->tool('mail_write_draft',$imageArgs+['confirm'=>true,'operation_id'=>$imagePlan['operation_id'],'plan_state'=>$imagePlan['plan_state']]));
             $imageDraft=$imageSaved['draft']['id'];
             try {
