@@ -12,6 +12,16 @@ use OCA\Mcp\Tests\Unit\InMemoryConfig;
 use PHPUnit\Framework\TestCase;
 
 final class MailDraftCompositionTest extends TestCase {
+    public function testNewReplyIncludesNativeQuoteAndSignatureBeforePersistence(): void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'','bodyPlain'=>'','bodyHtml'=>'','html'=>false,'attachments'=>[],'recipients'=>[]]);
+        [$ops]=$this->ops($draft,preferences:new CompositionPreferences());
+        $args=['account_id'=>4,'subject'=>'Re: Request','body_plain'=>'Answer','reply_to_message_id'=>10];
+        $p=$ops->previewWrite($args,'alice');
+        self::assertStringContainsString('> Original question',$p['after']['body_plain']);
+        self::assertStringContainsString("-- \nAlice",$p['after']['body_plain']);
+        $r=$ops->write($args+['plan_state'=>$p['plan_state']],'alice');
+        self::assertSame($p['after']['body_plain'],$r['draft']['body_plain']);
+    }
     public function testEditingBodyPreservesAttachmentAndReplyIdentity(): void {
         $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'Before','bodyPlain'=>'Old','bodyHtml'=>'','html'=>false,
             'updatedAt'=>1,'inReplyToMessageId'=>'<parent@example.test>','aliasId'=>3,'failed'=>true,
@@ -108,7 +118,30 @@ final class MailDraftCompositionTest extends TestCase {
         try{$ops->write($args+['plan_state'=>$p['plan_state']],'alice');self::fail('Changed native guarantees were silently accepted.');}catch(\OCA\Mcp\Mcp\Confirmation\PlanChanged){}
         self::assertSame('Original',$draft->getBodyPlain());self::assertSame([],$service->lastAttachments);
     }
-    private function ops(CompositionDraft $draft, ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files=null, ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal=null, ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward=null,?\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks $editor=null): array {
+    public function testNativePreferenceChangeInvalidatesApprovalEvenWhenNoQuoteExists(): void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'','bodyPlain'=>'','bodyHtml'=>'','html'=>false,'attachments'=>[],'recipients'=>[]]);
+        $preferences=new CompositionPreferences();
+        [$ops,$service]=$this->ops($draft,preferences:$preferences);
+        $args=['account_id'=>4,'subject'=>'New','body_plain'=>'Text'];
+        $p=$ops->previewWrite($args,'alice');$preferences->replyMode='bottom';
+        try {$ops->write($args+['plan_state'=>$p['plan_state']],'alice');self::fail('Preference drift was ignored.');}
+        catch (\OCA\Mcp\Mcp\Confirmation\PlanChanged) {self::assertSame([],$service->lastAttachments);}
+    }
+    public function testTruncatedSourceCannotBeQuotedAutomatically():void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'','bodyPlain'=>'','bodyHtml'=>'','html'=>false,'attachments'=>[],'recipients'=>[]]);
+        [$ops,$service]=$this->ops($draft,preferences:new CompositionPreferences(),source:['body'=>['truncated'=>true]]);
+        try {$ops->previewWrite(['account_id'=>4,'subject'=>'Re: Source','body_plain'=>'Answer','reply_to_message_id'=>10],'alice');self::fail('Incomplete source was silently quoted.');}
+        catch (\OCA\Mcp\Mcp\Tools\Results\ToolFailure) {self::assertSame([],$service->lastAttachments);}
+    }
+    public function testCompleteBodyAndExistingDraftUpdatesNeverInsertAnotherSignature():void {
+        $draft=new CompositionDraft(['id'=>77,'accountId'=>4,'subject'=>'Before','bodyPlain'=>"Existing\n-- \nAlice",'bodyHtml'=>'','html'=>false,'attachments'=>[],'recipients'=>[]]);
+        [$ops]=$this->ops($draft,preferences:new CompositionPreferences());
+        $new=$ops->previewWrite(['account_id'=>4,'subject'=>'New','body_plain'=>'Final body','composition'=>'complete_body'],'alice');
+        self::assertSame('Final body',$new['after']['body_plain']);
+        $edit=$ops->previewWrite(['account_id'=>4,'draft_id'=>77,'subject'=>'After'],'alice');
+        self::assertSame("Existing\n-- \nAlice",$edit['after']['body_plain']);
+    }
+    private function ops(CompositionDraft $draft, ?\OCA\Mcp\Modules\Mail\Files\MailFilesSource $files=null, ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal=null, ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward=null,?\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks $editor=null,?CompositionPreferences $preferences=null,array $source=[]): array {
         $service=new class($draft) {
             public array $lastAttachments=[];
             public function __construct(private CompositionDraft $draft){}
@@ -133,11 +166,23 @@ final class MailDraftCompositionTest extends TestCase {
         $locator=$this->createMock(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class);
         $locator->method('locate')->willReturn(['account'=>$accounts->ownedAccount('alice',4),'message'=>new class {public function getMessageId(): string{return '<parent@example.test>';}}]);
         $reader=$this->createMock(\OCA\Mcp\Modules\Mail\Handlers\ReadMessageHandler::class);
-        $reader->method('readRow')->willReturn(['from'=>['count'=>1,'addresses'=>[['email'=>'person@example.test','name'=>'Person']]],
-            'replyTo'=>['count'=>0,'addresses'=>[]],'to'=>['count'=>1,'addresses'=>[['email'=>'alice@example.test','name'=>'Alice']]],'cc'=>['count'=>0,'addresses'=>[]]]);
+        $reader->method('readRow')->willReturn(array_replace_recursive(['from'=>['count'=>1,'addresses'=>[['email'=>'person@example.test','name'=>'Person']]],
+            'body'=>['text'=>'Original question','truncated'=>false],'date'=>'2026-11-12','encrypted'=>false,'signed'=>false,'replyTo'=>['count'=>0,'addresses'=>[]],'to'=>['count'=>1,'addresses'=>[['email'=>'alice@example.test','name'=>'Alice']]],'cc'=>['count'=>0,'addresses'=>[]]],$source));
         $tools=$this->createMock(\OCA\Mcp\Mcp\Tools\ToolRegistry::class);$tools->method('allowsTool')->willReturn(true);
         $composer=new ReplyComposer($locator,static fn(string $uid)=>$reader,$services,$tools->allowsTool(...),$accounts);
-        $ops=new MailDraftOperations($services,$accounts,new PlanState((new InMemoryConfig())->mock($this)),$composer,$files,$journal,$forward,$editor);
+        $messageComposer=null;
+        if($preferences!==null){
+            $services->method('userPreferences')->willReturn($preferences);
+            $services->method('accountService')->willReturn(new class($preferences){
+                public function __construct(private object $p){}
+                public function find(string $uid,int $account):object{return new class($this->p){
+                    public function __construct(private object $p){}
+                    public function getMailAccount():object{return $this->p;}
+                };}
+            });
+            $messageComposer=new \OCA\Mcp\Modules\Mail\Composition\MessageComposer($services);
+        }
+        $ops=new MailDraftOperations($services,$accounts,new PlanState((new InMemoryConfig())->mock($this)),$composer,$files,$journal,$forward,$editor,messageComposer:$messageComposer);
         return [$ops,$service];
     }
 }
@@ -154,4 +199,12 @@ final class CompositionAttachment {
     public function getId(): int{return $this->id;}
     public function getFileName(): string{return 'budget.pdf';}
     public function getMimeType(): string{return 'application/pdf';}
+}
+
+final class CompositionPreferences {
+    public string $replyMode='top';
+    public function getPreference(string $uid,string $key,string $default):string{return $this->replyMode;}
+    public function getSignature():string{return 'Alice';}
+    public function getEditorMode():string{return 'plaintext';}
+    public function isSignatureAboveQuote():bool{return false;}
 }

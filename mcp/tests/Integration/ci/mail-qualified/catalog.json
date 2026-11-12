@@ -56,6 +56,7 @@
       "methods": [
         "testAttachmentReadsAndConfirmedFilesSavePreserveUnreadStateAndUserIsolation",
         "testDraftLifecycleRequiresMatchingConfirmationAndNeverCrossesUsersOrSends",
+        "testNativeCompositionPreferencesReachTheApprovedAndPersistedDraft",
         "testReplyFilesReceiptsAndNativeDraftRetention"
       ]
     },
@@ -148,6 +149,7 @@
         "testInitialApprovalBindsAndVerifiesTheNormalSentCopy",
         "testKilledAfterDataAcceptanceBeforeDatabaseCommitCanNeverResubmit",
         "testKilledBeforeCheckpointCanSubmitOnlyOnceAfterFreshDispatch",
+        "testLargeInlineSignatureSurvivesOneExactSyntheticSmtpSubmission",
         "testLostAppendAcknowledgementCannotTriggerHordeBinaryRetryOrRepairReplay",
         "testMalformedCopyProofAndOversizedLiteralRemainUncertainWithoutReplay",
         "testMissingAttachmentCannotBeSilentlyOmitted",

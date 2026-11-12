@@ -58,5 +58,11 @@ final class McpMailDeliveryTest extends IntegrationTestCase {
     public function testProviderWithoutUidplusRefusesBeforeAppendAndNeverResendsSmtp():void {$r=$this->proof('repair_no_uidplus');self::assertSame('uncertain',$r['copy_state']);self::assertSame(0,$r['copy_peer']['appends']);self::assertSame(0,$r['copy_peer']['searches']);self::assertTrue($r['copy_smtp_unchanged']);}
 
     public function testPartialSmtpDataClosesBeforeQuitAndRetainsUncertainWithoutSecondSubmission():void {$r=$this->proof('short_write');self::assertSame('uncertain',$r['state']);self::assertSame('uncertain',$r['replay_state']);self::assertTrue($r['replay_no_connection']);self::assertSame(1,$r['smtp_submissions']);self::assertSame(['closed'=>true,'faulted'=>true,'quit'=>false,'partialBytes'=>3],$r['short_write']);}
+    public function testLargeInlineSignatureSurvivesOneExactSyntheticSmtpSubmission():void {
+        $r=$this->proof('inline_protocol');
+        self::assertSame('accepted',$r['state']);self::assertSame(1,$r['smtp_submissions']);
+        self::assertTrue($r['exact_wire_bytes']);self::assertTrue($r['bcc_private']);
+        self::assertTrue($r['inline_image_bytes_exact']);self::assertTrue($r['related_mime']);self::assertTrue($r['cid_matches']);self::assertTrue($r['body_attributes_preserved']);self::assertTrue($r['head_style_preserved']);
+    }
 
 }

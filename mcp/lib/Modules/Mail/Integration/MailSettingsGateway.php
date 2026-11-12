@@ -23,7 +23,7 @@ class MailSettingsGateway {
     }
     public function readSettings(string $uid,int $id): array {
         $a=$this->account($uid,$id)->getMailAccount();
-        $prefs=['editor_mode'=>self::enum((string)$a->getEditorMode(),['plaintext','html']),'signature_above_quote'=>(bool)$a->isSignatureAboveQuote(), 'show_subscribed_only'=>(bool)$a->getShowSubscribedOnly()];
+        $prefs=['editor_mode'=>self::enum((string)$a->getEditorMode(),['plaintext','richtext','html']),'signature_above_quote'=>(bool)$a->isSignatureAboveQuote(), 'show_subscribed_only'=>(bool)$a->getShowSubscribedOnly()];
         $row=['account_id'=>$id,'settings'=>$prefs];
         return $row+['revision'=>$this->states->of('mail_settings_revision',$uid,$row)];
     }
@@ -54,7 +54,7 @@ class MailSettingsGateway {
     public function writeSettings(string $uid,int $id,array $changes): array {
         $this->freshAccess?->assertActive($uid);
         $a=$this->account($uid,$id)->getMailAccount();
-        if(array_key_exists('editor_mode',$changes))$a->setEditorMode($changes['editor_mode']);
+        if(array_key_exists('editor_mode',$changes))$a->setEditorMode($changes['editor_mode'] === 'html' ? 'richtext' : $changes['editor_mode']);
         if(array_key_exists('signature_above_quote',$changes))$a->setSignatureAboveQuote($changes['signature_above_quote']);
         if(array_key_exists('show_subscribed_only',$changes))$a->setShowSubscribedOnly($changes['show_subscribed_only']);
         // Native Entity tracks changed fields: never rebuild the account or copy its authentication state.

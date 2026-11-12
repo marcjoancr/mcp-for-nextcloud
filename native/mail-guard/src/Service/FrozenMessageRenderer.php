@@ -29,6 +29,7 @@ final class FrozenMessageRenderer {
         return hash('sha256',json_encode($this->canonical($content),JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
     }
     public function preview(array $content):array {
+        if(($content['bodyHtml']??'')!=='')(new FrozenInlineImages())->extract($content['bodyHtml']);
         $revision=$this->revision($content);foreach($content['attachments'] as &$a)unset($a['content']);unset($a);
         return $content+['revision'=>$revision];
     }
@@ -47,8 +48,10 @@ final class FrozenMessageRenderer {
         $headers.='Subject: '.$this->encoded($content['subject']??'')."\r\nMIME-Version: 1.0\r\n";
         if(($content['replyTo']??null)!==null){$reply=$this->safe($content['replyTo']);if(!preg_match('/^<[^<>\s]+@[^<>\s]+>$/D',$reply))throw new \RuntimeException('Unsupported reply identity.');$headers.='In-Reply-To: '.$reply."\r\nReferences: ".$reply."\r\n";}
         if($content['aiGenerated']??false)$headers.="X-AI-Generated: 1\r\n";
+        $inline=[];if($content['bodyHtml']!==null&&$content['bodyHtml']!==''){[$content['bodyHtml'],$inline]=(new FrozenInlineImages())->extract($content['bodyHtml']);}
         $parts=[];if($content['bodyPlain']!==null&&$content['bodyPlain']!=='')$parts[]=$this->textPart('text/plain',$content['bodyPlain']);if($content['bodyHtml']!==null&&$content['bodyHtml']!=='')$parts[]=$this->textPart('text/html',$content['bodyHtml']);
         $body=count($parts)>1?$this->multipart('alternative',$parts):($parts[0]??$this->textPart('text/plain',''));
+        if($inline!==[])$body=$this->multipart('related',array_merge([$body],$inline));
         $parts=[$body];$total=0;if(count($content['attachments'])>10)throw new \RuntimeException('Attachment bound exceeded.');
         foreach($content['attachments'] as $a){
             $bytes=$a['content'];$total+=strlen($bytes);if($total>26214400||strlen($bytes)!==$a['bytes']||!hash_equals($a['sha256'],hash('sha256',$bytes)))throw new \RuntimeException('Attachment bytes changed.');

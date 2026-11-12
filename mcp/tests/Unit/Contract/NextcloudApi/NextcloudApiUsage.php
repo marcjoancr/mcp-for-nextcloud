@@ -87,6 +87,7 @@ final class NextcloudApiUsage {
      * @var array<string, list<string>>
      */
     public const POSITIONAL = [
+        'OCA\\Mail\\Service\\UserPreferenceService::getPreference' => ['userId', 'key', 'default'],
         'OCA\\Mail\\Db\\TagMapper::getAllTagsForUser' => ['userId'],
         'OCA\\Mail\\Db\\TagMapper::getTagForUser' => ['id','userId'],
         'OCA\\Mail\\Db\\TagMapper::__construct' => ['db','l10n'],

@@ -8,12 +8,13 @@ Each permission starts denied, including on existing installations. `mail.read` 
 The native qualification fixture uses Mail 5.12.5 on Nextcloud 35; the API floor
 is not a promise that every Mail/server version combination is supported.
 
-MCP 2.8.0 defines **66 tools**. Current-v11 support adds immutable delivery,
+MCP defines **66 tools**. Current-v12 support adds immutable delivery,
 bounded content export, protected draft import, indexed body search, saved
 account/folder scopes, snooze, structured Sieve and stored signature mode.
 These features require their own default-denied grants, connection selections,
-qualified native sources and provider checks. Production transmission remains
-disabled in the recorded deployment. MDN and unrelated native outbox dispatch
+qualified native sources and provider checks. Transmission requires the operator
+switch, an explicit send grant and the connection's own tool selection; granting
+draft writes alone never enables sending. MDN and unrelated native outbox dispatch
 are not enabled by these tools. This is not complete parity with native Mail.
 
 | Native configuration | Acceptance scope |
@@ -26,6 +27,7 @@ are not enabled by these tools. This is not complete parity with native Mail.
 | NC35.0.2 / custom Mail5.12.5.9 / exact v9 overlay / PostgreSQL16.15 primary | Guarded A/D/C scopes with PostgreSQL session ownership and direct-endpoint proof. Exact schema, source, ownership, grants and operation-state checks remain mandatory; qualification/deployment is recorded separately. |
 | NC35.0.2 / custom Mail5.12.5.10 / exact v10 overlay / PostgreSQL16.15 primary | Separately tested local continuation: bounded outbox and cached message metadata projections. Original native implementation bytes match v9; immutable v9 stays admitted for its original scopes. This continuation is not deployed by the recorded v9 installation. |
 | NC35.0.2 / custom Mail5.12.5.11 / exact current v11 sources / PostgreSQL16 primary / LinuxServer / S3 | Current B and extras contract, including bounded content, durable delivery, protected draft import, explicit GIN indexing, scopes, snooze, structured Sieve and signature mode. Exact source/provider gates remain mandatory; release and deployment evidence are separate. |
+| NC35.0.2 / custom Mail5.12.5.13 / exact current v12 sources / PostgreSQL16 primary / LinuxServer / S3 | Current delivery and extras contract with authoritative native draft MIME mode. Historical v11 acceptance/status remains readable without admitting new v11 sends. Release and deployment evidence are separate. |
 | NC33.0.10 or NC34.0.5 / stock Mail5.12.5 | Reads, legacy local drafts/Files and existing account/settings behavior retain their permissions; guarded capabilities remain unverified, including local alias/tag creation. |
 | Exact v1–v4 overlays | Only their original qualified scopes; none admits C6 refresh. |
 | Other Mail/server/provider combinations | Native behavior unverified. The manifest/API floor and static fixtures do not qualify an unknown pair. |
@@ -283,6 +285,25 @@ This composition limit is separate from the 1 MiB incoming-message read limit.
 Draft operations never invoke a mail send or scheduling API. For exact parameters
 and current limits, consult the live `mcp_guide` schema.
 
+## Native composition preferences
+
+New `mail_write_draft` calls default to `composition: "user_preferences"`. The native
+per-user `reply-mode` preference places the new reply above (`top`, the default) or
+below the original. The account's `signatureAboveQuote` setting independently
+places the selected account/alias signature above the quote or at the end.
+The native account writing modes are `plaintext` and `richtext`; MCP also accepts
+`html` for compatibility. An image signature selects HTML as the native editor does.
+Plain signatures use the `-- ` separator; HTML signatures use the native signature
+wrapper without that separator. Incoming quotes are escaped, bounded plain text.
+
+The confirmation shows the complete final body, including signature and quote.
+Changes to native preferences, the signature or quoted text require another preview.
+Truncated, signed or encrypted automatic quote sources are refused. Use
+`composition: "complete_body"` to supply a final body that already includes the
+wanted signature and quote. Existing draft updates preserve omitted content and
+never insert another signature or quote. Composed bodies retain the 20,000-character
+limit; exceeding it fails before the local write rather than truncating the message.
+
 ## Sender identities, forwarding and tags
 
 `mail_list_aliases` requires the independent `mail.read_identities` permission and
@@ -294,8 +315,9 @@ in draft composition. Alias administration requires its own tool assignments and
 `forward_message_id` on `mail_write_draft` creates a **new local draft**, mutually
 exclusive with draft editing and replying. It defaults to a complete attributed
 plain-text quote; truncated, encrypted or signed automatic sources are refused.
-Supply an explicit final `body` to compose instead. The approved body is not changed
-by signature insertion. Original recipients, Bcc, attachments and reply parent are
+By default, supply only your new text in `body_plain` or `body_html`: the complete
+source quote and selected identity signature are composed before confirmation.
+Use `composition: "complete_body"` to preserve an already composed final body. Original recipients, Bcc, attachments and reply parent are
 never inherited. Explicit To/Cc/Bcc fields remain visible in the preview.
 
 Choose source MIME parts explicitly with `forward_attachment_ids`; each requires
@@ -866,3 +888,5 @@ performs the update again. An uncertain local commit remains held until exact
 journal completion evidence permits reconciliation. Historical status does not
 re-read a moved or removed identity. The current qualified native source gate remains mandatory. The release evidence
 records native qualification, clean-package acceptance and deployment separately.
+
+Native signatures may contain embedded raster images. Large image bytes are summarized in draft/send previews by MIME type, size and SHA-256; `body_html_preview` is a review projection, never the actual body for a subsequent edit. The full HTML digest binds approval. New-draft review text remains bounded to 20,000 characters (the existing native send review keeps its 80,000-byte budget); supported raw HTML is bounded to 3 MiB and embedded image bytes to 2 MiB (ten images). This requires guarded Mail 5.12.5.13.

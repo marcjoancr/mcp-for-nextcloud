@@ -8,7 +8,7 @@ final class MailDeliveryArtifactTest extends TestCase {
     private function renderer():object {
         $path=dirname(__DIR__,5).'/native/mail-guard/src/Service/FrozenMessageRenderer.php';
         self::assertFileExists($path,'Approved delivery needs a frozen renderer, not the mutable stock send path.');
-        require_once $path;return new \OCA\Mail\Service\FrozenMessageRenderer();
+        require_once dirname($path).'/FrozenInlineImages.php';require_once $path;return new \OCA\Mail\Service\FrozenMessageRenderer();
     }
     private function content():array {return ['draftId'=>1,'accountId'=>2,'draftRevision'=>str_repeat('a',64),'accountRevision'=>1,'aliasId'=>null,'aliasRevision'=>null,'sender'=>['name'=>'Sender','email'=>'sender@example.test'],'to'=>[['name'=>'To','email'=>'to@example.test']],'cc'=>[],'bcc'=>[['name'=>'Hidden','email'=>'hidden@example.test']],'subject'=>'Hello','bodyPlain'=>".line\nbody",'bodyHtml'=>null,'replyTo'=>null,'aiGenerated'=>false,'attachments'=>[]];}
     public function testFrozenBytesPreserveBccPrivacyAndContent():void {
@@ -50,6 +50,31 @@ final class MailDeliveryArtifactTest extends TestCase {
         $r=$this->renderer();$c=$this->content();$c['sender']['name']=str_repeat('🌍',35);$c['subject']=str_repeat('é',60);$c['bodyPlain']="café\n.élan";
         $f=$r->freeze($c);self::assertSame(0,preg_match('/[^\x00-\x7f]/',$f['smtp']));self::assertStringContainsString(base64_encode($c['bodyPlain']),$f['smtp']);
         preg_match_all('/=\?UTF-8\?B\?.*?\?=/',$f['smtp'],$words);foreach($words[0] as $word)self::assertLessThanOrEqual(75,strlen($word),'RFC2047 encoded words must stay bounded in bytes.');
+    }
+    public function testEmbeddedImageIsFrozenAsRelatedMimeWithoutLosingBytes():void {
+        $r=$this->renderer();$c=$this->content();$bytes=str_repeat('image',16000);
+        $c['bodyHtml']='<p>Signature</p><img src="data:image/png;base64,'.base64_encode($bytes).'">';
+        $f=$r->freeze($c);
+        self::assertStringContainsString('multipart/related',$f['smtp']);
+        self::assertStringContainsString('Content-Type: image/png',$f['smtp']);
+        self::assertStringContainsString(chunk_split(base64_encode($bytes),76,"\r\n"),$f['smtp']);
+        self::assertSame(1,preg_match('/Content-ID: <([^>]+)>/',$f['smtp'],$m));
+        self::assertStringContainsString('cid:'.$m[1],base64_decode(preg_replace('/\s+/','',explode("\r\n\r\n",explode('Content-Type: text/html',$f['smtp'])[1],2)[1])) ?: '');
+        self::assertSame(hash('sha256',$f['smtp']),$f['smtpHash']);
+        $revision=$r->revision($c);$c['bodyHtml'].='changed';self::assertNotSame($revision,$r->revision($c));
+    }
+    public function testUnsupportedInlineImageCountIsRefusedBeforeDeliveryApproval():void {
+        $c=$this->content();$c['bodyHtml']=str_repeat('<img src="data:image/png;base64,YQ==">',11);
+        $this->expectException(\RuntimeException::class);$this->renderer()->preview($c);
+    }
+    public function testImageConversionPreservesFullDocumentStylesAndBodyAttributes():void {
+        $path=dirname(__DIR__,5).'/native/mail-guard/src/Service/FrozenInlineImages.php';require_once $path;
+        $html='<html><head><style>.signature { color: red; }</style></head><body style="background:blue"><p class="signature">Signature</p><img src="data:image/png;base64,YQ=="></body></html>';
+        [$converted,$parts]=(new \OCA\Mail\Service\FrozenInlineImages())->extract($html);
+        self::assertStringContainsString('background:blue',$converted);
+        self::assertStringContainsString('.signature { color: red; }',$converted);
+        self::assertStringContainsString('Signature',$converted);self::assertCount(1,$parts);
+        self::assertStringNotContainsString('data:image',$converted);
     }
 
 }

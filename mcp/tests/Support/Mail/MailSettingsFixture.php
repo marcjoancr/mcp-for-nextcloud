@@ -13,7 +13,7 @@ require_once __DIR__.'/../../stubs/OCA/Mail/Exception/ClientException.php';
 trait MailSettingsFixture {
     public function fixture(bool $creationAllowed=true): array {
         $entity=new SettingsNativeEntity(['id'=>4,'userId'=>'alice','name'=>'Work','email'=>'alice@example.test',
-            'editorMode'=>'html','showSubscribedOnly'=>false,'signatureAboveQuote'=>true,'signature'=>'<p>Alice</p>',
+            'editorMode'=>'richtext','showSubscribedOnly'=>false,'signatureAboveQuote'=>true,'signature'=>'<p>Alice</p>',
             'inboundHost'=>'imap.example.test','inboundPort'=>993,'inboundSslMode'=>'ssl','inboundUser'=>'alice',
             'outboundHost'=>'smtp.example.test','outboundPort'=>587,'outboundSslMode'=>'tls','outboundUser'=>'alice',
             'authMethod'=>'password','provisioningId'=>null,'inboundPassword'=>'SECRET-IMAP','outboundPassword'=>'SECRET-SMTP',

@@ -7,8 +7,8 @@ use OCA\Mcp\Modules\Mail\Integration\{MailRuntimePairs,NativeGuardManifest};
 use PHPUnit\Framework\TestCase;
 final class MailPostgresqlArtifactTest extends TestCase {
     public function testNewProviderUsesDistinctImmutableArtifact():void {
-        self::assertSame('mcp-mail-mutations-v12',NativeGuardManifest::DATA['contract']);
-        self::assertSame('5.12.5.12',NativeGuardManifest::DATA['build_version']);
+        self::assertSame('mcp-mail-mutations-v13',NativeGuardManifest::DATA['contract']);
+        self::assertSame('5.12.5.13',NativeGuardManifest::DATA['build_version']);
         self::assertArrayHasKey('lib/Db/PgSessionLease.php',NativeGuardManifest::DATA['files']);
         self::assertArrayHasKey('lib/Db/BoundedMailMetadata.php',NativeGuardManifest::DATA['files']);
         $helper=dirname(__DIR__,5).'/native/mail-guard/src/Db/BoundedMailMetadata.php';

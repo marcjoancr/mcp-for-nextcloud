@@ -32,7 +32,8 @@ final class MailDraftOperations {
         private ?\OCA\Mcp\Mcp\Operations\OperationJournal $journal = null,
         private ?\OCA\Mcp\Modules\Mail\Composition\ForwardComposer $forward = null,
         private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftLinks $editor = null,
-        private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites $writeScope = null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null) {}
+        private ?\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites $writeScope = null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $freshAccess=null,
+        private ?\OCA\Mcp\Modules\Mail\Composition\MessageComposer $messageComposer=null) {}
 
 	/** @return array<string,mixed> a bounded list or one locally stored draft */
 	public function read(array $arguments, string $userId): array {
@@ -85,7 +86,7 @@ final class MailDraftOperations {
 			'account' => ['id' => $prepared['accountId'], 'email' => (string)$prepared['account']->getEmail()],
 			'draft_id' => $prepared['draft'] === null ? null : (int)$prepared['draft']->getId(),
 			'before' => $prepared['draft'] === null ? null : $this->row($prepared['draft'], true),
-			'after' => $prepared['fields'],
+			'after' => \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields($prepared['fields']),
 			PlanState::ARGUMENT => $this->states->of(self::WRITE_TOOL, $userId, $this->writeState($prepared)),
 			'message' => MailMessages::draftPlan(),
             'warnings' => ($prepared['fields']['draft_only']??false) ? [['message'=>MailMessages::draftOnlyEditor()]] : array_merge($prepared['fields']['in_reply_to'] === null ? [] : [['message' => 'This reply stays local in Mail to preserve its thread; IMAP auto-sync is held. Editing it in the native UI may change that state.']],$prepared['fields']['alias_id'] === null ? [] : [['message'=>'Native Mail may use the account sender when synchronizing this alias draft. Review the sender in Mail.']]),
@@ -183,9 +184,10 @@ final class MailDraftOperations {
 			throw new ToolFailure(MailMessages::draftNotFound());
 		}
 
-		if ($draft !== null && (mb_strlen((string)($draft->getBodyPlain() ?? '')) > self::MAX_BODY_CHARS || mb_strlen((string)($draft->getBodyHtml() ?? '')) > self::MAX_BODY_CHARS)) {
-			throw new ToolFailure(MailMessages::draftTooLarge(self::MAX_BODY_CHARS));
-		}
+        if ($draft !== null) {
+            try { \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields(['body_plain'=>$draft->getBodyPlain()??'', 'body_html'=>$draft->getBodyHtml()??'']); }
+            catch (ToolFailure) { throw new ToolFailure(MailMessages::draftTooLarge(self::MAX_BODY_CHARS)); }
+        }
 		$currentRecipients = $draft === null ? ['to' => [], 'cc' => [], 'bcc' => []] : $this->recipientFields($draft);
 		$fields = [
 			'subject' => (string)($arguments['subject'] ?? $draft?->getSubject() ?? ''),
@@ -196,12 +198,18 @@ final class MailDraftOperations {
 			'cc' => array_key_exists('cc', $arguments) ? $this->recipients($arguments['cc']) : $currentRecipients['cc'],
 			'bcc' => array_key_exists('bcc', $arguments) ? $this->recipients($arguments['bcc']) : $currentRecipients['bcc'],
 		];
+        $composition = $arguments['composition'] ?? 'user_preferences';
+        if (!in_array($composition, ['user_preferences', 'complete_body'], true)) throw new \InvalidArgumentException('Unsupported composition mode.');
+        if ($draft !== null && array_key_exists('composition', $arguments) && $composition !== 'complete_body') throw new \InvalidArgumentException('Existing draft bodies must be edited explicitly.');
+        $compose = $draft === null && $composition === 'user_preferences' && $this->messageComposer !== null;
+        $quote = null;
+        $preferences = null;
         $forward_manifest=[];
         if(isset($arguments['forward_attachment_ids'])&&!isset($arguments['forward_message_id']))throw new \InvalidArgumentException('Forward MIME parts require a forward source.');
         if(isset($arguments['forward_message_id'])){
             if($draft!==null||isset($arguments['reply_to_message_id'])||isset($arguments['reply_mode'])||$this->forward===null)throw new \InvalidArgumentException('Forwarding is for new drafts and cannot be combined with a reply or draft update.');
-            $f=$this->forward->prepare($userId,$accountId,(int)$arguments['forward_message_id'],$arguments['forward_attachment_ids']??[],array_key_exists('body_plain',$arguments)||array_key_exists('body_html',$arguments));
-            $forward_manifest=$f['attachments'];$fields['forward_source']=$f['source'];if($f['body_plain']!==null){$fields['body_plain']=$f['body_plain'];$fields['body_html']='';$fields['is_html']=false;}
+            $f=$this->forward->prepare($userId,$accountId,(int)$arguments['forward_message_id'],$arguments['forward_attachment_ids']??[],!$compose && (array_key_exists('body_plain',$arguments)||array_key_exists('body_html',$arguments)));
+            $forward_manifest=$f['attachments'];$fields['forward_source']=$f['source'];if($f['body_plain']!==null){if($compose)$quote=['text'=>$f['body_plain']];else{$fields['body_plain']=$f['body_plain'];$fields['body_html']='';$fields['is_html']=false;}}
         }
         if (preg_match('/[\r\n\x00]/', $fields['subject'])) throw new \InvalidArgumentException('Invalid mail subject.');
         $alias = array_key_exists('alias_id', $arguments) ? $arguments['alias_id'] : self::native($draft, 'getAliasId');
@@ -211,9 +219,14 @@ final class MailDraftOperations {
         $fields['sender'] = $identity['sender'] ?? ['email' => (string)$account->getEmail(), 'alias_id' => $alias];
         $fields['in_reply_to'] = self::native($draft, 'getInReplyToMessageId');
         if (isset($arguments['reply_to_message_id'])) {
-            $reply = $this->composer->reply($userId, $accountId, (int)$arguments['reply_to_message_id'], ($arguments['reply_mode'] ?? 'reply') === 'reply_all', $identity['own']);
+            $reply = $this->composer->reply($userId, $accountId, (int)$arguments['reply_to_message_id'], ($arguments['reply_mode'] ?? 'reply') === 'reply_all', $identity['own'], $compose);
             $fields['in_reply_to'] = $reply['in_reply_to'];
+            $quote = $reply['quote'];
             foreach (['to', 'cc', 'bcc'] as $field) if (!array_key_exists($field, $arguments)) $fields[$field] = $reply[$field];
+        }
+        if ($compose) {
+            $preferences = $this->messageComposer->preferences($userId, $accountId, $alias);
+            $fields = $this->messageComposer->compose($fields, $arguments, $preferences, $quote);
         }
         foreach (['to', 'cc', 'bcc'] as $field) if (count($fields[$field]) > self::MAX_RECIPIENTS) throw new ToolFailure(MailMessages::draftTooManyRecipients(self::MAX_RECIPIENTS));
         $existing = $this->attachmentManifest($userId, $draft);
@@ -250,7 +263,8 @@ final class MailDraftOperations {
             if($draft!==null&&(self::native($draft,'getSendAt')!==null||self::native($draft,'getSmimeSign')||self::native($draft,'getSmimeEncrypt')||self::native($draft,'isPgpMime')))throw new ToolFailure('Use native Mail for scheduled or cryptographic drafts.');
             $fields['draft_only']=true;
         }
-        return compact('account', 'accountId', 'draft', 'fields', 'retained', 'add_manifest', 'reusable', 'forward_manifest');
+        \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields($fields);
+        return compact('account', 'accountId', 'draft', 'fields', 'retained', 'add_manifest', 'reusable', 'forward_manifest', 'preferences');
 	}
 
 	/** @return array{draft:object,account:object} */
@@ -274,7 +288,7 @@ final class MailDraftOperations {
 
 	private function writeState(array $prepared): array {
 		return ['accountId' => $prepared['accountId'], 'draftId' => $prepared['draft'] === null ? null : (int)$prepared['draft']->getId(),
-			'before' => $prepared['draft'] === null ? null : $this->snapshot($prepared['draft']), 'after' => $prepared['fields'], 'sources' => $prepared['add_manifest']];
+			'before' => $prepared['draft'] === null ? null : $this->snapshot($prepared['draft']), 'after' => $prepared['fields'], 'sources' => $prepared['add_manifest'], 'composition_preferences' => $prepared['preferences']];
 	}
 
 	private function deleteState(array $prepared): array {
@@ -299,9 +313,8 @@ final class MailDraftOperations {
 		if ($includeBody) {
 			$plain = (string)($draft->getBodyPlain() ?? '');
 			$html = (string)($draft->getBodyHtml() ?? '');
-			$row['body_plain'] = mb_substr($plain, 0, self::MAX_BODY_CHARS);
-			$row['body_html'] = mb_substr($html, 0, self::MAX_BODY_CHARS);
-			$row['bodyTruncated'] = mb_strlen($plain) > self::MAX_BODY_CHARS || mb_strlen($html) > self::MAX_BODY_CHARS;
+            try { $row += \OCA\Mcp\Modules\Mail\Presentation\MailBodyPreview::fields(['body_plain'=>$plain,'body_html'=>$html]); $row['bodyTruncated']=false; }
+            catch (ToolFailure) { $row['body_plain']=mb_substr($plain,0,self::MAX_BODY_CHARS);$row['body_html']=mb_substr($html,0,self::MAX_BODY_CHARS);$row['bodyTruncated']=true; }
 		}
 		return $row;
 	}

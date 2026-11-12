@@ -93,7 +93,7 @@ final class MailPlanRenderer {
             $lines[]='- '.Translator::t('Account id').': '.(int)($draft['accountId']??0);
             $lines[]='- '.Translator::t('Sender: %s',[PlanText::quoted((string)($draft['sender']['name']??'')).' '.PlanText::quoted((string)($draft['sender']['email']??''))]);
             foreach(['to','cc','bcc']as$key)foreach($draft[$key]??[]as$i=>$recipient)$draft[$key][$i]['label']=$recipient['name']??'';
-            $draft['body_plain']=$draft['bodyPlain']??'';$draft['body_html']=$draft['bodyHtml']??'';$draft['is_html']=($draft['bodyHtml']??'')!=='';
+            $draft['body_plain']=$draft['bodyPlain']??'';$draft['body_html']=$draft['bodyHtml']??'';$draft['is_html']=($draft['bodyHtml']??$draft['bodyHtmlPreview']??'')!=='';if(isset($draft['bodyHtmlPreview'])){unset($draft['body_html']);$draft['body_html_preview']=$draft['bodyHtmlPreview'];}
             $lines=array_merge($lines,self::draftFields($draft));
             foreach($draft['attachments']??[]as$attachment)$lines[]='- '.Translator::t('Attachment: %s',[PlanText::quoted((string)$attachment['name'])]).' — '.(int)($attachment['bytes']??0).' bytes; SHA256 '.PlanText::inline((string)($attachment['sha256']??''));
             $lines[]='- '.Translator::t('Sent folder').': '.(isset($draft['sentTarget']['mailboxId'])?(int)$draft['sentTarget']['mailboxId']:Translator::t('Separate repair required'));
@@ -217,6 +217,11 @@ final class MailPlanRenderer {
 		if (array_key_exists('body_html', $draft)) {
 			$lines[] = '- ' . Translator::t('HTML body: %s', [PlanText::quoted((string)$draft['body_html'])]);
 		}
+        if (isset($draft['body_html_preview'])) {
+            $lines[] = '- HTML preview (embedded image bytes omitted): ' . PlanText::quoted($draft['body_html_preview']);
+            $lines[] = '- Full HTML SHA-256: ' . PlanText::quoted($draft['body_html_sha256']) . ' (' . (int)$draft['body_html_bytes'] . ' bytes)';
+            foreach ($draft['inline_images'] as $image) $lines[] = '- Embedded image: ' . PlanText::quoted($image['mime']) . ', ' . (int)$image['bytes'] . ' bytes, SHA-256 ' . PlanText::quoted($image['sha256']);
+        }
 		if (($draft['bodyTruncated'] ?? false) === true) {
 			$lines[] = '- ' . Translator::t('Body preview truncated at %s characters.', [MailDraftOperations::MAX_BODY_CHARS]);
 		}

@@ -202,6 +202,8 @@ class MailServices {
     public function newAlias(string $uid):object {
         $class='OCA\\Mail\\Db\\Alias';if(!$this->isEnabledFor($uid)||!class_exists($class))throw new MailUnavailableException();return new $class();
     }
+    public function userPreferences(string $uid): object {return $this->resolve('OCA\\Mail\\Service\\UserPreferenceService', $uid);}
+
     public function aliasesService(string $userId): object {
         return $this->resolve('OCA\\Mail\\Service\\AliasesService', $userId);
     }

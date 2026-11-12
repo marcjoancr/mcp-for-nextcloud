@@ -13,8 +13,9 @@ class MailSettings {
     public function preview(array $args,string $uid): array {
         $changes=$args['changes'];
         if($changes===[] || array_diff(array_keys($changes),['editor_mode','signature_above_quote','show_subscribed_only'])!==[])throw new \InvalidArgumentException('Choose supported Mail preferences.');
-        if(isset($changes['editor_mode']) && !in_array($changes['editor_mode'],['plaintext','html'],true))throw new \InvalidArgumentException('Unsupported editor mode.');
+        if(isset($changes['editor_mode']) && !in_array($changes['editor_mode'],['plaintext','richtext','html'],true))throw new \InvalidArgumentException('Unsupported editor mode.');
         foreach(['signature_above_quote','show_subscribed_only'] as $key)if(array_key_exists($key,$changes)&&!is_bool($changes[$key]))throw new \InvalidArgumentException('Invalid Mail preference.');
+        if (($changes['editor_mode'] ?? null) === 'html') $changes['editor_mode'] = 'richtext';
         $before=$this->gateway->readSettings($uid,(int)$args['account_id']);
         $after=array_replace($before['settings'],$changes);
         $plan=['action'=>'update_account_settings','account_id'=>$before['account_id'],'before'=>$before,'after'=>['settings'=>$after]];
