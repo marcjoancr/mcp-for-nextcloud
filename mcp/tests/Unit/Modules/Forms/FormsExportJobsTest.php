@@ -35,6 +35,21 @@ final class FormsExportJobsTest extends TestCase {
         $preview=$this->engine->preview('alice','forms_download_results',['id'=>4,'format'=>'csv'],['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']]+($this->exportRevision===null?[]:['export_revision'=>$this->exportRevision]),$this->native(...));
         return $this->engine->start('alice','forms_download_results',['id'=>4,'format'=>'csv'],$preview,'job-key',['uid'=>'alice','connection'=>12],$this->native(...));
     }
+    public function testFailureAfterDeliveryClaimBeforeCallbackHasKnownNoFileEffect():void {
+        $this->source=array_slice($this->source,0,1);$id=$this->start()['references']['job_id'];
+        $this->engine->step('alice',$id,$this->native(...));$version=$this->jobs[$id]['version'];$checks=0;$writes=0;
+        $native=function(string $action,array $args)use(&$checks):array {
+            if($action==='snapshot'&&++$checks===2)$this->originAllowed=false;
+            return $this->native($action,$args);
+        };
+        try {
+            $this->engine->deliver('alice',$id,$native,function()use(&$writes):array{$writes++;return ['file_id'=>7];},'revoked-before-callback',$version);
+            self::fail('Revoked origin admitted.');
+        } catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure) {
+            self::assertSame(0,$writes);self::assertSame('paused',$this->jobs[$id]['state']);
+            self::assertSame('failed_before_effect',$this->jobs[$id]['payload']['last_step']['outcome']['state']);
+        }
+    }
     public function testResultRevisionSurvivesUnrelatedWritersButRejectsSameFormDataChange():void {
         $this->exportRevision='9';$id=$this->start()['references']['job_id'];
         self::assertSame('9',$this->jobs[$id]['payload']['source_revision']);

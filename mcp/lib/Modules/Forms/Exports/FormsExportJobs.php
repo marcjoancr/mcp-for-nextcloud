@@ -222,7 +222,7 @@ final class FormsExportJobs {
     }
     private function source(array $payload,callable $native):void {
         $current=$native('snapshot',['id'=>$payload['arguments']['id']]);
-        if(self::sourceRevision($current)!==$payload['source_revision']||($current['form']['ownerId']??null)!==$payload['metadata']['form']['ownerId'])throw new ToolFailure('Forms source changed. Preview a new complete result snapshot.');
+        if(self::sourceRevision($current)!==$payload['source_revision']||($current['form']['ownerId']??null)!==$payload['metadata']['form']['ownerId'])throw new FormsSourceChanged('Forms source changed. Preview a new complete result snapshot.');
     }
     private function aggregate(array $columns,array $summary,array $rows):array {
         foreach($columns as $index=>$col) {
@@ -274,6 +274,7 @@ final class FormsExportJobs {
         if(in_array($old['state'],['delivering','delivery_uncertain','delivered'],true))throw new ToolFailure('Delivery already began; cancellation cannot undo it.');
         $next=$this->claim($old,'cancelled',$operationKey,$approvedVersion);$next=$this->accepted($next,$next,'succeeded');
         if(!$this->store->compareAndSwap($old,$next))throw new ToolFailure('Forms job changed before cancellation.');
+        $this->spool->seal($id);
         return $this->present($next);
     }
     /** Repeated by the trusted Files boundary after the actual storage lock, before any destination effect. */
@@ -290,14 +291,15 @@ final class FormsExportJobs {
         $this->source($old['payload'],$native);$content=$this->content($uid,$id);
         $next=$this->claim($old,'delivering',$operationKey,$approvedVersion);
         if(!$this->store->compareAndSwap($old,$next))throw new ToolFailure('Another Forms worker owns delivery.');
+        $writeStarted=false;
         try {
             $this->source($next['payload'],$native);$this->admit($uid,$next);
-            $receipt=$write($content,$next);
+            $writeStarted=true;$receipt=$write($content,$next);
             $done=$next;$done['version']++;$done['state']='delivered';$done['payload']['delivered']=$receipt;$done=$this->accepted($next,$done,'succeeded');
             if(!$this->store->compareAndSwap($next,$done))throw new ToolFailure('Forms delivery acknowledgement was lost.');
             return $this->present($done)+['file'=>$receipt];
         } catch(\Throwable $e) {
-            $uncertain=$next;$uncertain['version']++;$uncertain['state']='delivery_uncertain';$uncertain=$this->accepted($next,$uncertain,'partial');$this->store->compareAndSwap($next,$uncertain);throw $e;
+            $uncertain=$next;$uncertain['version']++;$uncertain['state']=$writeStarted?'delivery_uncertain':'paused';$uncertain=$this->accepted($next,$uncertain,$writeStarted?'partial':'failed_before_effect');$this->store->compareAndSwap($next,$uncertain);throw $e;
         }
     }
 }

@@ -15,7 +15,7 @@ final class FormsSpoolNativeTest extends TestCase {
         $out=stream_get_contents($pipes[1]);$error=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
         self::assertSame(0,proc_close($process),$out."\n".$error);$result=json_decode($out,true,64,JSON_THROW_ON_ERROR);
         self::assertTrue($result['ok']);self::assertSame(205,$result['checks']['rows']);
-        foreach(['summary_blob','sql_metered','sql_cleanup','evidence_after_expiry','expired_content_refused'] as $check)self::assertTrue($result['checks'][$check]);
+        foreach(['summary_blob','sql_metered','sql_cleanup','evidence_after_expiry','expired_content_refused','cancelled_reservation_released'] as $check)self::assertTrue($result['checks'][$check]);
     }
     public function testNativeCryptoQuotaAndExpiredCacheCleanup():void {
         if(getenv('MCP_FORMS_SPOOL_BOUNDARY')!=='1')$this->markTestSkipped('Requires an explicitly selected disposable native Forms quota cell.');

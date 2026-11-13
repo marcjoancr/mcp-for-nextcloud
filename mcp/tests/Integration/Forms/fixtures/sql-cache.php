@@ -43,5 +43,14 @@ try {
     foreach(['metadata','summary','summary_artifact','parts','artifact','file_ids'] as $field)if(array_key_exists($field,$expired))throw new RuntimeException('Generated SQL cache content survived expiry.');
     $refused=false;try{$engine->result($uid,$id,0,100);}catch(RuntimeException){$refused=true;}
     if(!$refused)throw new RuntimeException('Expired native summary content was returned.');
-    echo json_encode(['ok'=>true,'checks'=>['rows'=>205,'summary_blob'=>true,'sql_metered'=>true,'sql_cleanup'=>true,'evidence_after_expiry'=>true,'expired_content_refused'=>true]],JSON_THROW_ON_ERROR)."\n";
+    $stage='cancelled reservation';
+    $cancelArgs=['id'=>4,'format'=>'csv'];
+    $cancelSnapshot=$engine->preview($uid,'forms_download_results',$cancelArgs,['revision'=>'1'],$native);
+    $cancelId=$engine->start($uid,'forms_download_results',$cancelArgs,$cancelSnapshot,bin2hex(random_bytes(32)),['uid'=>$uid],$native)['references']['job_id'];
+    $engine->step($uid,$cancelId,$native);
+    $engine->cancel($uid,$cancelId);
+    $cancelLease=$db->executeQuery('SELECT state,reserved_bytes,used_bytes FROM *PREFIX*mcp_forms_spool WHERE job_id = ?',[$cancelId])->fetch();
+    if($cancelLease['state']!=='sealed'||(int)$cancelLease['reserved_bytes']>=134217728||(int)$cancelLease['reserved_bytes']<(int)$cancelLease['used_bytes'])throw new RuntimeException('Cancelled read-only job retained its unused reservation.');
+    $db->executeStatement('UPDATE *PREFIX*mcp_forms_spool SET expires_at = ? WHERE job_id = ?',[time()-1,$cancelId]);$spool->cleanup();
+    echo json_encode(['ok'=>true,'checks'=>['rows'=>205,'summary_blob'=>true,'sql_metered'=>true,'sql_cleanup'=>true,'evidence_after_expiry'=>true,'expired_content_refused'=>true,'cancelled_reservation_released'=>true]],JSON_THROW_ON_ERROR)."\n";
 } catch(Throwable $error){echo json_encode(['ok'=>false,'stage'=>$stage,'error'=>$error::class,'message'=>$error->getMessage()],JSON_THROW_ON_ERROR)."\n";exit(1);}
