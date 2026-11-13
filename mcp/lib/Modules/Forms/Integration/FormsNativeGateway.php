@@ -119,7 +119,7 @@ final class FormsNativeGateway implements FormsGateway {
             if($action==='forms_cancel_operation')$data=$this->jobs->cancel($uid,$jobId,$operationKey,$snapshot['job_version']);
             elseif($job['state']==='ready'&&$job['payload']['tool']==='forms_download_results')$data=$this->jobs->issueDownload($uid,$jobId,$operationKey,$snapshot['job_version'],fn():array=>$this->downloads->issue($uid,$jobId));
             elseif($job['state']==='ready'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)) {
-                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content,$this->fileBoundary($uid,$guard,$claimed['payload']['origin'],array_map(static fn(int $id):array=>['file_id'=>$id],array_values($claimed['payload']['file_ids']??[]))))),$operationKey,$snapshot['job_version']);
+                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content,$this->fileBoundary($uid,$guard,$claimed['payload']['origin'],array_map(static fn(int $id):array=>['file_id'=>$id],array_values($claimed['payload']['file_ids']??[])),fn()=>$this->jobs->assertDelivery($uid,$claimed,$read)))),$operationKey,$snapshot['job_version']);
             } else $data=$this->jobs->step($uid,$jobId,$read,function(array $submission)use($uid,$guard,$job):array {
                 $refs=$guard->read($uid,'forms_list_response_files',['id'=>$job['payload']['arguments']['id'],'submission_id'=>$submission['id']]);
                 $visible=$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$refs['files']??[]));$out=[];
@@ -147,11 +147,12 @@ final class FormsNativeGateway implements FormsGateway {
         } finally {unset($this->snapshots[$key]);}
     }
     /** Trusted callback is never accepted from tool arguments. Native storage invokes admission after its actual lock. */
-    private function fileBoundary(string $uid,object $guard,array $origin,array $sources):\Closure {
+    private function fileBoundary(string $uid,object $guard,array $origin,array $sources,?\Closure $deliveryAdmission=null):\Closure {
         if(($guard->capabilities()['file_sinks']??false)!==true)throw new FormsBeforeEffect('This Forms runtime does not qualify Files write sinks.');
-        return function(\OCP\Files\Node $node,?string $child,\Closure $filePolicy,\Closure $write,?array $preimage=null)use($uid,$guard,$origin,$sources):mixed {
-            $authorize=fn()=>$this->policy->resourceBoundary($uid,function()use($uid,$origin,$sources,$node,$child,$filePolicy,$preimage):void {
+        return function(\OCP\Files\Node $node,?string $child,\Closure $filePolicy,\Closure $write,?array $preimage=null)use($uid,$guard,$origin,$sources,$deliveryAdmission):mixed {
+            $authorize=fn()=>$this->policy->resourceBoundary($uid,function()use($uid,$origin,$sources,$node,$child,$filePolicy,$preimage,$deliveryAdmission):void {
                 $this->authorization->assert($origin);
+                if($deliveryAdmission!==null)$deliveryAdmission();
                 $impact=['files'=>$sources];
                 if($child===null)$impact['files'][]=['file_id'=>(int)$node->getId()];
                 else $impact['share_impact']['parent']=['file_id'=>(int)$node->getId(),'create_folder'=>true];

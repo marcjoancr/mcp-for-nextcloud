@@ -270,6 +270,12 @@ final class FormsExportJobs {
         if(!$this->store->compareAndSwap($old,$next))throw new ToolFailure('Forms job changed before cancellation.');
         return $this->present($next);
     }
+    /** Repeated by the trusted Files boundary after the actual storage lock, before any destination effect. */
+    public function assertDelivery(string $uid,array $claimed,callable $native):void {
+        $current=$this->job($uid,$claimed['job_id']);
+        if($current!==$claimed||$current['state']!=='delivering')throw new ToolFailure('The Forms delivery claim changed before the destination write.');
+        $this->source($current['payload'],$native);
+    }
     /** A Files/download delivery can never be automatically replayed after its claim. */
     public function deliver(string $uid,string $id,callable $native,callable $write,?string $operationKey=null,?int $approvedVersion=null):array {
         $old=$this->job($uid,$id);$this->approved($old,$operationKey,$approvedVersion);

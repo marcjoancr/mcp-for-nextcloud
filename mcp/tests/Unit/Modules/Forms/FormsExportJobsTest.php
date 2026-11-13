@@ -35,6 +35,37 @@ final class FormsExportJobsTest extends TestCase {
         $preview=$this->engine->preview('alice','forms_download_results',['id'=>4,'format'=>'csv'],['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']],$this->native(...));
         return $this->engine->start('alice','forms_download_results',['id'=>4,'format'=>'csv'],$preview,'job-key',['uid'=>'alice','connection'=>12],$this->native(...));
     }
+    /** @dataProvider deliveryInvalidations */
+    public function testSinkRechecksClaimCacheAndSourceAfterWaiting(string $change):void {
+        $this->source=array_slice($this->source,0,1);$id=$this->start()['references']['job_id'];
+        $this->engine->step('alice',$id,$this->native(...));$writes=0;
+        try {
+            $this->engine->deliver('alice',$id,$this->native(...),function(string $content,array $claim)use($change,&$writes):array {
+                // Represents a destination waiting for its actual storage lock.
+                match($change) {
+                    'source'=>$this->revision++,
+                    'cache'=>$this->cacheLive=false,
+                    'claim'=>$this->jobs[$claim['job_id']]['version']++,
+                };
+                $this->engine->assertDelivery('alice',$claim,$this->native(...));
+                $writes++;return ['file_id'=>7];
+            });
+            self::fail('A changed admission must stop the locked destination write.');
+        } catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure) {self::assertSame(0,$writes);}
+    }
+    public static function deliveryInvalidations():iterable {
+        yield 'source changed while waiting'=>['source'];
+        yield 'cache expired while waiting'=>['cache'];
+        yield 'claim invalidated while waiting'=>['claim'];
+    }
+    public function testSinkAcceptsItsUnchangedDeliveryClaim():void {
+        $this->source=array_slice($this->source,0,1);$id=$this->start()['references']['job_id'];
+        $this->engine->step('alice',$id,$this->native(...));
+        $done=$this->engine->deliver('alice',$id,$this->native(...),function(string $content,array $claim):array {
+            $this->engine->assertDelivery('alice',$claim,$this->native(...));return ['file_id'=>7];
+        });
+        self::assertSame(7,$done['file']['file_id']);
+    }
     public function testQuotaRefusalIsKnownBeforeAnyJobOrFileEffect():void {
         $this->quotaDenied=true;
         try {$this->start();self::fail('Over-quota job admitted');}
