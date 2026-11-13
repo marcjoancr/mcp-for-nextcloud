@@ -43,6 +43,18 @@ final class OperationsMapperTest extends TestCase {
         self::assertTrue($store->reserve($row));$store->finish('forms','change','succeeded',$refs,100);$store->compact(1000);
         self::assertSame($refs,$store->get('forms','change')['resource_refs']);
     }
+    public function testMailCleanupCannotClaimExpireOrDiscardFormsPartialEvidence():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $row=['scope_key'=>'forms','operation_id'=>'partial-form','actor_uid'=>'alice','tool_name'=>'forms_submit_response','effect_digest'=>'digest','target_key'=>null,'state'=>'running','resource_refs'=>[],'created_at'=>100,'updated_at'=>100];
+        $refs=['actor_incarnation'=>'stable','native_key'=>'key','required_operations'=>['submit'],'form_id'=>4,'backup_id'=>'backup'];
+        $store->reserve($row);$store->finish('forms','partial-form','partial',$refs,100);
+        $mail=new \OCA\Mcp\Modules\Mail\Integration\MailServices($this->createMock(\OCP\App\IAppManager::class),static fn()=>throw new \LogicException('No Mail data may be resolved'),$this->createMock(\OCP\IUserManager::class));
+        $time=$this->createMock(ITimeFactory::class);$time->method('getTime')->willReturn(4000000);
+        (new \OCA\Mcp\Modules\Mail\Operations\MailOperationCleanup($store,$mail,$time))->run();
+        self::assertSame('partial',$store->get('forms','partial-form')['state']);self::assertSame($refs,$store->get('forms','partial-form')['resource_refs']);
+        self::assertFalse($store->claimPartial('forms','partial-form','cleaning'));
+        $store->cleaned('forms','partial-form');self::assertSame($refs,$store->get('forms','partial-form')['resource_refs']);
+    }
     public function testOnlyOneRepairOrCleanupCanClaimAPartialOperation(): void {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);
         $store=new OperationsMapper($db->connection());

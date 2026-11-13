@@ -13,7 +13,7 @@ final class FormsExportJobs {
     public const ACTIONS=['forms_summarize_results','forms_download_results','forms_export_results','forms_link_results_file'];
     /** @param \Closure(array):array $authorize @param \Closure():int $time */
     public function __construct(private FormsJobStore $store,private FormsSpool $spool,private FormsExportRenderer $renderer,
-        private \Closure $authorize,private \Closure $time) {}
+        private \Closure $authorize,private \Closure $time,private ?\Closure $files=null) {}
     public function preview(string $uid,string $tool,array $args,array $snapshot,callable $native):array {
         $metadata=$native('forms_results_metadata',['id'=>$args['id']]);
         $after=$native('snapshot',['id'=>$args['id']]);
@@ -34,7 +34,7 @@ final class FormsExportJobs {
         if($after['revision']!==$snapshot['revision'])throw new ToolFailure('Forms export source changed before admission.');
         $job=['job_id'=>$id,'actor_uid'=>$uid,'version'=>1,'state'=>'collecting','updated_at'=>($this->time)(),
             'payload'=>['origin'=>$origin,'tool'=>$tool,'arguments'=>$args,'source_revision'=>$snapshot['revision'],
-                'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'summary'=>[]]];
+                'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'summary'=>[],'file_ids'=>[]]];
         if(!$this->store->create($job))throw new ToolFailure('Forms job admission conflicted; inspect its receipt.');
         return $this->receipt($id);
     }
@@ -46,6 +46,11 @@ final class FormsExportJobs {
         if($job['actor_uid']!==$uid)throw new ToolFailure(ToolFailure::NOT_FOUND);
         $context=($this->authorize)($job['payload']['origin']);
         if(($context['uid']??null)!==$uid)throw new ToolFailure(ToolFailure::FORBIDDEN);
+        if(($job['payload']['arguments']['include_files']??false)&&!array_key_exists('file_ids',$job['payload']))throw new ToolFailure('This retained file-reference export requires a new authorized snapshot.');
+        if(($job['payload']['file_ids']??[])!==[]) {
+            if($this->files===null)throw new ToolFailure('Current Files result authority is unavailable.');
+            ($this->files)($uid,array_values($job['payload']['file_ids']));
+        }
     }
     public function status(string $uid,string $id):array {return $this->present($this->job($uid,$id));}
     private function present(array $job):array {
@@ -54,12 +59,12 @@ final class FormsExportJobs {
             'source_revision'=>$p['source_revision'],'complete'=>in_array($job['state'],['ready','delivered'],true),
             'bytes'=>$p['bytes'],'format'=>$p['arguments']['format']??'summary','continuation'=>in_array($job['state'],['collecting','working'],true)];
     }
-    public function step(string $uid,string $id,callable $native,?callable $visibleFiles=null):array {
-        $old=$this->job($uid,$id);
+    public function step(string $uid,string $id,callable $native,?callable $visibleFiles=null,?string $operationKey=null,?int $approvedVersion=null):array {
+        $old=$this->job($uid,$id);$this->approved($old,$operationKey,$approvedVersion);
         if($old['state']==='ready'||$old['state']==='delivered')return $this->present($old);
         if($old['state']==='working'&&($this->time)()-$old['updated_at']<=60)throw new ToolFailure('Another Forms worker owns the current step.');
         if(!in_array($old['state'],['collecting','working'],true))throw new ToolFailure('This Forms job cannot continue.');
-        $working=$old;$working['version']++;$working['state']='working';$working['updated_at']=($this->time)();
+        $working=$this->claim($old,'working',$operationKey,$approvedVersion);
         if(!$this->store->compareAndSwap($old,$working))throw new ToolFailure('Forms job changed before this step.');
         $start=microtime(true);$p=$working['payload'];$args=$p['arguments'];$metadata=$p['metadata'];
         try {
@@ -75,10 +80,11 @@ final class FormsExportJobs {
             foreach($page['submissions'] as $submission) {
                 if((int)$submission['id']<=$p['after_id'])throw new ToolFailure('Native Forms continuation repeated a submission.');
                 $visible=($args['include_files']??false)&&$visibleFiles!==null?$visibleFiles($submission):[];
+                foreach(array_keys($visible) as $fileId)$p['file_ids'][(string)$fileId]=(int)$fileId;
                 $rows[]=$p['tool']==='forms_summarize_results'?$projection->summaryCells($submission):$projection->row($submission,$visible);
                 if(microtime(true)-$start>20)throw new ToolFailure('Forms step exceeded its time budget; no page was accepted.');
             }
-            $this->source($p,$native);$this->admit($uid,$working);
+            $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));
             if($p['tool']==='forms_summarize_results')$p['summary']=$this->aggregate($projection->columns(),$p['summary'],$rows);
             else {
                 $format=$args['format']??'csv';
@@ -90,11 +96,62 @@ final class FormsExportJobs {
             $p['done']+=count($rows);$p['after_id']=(int)$page['nextId'];
             if(!$page['hasMore']&&$p['done']!==$metadata['submissionCount'])throw new ToolFailure('Forms result coverage does not match the approved snapshot.');
             $next=$working;$next['version']++;$next['state']=$page['hasMore']?'collecting':'ready';$next['payload']=$p;$next['updated_at']=($this->time)();
+            $next=$this->accepted($working,$next,$page['hasMore']?'pending':'succeeded');
             if(!$this->store->compareAndSwap($working,$next))throw new ToolFailure('Forms worker lost the page claim.');
             return $this->present($next);
         } catch(\Throwable $error) {
-            $failed=$working;$failed['version']++;$failed['state']='paused';$failed['updated_at']=($this->time)();
+            $failed=$working;$failed['version']++;$failed['state']='paused';$failed['updated_at']=($this->time)();$failed=$this->accepted($working,$failed,'failed_before_effect');
             $this->store->compareAndSwap($working,$failed);throw $error;
+        }
+    }
+    /** Recover durable evidence only. Invalidating a stale read claim prevents a delayed worker from accepting its page. */
+    public function recover(string $uid,string $id,string $key,int $version):?array {
+        $old=$this->job($uid,$id);$p=$old['payload'];
+        $matches=static fn(array $step):bool=>($step['key']??null)===$key&&($step['approved_version']??null)===$version;
+        if($matches($p['last_step']??[]))return $p['last_step']['outcome'];
+        if($matches($p['current_step']??[])) {
+            if(($this->time)()-$old['updated_at']<=60)return null;
+            $next=$old;$next['version']++;$next['updated_at']=($this->time)();
+            $outcome=match($old['state']){'working'=>'failed_before_effect','delivering','issuing'=>'partial',default=>null};
+            if($outcome===null)return null;
+            $next['state']=match($old['state']){'working'=>'paused','issuing'=>'ready',default=>'delivery_uncertain'};
+            $next=$this->accepted($old,$next,$outcome);
+            return $this->store->compareAndSwap($old,$next)?$next['payload']['last_step']['outcome']:null;
+        }
+        if($old['version']!==$version)return null;
+        $next=$this->claim($old,$old['state'],$key,$version);
+        $next=$this->accepted($next,$next,'failed_before_effect');
+        return $this->store->compareAndSwap($old,$next)?$next['payload']['last_step']['outcome']:null;
+    }
+    private function approved(array $old,?string $key,?int $version):void {
+        if($key!==null&&$old['version']!==$version)throw new \OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect('The approved Forms job version was invalidated. Preview the current step.');
+    }
+    private function claim(array $old,string $state,?string $key,?int $version):array {
+        $next=$old;$next['version']++;$next['state']=$state;$next['updated_at']=($this->time)();
+        if($key!==null)$next['payload']['current_step']=['key'=>$key,'approved_version'=>$version];
+        return $next;
+    }
+    private function accepted(array $working,array $next,string $state):array {
+        if(isset($working['payload']['current_step'])) {
+            $next['payload']['last_step']=$working['payload']['current_step']+['outcome'=>['state'=>$state,'references'=>['job_id'=>$next['job_id']]]];
+            unset($next['payload']['current_step']);
+        }
+        return $next;
+    }
+    /** A lost URL is never recovered from retained data. A new explicitly confirmed step may issue another short-lived capability. */
+    public function issueDownload(string $uid,string $id,string $key,int $version,callable $issue):array {
+        $old=$this->job($uid,$id);$this->approved($old,$key,$version);
+        if($old['state']!=='ready')throw new ToolFailure('The complete Forms download is unavailable.');
+        $claimed=$this->claim($old,'issuing',$key,$version);
+        if(!$this->store->compareAndSwap($old,$claimed))throw new ToolFailure('Another Forms step owns download admission.');
+        try {
+            $data=$issue();
+            $done=$claimed;$done['version']++;$done['state']='ready';$done=$this->accepted($claimed,$done,'succeeded');
+            if(!$this->store->compareAndSwap($claimed,$done))throw new ToolFailure('The Forms download acknowledgement was lost.');
+            return $this->present($done)+$data;
+        } catch(\Throwable $e) {
+            $unknown=$claimed;$unknown['version']++;$unknown['state']='ready';$unknown=$this->accepted($claimed,$unknown,'partial');
+            $this->store->compareAndSwap($claimed,$unknown);throw $e;
         }
     }
     private function source(array $payload,callable $native):void {
@@ -138,29 +195,29 @@ final class FormsExportJobs {
         $limit=min(100,max(1,$limit));$page=array_slice($items,max(0,$offset),$limit);$more=$offset+count($page)<count($items);
         return $this->present($job)+['results'=>$page,'hasMore'=>$more,'nextOffset'=>$more?$offset+count($page):null];
     }
-    public function cancel(string $uid,string $id):array {
-        $old=$this->job($uid,$id);
+    public function cancel(string $uid,string $id,?string $operationKey=null,?int $approvedVersion=null):array {
+        $old=$this->job($uid,$id);$this->approved($old,$operationKey,$approvedVersion);
         if(in_array($old['state'],['delivering','delivery_uncertain','delivered'],true))throw new ToolFailure('Delivery already began; cancellation cannot undo it.');
-        $next=$old;$next['version']++;$next['state']='cancelled';$next['updated_at']=($this->time)();
+        $next=$this->claim($old,'cancelled',$operationKey,$approvedVersion);$next=$this->accepted($next,$next,'succeeded');
         if(!$this->store->compareAndSwap($old,$next))throw new ToolFailure('Forms job changed before cancellation.');
         return $this->present($next);
     }
     /** A Files/download delivery can never be automatically replayed after its claim. */
-    public function deliver(string $uid,string $id,callable $native,callable $write):array {
-        $old=$this->job($uid,$id);
+    public function deliver(string $uid,string $id,callable $native,callable $write,?string $operationKey=null,?int $approvedVersion=null):array {
+        $old=$this->job($uid,$id);$this->approved($old,$operationKey,$approvedVersion);
         if($old['state']==='delivered')return $this->present($old)+['file'=>$old['payload']['delivered']??[]];
         if($old['state']!=='ready')throw new ToolFailure('Forms delivery is not available; inspect the current job.');
         $this->source($old['payload'],$native);$content=$this->content($uid,$id);
-        $next=$old;$next['version']++;$next['state']='delivering';$next['updated_at']=($this->time)();
+        $next=$this->claim($old,'delivering',$operationKey,$approvedVersion);
         if(!$this->store->compareAndSwap($old,$next))throw new ToolFailure('Another Forms worker owns delivery.');
         try {
             $this->source($next['payload'],$native);$this->admit($uid,$next);
             $receipt=$write($content,$next);
-            $done=$next;$done['version']++;$done['state']='delivered';$done['payload']['delivered']=$receipt;
+            $done=$next;$done['version']++;$done['state']='delivered';$done['payload']['delivered']=$receipt;$done=$this->accepted($next,$done,'succeeded');
             if(!$this->store->compareAndSwap($next,$done))throw new ToolFailure('Forms delivery acknowledgement was lost.');
             return $this->present($done)+['file'=>$receipt];
         } catch(\Throwable $e) {
-            $uncertain=$next;$uncertain['version']++;$uncertain['state']='delivery_uncertain';$this->store->compareAndSwap($next,$uncertain);throw $e;
+            $uncertain=$next;$uncertain['version']++;$uncertain['state']='delivery_uncertain';$uncertain=$this->accepted($next,$uncertain,'partial');$this->store->compareAndSwap($next,$uncertain);throw $e;
         }
     }
 }

@@ -9,6 +9,12 @@ namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 use OCA\Mcp\Modules\Forms\Access\FormsAuthorization;
 use PHPUnit\Framework\TestCase;
 final class FormsAuthorizationTest extends TestCase {
+    public function testFileReferenceVariantsRequireIndependentFilesReadAndRetainOriginalAuthority():void {
+        self::assertSame([],FormsAuthorization::fileOperations('forms_download_results',[],[]));
+        self::assertSame(['read'],FormsAuthorization::fileOperations('forms_download_results',['include_files'=>true],[]));
+        self::assertSame(['create','read','edit'],FormsAuthorization::fileOperations('forms_export_results',['include_files'=>true,'overwrite'=>true],[]));
+        self::assertSame(['read'],FormsAuthorization::fileOperations('forms_download_results',[],['historical'=>['files_operations'=>['read']]]));
+    }
     public function testPublicLinkAuthorityCannotComeFromOrdinaryShare():void {
         self::assertSame(['public_link'],FormsAuthorization::operations('forms_share',['kind'=>'link'],[]));
         self::assertSame(['share'],FormsAuthorization::operations('forms_share',['kind'=>'group'],[]));

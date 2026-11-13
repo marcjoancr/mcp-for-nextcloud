@@ -655,7 +655,9 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsSpool::class),
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportRenderer::class),
             static fn(array $origin):array => $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin),
-            static fn():int => $c->get(\OCP\AppFramework\Utility\ITimeFactory::class)->getTime()
+            static fn():int => $c->get(\OCP\AppFramework\Utility\ITimeFactory::class)->getTime(),
+            static fn(string $uid,array $ids) => $c->get(GrantPolicy::class)->resourceBoundary($uid,
+                static fn() => $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact::class)->assertVisible($uid,['files'=>array_map(static fn(int $id):array=>['file_id'=>$id],$ids)]))
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsDeferredNative::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsDeferredNative(
             static fn() => $c->get('OCA\\Forms\\Mcp\\Guard'),

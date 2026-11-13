@@ -18,9 +18,7 @@ final class FormsNativeAuthorization {
         if(isset($args['submission_id']))$references['submission_id']=$args['submission_id'];
         if(isset($args['share_id']))$references['share_id']=$args['share_id'];
         if(isset($snapshot['form']['ownerId']))$references['owner_id']=$snapshot['form']['ownerId'];
-        $files=\OCA\Mcp\Modules\Forms\Execution\FormsCommands::definitions()[$tool]['grantAllOf']['files']??[];
-        if($args['overwrite']??false)$files[]='edit';
-        if($snapshot['file_manifest']['files_share']??false)$files[]='share';
+        $files=FormsAuthorization::fileOperations($tool,$args,$snapshot);
         if($files!==[])$references['files_operations']=array_values(array_unique($files));
         return $this->proof->create($uid,$this->connection->current(),$tool,FormsAuthorization::operations($tool,$args,$snapshot),$references);
     }
@@ -34,6 +32,7 @@ final class FormsNativeAuthorization {
     }
     public function assertFiles(array $origin,string $action,array $manifest):void {
         $context=$this->assert($origin);
+        if(($manifest['source_files']??[])!==[])$this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],['files'=>$manifest['source_files']]));
         if(in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response'],true))return;
         if(($manifest['files']??[])===[]&&!isset($manifest['share_impact']['parent']))return;
         $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],$manifest));

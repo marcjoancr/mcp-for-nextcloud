@@ -1,4 +1,8 @@
 <?php
+/*
+ * SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
 declare(strict_types=1);
 if(getenv('MCP_FORMS_HTTP_BOUNDARY')!=='1'){fwrite(STDERR,"Disposable Forms HTTP boundary must be explicitly enabled.\n");exit(2);}
 define('OC_CONSOLE',true);chdir('/var/www/html');require 'lib/base.php';
@@ -38,12 +42,16 @@ try {
     $checks['form_id']=$id;
     $stage='settings';$settings=$call('forms_read_settings',['id'=>$id]);if($settings['title']!=='HTTP valid ñ')throw new RuntimeException('Created title did not persist');
     $stage='question';$q=$write('forms_create_question',['id'=>$id,'type'=>'short','text'=>'HTTP question']);$qid=$q['operation']['references']['question_id'];
-    $stage='all question creates';$types=[];$fileQuestion=null;
+    $stage='all question creates';$types=[];$fileQuestion=null;$choiceQuestion=null;
     foreach(['color','date','dropdown','file','grid','linearscale','long','multiple','multiple_unique','ranking','time'] as $type){
         $r=$write('forms_create_question',['id'=>$id,'type'=>$type,'text'=>'HTTP '.$type]+($type==='grid'?['subtype'=>'number']:[]));
-        $types[]=$type;if($type==='file')$fileQuestion=$r['operation']['references']['question_id'];
+        $types[]=$type;if($type==='file')$fileQuestion=$r['operation']['references']['question_id'];if($type==='dropdown')$choiceQuestion=$r['operation']['references']['question_id'];
     }
     $checks['supported_creates']=count($types)+1;
+    $stage='invalid typed answer preflight';
+    $invalid=$rpc('tools/call',['name'=>'forms_submit_response','arguments'=>['id'=>$id,'answers'=>[['question_id'=>$choiceQuestion,'values'=>['invalid representation']]]]]);
+    if(!($invalid['isError']??false)||isset($invalid['structuredContent']['operation_id']))throw new RuntimeException('Invalid typed answer obtained an approval reservation');
+    $checks['invalid_answer_has_no_reservation']=true;
     if(!in_array('datetime',$caps['questionTypes'])||in_array('datetime',$caps['creatableQuestionTypes']))throw new RuntimeException('Legacy datetime classification mismatch');
     $write('forms_update',['id'=>$id,'fields'=>['submitMultiple'=>true]]);
     $stage='submit';$submission=$write('forms_submit_response',['id'=>$id,'answers'=>[['question_id'=>$qid,'values'=>['HTTP synthetic answer']]]]);$sid=$submission['operation']['references']['submission_id'];
@@ -73,4 +81,3 @@ try {
     if($revokedStatus!==404)throw new RuntimeException('Revoked authority downloaded results');$checks['download_revocation_enforced']=true;
     echo json_encode(['ok'=>true,'checks'=>$checks],JSON_THROW_ON_ERROR)."\n";
 } catch(Throwable $e) {echo json_encode(['ok'=>false,'stage'=>$stage,'checks'=>$checks,'error'=>$e::class,'message'=>$e->getMessage()],JSON_THROW_ON_ERROR)."\n";exit(1);}
-

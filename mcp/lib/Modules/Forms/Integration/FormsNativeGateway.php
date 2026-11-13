@@ -55,6 +55,10 @@ final class FormsNativeGateway implements FormsGateway {
             $nativeInput=$input;$nativeInput['_mcp_origin']=$previewOrigin;
             $nativeAction=in_array($action,FormsExportJobs::ACTIONS,true)?'forms_results_metadata':$action;
             $snapshot=$guard->snapshot($uid,$nativeAction,$nativeInput);
+            if(isset($input['answers'])) {
+                try {$snapshot['native_answers']=FormsAnswers::native($input['answers'],$snapshot['form']['questions']??[],static fn(int $q,string $handle):array=>['mcpHandle'=>$handle]);}
+                catch(\InvalidArgumentException) {throw new FormsBeforeEffect('The typed answers do not match the current native question types. Review the form before submitting.');}
+            }
             if(in_array($action,FormsExportJobs::ACTIONS,true)) {
                 if(in_array($action,['forms_export_results','forms_link_results_file'],true))$snapshot['file_destination']=$this->policy->resourceBoundary($uid,fn()=>$this->destination->snapshot($uid,$input));
                 if($action==='forms_link_results_file'&&(($snapshot['form']['ownerId']??null)!==$uid||$this->journal->connection()===0||!empty($snapshot['form']['fileId'])))throw new ToolFailure('A new owned association and a persistent original connection are required.');
@@ -111,21 +115,21 @@ final class FormsNativeGateway implements FormsGateway {
             $jobId=$snapshot['job_id'];$job=$this->jobs->job($uid,$jobId);
             $read=$this->source($uid,$guard,$job['payload']['origin']);
             if($job['version']!==$snapshot['job_version'])throw new FormsBeforeEffect('The approved Forms job step changed.');
-            if($action==='forms_cancel_operation')$data=$this->jobs->cancel($uid,$jobId);
-            elseif($job['state']==='ready'&&$job['payload']['tool']==='forms_download_results')$data=$this->jobs->status($uid,$jobId)+$this->downloads->issue($uid,$jobId);
+            if($action==='forms_cancel_operation')$data=$this->jobs->cancel($uid,$jobId,$operationKey,$snapshot['job_version']);
+            elseif($job['state']==='ready'&&$job['payload']['tool']==='forms_download_results')$data=$this->jobs->issueDownload($uid,$jobId,$operationKey,$snapshot['job_version'],fn():array=>$this->downloads->issue($uid,$jobId));
             elseif($job['state']==='ready'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)) {
-                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content)));
+                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content)),$operationKey,$snapshot['job_version']);
             } else $data=$this->jobs->step($uid,$jobId,$read,function(array $submission)use($uid,$guard,$job):array {
                 $refs=$guard->read($uid,'forms_list_response_files',['id'=>$job['payload']['arguments']['id'],'submission_id'=>$submission['id']]);
                 $visible=$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$refs['files']??[]));$out=[];
                 foreach($visible as $file)$out[$file['file_id']]=['name'=>$file['name'],'url'=>$this->urls->linkToRouteAbsolute('files.View.showFile',['fileid'=>$file['file_id']])];
                 return $out;
-            });
+            },$operationKey,$snapshot['job_version']);
             return ['state'=>$data['complete']?'succeeded':'pending','data'=>$data,'references'=>['job_id'=>$jobId]];
         }
         if($action==='forms_generate_link_token')return ['state'=>'succeeded','data'=>$guard->read($uid,$action,$input),'references'=>[]];
         if(isset($input['answers'])) {
-            $input['answers']=FormsAnswers::native($input['answers'],$snapshot['form']['questions']??[],static fn(int $q,string $handle):array=>['mcpHandle'=>$handle]);
+            $input['answers']=$snapshot['native_answers']??throw new FormsBeforeEffect('A validated typed-answer preview is required.');
         }
         $input['_mcp_origin']=$origin;$transfer=null;
         if($action==='forms_upload_response_files') {
@@ -153,6 +157,11 @@ final class FormsNativeGateway implements FormsGateway {
         return static fn(string $action,array $args):array=>$action==='snapshot'?$guard->snapshot($uid,'forms_results_metadata',$args+['_mcp_origin'=>$origin]):$guard->read($uid,$action,$args+['_mcp_origin'=>$origin]);
     }
     public function lookup(string $uid,string $operationKey,?array $context=null):?array {
+        if($context!==null&&in_array($context['tool'],['forms_continue_operation','forms_cancel_operation'],true)) {
+            $refs=$context['references'];
+            if(!isset($refs['job_id'],$refs['job_version'])||!is_int($refs['job_version']))return null;
+            return $this->jobs->recover($uid,$refs['job_id'],$operationKey,$refs['job_version']);
+        }
         $id=hash('sha256','forms-job-v1:'.$operationKey);
         try{$this->jobs->job($uid,$id);return ['state'=>'pending','references'=>['job_id'=>$id]];}catch(\Throwable){}
         $origin=$context===null?null:$this->authorization->captureHistory($uid,$context['tool'],$context['references']);

@@ -50,6 +50,16 @@ final class FormsOperationJournal {
         $refs=['actor_incarnation'=>$actor,'connection_id'=>$this->connection->current(),'native_key'=>$nativeKey];
         if(isset($arguments['id']))$refs['form_id']=$arguments['id'];
         $target=isset($arguments['id'])?'form:'.$arguments['id']:'create:'.$uid;
+        if($tool==='forms_generate_link_token')$target='candidate-token:'.$uid.':'.$id;
+        if(in_array($tool,['forms_continue_operation','forms_cancel_operation'],true)) {
+            $original=$this->store->get($scope,$arguments['target_operation_id']??'');
+            if($original===null)throw new ToolFailure(ToolFailure::NOT_FOUND);
+            $this->assertActor($uid,$original);$authorizeReplay?->__invoke($original['tool_name'],$original['resource_refs']);
+            $job=$original['resource_refs']['job_id']??throw new ToolFailure('The original operation has no Forms job.');
+            $refs['job_id']=$job;
+            if(isset($original['resource_refs']['form_id']))$refs['form_id']=$original['resource_refs']['form_id'];
+            $target='job:'.$job;
+        }
         $row=['scope_key'=>$scope,'actor_uid'=>$uid,'operation_id'=>$id,'tool_name'=>$tool,'effect_digest'=>$digest,
             'target_key'=>hash('sha256','forms-target-v1:'.$target),'state'=>'running','resource_refs'=>$refs,
             'created_at'=>$this->clock->getTime(),'updated_at'=>$this->clock->getTime()];
@@ -57,7 +67,7 @@ final class FormsOperationJournal {
         try {
             $this->actors->assertCurrent($uid,$actor);
             $checkpoint=function(array $authority)use($scope,$id,&$refs):void {
-                $authority=array_intersect_key($authority,array_flip(['required_operations','files_operations','requires_admin']));
+                $authority=array_intersect_key($authority,array_flip(['required_operations','files_operations','requires_admin','job_version']));
                 $refs=array_replace($refs,$authority);$this->store->checkpoint($scope,$id,$refs);
             };
             $native=$effect($nativeKey,$checkpoint);

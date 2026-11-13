@@ -44,8 +44,8 @@ final class FormsWriteCoordinator {
             if(!PlanState::matches($this->state($tool,$uid,$args,$snapshot),$args))throw new PlanChanged($this->preview($tool,$uid,$args));
             if($plan['requiresSharedConfirmation']&&!($args['confirm_shared']??false))throw new FormsBeforeEffect('Confirm the shared-resource effects before writing.');
             $checkpoint(['required_operations'=>\OCA\Mcp\Modules\Forms\Access\FormsAuthorization::operations($tool,$args,$snapshot),
-                'files_operations'=>FormsCommands::definitions()[$tool]['grantAllOf']['files']??[],
-                'requires_admin'=>FormsCommands::definitions()[$tool]['requiresAdmin']??false]);
+                'files_operations'=>\OCA\Mcp\Modules\Forms\Access\FormsAuthorization::fileOperations($tool,$args,$snapshot),
+                'requires_admin'=>FormsCommands::definitions()[$tool]['requiresAdmin']??false,'job_version'=>$snapshot['job_version']??null]);
             } catch(PlanChanged|FormsBeforeEffect $failure) {throw $failure;}
             catch(\Throwable) {throw new FormsBeforeEffect('Forms preflight could not be completed. No native change was started; review a new preview.');}
             return $this->native->apply($uid,$tool,$this->effect($args),(string)$snapshot['revision'],$nativeKey);

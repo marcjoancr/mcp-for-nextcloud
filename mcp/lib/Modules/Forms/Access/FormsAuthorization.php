@@ -11,6 +11,14 @@ use OCA\Mcp\Modules\Forms\Execution\FormsCommands;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 /** Argument-dependent authority is explicit and cannot be inferred from discovery's any-of check. */
 final class FormsAuthorization {
+    public static function fileOperations(string $tool,array $args,array $snapshot):array {
+        if(isset($snapshot['historical']['files_operations']))return $snapshot['historical']['files_operations'];
+        $ops=FormsCommands::definitions()[$tool]['grantAllOf']['files']??[];
+        if($args['include_files']??false)$ops[]='read';
+        if($args['overwrite']??false)$ops[]='edit';
+        if($snapshot['file_manifest']['files_share']??false)$ops[]='share';
+        return array_values(array_unique($ops));
+    }
     public static function operations(string $tool,array $args,array $snapshot):array {
         if(isset($snapshot['historical']['required_operations']))return $snapshot['historical']['required_operations'];
         $op=FormsCommands::commands()[$tool]['operation']??throw new ToolFailure('Unknown Forms operation.');

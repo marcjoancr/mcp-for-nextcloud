@@ -123,7 +123,7 @@ final class OperationsMapper implements OperationStore, \OCA\Mcp\Modules\Forms\E
 
     public function settleRepair(string $scope, string $id, array $adopted = []): void {
         $row=$this->get($scope,$id);
-        if ($row===null || $row['state']!=='repairing') return;
+        if ($row===null || str_starts_with($row['tool_name']??'','forms_') || $row['state']!=='repairing') return;
         // The new receipt is already durable. Only unused snapshots remain owned by this old receipt.
         $ids=array_column($adopted,'attachment_id');
         $refs=$row['resource_refs'];
@@ -141,7 +141,8 @@ final class OperationsMapper implements OperationStore, \OCA\Mcp\Modules\Forms\E
         return $q->update(self::TABLE)->set('state',$q->createNamedParameter($to))
             ->where($q->expr()->eq('scope_key',$q->createNamedParameter($scope)))
             ->andWhere($q->expr()->eq('operation_id',$q->createNamedParameter($id)))
-            ->andWhere($q->expr()->eq('state',$q->createNamedParameter($from)))->executeStatement()===1;
+            ->andWhere($q->expr()->eq('state',$q->createNamedParameter($from)))
+            ->andWhere($q->expr()->notLike('tool_name',$q->createNamedParameter('forms_%')))->executeStatement()===1;
     }
 
     public function cleanupCandidates(int $before, int $limit): array {
@@ -149,12 +150,13 @@ final class OperationsMapper implements OperationStore, \OCA\Mcp\Modules\Forms\E
         $r=$q->select('*')->from(self::TABLE)
             ->where($q->expr()->lt('updated_at',$q->createNamedParameter($before,IQueryBuilder::PARAM_INT)))
             ->andWhere($q->expr()->in('state',$q->createNamedParameter(['partial','repaired','cleaning'],IQueryBuilder::PARAM_STR_ARRAY)))
+            ->andWhere($q->expr()->notLike('tool_name',$q->createNamedParameter('forms_%')))
             ->orderBy('updated_at','ASC')->setMaxResults($limit)->executeQuery();
         try{return array_map($this->decode(...),$r->fetchAll());}finally{$r->closeCursor();}
     }
 
     public function cleaned(string $scope,string $id): void {
-        $row=$this->get($scope,$id);if($row===null)return;
+        $row=$this->get($scope,$id);if($row===null||str_starts_with($row['tool_name']??'','forms_'))return;
         $retained=array_intersect_key($row['resource_refs'],array_flip(['actor_incarnation','authorization']));
         $q=$this->db->getQueryBuilder();
         $q->update(self::TABLE)->set('state',$q->createNamedParameter('expired'))

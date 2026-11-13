@@ -115,8 +115,24 @@ final class FormsOperationJournalTest extends TestCase {
         $page=$this->journal->list('alice',null,1,static function():void{throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('revoked');});
         self::assertTrue($page['hasMore']);self::assertNotNull($page['nextCursor']);self::assertSame([],$page['operations']);
     }
-    private function approved(array $args):array {
-        $plan=$this->journal->plan('forms_submit_response','alice',$args,['plan_state'=>'proof']);
+    public function testLostContinuationProtectsItsJobAndDoesNotBlockNewForms():void {
+        $start=$this->approved(['id'=>4],'forms_download_results');
+        $this->journal->execute('forms_download_results','alice',$start,static fn():array=>['state'=>'pending','references'=>['job_id'=>'job-a','form_id'=>4]]);
+        $args=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
+        $this->journal->execute('forms_continue_operation','alice',$args,static function(string $key,\Closure $checkpoint):array {
+            $checkpoint(['job_version'=>3,'required_operations'=>['download_results']]);throw new \RuntimeException('Lost step receipt');
+        });
+        $create=$this->approved([],'forms_create');
+        $created=$this->journal->execute('forms_create','alice',$create,static fn():array=>['state'=>'succeeded','references'=>['form_id'=>7]]);
+        self::assertSame('succeeded',$created['operation']['state']);
+        $recovered=$this->journal->get('alice',$args['operation_id'],static function():void{},static function(string $key,string $tool,array $refs):array {
+            self::assertSame('job-a',$refs['job_id']);self::assertSame(3,$refs['job_version']);
+            return ['state'=>'pending','references'=>['job_id'=>'job-a']];
+        });
+        self::assertSame('pending',$recovered['state']);
+    }
+    private function approved(array $args,string $tool='forms_submit_response'):array {
+        $plan=$this->journal->plan($tool,'alice',$args,['plan_state'=>'proof']);
         return $args+['operation_id'=>$plan['operation_id'],'plan_state'=>'proof','confirm'=>true];
     }
 }

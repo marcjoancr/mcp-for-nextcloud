@@ -38,8 +38,7 @@ final class FormsFreshAccess {
                 if(!in_array($operation,GrantPolicy::CATALOG['forms'],true)||!$fresh->granted($uid,'forms',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
                 if(isset($definition['grantAnyOf'])&&!in_array($operation,$selection['variants'][$tool]??[],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
             }
-            if(($snapshot['file_manifest']['files_share']??false)&&!$fresh->granted($uid,'files','share'))throw new ToolFailure(ToolFailure::FORBIDDEN);
-            if(($arguments['overwrite']??false)&&!$fresh->granted($uid,'files','edit'))throw new ToolFailure(ToolFailure::FORBIDDEN);
+            foreach(FormsAuthorization::fileOperations($tool,$arguments,$snapshot) as $operation)if(!in_array($operation,GrantPolicy::CATALOG['files'],true)||!$fresh->granted($uid,'files',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
         });
     }
 }
