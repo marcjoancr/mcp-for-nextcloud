@@ -71,7 +71,7 @@ final class FormsPrivateSpool implements FormsSpool {
             $started=microtime(true);$this->budget->assertActive($job);$currentClaim();
             foreach($this->budget->unreferenced($job,$keys,100) as $key) {
                 if(microtime(true)-$started>20)return false;
-                $currentClaim();$token=$this->budget->beginWrite($job);
+                $currentClaim();$token=$this->budget->beginWrite($job,$currentClaim);
                 try {
                     $folder=$this->folder($job,false);
                     if($folder->fileExists($key))$folder->getFile($key)->delete();

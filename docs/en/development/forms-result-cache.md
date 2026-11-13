@@ -27,7 +27,9 @@ evidence, when a SQL job exists. It accepts no additional blobs.
 
 Before collecting another page, the current durable worker may remove obsolete
 registered blobs outside its accepted checkpoint. This reclamation uses the same
-native lock, durable IO evidence and verified-absence checks as other cache IO;
+native lock, durable IO evidence and verified-absence checks as other cache IO.
+The collector claim is checked atomically while acquiring the durable deletion
+token, under the same SQL serialization used for checkpoint replacement;
 it has a hundred-file, twenty-second budget. A stale worker cannot discard a
 newer checkpoint. Only the current and next full summary need coexist.
 

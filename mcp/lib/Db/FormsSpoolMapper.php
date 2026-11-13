@@ -123,10 +123,12 @@ final class FormsSpoolMapper {
         });
     }
     /** Durable evidence before any physical allocation; a provider TTL is not a proof of IO completion. */
-    public function beginWrite(string $job):string {
-        return $this->transaction(function()use($job):string {
+    public function beginWrite(string $job,?\Closure $currentClaim=null):string {
+        return $this->transaction(function()use($job,$currentClaim):string {
             $row=$this->lock($job);$this->active($row);
             if($row['state']!=='active')throw new \RuntimeException('Forms result cache is sealed.');
+            // Job checkpoints use this same budget row; validate the collector while that serialization is held.
+            if($currentClaim!==null)$currentClaim();
             $token=bin2hex(random_bytes(32));$q=$this->db->getQueryBuilder();
             $q->update('mcp_forms_spool')->set('io_token',$q->createNamedParameter($token))->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeStatement();
             return $token;

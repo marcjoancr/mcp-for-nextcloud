@@ -94,6 +94,24 @@ final class FormsPrivateSpoolTest extends TestCase {
         $this->now+=FormsSpoolMapper::RETENTION_SECONDS;$this->spool->cleanup();
         self::assertSame(FormsSpoolMapper::JOB_BYTES,(int)$this->sql->dbal->fetchOne('SELECT reserved_bytes FROM mcp_forms_spool'));
     }
+    public function testSupersededCollectorCannotDeleteANewerAcceptedCheckpoint():void {
+        $this->spool->reserve($this->job,'alice');$keep=$this->spool->put($this->job,'old accepted');
+        $new=$this->spool->put($this->job,'new accepted');
+        $this->sql->dbal->insert('mcp_forms_jobs',['job_id'=>$this->job,'actor_uid'=>'alice','state'=>'working','version'=>1,'updated_at'=>1000,'payload'=>json_encode(['summary_artifact'=>$keep])]);
+        $checks=0;$claim=function()use(&$checks,$new):void {
+            $checks++;$version=(int)$this->sql->dbal->fetchOne('SELECT version FROM mcp_forms_jobs WHERE job_id=?',[$this->job]);
+            if($version!==1)throw new \RuntimeException('collector superseded');
+            if($checks===2) {
+                // A newer collector commits just after the last check outside the durable IO transaction.
+                self::assertFalse($this->sql->dbal->isTransactionActive());
+                $this->sql->dbal->update('mcp_forms_jobs',['version'=>2,'payload'=>json_encode(['summary_artifact'=>$new])],['job_id'=>$this->job]);
+            }
+        };
+        $rejected=false;try{$this->spool->retain($this->job,[$keep['key']],$claim);}catch(\RuntimeException $error){$rejected=$error->getMessage()==='collector superseded';}
+        self::assertArrayHasKey($new['key'],$this->files);self::assertTrue($rejected);
+        self::assertSame(2,(int)$this->sql->dbal->fetchOne('SELECT version FROM mcp_forms_jobs'));
+        self::assertSame('',$this->sql->dbal->fetchOne('SELECT io_token FROM mcp_forms_spool'));
+    }
     public function testCleanupDeletesAtMost100ChargedFilesAndNeverListsOrRecurses():void {
         $this->spool->reserve($this->job,'alice');
         for($i=0;$i<101;$i++)$this->spool->put($this->job,'part-'.$i);
