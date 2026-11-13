@@ -52,6 +52,21 @@ final class FormsAttachmentTest extends TestCase {
         $this->expectExceptionMessage('Forms file effect parent is outside the current Files access');
         (new FormsFileImpact($root,$guard))->assertVisible('actor',$manifest);
     }
+    public function testShareTargetFolderCannotBypassExclusionsThroughAVisibleParent():void {
+        $root=$this->createMock(IRootFolder::class);$home=$this->createMock(Folder::class);$parent=$this->createMock(Folder::class);$target=$this->createMock(Folder::class);$lookedUp=[];
+        $root->method('getUserFolder')->with('actor')->willReturn($home);
+        $home->method('getById')->willReturnCallback(static function(int $id)use($parent,$target,&$lookedUp):array{$lookedUp[]=$id;return $id===70?[$parent]:[$target];});
+        foreach([$parent,$target] as $node)$node->method('isReadable')->willReturn(true);
+        $guard=$this->createMock(FilesAccessGuard::class);$guard->method('isVisible')->willReturnCallback(static fn($node):bool=>$node===$parent);
+        foreach([
+            ['folder_ids'=>[77],'managed_shares'=>[]],
+            ['folder_ids'=>[],'managed_shares'=>[['folder_id'=>77,'actual_node_id'=>77]]],
+        ] as $identity) {
+            try {(new FormsFileImpact($root,$guard))->assertVisible('actor',['files'=>[],'share_removals'=>[['parent'=>['file_id'=>70]]+$identity]]);self::fail('Excluded Files share target admitted');}
+            catch(\RuntimeException $error){self::assertSame('Forms file effect is outside the current Files access',$error->getMessage());}
+        }
+        self::assertContains(77,$lookedUp);
+    }
     public function testEmptyFileManifestDoesNotBypassProspectiveFolderScope(): void {
         [$root,$file,$guard]=$this->fixture(false);$this->expectExceptionMessage('Forms file effect parent is outside the current Files access');
         (new FormsFileImpact($root,$guard))->assertVisible('actor',['files'=>[],'share_impact'=>['parent'=>['file_id'=>7,'create_folder'=>true]]]);

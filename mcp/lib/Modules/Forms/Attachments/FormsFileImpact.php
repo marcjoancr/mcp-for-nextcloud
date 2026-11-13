@@ -28,9 +28,18 @@ final class FormsFileImpact {
             }
             if (!$allowed) {throw new \RuntimeException('Forms file effect parent is outside the current Files access');}
         }
-        foreach ($manifest['files']??[] as $meta) {
+        $ids=[];
+        foreach($manifest['files']??[] as $meta)$ids[(int)$meta['file_id']]=true;
+        foreach([$manifest['share_impact']??[],...($manifest['share_removals']??[])] as $share) {
+            foreach($share['folder_ids']??[] as $id)$ids[(int)$id]=true;
+            foreach($share['managed_shares']??[] as $record) {
+                foreach(['folder_id','actual_node_id'] as $key)if(isset($record[$key]))$ids[(int)$record[$key]]=true;
+            }
+        }
+        if(count($ids)>1000||isset($ids[0]))throw new \RuntimeException('Forms managed share targets exceed the bounded effect limit.');
+        foreach (array_keys($ids) as $id) {
             $allowed=false;
-            foreach ($this->root->getUserFolder($uid)->getById((int)$meta['file_id']) as $node) {
+            foreach ($this->root->getUserFolder($uid)->getById($id) as $node) {
                 if ($node->isReadable() && $this->access->isVisible($node)) {$allowed=true;break;}
             }
             if (!$allowed) {throw new \RuntimeException('Forms file effect is outside the current Files access');}
