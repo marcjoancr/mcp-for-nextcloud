@@ -65,6 +65,23 @@ final class FormsPrivateSpool implements FormsSpool {
         if(strlen($content)!==$part['bytes']||!hash_equals($part['key'],hash('sha256',$content)))throw new \RuntimeException('Forms artifact verification failed.');
         return $content;
     }
+    /** Only the current durable collector may reclaim generated blobs outside its accepted checkpoint. */
+    public function retain(string $job,array $keys,\Closure $currentClaim):bool {
+        return $this->locked($job,function()use($job,$keys,$currentClaim):bool {
+            $started=microtime(true);$this->budget->assertActive($job);$currentClaim();
+            foreach($this->budget->unreferenced($job,$keys,100) as $key) {
+                if(microtime(true)-$started>20)return false;
+                $currentClaim();$token=$this->budget->beginWrite($job);
+                try {
+                    $folder=$this->folder($job,false);
+                    if($folder->fileExists($key))$folder->getFile($key)->delete();
+                    if($folder->fileExists($key))throw new \RuntimeException('Forms obsolete checkpoint deletion was not verified.');
+                } catch(NotFoundException) {}
+                $this->budget->discarded($job,$key,$token);
+            }
+            return $this->budget->unreferenced($job,$keys,1)===[];
+        });
+    }
     /** At most100 known files/10 jobs/20 seconds. Empty namespace folders and expiry tombstones intentionally remain. */
     public function cleanup():void {
         $started=microtime(true);$remaining=100;

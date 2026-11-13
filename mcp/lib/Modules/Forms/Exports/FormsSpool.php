@@ -12,6 +12,7 @@ interface FormsSpool {
     public function assertActive(string $job,string $uid):void;
     public function seal(string $job):void;
     public function cleanup():void;
+    public function retain(string $job,array $keys,\Closure $currentClaim):bool;
     public function put(string $job,string $content):array;
     public function get(string $job,array $part):string;
 }

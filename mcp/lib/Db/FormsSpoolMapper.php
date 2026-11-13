@@ -9,6 +9,7 @@ namespace OCA\Mcp\Db;
 use OCP\IDBConnection;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Security\ICrypto;
 /** Conservative encrypted-byte reservations. Failed writes retain their charge; expiry never renews an identity. */
 final class FormsSpoolMapper {
     public const JOB_BYTES=134217728;
@@ -16,7 +17,7 @@ final class FormsSpoolMapper {
     public const INSTANCE_BYTES=4294967296;
     public const RETENTION_SECONDS=604800;
     public const MAX_PARTS=4096;
-    public function __construct(private IDBConnection $db,private ITimeFactory $clock,private PolicyStateMapper $mutex) {}
+    public function __construct(private IDBConnection $db,private ITimeFactory $clock,private PolicyStateMapper $mutex,private ICrypto $crypto) {}
     private function identity(string $job):void {
         if(preg_match('/^[a-f0-9]{64}$/D',$job)!==1)throw new \InvalidArgumentException('Invalid Forms cache identity.');
     }
@@ -40,14 +41,18 @@ final class FormsSpoolMapper {
         return $this->row($job)??throw new \RuntimeException('Forms cache reservation is unavailable.');
     }
     private function active(array $row,?string $uid=null):void {
-        if(($row['io_token']??'')!==''||!in_array($row['state'],['active','sealed'],true)||(int)$row['expires_at']<=$this->clock->getTime()||($uid!==null&&$row['actor_uid']!==$uid))
+        if((int)($row['sql_bytes']??-1)<0||($row['io_token']??'')!==''||!in_array($row['state'],['active','sealed'],true)||(int)$row['expires_at']<=$this->clock->getTime()||($uid!==null&&$row['actor_uid']!==$uid))
             throw new \RuntimeException('Forms result cache expired or is unavailable. Approve a new snapshot.');
     }
     public function reserve(string $job,string $uid):void {
         $this->identity($job);
         if($uid===''||strlen($uid)>64)throw new \InvalidArgumentException('Invalid Forms cache owner.');
         $this->transaction(function()use($job,$uid):void {
-            $this->mutex->acquire();$old=$this->row($job);
+            $this->mutex->acquire();
+            $legacy=$this->db->getQueryBuilder();$r=$legacy->select('job_id')->from('mcp_forms_spool')->where($legacy->expr()->lt('sql_bytes',$legacy->createNamedParameter(0,IQueryBuilder::PARAM_INT)))->setMaxResults(1)->executeQuery();
+            try{$unaccounted=$r->fetch()!==false;}finally{$r->closeCursor();}
+            if($unaccounted)throw new \RuntimeException('Earlier Forms cache must finish verified cleanup before new admission.');
+            $old=$this->row($job);
             if($old!==null){$this->active($old,$uid);return;}
             foreach([null,$uid] as $owner) {
                 $q=$this->db->getQueryBuilder();$q->select($q->createFunction('COALESCE(SUM(reserved_bytes),0) AS bytes'),$q->createFunction('COUNT(*) AS jobs'))->from('mcp_forms_spool')
@@ -58,10 +63,45 @@ final class FormsSpoolMapper {
                     throw new \RuntimeException('Forms temporary result storage is full. Wait for expired cache cleanup.');
             }
             $q=$this->db->getQueryBuilder();$q->insert('mcp_forms_spool');
-            foreach(['job_id'=>$job,'actor_uid'=>$uid,'state'=>'active','version'=>1,'reserved_bytes'=>self::JOB_BYTES,'used_bytes'=>0,'expires_at'=>$this->clock->getTime()+self::RETENTION_SECONDS] as $name=>$value)
+            foreach(['job_id'=>$job,'actor_uid'=>$uid,'state'=>'active','version'=>1,'reserved_bytes'=>self::JOB_BYTES,'used_bytes'=>0,'sql_bytes'=>0,'expires_at'=>$this->clock->getTime()+self::RETENTION_SECONDS] as $name=>$value)
                 $q->setValue($name,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR));
             $q->executeStatement();
         });
+    }
+    /** Job payload replacement and its exact ciphertext debit commit atomically. */
+    public function persistSQL(string $job,string $uid,int $bytes,\Closure $write,bool $evidenceOnly=false):bool {
+        if($bytes<1||$bytes>self::JOB_BYTES)throw new \RuntimeException('Forms SQL cache exceeds its quota.');
+        return $this->transaction(function()use($job,$uid,$bytes,$write,$evidenceOnly):bool {
+            $this->mutex->acquire();$row=$this->lock($job);
+            if($row['actor_uid']!==$uid)throw new \RuntimeException('Forms cache owner changed.');
+            $closed=$row['state']==='expired'||$row['state']==='cleaning'||$row['io_token']!==''||(int)$row['expires_at']<=$this->clock->getTime()||(int)$row['sql_bytes']<0;
+            if(!$evidenceOnly)$this->active($row,$uid);
+            if($closed&&!$evidenceOnly)throw new \RuntimeException('Forms SQL cache expired.');
+            if((int)$row['sql_bytes']<0||$row['state']==='expired') {
+                if($row['state']==='expired'&&(int)$row['sql_bytes']===0&&$bytes>2097152)throw new \RuntimeException('Forms retained evidence exceeds its budget.');
+                return $write();
+            }
+            $used=(int)$row['used_bytes']-(int)$row['sql_bytes']+$bytes;
+            if($used<0||$used>(int)$row['reserved_bytes'])throw new \RuntimeException('Forms SQL cache exceeds its quota.');
+            if(!$write())return false;
+            $q=$this->db->getQueryBuilder();$q->update('mcp_forms_spool')->set('sql_bytes',$q->createNamedParameter($bytes,IQueryBuilder::PARAM_INT))
+                ->set('used_bytes',$q->createNamedParameter($used,IQueryBuilder::PARAM_INT))->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeStatement();
+            return true;
+        });
+    }
+    private function compactSQL(string $job):void {
+        $q=$this->db->getQueryBuilder();$r=$q->select('version','payload')->from('mcp_forms_jobs')->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeQuery();
+        try{$row=$r->fetch();}finally{$r->closeCursor();}
+        if($row===false)return;
+        $payload=json_decode($this->crypto->decrypt($row['payload']),true,64,JSON_THROW_ON_ERROR);
+        foreach(['metadata','summary','summary_artifact','parts','artifact','file_ids','export_metadata'] as $key)unset($payload[$key]);
+        $payload['cache_expired']=true;
+        if((int)$row['version']>=PHP_INT_MAX-1)throw new \RuntimeException('Forms receipt counter exhausted.');
+        $encrypted=$this->crypto->encrypt(json_encode($payload,JSON_THROW_ON_ERROR));
+        $q=$this->db->getQueryBuilder();$n=$q->update('mcp_forms_jobs')->set('payload',$q->createNamedParameter($encrypted))
+            ->set('version',$q->createNamedParameter((int)$row['version']+1,IQueryBuilder::PARAM_INT))
+            ->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->andWhere($q->expr()->eq('version',$q->createNamedParameter((int)$row['version'],IQueryBuilder::PARAM_INT)))->executeStatement();
+        if($n!==1)throw new \RuntimeException('Forms receipt changed during cache compaction.');
     }
     public function assertActive(string $job,?string $uid=null):void {$this->active($this->row($job)??throw new \RuntimeException('Forms cache reservation is unavailable.'),$uid);}
     public function charge(string $job,string $key,int $bytes):void {
@@ -105,13 +145,13 @@ final class FormsSpoolMapper {
             $this->mutex->acquire();$row=$this->lock($job);$this->active($row);
             if($row['state']==='sealed')return;
             $q=$this->db->getQueryBuilder();$q->update('mcp_forms_spool')->set('state',$q->createNamedParameter('sealed'))
-                ->set('reserved_bytes',$q->createNamedParameter((int)$row['used_bytes'],IQueryBuilder::PARAM_INT))
+                ->set('reserved_bytes',$q->createNamedParameter(min(self::JOB_BYTES,(int)$row['used_bytes']+((int)$row['sql_bytes']>0?1048576:0)),IQueryBuilder::PARAM_INT))
                 ->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeStatement();
         });
     }
     public function expiring(int $limit):array {
         $q=$this->db->getQueryBuilder();$r=$q->select('job_id')->from('mcp_forms_spool')
-            ->where($q->expr()->orX($q->expr()->eq('state',$q->createNamedParameter('cleaning')),
+            ->where($q->expr()->orX($q->expr()->eq('state',$q->createNamedParameter('cleaning')),$q->expr()->lt('sql_bytes',$q->createNamedParameter(0,IQueryBuilder::PARAM_INT)),
                 $q->expr()->andX($q->expr()->in('state',$q->createNamedParameter(['active','sealed'],IQueryBuilder::PARAM_STR_ARRAY)),$q->expr()->lte('expires_at',$q->createNamedParameter($this->clock->getTime(),IQueryBuilder::PARAM_INT)))))
             ->andWhere($q->expr()->eq('io_token',$q->createNamedParameter('')))->orderBy('expires_at','ASC')->setMaxResults(min(10,max(1,$limit)))->executeQuery();
         try{return array_column($r->fetchAll(),'job_id');}finally{$r->closeCursor();}
@@ -119,9 +159,31 @@ final class FormsSpoolMapper {
     /** Caller holds the same native per-job lock as all physical cache reads/writes. */
     public function retire(string $job):bool {
         return $this->transaction(function()use($job):bool {
-            $row=$this->lock($job);if($row['state']==='expired'||$row['io_token']!=='')return false;
-            if(in_array($row['state'],['active','sealed'],true)&&(int)$row['expires_at']>$this->clock->getTime())return false;
+            $row=$this->lock($job);if(($row['state']==='expired'&&(int)$row['sql_bytes']>=0)||$row['io_token']!=='')return false;
+            if((int)$row['sql_bytes']>=0&&in_array($row['state'],['active','sealed'],true)&&(int)$row['expires_at']>$this->clock->getTime())return false;
             $q=$this->db->getQueryBuilder();$q->update('mcp_forms_spool')->set('state',$q->createNamedParameter('cleaning'))->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeStatement();return true;
+        });
+    }
+    public function unreferenced(string $job,array $keep,int $limit=100):array {
+        $this->identity($job);foreach($keep as $key)$this->identity($key);
+        if(count($keep)>self::MAX_PARTS)throw new \RuntimeException('Forms cache reference budget exceeded.');
+        $q=$this->db->getQueryBuilder();$q->select('part_key')->from('mcp_forms_spool_parts')
+            ->where($q->expr()->eq('job_id',$q->createNamedParameter($job)));
+        if($keep!==[])$q->andWhere($q->expr()->notIn('part_key',$q->createNamedParameter(array_values($keep),IQueryBuilder::PARAM_STR_ARRAY)));
+        $r=$q->orderBy('part_key','ASC')->setMaxResults(min(100,max(1,$limit)))->executeQuery();
+        try{return array_column($r->fetchAll(),'part_key');}finally{$r->closeCursor();}
+    }
+    public function discarded(string $job,string $key,string $token):void {
+        $this->transaction(function()use($job,$key,$token):void {
+            $row=$this->lock($job);
+            if($token===''||!hash_equals($row['io_token'],$token)||$row['state']!=='active')throw new \RuntimeException('Forms cache discard ownership changed.');
+            $bytes=$this->cipherBytes($job,$key);
+            if((int)$row['used_bytes']<$bytes||(int)$row['part_count']<1)throw new \RuntimeException('Forms cache accounting changed.');
+            $q=$this->db->getQueryBuilder();$q->delete('mcp_forms_spool_parts')->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))
+                ->andWhere($q->expr()->eq('part_key',$q->createNamedParameter($key)))->executeStatement();
+            $q=$this->db->getQueryBuilder();$q->update('mcp_forms_spool')->set('used_bytes',$q->createNamedParameter((int)$row['used_bytes']-$bytes,IQueryBuilder::PARAM_INT))
+                ->set('part_count',$q->createNamedParameter((int)$row['part_count']-1,IQueryBuilder::PARAM_INT))->set('io_token',$q->createNamedParameter(''))
+                ->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeStatement();
         });
     }
     public function cipherBytes(string $job,string $key):int {
@@ -147,9 +209,10 @@ final class FormsSpoolMapper {
     /** Called only after the owned folder and every charged part are verified absent. Tombstone prevents resurrection. */
     public function finish(string $job):void {
         $this->transaction(function()use($job):void {
-            $this->mutex->acquire();$row=$this->lock($job);if($row['state']==='expired')return;
+            $this->mutex->acquire();$row=$this->lock($job);if($row['state']==='expired'&&(int)$row['sql_bytes']>=0)return;
             if($row['state']!=='cleaning'||$this->parts($job,1)!==[])throw new \RuntimeException('Forms cache cleanup is incomplete.');
-            $q=$this->db->getQueryBuilder();$q->update('mcp_forms_spool')->set('state',$q->createNamedParameter('expired'))
+            $this->compactSQL($job);
+            $q=$this->db->getQueryBuilder();$q->update('mcp_forms_spool')->set('state',$q->createNamedParameter('expired'))->set('used_bytes',$q->createNamedParameter(0,IQueryBuilder::PARAM_INT))->set('sql_bytes',$q->createNamedParameter(0,IQueryBuilder::PARAM_INT))
                 ->set('reserved_bytes',$q->createNamedParameter(0,IQueryBuilder::PARAM_INT))->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeStatement();
         });
     }

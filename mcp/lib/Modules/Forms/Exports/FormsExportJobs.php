@@ -33,20 +33,31 @@ final class FormsExportJobs {
         $after=$native('snapshot',['id'=>$args['id']]);
         if($after['revision']!==$snapshot['revision'])throw new ToolFailure('Forms export source changed before admission.');
         $job=['job_id'=>$id,'actor_uid'=>$uid,'version'=>1,'state'=>'collecting','updated_at'=>($this->time)(),
-            'payload'=>['origin'=>$origin,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>$snapshot['revision'],
-                'cache_expires_at'=>($this->time)()+604800,'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'summary'=>[],'file_ids'=>[]]];
+            'payload'=>['origin'=>$origin,'cache_protocol'=>2,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>$snapshot['revision'],
+                'cache_expires_at'=>($this->time)()+604800,'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'file_ids'=>[]]];
         try {$this->spool->reserve($id,$uid);}catch(\Throwable){throw new \OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect('Forms temporary result capacity is unavailable. No result job or Files write was started.');}
         if(!$this->store->create($job))throw new ToolFailure('Forms job admission conflicted; inspect its receipt.');
         return $this->receipt($id);
     }
     private function receipt(string $id):array {return ['state'=>'pending','references'=>['job_id'=>$id],'data'=>['job_id'=>$id,'state'=>'collecting','complete'=>false,'next'=>'forms_continue_operation']];}
-    public function job(string $uid,string $id):array {
-        $job=$this->store->get($id);if($job===null)throw new ToolFailure(ToolFailure::NOT_FOUND);$this->admit($uid,$job);return $job;
+    public function job(string $uid,string $id,bool $requireCache=true):array {
+        $job=$this->store->get($id);if($job===null)throw new ToolFailure(ToolFailure::NOT_FOUND);
+        if($requireCache)$this->admit($uid,$job);else $this->admitEvidence($uid,$job);
+        return $job;
     }
-    private function admit(string $uid,array $job):void {
+    /** Proof of job admission never exposes generated result content or authorizes a resumed effect. */
+    public function admissionEvidence(string $uid,string $id):?array {
+        $job=$this->store->get($id);if($job===null)return null;$this->admitEvidence($uid,$job);
+        return ['state'=>'pending','references'=>['job_id'=>$id]];
+    }
+    private function admitEvidence(string $uid,array $job):void {
         if($job['actor_uid']!==$uid)throw new ToolFailure(ToolFailure::NOT_FOUND);
         $context=($this->authorize)($job['payload']['origin']);
         if(($context['uid']??null)!==$uid)throw new ToolFailure(ToolFailure::FORBIDDEN);
+    }
+    private function admit(string $uid,array $job):void {
+        $this->admitEvidence($uid,$job);
+        if(($job['payload']['cache_protocol']??null)!==2)throw new ToolFailure('The Forms cache protocol changed. Approve a new snapshot.');
         $this->spool->assertActive($job['job_id'],$uid);
         if(($job['payload']['native_runtime']??null)!==\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256)throw new ToolFailure('The qualified Forms runtime changed. Approve a new complete snapshot.');
         if(($job['payload']['arguments']['include_files']??false)&&!array_key_exists('file_ids',$job['payload']))throw new ToolFailure('This retained file-reference export requires a new authorized snapshot.');
@@ -73,6 +84,12 @@ final class FormsExportJobs {
         try {
             $this->source($p,$native);
             if(!($p['collection_complete']??false)) {
+                $keep=array_column($p['parts'],'key');
+                foreach(['artifact','summary_artifact'] as $artifact)if(isset($p[$artifact]['key']))$keep[]=$p[$artifact]['key'];
+                if(!$this->spool->retain($id,array_values(array_unique($keep)),function()use($id,$working):void {
+                    if($this->store->get($id)!==$working)throw new ToolFailure('Forms checkpoint claim changed before cache reclamation.');
+                }))throw new FormsExportBudgetExceeded('Obsolete Forms cache needs another bounded cleanup step.');
+                $this->deadline($start);
                 $limit=100;
                 while(true) {
                     try{$page=$native('forms_results_page',['id'=>$args['id'],'after_id'=>$p['after_id'],'limit'=>$limit]);break;}
@@ -89,14 +106,20 @@ final class FormsExportJobs {
                     $this->deadline($start);
                 }
                 $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));
-                if($p['tool']==='forms_summarize_results')$p['summary']=$this->aggregate($projection->columns(),$p['summary'],$rows);
+                if($p['tool']==='forms_summarize_results') {
+                    $summary=isset($p['summary_artifact'])?json_decode($this->spool->get($id,$p['summary_artifact']),true,64,JSON_THROW_ON_ERROR):($p['summary']??[]);
+                    $summary=$this->aggregate($projection->columns(),$summary,$rows);
+                    $content=json_encode($summary,JSON_THROW_ON_ERROR);
+                    if(strlen($content)>26214400)throw new ToolFailure('Forms complete-result quota exceeded; no truncated result is published.');
+                    $p['summary_artifact']=$this->spool->put($id,$content);$p['bytes']=$p['summary_artifact']['bytes'];unset($p['summary']);
+                }
                 else {
                     $format=$args['format']??'csv';
                     $header=$p['done']===0?[array_column($projection->columns(),'title'),array_column($projection->columns(),'id')]:[];
                     $part=$this->spool->put($id,$this->renderer->chunk($format,[...$header,...$rows],$header!==[]?2:null));
                     $p['parts'][]=$part;$p['bytes']+=$part['bytes'];
                 }
-                if($p['bytes']>26214400||strlen(json_encode($p['summary'],JSON_THROW_ON_ERROR))>26214400)throw new ToolFailure('Forms complete-result quota exceeded; no truncated result is published.');
+                if($p['bytes']>26214400)throw new ToolFailure('Forms complete-result quota exceeded; no truncated result is published.');
                 $p['done']+=count($rows);$p['after_id']=(int)$page['nextId'];
                 if(!$page['hasMore']&&$p['done']!==$metadata['submissionCount'])throw new ToolFailure('Forms result coverage does not match the approved snapshot.');
                 $p['collection_complete']=!$page['hasMore'];
@@ -104,7 +127,12 @@ final class FormsExportJobs {
             $this->deadline($start);
             if($p['collection_complete']&&$p['tool']!=='forms_summarize_results')$this->finalize($id,$p,$start);
             $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));$this->deadline($start);
-            if($p['collection_complete']){$this->spool->seal($id);$this->deadline($start);}
+            if($p['collection_complete']){
+                $checkpoint=$working;$checkpoint['version']++;$checkpoint['payload']=$p;$checkpoint['updated_at']=($this->time)();
+                if(!$this->store->compareAndSwap($working,$checkpoint))throw new ToolFailure('Forms final checkpoint claim changed.');
+                $working=$checkpoint;
+                $this->spool->seal($id);$this->source($p,$native);$this->admit($uid,$working);$this->deadline($start);
+            }
             return $this->saveStep($working,$p,$p['collection_complete']?'ready':'collecting',$p['collection_complete']?'succeeded':'pending');
         } catch(FormsExportBudgetExceeded) {
             // The page cursor and all completed private parts survive; readiness is never accepted after the deadline.
@@ -135,7 +163,7 @@ final class FormsExportJobs {
     }
     /** Recover durable evidence only. Invalidating a stale read claim prevents a delayed worker from accepting its page. */
     public function recover(string $uid,string $id,string $key,int $version):?array {
-        $old=$this->job($uid,$id);$p=$old['payload'];
+        $old=$this->job($uid,$id,false);$p=$old['payload'];
         $matches=static fn(array $step):bool=>($step['key']??null)===$key&&($step['approved_version']??null)===$version;
         if($matches($p['last_step']??[]))return $p['last_step']['outcome'];
         if($matches($p['current_step']??[])) {
@@ -227,7 +255,8 @@ final class FormsExportJobs {
     public function result(string $uid,string $id,int $offset,int $limit):array {
         $job=$this->job($uid,$id);if(!in_array($job['state'],['ready','delivered'],true))throw new ToolFailure('Whole-form results are not complete.');
         $items=[];
-        foreach($job['payload']['summary'] as $column) {
+        $summary=isset($job['payload']['summary_artifact'])?json_decode($this->spool->get($id,$job['payload']['summary_artifact']),true,64,JSON_THROW_ON_ERROR):($job['payload']['summary']??[]);
+        foreach($summary as $column) {
             foreach($column['counts'] as $count)$items[]=array_intersect_key($column,array_flip(['column_id','question_id','title','type','metric','answered','empty','numeric']))+$count;
             if($column['counts']===[])$items[]=array_intersect_key($column,array_flip(['column_id','question_id','title','type','metric','answered','empty','numeric']));
         }

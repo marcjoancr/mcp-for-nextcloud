@@ -5,16 +5,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 declare(strict_types=1);
-
 namespace OCA\Mcp\Db;
 use OCA\Mcp\Modules\Forms\Exports\FormsJobStore;
 use OCP\IDBConnection;
 use OCP\Security\ICrypto;
 use OCP\DB\Exception;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-/** Version CAS is the only job lease. Private payloads include no unencrypted result data. */
+/** Job replacement and its exact encrypted cache debit share one primary transaction. */
 final class FormsJobsMapper implements FormsJobStore {
-    public function __construct(private IDBConnection $db,private ICrypto $crypto) {}
+    public function __construct(private IDBConnection $db,private ICrypto $crypto,private FormsSpoolMapper $budget) {}
     public function get(string $id):?array {
         $q=$this->db->getQueryBuilder();$r=$q->select('*')->from('mcp_forms_jobs')->where($q->expr()->eq('job_id',$q->createNamedParameter($id)))->executeQuery();
         try{$row=$r->fetch();}finally{$r->closeCursor();}
@@ -24,21 +23,34 @@ final class FormsJobsMapper implements FormsJobStore {
         return $row;
     }
     public function create(array $job):bool {
-        $q=$this->db->getQueryBuilder();$q->insert('mcp_forms_jobs');
-        foreach($job as $key=>$value) {
-            if($key==='payload')$value=$this->crypto->encrypt(json_encode($value,JSON_THROW_ON_ERROR));
-            $q->setValue($key,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR));
-        }
-        try{return $q->executeStatement()===1;}catch(Exception $e){if($e->getReason()===Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION)return false;throw $e;}
+        $encrypted=$this->crypto->encrypt(json_encode($job['payload'],JSON_THROW_ON_ERROR));
+        try {
+            return $this->budget->persistSQL($job['job_id'],$job['actor_uid'],strlen($encrypted),function()use($job,$encrypted):bool {
+                // The per-job budget row serializes all creators; avoid a caught duplicate INSERT aborting PostgreSQL.
+                $q=$this->db->getQueryBuilder();$r=$q->select('job_id')->from('mcp_forms_jobs')->where($q->expr()->eq('job_id',$q->createNamedParameter($job['job_id'])))->executeQuery();
+                try{$exists=$r->fetch()!==false;}finally{$r->closeCursor();}
+                if($exists)return false;
+                $q=$this->db->getQueryBuilder();$q->insert('mcp_forms_jobs');
+                foreach($job as $key=>$value) {
+                    if($key==='payload')$value=$encrypted;
+                    $q->setValue($key,$q->createNamedParameter($value,is_int($value)?IQueryBuilder::PARAM_INT:IQueryBuilder::PARAM_STR));
+                }
+                return $q->executeStatement()===1;
+            });
+        } catch(Exception $error){if($error->getReason()===Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION)return false;throw $error;}
     }
     public function compareAndSwap(array $expected,array $next):bool {
-        $q=$this->db->getQueryBuilder();return $q->update('mcp_forms_jobs')
-            ->set('version',$q->createNamedParameter($next['version'],IQueryBuilder::PARAM_INT))
-            ->set('state',$q->createNamedParameter($next['state']))
-            ->set('updated_at',$q->createNamedParameter($next['updated_at'],IQueryBuilder::PARAM_INT))
-            ->set('payload',$q->createNamedParameter($this->crypto->encrypt(json_encode($next['payload'],JSON_THROW_ON_ERROR))))
-            ->where($q->expr()->eq('job_id',$q->createNamedParameter($expected['job_id'])))
-            ->andWhere($q->expr()->eq('version',$q->createNamedParameter($expected['version'],IQueryBuilder::PARAM_INT)))
-            ->andWhere($q->expr()->eq('state',$q->createNamedParameter($expected['state'])))->executeStatement()===1;
+        if($next['actor_uid']!==$expected['actor_uid']||$next['job_id']!==$expected['job_id'])throw new \RuntimeException('Forms job identity changed.');
+        $encrypted=$this->crypto->encrypt(json_encode($next['payload'],JSON_THROW_ON_ERROR));
+        $oldContent=$expected['payload'];$newContent=$next['payload'];
+        foreach(['current_step','last_step'] as $key){unset($oldContent[$key],$newContent[$key]);}
+        return $this->budget->persistSQL($expected['job_id'],$expected['actor_uid'],strlen($encrypted),function()use($expected,$next,$encrypted):bool {
+            $q=$this->db->getQueryBuilder();return $q->update('mcp_forms_jobs')
+                ->set('version',$q->createNamedParameter($next['version'],IQueryBuilder::PARAM_INT))->set('state',$q->createNamedParameter($next['state']))
+                ->set('updated_at',$q->createNamedParameter($next['updated_at'],IQueryBuilder::PARAM_INT))->set('payload',$q->createNamedParameter($encrypted))
+                ->where($q->expr()->eq('job_id',$q->createNamedParameter($expected['job_id'])))
+                ->andWhere($q->expr()->eq('version',$q->createNamedParameter($expected['version'],IQueryBuilder::PARAM_INT)))
+                ->andWhere($q->expr()->eq('state',$q->createNamedParameter($expected['state'])))->executeStatement()===1;
+        },$oldContent===$newContent);
     }
 }

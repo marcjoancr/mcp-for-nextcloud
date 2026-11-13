@@ -17,10 +17,23 @@ reservation creates no result job or Files output. If admission stops after
 reserving capacity, the conservative reservation remains until cache expiry.
 
 Every content-addressed blob is charged by its actual encrypted byte length
-before allocation. Repeated content has one charge. Each job permits at most
+before allocation. The current encrypted SQL job payload is charged in the same
+transaction that inserts or replaces it. Repeated content has one charge. Each job permits at most
 4,096 distinct blobs. Page chunks and the assembled artifact coexist within
-the reservation. A completed cache is sealed and its reservation shrinks to the
-exact bytes already charged; it accepts no additional blobs.
+the reservation. Summary checkpoints use encrypted blobs, keeping large answer
+buckets out of SQL packets. A completed cache is sealed and its reservation
+shrinks to the charged bytes plus a bounded 1 MiB allowance for SQL completion
+evidence, when a SQL job exists. It accepts no additional blobs.
+
+Before collecting another page, the current durable worker may remove obsolete
+registered blobs outside its accepted checkpoint. This reclamation uses the same
+native lock, durable IO evidence and verified-absence checks as other cache IO;
+it has a hundred-file, twenty-second budget. A stale worker cannot discard a
+newer checkpoint. Only the current and next full summary need coexist.
+
+The completed checkpoint is persisted before sealing. A crash or deadline after
+sealing can therefore resume from its exact artifact descriptor without trying
+to allocate another blob in a sealed cache.
 
 The plaintext output limit remains 25 MiB. Native encryption adds padding and
 metadata, so reads allow the corresponding bounded ciphertext overhead rather
@@ -69,6 +82,13 @@ the remaining identities and reservation.
 Cleanup does not list an entire SimpleFS directory, recurse through a folder or
 match a broad filename prefix. It leaves empty container folders and terminal
 lease tombstones in place. A delayed callback cannot renew an expired identity.
+SQL cache compaction removes question metadata, answer buckets, generated blob
+references and retained source-file lists before releasing the lease. It keeps
+original authority, step claims, accepted outcomes and verified destination
+evidence; it preserves the job's state and claim timestamp. Outcome recovery
+rechecks the original current authority independently of cache availability.
+It cannot return expired content or authorize a replay.
+
 User Files, export destinations, Versions, backups, native Forms recovery data
 and operation receipts have independent lifecycles and remain untouched.
 
@@ -76,8 +96,14 @@ and operation receipts have independent lifecycles and remain untouched.
 
 Generated blobs use the dedicated `mcp_forms_results` appdata namespace and
 `forms-results-v2-<job-id>` folders. The ciphertext budget covers registered
-generated data in that versioned namespace. Unknown objects are never adopted
+generated data in that versioned namespace and current encrypted SQL job data. Unknown objects are never adopted
 or removed through inference.
+
+An earlier candidate lease whose SQL bytes were not accounted blocks new
+admission until verified cleanup compacts its generated content and registered
+blobs. This also covers earlier leases already marked expired. These
+incompatible cache protocols require a new snapshot approval; their sanitized
+operation evidence remains available.
 
 The supported pre-extension baseline has no complete-result cache. Unreleased
 earlier candidates used unbudgeted `forms-results-<job-id>` folders. Their jobs

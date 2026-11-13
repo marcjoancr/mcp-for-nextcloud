@@ -182,7 +182,7 @@ final class FormsNativeGateway implements FormsGateway {
             return $this->jobs->recover($uid,$refs['job_id'],$operationKey,$refs['job_version']);
         }
         $id=hash('sha256','forms-job-v1:'.$operationKey);
-        try{$this->jobs->job($uid,$id);return ['state'=>'pending','references'=>['job_id'=>$id]];}catch(\Throwable){}
+        $evidence=$this->jobs->admissionEvidence($uid,$id);if($evidence!==null)return $evidence;
         $origin=$context===null?null:$this->authorization->captureHistory($uid,$context['tool'],$context['references']);
         $result=$this->native($uid)->lookup($uid,$operationKey,$origin);
         return $result===null?null:$this->outcome($result);

@@ -17,10 +17,10 @@ final class FormsSpoolBudgetTest extends TestCase {
     private SqliteDatabase $sql;private FormsSpoolMapper $budget;private int $now=1000;
     protected function setUp():void {
         $unused=$this->createMock(\OCP\IDBConnection::class);
-        $this->sql=new SqliteDatabase($this,[new Version001100Date20261015000000($unused),new Version002800Date20261113110000()]);
+        $this->sql=new SqliteDatabase($this,[new Version001100Date20261015000000($unused),new Version002800Date20261113110000(),new \OCA\Mcp\Migration\Version002800Date20261113120000(),new \OCA\Mcp\Migration\Version002800Date20261113100000()]);
         $this->sql->dbal->executeStatement('INSERT INTO mcp_policy_state (id,revision,lock_seq,auth_epoch) VALUES (1,0,0,0)');
         $db=$this->sql->connection();$clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturnCallback(fn():int=>$this->now);
-        $this->budget=new FormsSpoolMapper($db,$clock,new PolicyStateMapper($db));
+        $this->budget=new FormsSpoolMapper($db,$clock,new PolicyStateMapper($db),$this->createMock(\OCP\Security\ICrypto::class));
     }
     private function id(int $n):string {return hash('sha256','spool-'.$n);}
     public function testReservationIsIdempotentButCannotChangeOwner():void {

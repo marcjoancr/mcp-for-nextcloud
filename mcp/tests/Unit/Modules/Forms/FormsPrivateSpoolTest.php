@@ -21,21 +21,21 @@ use OCP\Lock\ILockingProvider;
 use OCP\Security\ICrypto;
 use PHPUnit\Framework\TestCase;
 final class FormsPrivateSpoolTest extends TestCase {
-    private array $files=[];private bool $created=false;private bool $loseWriteAck=false;private bool $locked=false;private int $now=1000;private FormsPrivateSpool $spool;private FormsSpoolMapper $budget;private SqliteDatabase $sql;
+    private array $files=[];private bool $created=false;private bool $loseWriteAck=false;private bool $loseDeleteAck=false;private bool $locked=false;private int $now=1000;private FormsPrivateSpool $spool;private FormsSpoolMapper $budget;private SqliteDatabase $sql;
     private string $job;
     protected function setUp():void {
         $this->job=hash('sha256','private-spool');$unused=$this->createMock(\OCP\IDBConnection::class);
-        $this->sql=new SqliteDatabase($this,[new Version001100Date20261015000000($unused),new Version002800Date20261113110000()]);
+        $this->sql=new SqliteDatabase($this,[new Version001100Date20261015000000($unused),new Version002800Date20261113110000(),new \OCA\Mcp\Migration\Version002800Date20261113120000(),new \OCA\Mcp\Migration\Version002800Date20261113100000()]);
         $this->sql->dbal->executeStatement('INSERT INTO mcp_policy_state (id,revision,lock_seq,auth_epoch) VALUES (1,0,0,0)');
         $db=$this->sql->connection();$clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturnCallback(fn():int=>$this->now);
-        $this->budget=new FormsSpoolMapper($db,$clock,new PolicyStateMapper($db));
+        $this->budget=new FormsSpoolMapper($db,$clock,new PolicyStateMapper($db),$this->createMock(ICrypto::class));
         $folder=$this->createMock(ISimpleFolder::class);
         $folder->method('fileExists')->willReturnCallback(fn(string $name):bool=>array_key_exists($name,$this->files));
         $file=function(string $name):ISimpleFile {
             $f=$this->createMock(ISimpleFile::class);
             $f->method('getSize')->willReturnCallback(fn():int=>strlen($this->files[$name]));
             $f->method('getContent')->willReturnCallback(function()use($name):string{self::assertTrue($this->locked);return $this->files[$name];});
-            $f->method('delete')->willReturnCallback(function()use($name):void{self::assertTrue($this->locked);unset($this->files[$name]);});
+            $f->method('delete')->willReturnCallback(function()use($name):void{self::assertTrue($this->locked);unset($this->files[$name]);if($this->loseDeleteAck)throw new \RuntimeException('lost physical delete acknowledgement');});
             return $f;
         };
         $folder->method('getFile')->willReturnCallback(function(string $name)use($file):ISimpleFile {if(!array_key_exists($name,$this->files))throw new NotFoundException();return $file($name);});
@@ -75,6 +75,24 @@ final class FormsPrivateSpoolTest extends TestCase {
         self::assertCount(1,$this->files);$this->now+=FormsSpoolMapper::RETENTION_SECONDS;$this->spool->cleanup();
         self::assertCount(1,$this->files);self::assertSame(FormsSpoolMapper::JOB_BYTES,(int)$this->sql->dbal->fetchOne('SELECT reserved_bytes FROM mcp_forms_spool'));
         self::assertFalse($this->locked);
+    }
+    public function testOnlyCurrentClaimCanPruneUnreferencedCheckpointBlobs():void {
+        $this->spool->reserve($this->job,'alice');$keep=$this->spool->put($this->job,'current');
+        $this->spool->put($this->job,'orphan-one');$this->spool->put($this->job,'orphan-two');
+        try {$this->spool->retain($this->job,[$keep['key']],static fn()=>throw new \RuntimeException('stale claim'));self::fail('Stale claim admitted');}catch(\RuntimeException) {}
+        self::assertCount(3,$this->files);
+        self::assertTrue($this->spool->retain($this->job,[$keep['key']],static fn()=>null));
+        self::assertCount(1,$this->files);self::assertSame('current',$this->spool->get($this->job,$keep));
+        self::assertSame(strlen($this->files[$keep['key']]),(int)$this->sql->dbal->fetchOne('SELECT used_bytes FROM mcp_forms_spool'));
+        self::assertSame(1,(int)$this->sql->dbal->fetchOne('SELECT part_count FROM mcp_forms_spool'));
+    }
+    public function testAmbiguousObsoleteCheckpointDeletionNeverRefundsItsCharge():void {
+        $this->spool->reserve($this->job,'alice');$keep=$this->spool->put($this->job,'accepted');
+        $this->spool->put($this->job,'orphan');$used=(int)$this->sql->dbal->fetchOne('SELECT used_bytes FROM mcp_forms_spool');$this->loseDeleteAck=true;
+        try {$this->spool->retain($this->job,[$keep['key']],static fn()=>null);self::fail('Delete uncertainty hidden');}catch(\RuntimeException) {}
+        self::assertArrayHasKey($keep['key'],$this->files);self::assertSame($used,(int)$this->sql->dbal->fetchOne('SELECT used_bytes FROM mcp_forms_spool'));
+        $this->now+=FormsSpoolMapper::RETENTION_SECONDS;$this->spool->cleanup();
+        self::assertSame(FormsSpoolMapper::JOB_BYTES,(int)$this->sql->dbal->fetchOne('SELECT reserved_bytes FROM mcp_forms_spool'));
     }
     public function testCleanupDeletesAtMost100ChargedFilesAndNeverListsOrRecurses():void {
         $this->spool->reserve($this->job,'alice');

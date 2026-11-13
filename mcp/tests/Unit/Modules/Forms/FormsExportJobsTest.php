@@ -9,18 +9,20 @@ namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 use OCA\Mcp\Modules\Forms\Exports\{FormsExportJobs,FormsJobStore,FormsSpool,FormsExportRenderer};
 use PHPUnit\Framework\TestCase;
 final class FormsExportJobsTest extends TestCase {
-    private array $jobs=[];private array $parts=[];private int $revision=4;private array $source=[];private FormsExportJobs $engine;private bool $filesAllowed=true;private int $now=1000;private float $seconds=0;private bool $slowReads=false;private bool $slowSeal=false;private bool $quotaDenied=false;
+    private array $jobs=[];private array $parts=[];private int $revision=4;private array $source=[];private FormsExportJobs $engine;private bool $filesAllowed=true;private int $now=1000;private float $seconds=0;private bool $slowReads=false;private bool $slowSeal=false;private bool $quotaDenied=false;private bool $cacheLive=true;private bool $originAllowed=true;private bool $requireCheckpointBeforeSeal=false;private bool $garbageReady=true;
     protected function setUp():void {
         $store=$this->createMock(FormsJobStore::class);
         $store->method('get')->willReturnCallback(fn(string $id):?array=>$this->jobs[$id]??null);
         $store->method('create')->willReturnCallback(function(array $job):bool {if(isset($this->jobs[$job['job_id']]))return false;$this->jobs[$job['job_id']]=$job;return true;});
         $store->method('compareAndSwap')->willReturnCallback(function(array $old,array $next):bool {if(($this->jobs[$old['job_id']]??null)!==$old)return false;$this->jobs[$old['job_id']]=$next;return true;});
         $spool=$this->createMock(FormsSpool::class);
+        $spool->method('assertActive')->willReturnCallback(function():void{if(!$this->cacheLive)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('cache expired');});
+        $spool->method('retain')->willReturnCallback(fn():bool=>$this->garbageReady);
         $spool->method('reserve')->willReturnCallback(function():void{if($this->quotaDenied)throw new \RuntimeException('quota unavailable');});
-        $spool->method('seal')->willReturnCallback(function():void{if($this->slowSeal)$this->seconds+=24;});
+        $spool->method('seal')->willReturnCallback(function(string $id):void{if($this->requireCheckpointBeforeSeal)self::assertTrue($this->jobs[$id]['payload']['collection_complete']??false);if($this->slowSeal)$this->seconds+=24;});
         $spool->method('put')->willReturnCallback(function(string $job,string $content):array {$key=hash('sha256',$content);$this->parts[$job.$key]=$content;return ['key'=>$key,'bytes'=>strlen($content)];});
         $spool->method('get')->willReturnCallback(function(string $job,array $part):string{if($this->slowReads)$this->seconds+=24;return $this->parts[$job.$part['key']];});
-        $this->engine=new FormsExportJobs($store,$spool,new FormsExportRenderer(),static fn(array $o):array=>$o,fn():int=>$this->now,function(string $uid,array $ids):void{if(!$this->filesAllowed&&in_array(90,$ids,true))throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Files access revoked');},fn():float=>$this->seconds);
+        $this->engine=new FormsExportJobs($store,$spool,new FormsExportRenderer(),function(array $o):array{if(!$this->originAllowed)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('original authority revoked');return $o;},fn():int=>$this->now,function(string $uid,array $ids):void{if(!$this->filesAllowed&&in_array(90,$ids,true))throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Files access revoked');},fn():float=>$this->seconds);
         for($i=1;$i<=205;$i++)$this->source[]=['id'=>$i,'timestamp'=>$i,'answers'=>[['questionId'=>1,'text'=>'answer '.$i]]];
     }
     private function native(string $action,array $args):array {
@@ -61,6 +63,39 @@ final class FormsExportJobsTest extends TestCase {
         $limited=$this->engine->step('alice',$id,$this->native(...));
         self::assertFalse($limited['complete']);self::assertSame('assembling',$limited['state']);self::assertSame(1,$limited['done']);
         $this->slowSeal=false;self::assertTrue($this->engine->step('alice',$id,$this->native(...))['complete']);
+    }
+    public function testExpiredCacheCannotHideDurableStepOutcomeOrAllowContent():void {
+        $id=$this->start()['references']['job_id'];
+        for($i=0;$i<3;$i++)$this->engine->step('alice',$id,$this->native(...));
+        $version=$this->jobs[$id]['version'];
+        $this->engine->deliver('alice',$id,$this->native(...),static fn():array=>['file_id'=>7],'delivered-before-expiry',$version);
+        $this->cacheLive=false;
+        self::assertSame(['state'=>'succeeded','references'=>['job_id'=>$id]],$this->engine->recover('alice',$id,'delivered-before-expiry',$version));
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);$this->engine->content('alice',$id);
+    }
+    public function testExpiredCacheKeepsJobAdmissionEvidenceUnderOriginalCurrentAuthority():void {
+        $id=$this->start()['references']['job_id'];$this->cacheLive=false;
+        self::assertSame(['state'=>'pending','references'=>['job_id'=>$id]],$this->engine->admissionEvidence('alice',$id));
+        $this->originAllowed=false;$this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->engine->admissionEvidence('alice',$id);
+    }
+    public function testSummaryCheckpointsUseChargedArtifactsInsteadOfSqlAnswerBuckets():void {
+        $args=['id'=>4];$preview=$this->engine->preview('alice','forms_summarize_results',$args,['revision'=>'4'],$this->native(...));
+        $id=$this->engine->start('alice','forms_summarize_results',$args,$preview,'summary-artifact',['uid'=>'alice'],$this->native(...))['references']['job_id'];
+        $step=$this->engine->step('alice',$id,$this->native(...));self::assertSame(100,$step['done']);
+        $payload=$this->jobs[$id]['payload'];self::assertArrayNotHasKey('summary',$payload);
+        self::assertArrayHasKey('summary_artifact',$payload);self::assertGreaterThan(0,$step['bytes']);
+        self::assertStringContainsString('answer 100',$this->parts[$id.$payload['summary_artifact']['key']]);
+    }
+    public function testObsoleteCacheCleanupCanContinueWithoutReadingOrRepeatingAPage():void {
+        $id=$this->start()['references']['job_id'];$this->garbageReady=false;
+        $limited=$this->engine->step('alice',$id,$this->native(...));
+        self::assertSame(0,$limited['done']);self::assertFalse($limited['complete']);self::assertTrue($limited['step_budget_exhausted']);self::assertSame([],$this->parts);
+        $this->garbageReady=true;self::assertSame(100,$this->engine->step('alice',$id,$this->native(...))['done']);
+    }
+    public function testCompletedCheckpointIsDurableBeforeCacheSealing():void {
+        $this->source=array_slice($this->source,0,1);$id=$this->start()['references']['job_id'];$this->requireCheckpointBeforeSeal=true;
+        self::assertTrue($this->engine->step('alice',$id,$this->native(...))['complete']);
     }
     public function testRetainedJobFromAnotherNativeBuildRequiresNewApproval():void {
         $id=$this->start()['references']['job_id'];$this->jobs[$id]['payload']['native_runtime']=str_repeat('f',64);
