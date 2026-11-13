@@ -118,6 +118,9 @@ final class FormsExportJobs {
             $next=$this->accepted($old,$next,$outcome);
             return $this->store->compareAndSwap($old,$next)?$next['payload']['last_step']['outcome']:null;
         }
+        // With no matching claim or accepted receipt, a newer monotonic version proves this approved callback cannot start.
+        // The journal pins this same version at reservation and rejects a preflight checkpoint that substitutes another.
+        if($old['version']>$version)return ['state'=>'failed_before_effect','references'=>['job_id'=>$id]];
         if($old['version']!==$version)return null;
         $next=$this->claim($old,$old['state'],$key,$version);
         $next=$this->accepted($next,$next,'failed_before_effect');

@@ -83,6 +83,14 @@ final class FormsExportJobsTest extends TestCase {
         $resumed=$this->engine->step('alice',$id,$this->native(...),null,'fresh-step',$this->jobs[$id]['version']);
         self::assertSame(100,$resumed['done']);
     }
+    public function testPreparedVersionAdvancedBeforeJournalReservationCanBeReleased():void {
+        $id=$this->start()['references']['job_id'];$prepared=$this->jobs[$id]['version'];
+        $this->engine->step('alice',$id,$this->native(...),null,'concurrent-step',$prepared);
+        self::assertSame('failed_before_effect',$this->engine->recover('alice',$id,'delayed-reservation',$prepared)['state']);
+        self::assertSame(100,$this->engine->status('alice',$id)['done']);
+        $this->expectException(\OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect::class);
+        $this->engine->step('alice',$id,$this->native(...),null,'delayed-reservation',$prepared);
+    }
     public function testDownloadLostReplyRetainsEvidenceWithoutRetainingOrReissuingSecret():void {
         $id=$this->start()['references']['job_id'];
         for($i=0;$i<3;$i++)$this->engine->step('alice',$id,$this->native(...));
