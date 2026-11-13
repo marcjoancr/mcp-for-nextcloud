@@ -9,7 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 use OCA\Mcp\Modules\Forms\Exports\{FormsExportJobs,FormsJobStore,FormsSpool,FormsExportRenderer};
 use PHPUnit\Framework\TestCase;
 final class FormsExportJobsTest extends TestCase {
-    private array $jobs=[];private array $parts=[];private int $revision=4;private array $source=[];private FormsExportJobs $engine;private bool $filesAllowed=true;private int $now=1000;
+    private array $jobs=[];private array $parts=[];private int $revision=4;private array $source=[];private FormsExportJobs $engine;private bool $filesAllowed=true;private int $now=1000;private float $seconds=0;private bool $slowReads=false;
     protected function setUp():void {
         $store=$this->createMock(FormsJobStore::class);
         $store->method('get')->willReturnCallback(fn(string $id):?array=>$this->jobs[$id]??null);
@@ -17,8 +17,8 @@ final class FormsExportJobsTest extends TestCase {
         $store->method('compareAndSwap')->willReturnCallback(function(array $old,array $next):bool {if(($this->jobs[$old['job_id']]??null)!==$old)return false;$this->jobs[$old['job_id']]=$next;return true;});
         $spool=$this->createMock(FormsSpool::class);
         $spool->method('put')->willReturnCallback(function(string $job,string $content):array {$key=hash('sha256',$content);$this->parts[$job.$key]=$content;return ['key'=>$key,'bytes'=>strlen($content)];});
-        $spool->method('get')->willReturnCallback(fn(string $job,array $part):string=>$this->parts[$job.$part['key']]);
-        $this->engine=new FormsExportJobs($store,$spool,new FormsExportRenderer(),static fn(array $o):array=>$o,fn():int=>$this->now,function(string $uid,array $ids):void{if(!$this->filesAllowed&&in_array(90,$ids,true))throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Files access revoked');});
+        $spool->method('get')->willReturnCallback(function(string $job,array $part):string{if($this->slowReads)$this->seconds+=24;return $this->parts[$job.$part['key']];});
+        $this->engine=new FormsExportJobs($store,$spool,new FormsExportRenderer(),static fn(array $o):array=>$o,fn():int=>$this->now,function(string $uid,array $ids):void{if(!$this->filesAllowed&&in_array(90,$ids,true))throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Files access revoked');},fn():float=>$this->seconds);
         for($i=1;$i<=205;$i++)$this->source[]=['id'=>$i,'timestamp'=>$i,'answers'=>[['questionId'=>1,'text'=>'answer '.$i]]];
     }
     private function native(string $action,array $args):array {
@@ -39,6 +39,15 @@ final class FormsExportJobsTest extends TestCase {
         $content=$this->engine->content('alice',$job);
         $f=fopen('php://memory','w+');fwrite($f,$content);rewind($f);fgetcsv($f,0,',','"','');fgetcsv($f,0,',','"','');$ids=[];while(($r=fgetcsv($f,0,',','"',''))!==false)$ids[]=(int)$r[0];fclose($f);
         self::assertSame(range(1,205),$ids);
+    }
+    public function testFinalizationDeadlinePreservesRowsAndAllowsANewBoundedStep():void {
+        $id=$this->start()['references']['job_id'];
+        $this->engine->step('alice',$id,$this->native(...));$this->engine->step('alice',$id,$this->native(...));
+        $this->slowReads=true;$limited=$this->engine->step('alice',$id,$this->native(...));
+        self::assertFalse($limited['complete']);self::assertSame('assembling',$limited['state']);
+        self::assertSame(205,$limited['done']);self::assertTrue($limited['continuation']);
+        $this->slowReads=false;$resumed=$this->engine->step('alice',$id,$this->native(...));
+        self::assertTrue($resumed['complete']);self::assertSame(205,$resumed['done']);
     }
     public function testSourceChangesNeverProduceMixedRevisionExport():void {
         $first=$this->start();$job=$first['references']['job_id'];$this->engine->step('alice',$job,$this->native(...));$this->revision++;

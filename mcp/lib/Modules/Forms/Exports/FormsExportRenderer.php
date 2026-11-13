@@ -75,23 +75,28 @@ final class FormsExportRenderer {
     }
     /** Turn only trusted generated cell markers into standard external relationships. */
     private function xlsxLinks(string $body):array {
-        $row=0;$links='';$rels='';$sequence=0;
-        $body=preg_replace_callback('/<row([^>]*)>(.*?)<\/row>/s',function(array $match)use(&$row,&$links,&$rels,&$sequence):string {
-            $row++;$column=0;
-            $cells=preg_replace_callback('/<c([^>]*)>/',function(array $cell)use($row,&$column,&$links,&$rels,&$sequence):string {
-                $column++;$n=$column;$letters='';
-                while($n>0){$n--;$letters=chr(65+$n%26).$letters;$n=intdiv($n,26);}
-                $ref=$letters.$row;$attrs=$cell[1];
-                if(preg_match('/ mcp-href="([^"]*)"/',$attrs,$href)===1) {
-                    $attrs=str_replace($href[0],'',$attrs);$id='rId'.++$sequence;
-                    $links.='<hyperlink ref="'.$ref.'" r:id="'.$id.'"/>';
-                    $rels.='<Relationship Id="'.$id.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="'.$href[1].'" TargetMode="External"/>';
-                }
-                return '<c r="'.$ref.'"'.$attrs.'>';
-            },$match[2]);
-            return '<row r="'.$row.'"'.$match[1].'>'.$cells.'</row>';
-        },$body);
-        return [$body,$links===''?'':'<hyperlinks>'.$links.'</hyperlinks>',$rels===''?'':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'.$rels.'</Relationships>'];
+        $row=0;$column=0;$links='';$rels='';$sequence=0;$output='';
+        $reader=new \XMLReader();$previous=libxml_use_internal_errors(true);libxml_clear_errors();
+        try {
+            if(!$reader->XML('<rows>'.$body.'</rows>','UTF-8',LIBXML_NONET|LIBXML_COMPACT))throw new \RuntimeException('Forms worksheet parsing failed.');
+            while($reader->read()) {
+                if($reader->nodeType===\XMLReader::ELEMENT&&$reader->depth===1&&$reader->name==='row') {
+                    $row++;$column=0;$output.='<row r="'.$row.'"'.($reader->getAttribute('hidden')==='1'?' hidden="1"':'').'>';
+                } elseif($reader->nodeType===\XMLReader::ELEMENT&&$reader->depth===2&&$reader->name==='c') {
+                    $column++;$n=$column;$letters='';
+                    while($n>0){$n--;$letters=chr(65+$n%26).$letters;$n=intdiv($n,26);}
+                    $ref=$letters.$row;$url=$reader->getAttribute('mcp-href');
+                    if($url!==null) {
+                        $id='rId'.++$sequence;$links.='<hyperlink ref="'.$ref.'" r:id="'.$id.'"/>';
+                        $rels.='<Relationship Id="'.$id.'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="'.self::xml($url).'" TargetMode="External"/>';
+                    }
+                    if($reader->getAttribute('t')!=='inlineStr')throw new \RuntimeException('Invalid Forms worksheet cell.');
+                    $output.='<c r="'.$ref.'" t="inlineStr">'.$reader->readInnerXml().'</c>';
+                } elseif($reader->nodeType===\XMLReader::END_ELEMENT&&$reader->depth===1&&$reader->name==='row')$output.='</row>';
+            }
+            if(libxml_get_errors()!==[])throw new \RuntimeException('Forms worksheet parsing failed.');
+        } finally {$reader->close();libxml_clear_errors();libxml_use_internal_errors($previous);}
+        return [$output,$links===''?'':'<hyperlinks>'.$links.'</hyperlinks>',$rels===''?'':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'.$rels.'</Relationships>'];
     }
     private static function xml(string $value):string {
         $value=mb_scrub($value,'UTF-8');

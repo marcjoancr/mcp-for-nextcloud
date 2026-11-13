@@ -18,5 +18,6 @@ final class FormsExportFormatsTest extends TestCase {
         self::assertSame(0,proc_close($p),$out."\n".$err);
         $result=json_decode($out,true,64,JSON_THROW_ON_ERROR);self::assertTrue($result['ok']);
         foreach(['csv','ods','xlsx'] as $format)self::assertTrue($result['checks'][$format]['round_trip']);
+        self::assertTrue($result['checks']['wide_xlsx_round_trip']);
     }
 }

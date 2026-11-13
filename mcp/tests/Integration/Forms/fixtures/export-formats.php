@@ -45,5 +45,14 @@ foreach(['csv','ods','xlsx'] as $format) {
         $checks[$format]=['bytes'=>strlen($bytes),'round_trip'=>true];$book->disconnectWorksheets();
     } finally {if(is_file($path))unlink($path);}
 }
+$widePath=\OCP\Server::get(\OCP\ITempManager::class)->getTemporaryFile('xlsx');
+try {
+    $wide=array_fill(0,100,str_repeat('&',4000));
+    file_put_contents($widePath,$renderer->render('xlsx',array_fill(0,100,'Question'),[$wide],array_map(strval(...),range(1,100))));
+    $book=\PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx')->load($widePath);$sheet=$book->getSheet(0);
+    if($sheet->getHighestColumn()!=='CV'||$sheet->getHighestRow()!==3)throw new RuntimeException('Wide XLSX lost cells or rows.');
+    foreach(range(1,100) as $column)if((string)$sheet->getCell([$column,3])->getValue()!==$wide[$column-1])throw new RuntimeException('Wide XLSX lost escaped answer text.');
+    $book->disconnectWorksheets();$checks['wide_xlsx_round_trip']=true;
+} finally {if(is_file($widePath))unlink($widePath);}
 echo json_encode(['ok'=>true,'checks'=>$checks],JSON_THROW_ON_ERROR)."\n";
 } catch(\Throwable $e) {fwrite(STDERR,json_encode(['ok'=>false,'class'=>$e::class,'message'=>$e->getMessage()],JSON_THROW_ON_ERROR)."\n");exit(1);}

@@ -13,7 +13,7 @@ final class FormsExportJobs {
     public const ACTIONS=['forms_summarize_results','forms_download_results','forms_export_results','forms_link_results_file'];
     /** @param \Closure(array):array $authorize @param \Closure():int $time */
     public function __construct(private FormsJobStore $store,private FormsSpool $spool,private FormsExportRenderer $renderer,
-        private \Closure $authorize,private \Closure $time,private ?\Closure $files=null) {}
+        private \Closure $authorize,private \Closure $time,private ?\Closure $files=null,private ?\Closure $timer=null) {}
     public function preview(string $uid,string $tool,array $args,array $snapshot,callable $native):array {
         $metadata=$native('forms_results_metadata',['id'=>$args['id']]);
         $after=$native('snapshot',['id'=>$args['id']]);
@@ -57,57 +57,77 @@ final class FormsExportJobs {
         $p=$job['payload'];
         return ['job_id'=>$job['job_id'],'state'=>$job['state'],'done'=>$p['done'],'total'=>$p['metadata']['submissionCount'],
             'source_revision'=>$p['source_revision'],'complete'=>in_array($job['state'],['ready','delivered'],true),
-            'bytes'=>$p['bytes'],'format'=>$p['arguments']['format']??'summary','continuation'=>in_array($job['state'],['collecting','working'],true)];
+            'bytes'=>$p['bytes'],'format'=>$p['arguments']['format']??'summary','continuation'=>in_array($job['state'],['collecting','working','assembling'],true),'step_budget_exhausted'=>(bool)($p['step_budget_exhausted']??false)];
     }
     public function step(string $uid,string $id,callable $native,?callable $visibleFiles=null,?string $operationKey=null,?int $approvedVersion=null):array {
         $old=$this->job($uid,$id);$this->approved($old,$operationKey,$approvedVersion);
         if($old['state']==='ready'||$old['state']==='delivered')return $this->present($old);
         if($old['state']==='working'&&($this->time)()-$old['updated_at']<=60)throw new ToolFailure('Another Forms worker owns the current step.');
-        if(!in_array($old['state'],['collecting','working'],true))throw new ToolFailure('This Forms job cannot continue.');
+        if(!in_array($old['state'],['collecting','working','assembling'],true))throw new ToolFailure('This Forms job cannot continue.');
         $working=$this->claim($old,'working',$operationKey,$approvedVersion);
         if(!$this->store->compareAndSwap($old,$working))throw new ToolFailure('Forms job changed before this step.');
-        $start=microtime(true);$p=$working['payload'];$args=$p['arguments'];$metadata=$p['metadata'];
+        $start=$this->tick();$p=$working['payload'];$p['step_budget_exhausted']=false;$args=$p['arguments'];$metadata=$p['metadata'];
         try {
             $this->source($p,$native);
-            $limit=100;
-            while(true) {
-                try{$page=$native('forms_results_page',['id'=>$args['id'],'after_id'=>$p['after_id'],'limit'=>$limit]);break;}
-                catch(\Throwable $e){if($limit===1)throw $e;$limit=max(1,intdiv($limit,2));}
-            }
-            if(count($page['submissions'])>100||strlen(json_encode($page,JSON_THROW_ON_ERROR))>1048576)throw new ToolFailure('Native Forms page exceeds its declared budget.');
-            $projection=new FormsExportSnapshot($metadata,(bool)($args['include_respondents']??false),(bool)($args['include_files']??false));
-            $rows=[];
-            foreach($page['submissions'] as $submission) {
-                if((int)$submission['id']<=$p['after_id'])throw new ToolFailure('Native Forms continuation repeated a submission.');
-                $visible=($args['include_files']??false)&&$visibleFiles!==null?$visibleFiles($submission):[];
-                foreach(array_keys($visible) as $fileId)$p['file_ids'][(string)$fileId]=(int)$fileId;
-                $rows[]=$p['tool']==='forms_summarize_results'?$projection->summaryCells($submission):$projection->row($submission,$visible);
-                if(microtime(true)-$start>20)throw new ToolFailure('Forms step exceeded its time budget; no page was accepted.');
-            }
-            $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));
-            if($p['tool']==='forms_summarize_results')$p['summary']=$this->aggregate($projection->columns(),$p['summary'],$rows);
-            else {
-                $format=$args['format']??'csv';
-                $header=$p['done']===0?[array_column($projection->columns(),'title'),array_column($projection->columns(),'id')]:[];
-                $part=$this->spool->put($id,$this->renderer->chunk($format,[...$header,...$rows],$header!==[]?2:null));
-                $p['parts'][]=$part;$p['bytes']+=$part['bytes'];
-            }
-            if($p['bytes']>26214400||strlen(json_encode($p['summary'],JSON_THROW_ON_ERROR))>26214400)throw new ToolFailure('Forms complete-result quota exceeded; no truncated result is published.');
-            $p['done']+=count($rows);$p['after_id']=(int)$page['nextId'];
-            if(!$page['hasMore']&&$p['done']!==$metadata['submissionCount'])throw new ToolFailure('Forms result coverage does not match the approved snapshot.');
-            if(!$page['hasMore']&&$p['tool']!=='forms_summarize_results') {
-                $chunks=(function()use($p,$id):\Generator{foreach($p['parts'] as $part)yield $this->spool->get($id,$part);})();
-                $p['artifact']=$this->spool->put($id,$this->renderer->assemble($args['format']??'csv',$chunks));$p['bytes']=$p['artifact']['bytes'];
+            if(!($p['collection_complete']??false)) {
+                $limit=100;
+                while(true) {
+                    try{$page=$native('forms_results_page',['id'=>$args['id'],'after_id'=>$p['after_id'],'limit'=>$limit]);break;}
+                    catch(\Throwable $e){if($limit===1)throw $e;$limit=max(1,intdiv($limit,2));}
+                }
+                if(count($page['submissions'])>100||strlen(json_encode($page,JSON_THROW_ON_ERROR))>1048576)throw new ToolFailure('Native Forms page exceeds its declared budget.');
+                $projection=new FormsExportSnapshot($metadata,(bool)($args['include_respondents']??false),(bool)($args['include_files']??false));
+                $rows=[];
+                foreach($page['submissions'] as $submission) {
+                    if((int)$submission['id']<=$p['after_id'])throw new ToolFailure('Native Forms continuation repeated a submission.');
+                    $visible=($args['include_files']??false)&&$visibleFiles!==null?$visibleFiles($submission):[];
+                    foreach(array_keys($visible) as $fileId)$p['file_ids'][(string)$fileId]=(int)$fileId;
+                    $rows[]=$p['tool']==='forms_summarize_results'?$projection->summaryCells($submission):$projection->row($submission,$visible);
+                    $this->deadline($start);
+                }
                 $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));
+                if($p['tool']==='forms_summarize_results')$p['summary']=$this->aggregate($projection->columns(),$p['summary'],$rows);
+                else {
+                    $format=$args['format']??'csv';
+                    $header=$p['done']===0?[array_column($projection->columns(),'title'),array_column($projection->columns(),'id')]:[];
+                    $part=$this->spool->put($id,$this->renderer->chunk($format,[...$header,...$rows],$header!==[]?2:null));
+                    $p['parts'][]=$part;$p['bytes']+=$part['bytes'];
+                }
+                if($p['bytes']>26214400||strlen(json_encode($p['summary'],JSON_THROW_ON_ERROR))>26214400)throw new ToolFailure('Forms complete-result quota exceeded; no truncated result is published.');
+                $p['done']+=count($rows);$p['after_id']=(int)$page['nextId'];
+                if(!$page['hasMore']&&$p['done']!==$metadata['submissionCount'])throw new ToolFailure('Forms result coverage does not match the approved snapshot.');
+                $p['collection_complete']=!$page['hasMore'];
             }
-            $next=$working;$next['version']++;$next['state']=$page['hasMore']?'collecting':'ready';$next['payload']=$p;$next['updated_at']=($this->time)();
-            $next=$this->accepted($working,$next,$page['hasMore']?'pending':'succeeded');
-            if(!$this->store->compareAndSwap($working,$next))throw new ToolFailure('Forms worker lost the page claim.');
-            return $this->present($next);
+            $this->deadline($start);
+            if($p['collection_complete']&&$p['tool']!=='forms_summarize_results')$this->finalize($id,$p,$start);
+            $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));$this->deadline($start);
+            return $this->saveStep($working,$p,$p['collection_complete']?'ready':'collecting',$p['collection_complete']?'succeeded':'pending');
+        } catch(FormsExportBudgetExceeded) {
+            // The page cursor and all completed private parts survive; readiness is never accepted after the deadline.
+            $p['step_budget_exhausted']=true;
+            return $this->saveStep($working,$p,($p['collection_complete']??false)?'assembling':'collecting','pending');
         } catch(\Throwable $error) {
             $failed=$working;$failed['version']++;$failed['state']='paused';$failed['updated_at']=($this->time)();$failed=$this->accepted($working,$failed,'failed_before_effect');
             $this->store->compareAndSwap($working,$failed);throw $error;
         }
+    }
+    private function tick():float {return $this->timer!==null?($this->timer)():microtime(true);}
+    private function deadline(float $start):void {if($this->tick()-$start>20)throw new FormsExportBudgetExceeded('The bounded Forms step needs continuation.');}
+    private function finalize(string $id,array &$p,float $start):void {
+        if(isset($p['artifact'])) {
+            $this->spool->get($id,$p['artifact']);$this->deadline($start);return;
+        }
+        $chunks=(function()use($p,$id,$start):\Generator{
+            foreach($p['parts'] as $part) {$this->deadline($start);$chunk=$this->spool->get($id,$part);$this->deadline($start);yield $chunk;}
+        })();
+        $content=$this->renderer->assemble($p['arguments']['format']??'csv',$chunks);$this->deadline($start);
+        $p['artifact']=$this->spool->put($id,$content);$p['bytes']=$p['artifact']['bytes'];$this->deadline($start);
+    }
+    private function saveStep(array $working,array $p,string $state,string $outcome):array {
+        $next=$working;$next['version']++;$next['state']=$state;$next['payload']=$p;$next['updated_at']=($this->time)();
+        $next=$this->accepted($working,$next,$outcome);
+        if(!$this->store->compareAndSwap($working,$next))throw new ToolFailure('Forms worker lost the page claim.');
+        return $this->present($next);
     }
     /** Recover durable evidence only. Invalidating a stale read claim prevents a delayed worker from accepting its page. */
     public function recover(string $uid,string $id,string $key,int $version):?array {
@@ -119,7 +139,7 @@ final class FormsExportJobs {
             $next=$old;$next['version']++;$next['updated_at']=($this->time)();
             $outcome=match($old['state']){'working'=>'failed_before_effect','delivering','issuing'=>'partial',default=>null};
             if($outcome===null)return null;
-            $next['state']=match($old['state']){'working'=>'collecting','issuing'=>'ready',default=>'delivery_uncertain'};
+            $next['state']=match($old['state']){'working'=>($p['collection_complete']??false)?'assembling':'collecting','issuing'=>'ready',default=>'delivery_uncertain'};
             $next=$this->accepted($old,$next,$outcome);
             return $this->store->compareAndSwap($old,$next)?$next['payload']['last_step']['outcome']:null;
         }

@@ -67,6 +67,18 @@ final class FormsCompleteExportTest extends TestCase {
             } finally {unlink($file);}
         }
     }
+    public function testEscapedNativeRowCannotSilentlyDisappearFromXlsx():void {
+        $row=array_fill(0,100,str_repeat('&',4000));
+        self::assertLessThan(1048576,strlen(json_encode($row,JSON_THROW_ON_ERROR)));
+        $file=tempnam(sys_get_temp_dir(),'forms-wide-row-');
+        try {
+            file_put_contents($file,(new FormsExportRenderer())->render('xlsx',array_fill(0,100,'Question'),[$row],array_map(strval(...),range(1,100))));
+            $zip=new \ZipArchive();self::assertTrue($zip->open($file));$xml=$zip->getFromName('xl/worksheets/sheet1.xml');$zip->close();
+            $doc=new \DOMDocument();self::assertTrue($doc->loadXML($xml));$xp=new \DOMXPath($doc);$xp->registerNamespace('s','http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+            self::assertSame(100,(int)$xp->evaluate('count(//s:row[@r="3"]/s:c)'));
+            self::assertSame($row[0],$xp->evaluate('string(//s:row[@r="3"]/s:c[@r="A3"])'));
+        } finally {unlink($file);}
+    }
     public function testFinalOutputQuotaIncludesContainerAndCsvBom():void {
         $this->expectException(\RuntimeException::class);
         (new FormsExportRenderer())->assemble('csv',[str_repeat('a',26214400)]);
