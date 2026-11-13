@@ -65,6 +65,23 @@ try {
     $stage='attachment save';$saved=$write('forms_save_response_file',['id'=>$id,'submission_id'=>$attachedId,'file_id'=>$fileId,'path'=>'/forms-saved.txt']);
     if(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid)->get('forms-saved.txt')->getContent()!=='fixture-bytes')throw new RuntimeException('Saved attachment bytes mismatch');
     $checks['web_attachment_save_verified']=true;
+    $stage='Files export';
+    $exportFile=function(array $args)use($write):array {
+        $job=$write('forms_export_results',$args);$target=$job['operation']['operation_id'];
+        $collected=$write('forms_continue_operation',['target_operation_id'=>$target]);
+        if(!($collected['data']['complete']??false))throw new RuntimeException('Small Files export did not finish collection.');
+        $delivered=$write('forms_continue_operation',['target_operation_id'=>$target]);
+        if(($delivered['data']['state']??null)!=='delivered')throw new RuntimeException('Files export was not verified.');
+        return $delivered;
+    };
+    $exportFile(['id'=>$id,'format'=>'csv','path'=>'/forms-results.csv','include_files'=>true]);
+    $root=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);
+    if(!str_starts_with($root->get('forms-results.csv')->getContent(),"\xEF\xBB\xBF"))throw new RuntimeException('Files CSV export is missing.');
+    $exportFile(['id'=>$id,'format'=>'ods','path'=>'/forms-results.ods']);
+    $destination=$root->get('forms-results.ods');$originalId=(int)$destination->getId();$etag=(string)$destination->getEtag();
+    $exportFile(['id'=>$id,'format'=>'ods','path'=>'/forms-results.ods','overwrite'=>true,'etag'=>$etag]);
+    if((int)$root->get('forms-results.ods')->getId()!==$originalId||!str_starts_with($root->get('forms-results.ods')->getContent(),'PK'))throw new RuntimeException('Verified overwrite changed destination identity or lost bytes.');
+    $checks['web_files_export_and_overwrite_verified']=true;
     $stage='export';$job=$write('forms_download_results',['id'=>$id,'format'=>'xlsx']);$target=$job['operation']['operation_id'];
     $step=$write('forms_continue_operation',['target_operation_id'=>$target]);
     if(!($step['data']['complete']??false))throw new RuntimeException('Single-page export did not complete');

@@ -45,7 +45,9 @@ final class FormsNativeGateway implements FormsGateway {
             if(in_array($action,['forms_continue_operation','forms_cancel_operation','forms_read_result'],true)) {
                 $receipt=$this->journal->get($uid,$input['target_operation_id'],fn(string $tool,array $refs)=>$this->authorization->assertHistory($uid,$tool,$refs));
                 $jobId=$receipt['references']['job_id']??throw new ToolFailure('The original operation has no Forms job.');
-                $job=$this->jobs->job($uid,$jobId);$read=$this->source($uid,$guard,$job['payload']['origin']);$snapshot=$read('snapshot',['id'=>$job['payload']['arguments']['id']]);
+                $job=$this->jobs->job($uid,$jobId);
+                if($action==='forms_continue_operation'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)&&($guard->capabilities()['file_sinks']??false)!==true)throw new ToolFailure('This Forms runtime does not qualify the original Files write sink.');
+                $read=$this->source($uid,$guard,$job['payload']['origin']);$snapshot=$read('snapshot',['id'=>$job['payload']['arguments']['id']]);
                 if($snapshot['revision']!==$job['payload']['source_revision'])throw new ToolFailure('The approved Forms job source changed.');
                 $snapshot['job_id']=$jobId;$snapshot['job_version']=$job['version'];$snapshot['job']=$this->jobs->status($uid,$jobId);
                 $snapshot['impact']['job']=$snapshot['job'];
@@ -118,7 +120,7 @@ final class FormsNativeGateway implements FormsGateway {
             if($action==='forms_cancel_operation')$data=$this->jobs->cancel($uid,$jobId,$operationKey,$snapshot['job_version']);
             elseif($job['state']==='ready'&&$job['payload']['tool']==='forms_download_results')$data=$this->jobs->issueDownload($uid,$jobId,$operationKey,$snapshot['job_version'],fn():array=>$this->downloads->issue($uid,$jobId));
             elseif($job['state']==='ready'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)) {
-                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content)),$operationKey,$snapshot['job_version']);
+                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content,$this->fileBoundary($uid,$guard,$claimed['payload']['origin'],array_map(static fn(int $id):array=>['file_id'=>$id],array_values($claimed['payload']['file_ids']??[]))))),$operationKey,$snapshot['job_version']);
             } else $data=$this->jobs->step($uid,$jobId,$read,function(array $submission)use($uid,$guard,$job):array {
                 $refs=$guard->read($uid,'forms_list_response_files',['id'=>$job['payload']['arguments']['id'],'submission_id'=>$submission['id']]);
                 $visible=$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$refs['files']??[]));$out=[];
@@ -137,13 +139,31 @@ final class FormsNativeGateway implements FormsGateway {
             $transfer=fn():array=>$this->policy->resourceBoundary($uid,fn()=>$this->uploads->withSources($uid,$snapshot['file_sources'],
                 fn(array $sources):array=>$guard->stageFiles($uid,$input['id'],$input['question_id'],$input['share_hash']??'',$sources)));
         } elseif($action==='forms_save_response_file') {
-            $transfer=fn():array=>['data'=>$this->policy->resourceBoundary($uid,fn()=>$this->files->save($uid,$snapshot['file_destination'])),'references'=>['form_id'=>$input['id'],'submission_id'=>$input['submission_id'],'file_id'=>$input['file_id']],'files_phase'=>'saved_verified'];
+            $transfer=fn():array=>['data'=>$this->policy->resourceBoundary($uid,fn()=>$this->files->save($uid,$snapshot['file_destination'],$this->fileBoundary($uid,$guard,$origin,$snapshot['file_destination']['source']))),'references'=>['form_id'=>$input['id'],'submission_id'=>$input['submission_id'],'file_id'=>$input['file_id']],'files_phase'=>'saved_verified'];
         }
         try {return $this->outcome($guard->apply($uid,$action,$input,$revision,$operationKey,$snapshot['file_manifest']??[],$transfer));}
         catch(\Throwable $failure) {
             if(is_a($failure,'OCA\\Forms\\Mcp\\BeforeEffect'))throw new FormsBeforeEffect('Forms refused the change before any effect. Review current permissions, settings and limits.');
             throw $failure;
         } finally {unset($this->snapshots[$key]);}
+    }
+    /** Trusted callback is never accepted from tool arguments. Native storage invokes admission after its actual lock. */
+    private function fileBoundary(string $uid,object $guard,array $origin,array $sources):\Closure {
+        if(($guard->capabilities()['file_sinks']??false)!==true)throw new FormsBeforeEffect('This Forms runtime does not qualify Files write sinks.');
+        return function(\OCP\Files\Node $node,?string $child,\Closure $filePolicy,\Closure $write,?array $preimage=null)use($uid,$guard,$origin,$sources):mixed {
+            $authorize=fn()=>$this->policy->resourceBoundary($uid,function()use($uid,$origin,$sources,$node,$child,$filePolicy,$preimage):void {
+                $this->authorization->assert($origin);
+                $impact=['files'=>$sources];
+                if($child===null)$impact['files'][]=['file_id'=>(int)$node->getId()];
+                else $impact['share_impact']['parent']=['file_id'=>(int)$node->getId(),'create_folder'=>true];
+                $this->impact->assertVisible($uid,$impact);$filePolicy();
+                if($preimage!==null) {
+                    if(!$node instanceof \OCP\Files\File)throw new \RuntimeException('Invalid Forms overwrite destination.');
+                    \OCA\Mcp\Modules\Forms\Attachments\FormsFilePreimage::assert($node,$preimage);
+                }
+            });
+            return $guard->fileBoundary($uid,$origin,$node,$child,$authorize,$write);
+        };
     }
     private function outcome(array $result):array {
         if(isset($result['phases'])) {

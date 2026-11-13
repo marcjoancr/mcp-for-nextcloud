@@ -25,6 +25,7 @@ use OCP\IURLGenerator;
 
 final class IncomingFileCreationTest extends FilesToolsTestCase {
     private IncomingFileCreation $incoming;
+    private FileCreation $creation;
     private IRootFolder $rootFolder;
     private NodeAccessInfo $access;
 
@@ -58,6 +59,7 @@ final class IncomingFileCreationTest extends FilesToolsTestCase {
             $this->locks->service($this),
             new \OCA\Mcp\Modules\Files\Creation\FileCreationLockGuard($config, 'fpm-fcgi'),
         );
+        $this->creation = $creation;
         $this->incoming = new IncomingFileCreation($this->rootFolder, $creation, $guard, $this->visibilityGuard);
     }
 
@@ -76,6 +78,28 @@ final class IncomingFileCreationTest extends FilesToolsTestCase {
         $this->assertSame([], $this->store->rows);
     }
 
+    public function testFormsBoundaryRefusalBeforeAllocationCreatesNothing():void {
+        $folder=$this->tree->rootFolder()->get('Documentos');
+        try {
+            $this->creation->write($folder,'revoked.pdf','bytes','alice',true,static function():mixed {throw new ToolFailure('Authority revoked');});
+            self::fail('Revoked allocation was admitted.');
+        } catch(ToolFailure) {self::assertArrayNotHasKey('/alice/files/Documentos/revoked.pdf',$this->tree->nodes);}
+        self::assertSame([],$this->tree->ops);
+    }
+    public function testFormsBoundaryRefusalAfterAllocationPreservesEmptyFile():void {
+        $folder=$this->tree->rootFolder()->get('Documentos');$phases=[];
+        try {
+            $this->creation->write($folder,'empty-retained.pdf','private bytes','alice',true,
+                static function(\OCP\Files\Node $node,?string $child,\Closure $policy,\Closure $write)use(&$phases):mixed {
+                    $phases[]=$child===null?'content':'allocation';$policy();
+                    if($child===null)throw new ToolFailure('Authority revoked after allocation.');
+                    return $write();
+                });
+            self::fail('Revoked content write was admitted.');
+        } catch(ToolFailure) {self::assertSame('',$this->tree->nodes['/alice/files/Documentos/empty-retained.pdf']['content']);}
+        self::assertSame(['allocation','content'],$phases);
+        self::assertSame(['create /alice/files/Documentos/empty-retained.pdf'],$this->tree->ops);
+    }
     public function testSavePreservesArbitraryBinaryBytes(): void {
         $bytes = "\x00\xff\x81PDF\r\n";
         $receipt = $this->incoming->save('alice', '/Documentos/scan.pdf', $bytes, false);

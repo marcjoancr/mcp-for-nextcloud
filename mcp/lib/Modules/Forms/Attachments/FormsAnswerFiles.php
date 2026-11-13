@@ -35,15 +35,15 @@ final class FormsAnswerFiles {
         $target=$this->creation->target($root,$path);
         return ['source'=>$source,'destination'=>['path'=>$target['path'],'folder_id'=>(int)$target['folder']->getId(),'etag'=>$target['folder']->getEtag()],'plan'=>$plan];
     }
-    public function save(string $uid,array $manifest): array {
+    public function save(string $uid,array $manifest,?\Closure $mutationBoundary=null): array {
         $this->access->clearCache();$this->access->assertScopeReadable();
         $target=$this->creation->target($this->root->getUserFolder($uid),$manifest['destination']['path']);
         FileCreation::assertCreatable($target['folder']);
         if ((int)$target['folder']->getId()!==$manifest['destination']['folder_id'] || $target['folder']->getEtag()!==$manifest['destination']['etag']) {
             throw new \RuntimeException('Forms save destination changed after preview');
         }
-        return $this->sources->withSources($uid,$manifest['source'],function(array $sources) use($uid,$target): array {
-            $file=$this->creation->write($target['folder'],$target['name'],$sources[0]['stream'],$uid);
+        return $this->sources->withSources($uid,$manifest['source'],function(array $sources) use($uid,$target,$mutationBoundary): array {
+            $file=$this->creation->write($target['folder'],$target['name'],$sources[0]['stream'],$uid,true,$mutationBoundary);
             $stream=$file->fopen('rb');if (!is_resource($stream)) {throw new \RuntimeException('Forms saved file verification failed');}
             try {$hash=hash_init('sha256');$size=hash_update_stream($hash,$stream,FormsAnswerUploads::MAX_BYTES+1);$digest=hash_final($hash);} finally {fclose($stream);}
             if ($size!==$sources[0]['size'] || !hash_equals($sources[0]['sha256'],$digest)) {throw new \RuntimeException('Forms saved file verification failed');}

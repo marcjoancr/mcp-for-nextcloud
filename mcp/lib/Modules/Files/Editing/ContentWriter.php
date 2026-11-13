@@ -39,13 +39,19 @@ final class ContentWriter {
      * @return array{path:string, size:int, etag:string, access:array<string, mixed>, backup:string, diff:string}
      * @throws ToolFailure when the preparation or the write fails
      */
-    public function commit(Folder $root, string $userId, File $file, string $path, string $content, ?string $etag, string $before, bool $renderDiff = true): array {
+    public function commit(Folder $root, string $userId, File $file, string $path, string $content, ?string $etag, string $before, bool $renderDiff = true, ?\Closure $mutationBoundary = null, ?array $expectedPreimage = null): array {
         $this->fileTypes->assertWritableName($file->getName());
+        $policy = function () use ($file, $path): void {
+            $this->fileTypes->assertWritableName($file->getName());$this->backup->assertWritablePath($path);
+            $this->visibilityGuard->clearCache();$this->visibilityGuard->assertVisible($file);
+        };
+        if ($mutationBoundary !== null) {$mutationBoundary($file, null, $policy, static fn () => null, $expectedPreimage);}
         $copy = $this->backup->prepare($root, $file, $path, $userId, $etag);
         $this->visibilityGuard->assertVisible($file);
         try {
             // Checked again right before the write: the backup took time, and files_lock does not refuse every lock.
-            $write = fn () => $this->fileTypes->writeFile($file, function () use ($file, $content, $path) { $this->backup->assertWritablePath($path); return $file->putContent($content); });
+            $put = fn () => $this->fileTypes->writeFile($file, function () use ($file, $content, $path) { $this->backup->assertWritablePath($path); return $file->putContent($content); });
+            $write = fn () => $mutationBoundary === null ? $put() : $mutationBoundary($file, null, $policy, $put, $expectedPreimage);
             NodeAccess::mutate(fn () => $this->locks === null ? $write() : $this->locks->run($write, $file, $userId, $path), $this->visibilityGuard);
         } catch (LockWriteFailure $e) {
             throw $e->withNote(EditingMessages::originalKept($copy));

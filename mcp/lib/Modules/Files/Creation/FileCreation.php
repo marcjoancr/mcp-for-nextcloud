@@ -257,7 +257,7 @@ final class FileCreation {
      * @throws ArgumentValidationException when the storage refuses the name
      * @throws ToolFailure with the message of a lock ({@see \OCA\Mcp\Platform\FileAccess\Locks\LockWriteFailure}) or a full quota, or {@see \OCA\Mcp\Modules\Files\Creation\CreationMessages::createFailed()}
      */
-    public function write(Folder $folder, string $name, mixed $content, ?string $userId = null, bool $asUser = true): File {
+    public function write(Folder $folder, string $name, mixed $content, ?string $userId = null, bool $asUser = true, ?\Closure $mutationBoundary = null): File {
         $this->fileTypes->assertWritableName($name);
         if ($folder->nodeExists($name)) {
             throw new FileExists(CreationMessages::fileExists());
@@ -266,8 +266,8 @@ final class FileCreation {
         $locked = false;
         try {
             /** @var array{0:File,1:array{int,string,int}} $created */
-            $created = NodeAccess::mutate(function () use ($folder, $name, &$locked): array {
-                return NodeAccess::run(function () use ($folder, $name, &$locked): array {
+            $created = NodeAccess::mutate(function () use ($folder, $name, &$locked, $mutationBoundary): array {
+                return NodeAccess::run(function () use ($folder, $name, &$locked, $mutationBoundary): array {
                     // Warm the DBLockingProvider's shared-path cache before promoting this folder to exclusive.
                     // The provider disables that cache under CLI; FileCreationLockGuard admits only qualified web SAPIs.
                     $folder->lock(ILockingProvider::LOCK_SHARED);
@@ -278,9 +278,9 @@ final class FileCreation {
                         if ($folder->nodeExists($name)) {
                             throw new FileExists(CreationMessages::fileExists());
                         }
-                        $file = NodeAccess::requireFile($this->fileTypes->writeName($name, fn () => BackupWriteBoundary::writeNode(
+                        $file = NodeAccess::requireFile($this->mutation($folder, $name, $mutationBoundary, fn () => $this->fileTypes->writeName($name, fn () => BackupWriteBoundary::writeNode(
                             $folder, $this->backupLocation, fn () => $folder->newFile($name, ''), $name,
-                        )));
+                        ))));
                         return [$file, [(int)$file->getId(), (string)$file->getEtag(), (int)$file->getSize()]];
                     } finally {
                         if ($locked) {
@@ -307,7 +307,7 @@ final class FileCreation {
             throw new FileExists(CreationMessages::fileExists());
         }
         try {
-            $put = fn () => $this->fileTypes->writeFile($current, fn () => BackupWriteBoundary::writeNode($current, $this->backupLocation, fn () => $current->putContent($content)));
+            $put = fn () => $this->mutation($current, null, $mutationBoundary, fn () => $this->fileTypes->writeFile($current, fn () => BackupWriteBoundary::writeNode($current, $this->backupLocation, fn () => $current->putContent($content))));
             NodeAccess::mutate(fn () => $userId === null ? $put() : $this->locks->run($put, $current, $userId, null, $asUser), $this->visibilityGuard);
         } catch (ToolFailure $e) {
             // Already a readable refusal: a lock found by the check, or one the storage raised, explained.
@@ -321,6 +321,18 @@ final class FileCreation {
             throw new ToolFailure(CreationMessages::createFailed());
         }
         return $current;
+    }
+
+    /** Server-only opt-in boundary for qualified Forms storage; each stage receives fresh Files policy checks. */
+    private function mutation(\OCP\Files\Node $node, ?string $child, ?\Closure $boundary, \Closure $write): mixed {
+        if ($boundary === null) {return $write();}
+        $policy = function () use ($node, $child): void {
+            $this->fileTypes->assertWritableName($child ?? $node->getName());
+            BackupWriteBoundary::node($node, $this->backupLocation, $child ?? '');
+            $this->visibilityGuard->clearCache();$this->visibilityGuard->assertVisible($node);
+            if ($child !== null) {self::assertCreatable($node);}
+        };
+        return $boundary($node, $child, $policy, $write, $child === null ? ['size' => 0, 'sha256' => hash('sha256', '')] : null);
     }
 
     /**

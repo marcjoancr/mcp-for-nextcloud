@@ -32,22 +32,22 @@ final class FormsExportDestination {
         $file=NodeAccess::requireFile(NodeAccess::get($root,$path,$this->access));NodeAccess::checkEtag($file,$args['etag']);
         if(!$file->isReadable()||!$file->isUpdateable()||$file->getSize()>26214400)throw new ToolFailure('The export destination is unavailable.');
         $this->types->assertWritableName($file->getName());
-        return ['path'=>$path,'overwrite'=>true,'file_id'=>(int)$file->getId(),'etag'=>(string)$file->getEtag(),
+        return ['path'=>$path,'overwrite'=>true,'file_id'=>(int)$file->getId(),'etag'=>(string)$file->getEtag(),'preimage'=>\OCA\Mcp\Modules\Forms\Attachments\FormsFilePreimage::capture($file),
             'plan'=>$this->plans->describe($file,$uid,$path,['action'=>'forms_export_results','format'=>$args['format']??'csv','overwrite'=>true])];
     }
-    public function save(string $uid,array $args,array $approved,string $content):array {
+    public function save(string $uid,array $args,array $approved,string $content,?\Closure $mutationBoundary=null):array {
         if(strlen($content)>26214400)throw new ToolFailure('The complete export exceeds its destination byte quota.');
         $current=$this->snapshot($uid,$args);
         if($current!==$approved)throw new ToolFailure('The approved export destination changed. Preview a new export.');
         $root=$this->root->getUserFolder($uid);
         if(!$approved['overwrite']) {
             $target=$this->creation->target($root,$approved['path']);
-            $file=$this->creation->write($target['folder'],$target['name'],$content,$uid);
+            $file=$this->creation->write($target['folder'],$target['name'],$content,$uid,true,$mutationBoundary);
             $receipt=$this->creation->receipt($target,$file,$uid);
         } else {
             $file=NodeAccess::requireFile(NodeAccess::get($root,$approved['path'],$this->access));
             if((int)$file->getId()!==$approved['file_id'])throw new ToolFailure('The export destination changed.');
-            $receipt=$this->writer->commit($root,$uid,$file,$approved['path'],$content,$approved['etag'],'',false);
+            $receipt=$this->writer->commit($root,$uid,$file,$approved['path'],$content,$approved['etag'],'',false,$mutationBoundary,$approved['preimage']);
             $file=NodeAccess::requireFile(NodeAccess::get($root,$approved['path'],$this->access));
         }
         $stream=$file->fopen('rb');if(!is_resource($stream))throw new ToolFailure('The export write could not be verified.');
