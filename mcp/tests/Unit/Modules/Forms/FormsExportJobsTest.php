@@ -78,8 +78,10 @@ final class FormsExportJobsTest extends TestCase {
         self::assertNull($this->engine->recover('alice',$id,'crashed-worker',$original['version']));
         $this->now+=61;
         self::assertSame('failed_before_effect',$this->engine->recover('alice',$id,'crashed-worker',$original['version'])['state']);
-        self::assertSame('paused',$this->jobs[$id]['state']);self::assertSame(0,$this->jobs[$id]['payload']['done']);
+        self::assertSame('collecting',$this->jobs[$id]['state']);self::assertSame(0,$this->jobs[$id]['payload']['done']);
         self::assertSame([],$this->jobs[$id]['payload']['parts']);
+        $resumed=$this->engine->step('alice',$id,$this->native(...),null,'fresh-step',$this->jobs[$id]['version']);
+        self::assertSame(100,$resumed['done']);
     }
     public function testDownloadLostReplyRetainsEvidenceWithoutRetainingOrReissuingSecret():void {
         $id=$this->start()['references']['job_id'];

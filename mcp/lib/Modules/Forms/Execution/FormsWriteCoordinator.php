@@ -49,7 +49,8 @@ final class FormsWriteCoordinator {
             } catch(PlanChanged|FormsBeforeEffect $failure) {throw $failure;}
             catch(\Throwable) {throw new FormsBeforeEffect('Forms preflight could not be completed. No native change was started; review a new preview.');}
             return $this->native->apply($uid,$tool,$this->effect($args),(string)$snapshot['revision'],$nativeKey);
-        },$this->historical($uid));
+        },$this->historical($uid),in_array($tool,['forms_continue_operation','forms_cancel_operation'],true)
+            ?fn():array=>['job_version'=>$this->native->snapshot($uid,$tool,$this->effect($args))['job_version']??null]:null);
         ($this->authorize)($uid,$tool,$args,[]);
         if(array_key_exists('data',$result))$result['data']=FormsProjection::mutation($result['data'],$tool);
         return FormsProjection::bounded($result);

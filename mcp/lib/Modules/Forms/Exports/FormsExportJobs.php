@@ -114,7 +114,7 @@ final class FormsExportJobs {
             $next=$old;$next['version']++;$next['updated_at']=($this->time)();
             $outcome=match($old['state']){'working'=>'failed_before_effect','delivering','issuing'=>'partial',default=>null};
             if($outcome===null)return null;
-            $next['state']=match($old['state']){'working'=>'paused','issuing'=>'ready',default=>'delivery_uncertain'};
+            $next['state']=match($old['state']){'working'=>'collecting','issuing'=>'ready',default=>'delivery_uncertain'};
             $next=$this->accepted($old,$next,$outcome);
             return $this->store->compareAndSwap($old,$next)?$next['payload']['last_step']['outcome']:null;
         }

@@ -121,7 +121,7 @@ final class FormsOperationJournalTest extends TestCase {
         $args=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
         $this->journal->execute('forms_continue_operation','alice',$args,static function(string $key,\Closure $checkpoint):array {
             $checkpoint(['job_version'=>3,'required_operations'=>['download_results']]);throw new \RuntimeException('Lost step receipt');
-        });
+        },null,static fn():array=>['job_version'=>3]);
         $create=$this->approved([],'forms_create');
         $created=$this->journal->execute('forms_create','alice',$create,static fn():array=>['state'=>'succeeded','references'=>['form_id'=>7]]);
         self::assertSame('succeeded',$created['operation']['state']);
@@ -130,6 +130,19 @@ final class FormsOperationJournalTest extends TestCase {
             return ['state'=>'pending','references'=>['job_id'=>'job-a']];
         });
         self::assertSame('pending',$recovered['state']);
+    }
+    public function testJobVersionIsReservedBeforePreflightCanCrash():void {
+        $start=$this->approved(['id'=>4],'forms_download_results');
+        $this->journal->execute('forms_download_results','alice',$start,static fn():array=>['state'=>'pending','references'=>['job_id'=>'job-a','form_id'=>4]]);
+        $args=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
+        $this->journal->execute('forms_continue_operation','alice',$args,static function():array {throw new \RuntimeException('Preflight process loss');},null,static fn():array=>['job_version'=>1]);
+        $status=$this->journal->get('alice',$args['operation_id'],static function():void{},static function(string $key,string $tool,array $refs):?array {
+            return isset($refs['job_version'])?['state'=>'failed_before_effect','references'=>['job_id'=>'job-a']]:null;
+        });
+        self::assertSame('failed_before_effect',$status['state']);
+        $next=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
+        $result=$this->journal->execute('forms_continue_operation','alice',$next,static fn():array=>['state'=>'pending','references'=>['job_id'=>'job-a']],null,static fn():array=>['job_version'=>2]);
+        self::assertSame('pending',$result['operation']['state']);
     }
     private function approved(array $args,string $tool='forms_submit_response'):array {
         $plan=$this->journal->plan($tool,'alice',$args,['plan_state'=>'proof']);

@@ -30,7 +30,7 @@ final class FormsOperationJournal {
         return $plan+['operation_id'=>$base.'.'.$signature,'operation_expires_at'=>$this->clock->getTime()+900];
     }
 
-    public function execute(string $tool,string $uid,array $arguments,\Closure $effect,?\Closure $authorizeReplay=null):array {
+    public function execute(string $tool,string $uid,array $arguments,\Closure $effect,?\Closure $authorizeReplay=null,?\Closure $prepareReservation=null):array {
         $id=$arguments['operation_id']??null;
         if(!is_string($id)||preg_match('/^([a-f0-9]{32}\.([0-9]{1,12}))\.([a-f0-9]{64})$/D',$id,$parts)!==1) {
             throw new ToolFailure('Repeat the operation_id from the approved Forms preview.');
@@ -57,6 +57,9 @@ final class FormsOperationJournal {
             $this->assertActor($uid,$original);$authorizeReplay?->__invoke($original['tool_name'],$original['resource_refs']);
             $job=$original['resource_refs']['job_id']??throw new ToolFailure('The original operation has no Forms job.');
             $refs['job_id']=$job;
+            $prepared=$prepareReservation?->__invoke()??[];
+            if(!is_int($prepared['job_version']??null)||$prepared['job_version']<1)throw new ToolFailure('A current Forms job version is required before reservation.');
+            $refs['job_version']=$prepared['job_version'];
             if(isset($original['resource_refs']['form_id']))$refs['form_id']=$original['resource_refs']['form_id'];
             $target='job:'.$job;
         }
@@ -68,6 +71,7 @@ final class FormsOperationJournal {
             $this->actors->assertCurrent($uid,$actor);
             $checkpoint=function(array $authority)use($scope,$id,&$refs):void {
                 $authority=array_intersect_key($authority,array_flip(['required_operations','files_operations','requires_admin','job_version']));
+                if(isset($refs['job_version'])&&($authority['job_version']??null)!==$refs['job_version'])throw new FormsBeforeEffect('The Forms job changed during admission.');
                 $refs=array_replace($refs,$authority);$this->store->checkpoint($scope,$id,$refs);
             };
             $native=$effect($nativeKey,$checkpoint);
