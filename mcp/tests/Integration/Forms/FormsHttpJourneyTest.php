@@ -19,6 +19,9 @@ final class FormsHttpJourneyTest extends TestCase {
         self::assertSame(0,proc_close($p),$out."\n".$err);$result=json_decode($out,true,64,JSON_THROW_ON_ERROR);
         self::assertTrue($result['ok']);self::assertSame(12,$result['checks']['supported_creates']);
         self::assertTrue($result['checks']['invalid_answer_has_no_reservation']);
+        self::assertSame(6,$result['checks']['semantic_preflight_rejections']);
+        self::assertSame(13,$result['checks']['answer_families_verified']);self::assertSame(15,$result['checks']['answer_questions_verified']);
+        self::assertTrue($result['checks']['own_response_verified']);
         self::assertTrue($result['checks']['web_attachment_save_verified']);self::assertTrue($result['checks']['web_files_export_and_overwrite_verified']);self::assertTrue($result['checks']['download_job_complete']);
         self::assertGreaterThan(1000,$result['checks']['xlsx_download_bytes']);self::assertTrue($result['checks']['download_single_use']);
         self::assertTrue($result['checks']['download_revocation_enforced']);
