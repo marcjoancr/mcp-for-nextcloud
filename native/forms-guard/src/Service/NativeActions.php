@@ -12,7 +12,7 @@ final class NativeActions {
         'forms_delete_form','forms_create_question','forms_clone_question','forms_update_question','forms_delete_question','forms_reorder_questions',
         'forms_add_options','forms_update_option','forms_delete_option','forms_reorder_options','forms_share','forms_update_share','forms_unshare',
         'forms_submit_response','forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses',
-        'forms_update_admin_settings'];
+        'forms_update_admin_settings','forms_upload_response_files','forms_save_response_file','forms_restore'];
     public static function invoke(string $action, array $i): array {
         $api = Server::get(ApiController::class);
         $id = (int)($i['id'] ?? 0);

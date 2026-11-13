@@ -42,6 +42,39 @@ for (const [file,methods] of Object.entries(hooks)) {
  const result=spawnSync('php',[join(base,'transform.php'),join(output,'lib',file),...methods],{encoding:'utf8'});
  if(result.status!==0) throw new Error(result.stderr || result.stdout || `Patch failed: ${file}`);
 }
+// Under an approved MCP file operation, delete only the verified native file IDs. Never recurse by folder name.
+for (const [file,method,body] of [
+ ['Db/FormMapper.php','deleteFormFolder','if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::active()) { return; }'],
+ ['Db/FormMapper.php','deleteUploadedFiles','if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::active()) { $this->uploadedFileMapper->deleteByFormId($form->getId()); return; }'],
+ ['Db/SubmissionMapper.php','deleteSubmissionFolder','if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::active()) { return; }'],
+ ['Helper/FilePathHelper.php','syncFormUploadFolderName','if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::active()) { return; }'],
+ ['BackgroundJob/DeleteQuestionFoldersJob.php','run','if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::skipDeferred($argument)) { return; }'],
+]) {
+ const p=join(output,'lib',file);let value=readFileSync(p,'utf8');
+ const pattern=new RegExp(`((?:public|private) function ${method}\\([^\\n]*\\)(?:[^\\n{]*)\\{)`);
+ if (!pattern.test(value)) throw new Error('Managed file hook missing: '+file+'::'+method);
+ value=value.replace(pattern,'$1\n '+body);writeFileSync(p,value);
+}
+// Track exactly the folder and Files share objects native Forms creates. Existing unrelated shares are never adopted.
+const uploadSharesFile=join(output,'lib/Service/UploadedFilesShareService.php');let uploadShares=readFileSync(uploadSharesFile,'utf8');
+const removeHeader='public function removeForCollaborator(Form $form, Share $formShare): void {';
+if (!uploadShares.includes(removeHeader)) throw new Error('Native uploaded-share removal hook missing');
+uploadShares=uploadShares.replace(removeHeader,removeHeader+'\n if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::active()) { \\OCA\\Forms\\Mcp\\Service\\ManagedShares::remove($form,$formShare); return; }');
+writeFileSync(uploadSharesFile,uploadShares);
+const managedShareFile=join(output,'lib/Controller/ShareApiController.php');let managedShare=readFileSync(managedShareFile,'utf8');
+const newFolderLine='$folder = $userFolder->newFolder($uploadedFilesFolderPath);';
+if (!managedShare.includes(newFolderLine) || !managedShare.includes('$this->shareManager->createShare($folderShare);')) throw new Error('Native uploaded-share creation hook missing');
+managedShare=managedShare.replace(newFolderLine,newFolderLine+'\n \\OCA\\Forms\\Mcp\\Service\\ManagedShares::registerFolder($form,$folder);');
+managedShare=managedShare.replace('$this->shareManager->createShare($folderShare);','\\OCA\\Forms\\Mcp\\Service\\ManagedShares::create($form,$formShare,$folderShare);');
+writeFileSync(managedShareFile,managedShare);
+// An expired opaque handle is not authorization to delete its bytes. Retain MCP staging until approved recovery-backed cleanup.
+const temporaryFile=join(output,'lib/BackgroundJob/CleanupUploadedFilesJob.php');let temporary=readFileSync(temporaryFile,'utf8');
+const temporaryLoop='foreach ($uploadedFiles as $uploadedFile) {';
+if (!temporary.includes(temporaryLoop) || !temporary.includes('// now delete empty folders in user folders')) throw new Error('Native temporary cleanup hook missing');
+temporary=temporary.replace(temporaryLoop,temporaryLoop+"\n if (\\OCP\\Server::get(\\OCP\\IDBConnection::class)->executeQuery('SELECT upload_id FROM *PREFIX*forms_mcp_uploads WHERE upload_id = ?',[$uploadedFile->getId()])->fetchOne() !== false) { continue; }");
+// Stock code deletes whole timestamp folders even when they contain unrelated files; exact record deletion above is sufficient.
+temporary=temporary.replace('// now delete empty folders in user folders','return; // Retain containers; never recurse by timestamp.\n // now delete empty folders in user folders');
+writeFileSync(temporaryFile,temporary);
 // Inherited mapper writes can be invoked by native service extensions as well as controllers.
 for (const entity of ['Form','Question','Option','Share','Answer','Submission','UploadedFile']) {
  const p=join(output,'lib/Db',entity+'Mapper.php');let source=readFileSync(p,'utf8');

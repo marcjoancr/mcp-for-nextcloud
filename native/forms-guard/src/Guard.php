@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 namespace OCA\Forms\Mcp;
-use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions};
+use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions, FileRecovery, AnswerFiles};
 use OCA\Forms\Service\{FormsService, ConfigService};
 use OCA\Forms\Db\{FormMapper, QuestionMapper, SubmissionMapper};
 use OCP\Server;
@@ -18,9 +18,11 @@ final class Guard {
         $runtimeQualified=PHP_INT_SIZE===8 && array_slice($core,0,3)===[35,0,2]
             && (($provider==='postgres' && str_starts_with($databaseVersion,'PostgreSQL 16.15 '))
                 || ($provider==='mariadb' && str_starts_with($databaseVersion,'10.11.19-MariaDB')));
-        $qualified = $identity && $runtimeQualified;
+        $config=Server::get(\OCP\IConfig::class);
+        $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
+        $qualified = $identity && $runtimeQualified && $fileLocks;
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
-            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'files_recovery'=>false,'event_delivery'=>'independently_reported'];
+            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'files_recovery'=>true,'files_shares'=>$qualified && $provider==='mariadb','event_delivery'=>'independently_reported'];
     }
     private function actor(string $uid): void {
         $user=Server::get(\OCP\IUserSession::class)->getUser();
@@ -34,6 +36,7 @@ final class Guard {
             if (!Server::get(\OCP\IGroupManager::class)->isAdmin($uid)) {throw new \RuntimeException('Administrator required');}
             return;
         }
+        if ($action==='forms_restore') { FileRecovery::snapshot($uid,$action,$i); return; }
         if ($action==='forms_create') {
             if (!Server::get(ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
             return;
@@ -44,19 +47,24 @@ final class Guard {
         }
         $id=(int)($i['id']??0);
         $forms=Server::get(FormsService::class);
-        if ($action==='forms_submit_response') {$forms->loadFormForSubmission($id,$i['share_hash']??''); return;}
+        if (in_array($action,['forms_submit_response','forms_upload_response_files'],true)) {$forms->loadFormForSubmission($id,$i['share_hash']??''); return;}
         $permission=match($action) {
             'forms_delete_form','forms_transfer','forms_list_shares','forms_read_links','forms_get_embed','forms_share','forms_update_share','forms_unshare'=>'all',
-            'forms_read_response'=>'results',
+            'forms_read_response','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page'=>'results',
             'forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses'=>'results_delete',
             'forms_read_settings','forms_read_question','forms_read_own_responses','forms_clone'=>'submit',
             default=>'edit',
         };
         $form=$forms->getFormIfAllowed($id,$permission);
-        if (in_array($action,['forms_read_response','forms_update_response','forms_delete_response','forms_delete_responses'],true)) {
-            $required=$action==='forms_read_response' ? 'results' : 'results_delete';
+        if ($action==='forms_update') {
+            $allowed=['title','description','expires','isAnonymous','submitMultiple','allowEditSubmissions','showExpiration','submissionMessage','maxSubmissions','confirmationEmailEnabled','confirmationEmailSubject','confirmationEmailBody','confirmationEmailQuestionId','allowComments','access'];
+            if (!isset($i['fields']) || !is_array($i['fields']) || $i['fields']===[] || array_diff(array_keys($i['fields']),$allowed)!==[]) {throw new \InvalidArgumentException('Unsupported generic Forms fields');}
+        }
+        if (in_array($action,['forms_read_response','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page','forms_update_response','forms_delete_response','forms_delete_responses'],true)) {
+            $required=in_array($action,['forms_read_response','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page'],true) ? 'results' : 'results_delete';
             if (!in_array($required,$forms->getPermissions($form),true)) {throw new \RuntimeException('Explicit results permission required');}
         }
+        if ($action==='forms_set_state' && ($form->getState()===2 || ($i['state']??null)===2) && $form->getOwnerId()!==$uid) {throw new \RuntimeException('Only the owner can archive or unarchive a form');}
         if (($action==='forms_set_lock' && ($i['permanent']??false)) || ($action==='forms_release_lock' && $form->getLockedUntil()===0)) {
             if ($form->getOwnerId()!==$uid) {throw new \RuntimeException('Only the owner can change a permanent lock');}
         }
@@ -78,51 +86,46 @@ final class Guard {
         }
         $config=Server::get(ConfigService::class)->getAppConfig();
         if (strlen(json_encode([$form,$config],JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Forms preview exceeds projection budget');}
+        $fileManifest=FileRecovery::snapshot($uid,$action,$input);
         $after=$this->fence->revision();
         if ($before!==$after) {throw new \RuntimeException('Forms changed during preview');}
-        return ['revision'=>$after,'form'=>$form,'config'=>$config,'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$input['id']??null,'action'=>$action],
+        return ['file_manifest'=>$fileManifest,'revision'=>$after,'form'=>$form,'config'=>$config,'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$input['id']??null,'action'=>$action],
             'impact'=>['database'=>true,'files'=>'requires_separate_qualification','events'=>in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_share'],true)]];
     }
     public function lookup(string $uid,string $operationKey): ?array {
         $this->actor($uid);
-        return $this->operations->lookup($uid,$operationKey);
+        return $this->operations->lookup($uid,$operationKey) ?? FileRecovery::lookup($uid,$operationKey);
     }
-    public function apply(string $uid,string $action,array $input,string $revision,string $operationKey): array {
+    public function apply(string $uid,string $action,array $input,string $revision,string $operationKey,?array $fileManifest=null,?callable $transfer=null): array {
         return $this->operations->apply($uid,$action,$input,$revision,$operationKey,
             function () use($uid,$action,$input): void {
                 try {$this->authorize($uid,$action,$input);} catch (\Throwable $e) {throw new BeforeEffect($e->getMessage(),0,$e);}
             },
-            function () use($action,$input): array {
-                try {$this->fileBoundary($action,$input);} catch (\Throwable $e) {throw new BeforeEffect($e->getMessage(),0,$e);}
-                return NativeActions::invoke($action,$input);
+            function () use($uid,$action,$input,$fileManifest,$transfer,$operationKey): array {
+                return FileRecovery::run($uid,$action,$input,$fileManifest,$operationKey,function () use($uid,$action,$input,$transfer): array {
+                    if (in_array($action,['forms_upload_response_files','forms_save_response_file'],true)) {
+                        if ($transfer===null) {throw new BeforeEffect('Forms transfer admission is missing');}
+                        return $transfer();
+                    }
+                    if (in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response'],true)) {
+                        $input['answers']=AnswerFiles::resolve($uid,(int)$input['id'],$input['answers']);
+                    }
+                    return NativeActions::invoke($action,$input);
+                });
             });
     }
-    private function fileBoundary(string $action,array $i): void {
-        // Fail closed until a recovery manifest is verified. Native UI routes remain unaffected.
-        if (isset($i['fields']['path']) || in_array($action,['forms_transfer'],true)) {throw new \RuntimeException('Forms file recovery is not qualified');}
-        if (!isset($i['id'])) {return;}
-        $form=Server::get(FormMapper::class)->findById((int)$i['id']);
-        $folder=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormsFolder($form->getOwnerId());
-        if ($folder!==null && in_array($action,['forms_delete_form','forms_delete_question','forms_delete_response','forms_delete_own_response','forms_delete_responses','forms_update','forms_update_share','forms_unshare'],true)) {
-            foreach ($folder->getDirectoryListing() as $node) {
-                if (str_starts_with($node->getName(),$form->getId().' - ')) {throw new \RuntimeException('Forms folder effects require recovery qualification');}
-            }
-        }
-        if (Server::get(\OCA\Forms\Db\UploadedFileMapper::class)->findByFormId($form->getId())!==[] && $action==='forms_delete_form') {
-            throw new \RuntimeException('Forms temporary uploaded-file recovery is required');
-        }
-        if ($form->getFileId() && in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses'],true)) {
-            throw new \RuntimeException('Linked export authority is not qualified');
-        }
-        $fileQuestions=array_filter(Server::get(QuestionMapper::class)->findByForm((int)$i['id'],true),static fn($q)=>$q->getType()==='file');
-        if ($fileQuestions!==[] && in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses','forms_delete_question','forms_delete_form','forms_update'],true)) {
-            throw new \RuntimeException('Forms uploaded-file recovery is required');
-        }
+    /** Server-only callback bridge. Sources are private streams from the MCP Files gate. */
+    public function stageFiles(string $uid,int $id,int $questionId,string $shareHash,array $sources): array {
+        $this->actor($uid);
+        return AnswerFiles::stage($uid,$id,$questionId,$shareHash,$sources);
     }
     public function read(string $uid,string $action,array $i): array {
         $this->authorize($uid,$action,$i);
         $forms=Server::get(FormsService::class); $id=(int)($i['id']??0);
         return match($action) {
+            'forms_results_metadata'=>$this->resultsMetadata($uid,$id),
+            'forms_results_page'=>$this->resultsPage($id,$i),
+            'forms_list_response_files'=>['files'=>AnswerFiles::references($id,(int)$i['submission_id'])],
             'forms_read_settings'=>$forms->getForm(Server::get(FormMapper::class)->findById($id)),
             'forms_read_question'=>Server::get(\OCA\Forms\Controller\ApiController::class)->getQuestion($id,$i['question_id'])->getData(),
             'forms_list_shares','forms_read_links','forms_get_embed'=>$forms->getShares($id),
@@ -132,5 +135,26 @@ final class Guard {
             'forms_read_admin_settings'=>Server::get(ConfigService::class)->getAppConfig(),
             default=>throw new \InvalidArgumentException('Unsupported Forms native read'),
         };
+    }
+    private function resultsMetadata(string $uid,int $id): array {
+        $form=Server::get(FormMapper::class)->findById($id);
+        $result=['form'=>['id'=>$id,'title'=>$form->getTitle(),'isAnonymous'=>(bool)$form->getIsAnonymous(),'ownerId'=>$form->getOwnerId()],
+            'questions'=>Server::get(FormsService::class)->getQuestions($id),'submissionCount'=>Server::get(SubmissionMapper::class)->countSubmissions($id),
+            'timeZone'=>Server::get(\OCP\IConfig::class)->getUserValue($uid,'core','timezone','UTC')];
+        if (strlen(json_encode($result,JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Forms result metadata exceeds projection budget');}
+        return $result;
+    }
+    private function resultsPage(int $id,array $input): array {
+        $limit=$input['limit']??50;$after=$input['after_id']??0;
+        if (!is_int($limit) || $limit<1 || $limit>100 || !is_int($after) || $after<0) {throw new \InvalidArgumentException('Invalid Forms result page bounds');}
+        $qb=Server::get(\OCP\IDBConnection::class)->getQueryBuilder();
+        $qb->select('id')->from('forms_v2_submissions')->where($qb->expr()->eq('form_id',$qb->createNamedParameter($id,\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gt('id',$qb->createNamedParameter($after,\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))->orderBy('id','ASC')->setMaxResults($limit+1);
+        $rows=$qb->executeQuery()->fetchAll();$more=count($rows)>$limit;$submissions=[];$next=$after;
+        foreach (array_slice($rows,0,$limit) as $row) {
+            $next=(int)$row['id'];$submissions[]=Server::get(\OCA\Forms\Service\SubmissionService::class)->getSubmission($next);
+            if (strlen(json_encode($submissions,JSON_THROW_ON_ERROR))>1048576-1024) {throw new \RuntimeException('Forms result page exceeds projection budget');}
+        }
+        return ['submissions'=>$submissions,'hasMore'=>$more,'nextId'=>$next,'isAnonymous'=>(bool)Server::get(FormMapper::class)->findById($id)->getIsAnonymous()];
     }
 }
