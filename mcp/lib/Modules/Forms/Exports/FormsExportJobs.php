@@ -198,9 +198,15 @@ final class FormsExportJobs {
                 foreach($values as $value) {
                 $key=hash('sha256',$value);$s['counts'][$key]??=['value'=>$value,'count'=>0];$s['counts'][$key]['count']++;
                 if((($col['numeric']??false)||$col['kind']==='file')&&is_numeric($value)) {
-                    $number=(float)$value;$s['numeric']['count']++;$s['numeric']['sum']+=$number;
-                    $s['numeric']['min']=$s['numeric']['min']===null?$number:min($number,$s['numeric']['min']);
-                    $s['numeric']['max']=$s['numeric']['max']===null?$number:max($number,$s['numeric']['max']);
+                    $number=(float)$value;$s['numeric']['count']++;
+                    if(($s['numeric']['status']??null)==='out_of_range'||!is_finite($number)||!is_finite(($s['numeric']['sum']??0)+$number)) {
+                        // Exact values/counts above remain available; never persist non-JSON INF/NaN or claim a partial sum.
+                        $s['numeric']=array_replace($s['numeric'],['sum'=>null,'min'=>null,'max'=>null,'status'=>'out_of_range']);
+                    } else {
+                        $s['numeric']['sum']+=$number;
+                        $s['numeric']['min']=$s['numeric']['min']===null?$number:min($number,$s['numeric']['min']);
+                        $s['numeric']['max']=$s['numeric']['max']===null?$number:max($number,$s['numeric']['max']);
+                    }
                 }
                 }
             }

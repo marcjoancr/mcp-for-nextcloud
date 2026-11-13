@@ -63,6 +63,22 @@ final class FormsExportJobsTest extends TestCase {
         $id=$one['references']['job_id'];$this->engine->step('alice',$id,$this->native(...));$this->engine->step('alice',$id,$this->native(...));$this->engine->step('alice',$id,$this->native(...));
         $again=$this->engine->step('alice',$id,$this->native(...));self::assertSame(205,$again['done']);
     }
+    public function testNumericSummaryRetainsExactValuesWhenFloatingPointStatisticsOverflow():void {
+        foreach([[str_repeat('9',4096)],['1e308','1e308']] as $values) {
+            $native=static function(string $action,array $args)use($values):array {
+                if($action==='snapshot')return ['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']];
+                if($action==='forms_results_metadata')return ['form'=>['id'=>4,'ownerId'=>'alice'],'questions'=>[['id'=>1,'text'=>'Numeric grid','type'=>'grid','extraSettings'=>['questionType'=>'number'],'options'=>[['id'=>11,'text'=>'Row','optionType'=>'row'],['id'=>12,'text'=>'Column','optionType'=>'column']]]],'submissionCount'=>count($values)];
+                return ['submissions'=>array_map(static fn(string $value,int $i):array=>['id'=>$i+1,'timestamp'=>1000,'answers'=>[['questionId'=>1,'text'=>json_encode([11=>[12=>$value]],JSON_THROW_ON_ERROR)]]],$values,array_keys($values)),'hasMore'=>false,'nextId'=>count($values)];
+            };
+            $args=['id'=>4];$preview=$this->engine->preview('alice','forms_summarize_results',$args,['revision'=>'4'],$native);
+            $id=$this->engine->start('alice','forms_summarize_results',$args,$preview,'overflow-'.count($values),['uid'=>'alice'],$native)['references']['job_id'];
+            self::assertTrue($this->engine->step('alice',$id,$native)['complete']);
+            $result=$this->engine->result('alice',$id,0,50);
+            self::assertSame($values[0],$result['results'][0]['value']);
+            self::assertSame(['count'=>count($values),'sum'=>null,'min'=>null,'max'=>null,'status'=>'out_of_range'],$result['results'][0]['numeric']);
+            self::assertIsString(json_encode($result,JSON_THROW_ON_ERROR));
+        }
+    }
     public function testPageSummaryNeverClaimsWholeFormTotals():void {
         $args=['id'=>4];$p=$this->engine->preview('alice','forms_summarize_results',$args,['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']],$this->native(...));
         $r=$this->engine->start('alice','forms_summarize_results',$args,$p,'summary',['uid'=>'alice','connection'=>12],$this->native(...));$id=$r['references']['job_id'];
