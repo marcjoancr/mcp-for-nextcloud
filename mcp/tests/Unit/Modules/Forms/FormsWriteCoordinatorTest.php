@@ -67,6 +67,10 @@ final class FormsWriteCoordinatorTest extends TestCase {
         try{$this->coordinator->call('forms_update','alice',$a+['confirm'=>true,'plan_state'=>$p['plan_state'],'operation_id'=>$p['operation_id']]);self::fail('Unavailable source ran');}
         catch(\OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect){self::assertSame(0,$this->effects);self::assertSame('failed_before_effect',array_values($this->rows)[0]['state']);}
     }
+    public function testGridCreationNeedsAnExplicitNativeSubtype():void {
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Validation\ArgumentValidationException::class);
+        $this->coordinator->preview('forms_create_question','alice',['id'=>4,'type'=>'grid','text'=>'Grid']);
+    }
     public function testSettingsReadNeverIncludesShareCapabilities():void {
         $r=$this->coordinator->call('forms_read_settings','alice',['id'=>4]);
         self::assertSame(0,$this->effects);self::assertStringNotContainsString('private',json_encode($r));self::assertArrayNotHasKey('shares',$r);

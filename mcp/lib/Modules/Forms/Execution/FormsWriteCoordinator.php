@@ -76,7 +76,9 @@ final class FormsWriteCoordinator {
     private function arguments(string $tool,array $args):array {
         $definition=FormsCommands::definitions()[$tool]??throw new \InvalidArgumentException('Unknown Forms command');
         if(strlen(json_encode($args,JSON_THROW_ON_ERROR))>1048576)throw new ToolFailure('Forms arguments exceed the byte limit.');
-        return ArgumentValidator::validate(WriteGate::publish($definition)['inputSchema'],$args);
+        $validated=ArgumentValidator::validate(WriteGate::publish($definition)['inputSchema'],$args);
+        if($tool==='forms_create_question'&&($validated['type']??null)==='grid'&&!isset($validated['subtype']))throw new \OCA\Mcp\Mcp\Tools\Validation\ArgumentValidationException('Invalid argument: subtype','subtype','Choose radio, checkbox or number when creating a grid question.');
+        return $validated;
     }
     private function historical(string $uid):\Closure {
         return function(string $tool,array $refs)use($uid):void {
