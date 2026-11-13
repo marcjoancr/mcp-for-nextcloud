@@ -41,6 +41,17 @@ final class FormsAttachmentTest extends TestCase {
     public function testDuplicateSourcesAreRefused(): void {
         [$root,$file,$guard]=$this->fixture();$this->expectExceptionMessage('Duplicate Forms file source');(new FormsAnswerUploads($root,$guard))->snapshot('actor',['source.txt','/source.txt']);
     }
+    public function testEveryShareRemovalParentRequiresCurrentFilesVisibilityEvenWithoutAttachments():void {
+        $root=$this->createMock(IRootFolder::class);$home=$this->createMock(Folder::class);
+        $allowed=$this->createMock(Folder::class);$excluded=$this->createMock(Folder::class);
+        $root->method('getUserFolder')->with('actor')->willReturn($home);
+        $home->method('getById')->willReturnCallback(static fn(int $id):array=>$id===11?[$allowed]:[$excluded]);
+        foreach([$allowed,$excluded] as $node)$node->method('isReadable')->willReturn(true);
+        $guard=$this->createMock(FilesAccessGuard::class);$guard->method('isVisible')->willReturnCallback(static fn($node):bool=>$node===$allowed);
+        $manifest=['files'=>[],'share_removals'=>[['parent'=>['file_id'=>11]],['parent'=>['file_id'=>12]]]];
+        $this->expectExceptionMessage('Forms file effect parent is outside the current Files access');
+        (new FormsFileImpact($root,$guard))->assertVisible('actor',$manifest);
+    }
     public function testEmptyFileManifestDoesNotBypassProspectiveFolderScope(): void {
         [$root,$file,$guard]=$this->fixture(false);$this->expectExceptionMessage('Forms file effect parent is outside the current Files access');
         (new FormsFileImpact($root,$guard))->assertVisible('actor',['files'=>[],'share_impact'=>['parent'=>['file_id'=>7,'create_folder'=>true]]]);

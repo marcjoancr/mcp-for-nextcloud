@@ -73,7 +73,7 @@ final class FormsNativeGateway implements FormsGateway {
             }
             $manifest=$snapshot['file_manifest']??[];
             if(!in_array($action,['forms_submit_response','forms_update_own_response','forms_update_response'],true)
-                && (($manifest['files']??[])!==[]||isset($manifest['share_impact']['parent'])))$this->policy->resourceBoundary($uid,fn()=>$this->impact->assertVisible($uid,$manifest));
+                && (($manifest['files']??[])!==[]||isset($manifest['share_impact']['parent'])||($manifest['share_removals']??[])!==[]))$this->policy->resourceBoundary($uid,fn()=>$this->impact->assertVisible($uid,$manifest));
             $this->snapshots[$this->key($uid,$action,$input)]=$snapshot;
             return $snapshot;
         } catch(ToolFailure $e){throw $e;}catch(\Throwable){throw new ToolFailure('The Forms resource, Files access or capability is unavailable.');}

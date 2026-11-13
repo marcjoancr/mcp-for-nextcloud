@@ -13,8 +13,14 @@ final class FormsFileImpact {
     public function __construct(private IRootFolder $root,private FilesAccessGuard $access) {}
     public function assertVisible(string $uid,array $manifest): void {
         $this->access->clearCache();$this->access->assertScopeReadable();
-        $parent=$manifest['share_impact']['parent']??null;
-        if (is_array($parent)) {
+        $parents=[];
+        if(isset($manifest['share_impact']['parent']))$parents[]=$manifest['share_impact']['parent'];
+        foreach($manifest['share_removals']??[] as $removal) {
+            if(!is_array($removal['parent']??null))throw new \RuntimeException('Forms managed share parent is unavailable.');
+            $parents[]=$removal['parent'];
+        }
+        if(count($parents)>100)throw new \RuntimeException('Forms managed share parents exceed the bounded effect limit.');
+        foreach($parents as $parent) {
             $allowed=false;
             foreach ($this->root->getUserFolder($uid)->getById((int)$parent['file_id']) as $node) {
                 if ($node instanceof \OCP\Files\Folder && $node->isReadable() && $this->access->isVisible($node)

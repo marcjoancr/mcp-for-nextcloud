@@ -26,6 +26,9 @@ final class FormsPlan {
         if($manifest!==[]) {
             $files=array_map(static fn(array $f):array=>array_intersect_key($f,array_flip(['file_id','name','size','sha256'])),$manifest['files']??[]);
             $impact['files']=['files'=>$files]+array_intersect_key($manifest,array_flip(['delete_file_ids','files_share','recovery','folders','restore','backup_id']));
+            if(($manifest['share_removals']??[])!==[])$impact['files']['share_removals']=array_map(static fn(array $removal):array=>
+                array_intersect_key($removal,array_flip(['native_share_id','recipient','type','folder_ids']))
+                +['managed_share_ids'=>array_column($removal['managed_shares']??[],'files_share_id')],$manifest['share_removals']);
         }
         if(isset($snapshot['file_sources']))$impact['sources']=$snapshot['file_sources'];
         if(isset($snapshot['file_destination']))$impact['destination']=$snapshot['file_destination']['plan'];

@@ -34,7 +34,7 @@ final class FormsNativeAuthorization {
         $context=$this->assert($origin);
         if(($manifest['source_files']??[])!==[])$this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],['files'=>$manifest['source_files']]));
         if(in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response'],true))return;
-        if(($manifest['files']??[])===[]&&!isset($manifest['share_impact']['parent']))return;
+        if(($manifest['files']??[])===[]&&!isset($manifest['share_impact']['parent'])&&($manifest['share_removals']??[])===[])return;
         $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],$manifest));
     }
     public function assert(array $origin):array {
