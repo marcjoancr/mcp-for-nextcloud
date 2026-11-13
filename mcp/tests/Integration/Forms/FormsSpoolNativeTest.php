@@ -8,6 +8,15 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Forms;
 use PHPUnit\Framework\TestCase;
 final class FormsSpoolNativeTest extends TestCase {
+    public function testNativeSqlSummaryQuotaAndEvidenceAfterExpiry():void {
+        if(getenv('MCP_FORMS_SPOOL_BOUNDARY')!=='1')$this->markTestSkipped('Requires an explicitly selected disposable native Forms quota cell.');
+        $probe=getenv('MCP_FORMS_SQL_PROBE')?:__DIR__.'/fixtures/sql-cache.php';self::assertFileExists($probe);
+        $process=proc_open([PHP_BINARY,$probe],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);self::assertIsResource($process);fclose($pipes[0]);
+        $out=stream_get_contents($pipes[1]);$error=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
+        self::assertSame(0,proc_close($process),$out."\n".$error);$result=json_decode($out,true,64,JSON_THROW_ON_ERROR);
+        self::assertTrue($result['ok']);self::assertSame(205,$result['checks']['rows']);
+        foreach(['summary_blob','sql_metered','sql_cleanup','evidence_after_expiry','expired_content_refused'] as $check)self::assertTrue($result['checks'][$check]);
+    }
     public function testNativeCryptoQuotaAndExpiredCacheCleanup():void {
         if(getenv('MCP_FORMS_SPOOL_BOUNDARY')!=='1')$this->markTestSkipped('Requires an explicitly selected disposable native Forms quota cell.');
         $probe=getenv('MCP_FORMS_SPOOL_PROBE')?:__DIR__.'/fixtures/spool.php';self::assertFileExists($probe);

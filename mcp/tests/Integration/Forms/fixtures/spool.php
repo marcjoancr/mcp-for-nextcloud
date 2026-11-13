@@ -13,7 +13,7 @@ try {
     Server::get(\OCP\App\IAppManager::class)->loadApp('mcp');
     $db=Server::get(\OCP\IDBConnection::class);$uid='guard-owner';$job=hash('sha256','spool-native-'.bin2hex(random_bytes(16)));
     $spool=Server::get(\OCA\Mcp\Modules\Forms\Exports\FormsSpool::class);
-    $stage='quota admission';$spool->reserve($job,$uid);$spool->assertActive($job,$uid);
+    $stage='quota admission';$spool->cleanup();$spool->reserve($job,$uid);$spool->assertActive($job,$uid);
     $before=(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*mcp_operations')->fetchOne();
     $stage='actual crypto25MiB';$bytes=str_repeat('x',26214400);$part=$spool->put($job,$bytes);
     if($spool->get($job,$part)!==$bytes)throw new RuntimeException('Native encrypted artifact did not round-trip.');
