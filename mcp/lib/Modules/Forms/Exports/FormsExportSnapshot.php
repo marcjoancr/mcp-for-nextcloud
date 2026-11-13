@@ -48,10 +48,10 @@ final class FormsExportSnapshot {
                 'grid_number'=>isset($json[$column['row']][$column['column']])?(string)$json[$column['row']][$column['column']]:'',
                 'grid_choice'=>$this->gridChoice($json[$column['row']]??null,$column['labels']),
                 'ranking'=>$this->rank($json,$column['option_id']),
-                'file'=>$this->fileLabels($values,$visibleFiles),
+                'file'=>$this->fileCell($values,$visibleFiles),
                 default=>implode('; ',array_column($values,'text')),
             };
-            $out[]=(string)$value;
+            $out[]=$value;
         }
         return $out;
     }
@@ -79,6 +79,12 @@ final class FormsExportSnapshot {
     private function rank(mixed $ids,int $option):string {
         if(!is_array($ids))return '';$position=array_search($option,$ids);
         return $position===false?'':(string)($position+1);
+    }
+    private function fileCell(array $answers,array $visible):array|string {
+        $text=$this->fileLabels($answers,$visible);
+        if($text==='')return '';
+        foreach($answers as $answer)if(isset($visible[$answer['fileId']??0]['url']))return ['text'=>$text,'url'=>$visible[$answer['fileId']]['url']];
+        return $text;
     }
     private function fileLabels(array $answers,array $visible):string {
         if(!$this->files)return '';$out=[];

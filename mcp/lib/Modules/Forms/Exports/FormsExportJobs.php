@@ -89,12 +89,17 @@ final class FormsExportJobs {
             else {
                 $format=$args['format']??'csv';
                 $header=$p['done']===0?[array_column($projection->columns(),'title'),array_column($projection->columns(),'id')]:[];
-                $part=$this->spool->put($id,$this->renderer->chunk($format,[...$header,...$rows]));
+                $part=$this->spool->put($id,$this->renderer->chunk($format,[...$header,...$rows],$header!==[]?2:null));
                 $p['parts'][]=$part;$p['bytes']+=$part['bytes'];
             }
             if($p['bytes']>26214400||strlen(json_encode($p['summary'],JSON_THROW_ON_ERROR))>26214400)throw new ToolFailure('Forms complete-result quota exceeded; no truncated result is published.');
             $p['done']+=count($rows);$p['after_id']=(int)$page['nextId'];
             if(!$page['hasMore']&&$p['done']!==$metadata['submissionCount'])throw new ToolFailure('Forms result coverage does not match the approved snapshot.');
+            if(!$page['hasMore']&&$p['tool']!=='forms_summarize_results') {
+                $chunks=(function()use($p,$id):\Generator{foreach($p['parts'] as $part)yield $this->spool->get($id,$part);})();
+                $p['artifact']=$this->spool->put($id,$this->renderer->assemble($args['format']??'csv',$chunks));$p['bytes']=$p['artifact']['bytes'];
+                $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));
+            }
             $next=$working;$next['version']++;$next['state']=$page['hasMore']?'collecting':'ready';$next['payload']=$p;$next['updated_at']=($this->time)();
             $next=$this->accepted($working,$next,$page['hasMore']?'pending':'succeeded');
             if(!$this->store->compareAndSwap($working,$next))throw new ToolFailure('Forms worker lost the page claim.');
@@ -185,6 +190,7 @@ final class FormsExportJobs {
     public function content(string $uid,string $id):string {
         $job=$this->job($uid,$id);if(!in_array($job['state'],['ready','delivered','delivering'],true))throw new ToolFailure('Forms export is not complete.');
         if($job['payload']['tool']==='forms_summarize_results')throw new ToolFailure('This Forms job contains aggregate data.');
+        if(isset($job['payload']['artifact']))return $this->spool->get($id,$job['payload']['artifact']);
         $chunks=(function()use($job,$id):\Generator {foreach($job['payload']['parts'] as $part)yield $this->spool->get($id,$part);})();
         return $this->renderer->assemble($job['payload']['arguments']['format']??'csv',$chunks);
     }

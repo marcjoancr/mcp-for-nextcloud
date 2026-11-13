@@ -35,13 +35,41 @@ final class FormsCompleteExportTest extends TestCase {
         $row=$s->row(['id'=>8,'timestamp'=>0,'answers'=>[['questionId'=>4,'fileId'=>90,'text'=>'hidden']]],[]);
         self::assertSame('',$row[6]);
         $row=$s->row(['id'=>8,'timestamp'=>0,'answers'=>[['questionId'=>4,'fileId'=>90,'text'=>'hidden']]],['90'=>['name'=>'visible','url'=>'https://cloud.test/f/90']]);
-        self::assertSame('visible (https://cloud.test/f/90)',$row[6]);
+        self::assertSame(['text'=>'visible (https://cloud.test/f/90)','url'=>'https://cloud.test/f/90'],$row[6]);
     }
     public function testSummaryCountsSelectionsWithoutSplittingLabelsAndReportsAttachmentCounts():void {
         $meta=['form'=>['isAnonymous'=>false],'questions'=>[['id'=>1,'text'=>'Choice','type'=>'multiple'],['id'=>2,'text'=>'Files','type'=>'file']]];
         $s=new FormsExportSnapshot($meta,false,false);
         $cells=$s->summaryCells(['id'=>1,'timestamp'=>0,'answers'=>[['questionId'=>1,'text'=>'literal; semicolon'],['questionId'=>1,'text'=>'second'],['questionId'=>2,'text'=>'private','fileId'=>90]]]);
         self::assertSame(['literal; semicolon','second'],$cells[2]);self::assertSame(['1'],$cells[3]);self::assertStringNotContainsString('private',json_encode($cells));
+    }
+    public function testSpreadsheetIdentifiersAreHiddenAndFileCellsHaveExplicitHyperlinks():void {
+        $r=new FormsExportRenderer();
+        foreach(['xlsx'=>'xl/worksheets/sheet1.xml','ods'=>'content.xml'] as $format=>$entry) {
+            $file=tempnam(sys_get_temp_dir(),'forms-links-');
+            try {
+                file_put_contents($file,$r->render($format,['File'],[[['text'=>'visible','url'=>'https://cloud.test/f/90']]],['question-id-4']));
+                $zip=new \ZipArchive();self::assertTrue($zip->open($file));$xml=$zip->getFromName($entry);
+                self::assertIsString($xml);$doc=new \DOMDocument();self::assertTrue($doc->loadXML($xml));
+                $xp=new \DOMXPath($doc);
+                if($format==='xlsx') {
+                    $xp->registerNamespace('s','http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+                    self::assertSame('1',$xp->evaluate('string(//s:row[@r="2"]/@hidden)'));
+                    self::assertSame('A3',$xp->evaluate('string(//s:hyperlink/@ref)'));
+                    self::assertStringContainsString('https://cloud.test/f/90',$zip->getFromName('xl/worksheets/_rels/sheet1.xml.rels'));
+                } else {
+                    $xp->registerNamespace('t','urn:oasis:names:tc:opendocument:xmlns:table:1.0');
+                    $xp->registerNamespace('x','http://www.w3.org/1999/xlink');
+                    self::assertSame('collapse',$xp->evaluate('string((//t:table-row)[2]/@t:visibility)'));
+                    self::assertSame('https://cloud.test/f/90',$xp->evaluate('string(//*[@x:href]/@x:href)'));
+                }
+                $zip->close();
+            } finally {unlink($file);}
+        }
+    }
+    public function testFinalOutputQuotaIncludesContainerAndCsvBom():void {
+        $this->expectException(\RuntimeException::class);
+        (new FormsExportRenderer())->assemble('csv',[str_repeat('a',26214400)]);
     }
     public function testFormulaLikeValuesAreTextInAllFormats():void {
         $r=new FormsExportRenderer();$rows=[['=1+1',"+cmd","\t@cmd","é\nline"]];
