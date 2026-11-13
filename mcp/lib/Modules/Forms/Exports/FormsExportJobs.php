@@ -14,13 +14,19 @@ final class FormsExportJobs {
     /** @param \Closure(array):array $authorize @param \Closure():int $time */
     public function __construct(private FormsJobStore $store,private FormsSpool $spool,private FormsExportRenderer $renderer,
         private \Closure $authorize,private \Closure $time,private ?\Closure $files=null,private ?\Closure $timer=null) {}
+    /** Result content can use a per-form revision while exact user previews retain the global serialization revision. */
+    public static function sourceRevision(array $snapshot):string {
+        $value=array_key_exists('export_revision',$snapshot)?$snapshot['export_revision']:($snapshot['revision']??null);
+        if(!is_string($value)||$value===''||strlen($value)>128)throw new ToolFailure('The Forms result source revision is unavailable.');
+        return $value;
+    }
     public function preview(string $uid,string $tool,array $args,array $snapshot,callable $native):array {
         $metadata=$native('forms_results_metadata',['id'=>$args['id']]);
         $after=$native('snapshot',['id'=>$args['id']]);
         if($after['revision']!==$snapshot['revision'])throw new ToolFailure('Forms changed during export preview.');
         new FormsExportSnapshot($metadata,(bool)($args['include_respondents']??false),(bool)($args['include_files']??false));
         $snapshot['export_metadata']=$metadata;
-        $snapshot['impact']['complete_results']=['submissions'=>$metadata['submissionCount'],'source_revision'=>$snapshot['revision'],
+        $snapshot['impact']['complete_results']=['submissions'=>$metadata['submissionCount'],'source_revision'=>self::sourceRevision($snapshot),
             'rows_per_step'=>100,'projection_bytes_per_step'=>1048576,'seconds_per_step'=>20,'output_quota_bytes'=>26214400,'temporary_ciphertext_reservation_bytes'=>134217728,'temporary_retention_seconds'=>604800,
             'identities'=>(bool)($args['include_respondents']??false),'file_references'=>(bool)($args['include_files']??false),'format'=>$args['format']??'summary','order'=>'submission_id_ascending'];
         return $snapshot;
@@ -31,9 +37,9 @@ final class FormsExportJobs {
         $old=$this->store->get($id);
         if($old!==null){$this->admit($uid,$old);return $this->receipt($id);}
         $after=$native('snapshot',['id'=>$args['id']]);
-        if($after['revision']!==$snapshot['revision'])throw new ToolFailure('Forms export source changed before admission.');
+        if($after['revision']!==$snapshot['revision']||self::sourceRevision($after)!==self::sourceRevision($snapshot))throw new ToolFailure('Forms export source changed before admission.');
         $job=['job_id'=>$id,'actor_uid'=>$uid,'version'=>1,'state'=>'collecting','updated_at'=>($this->time)(),
-            'payload'=>['origin'=>$origin,'cache_protocol'=>2,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>$snapshot['revision'],
+            'payload'=>['origin'=>$origin,'cache_protocol'=>2,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>self::sourceRevision($snapshot),
                 'cache_expires_at'=>($this->time)()+604800,'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'file_ids'=>[]]];
         try {$this->spool->reserve($id,$uid);}catch(\Throwable){throw new \OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect('Forms temporary result capacity is unavailable. No result job or Files write was started.');}
         if(!$this->store->create($job))throw new ToolFailure('Forms job admission conflicted; inspect its receipt.');
@@ -216,7 +222,7 @@ final class FormsExportJobs {
     }
     private function source(array $payload,callable $native):void {
         $current=$native('snapshot',['id'=>$payload['arguments']['id']]);
-        if($current['revision']!==$payload['source_revision']||($current['form']['ownerId']??null)!==$payload['metadata']['form']['ownerId'])throw new ToolFailure('Forms source changed. Preview a new complete result snapshot.');
+        if(self::sourceRevision($current)!==$payload['source_revision']||($current['form']['ownerId']??null)!==$payload['metadata']['form']['ownerId'])throw new ToolFailure('Forms source changed. Preview a new complete result snapshot.');
     }
     private function aggregate(array $columns,array $summary,array $rows):array {
         foreach($columns as $index=>$col) {

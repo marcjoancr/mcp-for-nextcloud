@@ -47,7 +47,7 @@ final class FormsNativeGateway implements FormsGateway {
                 $job=$this->jobs->job($uid,$jobId);
                 if($action==='forms_continue_operation'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)&&($guard->capabilities()['file_sinks']??false)!==true)throw new ToolFailure('This Forms runtime does not qualify the original Files write sink.');
                 $read=$this->source($uid,$guard,$job['payload']['origin']);$snapshot=$read('snapshot',['id'=>$job['payload']['arguments']['id']]);
-                if($snapshot['revision']!==$job['payload']['source_revision'])throw new ToolFailure('The approved Forms job source changed.');
+                if(FormsExportJobs::sourceRevision($snapshot)!==$job['payload']['source_revision'])throw new ToolFailure('The approved Forms job source changed.');
                 $snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
                 $snapshot['job_id']=$jobId;$snapshot['job_version']=$job['version'];$snapshot['job']=$this->jobs->status($uid,$jobId);
                 $snapshot['impact']['job']=$snapshot['job'];

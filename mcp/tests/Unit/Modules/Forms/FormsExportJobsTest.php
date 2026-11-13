@@ -9,7 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 use OCA\Mcp\Modules\Forms\Exports\{FormsExportJobs,FormsJobStore,FormsSpool,FormsExportRenderer};
 use PHPUnit\Framework\TestCase;
 final class FormsExportJobsTest extends TestCase {
-    private array $jobs=[];private array $parts=[];private int $revision=4;private array $source=[];private FormsExportJobs $engine;private bool $filesAllowed=true;private int $now=1000;private float $seconds=0;private bool $slowReads=false;private bool $slowSeal=false;private bool $quotaDenied=false;private bool $cacheLive=true;private bool $originAllowed=true;private bool $requireCheckpointBeforeSeal=false;private bool $garbageReady=true;
+    private array $jobs=[];private array $parts=[];private int $revision=4;private array $source=[];private FormsExportJobs $engine;private bool $filesAllowed=true;private int $now=1000;private float $seconds=0;private bool $slowReads=false;private bool $slowSeal=false;private bool $quotaDenied=false;private bool $cacheLive=true;private bool $originAllowed=true;private bool $requireCheckpointBeforeSeal=false;private bool $garbageReady=true;private ?string $exportRevision=null;
     protected function setUp():void {
         $store=$this->createMock(FormsJobStore::class);
         $store->method('get')->willReturnCallback(fn(string $id):?array=>$this->jobs[$id]??null);
@@ -26,14 +26,38 @@ final class FormsExportJobsTest extends TestCase {
         for($i=1;$i<=205;$i++)$this->source[]=['id'=>$i,'timestamp'=>$i,'answers'=>[['questionId'=>1,'text'=>'answer '.$i]]];
     }
     private function native(string $action,array $args):array {
-        if($action==='snapshot')return ['revision'=>(string)$this->revision,'form'=>['id'=>4,'ownerId'=>'alice']];
+        if($action==='snapshot')return ['revision'=>(string)$this->revision,'form'=>['id'=>4,'ownerId'=>'alice']]+($this->exportRevision===null?[]:['export_revision'=>$this->exportRevision]);
         if($action==='forms_results_metadata')return ['form'=>['id'=>4,'isAnonymous'=>false,'ownerId'=>'alice'],'questions'=>[['id'=>1,'text'=>'Text','type'=>'short']],'submissionCount'=>count($this->source),'timeZone'=>'UTC'];
         $rows=array_values(array_filter($this->source,fn(array $r):bool=>$r['id']>($args['after_id']??0)));$more=count($rows)>$args['limit'];$rows=array_slice($rows,0,$args['limit']);
         return ['submissions'=>$rows,'hasMore'=>$more,'nextId'=>$rows===[]?$args['after_id']:end($rows)['id']];
     }
     private function start():array {
-        $preview=$this->engine->preview('alice','forms_download_results',['id'=>4,'format'=>'csv'],['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']],$this->native(...));
+        $preview=$this->engine->preview('alice','forms_download_results',['id'=>4,'format'=>'csv'],['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']]+($this->exportRevision===null?[]:['export_revision'=>$this->exportRevision]),$this->native(...));
         return $this->engine->start('alice','forms_download_results',['id'=>4,'format'=>'csv'],$preview,'job-key',['uid'=>'alice','connection'=>12],$this->native(...));
+    }
+    public function testResultRevisionSurvivesUnrelatedWritersButRejectsSameFormDataChange():void {
+        $this->exportRevision='9';$id=$this->start()['references']['job_id'];
+        self::assertSame('9',$this->jobs[$id]['payload']['source_revision']);
+        self::assertSame(100,$this->engine->step('alice',$id,$this->native(...))['done']);
+        $this->revision++;
+        self::assertSame(200,$this->engine->step('alice',$id,$this->native(...))['done']);
+        $this->exportRevision='10';
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->engine->step('alice',$id,$this->native(...));
+    }
+    public function testResultSourceDoesNotInvalidateItsOwnAssociationBookkeeping():void {
+        $this->source=array_slice($this->source,0,1);$this->exportRevision='9';
+        $id=$this->start()['references']['job_id'];$this->engine->step('alice',$id,$this->native(...));
+        $done=$this->engine->deliver('alice',$id,$this->native(...),function(string $content,array $claim):array {
+            $this->revision++; // Native association metadata transaction changes the serialization fence.
+            $this->engine->assertDelivery('alice',$claim,$this->native(...));return ['file_id'=>7];
+        });
+        self::assertSame(7,$done['file']['file_id']);
+    }
+    public function testMalformedExplicitResultRevisionCannotFallBackToGlobalFence():void {
+        self::assertSame('4',FormsExportJobs::sourceRevision(['revision'=>'4']));
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        FormsExportJobs::sourceRevision(['revision'=>'4','export_revision'=>null]);
     }
     /** @dataProvider deliveryInvalidations */
     public function testSinkRechecksClaimCacheAndSourceAfterWaiting(string $change):void {
