@@ -16,7 +16,7 @@ final class FormsIsolatedVersionsTest extends TestCase {
         fwrite($pipes[0],json_encode(['mode'=>'suite'],JSON_THROW_ON_ERROR));fclose($pipes[0]);
         $out=stream_get_contents($pipes[1]);$error=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
         self::assertSame(0,proc_close($process),$out."\n".$error);$result=json_decode($out,true,16,JSON_THROW_ON_ERROR);
-        self::assertTrue($result['ok']);self::assertSame(2,$result['checks']['separate_children']);
+        self::assertTrue($result['ok']);self::assertSame(2,$result['checks']['separate_children']);self::assertSame(2,$result['checks']['verification_children']);
         foreach(['null_session','correct_versions','entities','cross_actor_isolation'] as $check)self::assertTrue($result['checks'][$check]);
     }
 }
