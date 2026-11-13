@@ -68,7 +68,7 @@ final class FormsNativeGateway implements FormsGateway {
             if(in_array($action,['forms_update_share','forms_unshare'],true))$snapshot['shares']=$guard->read($uid,'forms_list_shares',['id'=>$input['id']]);
             if($action==='forms_upload_response_files')$snapshot['file_sources']=$this->policy->resourceBoundary($uid,fn()=>$this->uploads->snapshot($uid,$input['paths']));
             if($action==='forms_save_response_file') {
-                $refs=$guard->read($uid,'forms_list_response_files',$input);
+                $refs=$guard->read($uid,'forms_list_response_files',$input+['_mcp_file_id'=>$input['file_id']]);
                 $snapshot['file_destination']=$this->policy->resourceBoundary($uid,fn()=>$this->files->snapshotSave($uid,$refs['files'],$input['file_id'],$input['path']));
             }
             $manifest=$snapshot['file_manifest']??[];
@@ -120,9 +120,13 @@ final class FormsNativeGateway implements FormsGateway {
             elseif($job['state']==='ready'&&$job['payload']['tool']==='forms_download_results')$data=$this->jobs->issueDownload($uid,$jobId,$operationKey,$snapshot['job_version'],fn():array=>$this->downloads->issue($uid,$jobId));
             elseif($job['state']==='ready'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)) {
                 $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content,$this->fileBoundary($uid,$guard,$claimed['payload']['origin'],array_map(static fn(int $id):array=>['file_id'=>$id],array_values($claimed['payload']['file_ids']??[])),fn()=>$this->jobs->assertDelivery($uid,$claimed,$read)))),$operationKey,$snapshot['job_version']);
-            } else $data=$this->jobs->step($uid,$jobId,$read,function(array $submission)use($uid,$guard,$job):array {
-                $refs=$guard->read($uid,'forms_list_response_files',['id'=>$job['payload']['arguments']['id'],'submission_id'=>$submission['id']]);
-                $visible=$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$refs['files']??[]));$out=[];
+            } else $data=$this->jobs->step($uid,$jobId,$read,function(array $submission,?\Closure $checkpoint=null)use($uid,$guard,$job):array {
+                $visible=\OCA\Mcp\Modules\Forms\Exports\FormsExportFileReferences::collect(
+                    function(int $offset,int $limit)use($uid,$guard,$job,$submission):array {
+                        $this->authorization->assert($job['payload']['origin']);
+                        return $guard->read($uid,'forms_list_response_files',['id'=>$job['payload']['arguments']['id'],'submission_id'=>$submission['id'],'offset'=>$offset,'limit'=>$limit]);
+                    },
+                    fn(array $refs):array=>$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$refs)),$checkpoint);$out=[];
                 foreach($visible as $file)$out[$file['file_id']]=['name'=>$file['name'],'url'=>$this->urls->linkToRouteAbsolute('files.View.showFile',['fileid'=>$file['file_id']])];
                 return $out;
             },$operationKey,$snapshot['job_version']);

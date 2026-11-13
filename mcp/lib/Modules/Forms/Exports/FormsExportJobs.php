@@ -106,7 +106,7 @@ final class FormsExportJobs {
                 $rows=[];
                 foreach($page['submissions'] as $submission) {
                     if((int)$submission['id']<=$p['after_id'])throw new ToolFailure('Native Forms continuation repeated a submission.');
-                    $visible=($args['include_files']??false)&&$visibleFiles!==null?$visibleFiles($submission):[];
+                    $visible=($args['include_files']??false)&&$visibleFiles!==null?$visibleFiles($submission,fn()=>$this->deadline($start)):[];
                     foreach(array_keys($visible) as $fileId)$p['file_ids'][(string)$fileId]=(int)$fileId;
                     $rows[]=$p['tool']==='forms_summarize_results'?$projection->summaryCells($submission):$projection->row($submission,$visible);
                     $this->deadline($start);
