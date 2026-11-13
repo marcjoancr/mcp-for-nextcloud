@@ -11,6 +11,8 @@ use OCP\Server;
 final class FormsRevisionFence
 {
     private int $depth = 0;
+    /** Per outer transaction; discarded on commit and rollback. */
+    private array $resultSourcesTouched = [];
     private ?string $session = null;
     private int $serialDepth = 0;
     private const LOCK = 'forms_mcp_revision_v1';
@@ -100,6 +102,21 @@ final class FormsRevisionFence
         }
         return (string) $value;
     }
+    public function touchResultSource(int $formId): void
+    {
+        if (!$this->active()) {throw new \LogicException('Result source mutation requires the Forms transaction');}
+        $this->assertSession();
+        if (isset($this->resultSourcesTouched[$formId])) {return;}
+        $epoch=ResultSourceRevision::epoch($formId);
+        if ($epoch>=9223372036854775805) {throw new \RuntimeException('Forms result source epoch exhausted');}
+        $exists=$this->db->executeQuery('SELECT form_id FROM *PREFIX*forms_mcp_result_epoch WHERE form_id = ?',[$formId])->fetchOne()!==false;
+        // The global primary-session fence serializes lazy creation; do not catch a PostgreSQL unique violation.
+        $count=$exists
+            ? $this->db->executeStatement('UPDATE *PREFIX*forms_mcp_result_epoch SET revision = revision + 1 WHERE form_id = ? AND revision = ?',[$formId,$epoch])
+            : $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_result_epoch (form_id,revision) VALUES (?,1)',[$formId]);
+        if ($count!==1) {throw new \RuntimeException('Forms result source mutation failed');}
+        $this->resultSourcesTouched[$formId]=true;
+    }
     public function transaction(callable $work): mixed
     {
         return $this->serialized(fn() => $this->transact($work));
@@ -139,6 +156,7 @@ final class FormsRevisionFence
             throw $error;
         } finally {
             $this->depth = 0;
+            $this->resultSourcesTouched = [];
         }
         Server::get(ManagedSharePhase::class)->drain();
         // No transport/event failure can roll back a committed answer set.

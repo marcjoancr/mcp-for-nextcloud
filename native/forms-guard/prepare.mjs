@@ -92,10 +92,24 @@ for (const entity of ['Form','Question','Option','Share','Answer','Submission','
  const p=join(output,'lib/Db',entity+'Mapper.php');let source=readFileSync(p,'utf8');
  const additions=['insert','update','delete'].filter(method=>!new RegExp(`function ${method}\\(`).test(source)).map(method=>`
  public function ${method}(\\OCP\\AppFramework\\Db\\Entity $entity): \\OCP\\AppFramework\\Db\\Entity {
-   return \\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run(fn()=>parent::${method}($entity));
+   return ${['Answer','Submission'].includes(entity) ? `\\OCA\\Forms\\Mcp\\Service\\ResultSourceRevision::mutate('${entity}', '${method}', $entity, fn()=>parent::${method}($entity))` : `\\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run(fn()=>parent::${method}($entity))`};
  }
 `).join('');
  const end=source.lastIndexOf('}');writeFileSync(p,source.slice(0,end)+additions+source.slice(end));
+}
+// The two pinned direct data deletes bypass generic Entity methods. Resolve ownership under the already-wrapped fence.
+for (const [file,kind] of [['Db/AnswerMapper.php','answer'],['Db/SubmissionMapper.php','submission']]) {
+ const p=join(output,'lib',file);let source=readFileSync(p,'utf8');
+ const statement='$qb->executeStatement();';
+ if(source.split(statement).length!==2)throw new Error('Pinned result bulk mutation changed: '+file);
+ if(kind==='answer') {
+  const start='$qb = $this->db->getQueryBuilder();';
+  const offset=source.indexOf('public function deleteBySubmission(');const at=source.indexOf(start,offset);
+  if(at<0)throw new Error('Answer result owner hook missing');
+  source=source.slice(0,at)+'$mcpFormId=\\OCA\\Forms\\Mcp\\Service\\ResultSourceRevision::forSubmission($submissionId);\n'+source.slice(at);
+ }
+ source=source.replace(statement,'$mcpRows=$qb->executeStatement();\n if ($mcpRows>0) { '+(kind==='answer'?'if ($mcpFormId===null) {throw new \\RuntimeException("Answer result source is missing");} ':'')+'\\OCA\\Forms\\Mcp\\Service\\ResultSourceRevision::touch('+(kind==='answer'?'$mcpFormId':'$formId')+'); }');
+ writeFileSync(p,source);
 }
 const formsService=join(output,'lib/Service/FormsService.php');let service=readFileSync(formsService,'utf8');
 for(const [method,kind,param] of [['notifyNewShares','share','share'],['notifyNewSubmission','submission','submission']]) {

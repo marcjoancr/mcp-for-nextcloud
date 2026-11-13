@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 namespace OCA\Forms\Mcp;
-use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions, FileRecovery, AnswerFiles, OriginContext, ScopedServices, ReadPages};
+use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions, FileRecovery, AnswerFiles, OriginContext, ScopedServices, ReadPages, ResultSourceRevision};
 use OCA\Forms\Service\{FormsService, ConfigService};
 use OCA\Forms\Db\{FormMapper, QuestionMapper, SubmissionMapper};
 use OCP\Server;
@@ -21,7 +21,7 @@ final class Guard {
                 || ($provider==='mariadb' && str_starts_with($databaseVersion,'10.11.19-MariaDB')));
         $config=Server::get(\OCP\IConfig::class);
         $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
-        $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113040000'])->fetchOne()!==false;
+        $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113050000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
             'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form']) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
@@ -58,7 +58,7 @@ final class Guard {
             return;
         }
         $id=(int)($i['id']??0);
-        $forms=(new ScopedServices($uid,false,in_array($action,ReadPages::ACTIONS,true)))->forms();
+        $forms=(new ScopedServices($uid,false,in_array($action,array_merge(ReadPages::ACTIONS,['forms_results_metadata','forms_results_page']),true)))->forms();
         if (in_array($action,['forms_submit_response','forms_upload_response_files'],true)) {$forms->loadFormForSubmission($id,$i['share_hash']??''); return;}
         $permission=match($action) {
             'forms_delete_form','forms_transfer','forms_list_shares','forms_read_links','forms_get_embed','forms_share','forms_update_share','forms_unshare'=>'all',
@@ -110,12 +110,17 @@ final class Guard {
             $form['permissions']=(new ScopedServices($uid))->forms()->getPermissions($entity);
             $form['questions']=(new ScopedServices($uid))->forms()->getQuestions((int)$input['id']);
         }
+        $exportRevision=null;
+        if (in_array($action,['forms_results_metadata','forms_results_page'],true) && isset($input['id'])) {
+            $metadata=$this->resultsMetadata($uid,(int)$input['id'],null,$entity,$form['questions']);
+            $exportRevision=$metadata['export_revision'];
+        }
         $config=(new ScopedServices($uid))->get(ConfigService::class)->getAppConfig();
         if (strlen(json_encode([$form,$config],JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Forms preview exceeds projection budget');}
         $fileManifest=FileRecovery::snapshot($uid,$action,$input);
         $after=$this->fence->revision();
         if ($before!==$after) {throw new \RuntimeException('Forms changed during preview');}
-        return ['file_manifest'=>$fileManifest,'revision'=>$after,'form'=>$form,'config'=>$config,'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$input['id']??null,'action'=>$action],
+        return ($exportRevision===null?[]:['export_revision'=>$exportRevision])+['file_manifest'=>$fileManifest,'revision'=>$after,'form'=>$form,'config'=>$config,'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$input['id']??null,'action'=>$action],
             'impact'=>['database'=>true,'files'=>'requires_separate_qualification','events'=>($fileManifest['files_share']??false) || in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_share'],true)]];
     }
     /** Read-only semantic admission before the MCP journal reserves an operation. */
@@ -231,6 +236,13 @@ final class Guard {
             if ($before!==$after) {throw new \RuntimeException('Forms changed during read');}
             return ReadPages::bounded($result+['revision'=>$after]);
         }
+        if ($action==='forms_results_metadata') {
+            $before=$this->fence->revision();$result=$this->resultsMetadata($uid,(int)$i['id']);
+            if (OriginContext::active()) {OriginContext::assertFresh();}
+            $this->authorize($uid,$action,$i);$after=$this->fence->revision();
+            if ($before!==$after) {throw new \RuntimeException('Forms changed during result metadata read');}
+            return $result+['revision'=>$after];
+        }
         $forms=(new ScopedServices($uid))->forms(); $id=(int)($i['id']??0);
         return match($action) {
             'forms_results_metadata'=>$this->resultsMetadata($uid,$id),
@@ -255,7 +267,7 @@ final class Guard {
             if (!$this->capabilities()['qualified']) {throw new \RuntimeException('Forms runtime changed');}
             $id=(int)($input['id']??0);
             if ((int)($origin['references']['form_id']??0)!==$id) {throw new \RuntimeException('Original form does not match');}
-            $before=$this->fence->revision();$scope=new ScopedServices($uid,true);$forms=$scope->forms();$form=$forms->getFormIfAllowed($id,'results');
+            $before=$this->fence->revision();$scope=new ScopedServices($uid,true,true);$forms=$scope->forms();$form=$forms->getFormIfAllowed($id,'results');
             if (!in_array('results',$forms->getPermissions($form),true) || (isset($origin['references']['owner_id']) && $origin['references']['owner_id']!==$form->getOwnerId())) {throw new \RuntimeException('Original results authority changed');}
             $result=$action==='forms_results_page'?$this->resultsPage($id,$input):$this->resultsMetadata($uid,$id,$scope);
             $after=$this->fence->revision();if($before!==$after){throw new \RuntimeException('Results changed during deferred read');}
@@ -334,13 +346,15 @@ final class Guard {
         }
     }
 
-    private function resultsMetadata(string $uid,int $id,?ScopedServices $scope=null): array {
-        $scope ??= new ScopedServices($uid);
-        $form=Server::get(FormMapper::class)->findById($id);
+    private function resultsMetadata(string $uid,int $id,?ScopedServices $scope=null,?\OCA\Forms\Db\Form $form=null,?array $questions=null): array {
+        $scope ??= new ScopedServices($uid,false,true);
+        $form ??= Server::get(FormMapper::class)->findById($id);
         $result=['form'=>['id'=>$id,'title'=>$form->getTitle(),'isAnonymous'=>(bool)$form->getIsAnonymous(),'ownerId'=>$form->getOwnerId()],
-            'questions'=>$scope->forms()->getQuestions($id),'submissionCount'=>Server::get(SubmissionMapper::class)->countSubmissions($id),
+            'questions'=>$questions??$scope->forms()->getQuestions($id),'submissionCount'=>$scope->get(SubmissionMapper::class)->countSubmissions($id),
             'timeZone'=>Server::get(\OCP\IConfig::class)->getUserValue($uid,'core','timezone','UTC')];
-        if (strlen(json_encode($result,JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Forms result metadata exceeds projection budget');}
+        $result['export_revision']=ResultSourceRevision::token($id,$result);
+        // Include the private source envelope in the same metadata byte budget.
+        if (strlen(json_encode($result,JSON_THROW_ON_ERROR))>1048576-64) {throw new \RuntimeException('Forms result metadata exceeds projection budget');}
         return $result;
     }
     private function resultsPage(int $id,array $input): array {
