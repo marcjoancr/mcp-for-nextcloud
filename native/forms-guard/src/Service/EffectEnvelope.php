@@ -23,7 +23,7 @@ final class EffectEnvelope {
         if ($file->getSize()>2097152) {throw new \RuntimeException('Effect payload exceeds budget');}
         return json_decode(Server::get(\OCP\Security\ICrypto::class)->decrypt($file->getContent()),true,64,JSON_THROW_ON_ERROR);
     }
-    public static function digest(int $formId,string $kind,int $entityId): string {
+    public static function digest(int $formId,string $kind,int $entityId,ScopedServices $scope): string {
         $db=Server::get(\OCP\IDBConnection::class);$values=[];
         foreach ([
             ['SELECT * FROM *PREFIX*forms_v2_forms WHERE id = ?',[$formId]],
@@ -40,7 +40,7 @@ final class EffectEnvelope {
         foreach (Server::get(\OCA\Forms\Db\ShareMapper::class)->findByForm($formId) as $share) {
             if ($share->getShareType()===7) {throw new \RuntimeException('Deferred Circle event audience is not qualified');}
             if ($share->getShareType()===1) {
-                $users=Server::get(\OCP\IGroupManager::class)->get($share->getShareWith())?->getUsers()??[];
+                $users=$scope->get(\OCP\IGroupManager::class)->get($share->getShareWith())?->getUsers()??[];
                 if(count($users)>1000){throw new \RuntimeException('Native event audience exceeds budget');}
                 $ids=array_map(static fn($user)=>$user->getUID(),$users);sort($ids);$values[]=$ids;
             }

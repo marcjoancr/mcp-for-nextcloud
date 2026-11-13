@@ -165,9 +165,9 @@ final class Guard {
             if (!$this->capabilities()['qualified']) {throw new \RuntimeException('Forms runtime changed');}
             $id=(int)($input['id']??0);
             if ((int)($origin['references']['form_id']??0)!==$id) {throw new \RuntimeException('Original form does not match');}
-            $before=$this->fence->revision();$scope=new ScopedServices($uid);$forms=$scope->forms();$form=$forms->getFormIfAllowed($id,'results');
+            $before=$this->fence->revision();$scope=new ScopedServices($uid,true);$forms=$scope->forms();$form=$forms->getFormIfAllowed($id,'results');
             if (!in_array('results',$forms->getPermissions($form),true) || (isset($origin['references']['owner_id']) && $origin['references']['owner_id']!==$form->getOwnerId())) {throw new \RuntimeException('Original results authority changed');}
-            $result=$action==='forms_results_page'?$this->resultsPage($id,$input):$this->resultsMetadata($uid,$id);
+            $result=$action==='forms_results_page'?$this->resultsPage($id,$input):$this->resultsMetadata($uid,$id,$scope);
             $after=$this->fence->revision();if($before!==$after){throw new \RuntimeException('Results changed during deferred read');}
             return $result+['revision'=>$after];
         });
@@ -244,10 +244,11 @@ final class Guard {
         }
     }
 
-    private function resultsMetadata(string $uid,int $id): array {
+    private function resultsMetadata(string $uid,int $id,?ScopedServices $scope=null): array {
+        $scope ??= new ScopedServices($uid);
         $form=Server::get(FormMapper::class)->findById($id);
         $result=['form'=>['id'=>$id,'title'=>$form->getTitle(),'isAnonymous'=>(bool)$form->getIsAnonymous(),'ownerId'=>$form->getOwnerId()],
-            'questions'=>(new ScopedServices($uid))->forms()->getQuestions($id),'submissionCount'=>Server::get(SubmissionMapper::class)->countSubmissions($id),
+            'questions'=>$scope->forms()->getQuestions($id),'submissionCount'=>Server::get(SubmissionMapper::class)->countSubmissions($id),
             'timeZone'=>Server::get(\OCP\IConfig::class)->getUserValue($uid,'core','timezone','UTC')];
         if (strlen(json_encode($result,JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Forms result metadata exceeds projection budget');}
         return $result;

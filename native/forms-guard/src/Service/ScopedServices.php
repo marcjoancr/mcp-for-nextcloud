@@ -11,7 +11,7 @@ final class ScopedServices {
     private FreshCore $core;
     private \OCP\IUser $user;
     private \Psr\Container\ContainerInterface $container;
-    public function __construct(string $uid) {
+    public function __construct(string $uid, private bool $deferred = false) {
         $this->core = new FreshCore($uid);
         $this->core->assertPrincipal();
         $this->user = $this->core->user();
@@ -27,7 +27,16 @@ final class ScopedServices {
             return $this->services[$class] = new \OC\AppFramework\Services\AppConfig(Server::get(\OCP\IConfig::class), $this->core->appConfig(), 'forms');
         }
         if ($class===\OCP\IUserSession::class) {return $this->services[$class]=new ScopedUserSession($this->user);}
-        if ($class===\OCA\Forms\Service\CirclesService::class) {return $this->services[$class]=new ScopedCircles();}
+        if ($class === \OCA\Forms\Service\CirclesService::class) {
+            if ($this->deferred) {
+                return $this->services[$class] = new ScopedCircles();
+            }
+            if (Server::get(\OCP\IUserSession::class)->getUser()?->getUID() !== $this->user->getUID()) {
+                throw new \RuntimeException('Immediate Circle access requires the original native session');
+            }
+            return $this->services[$class] = new \OCA\Forms\Service\CirclesService(
+                $this->core->apps(), $this->container, Server::get(\Psr\Log\LoggerInterface::class));
+        }
         if (!str_starts_with($class,'OCA\\Forms\\Service\\') && !str_starts_with($class,'OCA\\Forms\\Controller\\') && $class!==\OCA\Forms\Activity\ActivityManager::class) {return $this->container->get($class);}
         $reflection=new \ReflectionClass($class);$args=[];
         foreach ($reflection->getConstructor()?->getParameters()??[] as $parameter) {

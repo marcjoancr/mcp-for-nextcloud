@@ -22,7 +22,7 @@ final class FormsEffectOutbox {
             $context=OriginContext::current();$ref=$key;
             EffectEnvelope::put($key,['origin'=>$context['origin'],'action'=>$context['action'],'input'=>$context['input'],
                 'kind'=>$kind,'form_id'=>$formId,'entity_id'=>$entityId,'owner_id'=>Server::get(FormMapper::class)->findById($formId)->getOwnerId(),
-                'digest'=>EffectEnvelope::digest($formId,$kind,$entityId),'operation_key'=>$self->operation]);
+                'digest'=>EffectEnvelope::digest($formId,$kind,$entityId,new ScopedServices($context['verified']['uid'],true)),'operation_key'=>$self->operation]);
         }
         $self->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_effects (effect_key,operation_key,kind,form_id,entity_id,phase,payload_ref) VALUES (?,?,?,?,?,?,?)',
             [$key,$self->operation??'',$kind,$formId,$entityId,'pending',$ref]);$self->pending[]=$key;return true;
@@ -41,7 +41,7 @@ final class FormsEffectOutbox {
         $uid=$envelope['origin']['uid']??'';
         return OriginContext::within($uid,$envelope['origin'],'effect',$envelope['input'],function()use($uid,$envelope,$work) {
             if (!Server::get(\OCA\Forms\Mcp\Guard::class)->capabilities()['qualified']) {throw new \RuntimeException('Forms runtime changed');}
-            $scope=new ScopedServices($uid);$forms=$scope->forms();$form=Server::get(FormMapper::class)->findById((int)$envelope['form_id']);
+            $scope=new ScopedServices($uid,true);$forms=$scope->forms();$form=Server::get(FormMapper::class)->findById((int)$envelope['form_id']);
             if ($form->getOwnerId()!==$envelope['owner_id']) {throw new \RuntimeException('Forms ownership changed');}
             $action=$envelope['action'];
             if ($envelope['kind']==='share') {$forms->getFormIfAllowed($form->getId(),'all');}
@@ -52,7 +52,7 @@ final class FormsEffectOutbox {
             } elseif ($action==='forms_update_response') {
                 if (!$forms->canDeleteResults($form) || !in_array('results_delete',$forms->getPermissions($form),true)) {throw new \RuntimeException('Original response authority was revoked');}
             } else {throw new \RuntimeException('Unknown native effect action');}
-            if (!hash_equals($envelope['digest'],EffectEnvelope::digest($form->getId(),$envelope['kind'],(int)$envelope['entity_id']))) {throw new \RuntimeException('Native event dependencies changed');}
+            if (!hash_equals($envelope['digest'],EffectEnvelope::digest($form->getId(),$envelope['kind'],(int)$envelope['entity_id'],$scope))) {throw new \RuntimeException('Native event dependencies changed');}
             $old=self::$dispatch;self::$dispatch=$envelope;
             try {return $work($scope,$form);} finally {self::$dispatch=$old;}
         });
