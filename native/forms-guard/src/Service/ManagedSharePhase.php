@@ -206,7 +206,7 @@ final class ManagedSharePhase
         if ($root->nodeExists($path)) {
             $folder = $root->get($path);
         } else {
-            $folder = NewFileStorage::folder($root, $path, fn() => $this->assertNative($envelope));
+            $folder = NewFileStorage::folder($root, $path, fn() => $this->assertNative($envelope), true);
             ManagedShares::registerFolder($form, $folder);
         }
         if (!$folder instanceof Folder) {

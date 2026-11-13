@@ -113,6 +113,10 @@ try {
         $GLOBALS['share_original_origin'] = $args['_mcp_origin'];
         return $guard->apply($uid, $action, $args, $snapshot['revision'], $GLOBALS['share_operation_key'], $snapshot['file_manifest']);
     };
+    if (in_array($case, ['routing_email', 'routing_federated', 'routing_all', 'concurrent_folder'], true)) {
+        require __DIR__ . '/share-phase-review.php';
+        exit;
+    }
     if (in_array($case, ['provider_create_revoke', 'provider_create_mutation', 'provider_delete_revoke'], true)) {
         require __DIR__ . '/share-phase-lock.php';
         $delete = $case === 'provider_delete_revoke';

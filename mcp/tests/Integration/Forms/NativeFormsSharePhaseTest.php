@@ -28,6 +28,20 @@ final class NativeFormsSharePhaseTest extends TestCase
         self::assertTrue($result['ok'], $output);
         return $result['result'];
     }
+    public function testMutableShareTypeCannotEscapeTheGuardedProvider(): void
+    {
+        foreach (['routing_email', 'routing_federated', 'routing_all'] as $case) {
+            foreach ($this->runCase($case) as $key => $value) {
+                self::assertTrue($value, $case . ' ' . $key);
+            }
+        }
+    }
+    public function testConcurrentEmptyFolderCannotBecomeManagedShareProperty(): void
+    {
+        foreach ($this->runCase('concurrent_folder') as $key => $value) {
+            self::assertTrue($value, $key);
+        }
+    }
     public function testProviderWriteRechecksAuthorityAndTupleAfterNativePreEvents(): void
     {
         foreach (['provider_create_revoke', 'provider_create_mutation', 'provider_delete_revoke'] as $case) {

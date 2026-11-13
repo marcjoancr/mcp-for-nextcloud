@@ -12,6 +12,28 @@ final class SharingProviderFactory extends \OC\Share20\ProviderFactory
     {
         parent::__construct($apps, \OCP\Server::get(\Psr\Log\LoggerInterface::class));
     }
+    public function getProvider($id)
+    {
+        if ($id !== 'ocinternal') {
+            throw new \RuntimeException('Native managed share provider is not qualified');
+        }
+        return $this->provider;
+    }
+    public function getProviderForType($shareType)
+    {
+        if (!in_array($shareType, [\OCP\Share\IShare::TYPE_USER, \OCP\Share\IShare::TYPE_GROUP], true)) {
+            throw new \RuntimeException('Native managed share type is not qualified');
+        }
+        return $this->provider;
+    }
+    public function getAllProviders()
+    {
+        return [$this->provider];
+    }
+    public function registerProvider(string $shareProviderClass): void
+    {
+        throw new \RuntimeException('Native managed share provider registration is unavailable');
+    }
     public function createdHere(string $id): bool
     {
         return $this->provider->createdHere($id);

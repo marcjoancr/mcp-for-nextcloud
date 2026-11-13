@@ -9,6 +9,11 @@ use OCP\Server;
 try {
     $input = json_decode(stream_get_contents(STDIN), true, 16, JSON_THROW_ON_ERROR);
     Server::get(\OCP\IUserSession::class)->setUser(Server::get(\OCP\IUserManager::class)->get($input['uid']));
+    if (isset($input['create_folder'])) {
+        $folder = Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($input['uid'])->newFolder($input['create_folder']);
+        echo json_encode(['id' => $folder->getId()], JSON_THROW_ON_ERROR) . "\n";
+        exit;
+    }
     $node = Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($input['uid'])->getById($input['file_id'])[0];
     $manager = Server::get(\OCP\Share\IManager::class);
     $share = $manager->newShare();
