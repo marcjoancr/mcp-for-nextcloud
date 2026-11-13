@@ -32,7 +32,7 @@ final class FormsAnswers {
             } else {
                 if(in_array($question['type']??'',['file','grid','ranking','multiple','multiple_unique','dropdown'],true))throw new \InvalidArgumentException('This question requires its typed answer representation.');
                 $values=$entry['values'];
-                $range=(($question['type']??'')==='date'&&!empty($question['extraSettings']['dateRange']))||(($question['type']??'')==='time'&&!empty($question['extraSettings']['timeRange']));
+                $range=(($question['type']??'')==='date'&&isset($question['extraSettings']['dateRange']))||(($question['type']??'')==='time'&&isset($question['extraSettings']['timeRange']));
                 if(count($values)!==($range?2:1))throw new \InvalidArgumentException('Use the native scalar cardinality or both date/time range endpoints; omit an unanswered optional question.');
             }
             if(isset($entry['other'])) {

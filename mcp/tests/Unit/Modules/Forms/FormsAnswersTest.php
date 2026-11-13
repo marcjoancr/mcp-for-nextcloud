@@ -59,6 +59,15 @@ final class FormsAnswersTest extends TestCase {
         self::assertSame([6=>['2026-11-13','2026-11-14'],7=>['09:30','16:45']],FormsAnswers::native([
             ['question_id'=>6,'values'=>['2026-11-13','2026-11-14']],['question_id'=>7,'values'=>['09:30','16:45']]],$q));
     }
+    public function testRangeCardinalityMatchesNativePresencePredicate():void {
+        foreach(['date'=>['2026-11-13','2026-11-14'],'time'=>['09:30','16:45']] as $type=>$values) {
+            foreach([[],[$type.'Range'=>null],[$type.'Range'=>false],[$type.'Range'=>true]] as $settings) {
+                $expected=isset($settings[$type.'Range'])?$values:[$values[0]];
+                $q=[['id'=>6,'type'=>$type,'extraSettings'=>$settings]];
+                self::assertSame([6=>$expected],FormsAnswers::native([['question_id'=>6,'values'=>$expected]],$q));
+            }
+        }
+    }
     public function testNativeValid129DigitGridValueFitsTypedSchema():void {
         $value=str_repeat('1',129);$args=['id'=>4,'answers'=>[['question_id'=>4,'rows'=>[['row_id'=>12,'cells'=>[['column_id'=>21,'value'=>$value]]]]]]];
         $schema=\OCA\Mcp\Modules\Forms\Execution\FormsCommands::definitions()['forms_submit_response']['inputSchema'];
