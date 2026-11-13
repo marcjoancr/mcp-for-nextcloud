@@ -16,7 +16,7 @@ use OCP\IUserManager;
 /** Admission is per feature; the historical API floor never admits unknown writes. */
 final class FormsCapabilities {
     public const QUESTION_TYPES = ['color','date','datetime','dropdown','file','grid','linearscale','long','multiple','multiple_unique','ranking','short','time'];
-    public const LIMITS = ['pageItems'=>100,'requestBytes'=>1048576,'responseBytes'=>1048576,'optionBatch'=>100,'files'=>10,'fileBytes'=>26214400,'stepSeconds'=>20,'downloadSeconds'=>300];
+    public const LIMITS = ['pageItems'=>100,'requestBytes'=>1048576,'responseBytes'=>1048576,'optionBatch'=>100,'files'=>10,'fileBytes'=>26214400,'stepSeconds'=>20,'downloadSeconds'=>300,'temporaryRetentionSeconds'=>604800,'temporaryJobCipherBytes'=>134217728,'temporaryUserCipherBytes'=>536870912,'temporaryInstanceCipherBytes'=>4294967296];
 
     /** @param \Closure():?string $session @param \Closure():array $guard */
     public function __construct(private IAppManager $apps, private IUserManager $users, private \Closure $session, private \Closure $guard) {}

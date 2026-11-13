@@ -660,7 +660,8 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\FormsJobsMapper::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\FormsDownloadsMapper::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsSpool::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsPrivateSpool(
-            $c->get(\OCP\Files\AppData\IAppDataFactory::class)->get('mcp_forms_results'), $c->get(\OCP\Security\ICrypto::class)
+            $c->get(\OCP\Files\AppData\IAppDataFactory::class)->get('mcp_forms_results'), $c->get(\OCP\Security\ICrypto::class),
+            $c->get(\OCA\Mcp\Db\FormsSpoolMapper::class), $c->get(\OCP\Lock\ILockingProvider::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsExportJobs(
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsSpool::class),

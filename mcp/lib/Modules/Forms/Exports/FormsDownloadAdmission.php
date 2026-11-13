@@ -17,7 +17,9 @@ final class FormsDownloadAdmission {
     public function issue(string $uid,string $jobId):array {
         $job=($this->job)($uid,$jobId);
         if($job['actor_uid']!==$uid||!in_array($job['state'],['ready','issuing'],true))throw new ToolFailure('The complete Forms download is unavailable.');
-        ($this->native)($job);$token=bin2hex(random_bytes(32));$expires=($this->time)()+300;
+        ($this->native)($job);$now=($this->time)();$expires=min($now+300,(int)($job['payload']['cache_expires_at']??($now+300)));
+        if($expires<=$now)throw new ToolFailure('The temporary Forms result expired. Approve a new snapshot.');
+        $token=bin2hex(random_bytes(32));
         if(!$this->store->create(['token_hash'=>hash('sha256',$token),'job_id'=>$jobId,'actor_uid'=>$uid,'expires_at'=>$expires,'used'=>false]))throw new ToolFailure('The Forms download could not be admitted.');
         return ['download_url'=>($this->url)($token),'expires_at'=>$expires,'single_use'=>true];
     }

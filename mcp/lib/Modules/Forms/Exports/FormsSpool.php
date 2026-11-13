@@ -8,6 +8,10 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Forms\Exports;
 interface FormsSpool {
+    public function reserve(string $job,string $uid):void;
+    public function assertActive(string $job,string $uid):void;
+    public function seal(string $job):void;
+    public function cleanup():void;
     public function put(string $job,string $content):array;
     public function get(string $job,array $part):string;
 }

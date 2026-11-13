@@ -19,6 +19,7 @@ Nextcloud MCP is a native Nextcloud app maintained on `main` in [this fork](http
 | Build the installation archive | [Packaging](packaging.md) |
 | Deliver matching source and verify an installed tree | [Source delivery and integrity](source-delivery.md) |
 | Rehearse LinuxServer upgrade, recovery and update controls | [LinuxServer testing](linuxserver-testing.md) |
+| Change the private Forms result cache | [Forms result-cache contract](forms-result-cache.md) |
 | Change filename write enforcement | [Write-policy sink inventory](file-write-policy-sinks.md) |
 | Change file visibility or folder exposure | [Exclusion and folder exposure contract](contracts/exclusion-and-folder-exposure.md) |
 | Edit guides or translations | [Documentation authoring](documentation.md), [translation maintenance](translations.md) |

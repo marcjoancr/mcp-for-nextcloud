@@ -21,7 +21,7 @@ final class FormsExportJobs {
         new FormsExportSnapshot($metadata,(bool)($args['include_respondents']??false),(bool)($args['include_files']??false));
         $snapshot['export_metadata']=$metadata;
         $snapshot['impact']['complete_results']=['submissions'=>$metadata['submissionCount'],'source_revision'=>$snapshot['revision'],
-            'rows_per_step'=>100,'projection_bytes_per_step'=>1048576,'seconds_per_step'=>20,'output_quota_bytes'=>26214400,
+            'rows_per_step'=>100,'projection_bytes_per_step'=>1048576,'seconds_per_step'=>20,'output_quota_bytes'=>26214400,'temporary_ciphertext_reservation_bytes'=>134217728,'temporary_retention_seconds'=>604800,
             'identities'=>(bool)($args['include_respondents']??false),'file_references'=>(bool)($args['include_files']??false),'format'=>$args['format']??'summary','order'=>'submission_id_ascending'];
         return $snapshot;
     }
@@ -34,7 +34,8 @@ final class FormsExportJobs {
         if($after['revision']!==$snapshot['revision'])throw new ToolFailure('Forms export source changed before admission.');
         $job=['job_id'=>$id,'actor_uid'=>$uid,'version'=>1,'state'=>'collecting','updated_at'=>($this->time)(),
             'payload'=>['origin'=>$origin,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>$snapshot['revision'],
-                'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'summary'=>[],'file_ids'=>[]]];
+                'cache_expires_at'=>($this->time)()+604800,'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'summary'=>[],'file_ids'=>[]]];
+        try {$this->spool->reserve($id,$uid);}catch(\Throwable){throw new \OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect('Forms temporary result capacity is unavailable. No result job or Files write was started.');}
         if(!$this->store->create($job))throw new ToolFailure('Forms job admission conflicted; inspect its receipt.');
         return $this->receipt($id);
     }
@@ -46,6 +47,7 @@ final class FormsExportJobs {
         if($job['actor_uid']!==$uid)throw new ToolFailure(ToolFailure::NOT_FOUND);
         $context=($this->authorize)($job['payload']['origin']);
         if(($context['uid']??null)!==$uid)throw new ToolFailure(ToolFailure::FORBIDDEN);
+        $this->spool->assertActive($job['job_id'],$uid);
         if(($job['payload']['native_runtime']??null)!==\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256)throw new ToolFailure('The qualified Forms runtime changed. Approve a new complete snapshot.');
         if(($job['payload']['arguments']['include_files']??false)&&!array_key_exists('file_ids',$job['payload']))throw new ToolFailure('This retained file-reference export requires a new authorized snapshot.');
         if(($job['payload']['file_ids']??[])!==[]) {
@@ -58,11 +60,11 @@ final class FormsExportJobs {
         $p=$job['payload'];
         return ['job_id'=>$job['job_id'],'state'=>$job['state'],'done'=>$p['done'],'total'=>$p['metadata']['submissionCount'],
             'source_revision'=>$p['source_revision'],'complete'=>in_array($job['state'],['ready','delivered'],true),
-            'bytes'=>$p['bytes'],'format'=>$p['arguments']['format']??'summary','continuation'=>in_array($job['state'],['collecting','working','assembling'],true),'step_budget_exhausted'=>(bool)($p['step_budget_exhausted']??false)];
+            'cache_expires_at'=>$p['cache_expires_at']??null,'bytes'=>$p['bytes'],'format'=>$p['arguments']['format']??'summary','continuation'=>in_array($job['state'],['collecting','working','assembling'],true),'step_budget_exhausted'=>(bool)($p['step_budget_exhausted']??false)];
     }
     public function step(string $uid,string $id,callable $native,?callable $visibleFiles=null,?string $operationKey=null,?int $approvedVersion=null):array {
         $old=$this->job($uid,$id);$this->approved($old,$operationKey,$approvedVersion);
-        if($old['state']==='ready'||$old['state']==='delivered')return $this->present($old);
+        if($old['state']==='ready'||$old['state']==='delivered'){$this->spool->seal($id);return $this->present($old);}
         if($old['state']==='working'&&($this->time)()-$old['updated_at']<=60)throw new ToolFailure('Another Forms worker owns the current step.');
         if(!in_array($old['state'],['collecting','working','assembling'],true))throw new ToolFailure('This Forms job cannot continue.');
         $working=$this->claim($old,'working',$operationKey,$approvedVersion);
@@ -102,6 +104,7 @@ final class FormsExportJobs {
             $this->deadline($start);
             if($p['collection_complete']&&$p['tool']!=='forms_summarize_results')$this->finalize($id,$p,$start);
             $this->source($p,$native);$this->admit($uid,array_replace($working,['payload'=>$p]));$this->deadline($start);
+            if($p['collection_complete']){$this->spool->seal($id);$this->deadline($start);}
             return $this->saveStep($working,$p,$p['collection_complete']?'ready':'collecting',$p['collection_complete']?'succeeded':'pending');
         } catch(FormsExportBudgetExceeded) {
             // The page cursor and all completed private parts survive; readiness is never accepted after the deadline.
