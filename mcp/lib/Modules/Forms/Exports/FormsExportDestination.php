@@ -20,7 +20,7 @@ use OCP\Files\IRootFolder;
 final class FormsExportDestination {
     public function __construct(private IRootFolder $root,private FilesAccessGuard $access,private FileCreation $creation,
         private ContentPlan $plans,private ContentWriter $writer,private FileTypeGuard $types) {}
-    public function snapshot(string $uid,array $args):array {
+    public function snapshot(string $uid,array $args,bool $asUser=true):array {
         $this->access->clearCache();$this->access->assertScopeReadable();$path=PathGuard::normalize($args['path']);
         if(!str_ends_with(strtolower($path),'.'.($args['format']??'csv')))throw new ToolFailure('The destination extension must match the export format.');
         $root=$this->root->getUserFolder($uid);
@@ -33,21 +33,21 @@ final class FormsExportDestination {
         if(!$file->isReadable()||!$file->isUpdateable()||$file->getSize()>26214400)throw new ToolFailure('The export destination is unavailable.');
         $this->types->assertWritableName($file->getName());
         return ['path'=>$path,'overwrite'=>true,'file_id'=>(int)$file->getId(),'etag'=>(string)$file->getEtag(),'preimage'=>\OCA\Mcp\Modules\Forms\Attachments\FormsFilePreimage::capture($file),
-            'plan'=>$this->plans->describe($file,$uid,$path,['action'=>'forms_export_results','format'=>$args['format']??'csv','overwrite'=>true])];
+            'plan'=>$this->plans->describe($file,$uid,$path,['action'=>'forms_export_results','format'=>$args['format']??'csv','overwrite'=>true],$asUser)];
     }
-    public function save(string $uid,array $args,array $approved,string $content,?\Closure $mutationBoundary=null):array {
+    public function save(string $uid,array $args,array $approved,string $content,?\Closure $mutationBoundary=null,bool $asUser=true):array {
         if(strlen($content)>26214400)throw new ToolFailure('The complete export exceeds its destination byte quota.');
-        $current=$this->snapshot($uid,$args);
+        $current=$this->snapshot($uid,$args,$asUser);
         if($current!==$approved)throw new ToolFailure('The approved export destination changed. Preview a new export.');
         $root=$this->root->getUserFolder($uid);
         if(!$approved['overwrite']) {
             $target=$this->creation->target($root,$approved['path']);
-            $file=$this->creation->write($target['folder'],$target['name'],$content,$uid,true,$mutationBoundary);
+            $file=$this->creation->write($target['folder'],$target['name'],$content,$uid,$asUser,$mutationBoundary);
             $receipt=$this->creation->receipt($target,$file,$uid);
         } else {
             $file=NodeAccess::requireFile(NodeAccess::get($root,$approved['path'],$this->access));
             if((int)$file->getId()!==$approved['file_id'])throw new ToolFailure('The export destination changed.');
-            $receipt=$this->writer->commit($root,$uid,$file,$approved['path'],$content,$approved['etag'],'',false,$mutationBoundary,$approved['preimage']);
+            $receipt=$this->writer->commit($root,$uid,$file,$approved['path'],$content,$approved['etag'],'',false,$mutationBoundary,$approved['preimage'],$asUser);
             $file=NodeAccess::requireFile(NodeAccess::get($root,$approved['path'],$this->access));
         }
         $stream=$file->fopen('rb');if(!is_resource($stream))throw new ToolFailure('The export write could not be verified.');

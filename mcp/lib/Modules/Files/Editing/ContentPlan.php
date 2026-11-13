@@ -32,10 +32,11 @@ final class ContentPlan {
      * @param string $userId authenticated user
      * @param string $path normalized user-relative path of $file
      * @param array<string, mixed> $plan what the specific tool would do
+     * @param bool $asUser false for work without the originating user's session
      * @return array<string, mixed>
      * @throws ToolFailure when Nextcloud refuses the update, with or without the shared confirmation
      */
-    public function describe(File $file, string $userId, string $path, array $plan): array {
+    public function describe(File $file, string $userId, string $path, array $plan, bool $asUser = true): array {
         $shared = $this->guard->guard($file, $userId, $path, false);
         return $this->backupPlan->decorate($plan + [
             'path' => $path,
@@ -45,7 +46,7 @@ final class ContentPlan {
             'requiresSharedConfirmation' => $shared !== null,
             'recoverable' => true,
             'consequence' => EditingMessages::planBackupConsequence(),
-        ] + $this->lockNotice($file, $userId, $path), $userId);
+        ] + $this->lockNotice($file, $userId, $path, $asUser), $userId);
     }
 
     /**
