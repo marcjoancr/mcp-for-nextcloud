@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 /** Test-only real-connection decorator: underlying COMMIT succeeds, caller receives an exception. */
-function formsCommitFault(\OCP\IDBConnection $db): \OCP\IDBConnection {
+function formsCommitFault(\OCP\IDBConnection $db,string $mode='commit'): \OCP\IDBConnection {
     $renderType=function(?\ReflectionType $type)use(&$renderType):string {
         if($type===null){return '';}
         if($type instanceof \ReflectionUnionType){return implode('|',array_map($renderType,$type->getTypes()));}
@@ -20,8 +20,9 @@ function formsCommitFault(\OCP\IDBConnection $db): \OCP\IDBConnection {
             $parameters[]=$code;$arguments[]=($parameter->isVariadic()?'...':'').'$'.$parameter->getName();
         }
         $return=$renderType($method->getReturnType());$name=$method->getName();
-        $body=$name==='commit'?'$this->inner->commit(); throw new \\RuntimeException("Injected lost database commit acknowledgement");':($return==='void'?'':'return ').'$this->inner->'.$name.'('.implode(',',$arguments).');';
+        $body=$name==='commit'?'$this->inner->commit(); if ($this->mode==="commit") { throw new \\RuntimeException("Injected lost database commit acknowledgement"); }':($return==='void'?'':'return ').'$this->inner->'.$name.'('.implode(',',$arguments).');';
+        if($name==='executeStatement'){$body='if ($this->mode==="wait" && !$this->signaled && str_contains((string)$'.$method->getParameters()[0]->getName().',"forms_mcp_fence SET revision")) {$this->signaled=true;fwrite(STDOUT,"WAITING\n");fflush(STDOUT);}'. $body;}
         $methods.='public function '.$name.'('.implode(',',$parameters).')'.($return===''?'':': '.$return).'{'.$body.'}';
     }
-    return eval('return new class($db) implements \\OCP\\IDBConnection { public function __construct(private \\OCP\\IDBConnection $inner){} '.$methods.'};');
+    return eval('return new class($db,$mode) implements \\OCP\\IDBConnection { public function __construct(private \\OCP\\IDBConnection $inner,private string $mode){} private bool $signaled=false; '.$methods.'};');
 }

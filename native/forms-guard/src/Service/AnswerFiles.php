@@ -32,6 +32,7 @@ final class AnswerFiles {
             if (!$valid) {throw new \RuntimeException('Native file type limit exceeded');}
             $prepared[]=['name'=>$name,'bytes'=>$bytes,'sha256'=>$source['sha256'],'size'=>$size];
         }
+        OriginContext::assertFresh();
         $root=Server::get(IRootFolder::class)->getUserFolder($form->getOwnerId());$path=$forms->getTemporaryUploadedFilePath($form,$q);
         // A random per-operation folder prevents collisions and never overwrites another uploader's file.
         $folder=NewFileStorage::folder($root,$path.'/mcp-'.bin2hex(random_bytes(16)));$result=[];

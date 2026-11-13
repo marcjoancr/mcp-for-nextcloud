@@ -47,4 +47,24 @@ final class NativeFormsOriginTest extends TestCase {
  public function testNativeValidationAfterFileEffectIsNotReportedAsBeforeEffect():void {
    $r=$this->call('file_fault');self::assertSame('OCP\AppFramework\OCS\OCSBadRequestException',$r['class']);self::assertTrue($r['bytes_exist']);self::assertSame(0,$r['operation_rows']);
  }
+
+ public function testRevocationWhileWaitingForNativeFencePreventsMutation():void {
+   $native='/tmp/native-probe.php';$f=$this->call('fixture',[],null,$native);$input=['id'=>$f['id'],'answers'=>[$f['q1']=>['must never commit']]];$action='forms_submit_response';$snap=$this->call('snapshot',compact('action','input'),null,$native);
+   $holder=proc_open([PHP_BINARY,'/tmp/fence-barrier.php'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$hold);self::assertSame("LOCKED\n",fgets($hold[1]));
+   $waiter=proc_open([PHP_BINARY,$native],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$wait);
+   fwrite($wait[0],json_encode(['action'=>'apply_wait','args'=>['action'=>$action,'input'=>$input,'revision'=>$snap['revision'],'key'=>bin2hex(random_bytes(16))]]));fclose($wait[0]);
+   try {
+     self::assertSame("WAITING\n",fgets($wait[1]));$this->call('gate',['allow'=>false]);fwrite($hold[0],"RELEASE\n");fclose($hold[0]);
+     $r=json_decode(stream_get_contents($wait[1]),true,64,JSON_THROW_ON_ERROR);$err=stream_get_contents($wait[2]);fclose($wait[1]);fclose($wait[2]);self::assertSame(0,proc_close($waiter),$err);
+     self::assertFalse($r['ok'],'Revocation during fence wait must prevent the native mutation');self::assertSame('OCA\\Forms\\Mcp\\BeforeEffect',$r['class']);self::assertSame(0,$this->call('count',$f,null,$native));
+   } finally {if(is_resource($hold[0])){fwrite($hold[0],"RELEASE\n");fclose($hold[0]);}fclose($hold[1]);fclose($hold[2]);proc_close($holder);$this->call('gate',['allow'=>true]);}
+ }
+ public function testPublicShareHasNoFilesManifestDespiteLargeResponseHistory():void {self::assertSame([[],[]],$this->call('public_share'));}
+ public function testRestoreHonorsCurrentNativeCreationRestriction():void {self::assertSame(['denied'=>true,'unchanged'=>true,'retained'=>true],$this->call('restore_restricted'));}
+
+ public function testAuthorityRefreshInsideExistingTransactionSeesCommittedRevocation():void {
+   $f=$this->call('fixture',[],null,'/tmp/native-probe.php');$p=proc_open([PHP_BINARY,'/tmp/authority-barrier.php'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);fwrite($pipes[0],json_encode(['id'=>$f['id']])."\n");
+   try {self::assertSame("CHECKED\n",fgets($pipes[1]));$this->call('gate',['allow'=>false]);fwrite($pipes[0],"RECHECK\n");fclose($pipes[0]);$r=json_decode(stream_get_contents($pipes[1]),true,64,JSON_THROW_ON_ERROR);self::assertTrue($r['refused']);}
+   finally {if(is_resource($pipes[0])){fwrite($pipes[0],"RECHECK\n");fclose($pipes[0]);}fclose($pipes[1]);fclose($pipes[2]);proc_close($p);$this->call('gate',['allow'=>true]);}
+ }
 }

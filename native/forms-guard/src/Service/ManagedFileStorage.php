@@ -8,6 +8,7 @@ final class ManagedFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
     public bool $enabled=true;
     public function __construct(\OCP\Files\Storage\IStorage $storage,private array $approved) {parent::__construct(['storage'=>$storage]);}
     private function verify(string $path): void {
+        if (OriginContext::active()) {OriginContext::assertFresh();}
         $meta=$this->approved[$path]??null;$storage=$this->getWrapperStorage();
         if ($meta===null || (int)$storage->getCache()->getId($path)!==$meta['file_id']) {throw new \RuntimeException('Unapproved native file mutation');}
         $stream=$storage->fopen($path,'rb');if (!is_resource($stream)) {throw new \RuntimeException('Managed file is unavailable');}

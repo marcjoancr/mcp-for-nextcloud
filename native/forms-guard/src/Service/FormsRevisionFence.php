@@ -22,8 +22,13 @@ final class FormsRevisionFence {
     public function transaction(callable $work): mixed {
         if ($this->depth > 0) { return $work(); }
         if ($this->db->inTransaction()) { throw new \RuntimeException('Forms guard requires its own primary transaction'); }
+        // Fresh policy checks during long file work must not reuse a MariaDB repeatable-read snapshot.
+        // This changes only this transaction, never the connection default used by other jobs.
+        $provider=$this->db->getDatabaseProvider(true);
+        if ($provider==='mariadb') {$this->db->executeStatement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');}
         $this->db->beginTransaction();
         try {
+            if ($provider==='postgres') {$this->db->executeStatement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');}
             // UPDATE is an exclusive current read on both admitted databases, including MySQL REPEATABLE READ.
             $count = $this->db->executeStatement('UPDATE *PREFIX*forms_mcp_fence SET revision = revision + 1 WHERE id = 1 AND revision < 9223372036854775806');
             if ($count !== 1) { throw new \RuntimeException('Forms guard fence is missing'); }

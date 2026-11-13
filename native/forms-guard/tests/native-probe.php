@@ -14,7 +14,7 @@ try {
     $in=json_decode(stream_get_contents(STDIN),true,64,JSON_THROW_ON_ERROR);
     $args=$in['args']??[];$action=$in['action'];
     require __DIR__.'/origin-fixture.php';
-    if(in_array($action,['snapshot','apply','commit_fault'],true)){$args['input']['_mcp_origin']=$args['input']['_mcp_origin']??formsNativeOrigin($uid,$args['action'],$args['input']);}
+    if(in_array($action,['snapshot','apply','commit_fault','apply_wait'],true)){$args['input']['_mcp_origin']=$args['input']['_mcp_origin']??formsNativeOrigin($uid,$args['action'],$args['input']);}
     if($action==='fixture') {
         $id=$api->newForm()->getData()['id'];
         $api->updateForm($id,['submitMultiple'=>true,'allowEditSubmissions'=>true,'maxSubmissions'=>$args['max']??0]);
@@ -28,9 +28,9 @@ try {
         $result=$c->get(\OCA\Forms\Mcp\Guard::class)->snapshot($uid,$args['action'],$args['input']);
     } elseif($action==='apply') {
         $result=$c->get(\OCA\Forms\Mcp\Guard::class)->apply($uid,$args['action'],$args['input'],$args['revision'],$args['key']);
-    } elseif($action==='commit_fault') {
+    } elseif(in_array($action,['commit_fault','apply_wait'],true)) {
         require __DIR__.'/commit-fault.php';
-        $fault=formsCommitFault($db);$fence=new \OCA\Forms\Mcp\Service\FormsRevisionFence($fault);
+        $fault=formsCommitFault($db,$action==='apply_wait'?'wait':'commit');$fence=new \OCA\Forms\Mcp\Service\FormsRevisionFence($fault);
         $outbox=new \OCA\Forms\Mcp\Service\FormsEffectOutbox($fault,$fence);
         foreach([\OCA\Forms\Mcp\Service\FormsRevisionFence::class=>$fence,\OCA\Forms\Mcp\Service\FormsEffectOutbox::class=>$outbox] as $class=>$service){
             \OC::$server->registerService($class,static fn()=>$service);$c->registerService($class,static fn()=>$service);

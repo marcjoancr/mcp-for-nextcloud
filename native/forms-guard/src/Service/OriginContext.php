@@ -17,6 +17,18 @@ final class OriginContext {
         self::$current=['origin'=>$origin,'verified'=>$verified,'action'=>$action,'input'=>$input];
         try {return $work();} finally {self::$current=$old;}
     }
+    /** Refresh after waits and before file effects. Callers may type a rejection only while no effect has begun. */
+    public static function assertFresh(): void {
+        $context=self::current();
+        try {Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($context['origin']);}
+        catch(\Throwable $e){throw new \RuntimeException('Original Forms authority changed',0,$e);}
+    }
+    public static function assertFiles(string $action,array $manifest): void {
+        $context=self::current();
+        try {Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertFiles($context['origin'],$action,$manifest);}
+        catch(\Throwable $e){throw new \RuntimeException('Original Forms file authority changed',0,$e);}
+    }
+    public static function active(): bool {return self::$current!==null;}
     public static function current(): array {return self::$current??throw new \OCA\Forms\Mcp\BeforeEffect('Signed Forms origin is required');}
     public static function identity(string $uid): string {
         $v=self::current()['verified'];

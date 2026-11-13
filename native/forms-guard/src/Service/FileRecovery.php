@@ -16,6 +16,13 @@ final class FileRecovery {
         return (bool)Server::get(IDBConnection::class)->executeQuery('SELECT form_id FROM *PREFIX*forms_mcp_file_guards WHERE form_id = ? AND question_id = ?',[(int)$argument['formId'],(int)$argument['questionId']])->fetchOne();
     }
     private static function relevant(string $action,array $input): bool {
+        if (in_array($action,['forms_update_share','forms_unshare'],true)) {
+            $share=Server::get(\OCA\Forms\Db\ShareMapper::class)->findById((int)$input['share_id']);
+            if ($share->getFormId()!==(int)$input['id']) {throw new \RuntimeException('Share is unavailable');}
+            // Public links never touch Files. Native collaborator permission updates can create or remove a Files share.
+            return in_array($share->getShareType(),[0,1,2,7],true)
+                && ($action==='forms_update_share' ? isset($input['permissions']) : in_array('results',$share->getPermissions(),true));
+        }
         return isset($input['id']) && (in_array($action,['forms_delete_form','forms_delete_response','forms_delete_own_response','forms_delete_responses','forms_delete_question','forms_update_response','forms_update_own_response','forms_submit_response','forms_update_share','forms_unshare','forms_transfer'],true)
             || ($action==='forms_update' && isset($input['fields']['title'])));
     }
@@ -163,6 +170,8 @@ final class FileRecovery {
             $locksReleased=true;
             foreach (array_reverse($locked) as $file) {$file->unlock(ILockingProvider::LOCK_SHARED);}
             self::$active=true;
+            OriginContext::assertFresh();
+            OriginContext::assertFiles($action,$current);
             $outcome=$work();
             if ($action==='forms_transfer' && $data['files']!==[]) {self::transferFiles($input,$data);}
             foreach ($locked as $file) {
@@ -191,10 +200,12 @@ final class FileRecovery {
         }
     }
     private static function backup(string $uid,string $key,array $data): string {
+        OriginContext::assertFresh();
         $id=hash('sha256','forms-recovery:'.$key);$app=Server::get(\OCP\Files\AppData\IAppDataFactory::class)->get('forms_mcp_recovery');
         try {$app->getFolder($id);throw new \RuntimeException('Recovery target already exists');} catch (NotFoundException) {}
         $folder=$app->newFolder($id);$root=Server::get(IRootFolder::class)->getUserFolder($data['form']['owner_id']);
         foreach ($data['files'] as $meta) {
+            OriginContext::assertFresh();
             $file=$root->getById($meta['file_id'])[0];$stream=$file->fopen('rb');
             if (!is_resource($stream)) {throw new \RuntimeException('Recovery source cannot be read');}
             try {$copy=$folder->newFile('file-'.$meta['file_id'],$stream);} finally {if (is_resource($stream)) {fclose($stream);}}
@@ -267,6 +278,7 @@ final class FileRecovery {
         $data=self::readBackup($uid,$id);$row=$data['form'];$row['hash']=bin2hex(random_bytes(16));$row['owner_id']=$uid;$row['title'].=' (recovered)';
         $row['access_enum']=0;$row['state']=1;$row['locked_by']=null;$row['locked_until']=null;$row['file_id']=null;$row['file_format']=null;
         $row['confirmation_email_enabled']=false;$row['confirmation_email_question_id']=null;
+        OriginContext::assertFresh();
         $form=self::insert('Form',$row);$questions=[];$types=[];$gridTypes=[];$options=[];$submissions=[];$files=[];
         foreach ($data['questions'] as $q) {$old=(int)$q['id'];$q['form_id']=$form->getId();$questions[$old]=self::insert('Question',$q)->getId();$types[$old]=$q['type'];$gridTypes[$old]=json_decode($q['extra_settings_json']??'{}',true,64,JSON_THROW_ON_ERROR)['questionType']??null;}
         foreach ($data['options'] as $o) {$old=(int)$o['id'];$o['question_id']=$questions[(int)$o['question_id']];$options[$old]=self::insert('Option',$o)->getId();}

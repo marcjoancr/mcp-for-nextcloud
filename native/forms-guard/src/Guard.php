@@ -105,8 +105,8 @@ final class Guard {
     }
     private function applyNative(string $uid,string $action,array $input,string $revision,string $operationKey,?array $fileManifest=null,?callable $transfer=null): array {
         return $this->operations->apply($uid,$action,$input,$revision,$operationKey,
-            function () use($uid,$action,$input): void {
-                try {$this->authorize($uid,$action,$input);} catch (\Throwable $e) {throw new BeforeEffect($e->getMessage(),0,$e);}
+            function () use($uid,$action,$input,$fileManifest): void {
+                try {$this->authorize($uid,$action,$input);OriginContext::assertFresh();OriginContext::assertFiles($action,$fileManifest??[]);} catch (\Throwable $e) {throw new BeforeEffect($e->getMessage(),0,$e);}
             },
             function () use($uid,$action,$input,$fileManifest,$transfer,$operationKey): array {
                 return FileRecovery::run($uid,$action,$input,$fileManifest,$operationKey,function () use($uid,$action,$input,$transfer): array {

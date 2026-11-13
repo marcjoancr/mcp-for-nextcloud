@@ -8,11 +8,13 @@ final class NewFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
     public bool $enabled=true;
     public function __construct(\OCP\Files\Storage\IStorage $storage,private string $target) {parent::__construct(['storage'=>$storage]);}
     private function free(string $path): void {
+        if ($this->enabled && OriginContext::active()) {OriginContext::assertFresh();}
         if ($this->enabled && $path===$this->target && $this->getWrapperStorage()->file_exists($path)) {throw new \RuntimeException('Forms destination already exists');}
     }
     public function file_put_contents(string $path,mixed $data): int|float|false {$this->free($path);return parent::file_put_contents($path,$data);}
     public function fopen(string $path,string $mode) {if (strpbrk($mode,'waxc+')!==false) {$this->free($path);}return parent::fopen($path,$mode);}
     public static function create(\OCP\Files\Folder $folder,string $name,mixed $content): \OCP\Files\File {
+        if (OriginContext::active()) {OriginContext::assertFresh();}
         if ($folder->nodeExists($name)) {throw new \RuntimeException('Forms destination already exists');}
         $target=rtrim($folder->getInternalPath(),'/').'/'.$name;$wrapper=null;
         $folder->getMountPoint()->wrapStorage(function($path,$storage)use($target,&$wrapper){$wrapper=new self($storage,$target);return $wrapper;});
@@ -22,6 +24,7 @@ final class NewFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
         $folder=$root;
         foreach (explode('/',trim($path,'/')) as $segment) {
             if ($segment==='' || $segment==='.' || $segment==='..') {throw new \RuntimeException('Invalid native artifact folder');}
+            if (OriginContext::active()) {OriginContext::assertFresh();}
             $next=$folder->nodeExists($segment)?$folder->get($segment):$folder->newFolder($segment);
             if (!$next instanceof \OCP\Files\Folder) {throw new \RuntimeException('Native artifact parent is not a folder');}
             $next->getId();$folder=$next;

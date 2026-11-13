@@ -56,6 +56,18 @@ try {
      throw new \OCP\AppFramework\OCS\OCSBadRequestException('Injected native refusal after staging');
    });throw new RuntimeException('Fault was not injected');}catch(\OCP\AppFramework\OCS\OCSBadRequestException $e){return ['class'=>$e::class,'bytes_exist'=>$storage->file_exists($path),'operation_rows'=>(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_operations WHERE operation_key = ?',[$key])->fetchOne()];}
  })(),
+ 'public_share'=>(function()use($api,$guard,$uid,$c){
+   $id=$api->newForm()->getData()['id'];$share=$c->get(\OCA\Forms\Controller\ShareApiController::class)->newShare($id,3,'',['submit'])->getData();
+   \OCA\Forms\Mcp\Service\FormsRevisionFence::run(function()use($id){for($i=0;$i<101;$i++){$s=new \OCA\Forms\Db\Submission();$s->setFormId($id);$s->setUserId('anon-user');$s->setTimestamp(time());Server::get(\OCA\Forms\Db\SubmissionMapper::class)->insert($s);}});
+   $out=[];foreach(['forms_update_share','forms_unshare'] as $action){$input=['id'=>$id,'share_id'=>$share['id']];if($action==='forms_update_share'){$input['permissions']=['submit'];}$input['_mcp_origin']=formsNativeOrigin($uid,$action,$input);$snap=$guard->snapshot($uid,$action,$input);$out[]=$snap['file_manifest'];$guard->apply($uid,$action,$input,$snap['revision'],bin2hex(random_bytes(16)),$snap['file_manifest']);}return $out;
+ })(),
+ 'restore_restricted'=>(function()use($api,$guard,$uid,$db){
+   $id=$api->newForm()->getData()['id'];$input=['id'=>$id];$input['_mcp_origin']=formsNativeOrigin($uid,'forms_delete_form',$input);$snap=$guard->snapshot($uid,'forms_delete_form',$input);$deleted=$guard->apply($uid,'forms_delete_form',$input,$snap['revision'],bin2hex(random_bytes(16)),$snap['file_manifest']);
+   $input=['backup_id'=>$deleted['references']['backup_id']];$input['_mcp_origin']=formsNativeOrigin($uid,'forms_restore',$input);$cfg=Server::get(\OCP\IAppConfig::class);$old=$cfg->getValueBool('forms','restrictCreation',false);$groups=$cfg->getValueArray('forms','creationAllowedGroups',[]);$count=(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_v2_forms')->fetchOne();
+   try {$cfg->setValueBool('forms','restrictCreation',true);$cfg->setValueArray('forms','creationAllowedGroups',[]);try{$guard->snapshot($uid,'forms_restore',$input);$denied=false;}catch(Throwable $e){$denied=$e->getMessage()==='Form creation is not allowed';}
+    return ['denied'=>$denied,'unchanged'=>$count===(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_v2_forms')->fetchOne(),'retained'=>Server::get(\OCP\Files\AppData\IAppDataFactory::class)->get('forms_mcp_recovery')->getFolder($input['backup_id'])->fileExists('manifest.json')];
+   }finally{$cfg->setValueBool('forms','restrictCreation',$old);$cfg->setValueArray('forms','creationAllowedGroups',$groups);}
+ })(),
  'grid'=>(function()use($api,$guard,$uid,$db){
    $id=$api->newForm()->getData()['id'];$q=$api->newQuestion($id,'grid','number','Numeric grid')->getData()['id'];
    $row=$api->newOption($id,$q,['Row'],'row')->getData()[0]['id'];$cols=$api->newOption($id,$q,['Zero','Number'],'column')->getData();
