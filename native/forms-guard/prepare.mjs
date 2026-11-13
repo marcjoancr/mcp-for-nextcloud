@@ -92,6 +92,17 @@ for(const [method,kind,param] of [['notifyNewShares','share','share'],['notifyNe
  service=service.replace(pattern,`$1\n if (\\OCA\\Forms\\Mcp\\Service\\FormsEffectOutbox::capture('${kind}', $form->getId(), $${param}->getId())) { return; }`);
 }
 writeFileSync(formsService,service);
+const confirmationFile=join(output,'lib/Service/ConfirmationEmailService.php');let confirmation=readFileSync(confirmationFile,'utf8');
+const mailPattern=/\$this->jobList->add\(SendConfirmationMailJob::class, (\[[\s\S]*?\n\t\t\])\);/;
+if(!mailPattern.test(confirmation))throw new Error('Confirmation mail enqueue hook missing');
+confirmation=confirmation.replace(mailPattern,"$mcpMailArguments=$1;\n if (!\\OCA\\Forms\\Mcp\\Service\\FormsEffectOutbox::queueMail($mcpMailArguments)) { $this->jobList->add(SendConfirmationMailJob::class,$mcpMailArguments); }");
+writeFileSync(confirmationFile,confirmation);
+const mailFile=join(output,'lib/BackgroundJob/SendConfirmationMailJob.php');let mail=readFileSync(mailFile,'utf8');
+const mailHeader='public function run($argument): void {';
+if(!mail.includes(mailHeader))throw new Error('Confirmation mail worker hook missing');
+mail=mail.replace(mailHeader,mailHeader+"\n if (array_key_exists('_mcp_mail',$argument)) { \\OCA\\Forms\\Mcp\\Service\\FormsEffectOutbox::sendMail($argument['_mcp_mail'],function(array $nativeArgument):void {$this->run($nativeArgument);}); return; }");
+writeFileSync(mailFile,mail);
+
 for(const name of walk(join(base,'src'))) {
  const dest=name.startsWith('Migration/')?join(output,'lib',name):join(output,'lib/Mcp',name);
  mkdirSync(dirname(dest),{recursive:true});cpSync(join(base,'src',name),dest);
@@ -104,7 +115,7 @@ writeFileSync(apiFile,api);
 const shareFile=join(output,'lib/Controller/ShareApiController.php');let share=readFileSync(shareFile,'utf8');
 share=share.replace(/\$this->logger->debug\('[^'\n]*keyValuePairs[^'\n]*',[\s\S]*?\n\t\t\]\);/g,"$this->logger->debug('Forms share update requested');");
 writeFileSync(shareFile,share);
-for (const name of [...Object.keys(hooks).map(p=>'lib/'+p), ...walk(join(base,'src')).map(p=>p.startsWith('Migration/')?'lib/'+p:'lib/Mcp/'+p)]) {
+for (const name of ['lib/Service/ConfirmationEmailService.php','lib/BackgroundJob/SendConfirmationMailJob.php',...Object.keys(hooks).map(p=>'lib/'+p), ...walk(join(base,'src')).map(p=>p.startsWith('Migration/')?'lib/'+p:'lib/Mcp/'+p)]) {
  const lint=spawnSync('php',['-l',join(output,name)],{encoding:'utf8'});
  if(lint.status!==0) throw new Error(lint.stderr || lint.stdout || 'Generated PHP is invalid');
 }

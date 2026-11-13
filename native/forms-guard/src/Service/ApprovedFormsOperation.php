@@ -11,7 +11,7 @@ final class ApprovedFormsOperation {
     public function lookup(string $uid, string $key): ?array {
         $row = $this->db->executeQuery('SELECT actor_hash, receipt FROM *PREFIX*forms_mcp_operations WHERE operation_key = ?', [$key])->fetch();
         if (!$row) { return null; }
-        if (!hash_equals($row['actor_hash'], hash('sha256', $uid))) { throw new \RuntimeException('Operation is unavailable'); }
+        if (!hash_equals($row['actor_hash'], OriginContext::identity($uid))) { throw new \RuntimeException('Operation is unavailable'); }
         $receipt = json_decode($row['receipt'], true, 64, JSON_THROW_ON_ERROR);
         $receipt['phases']['events'] = $this->outbox->phases($key);
         foreach ($receipt['phases']['events'] as $event) {
@@ -21,8 +21,9 @@ final class ApprovedFormsOperation {
     }
     public function apply(string $uid, string $action, array $input, string $expectedRevision, string $operationKey, callable $authorize, callable $work): array {
         if (!preg_match('/^[A-Za-z0-9_-]{16,128}$/D', $operationKey)) { throw new \OCA\Forms\Mcp\BeforeEffect('Invalid operation key'); }
-        $fingerprint = hash_hmac('sha256', json_encode([$uid,$action,$input], JSON_THROW_ON_ERROR), \OCP\Server::get(\OCP\IConfig::class)->getSystemValueString('secret'));
-        try {$result = $this->fence->transaction(function () use ($uid,$action,$input,$expectedRevision,$operationKey,$fingerprint,$authorize,$work): array {
+        $intent=$input;unset($intent['_mcp_origin']);
+        $fingerprint = hash_hmac('sha256', json_encode([OriginContext::identity($uid),$action,$intent], JSON_THROW_ON_ERROR), \OCP\Server::get(\OCP\IConfig::class)->getSystemValueString('secret'));
+        $result = $this->fence->transaction(function () use ($uid,$action,$input,$expectedRevision,$operationKey,$fingerprint,$authorize,$work): array {
             $authorize();
             $row = $this->db->executeQuery('SELECT fingerprint FROM *PREFIX*forms_mcp_operations WHERE operation_key = ?', [$operationKey])->fetch();
             if ($row) {
@@ -34,14 +35,11 @@ final class ApprovedFormsOperation {
             $this->outbox->operation($operationKey);
             try { $outcome = $work(); } finally { $this->outbox->operation(null); }
             $receipt = ['state'=>'succeeded','operation_key'=>$operationKey,'references'=>$outcome['references'] ?? [],
-                'revision'=>$this->fence->revision(),'phases'=>['database'=>'committed','files'=>'not_applicable','events'=>[]]];
+                'revision'=>$this->fence->revision(),'phases'=>['database'=>'committed','files'=>$outcome['files_phase']??'not_applicable','events'=>[]]];
             $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_operations (operation_key, actor_hash, fingerprint, receipt) VALUES (?, ?, ?, ?)',
-                [$operationKey, hash('sha256',$uid),$fingerprint,json_encode($receipt,JSON_THROW_ON_ERROR)]);
+                [$operationKey, OriginContext::identity($uid),$fingerprint,json_encode($receipt,JSON_THROW_ON_ERROR)]);
             return $receipt + ['data'=>$outcome['data'] ?? null];
         });
-        } catch (\OCP\AppFramework\OCS\OCSException $error) {
-            throw new \OCA\Forms\Mcp\BeforeEffect('Native Forms rejected the operation',0,$error);
-        }
         $durable = $this->lookup($uid,$operationKey);
         return array_replace($result,$durable ?? []);
     }

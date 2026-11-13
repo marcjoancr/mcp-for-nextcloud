@@ -10,13 +10,15 @@ try {
     $in=json_decode(stream_get_contents(STDIN),true,64,JSON_THROW_ON_ERROR);$a=$in['args']??[];
     $uid=$in['actor']??(getenv('MCP_FORMS_NATIVE_OWNER')?:'guard-owner');Server::get(\OCP\IUserSession::class)->setUser(Server::get(\OCP\IUserManager::class)->get($uid));
     $app=new \OCA\Forms\AppInfo\Application();$c=$app->getContainer();$guard=$c->get(Guard::class);$api=$c->get(\OCA\Forms\Controller\ApiController::class);
+    require __DIR__.'/origin-fixture.php';
+    if(in_array($in['action'],['snapshot','apply'],true)){$a['input']['_mcp_origin']=$a['input']['_mcp_origin']??formsNativeOrigin($uid,$a['action'],$a['input']);}
     $root=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);$db=Server::get(\OCP\IDBConnection::class);
     $result=match($in['action']) {
         'capabilities'=>$guard->capabilities(),
         'fixture'=>(function()use($api){$id=$api->newForm()->getData()['id'];$api->updateForm($id,['title'=>'Attachment isolation '.bin2hex(random_bytes(6)),'submitMultiple'=>true,'allowEditSubmissions'=>true]);$q=$api->newQuestion($id,'file',null,'Attachment')->getData()['id'];return ['id'=>$id,'question_id'=>$q];})(),
         'api'=>$api->{$a['method']}(...$a['input'])->getData(),
         'share_api'=>$c->get(\OCA\Forms\Controller\ShareApiController::class)->{$a['method']}(...$a['input'])->getData(),
-        'stage'=>(function()use($a,$guard,$uid){$input=['id'=>$a['id'],'question_id'=>$a['question_id']];$snap=$guard->snapshot($uid,'forms_upload_response_files',$input);$stream=fopen('php://memory','w+b');fwrite($stream,$a['content']??'attachment-canary');rewind($stream);$bytes=$a['content']??'attachment-canary';try{return $guard->apply($uid,'forms_upload_response_files',$input,$snap['revision'],bin2hex(random_bytes(16)),$snap['file_manifest']??null,fn()=>$guard->stageFiles($uid,$a['id'],$a['question_id'],'',[['name'=>'proof.txt','size'=>strlen($bytes),'sha256'=>hash('sha256',$bytes),'stream'=>$stream]]));}finally{fclose($stream);}})(),
+        'stage'=>(function()use($a,$guard,$uid){$input=['id'=>$a['id'],'question_id'=>$a['question_id']];$input['_mcp_origin']=formsNativeOrigin($uid,'forms_upload_response_files',$input);$snap=$guard->snapshot($uid,'forms_upload_response_files',$input);$stream=fopen('php://memory','w+b');fwrite($stream,$a['content']??'attachment-canary');rewind($stream);$bytes=$a['content']??'attachment-canary';try{return $guard->apply($uid,'forms_upload_response_files',$input,$snap['revision'],bin2hex(random_bytes(16)),$snap['file_manifest']??null,fn()=>$guard->stageFiles($uid,$a['id'],$a['question_id'],'',[['name'=>'proof.txt','size'=>strlen($bytes),'sha256'=>hash('sha256',$bytes),'stream'=>$stream]]));}finally{fclose($stream);}})(),
         'snapshot'=>$guard->snapshot($uid,$a['action'],$a['input']),
         'apply'=>$guard->apply($uid,$a['action'],$a['input'],$a['revision'],$a['key'],$a['manifest']??null),
         'references'=>$guard->read($uid,'forms_list_response_files',$a),

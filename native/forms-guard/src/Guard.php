@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 namespace OCA\Forms\Mcp;
-use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions, FileRecovery, AnswerFiles};
+use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions, FileRecovery, AnswerFiles, OriginContext, ScopedServices};
 use OCA\Forms\Service\{FormsService, ConfigService};
 use OCA\Forms\Db\{FormMapper, QuestionMapper, SubmissionMapper};
 use OCP\Server;
@@ -36,6 +36,7 @@ final class Guard {
             if (!Server::get(\OCP\IGroupManager::class)->isAdmin($uid)) {throw new \RuntimeException('Administrator required');}
             return;
         }
+        if ($action==='forms_search') {return;}
         if ($action==='forms_restore') { FileRecovery::snapshot($uid,$action,$i); return; }
         if ($action==='forms_create') {
             if (!Server::get(ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
@@ -74,6 +75,9 @@ final class Guard {
         }
     }
     public function snapshot(string $uid,string $action,array $input): array {
+        return OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=> $this->snapshotNative($uid,$action,$input));
+    }
+    private function snapshotNative(string $uid,string $action,array $input): array {
         $before=$this->fence->revision();
         $this->authorize($uid,$action,$input);
         $form=[];
@@ -92,11 +96,14 @@ final class Guard {
         return ['file_manifest'=>$fileManifest,'revision'=>$after,'form'=>$form,'config'=>$config,'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$input['id']??null,'action'=>$action],
             'impact'=>['database'=>true,'files'=>'requires_separate_qualification','events'=>in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_share'],true)]];
     }
-    public function lookup(string $uid,string $operationKey): ?array {
+    public function lookup(string $uid,string $operationKey,?array $origin=null): ?array {
         $this->actor($uid);
-        return $this->operations->lookup($uid,$operationKey) ?? FileRecovery::lookup($uid,$operationKey);
+        return OriginContext::within($uid,$origin??[],'lookup',[],fn()=> $this->operations->lookup($uid,$operationKey) ?? FileRecovery::lookup($uid,$operationKey));
     }
     public function apply(string $uid,string $action,array $input,string $revision,string $operationKey,?array $fileManifest=null,?callable $transfer=null): array {
+        return OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=> $this->applyNative($uid,$action,$input,$revision,$operationKey,$fileManifest,$transfer));
+    }
+    private function applyNative(string $uid,string $action,array $input,string $revision,string $operationKey,?array $fileManifest=null,?callable $transfer=null): array {
         return $this->operations->apply($uid,$action,$input,$revision,$operationKey,
             function () use($uid,$action,$input): void {
                 try {$this->authorize($uid,$action,$input);} catch (\Throwable $e) {throw new BeforeEffect($e->getMessage(),0,$e);}
@@ -120,6 +127,10 @@ final class Guard {
         return AnswerFiles::stage($uid,$id,$questionId,$shareHash,$sources);
     }
     public function read(string $uid,string $action,array $i): array {
+        if (isset($i['_mcp_origin'])) {return OriginContext::within($uid,$i['_mcp_origin'],$action,$i,fn()=> $this->readNative($uid,$action,$i));}
+        return $this->readNative($uid,$action,$i);
+    }
+    private function readNative(string $uid,string $action,array $i): array {
         $this->authorize($uid,$action,$i);
         $forms=Server::get(FormsService::class); $id=(int)($i['id']??0);
         return match($action) {
@@ -135,6 +146,24 @@ final class Guard {
             'forms_read_admin_settings'=>Server::get(ConfigService::class)->getAppConfig(),
             default=>throw new \InvalidArgumentException('Unsupported Forms native read'),
         };
+    }
+    /** Workers use verified original authority and a fresh native service graph, never the cron session. */
+    public function deferredRead(array $origin,string $action,array $input): array {
+        if (!in_array($action,['snapshot','forms_results_metadata','forms_results_page'],true)
+            || !in_array($origin['tool']??'',['forms_summarize_results','forms_download_results','forms_export_results','forms_link_results_file'],true)) {
+            throw new \RuntimeException('Unsupported deferred Forms read');
+        }
+        $uid=$origin['uid']??'';
+        return OriginContext::within($uid,$origin,$action==='snapshot'?'forms_results_metadata':$action,$input,function()use($uid,$origin,$action,$input):array {
+            if (!$this->capabilities()['qualified']) {throw new \RuntimeException('Forms runtime changed');}
+            $id=(int)($input['id']??0);
+            if ((int)($origin['references']['form_id']??0)!==$id) {throw new \RuntimeException('Original form does not match');}
+            $before=$this->fence->revision();$scope=new ScopedServices($uid);$forms=$scope->forms();$form=$forms->getFormIfAllowed($id,'results');
+            if (!in_array('results',$forms->getPermissions($form),true) || (isset($origin['references']['owner_id']) && $origin['references']['owner_id']!==$form->getOwnerId())) {throw new \RuntimeException('Original results authority changed');}
+            $result=$action==='forms_results_page'?$this->resultsPage($id,$input):$this->resultsMetadata($uid,$id);
+            $after=$this->fence->revision();if($before!==$after){throw new \RuntimeException('Results changed during deferred read');}
+            return $result+['revision'=>$after];
+        });
     }
     private function resultsMetadata(string $uid,int $id): array {
         $form=Server::get(FormMapper::class)->findById($id);

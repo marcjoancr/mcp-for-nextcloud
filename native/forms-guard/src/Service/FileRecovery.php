@@ -22,14 +22,14 @@ final class FileRecovery {
     public static function snapshot(string $uid,string $action,array $input): array {
         if ($action==='forms_restore') {
             $data=self::readBackup($uid,$input['backup_id']);
-            return ['backup_id'=>$input['backup_id'],'digest'=>hash('sha256',json_encode($data,JSON_THROW_ON_ERROR)),'restore'=>'new_private_closed_form'];
+            return ['backup_id'=>$input['backup_id'],'digest'=>hash_hmac('sha256',json_encode($data,JSON_THROW_ON_ERROR),Server::get(\OCP\IConfig::class)->getSystemValueString('secret')),'restore'=>'new_private_closed_form'];
         }
         if (!self::relevant($action,$input)) {return [];}
         $data=self::capture((int)$input['id'],$action,$input);self::assertImpact($action,$input,$data);
         return self::project($action,$input,$data);
     }
     private static function project(string $action,array $input,array $data): array {
-        return ['digest'=>hash('sha256',json_encode($data,JSON_THROW_ON_ERROR)),'form_id'=>(int)$input['id'],'files'=>$data['files'],
+        return ['digest'=>hash_hmac('sha256',json_encode($data,JSON_THROW_ON_ERROR),Server::get(\OCP\IConfig::class)->getSystemValueString('secret')),'form_id'=>(int)$input['id'],'files'=>$data['files'],
             'delete_file_ids'=>self::deletions($action,$input,$data),'files_share'=>in_array($action,['forms_update_share','forms_unshare'],true),
             'share_impact'=>in_array($action,['forms_update_share','forms_unshare'],true)?ManagedShares::snapshot((int)$input['id'],$data['files'],$input):[],
             'folders'=>'retained','recovery'=>str_starts_with($action,'forms_delete_') || str_starts_with($action,'forms_update_')];
@@ -38,15 +38,16 @@ final class FileRecovery {
         $start=microtime(true);$db=Server::get(IDBConnection::class);
         $form=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_forms WHERE id = ?',[$id])->fetch();
         if (!$form) {throw new \RuntimeException('Form is unavailable');}
-        $questions=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_questions WHERE form_id = ? ORDER BY id',[$id])->fetchAll();
+        $questions=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_questions WHERE form_id = ? ORDER BY id LIMIT 1001',[$id])->fetchAll();
         $single=in_array($action,['forms_delete_response','forms_delete_own_response','forms_update_response','forms_update_own_response'],true);
         $newSubmission=$action==='forms_submit_response';
         $filter=$single?' AND s.id = ?':'';$params=$single?[$id,(int)$input['submission_id']]:[$id];
-        $submissions=$newSubmission?[]:$db->executeQuery('SELECT s.* FROM *PREFIX*forms_v2_submissions s WHERE s.form_id = ?'.$filter.' ORDER BY s.id',$params)->fetchAll();
+        $submissions=$newSubmission?[]:$db->executeQuery('SELECT s.* FROM *PREFIX*forms_v2_submissions s WHERE s.form_id = ?'.$filter.' ORDER BY s.id LIMIT 101',$params)->fetchAll();
         if (count($submissions)>100) {throw new \RuntimeException('Recovery requires a bounded continuation for more than 100 responses');}
-        $answers=$newSubmission?[]:$db->executeQuery('SELECT a.* FROM *PREFIX*forms_v2_answers a INNER JOIN *PREFIX*forms_v2_submissions s ON a.submission_id = s.id WHERE s.form_id = ?'.$filter.' ORDER BY a.id',$params)->fetchAll();
-        $options=$db->executeQuery('SELECT o.* FROM *PREFIX*forms_v2_options o INNER JOIN *PREFIX*forms_v2_questions q ON o.question_id = q.id WHERE q.form_id = ? ORDER BY o.id',[$id])->fetchAll();
-        $uploads=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_uploaded_files WHERE form_id = ? ORDER BY id',[$id])->fetchAll();
+        $answers=$newSubmission?[]:$db->executeQuery('SELECT a.* FROM *PREFIX*forms_v2_answers a INNER JOIN *PREFIX*forms_v2_submissions s ON a.submission_id = s.id WHERE s.form_id = ?'.$filter.' ORDER BY a.id LIMIT 1001',$params)->fetchAll();
+        $options=$db->executeQuery('SELECT o.* FROM *PREFIX*forms_v2_options o INNER JOIN *PREFIX*forms_v2_questions q ON o.question_id = q.id WHERE q.form_id = ? ORDER BY o.id LIMIT 1001',[$id])->fetchAll();
+        $uploads=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_uploaded_files WHERE form_id = ? ORDER BY id LIMIT 1001',[$id])->fetchAll();
+        foreach ([$questions,$answers,$options,$uploads] as $rows) {if(count($rows)>1000){throw new \RuntimeException('Recovery rows require bounded continuation');}}
         if ($newSubmission || $single) {
             $used=[];$seen=[];$actor=Server::get(\OCP\IUserSession::class)->getUser()?->getUID();
             foreach ($input['answers']??[] as $questionKey=>$values) {
@@ -56,14 +57,14 @@ final class FileRecovery {
                     if (!is_string($handle) || !preg_match('/^[a-f0-9]{64}$/D',$handle) || isset($seen[$handle])) {throw new \RuntimeException('File handle is unavailable');}
                     $seen[$handle]=true;
                     $record=$db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_uploads WHERE handle_hash = ?',[hash('sha256',$handle)])->fetch();
-                    if (!$record || (int)$record['form_id']!==$id || (int)$record['question_id']!==$qid || (int)$record['consumed']!==0 || (int)$record['expires']<=time() || !hash_equals($record['actor_hash'],hash('sha256',(string)$actor))) {throw new \RuntimeException('File handle is unavailable');}
+                    if (!$record || (int)$record['form_id']!==$id || (int)$record['question_id']!==$qid || (int)$record['consumed']!==0 || (int)$record['expires']<=time() || !hash_equals($record['actor_hash'],OriginContext::identity((string)$actor))) {throw new \RuntimeException('File handle is unavailable');}
                     $used[(int)$record['upload_id']]=true;
                 }
             }
             $uploads=array_values(array_filter($uploads,static fn($upload)=>isset($used[(int)$upload['id']])));
         }
         foreach ($uploads as &$upload) {unset($upload['upload_token']);}unset($upload);
-        $artifacts=($newSubmission || $single)?[]:$db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_artifacts WHERE form_id = ? ORDER BY file_id',[$id])->fetchAll();
+        $artifacts=($newSubmission || $single)?[]:$db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_artifacts WHERE form_id = ? ORDER BY file_id LIMIT 101',[$id])->fetchAll();
         $data=compact('form','questions','submissions','answers','options','uploads','artifacts')+['scope'=>$single?'single_response':($newSubmission?'staged_submission':'whole_form')];
         if (strlen(json_encode($data,JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Recovery metadata exceeds the projection limit');}
         $ids=[];foreach (array_merge($answers,$uploads,$artifacts) as $row) {if ($row['file_id']??null) {$ids[(int)$row['file_id']]=true;}}ksort($ids);
@@ -199,7 +200,7 @@ final class FileRecovery {
             try {$copy=$folder->newFile('file-'.$meta['file_id'],$stream);} finally {if (is_resource($stream)) {fclose($stream);}}
             if ((int)$copy->getSize()!==$meta['size'] || !hash_equals($meta['sha256'],hash('sha256',$copy->getContent()))) {throw new \RuntimeException('Recovery copy verification failed');}
         }
-        $data['actor_hash']=hash('sha256',$uid);$data['created']=time();$data['backup_id']=$id;
+        $data['actor_hash']=OriginContext::identity($uid);$data['created']=time();$data['backup_id']=$id;
         $json=json_encode($data,JSON_THROW_ON_ERROR);$signed=json_encode(['data'=>$data,'hmac'=>hash_hmac('sha256',$json,Server::get(\OCP\IConfig::class)->getSystemValueString('secret'))],JSON_THROW_ON_ERROR);
         $manifest=$folder->newFile('manifest.json',$signed);
         if (!hash_equals(hash('sha256',$signed),hash('sha256',$manifest->getContent()))) {throw new \RuntimeException('Recovery manifest verification failed');}
@@ -212,7 +213,9 @@ final class FileRecovery {
         $signed=json_decode($folder->getFile('manifest.json')->getContent(),true,64,JSON_THROW_ON_ERROR);$data=$signed['data'];
         if (!hash_equals($signed['hmac'],hash_hmac('sha256',json_encode($data,JSON_THROW_ON_ERROR),Server::get(\OCP\IConfig::class)->getSystemValueString('secret')))
             ) {throw new \RuntimeException('Recovery is unavailable');}
-        $originalActor=hash_equals($data['actor_hash'],hash('sha256',$uid));$authorized=false;
+        $originalActor=hash_equals($data['actor_hash'],OriginContext::identity($uid));
+        if (!$originalActor) {throw new \RuntimeException('Recovery is unavailable');}
+        $authorized=false;
         try {
             $form=Server::get(FormMapper::class)->findById((int)$data['form']['id']);
             $permissions=Server::get(\OCA\Forms\Service\FormsService::class)->getPermissions($form);
@@ -264,8 +267,8 @@ final class FileRecovery {
         $data=self::readBackup($uid,$id);$row=$data['form'];$row['hash']=bin2hex(random_bytes(16));$row['owner_id']=$uid;$row['title'].=' (recovered)';
         $row['access_enum']=0;$row['state']=1;$row['locked_by']=null;$row['locked_until']=null;$row['file_id']=null;$row['file_format']=null;
         $row['confirmation_email_enabled']=false;$row['confirmation_email_question_id']=null;
-        $form=self::insert('Form',$row);$questions=[];$types=[];$options=[];$submissions=[];$files=[];
-        foreach ($data['questions'] as $q) {$old=(int)$q['id'];$q['form_id']=$form->getId();$questions[$old]=self::insert('Question',$q)->getId();$types[$old]=$q['type'];}
+        $form=self::insert('Form',$row);$questions=[];$types=[];$gridTypes=[];$options=[];$submissions=[];$files=[];
+        foreach ($data['questions'] as $q) {$old=(int)$q['id'];$q['form_id']=$form->getId();$questions[$old]=self::insert('Question',$q)->getId();$types[$old]=$q['type'];$gridTypes[$old]=json_decode($q['extra_settings_json']??'{}',true,64,JSON_THROW_ON_ERROR)['questionType']??null;}
         foreach ($data['options'] as $o) {$old=(int)$o['id'];$o['question_id']=$questions[(int)$o['question_id']];$options[$old]=self::insert('Option',$o)->getId();}
         foreach ($data['submissions'] as $s) {$old=(int)$s['id'];$s['form_id']=$form->getId();$submissions[$old]=self::insert('Submission',$s)->getId();}
         $root=Server::get(IRootFolder::class)->getUserFolder($uid);$path=Server::get(FilePathHelper::class)->getFormUploadedFilesFolderPath($form);
@@ -286,7 +289,16 @@ final class FileRecovery {
             if (in_array($types[$oldQ],['grid','ranking'],true)) {
                 $decoded=json_decode($a['text'],true,64,JSON_THROW_ON_ERROR);
                 if ($types[$oldQ]==='ranking') {$decoded=array_map(static fn($v)=>$options[(int)$v]??$v,$decoded);}
-                else {$mapped=[];foreach ($decoded as $key=>$value) {$mapped[$options[(int)$key]??$key]=is_array($value)?array_map(static fn($v)=>$options[(int)$v]??$v,$value):($options[(int)$value]??$value);}$decoded=$mapped;}
+                else {
+                    $mapped=[];
+                    foreach ($decoded as $key=>$value) {
+                        if ($gridTypes[$oldQ]===\OCA\Forms\Constants::ANSWER_GRID_TYPE_NUMBER) {
+                            $cells=[];foreach($value as $column=>$number){$cells[$options[(int)$column]??$column]=$number;}
+                            $mapped[$options[(int)$key]??$key]=$cells;
+                        } else {$mapped[$options[(int)$key]??$key]=is_array($value)?array_map(static fn($v)=>$options[(int)$v]??$v,$value):($options[(int)$value]??$value);}
+                    }
+                    $decoded=$mapped;
+                }
                 $a['text']=json_encode($decoded,JSON_THROW_ON_ERROR);
             }
             self::insert('Answer',$a);

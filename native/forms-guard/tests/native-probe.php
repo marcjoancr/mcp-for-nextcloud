@@ -13,6 +13,8 @@ try {
     $db=\OCP\Server::get(\OCP\IDBConnection::class);
     $in=json_decode(stream_get_contents(STDIN),true,64,JSON_THROW_ON_ERROR);
     $args=$in['args']??[];$action=$in['action'];
+    require __DIR__.'/origin-fixture.php';
+    if(in_array($action,['snapshot','apply','commit_fault'],true)){$args['input']['_mcp_origin']=$args['input']['_mcp_origin']??formsNativeOrigin($uid,$args['action'],$args['input']);}
     if($action==='fixture') {
         $id=$api->newForm()->getData()['id'];
         $api->updateForm($id,['submitMultiple'=>true,'allowEditSubmissions'=>true,'maxSubmissions'=>$args['max']??0]);
@@ -26,8 +28,19 @@ try {
         $result=$c->get(\OCA\Forms\Mcp\Guard::class)->snapshot($uid,$args['action'],$args['input']);
     } elseif($action==='apply') {
         $result=$c->get(\OCA\Forms\Mcp\Guard::class)->apply($uid,$args['action'],$args['input'],$args['revision'],$args['key']);
+    } elseif($action==='commit_fault') {
+        require __DIR__.'/commit-fault.php';
+        $fault=formsCommitFault($db);$fence=new \OCA\Forms\Mcp\Service\FormsRevisionFence($fault);
+        $outbox=new \OCA\Forms\Mcp\Service\FormsEffectOutbox($fault,$fence);
+        foreach([\OCA\Forms\Mcp\Service\FormsRevisionFence::class=>$fence,\OCA\Forms\Mcp\Service\FormsEffectOutbox::class=>$outbox] as $class=>$service){
+            \OC::$server->registerService($class,static fn()=>$service);$c->registerService($class,static fn()=>$service);
+        }
+        $guard=new \OCA\Forms\Mcp\Guard($fence,new \OCA\Forms\Mcp\Service\ApprovedFormsOperation($fault,$fence,$outbox));
+        $result=$guard->apply($uid,$args['action'],$args['input'],$args['revision'],$args['key']);
+    } elseif($action==='count_title') {
+        $result=(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_v2_forms WHERE title = ?',[$args['title']])->fetchOne();
     } elseif($action==='lookup') {
-        $result=$c->get(\OCA\Forms\Mcp\Guard::class)->lookup($uid,$args['key']);
+        $result=$c->get(\OCA\Forms\Mcp\Guard::class)->lookup($uid,$args['key'],formsNativeOrigin($uid,'forms_create'));
     } elseif($action==='count') {
         $result=(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_v2_submissions WHERE form_id = ?',[$args['id']])->fetchOne();
     } elseif($action==='rollback') {
@@ -59,8 +72,11 @@ try {
         $original=file_get_contents($file);
         try {file_put_contents($file,$original."\n");$result=$c->get(\OCA\Forms\Mcp\Guard::class)->capabilities()['qualified'];}
         finally {file_put_contents($file,$original);}
+    } elseif($action==='origin_missing') {
+        $g=$c->get(\OCA\Forms\Mcp\Guard::class);$snap=$g->snapshot($uid,'forms_create',['title'=>'Missing origin']);
+        $result=$g->apply($uid,'forms_create',['title'=>'Missing origin'],$snap['revision'],bin2hex(random_bytes(16)));
     } elseif($action==='foreign_actor') {
-        $result=$c->get(\OCA\Forms\Mcp\Guard::class)->snapshot('foreign-actor','forms_create',[]);
+        $result=$c->get(\OCA\Forms\Mcp\Guard::class)->snapshot('foreign-actor','forms_create',['_mcp_origin'=>formsNativeOrigin($uid,'forms_create')]);
     } elseif($action==='receipt') {
         $result=$db->executeQuery('SELECT receipt, fingerprint FROM *PREFIX*forms_mcp_operations WHERE operation_key = ?',[$args['key']])->fetch();
     } elseif($action==='capabilities') {$result=$c->get(\OCA\Forms\Mcp\Guard::class)->capabilities();}

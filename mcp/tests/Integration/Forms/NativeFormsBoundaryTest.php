@@ -55,9 +55,11 @@ final class NativeFormsBoundaryTest extends TestCase {
         $input=['title'=>'Durable operation '.bin2hex(random_bytes(4))];
         $snap=$this->outcome(['action'=>'snapshot','args'=>['action'=>'forms_create','input'=>$input]]);$key=bin2hex(random_bytes(16));
         $request=['action'=>'apply','args'=>['action'=>'forms_create','input'=>$input,'revision'=>$snap['revision'],'key'=>$key]];
-        $first=$this->outcome($request); // Caller loses this acknowledgement; only the key survives.
+        $fault=$request;$fault['action']='commit_fault';$lost=$this->call($fault);
+        self::assertFalse($lost['ok']);self::assertSame('Injected lost database commit acknowledgement',$lost['error']);
         $receipt=$this->outcome(['action'=>'lookup','args'=>['key'=>$key]]);$again=$this->outcome($request);
-        self::assertSame($first['references'],$receipt['references']);self::assertSame($first['references'],$again['references']);
+        self::assertGreaterThan(0,$receipt['references']['form_id']);self::assertSame($receipt['references'],$again['references']);
+        self::assertSame(1,$this->outcome(['action'=>'count_title','args'=>['title'=>$input['title']]]));
         self::assertSame('committed',$again['phases']['database']);
         $request['args']['input']['title']='different intent';$conflict=$this->call($request);
         self::assertFalse($conflict['ok']);self::assertSame('Operation key conflict',$conflict['error']);
@@ -68,7 +70,7 @@ final class NativeFormsBoundaryTest extends TestCase {
         self::assertFalse($this->outcome(['action'=>'source_drift']));
         self::assertTrue($this->outcome(['action'=>'capabilities'])['qualified']);
         $foreign=$this->call(['action'=>'foreign_actor']);self::assertFalse($foreign['ok']);
-        self::assertSame('Forms actor is unavailable',$foreign['error']);
+        self::assertSame('Original Forms authority does not match',$foreign['error']);
     }
     public function testReceiptContainsNoAnswersAndEventsDoNotReplay(): void {
         $f=$this->outcome(['action'=>'fixture']);$canary='private-answer-'.bin2hex(random_bytes(8));
@@ -83,5 +85,8 @@ final class NativeFormsBoundaryTest extends TestCase {
         self::assertSame('partial',$again['state'],'Native swallowed Activity errors must not be represented as verified delivery');
         $receipt=$this->outcome(['action'=>'receipt','args'=>['key'=>$key]]);
         self::assertStringNotContainsString($canary,json_encode($receipt));
+    }
+    public function testMissingSignedOriginIsRefusedBeforeNativeEffect(): void {
+        $result=$this->call(['action'=>'origin_missing']);self::assertFalse($result['ok'],'A native MCP operation requires a verified actor-incarnation and originating connection');
     }
 }

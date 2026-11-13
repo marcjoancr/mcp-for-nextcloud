@@ -42,7 +42,7 @@ final class AnswerFiles {
             $upload->setOriginalFileName($file->getName());$upload->setFileId($file->getId());$upload->setCreated(time());
             Server::get(UploadedFileMapper::class)->insert($upload);$handle=bin2hex(random_bytes(32));$expires=time()+300;
             Server::get(IDBConnection::class)->executeStatement('INSERT INTO *PREFIX*forms_mcp_uploads (handle_hash, actor_hash, sha256, form_id, question_id, upload_id, expires, consumed) VALUES (?, ?, ?, ?, ?, ?, ?, 0)',
-                [hash('sha256',$handle),hash('sha256',$uid),$source['sha256'],$id,$questionId,$upload->getId(),$expires]);
+                [hash('sha256',$handle),OriginContext::identity($uid),$source['sha256'],$id,$questionId,$upload->getId(),$expires]);
             $result[]=['handle'=>$handle,'name'=>$source['name'],'size'=>$source['size'],'expires_at'=>$expires];
         }
         return ['references'=>['form_id'=>$id,'question_id'=>$questionId],'data'=>['files'=>$result],'files_phase'=>'staged_verified'];
@@ -59,7 +59,7 @@ final class AnswerFiles {
                 if (!is_string($handle) || !preg_match('/^[a-f0-9]{64}$/D',$handle) || isset($seen[$handle])) {throw new \RuntimeException('File handle is unavailable');}
                 $seen[$handle]=true;$db=Server::get(IDBConnection::class);
                 $row=$db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_uploads WHERE handle_hash = ?',[hash('sha256',$handle)])->fetch();
-                if (!$row || !hash_equals($row['actor_hash'],hash('sha256',$uid)) || (int)$row['form_id']!==$formId || (int)$row['question_id']!==(int)$qid || (int)$row['expires']<=time() || (int)$row['consumed']!==0) {throw new \RuntimeException('File handle is unavailable');}
+                if (!$row || !hash_equals($row['actor_hash'],OriginContext::identity($uid)) || (int)$row['form_id']!==$formId || (int)$row['question_id']!==(int)$qid || (int)$row['expires']<=time() || (int)$row['consumed']!==0) {throw new \RuntimeException('File handle is unavailable');}
                 $upload=Server::get(UploadedFileMapper::class)->getByUploadedFileId((string)$row['upload_id']);
                 $form=Server::get(FormMapper::class)->findById($formId);$nodes=Server::get(IRootFolder::class)->getUserFolder($form->getOwnerId())->getById($upload->getFileId());
                 $file=$nodes[0]??null;
