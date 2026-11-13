@@ -22,7 +22,7 @@ final class Guard {
         $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
         $qualified = $identity && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
-            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified && $provider==='mariadb','event_delivery'=>'independently_reported'];
+            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified && $provider==='mariadb','event_delivery'=>'independently_reported'];
     }
     /** Current native principal authority without borrowing a request or worker session. */
     public function assertPrincipal(string $uid, bool $requiresAdmin = false): void {
@@ -45,9 +45,9 @@ final class Guard {
         }
         if ($action==='forms_search') {return;}
         if ($action==='forms_restore') { FileRecovery::snapshot($uid,$action,$i); return; }
-        if ($action==='forms_create') {
+        if (in_array($action,['forms_create','forms_clone'],true)) {
             if (!(new ScopedServices($uid))->get(ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
-            return;
+            if ($action==='forms_create') {return;}
         }
         if ($action==='forms_generate_link_token') {
             if (!(new ScopedServices($uid))->get(ConfigService::class)->getAllowPublicLink()) {throw new \RuntimeException('Public links are disabled');}
@@ -60,7 +60,7 @@ final class Guard {
             'forms_delete_form','forms_transfer','forms_list_shares','forms_read_links','forms_get_embed','forms_share','forms_update_share','forms_unshare'=>'all',
             'forms_read_response','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page'=>'results',
             'forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses'=>'results_delete',
-            'forms_read_settings','forms_read_question','forms_read_own_responses','forms_clone'=>'submit',
+            'forms_read_settings','forms_read_question','forms_read_own_responses'=>'submit',
             default=>'edit',
         };
         $form=$forms->getFormIfAllowed($id,$permission);
@@ -103,6 +103,76 @@ final class Guard {
         return ['file_manifest'=>$fileManifest,'revision'=>$after,'form'=>$form,'config'=>$config,'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$input['id']??null,'action'=>$action],
             'impact'=>['database'=>true,'files'=>'requires_separate_qualification','events'=>in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_share'],true)]];
     }
+    /** Read-only semantic admission before the MCP journal reserves an operation. */
+    public function preflightAnswers(string $uid, string $action, array $input, string $revision): void {
+        if (!in_array($action, ['forms_submit_response', 'forms_update_response', 'forms_update_own_response'], true)) {
+            throw new \InvalidArgumentException('Unsupported Forms answer operation');
+        }
+        OriginContext::within($uid, $input['_mcp_origin'] ?? [], $action, $input, function () use ($uid, $action, $input, $revision): void {
+            if ($this->fence->revision() !== $revision) {
+                throw new BeforeEffect('Forms preview is stale');
+            }
+            $this->authorize($uid, $action, $input);
+            try {
+                $scope = new ScopedServices($uid);
+                $forms = $scope->forms();
+                $id = (int)$input['id'];
+                $form = $forms->loadFormForSubmission($id, $action === 'forms_submit_response' ? ($input['share_hash'] ?? '') : '');
+                if ($action === 'forms_submit_response') {
+                    if (!$forms->canSubmit($form)) {
+                        throw new \OCP\AppFramework\OCS\OCSForbiddenException('Already submitted');
+                    }
+                    if ($form->getMaxSubmissions() > 0 && Server::get(SubmissionMapper::class)->countSubmissions($id) >= $form->getMaxSubmissions()) {
+                        throw new \OCP\AppFramework\OCS\OCSForbiddenException('Maximum number of submissions reached');
+                    }
+                } else {
+                    $submission = Server::get(SubmissionMapper::class)->findById((int)$input['submission_id']);
+                    if ($submission->getFormId() !== $id || !$forms->canDeleteResults($form)
+                        || ($action === 'forms_update_own_response' && $submission->getUserId() !== $uid)) {
+                        throw new \OCP\AppFramework\OCS\OCSForbiddenException('Response is unavailable for editing');
+                    }
+                }
+                if (!isset($input['answers']) || !is_array($input['answers'])) {
+                    throw new \InvalidArgumentException('Invalid Forms answers');
+                }
+                $questions = $forms->getQuestions($id);
+                foreach ($questions as $question) {
+                    $values = $input['answers'][$question['id']] ?? null;
+                    if ($values !== null && !is_array($values)) {
+                        throw new \InvalidArgumentException('Invalid Forms answer representation');
+                    }
+                    if (in_array($question['type'], ['short', 'color'], true) && $values === []) {
+                        throw new \InvalidArgumentException('Scalar answers require a value or omission');
+                    }
+                    if ($values !== null && in_array($question['type'], ['dropdown', 'multiple', 'multiple_unique'], true)) {
+                        $options = array_map('intval', array_column($question['options'] ?? [], 'id'));
+                        foreach ($values as $value) {
+                            if (is_string($value) && !empty($question['extraSettings']['allowOtherAnswer'])
+                                && str_starts_with($value, \OCA\Forms\Constants::QUESTION_EXTRASETTINGS_OTHER_PREFIX)) {
+                                continue;
+                            }
+                            if ((!is_int($value) && (!is_string($value) || !ctype_digit($value))) || !in_array((int)$value, $options, true)) {
+                                throw new \InvalidArgumentException('Choice answer is not an option of this question');
+                            }
+                        }
+                    }
+                }
+                $answers = AnswerFiles::inspect($uid, $id, $input['answers']);
+                try {
+                    $scope->get(\OCA\Forms\Service\SubmissionService::class)->validateSubmission($questions, $answers, $form->getOwnerId(), $id);
+                } catch (\TypeError $error) {
+                    throw new \InvalidArgumentException('Invalid Forms answer representation', 0, $error);
+                }
+            } finally {
+                OriginContext::assertFresh();
+                $this->authorize($uid, $action, $input);
+                if ($this->fence->revision() !== $revision) {
+                    throw new BeforeEffect('Forms preview is stale');
+                }
+            }
+        });
+    }
+
     public function lookup(string $uid,string $operationKey,?array $origin=null): ?array {
         $this->actor($uid);
         return OriginContext::within($uid,$origin??[],'lookup',[],fn()=> $this->operations->lookup($uid,$operationKey) ?? FileRecovery::lookup($uid,$operationKey));

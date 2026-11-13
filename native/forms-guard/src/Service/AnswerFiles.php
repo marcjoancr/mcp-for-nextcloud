@@ -48,27 +48,77 @@ final class AnswerFiles {
         }
         return ['references'=>['form_id'=>$id,'question_id'=>$questionId],'data'=>['files'=>$result],'files_phase'=>'staged_verified'];
     }
-    /** Resolve privately inside the same primary transaction as native validation and consumption. */
-    public static function resolve(string $uid,int $formId,array $answers): array {
-        $seen=[];
-        foreach ($answers as $qid=>&$values) {
-            $q=Server::get(QuestionMapper::class)->findById((int)$qid);
-            if ($q->getFormId()!==$formId) {throw new \RuntimeException('Answer question is unavailable');}
-            if ($q->getType()!=='file') {continue;}
+    /** Resolve opaque handles for validation without consuming them or allocating artifacts. */
+    public static function inspect(string $uid, int $formId, array $answers): array {
+        return self::translate($uid, $formId, $answers, false);
+    }
+
+    /** Consumption belongs to the same primary transaction as native submission validation. */
+    public static function resolve(string $uid, int $formId, array $answers): array {
+        if (!Server::get(FormsRevisionFence::class)->active()) {
+            throw new \LogicException('Upload consumption requires the native Forms fence');
+        }
+        return self::translate($uid, $formId, $answers, true);
+    }
+
+    private static function translate(string $uid, int $formId, array $answers, bool $consume): array {
+        $seen = [];
+        $totalBytes = 0;
+        $db = Server::get(IDBConnection::class);
+        foreach ($answers as $questionId => &$values) {
+            $question = Server::get(QuestionMapper::class)->findById((int)$questionId);
+            if ($question->getFormId() !== $formId || $question->getOrder() < 1) {
+                throw new \RuntimeException('Answer question is unavailable');
+            }
+            if ($question->getType() !== 'file') {
+                continue;
+            }
             foreach ($values as &$value) {
-                $handle=$value['mcpHandle']??'';
-                if (!is_string($handle) || !preg_match('/^[a-f0-9]{64}$/D',$handle) || isset($seen[$handle])) {throw new \RuntimeException('File handle is unavailable');}
-                $seen[$handle]=true;$db=Server::get(IDBConnection::class);
-                $row=$db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_uploads WHERE handle_hash = ?',[hash('sha256',$handle)])->fetch();
-                if (!$row || !hash_equals($row['actor_hash'],OriginContext::identity($uid)) || (int)$row['form_id']!==$formId || (int)$row['question_id']!==(int)$qid || (int)$row['expires']<=time() || (int)$row['consumed']!==0) {throw new \RuntimeException('File handle is unavailable');}
-                $upload=Server::get(UploadedFileMapper::class)->getByUploadedFileId((string)$row['upload_id']);
-                $form=Server::get(FormMapper::class)->findById($formId);$nodes=Server::get(IRootFolder::class)->getUserFolder($form->getOwnerId())->getById($upload->getFileId());
-                $file=$nodes[0]??null;
-                if (!$file instanceof File || !hash_equals($row['sha256'],hash('sha256',$file->getContent()))) {throw new \RuntimeException('Staged file changed');}
-                $value=['uploadedFileId'=>$upload->getId(),'uploadToken'=>$upload->getUploadToken()];
-                $db->executeStatement('UPDATE *PREFIX*forms_mcp_uploads SET consumed = 1 WHERE handle_hash = ?',[hash('sha256',$handle)]);
-            }unset($value);
-        }unset($values);
+                $handle = is_array($value) ? ($value['mcpHandle'] ?? '') : '';
+                if (!is_string($handle) || !preg_match('/^[a-f0-9]{64}$/D', $handle) || isset($seen[$handle])) {
+                    throw new \RuntimeException('File handle is unavailable');
+                }
+                $seen[$handle] = true;
+                if (count($seen) > 100) {
+                    throw new \RuntimeException('Answer file count exceeds the bounded step');
+                }
+                $row = $db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_uploads WHERE handle_hash = ?', [hash('sha256', $handle)])->fetch();
+                if (!$row || !hash_equals($row['actor_hash'], OriginContext::identity($uid))
+                    || (int)$row['form_id'] !== $formId || (int)$row['question_id'] !== (int)$questionId
+                    || (int)$row['expires'] <= time() || (int)$row['consumed'] !== 0) {
+                    throw new \RuntimeException('File handle is unavailable');
+                }
+                $upload = Server::get(UploadedFileMapper::class)->getByUploadedFileId((string)$row['upload_id']);
+                $form = Server::get(FormMapper::class)->findById($formId);
+                $nodes = Server::get(IRootFolder::class)->getUserFolder($form->getOwnerId())->getById($upload->getFileId());
+                $file = $nodes[0] ?? null;
+                if (!$file instanceof File) {
+                    throw new \RuntimeException('Staged file is unavailable');
+                }
+                StorageAdmission::node($file);
+                $stream = $file->fopen('rb');
+                if (!is_resource($stream)) {
+                    throw new \RuntimeException('Staged file cannot be read');
+                }
+                try {
+                    $hash = hash_init('sha256');
+                    $bytes = hash_update_stream($hash, $stream, self::MAX_BYTES + 1);
+                    $digest = hash_final($hash);
+                } finally {
+                    fclose($stream);
+                }
+                $totalBytes += $bytes;
+                if ($totalBytes > self::MAX_BYTES || !hash_equals($row['sha256'], $digest)) {
+                    throw new \RuntimeException('Staged file changed');
+                }
+                $value = ['uploadedFileId' => $upload->getId(), 'uploadToken' => $upload->getUploadToken()];
+                if ($consume) {
+                    $db->executeStatement('UPDATE *PREFIX*forms_mcp_uploads SET consumed = 1 WHERE handle_hash = ?', [hash('sha256', $handle)]);
+                }
+            }
+            unset($value);
+        }
+        unset($values);
         return $answers;
     }
     public static function references(int $formId,int $submissionId): array {
