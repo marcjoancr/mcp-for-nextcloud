@@ -9,7 +9,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Forms\Integration;
 /** Independently pinned by the MCP artifact; the installed companion cannot invent its own trust root. */
 final class FormsGuardIdentity {
-    public const INSTALLED_MANIFEST_SHA256='fa3fbf5af776e458dd6564dff78305a6b2e44d90657673d3ac7aa2896ff34e90';
+    public const INSTALLED_MANIFEST_SHA256='2c57bb3e43d59e6d3b3709c3de68b709f7bfbf8a9f4fea39cec0968bc3720292';
     public function __construct(private string $expected=self::INSTALLED_MANIFEST_SHA256) {}
     public function matches(string $root):bool {
         $path=$root.'/mcp-guard-installed.json';
