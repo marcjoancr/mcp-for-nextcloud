@@ -87,7 +87,7 @@ final class FormsNativeGateway implements FormsGateway {
                 return $status['complete']?$this->jobs->result($uid,$snapshot['job_id'],$input['offset']??0,$input['limit']??50):$status;
             }
             $raw=$this->native($uid)->read($uid,$action,$input);
-            if($action==='forms_list_response_files')return ['files'=>$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$raw['files']??[]))];
+            if($action==='forms_list_response_files')return ['files'=>$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$raw['files']??[]))]+array_intersect_key($raw,['_mcp_page'=>true]);
             if(in_array($action,['forms_read_links','forms_get_embed'],true)) {
                 $shares=$raw['shares']??$raw;$out=[];
                 foreach($shares as $share) {

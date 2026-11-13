@@ -23,6 +23,8 @@ final class FormsProjection {
     }
     public static function read(string $tool,array $raw,array $args):array {
         if(in_array($tool,['forms_search','forms_read_result'],true))return self::bounded($raw);
+        if($tool==='forms_read_submission_form')return self::submissionForm($raw,$args);
+        if($tool==='forms_read_own_response'){self::nativePage($raw,$args);return self::response($raw,$args);}
         if($tool==='forms_read_settings')return self::form($raw,$args);
         if($tool==='forms_read_question') {
             $out=array_intersect_key($raw,array_flip(self::QUESTION_FIELDS));$offset=$args['offset']??0;$limit=$args['limit']??50;
@@ -45,7 +47,7 @@ final class FormsProjection {
         if($tool==='forms_read_response')return self::response($raw,$args);
         if($tool==='forms_read_own_responses') {
             $rows=$raw['submissions']??$raw;
-            return self::bounded(['submissions'=>array_map(static fn(array $s):array=>self::response($s,[]),$rows),'hasMore'=>count($rows)>=($args['limit']??50),'nextOffset'=>count($rows)>=($args['limit']??50)?($args['offset']??0)+count($rows):null]);
+            return self::bounded(['submissions'=>array_map(static fn(array $s):array=>self::response($s,[]),$rows)]+(isset($raw['_mcp_page'])?self::nativePage($raw,$args):['hasMore'=>count($rows)>=($args['limit']??50),'nextOffset'=>count($rows)>=($args['limit']??50)?($args['offset']??0)+count($rows):null]));
         }
         if($tool==='forms_read_admin_settings')return self::bounded(array_intersect_key($raw,array_flip(['allowPermitAll','allowPublicLink','allowCustomPublicShareTokens','allowShowToAll','creationAllowedGroups','restrictCreation','allowConfirmationEmail','confirmationEmailRateLimit','allowComments','isMailConfigured','canCreateForms'])));
         if($tool==='forms_list_comments') {
@@ -53,7 +55,7 @@ final class FormsProjection {
             foreach($rows as $row)$out[]=array_intersect_key($row,array_flip(['id','message','actorId','actorDisplayName','creationDateTime','parentId','isUnread','canEdit','canDelete']));
             return self::bounded(['comments'=>$out,'hasMore'=>$raw['hasMore']??false,'nextOffset'=>$raw['nextOffset']??null]);
         }
-        if($tool==='forms_list_response_files')return self::bounded(['files'=>array_map(static fn(array $r):array=>array_intersect_key($r,array_flip(['form_id','submission_id','file_id','question_id','name','size','mime'])), $raw['files']??[])]);
+        if($tool==='forms_list_response_files')return self::bounded(['files'=>array_map(static fn(array $r):array=>array_intersect_key($r,array_flip(['form_id','submission_id','file_id','question_id','name','size','mime'])), $raw['files']??[])]+(isset($raw['_mcp_page'])?self::nativePage($raw,$args):[]));
         throw new ToolFailure('Unsupported Forms read projection.');
     }
     public static function response(array $raw,array $args):array {
@@ -61,11 +63,12 @@ final class FormsProjection {
         $anonymous=($raw['isAnonymous']??false)||str_starts_with($raw['userId']??'','anon-user-');
         if(!$anonymous&&($args['include_respondents']??false))$out+=array_intersect_key($raw,array_flip(['userId','userDisplayName']));
         $all=$raw['answers']??[];$offset=$args['offset']??0;$limit=$args['limit']??50;$answers=[];$files=false;
-        foreach(array_slice($all,$offset,$limit) as $answer) {
+        if(isset($raw['_mcp_page'])&&count($all)>$limit)throw new ToolFailure('The native Forms answer page exceeds its bound.');
+        foreach(isset($raw['_mcp_page'])?$all:array_slice($all,$offset,$limit) as $answer) {
             if(($answer['fileId']??0)>0){$files=true;continue;}
             $answers[]=array_intersect_key($answer,array_flip(['id','submissionId','questionId','text']));
         }
-        return self::bounded($out+['answers'=>$answers,'fileAnswersOmitted'=>$files]+self::paging(count($all),$offset,min($limit,max(0,count($all)-$offset))));
+        return self::bounded($out+['answers'=>$answers,'fileAnswersOmitted'=>$files]+(isset($raw['_mcp_page'])?self::nativePage($raw,$args):self::paging(count($all),$offset,min($limit,max(0,count($all)-$offset)))));
     }
     public static function mutation(mixed $raw,string $tool=''):mixed {
         if(!is_array($raw))return null;
@@ -85,6 +88,30 @@ final class FormsProjection {
     public static function bounded(array $data):array {
         if(strlen(json_encode($data,JSON_THROW_ON_ERROR))>1048576)throw new ToolFailure('Forms output exceeds the page byte budget; request a smaller page.');
         return $data;
+    }
+    /** A qualified native page is already sliced. Never apply its offset a second time. */
+    private static function nativePage(array $raw,array $args):array {
+        $page=$raw['_mcp_page']??null;$offset=$args['offset']??0;$limit=$args['limit']??50;
+        if(!is_array($page)||($page['offset']??null)!==$offset||!is_bool($page['hasMore']??null)
+            ||!array_key_exists('nextOffset',$page)
+            ||($page['hasMore']?(!is_int($page['nextOffset'])||$page['nextOffset']<=$offset||$page['nextOffset']>$offset+$limit):$page['nextOffset']!==null))
+            throw new ToolFailure('The native Forms page does not match the requested continuation.');
+        return ['hasMore'=>$page['hasMore'],'nextOffset'=>$page['nextOffset']];
+    }
+    private static function submissionForm(array $raw,array $args):array {
+        $form=array_intersect_key($raw['form']??[],array_flip(['id','title','description','isAnonymous','submitMultiple','allowEditSubmissions','maxSubmissions','showExpiration','expires','submissionMessage','state']));
+        $out=['form'=>$form,'revision'=>$raw['revision']??null]+self::nativePage($raw,$args);
+        $question=static fn(array $row):array=>array_intersect_key($row,array_flip(self::QUESTION_FIELDS));
+        if(isset($args['question_id'])) {
+            $row=$raw['question']??[];$options=$row['options']??[];
+            if(($row['id']??null)!==$args['question_id']||count($options)>($args['limit']??50))throw new ToolFailure('The native public question page is unavailable.');
+            $out['question']=$question($row)+['options'=>array_map(static fn(array $option):array=>array_intersect_key($option,array_flip(['id','questionId','text','order','optionType'])),$options)];
+        } else {
+            $rows=$raw['questions']??[];
+            if(count($rows)>($args['limit']??50))throw new ToolFailure('The native public question page exceeds its bound.');
+            $out['questions']=array_map($question,$rows);
+        }
+        return self::bounded($out);
     }
     private static function paging(int $total,int $offset,int $count):array {
         $more=$offset+$count<$total;
