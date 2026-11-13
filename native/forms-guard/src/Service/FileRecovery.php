@@ -27,6 +27,7 @@ final class FileRecovery {
             || ($action==='forms_update' && isset($input['fields']['title'])));
     }
     public static function snapshot(string $uid,string $action,array $input): array {
+        StorageAdmission::operation($uid,$action,$input);
         if ($action==='forms_restore') {
             $data=self::readBackup($uid,$input['backup_id']);
             return ['backup_id'=>$input['backup_id'],'digest'=>hash_hmac('sha256',json_encode($data,JSON_THROW_ON_ERROR),Server::get(\OCP\IConfig::class)->getSystemValueString('secret')),'restore'=>'new_private_closed_form'];
@@ -87,6 +88,7 @@ final class FileRecovery {
         return $data+['files'=>$files];
     }
     private static function fileMeta(File $file): array {
+        StorageAdmission::node($file);
         $size=(int)$file->getSize();$etag=$file->getEtag();
         if ($size<0 || $size>AnswerFiles::MAX_BYTES) {throw new \RuntimeException('Recovery file exceeds the byte limit');}
         $stream=$file->fopen('rb');if (!is_resource($stream)) {throw new \RuntimeException('Managed file cannot be read');}
@@ -143,6 +145,13 @@ final class FileRecovery {
         return array_values(array_unique($ids));
     }
     public static function run(string $uid,string $action,array $input,?array $approved,string $operationKey,callable $work): array {
+        $impact = $approved ?? [];
+        $impact['source_files'] = $input['_mcp_sources'] ?? [];
+        return OriginContext::withFileImpact($action, $impact,
+            fn () => self::execute($uid, $action, $input, $approved, $operationKey, $work));
+    }
+    private static function execute(string $uid,string $action,array $input,?array $approved,string $operationKey,callable $work): array {
+        try {StorageAdmission::operation($uid,$action,$input);} catch (\Throwable $e) {throw new \OCA\Forms\Mcp\BeforeEffect('Forms storage admission failed',0,$e);}
         if ($action==='forms_restore') {
             $current=self::snapshot($uid,$action,$input);
             if ($approved!==$current) {throw new \OCA\Forms\Mcp\BeforeEffect('Recovery preview changed');}
@@ -201,6 +210,7 @@ final class FileRecovery {
     }
     private static function backup(string $uid,string $key,array $data): string {
         OriginContext::assertFresh();
+        StorageAdmission::recovery();
         $id=hash('sha256','forms-recovery:'.$key);$app=Server::get(\OCP\Files\AppData\IAppDataFactory::class)->get('forms_mcp_recovery');
         try {$app->getFolder($id);throw new \RuntimeException('Recovery target already exists');} catch (NotFoundException) {}
         $folder=$app->newFolder($id);$root=Server::get(IRootFolder::class)->getUserFolder($data['form']['owner_id']);
@@ -219,6 +229,7 @@ final class FileRecovery {
         return $id;
     }
     private static function readBackup(string $uid,string $id): array {
+        StorageAdmission::recovery();
         if (!preg_match('/^[a-f0-9]{64}$/D',$id)) {throw new \RuntimeException('Recovery is unavailable');}
         $folder=Server::get(\OCP\Files\AppData\IAppDataFactory::class)->get('forms_mcp_recovery')->getFolder($id);
         $signed=json_decode($folder->getFile('manifest.json')->getContent(),true,64,JSON_THROW_ON_ERROR);$data=$signed['data'];

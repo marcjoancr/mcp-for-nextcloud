@@ -28,6 +28,25 @@ final class OriginContext {
         try {Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertFiles($context['origin'],$action,$manifest);}
         catch(\Throwable $e){throw new \RuntimeException('Original Forms file authority changed',0,$e);}
     }
+    /** Keep trusted file impact private to this operation, including streamed upload sources. */
+    public static function withFileImpact(string $action, array $manifest, callable $work): mixed {
+        $old = self::current();
+        self::$current['file_action'] = $action;
+        self::$current['file_impact'] = $manifest;
+        try {
+            return $work();
+        } finally {
+            self::$current = $old;
+        }
+    }
+    /** Called at the storage or share sink after its lock has been acquired. */
+    public static function assertFileEffect(): void {
+        self::assertFresh();
+        $context = self::current();
+        if (isset($context['file_action'], $context['file_impact'])) {
+            self::assertFiles($context['file_action'], $context['file_impact']);
+        }
+    }
     public static function active(): bool {return self::$current!==null;}
     public static function current(): array {return self::$current??throw new \OCA\Forms\Mcp\BeforeEffect('Signed Forms origin is required');}
     public static function identity(string $uid): string {

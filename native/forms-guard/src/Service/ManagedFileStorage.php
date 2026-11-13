@@ -6,9 +6,10 @@ namespace OCA\Forms\Mcp\Service;
 /** Runs at the pinned core's storage boundary, AFTER View acquires its native exclusive lock. */
 final class ManagedFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
     public bool $enabled=true;
-    public function __construct(\OCP\Files\Storage\IStorage $storage,private array $approved) {parent::__construct(['storage'=>$storage]);}
+    public function __construct(\OCP\Files\Storage\IStorage $storage,private array $approved) {StorageAdmission::storage($storage);parent::__construct(['storage'=>$storage]);}
     private function verify(string $path): void {
-        if (OriginContext::active()) {OriginContext::assertFresh();}
+        if (OriginContext::active()) {OriginContext::assertFileEffect();}
+        StorageAdmission::storage($this->getWrapperStorage());
         $meta=$this->approved[$path]??null;$storage=$this->getWrapperStorage();
         if ($meta===null || (int)$storage->getCache()->getId($path)!==$meta['file_id']) {throw new \RuntimeException('Unapproved native file mutation');}
         $stream=$storage->fopen($path,'rb');if (!is_resource($stream)) {throw new \RuntimeException('Managed file is unavailable');}

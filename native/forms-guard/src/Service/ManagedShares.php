@@ -57,6 +57,7 @@ final class ManagedShares {
             // Re-enumerate while a folder lock prevents concurrent child writes. Native IDs are the ownership evidence.
             $db=Server::get(IDBConnection::class);$rows=$db->executeQuery('SELECT a.file_id FROM *PREFIX*forms_v2_answers a INNER JOIN *PREFIX*forms_v2_submissions s ON a.submission_id = s.id WHERE s.form_id = ?',[$form->getId()])->fetchAll();
             self::assertFolder($form->getId(),$folder,array_fill_keys(array_column($rows,'file_id'),true));
+            if (OriginContext::active()) {OriginContext::assertFileEffect();}
             $created=Server::get(\OCP\Share\IManager::class)->createShare($share);
             $db->executeStatement('INSERT INTO *PREFIX*forms_mcp_file_shares (files_share_id,form_id,native_share_id,folder_id) VALUES (?, ?, ?, ?)',[$created->getFullId(),$form->getId(),$native->getId(),$folder->getId()]);
             self::registerFolder($form,$folder);return $created;
@@ -71,6 +72,7 @@ final class ManagedShares {
         foreach (self::rows($form->getId(),$native->getId()) as $row) {
             $share=$manager->getShareById($row['files_share_id']);
             if ($share->getShareOwner()!==$form->getOwnerId() || (int)$share->getNodeId()!==(int)$row['folder_id'] || $share->getSharedWith()!==$native->getShareWith() || $share->getShareType()!==$native->getShareType()) {throw new \RuntimeException('Native Files share identity changed');}
+            if (OriginContext::active()) {OriginContext::assertFileEffect();}
             $manager->deleteShare($share);$db->executeStatement('DELETE FROM *PREFIX*forms_mcp_file_shares WHERE files_share_id = ?',[$row['files_share_id']]);
         }
     }
