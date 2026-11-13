@@ -160,7 +160,7 @@ final class SqliteDatabase {
 
     private function expressions(QueryBuilder $inner): IExpressionBuilder {
         $expr = $this->stub(IExpressionBuilder::class);
-        foreach (['eq', 'neq', 'lt', 'lte', 'gt', 'gte'] as $method) {
+        foreach (['eq', 'neq', 'lt', 'lte', 'gt', 'gte', 'notLike'] as $method) {
             $expr->method($method)->willReturnCallback(fn ($x, $y): string => $inner->expr()->{$method}(
                 (string)self::sqlArgument($x), (string)self::sqlArgument($y)));
         }

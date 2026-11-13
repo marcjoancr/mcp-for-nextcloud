@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
 // SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { formsOperationLabels } from './forms-presentation.js'
 export function createPresentation({ t }) {
 	function moduleLabels() {
 		return {
@@ -17,7 +18,8 @@ export function createPresentation({ t }) {
 			forms: t('mcp', 'Forms'),
 		}
 	}
-	function operationLabels() {
+	function operationLabels(module = '') {
+        if (module === 'forms') return formsOperationLabels(t)
 		return {
 			description_read: t('mcp', 'read file descriptions'),
 			description_edit: t('mcp', 'edit file descriptions'),
@@ -69,6 +71,9 @@ export function createPresentation({ t }) {
 		if (module === 'talk' && operation === 'search') return t('mcp', 'Search conversation messages without marking them as read')
 		if (module === 'mail' && operation === 'read') return t('mcp', 'List own mail accounts and cached folders')
 		if (module === 'forms' && operation === 'read') return t('mcp', 'Read accessible forms, questions and options')
+        if (module === 'forms' && operation === 'admin_settings') return t('mcp', 'Change instance-wide Forms settings; an instance administrator role is also required')
+        if (module === 'forms' && operation === 'read_respondents') return t('mcp', 'Read identified respondents only when native results access permits; historical anonymous identities stay hidden')
+        if (module === 'forms') return formsOperationLabels(t)[operation] || ''
 		if (module === 'talk' && operation === 'create') {
 			return t('mcp', 'Open new conversations, which invites people')
 		}

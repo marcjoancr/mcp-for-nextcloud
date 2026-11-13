@@ -60,7 +60,8 @@ final class ApplicationRegistrationTest extends TestCase {
         $built = [];
         $container = $this->sharedContainer($built);
         $module = $container->get(\OCA\Mcp\Modules\Forms\FormsModule::class);
-        self::assertCount(5, $module->definitions());
+        self::assertCount(6, $module->definitions());
+        self::assertContains('forms_capabilities',array_column($module->definitions(),'name'));
         foreach (\OCA\Mcp\Modules\Forms\FormsToolCatalog::classes() as $tool) {
             self::assertInstanceOf($tool, $container->get($tool));
         }

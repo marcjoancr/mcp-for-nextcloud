@@ -22,6 +22,7 @@ final readonly class ToolDefinition {
         public ?array $grantAnyOf = null,
         public ?bool $destructiveHint = null,
         public ?array $grantAllOf = null,
+        public bool $requiresAdmin = false,
     ) {}
 
     /** @return array<string, mixed> the legacy ToolModule definition shape */
@@ -41,6 +42,7 @@ final readonly class ToolDefinition {
             $definition['destructiveHint'] = $this->destructiveHint;
         }
         if ($this->grantAllOf !== null) { $definition['grantAllOf'] = $this->grantAllOf; }
+        if ($this->requiresAdmin) { $definition['requiresAdmin'] = true; }
         $definition['description'] = $this->description;
         $definition['inputSchema'] = $this->inputSchema;
         return $definition;

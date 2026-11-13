@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 return ['routes' => [
+    ['name'=>'forms_download#download','url'=>'/forms/results/{token}','verb'=>'GET','requirements'=>['token'=>'[a-f0-9]{64}']],
     ['name' => 'file_description#show', 'url' => '/api/files/description', 'verb' => 'GET'],
     ['name' => 'file_description#update', 'url' => '/api/files/description', 'verb' => 'PUT'],
         ['name' => 'backupSettings#show', 'url' => '/api/backup-settings', 'verb' => 'GET'],

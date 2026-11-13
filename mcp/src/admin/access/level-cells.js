@@ -32,7 +32,7 @@ export function createLevelCells({ t, el, paintState, reloadLocked, moduleLabels
 			if (unknown) cell.append(el('button', { type: 'button', textContent: t('mcp', 'Retry'), onclick: reloadLocked }))
 		} else {
 			const { origin, mark: kind } = originMark(user, module, operations)
-			const labels = operationLabels()
+			const labels = operationLabels(module)
 			const allowed = operations.filter((operation) => user.grants[module][operation] === true)
 			const levelName = levelLabels()[level] || level
 			const summary = allowed.length === 0

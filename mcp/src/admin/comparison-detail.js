@@ -91,7 +91,7 @@ export function mountComparisonDetail({ panel, api, t, button, compare, closeFoc
             links[item.module] = [...new Set([...(links[item.module] || []), ...(item.requiresOperations?.length ? item.requiresOperations : [item.operation])].filter(Boolean))]
             const modules = labels.moduleLabels(), operationsById = labels.operationLabels()
             for (const [module, ops] of Object.entries(links)) {
-                related.append(button(t('mcp', 'Edit {module} operations: {operations}', { module: modules[module] || module, operations: ops.map(op => operationsById[op] || op).join(', ') }), () => operations(column, module, ops[0])))
+                related.append(button(t('mcp', 'Edit {module} operations: {operations}', { module: modules[module] || module, operations: ops.map(op => labels.operationLabels(module)[op] || operationsById[op] || op).join(', ') }), () => operations(column, module, ops[0])))
             }
             panel.append(related)
         }

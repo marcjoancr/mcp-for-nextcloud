@@ -58,6 +58,19 @@ final class FilesScopeActivationTest extends TestCase {
         });
     }
 
+    public function testFormsEffectBoundaryRechecksTheSharedFilesGateThenRestoresOuterSnapshot():void {
+        $writer=$this->fx->commands(false,null,new ScopeActivation());[$policy,$gate,$references]=$this->consumers($writer);
+        $policy->within('alice',function()use($writer,$policy,$gate):void {
+            $archive=$this->fx->tree->node('/alice/files/Archive');self::assertTrue($gate->isVisible($archive));
+            $writer->setResourceScope($this->fx->revision(),'root','alice','files',[$this->fx->projects]);
+            $policy->resourceBoundary('alice',function()use($gate,$archive):void {$gate->clearCache();self::assertFalse($gate->isVisible($archive));});
+            $gate->clearCache();self::assertTrue($gate->isVisible($archive),'The original outer operation keeps its S9 snapshot.');
+            try{$policy->resourceBoundary('alice',static function():void{throw new \RuntimeException('stop');});}catch(\RuntimeException){}
+            $gate->clearCache();self::assertTrue($gate->isVisible($archive),'Exceptional boundaries restore the outer context.');
+        });
+        self::assertNull($policy->operationUser());
+    }
+
     public function testBeforeTheOpeningAFilesScopeIsRefusedAndEverythingIsReachable(): void {
         $writer = $this->fx->commands(false);
         [$policy, $gate, $references] = $this->consumers($writer);

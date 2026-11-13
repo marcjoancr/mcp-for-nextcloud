@@ -1,0 +1,44 @@
+<?php
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+declare(strict_types=1);
+
+namespace OCA\Mcp\Modules\Forms\Access;
+use OCA\Mcp\OAuth\ConnectionContext;
+/** Entry called by the qualified native companion; native ACL and exact event-data checks remain native responsibilities. */
+final class FormsNativeAuthorization {
+    public function __construct(private FormsOriginProof $proof,private FormsFreshAccess $fresh,private FormsDeferredAccess $deferred,private ConnectionContext $connection,
+        private \OCA\Mcp\Access\Grants\GrantPolicy $policy,private \OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact $impact) {}
+    public function capture(string $uid,string $tool,array $args,array $snapshot):array {
+        $this->fresh->assertTool($uid,$tool,$args,$snapshot);$references=[];
+        if(isset($args['id']))$references['form_id']=$args['id'];
+        if(isset($args['submission_id']))$references['submission_id']=$args['submission_id'];
+        if(isset($args['share_id']))$references['share_id']=$args['share_id'];
+        if(isset($snapshot['form']['ownerId']))$references['owner_id']=$snapshot['form']['ownerId'];
+        $files=\OCA\Mcp\Modules\Forms\Execution\FormsCommands::definitions()[$tool]['grantAllOf']['files']??[];
+        if($args['overwrite']??false)$files[]='edit';
+        if($snapshot['file_manifest']['files_share']??false)$files[]='share';
+        if($files!==[])$references['files_operations']=array_values(array_unique($files));
+        return $this->proof->create($uid,$this->connection->current(),$tool,FormsAuthorization::operations($tool,$args,$snapshot),$references);
+    }
+    public function captureHistory(string $uid,string $tool,array $references):array {
+        $this->assertHistory($uid,$tool,$references);
+        $refs=array_intersect_key($references,array_flip(['form_id','submission_id','share_id','files_operations']));
+        return $this->proof->create($uid,$this->connection->current(),$tool,$references['required_operations']??FormsAuthorization::operations($tool,['id'=>$refs['form_id']??null],[]),$refs);
+    }
+    public function assertHistory(string $uid,string $tool,array $references):void {
+        $this->fresh->assertTool($uid,$tool,['id'=>$references['form_id']??null],['historical'=>$references]);
+    }
+    public function assertFiles(array $origin,string $action,array $manifest):void {
+        $context=$this->assert($origin);
+        if(in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response'],true))return;
+        if(($manifest['files']??[])===[]&&!isset($manifest['share_impact']['parent']))return;
+        $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],$manifest));
+    }
+    public function assert(array $origin):array {
+        $context=$this->proof->verify($origin);$this->deferred->assert($context);return $context;
+    }
+}

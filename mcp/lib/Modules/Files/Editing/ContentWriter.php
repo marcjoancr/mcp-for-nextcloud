@@ -39,7 +39,7 @@ final class ContentWriter {
      * @return array{path:string, size:int, etag:string, access:array<string, mixed>, backup:string, diff:string}
      * @throws ToolFailure when the preparation or the write fails
      */
-    public function commit(Folder $root, string $userId, File $file, string $path, string $content, ?string $etag, string $before): array {
+    public function commit(Folder $root, string $userId, File $file, string $path, string $content, ?string $etag, string $before, bool $renderDiff = true): array {
         $this->fileTypes->assertWritableName($file->getName());
         $copy = $this->backup->prepare($root, $file, $path, $userId, $etag);
         $this->visibilityGuard->assertVisible($file);
@@ -62,7 +62,7 @@ final class ContentWriter {
             'etag' => (string)$node->getEtag(),
             'access' => $this->accessInfo->describe($node, $userId),
             'backup' => $copy,
-            'diff' => UnifiedDiff::between($before, $content),
+            'diff' => $renderDiff ? UnifiedDiff::between($before, $content) : '',
         ];
     }
 }

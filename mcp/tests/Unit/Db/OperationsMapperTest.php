@@ -36,6 +36,13 @@ final class OperationsMapperTest extends TestCase {
         $store->reserve($row);$id=str_repeat('a',64);$store->finish('scope','send','succeeded',['delivery_id'=>$id,'source_tool'=>'mail_send','body'=>'private','artifact'=>'private'],100);
         $store->compact(1000);self::assertSame(['delivery_id'=>$id,'source_tool'=>'mail_send'],$store->get('scope','send')['resource_refs']);
     }
+    public function testMailMaintenanceCannotEraseFormsRecoveryOrOriginalAuthority():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $row=['scope_key'=>'forms','operation_id'=>'change','actor_uid'=>'alice','tool_name'=>'forms_update','effect_digest'=>'digest','target_key'=>null,'state'=>'running','resource_refs'=>[],'created_at'=>100,'updated_at'=>100];
+        $refs=['actor_incarnation'=>'stable','connection_id'=>12,'native_key'=>'key','required_operations'=>['edit'],'form_id'=>4,'backup_id'=>'recovery'];
+        self::assertTrue($store->reserve($row));$store->finish('forms','change','succeeded',$refs,100);$store->compact(1000);
+        self::assertSame($refs,$store->get('forms','change')['resource_refs']);
+    }
     public function testOnlyOneRepairOrCleanupCanClaimAPartialOperation(): void {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);
         $store=new OperationsMapper($db->connection());

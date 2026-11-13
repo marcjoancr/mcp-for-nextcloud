@@ -137,8 +137,9 @@ final class NextcloudApiContractTest extends TestCase {
             self::assertSame($expectedFiles,$actualFiles,$class);
             foreach (self::checkedMajors() as $major) self::assertArrayNotHasKey($class,self::fixture($major)['classes']);
             // Source and runtime proof belongs to the custom dependency, not stock Mail's fixtures.
-            $relative=str_replace('OCA\\Mail\\','',$class);
-            $path=dirname(__DIR__,5).'/native/mail-guard/src/'.str_replace('\\','/',$relative).'.php';
+            $forms=str_starts_with($class,'OCA\\Forms\\Mcp\\');
+            $relative=str_replace($forms?'OCA\\Forms\\Mcp\\':'OCA\\Mail\\','',$class);
+            $path=dirname(__DIR__,5).'/native/'.($forms?'forms-guard':'mail-guard').'/src/'.str_replace('\\','/',$relative).'.php';
             self::assertFileExists($path);
         }
     }

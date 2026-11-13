@@ -142,6 +142,7 @@ final class RoutesTest extends TestCase {
         return [
             // The bearer token or the link token is the credential, not the session.
             'mcp#post' => $open, 'mcp#get' => $open, 'mcp#delete' => $open,
+            'forms_download#download' => $open,
             'checkout#download' => $open, 'checkout#upload' => $open, 'checkout#uploadPost' => $open,
             // Logged-in users, session and CSRF token intact.
             'settings#personal' => ['NoAdminRequired'],

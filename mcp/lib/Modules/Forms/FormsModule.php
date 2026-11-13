@@ -19,8 +19,8 @@ use OCA\Mcp\Modules\Forms\Responses\FormsResponseSummary;
 
 final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites, RendersPlans {
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories) {
-        $expected = array_keys(FormsToolCatalog::definitions());
+    public function __construct(private array $factories, private ?\Closure $available = null) {
+        $expected = array_keys(isset($factories['forms_capabilities']) ? FormsToolCatalog::definitions() : FormsToolCatalog::legacyDefinitions());
         if (array_diff($expected, array_keys($factories)) !== [] || array_diff(array_keys($factories), $expected) !== []) {
             throw new \LogicException('Factories must match the catalog exactly');
         }
@@ -32,22 +32,21 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites
     }
 
     public function renderPlan(string $tool, array $plan): ?string {
-        return (new Presentation\FormsPlanRenderer())->render($tool, $plan);
+        return (new Presentation\FormsPlanRenderer())->render($tool, $plan)
+            ?? (isset(\OCA\Mcp\Modules\Forms\Execution\FormsCommands::commands()[$tool]) ? (new Presentation\FormsWritePlanRenderer())->render($tool, $plan) : null);
     }
 
     public function preview(string $name, array $arguments, string $userId): array {
-        if ($name !== 'forms_export_responses') {
-            throw new \InvalidArgumentException('Unknown writing tool');
-        }
+        if (!isset($this->factories[$name])) { throw new \InvalidArgumentException('Unknown writing tool'); }
         $tool = ($this->factories[$name])();
-        if (!$tool instanceof Tools\ExportResponses) {
-            throw new \LogicException('Forms export factory returned a different tool');
-        }
+        if (!$tool instanceof \OCA\Mcp\Mcp\Tools\WriteTool) { throw new \LogicException('Forms factory did not return a writing tool'); }
         return $tool->preview($arguments, new ToolContext($userId));
     }
 
     public function definitions(): array {
-        return array_values(FormsToolCatalog::definitions());
+        $definitions = isset($this->factories) ? array_intersect_key(FormsToolCatalog::definitions(), $this->factories) : FormsToolCatalog::legacyDefinitions();
+        if (isset($this->available)) { $definitions = array_filter($definitions, fn(array $d): bool => ($this->available)($d['name'])); }
+        return array_values($definitions);
     }
 
     public function call(string $name, array $arguments, string $userId): array {
@@ -62,7 +61,7 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites
         return $tool->execute($arguments, new ToolContext($userId));
     }
 
-    public static function withReader(FormsReader $reader, ?FormsResponseReader $responseReader = null, ?IncomingFileWriter $files = null, ?PlanState $states = null): self {
+    public static function withReader(FormsReader $reader, ?FormsResponseReader $responseReader = null, ?IncomingFileWriter $files = null, ?PlanState $states = null, ?\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator $commands = null, ?\Closure $available = null): self {
         $responseReader ??= new class implements FormsResponseReader {
             public function readResponses(string $userId, int $formId, int $offset, int $limit): ?array {
                 return null;
@@ -80,6 +79,12 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites
             }
             return new Tools\ExportResponses(new FormsResponseExport($responseReader, $files, $states));
         };
-        return new self($factories);
+        if ($commands !== null) {
+            foreach (\OCA\Mcp\Modules\Forms\Execution\FormsCommands::commands() as $name => $command) {
+                $class = __NAMESPACE__ . '\\Tools\\' . $command['class'];
+                $factories[$name] = static fn(): Tool => new $class($commands);
+            }
+        }
+        return new self($factories, $available);
     }
 }

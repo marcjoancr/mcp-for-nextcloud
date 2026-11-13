@@ -1,11 +1,15 @@
 <?php
-/* SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
- * SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
 declare(strict_types=1);
 namespace OCA\Mcp\Modules\Forms\Attachments;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Modules\Files\Creation\FileCreation;
-use OCP\Files\{File, IRootFolder};
+use OCP\Files\File;
+use OCP\Files\IRootFolder;
 /** Native response permission never grants access to Files. Always resolve inside this actor's Files tree. */
 final class FormsAnswerFiles {
     public function __construct(private IRootFolder $root, private FilesAccessGuard $access, private FormsAnswerUploads $sources, private FileCreation $creation) {}

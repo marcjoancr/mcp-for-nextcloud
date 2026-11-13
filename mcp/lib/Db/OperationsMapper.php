@@ -12,7 +12,7 @@ use OCP\IDBConnection;
 use OCP\DB\Exception;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
-final class OperationsMapper implements OperationStore {
+final class OperationsMapper implements OperationStore, \OCA\Mcp\Modules\Forms\Execution\FormsOutcomeStore {
     public const TABLE = 'mcp_operations';
     public function __construct(private IDBConnection $db) {}
 
@@ -170,7 +170,8 @@ final class OperationsMapper implements OperationStore {
         $r=$q->select('*')->from(self::TABLE)
             ->where($q->expr()->lt('updated_at',$q->createNamedParameter($before,IQueryBuilder::PARAM_INT)))
             ->andWhere($q->expr()->in('state',$q->createNamedParameter(['succeeded','failed_before_effect','expired','awaiting_user'],IQueryBuilder::PARAM_STR_ARRAY)))
-            ->andWhere($q->expr()->neq('actor_uid',$q->createNamedParameter('')))->setMaxResults(100)->executeQuery();
+            ->andWhere($q->expr()->neq('actor_uid',$q->createNamedParameter('')))
+            ->andWhere($q->expr()->notLike('tool_name',$q->createNamedParameter('forms_%')))->setMaxResults(100)->executeQuery();
         try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
         foreach($rows as $row){
             $refs=array_intersect_key($this->decode($row)['resource_refs'],array_flip(['actor_incarnation','authorization','sieve_id','snooze_id','wake_revision','delivery_id','draft_id','file_id','tag_id','alias_id','signature_mode','account_id','source_tool','source_tools','native_state','source','user_expires_at','protocols','authentication_observation','reconciled_operation_id','mutation']));
@@ -200,7 +201,8 @@ final class OperationsMapper implements OperationStore {
 
     /** Separate approved reconciliation only: exact state/receipt CAS, retaining the non-replay key. */
     public function reconcile(array $expected,string $state,array $refs,int $time):bool {
-        if(!in_array($expected['state']??null,['running','uncertain','repairing'],true)||!in_array($state,['succeeded','repaired'],true))return false;
+        $states=str_starts_with($expected['tool_name']??'','forms_')?['succeeded','partial','pending','failed_before_effect']:['succeeded','repaired'];
+        if(!in_array($expected['state']??null,['running','uncertain','repairing'],true)||!in_array($state,$states,true))return false;
         $q=$this->db->getQueryBuilder();return $q->update(self::TABLE)
             ->set('state',$q->createNamedParameter($state))->set('target_key',$q->createNamedParameter(null,IQueryBuilder::PARAM_NULL))
             ->set('resource_refs',$q->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)))

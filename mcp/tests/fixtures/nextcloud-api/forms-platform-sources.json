@@ -1,0 +1,152 @@
+{
+  "31": {
+    "apps/dav/lib/Comments/CommentNode.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/dav/lib/Comments/CommentNode.php",
+      "sha256": "838b255271b419ff889942756443225289ff5149fd31cae2029ee73f56795693"
+    },
+    "lib/public/Files/AppData/IAppDataFactory.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Files/AppData/IAppDataFactory.php",
+      "sha256": "6f8941fb4c568c14fbf13397f39d1d63e10564c46a959a207eabac60980a5d61"
+    },
+    "lib/public/Files/IAppData.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Files/IAppData.php",
+      "sha256": "86fd01a3ffcd00d0158255e3ad6178cbe94b22c5b8f67a2b2db0c6168c4924d5"
+    },
+    "lib/public/Files/SimpleFS/ISimpleRoot.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Files/SimpleFS/ISimpleRoot.php",
+      "sha256": "e0dfd0f287e587204cfe68afeb183242b6e57c3d1f5081d6eba6e9178765f3c8"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFolder.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Files/SimpleFS/ISimpleFolder.php",
+      "sha256": "48a0b37437199bfd554d16939162f010c70abb175a84ca7ced6fdec487e81cf4"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFile.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Files/SimpleFS/ISimpleFile.php",
+      "sha256": "563f52aaba396773a2f86cd0e034e23a643f488658ceb17ca98f30af6eb2ebd3"
+    },
+    "lib/public/Security/ICrypto.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Security/ICrypto.php",
+      "sha256": "57fccab60d3eb087b4c26a95cf240959d9347656a966034db2423d7a2ac188c6"
+    }
+  },
+  "32": {
+    "apps/dav/lib/Comments/CommentNode.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/dav/lib/Comments/CommentNode.php",
+      "sha256": "838b255271b419ff889942756443225289ff5149fd31cae2029ee73f56795693"
+    },
+    "lib/public/Files/AppData/IAppDataFactory.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Files/AppData/IAppDataFactory.php",
+      "sha256": "6f8941fb4c568c14fbf13397f39d1d63e10564c46a959a207eabac60980a5d61"
+    },
+    "lib/public/Files/IAppData.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Files/IAppData.php",
+      "sha256": "ab02a428da7669b59cc2ff407956ba046147599e2239f4c386633af17ac27b36"
+    },
+    "lib/public/Files/SimpleFS/ISimpleRoot.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Files/SimpleFS/ISimpleRoot.php",
+      "sha256": "af8f911794c0646819a0e12fe76d39f7e36d7011385fd064b1fb38c2cbd47ac7"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFolder.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Files/SimpleFS/ISimpleFolder.php",
+      "sha256": "a2649142f40a1bf186bdee7521fb66affbe801906e27d675231afd16c485e5c2"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFile.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Files/SimpleFS/ISimpleFile.php",
+      "sha256": "880935ddfe33d18780b9922fcc585ec662c76e06d33cc101fdf1490201598160"
+    },
+    "lib/public/Security/ICrypto.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Security/ICrypto.php",
+      "sha256": "397bb7217877afaa06a7019cdb34f6895164ea457478ffc4910146f27fcbb78c"
+    }
+  },
+  "33": {
+    "apps/dav/lib/Comments/CommentNode.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/dav/lib/Comments/CommentNode.php",
+      "sha256": "838b255271b419ff889942756443225289ff5149fd31cae2029ee73f56795693"
+    },
+    "lib/public/Files/AppData/IAppDataFactory.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Files/AppData/IAppDataFactory.php",
+      "sha256": "6f8941fb4c568c14fbf13397f39d1d63e10564c46a959a207eabac60980a5d61"
+    },
+    "lib/public/Files/IAppData.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Files/IAppData.php",
+      "sha256": "ab02a428da7669b59cc2ff407956ba046147599e2239f4c386633af17ac27b36"
+    },
+    "lib/public/Files/SimpleFS/ISimpleRoot.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Files/SimpleFS/ISimpleRoot.php",
+      "sha256": "af8f911794c0646819a0e12fe76d39f7e36d7011385fd064b1fb38c2cbd47ac7"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFolder.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Files/SimpleFS/ISimpleFolder.php",
+      "sha256": "a2649142f40a1bf186bdee7521fb66affbe801906e27d675231afd16c485e5c2"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFile.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Files/SimpleFS/ISimpleFile.php",
+      "sha256": "880935ddfe33d18780b9922fcc585ec662c76e06d33cc101fdf1490201598160"
+    },
+    "lib/public/Security/ICrypto.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Security/ICrypto.php",
+      "sha256": "397bb7217877afaa06a7019cdb34f6895164ea457478ffc4910146f27fcbb78c"
+    }
+  },
+  "34": {
+    "apps/dav/lib/Comments/CommentNode.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/dav/lib/Comments/CommentNode.php",
+      "sha256": "565fa52478f5c2d09126440e890cbd96408285d75a6b8af211cce6b545dc8e56"
+    },
+    "lib/public/Files/AppData/IAppDataFactory.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Files/AppData/IAppDataFactory.php",
+      "sha256": "6f8941fb4c568c14fbf13397f39d1d63e10564c46a959a207eabac60980a5d61"
+    },
+    "lib/public/Files/IAppData.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Files/IAppData.php",
+      "sha256": "ab02a428da7669b59cc2ff407956ba046147599e2239f4c386633af17ac27b36"
+    },
+    "lib/public/Files/SimpleFS/ISimpleRoot.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Files/SimpleFS/ISimpleRoot.php",
+      "sha256": "af8f911794c0646819a0e12fe76d39f7e36d7011385fd064b1fb38c2cbd47ac7"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFolder.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Files/SimpleFS/ISimpleFolder.php",
+      "sha256": "a2649142f40a1bf186bdee7521fb66affbe801906e27d675231afd16c485e5c2"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFile.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Files/SimpleFS/ISimpleFile.php",
+      "sha256": "880935ddfe33d18780b9922fcc585ec662c76e06d33cc101fdf1490201598160"
+    },
+    "lib/public/Security/ICrypto.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Security/ICrypto.php",
+      "sha256": "397bb7217877afaa06a7019cdb34f6895164ea457478ffc4910146f27fcbb78c"
+    }
+  },
+  "35": {
+    "apps/dav/lib/Comments/CommentNode.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/dav/lib/Comments/CommentNode.php",
+      "sha256": "eb3346800fd219c6dab13ef8f38e8c932b22d31c4dd28bb44709f0078525a1bd"
+    },
+    "lib/public/Files/AppData/IAppDataFactory.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Files/AppData/IAppDataFactory.php",
+      "sha256": "7192637f1f053c5b73f7c0a564c30eb9865ab667694f9fec49c38a09b804896c"
+    },
+    "lib/public/Files/IAppData.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Files/IAppData.php",
+      "sha256": "c621deca21c00fe660c30b11cd8507e1c4a4d712eff400267adf7b94c4474c3a"
+    },
+    "lib/public/Files/SimpleFS/ISimpleRoot.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Files/SimpleFS/ISimpleRoot.php",
+      "sha256": "d64c7e6d714545e01549be9b2d095bac4f2c293137f980a23da5b3e221bad1a5"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFolder.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Files/SimpleFS/ISimpleFolder.php",
+      "sha256": "b20f4b07755effb91aea7b0cfb34cd49f2e2de998e4955c8a417a339409f8b1e"
+    },
+    "lib/public/Files/SimpleFS/ISimpleFile.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Files/SimpleFS/ISimpleFile.php",
+      "sha256": "de9ca269ec5d780ef6cba458565e760ee533884d65bf559fc6793c06056914ea"
+    },
+    "lib/public/Security/ICrypto.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Security/ICrypto.php",
+      "sha256": "49efc0a91f50a90453fdd663ef7d7ab8abd263d85db716912f7296bd1a2dea17"
+    }
+  }
+}

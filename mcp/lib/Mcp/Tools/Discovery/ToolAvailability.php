@@ -26,6 +26,7 @@ final class ToolAvailability {
         private \OCP\IUserManager $userManager,
         private ?GuestRestrictions $guests = null,
         private ?ConnectionContext $connection = null,
+        private ?\OCP\IGroupManager $groups = null,
     ) {}
 
     /**
@@ -90,6 +91,7 @@ final class ToolAvailability {
     }
 
     private function policyAllows(array $definition, string $userId, bool $forConnection): bool {
+        if (($definition['requiresAdmin'] ?? false) && ($this->groups === null || !$this->groups->isAdmin($userId))) { return false; }
         try {
             // Three-valued "any of": a known Allow wins over an unknown alternative, whatever their order.
             $granted = $this->primaryGranted($definition, $userId, $forConnection);

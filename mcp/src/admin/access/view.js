@@ -140,7 +140,7 @@ export function createMatrixView({ root, t, presentation, getData, getFilters, s
 					scope: 'col',
 					className: band + (i === 0 ? ' mcp-module' : ''),
 					title: operationHint(module, operation),
-					textContent: operations[operation] || operation,
+					textContent: operationLabels(module)[operation] || operations[operation] || operation,
 				})
 				cell.dataset.module = module
 				sub.append(cell)
@@ -217,7 +217,7 @@ export function createMatrixView({ root, t, presentation, getData, getFilters, s
 		Object.entries(state.data.catalog).forEach(([module, ops], index) => {
 			ops.forEach((operation, i) => {
 				// The same name as the column header and the reset button, never the raw id ("files:read").
-				const label = (modules[module] || module) + ': ' + (operations[operation] || operation)
+				const label = (modules[module] || module) + ': ' + (operationLabels(module)[operation] || operations[operation] || operation)
 				const cell = permissionCell(user, module, user.grants[module][operation], label, { module, operation, granted: null })
 				cell.dataset.module = module
 				cell.hidden = state.app !== '' && state.app !== module

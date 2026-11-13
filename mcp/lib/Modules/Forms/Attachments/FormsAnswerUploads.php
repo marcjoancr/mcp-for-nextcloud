@@ -1,12 +1,16 @@
 <?php
-/* SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
- * SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+ * SPDX-FileCopyrightText: 2026 Sintax (Jhonatan Jaworski) <contato@sintax.tech>
+ * SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
 declare(strict_types=1);
 namespace OCA\Mcp\Modules\Forms\Attachments;
 use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
 use OCA\Mcp\Platform\FileAccess\Nodes\NodeAccess;
 use OCA\Mcp\Platform\FileAccess\Paths\PathGuard;
-use OCP\Files\{File, IRootFolder};
+use OCP\Files\File;
+use OCP\Files\IRootFolder;
 use OCP\Lock\ILockingProvider;
 /** Actor-relative sources only. The caller opens the current Files scope and checks the Files read grant. */
 final class FormsAnswerUploads {

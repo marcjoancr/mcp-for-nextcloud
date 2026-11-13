@@ -59,7 +59,7 @@ class GrantPolicy implements ScopeReader {
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],
         'mail' => ['read', 'search', 'read_message', 'read_outbox', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'test_connection', 'create_accounts', 'complete_setup', 'delete_accounts', 'set_flags', 'move_messages', 'archive_messages', 'trash_messages', 'restore_messages', 'create_mailboxes', 'rename_mailboxes', 'subscribe_mailboxes', 'configure_mailboxes', 'read_identities', 'read_tags', 'create_tags', 'tag_messages', 'refresh', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities', 'send', 'schedule', 'cancel_delivery', 'read_delivery', 'repair_sent', 'export_message', 'search_drafts', 'import_draft', 'index_messages', 'search_indexed_body', 'snooze', 'wake', 'cancel_snooze', 'read_snooze', 'read_filters','write_filters','read_absence','write_absence','disable_absence','read_sieve_status','transmit_filters','enable_absence','write_signature_mode'],
-        'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses'],
+        'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses', 'read_settings', 'create', 'edit', 'set_state', 'manage_locks', 'transfer', 'delete_form', 'restore', 'edit_questions', 'read_shares', 'read_links', 'share', 'public_link', 'submit', 'read_own_responses', 'edit_own_responses', 'edit_responses', 'delete_own_responses', 'delete_response', 'delete_all_responses', 'upload_response_files', 'read_response_files', 'save_response_file', 'summarize_results', 'download_results', 'export_results', 'link_results', 'read_comments', 'comment', 'edit_comments', 'delete_comments', 'read_admin_settings', 'admin_settings', 'read_operations', 'continue_operations', 'cancel_operations', 'read_respondents', 'configure_notifications'],
     ];
 
     /**
@@ -106,6 +106,18 @@ class GrantPolicy implements ScopeReader {
     public function freshWithin(string $uid,Closure $work):mixed {
         $fresh=new self($this->config,$this->userConfig,$this->commands,$this->service,$this->resolver,$this->transaction);
         return $fresh->within($uid,static fn()=>$work($fresh));
+    }
+
+    /**
+     * Open a new resource-policy window on this shared instance for a deferred native effect.
+     * Existing injected Files gates see the new scope; the enclosing request's S9 snapshot is restored afterward.
+     * @template T
+     * @param Closure():T $work
+     * @return T
+     */
+    public function resourceBoundary(string $uid,Closure $work):mixed {
+        $outer=$this->operations;$this->operations=[];
+        try{return $this->within($uid,$work);}finally{$this->operations=$outer;}
     }
 
     /**

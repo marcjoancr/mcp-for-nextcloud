@@ -558,7 +558,7 @@ class Application extends App implements IBootstrap {
             ));
         $context->registerService(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability(
             $c->get(GrantPolicy::class), $c->get(IAppManager::class), $c->get(IUserManager::class), $c->get(\OCA\Mcp\Access\Guests\GuestRestrictions::class),
-            $c->get(\OCA\Mcp\OAuth\ConnectionContext::class),
+            $c->get(\OCA\Mcp\OAuth\ConnectionContext::class), $c->get(\OCP\IGroupManager::class),
         ));
         $context->registerService(\OCA\Mcp\Mcp\Tools\Execution\ToolExecutor::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor(
             $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class), $c->get(LoggerInterface::class),
@@ -635,11 +635,71 @@ class Application extends App implements IBootstrap {
             $c->get(IAppManager::class), $c->get(IUserManager::class),
             static fn (string $class) => $c->get($class), static fn () => $c->get(IUserSession::class)->getUser()?->getUID(),
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsCapabilities(
+            $c->get(IAppManager::class), $c->get(IUserManager::class), static fn() => $c->get(IUserSession::class)->getUser()?->getUID(),
+            static function() use($c): array {
+                try {
+                    $root=$c->get(IAppManager::class)->getAppPath('forms');
+                    if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($root))return [];
+                    return $c->get('OCA\\Forms\\Mcp\\Guard')->capabilities();
+                } catch(\Throwable) { return []; }
+            }
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Reading\FormsListingSource::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Reading\FormsListingSource($c->get(IUserManager::class),static fn(string $name):object=>$c->get($name)));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\FormsJobsMapper::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\FormsDownloadsMapper::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsSpool::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsPrivateSpool(
+            $c->get(\OCP\Files\AppData\IAppDataFactory::class)->get('mcp_forms_results'), $c->get(\OCP\Security\ICrypto::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsExportJobs(
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsSpool::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportRenderer::class),
+            static fn(array $origin):array => $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin),
+            static fn():int => $c->get(\OCP\AppFramework\Utility\ITimeFactory::class)->getTime()
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsDeferredNative::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsDeferredNative(
+            static fn() => $c->get('OCA\\Forms\\Mcp\\Guard'),
+            static fn():bool => (new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($c->get(IAppManager::class)->getAppPath('forms')),
+            $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class), $c->get(GrantPolicy::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission(
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadStore::class),
+            static fn(string $uid,string $job):array => $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class)->job($uid,$job),
+            static fn(string $uid,string $job):string => $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class)->content($uid,$job),
+            static fn(array $job) => $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsDeferredNative::class)->assertJob($job),
+            static fn():int => $c->get(\OCP\AppFramework\Utility\ITimeFactory::class)->getTime(),
+            static fn():?string => $c->get(IUserSession::class)->getUser()?->getUID(),
+            static fn(string $token):string => $c->get(\OCP\IURLGenerator::class)->linkToRouteAbsolute('mcp.forms_download.download',['token'=>$token])
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsGateway::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsNativeGateway(
+            $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class), static fn() => $c->get('OCA\\Forms\\Mcp\\Guard'),
+            $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerUploads::class), $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerFiles::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact::class), $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class), $c->get(\OCP\IURLGenerator::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportDestination::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission::class), $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListing::class), $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListingSource::class), $c->get(GrantPolicy::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator(
+            $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsGateway::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal::class),
+            static fn(string $uid,string $tool,array $args,array $snapshot) => $c->get(\OCA\Mcp\Modules\Forms\Access\FormsFreshAccess::class)->assertTool($uid,$tool,$args,$snapshot)
+        ));
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsResponseReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader(
             $c->get(\OCA\Mcp\Modules\Forms\FormsReader::class), $c->get(\OCA\Mcp\Modules\Forms\FormsResponseReader::class),
             $c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator::class),
+            static function(string $tool) use($c): bool {
+                if(!isset(\OCA\Mcp\Modules\Forms\Execution\FormsCommands::commands()[$tool]))return true;
+                if($tool==='forms_capabilities')return true;
+                $uid=$c->get(IUserSession::class)->getUser()?->getUID();
+                if($uid===null)return false;
+                try {
+                    if(!$c->get(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class)->forUser($uid)['guardedWrites'])return false;
+                    return \OCA\Mcp\Modules\Forms\Integration\FormsPublication::supported($tool,$c->get('OCA\\Forms\\Mcp\\Guard')->capabilities());
+                } catch(\Throwable) {return false;}
+            },
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard($c->get(GrantPolicy::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(
@@ -727,6 +787,7 @@ class Application extends App implements IBootstrap {
             ));
         }
         $context->registerService(\OCA\Mcp\Mcp\Operations\ActorIdentity::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Mcp\Operations\DurableActorIdentity::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsOutcomeStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\OperationsMapper::class));
         $context->registerService(\OCA\Mcp\Mcp\Operations\OperationStore::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Db\OperationsMapper::class));
         $context->registerService(\OCA\Mcp\Modules\Mail\Files\MailMessageExport::class,static fn(ContainerInterface $c)=>new \OCA\Mcp\Modules\Mail\Files\MailMessageExport(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailContentReader::class),$c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
