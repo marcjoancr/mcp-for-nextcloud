@@ -14,7 +14,9 @@ final class NativeActions {
         'forms_submit_response','forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses',
         'forms_update_admin_settings','forms_upload_response_files','forms_save_response_file','forms_restore'];
     public static function invoke(string $action, array $i): array {
-        $api = Server::get(ApiController::class);
+        $uid = OriginContext::current()['verified']['uid'];
+        $scope = new ScopedServices($uid);
+        $api = $scope->get(ApiController::class);
         $id = (int)($i['id'] ?? 0);
         $q = (int)($i['question_id'] ?? 0);
         $s = (int)($i['submission_id'] ?? 0);
@@ -37,7 +39,7 @@ final class NativeActions {
             case 'forms_set_lock':
                 if ($i['permanent']) {$r=$api->updateForm($id,['lockedUntil'=>0]);}
                 else {
-                    $service=Server::get(FormsService::class);$form=$service->getFormIfAllowed($id,'edit');
+                    $service=$scope->forms();$form=$service->getFormIfAllowed($id,'edit');
                     $service->obtainFormLock($form);Server::get(\OCA\Forms\Db\FormMapper::class)->update($form);
                     $r=new \OCP\AppFramework\Http\DataResponse($id);
                 }
@@ -57,12 +59,12 @@ final class NativeActions {
             case 'forms_reorder_options': $r=$api->reorderOptions($id,$q,$i['order'],$i['option_type']??null); break;
             case 'forms_share':
                 $kind=['user'=>0,'group'=>1,'circle'=>7,'link'=>3][$i['kind']] ?? throw new \InvalidArgumentException('Unknown share kind');
-                $r=Server::get(ShareApiController::class)->newShare($id,$kind,$i['recipient']??'',$i['permissions']);
+                $r=$scope->get(ShareApiController::class)->newShare($id,$kind,$i['recipient']??'',$i['permissions']);
                 $ref['share_id']=$r->getData()['id']; break;
             case 'forms_update_share':
                 $fields=array_intersect_key($i,array_flip(['permissions','token']));
-                $r=Server::get(ShareApiController::class)->updateShare($id,$i['share_id'],$fields); break;
-            case 'forms_unshare': $r=Server::get(ShareApiController::class)->deleteShare($id,$i['share_id']); break;
+                $r=$scope->get(ShareApiController::class)->updateShare($id,$i['share_id'],$fields); break;
+            case 'forms_unshare': $r=$scope->get(ShareApiController::class)->deleteShare($id,$i['share_id']); break;
             case 'forms_submit_response':
                 $r=$api->newSubmission($id,$i['answers'],$i['share_hash']??'');
                 $ref['submission_id']=(int)Server::get(\OCP\IDBConnection::class)->executeQuery('SELECT MAX(id) FROM *PREFIX*forms_v2_submissions WHERE form_id = ?',[$id])->fetchOne(); break;
@@ -71,7 +73,7 @@ final class NativeActions {
             case 'forms_delete_responses': $r=$api->deleteAllSubmissions($id); break;
             case 'forms_update_admin_settings':
                 foreach ($i['fields'] as $key=>$value) {
-                    $r=Server::get(ConfigController::class)->updateAppConfig($key,$value);
+                    $r=$scope->get(ConfigController::class)->updateAppConfig($key,$value);
                     if ($r->getStatus()>=400) {throw new \RuntimeException('Native Forms rejected the settings');}
                 }
                 break;

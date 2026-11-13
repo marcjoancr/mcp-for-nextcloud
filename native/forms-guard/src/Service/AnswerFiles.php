@@ -12,7 +12,7 @@ final class AnswerFiles {
     public const MAX_BYTES=26214400;
     public static function stage(string $uid,int $id,int $questionId,string $shareHash,array $sources): array {
         if (!Server::get(FormsRevisionFence::class)->active()) {throw new \LogicException('Staging requires an approved native operation');}
-        $forms=Server::get(FormsService::class);$form=$forms->loadFormForSubmission($id,$shareHash);
+        $forms=(new ScopedServices($uid))->forms();$form=$forms->loadFormForSubmission($id,$shareHash);
         if (!$forms->canSubmit($form)) {throw new \RuntimeException('Form no longer accepts submissions');}
         $q=Server::get(QuestionMapper::class)->findById($questionId);
         if ($q->getFormId()!==$id || $q->getType()!=='file' || $q->getOrder()<1) {throw new \RuntimeException('File question is unavailable');}

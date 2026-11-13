@@ -1,0 +1,16 @@
+{
+  "OC\\User\\User": "65685925c77801820043d99eff87a5f79753f7c4c857ce6d88305a3ddbef9b41",
+  "OC\\User\\Database": "b882f139a58248461de581819d98391e5559180150c7096c7e6813a8042eb32a",
+  "OCP\\AppFramework\\Db\\TTransactional": "61cc021b528983a5414c24dad97957c052bc5e966a05a9f1b234eb66efd627d3",
+  "OCP\\User\\Backend\\ABackend": "983aac015d5db3be6f7eab8f822283c66bc0e5fd7c0bb20b7d4e4ee051c11e6a",
+  "OC\\Group\\Manager": "136cab2bcd757eef88a08bb48dda6629dcd42d3a477c26dbfc990ce8f7df269b",
+  "OC\\Hooks\\PublicEmitter": "dbbb5ecd01f4a5fcfb6b97a119083cc09476aa8f12fdd76e22cdf33c08be0269",
+  "OC\\Hooks\\BasicEmitter": "4093e829fa5d99d6b4f7bf2f3b2b7d433a7f95bb618cd06cb855c22a9fab26b0",
+  "OC\\Hooks\\EmitterTrait": "79240744b7b852cb3aecff99cdc0ac7e27897b0804db7d5c8064b798c8bf27e5",
+  "OC\\Group\\Database": "a8f20a20b7837badde07b5c54c1c1c9f35b2307d02a53766952cd7dc2fb9dbd9",
+  "OCP\\Group\\Backend\\ABackend": "b4b183a64c56e9c7f50a6d19d2812a2606e354836149ee3858b7d0068119152a",
+  "OC\\AppConfig": "c1df86efd69772df5f3c3487cee7e5db09f8bc81154ab0ea00745670c65cb897",
+  "OC\\Config\\UserConfig": "44f0948e80692164c47ba4cb235cb8bc1c89733405c68617049c5f50866b8b08",
+  "OC\\AppFramework\\Services\\AppConfig": "3779930cc8b3a647cbdb0188e9157488fcfb7f38cd0d5631ac4c0dab731388fc",
+  "OC\\App\\AppManager": "5e2382c24ad5dbbdd6ad79e5bc890426e3e9493b1c9b4e5b525f0743fbb0db99"
+}

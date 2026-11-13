@@ -241,11 +241,11 @@ final class FileRecovery {
         $authorized=false;
         try {
             $form=Server::get(FormMapper::class)->findById((int)$data['form']['id']);
-            $permissions=Server::get(\OCA\Forms\Service\FormsService::class)->getPermissions($form);
+            $permissions=(new ScopedServices($uid))->forms()->getPermissions($form);
             $authorized=$form->getOwnerId()===$uid || ($originalActor && in_array('results',$permissions,true) && in_array('results_delete',$permissions,true));
         } catch (\OCP\AppFramework\Db\DoesNotExistException) {$authorized=$originalActor && $data['form']['owner_id']===$uid;}
         if (!$authorized) {throw new \RuntimeException('Recovery is unavailable');}
-        if (!Server::get(\OCA\Forms\Service\ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
+        if (!(new ScopedServices($uid))->get(\OCA\Forms\Service\ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
         foreach ($data['files'] as $meta) {
             $file=$folder->getFile('file-'.$meta['file_id']);
             if ((int)$file->getSize()!==$meta['size'] || !hash_equals($meta['sha256'],hash('sha256',$file->getContent()))) {throw new \RuntimeException('Recovery data failed verification');}

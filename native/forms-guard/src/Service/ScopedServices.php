@@ -8,18 +8,27 @@ use OCP\Server;
 /** Fresh native actor-dependent services; dependency state never escapes into the global container. */
 final class ScopedServices {
     private array $services=[];
+    private FreshCore $core;
     private \OCP\IUser $user;
     private \Psr\Container\ContainerInterface $container;
     public function __construct(string $uid) {
-        $this->user=Server::get(\OCP\IUserManager::class)->get($uid)??throw new \RuntimeException('Original Forms actor is unavailable');
-        if (!$this->user->isEnabled()) {throw new \RuntimeException('Original Forms actor is unavailable');}
+        $this->core = new FreshCore($uid);
+        $this->core->assertPrincipal();
+        $this->user = $this->core->user();
         $this->container=(new \OCA\Forms\AppInfo\Application())->getContainer();
     }
     public function get(string $class): object {
         if (isset($this->services[$class])) {return $this->services[$class];}
+        if ($class === \OCP\IGroupManager::class) {return $this->core->groups();}
+        if ($class === \OCP\IAppConfig::class) {return $this->core->appConfig();}
+        if ($class === \OCP\Config\IUserConfig::class) {return $this->core->userConfig();}
+        if ($class === \OCP\App\IAppManager::class) {return $this->core->apps();}
+        if ($class === \OCP\AppFramework\Services\IAppConfig::class) {
+            return $this->services[$class] = new \OC\AppFramework\Services\AppConfig(Server::get(\OCP\IConfig::class), $this->core->appConfig(), 'forms');
+        }
         if ($class===\OCP\IUserSession::class) {return $this->services[$class]=new ScopedUserSession($this->user);}
         if ($class===\OCA\Forms\Service\CirclesService::class) {return $this->services[$class]=new ScopedCircles();}
-        if (!str_starts_with($class,'OCA\\Forms\\Service\\') && $class!==\OCA\Forms\Activity\ActivityManager::class) {return $this->container->get($class);}
+        if (!str_starts_with($class,'OCA\\Forms\\Service\\') && !str_starts_with($class,'OCA\\Forms\\Controller\\') && $class!==\OCA\Forms\Activity\ActivityManager::class) {return $this->container->get($class);}
         $reflection=new \ReflectionClass($class);$args=[];
         foreach ($reflection->getConstructor()?->getParameters()??[] as $parameter) {
             $type=$parameter->getType();

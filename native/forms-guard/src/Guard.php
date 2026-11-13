@@ -20,34 +20,41 @@ final class Guard {
                 || ($provider==='mariadb' && str_starts_with($databaseVersion,'10.11.19-MariaDB')));
         $config=Server::get(\OCP\IConfig::class);
         $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
-        $qualified = $identity && $runtimeQualified && $fileLocks;
+        $qualified = $identity && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
             'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified && $provider==='mariadb','event_delivery'=>'independently_reported'];
     }
+    /** Current native principal authority without borrowing a request or worker session. */
+    public function assertPrincipal(string $uid, bool $requiresAdmin = false): void {
+        if (!$this->capabilities()['qualified']) {
+            throw new \RuntimeException('Forms native guard is not qualified');
+        }
+        (new \OCA\Forms\Mcp\Service\FreshCore($uid))->assertPrincipal($requiresAdmin);
+    }
     private function actor(string $uid): void {
         $user=Server::get(\OCP\IUserSession::class)->getUser();
-        if (!$user || $user->getUID()!==$uid || !$user->isEnabled()) { throw new \RuntimeException('Forms actor is unavailable'); }
-        if (!$this->capabilities()['qualified']) { throw new \RuntimeException('Forms native guard is not qualified'); }
+        if (!$user || $user->getUID()!==$uid) { throw new \RuntimeException('Forms actor is unavailable'); }
+        $this->assertPrincipal($uid);
     }
     private function authorize(string $uid,string $action,array $i): void {
         $this->actor($uid);
         if (strlen(json_encode($i,JSON_THROW_ON_ERROR))>1048576) {throw new \InvalidArgumentException('Forms input exceeds limit');}
         if (str_contains($action,'admin_settings')) {
-            if (!Server::get(\OCP\IGroupManager::class)->isAdmin($uid)) {throw new \RuntimeException('Administrator required');}
+            $this->assertPrincipal($uid, true);
             return;
         }
         if ($action==='forms_search') {return;}
         if ($action==='forms_restore') { FileRecovery::snapshot($uid,$action,$i); return; }
         if ($action==='forms_create') {
-            if (!Server::get(ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
+            if (!(new ScopedServices($uid))->get(ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
             return;
         }
         if ($action==='forms_generate_link_token') {
-            if (!Server::get(ConfigService::class)->getAllowPublicLink()) {throw new \RuntimeException('Public links are disabled');}
+            if (!(new ScopedServices($uid))->get(ConfigService::class)->getAllowPublicLink()) {throw new \RuntimeException('Public links are disabled');}
             return;
         }
         $id=(int)($i['id']??0);
-        $forms=Server::get(FormsService::class);
+        $forms=(new ScopedServices($uid))->forms();
         if (in_array($action,['forms_submit_response','forms_upload_response_files'],true)) {$forms->loadFormForSubmission($id,$i['share_hash']??''); return;}
         $permission=match($action) {
             'forms_delete_form','forms_transfer','forms_list_shares','forms_read_links','forms_get_embed','forms_share','forms_update_share','forms_unshare'=>'all',
@@ -85,10 +92,10 @@ final class Guard {
             $entity=Server::get(FormMapper::class)->findById((int)$input['id']);
             $form=$entity->read();
             unset($form['hash']);
-            $form['permissions']=Server::get(FormsService::class)->getPermissions($entity);
-            $form['questions']=Server::get(FormsService::class)->getQuestions((int)$input['id']);
+            $form['permissions']=(new ScopedServices($uid))->forms()->getPermissions($entity);
+            $form['questions']=(new ScopedServices($uid))->forms()->getQuestions((int)$input['id']);
         }
-        $config=Server::get(ConfigService::class)->getAppConfig();
+        $config=(new ScopedServices($uid))->get(ConfigService::class)->getAppConfig();
         if (strlen(json_encode([$form,$config],JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Forms preview exceeds projection budget');}
         $fileManifest=FileRecovery::snapshot($uid,$action,$input);
         $after=$this->fence->revision();
@@ -132,18 +139,18 @@ final class Guard {
     }
     private function readNative(string $uid,string $action,array $i): array {
         $this->authorize($uid,$action,$i);
-        $forms=Server::get(FormsService::class); $id=(int)($i['id']??0);
+        $forms=(new ScopedServices($uid))->forms(); $id=(int)($i['id']??0);
         return match($action) {
             'forms_results_metadata'=>$this->resultsMetadata($uid,$id),
             'forms_results_page'=>$this->resultsPage($id,$i),
             'forms_list_response_files'=>['files'=>AnswerFiles::references($id,(int)$i['submission_id'])],
             'forms_read_settings'=>$forms->getForm(Server::get(FormMapper::class)->findById($id)),
-            'forms_read_question'=>Server::get(\OCA\Forms\Controller\ApiController::class)->getQuestion($id,$i['question_id'])->getData(),
+            'forms_read_question'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ApiController::class)->getQuestion($id,$i['question_id'])->getData(),
             'forms_list_shares','forms_read_links','forms_get_embed'=>$forms->getShares($id),
-            'forms_read_response'=>Server::get(\OCA\Forms\Controller\ApiController::class)->getSubmission($id,$i['submission_id'])->getData()+['isAnonymous'=>Server::get(FormMapper::class)->findById($id)->getIsAnonymous()],
+            'forms_read_response'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ApiController::class)->getSubmission($id,$i['submission_id'])->getData()+['isAnonymous'=>Server::get(FormMapper::class)->findById($id)->getIsAnonymous()],
             'forms_read_own_responses'=>['isAnonymous'=>Server::get(FormMapper::class)->findById($id)->getIsAnonymous(),'submissions'=>Server::get(\OCA\Forms\Service\SubmissionService::class)->getSubmissions($id,$uid,$i['query']??null,min(100,$i['limit']??50),$i['offset']??0)],
-            'forms_generate_link_token'=>Server::get(\OCA\Forms\Controller\ShareApiController::class)->generateToken()->getData(),
-            'forms_read_admin_settings'=>Server::get(ConfigService::class)->getAppConfig(),
+            'forms_generate_link_token'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ShareApiController::class)->generateToken()->getData(),
+            'forms_read_admin_settings'=>(new ScopedServices($uid))->get(ConfigService::class)->getAppConfig(),
             default=>throw new \InvalidArgumentException('Unsupported Forms native read'),
         };
     }
@@ -240,7 +247,7 @@ final class Guard {
     private function resultsMetadata(string $uid,int $id): array {
         $form=Server::get(FormMapper::class)->findById($id);
         $result=['form'=>['id'=>$id,'title'=>$form->getTitle(),'isAnonymous'=>(bool)$form->getIsAnonymous(),'ownerId'=>$form->getOwnerId()],
-            'questions'=>Server::get(FormsService::class)->getQuestions($id),'submissionCount'=>Server::get(SubmissionMapper::class)->countSubmissions($id),
+            'questions'=>(new ScopedServices($uid))->forms()->getQuestions($id),'submissionCount'=>Server::get(SubmissionMapper::class)->countSubmissions($id),
             'timeZone'=>Server::get(\OCP\IConfig::class)->getUserValue($uid,'core','timezone','UTC')];
         if (strlen(json_encode($result,JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Forms result metadata exceeds projection budget');}
         return $result;
