@@ -11,7 +11,7 @@ final class ScopedServices {
     private FreshCore $core;
     private \OCP\IUser $user;
     private \Psr\Container\ContainerInterface $container;
-    public function __construct(string $uid, private bool $deferred = false) {
+    public function __construct(string $uid, private bool $deferred = false, private bool $boundedReads = false) {
         $this->core = new FreshCore($uid);
         $this->core->assertPrincipal();
         $this->user = $this->core->user();
@@ -19,6 +19,9 @@ final class ScopedServices {
     }
     public function get(string $class): object {
         if (isset($this->services[$class])) {return $this->services[$class];}
+        if ($class === \OCA\Forms\Db\SubmissionMapper::class && $this->boundedReads) {
+            return $this->services[$class] = new ReadSubmissionMapper(Server::get(\OCP\IDBConnection::class), $this->get(\OCA\Forms\Db\AnswerMapper::class), $this->get(\OCA\Forms\Helper\FilePathHelper::class), Server::get(\Psr\Log\LoggerInterface::class));
+        }
         if ($class === \OCP\IGroupManager::class) {return $this->core->groups();}
         if ($class === \OCP\IAppConfig::class) {return $this->core->appConfig();}
         if ($class === \OCP\Config\IUserConfig::class) {return $this->core->userConfig();}

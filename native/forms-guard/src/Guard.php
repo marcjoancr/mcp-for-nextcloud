@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 namespace OCA\Forms\Mcp;
-use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions, FileRecovery, AnswerFiles, OriginContext, ScopedServices};
+use OCA\Forms\Mcp\Service\{FormsRevisionFence, ApprovedFormsOperation, NativeActions, FileRecovery, AnswerFiles, OriginContext, ScopedServices, ReadPages};
 use OCA\Forms\Service\{FormsService, ConfigService};
 use OCA\Forms\Db\{FormMapper, QuestionMapper, SubmissionMapper};
 use OCP\Server;
@@ -24,7 +24,7 @@ final class Guard {
         $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113040000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
-            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
+            'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form']) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
     }
     /** Current native principal authority without borrowing a request or worker session. */
     public function assertPrincipal(string $uid, bool $requiresAdmin = false): void {
@@ -46,6 +46,8 @@ final class Guard {
             return;
         }
         if ($action==='forms_search') {return;}
+        if (in_array($action,ReadPages::ACTIONS,true)) {ReadPages::bounds($i);}
+        if ($action==='forms_read_submission_form') {ReadPages::publicForm($uid,$i);return;}
         if ($action==='forms_restore') { FileRecovery::snapshot($uid,$action,$i); return; }
         if (in_array($action,['forms_create','forms_clone'],true)) {
             if (!(new ScopedServices($uid))->get(ConfigService::class)->canCreateForms()) {throw new \RuntimeException('Form creation is not allowed');}
@@ -56,23 +58,27 @@ final class Guard {
             return;
         }
         $id=(int)($i['id']??0);
-        $forms=(new ScopedServices($uid))->forms();
+        $forms=(new ScopedServices($uid,false,in_array($action,ReadPages::ACTIONS,true)))->forms();
         if (in_array($action,['forms_submit_response','forms_upload_response_files'],true)) {$forms->loadFormForSubmission($id,$i['share_hash']??''); return;}
         $permission=match($action) {
             'forms_delete_form','forms_transfer','forms_list_shares','forms_read_links','forms_get_embed','forms_share','forms_update_share','forms_unshare'=>'all',
-            'forms_read_response','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page'=>'results',
+            'forms_read_response','forms_read_own_response','forms_read_own_responses','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page'=>'results',
             'forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses'=>'results_delete',
-            'forms_read_settings','forms_read_question','forms_read_own_responses'=>'submit',
+            'forms_read_settings','forms_read_question'=>'submit',
             default=>'edit',
         };
         $form=$forms->getFormIfAllowed($id,$permission);
+        if ($action==='forms_list_response_files') {ReadPages::submission($id,(int)($i['submission_id']??0));}
         if ($action==='forms_update') {
             $allowed=['title','description','expires','isAnonymous','submitMultiple','allowEditSubmissions','showExpiration','submissionMessage','maxSubmissions','confirmationEmailEnabled','confirmationEmailSubject','confirmationEmailBody','confirmationEmailQuestionId','allowComments','access'];
             if (!isset($i['fields']) || !is_array($i['fields']) || $i['fields']===[] || array_diff(array_keys($i['fields']),$allowed)!==[]) {throw new \InvalidArgumentException('Unsupported generic Forms fields');}
         }
         if (in_array($action,['forms_read_response','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page','forms_update_response','forms_delete_response','forms_delete_responses'],true)) {
             $required=in_array($action,['forms_read_response','forms_list_response_files','forms_save_response_file','forms_results_metadata','forms_results_page'],true) ? 'results' : 'results_delete';
-            if (!in_array($required,$forms->getPermissions($form),true)) {throw new \RuntimeException('Explicit results permission required');}
+            if (!in_array($required,$forms->getPermissions($form),true)) {
+                if ($action==='forms_list_response_files') {ReadPages::submission($id,(int)($i['submission_id']??0),$uid);}
+                else {throw new \RuntimeException('Explicit results permission required');}
+            }
         }
         if ($action==='forms_set_state' && ($form->getState()===2 || ($i['state']??null)===2) && $form->getOwnerId()!==$uid) {throw new \RuntimeException('Only the owner can archive or unarchive a form');}
         if (($action==='forms_set_lock' && ($i['permanent']??false)) || ($action==='forms_release_lock' && $form->getLockedUntil()===0)) {
@@ -90,6 +96,13 @@ final class Guard {
         $before=$this->fence->revision();
         $this->authorize($uid,$action,$input);
         $form=[];
+        if (in_array($action,ReadPages::ACTIONS,true)) {
+            $entity=$action==='forms_read_submission_form'?ReadPages::publicForm($uid,$input):Server::get(FormMapper::class)->findById((int)$input['id']);
+            $form=ReadPages::metadata($entity);
+            OriginContext::assertFresh();$this->authorize($uid,$action,$input);$after=$this->fence->revision();
+            if ($before!==$after) {throw new \RuntimeException('Forms changed during preview');}
+            return ReadPages::bounded(['file_manifest'=>[],'revision'=>$after,'form'=>$form,'config'=>[],'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$entity->getId(),'action'=>$action],'impact'=>['database'=>false,'files'=>false,'events'=>false]]);
+        }
         if (isset($input['id'])) {
             $entity=Server::get(FormMapper::class)->findById((int)$input['id']);
             $form=$entity->read();
@@ -211,16 +224,21 @@ final class Guard {
     }
     private function readNative(string $uid,string $action,array $i): array {
         $this->authorize($uid,$action,$i);
+        if (in_array($action,ReadPages::ACTIONS,true)) {
+            $before=$this->fence->revision();$result=ReadPages::read($uid,$action,$i);
+            if (OriginContext::active()) {OriginContext::assertFresh();}
+            $this->authorize($uid,$action,$i);$after=$this->fence->revision();
+            if ($before!==$after) {throw new \RuntimeException('Forms changed during read');}
+            return ReadPages::bounded($result+['revision'=>$after]);
+        }
         $forms=(new ScopedServices($uid))->forms(); $id=(int)($i['id']??0);
         return match($action) {
             'forms_results_metadata'=>$this->resultsMetadata($uid,$id),
             'forms_results_page'=>$this->resultsPage($id,$i),
-            'forms_list_response_files'=>['files'=>AnswerFiles::references($id,(int)$i['submission_id'])],
             'forms_read_settings'=>$forms->getForm(Server::get(FormMapper::class)->findById($id)),
             'forms_read_question'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ApiController::class)->getQuestion($id,$i['question_id'])->getData(),
             'forms_list_shares','forms_read_links','forms_get_embed'=>$forms->getShares($id),
             'forms_read_response'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ApiController::class)->getSubmission($id,$i['submission_id'])->getData()+['isAnonymous'=>Server::get(FormMapper::class)->findById($id)->getIsAnonymous()],
-            'forms_read_own_responses'=>['isAnonymous'=>Server::get(FormMapper::class)->findById($id)->getIsAnonymous(),'submissions'=>Server::get(\OCA\Forms\Service\SubmissionService::class)->getSubmissions($id,$uid,$i['query']??null,min(100,$i['limit']??50),$i['offset']??0)],
             'forms_generate_link_token'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ShareApiController::class)->generateToken()->getData(),
             'forms_read_admin_settings'=>(new ScopedServices($uid))->get(ConfigService::class)->getAppConfig(),
             default=>throw new \InvalidArgumentException('Unsupported Forms native read'),
