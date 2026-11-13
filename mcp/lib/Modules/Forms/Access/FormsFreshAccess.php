@@ -22,7 +22,7 @@ use OCP\App\IAppManager;
 final class FormsFreshAccess {
     public function __construct(private GrantPolicy $policy,private IAppManager $apps,private IUserManager $users,
         private GuestRestrictions $guests,private ConnectionContext $connection,private ConnectionToolsStore $selections,
-        private IGroupManager $groups,private IUserSession $session) {}
+        private IGroupManager $groups,private IUserSession $session,private FormsPrincipal $principal) {}
     public function assertTool(string $uid,string $tool,array $arguments,array $snapshot=[]):void {
         $this->policy->freshWithin($uid,function(GrantPolicy $fresh)use($uid,$tool,$arguments,$snapshot):void {
             $user=$this->users->get($uid);$connection=$this->connection->current();
@@ -31,9 +31,12 @@ final class FormsFreshAccess {
             $selection=$this->selections->get($uid,$connection);
             $definition=FormsCommands::definitions()[$tool]??throw new ToolFailure(ToolFailure::FORBIDDEN);
             if($selection===null||!in_array($tool,$selection['tools'],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
-            if(in_array($tool,['forms_read_admin_settings','forms_update_admin_settings'],true)&&!$this->groups->isAdmin($uid))throw new ToolFailure(ToolFailure::FORBIDDEN);
+            if($tool!=='forms_capabilities')$this->principal->assert($uid,(bool)($definition['requiresAdmin']??false));
+            $availabilityDefinition=$definition;
+            // Native fresh role admission above owns this check; a second memoized manager read can only be stale.
+            unset($availabilityDefinition['requiresAdmin']);
             $availability=new ToolAvailability($fresh,$this->apps,$this->users,$this->guests,null,$this->groups);
-            if(!$availability->allowed($definition,$uid))throw new ToolFailure(ToolFailure::FORBIDDEN);
+            if(!$availability->allowed($availabilityDefinition,$uid))throw new ToolFailure(ToolFailure::FORBIDDEN);
             foreach(FormsAuthorization::operations($tool,$arguments,$snapshot) as $operation) {
                 if(!in_array($operation,GrantPolicy::CATALOG['forms'],true)||!$fresh->granted($uid,'forms',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
                 if(isset($definition['grantAnyOf'])&&!in_array($operation,$selection['variants'][$tool]??[],true))throw new ToolFailure(ToolFailure::FORBIDDEN);

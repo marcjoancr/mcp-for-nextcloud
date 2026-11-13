@@ -33,7 +33,7 @@ final class FormsExportJobs {
         $after=$native('snapshot',['id'=>$args['id']]);
         if($after['revision']!==$snapshot['revision'])throw new ToolFailure('Forms export source changed before admission.');
         $job=['job_id'=>$id,'actor_uid'=>$uid,'version'=>1,'state'=>'collecting','updated_at'=>($this->time)(),
-            'payload'=>['origin'=>$origin,'tool'=>$tool,'arguments'=>$args,'source_revision'=>$snapshot['revision'],
+            'payload'=>['origin'=>$origin,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>$snapshot['revision'],
                 'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'summary'=>[],'file_ids'=>[]]];
         if(!$this->store->create($job))throw new ToolFailure('Forms job admission conflicted; inspect its receipt.');
         return $this->receipt($id);
@@ -46,6 +46,7 @@ final class FormsExportJobs {
         if($job['actor_uid']!==$uid)throw new ToolFailure(ToolFailure::NOT_FOUND);
         $context=($this->authorize)($job['payload']['origin']);
         if(($context['uid']??null)!==$uid)throw new ToolFailure(ToolFailure::FORBIDDEN);
+        if(($job['payload']['native_runtime']??null)!==\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256)throw new ToolFailure('The qualified Forms runtime changed. Approve a new complete snapshot.');
         if(($job['payload']['arguments']['include_files']??false)&&!array_key_exists('file_ids',$job['payload']))throw new ToolFailure('This retained file-reference export requires a new authorized snapshot.');
         if(($job['payload']['file_ids']??[])!==[]) {
             if($this->files===null)throw new ToolFailure('Current Files result authority is unavailable.');

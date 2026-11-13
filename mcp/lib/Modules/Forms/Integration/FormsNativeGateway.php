@@ -14,7 +14,6 @@ use OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact;
 use OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization;
 use OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect;
 use OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal;
-use OCA\Mcp\Modules\Forms\Responses\FormsAnswers;
 use OCP\IURLGenerator;
 use OCA\Mcp\Modules\Forms\Exports\FormsExportJobs;
 use OCA\Mcp\Modules\Forms\Exports\FormsExportDestination;
@@ -49,6 +48,7 @@ final class FormsNativeGateway implements FormsGateway {
                 if($action==='forms_continue_operation'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)&&($guard->capabilities()['file_sinks']??false)!==true)throw new ToolFailure('This Forms runtime does not qualify the original Files write sink.');
                 $read=$this->source($uid,$guard,$job['payload']['origin']);$snapshot=$read('snapshot',['id'=>$job['payload']['arguments']['id']]);
                 if($snapshot['revision']!==$job['payload']['source_revision'])throw new ToolFailure('The approved Forms job source changed.');
+                $snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
                 $snapshot['job_id']=$jobId;$snapshot['job_version']=$job['version'];$snapshot['job']=$this->jobs->status($uid,$jobId);
                 $snapshot['impact']['job']=$snapshot['job'];
                 if($job['payload']['destination']!==null)$snapshot['file_destination']=['plan'=>$job['payload']['destination']['plan']];
@@ -56,10 +56,9 @@ final class FormsNativeGateway implements FormsGateway {
             }
             $nativeInput=$input;$nativeInput['_mcp_origin']=$previewOrigin;
             $nativeAction=in_array($action,FormsExportJobs::ACTIONS,true)?'forms_results_metadata':$action;
-            $snapshot=$guard->snapshot($uid,$nativeAction,$nativeInput);
+            $snapshot=$guard->snapshot($uid,$nativeAction,$nativeInput);$snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
             if(isset($input['answers'])) {
-                try {$snapshot['native_answers']=FormsAnswers::native($input['answers'],$snapshot['form']['questions']??[],static fn(int $q,string $handle):array=>['mcpHandle'=>$handle]);}
-                catch(\InvalidArgumentException) {throw new FormsBeforeEffect('The typed answers do not match the current native question types. Review the form before submitting.');}
+                $snapshot['native_answers']=FormsAnswerPreview::validate($guard,$uid,$action,$input,$snapshot['form']['questions']??[],$previewOrigin,$snapshot['revision']);
             }
             if(in_array($action,FormsExportJobs::ACTIONS,true)) {
                 if(in_array($action,['forms_export_results','forms_link_results_file'],true))$snapshot['file_destination']=$this->policy->resourceBoundary($uid,fn()=>$this->destination->snapshot($uid,$input));

@@ -20,7 +20,7 @@ use OCP\App\IAppManager;
 /** Deferred validation reads persisted policy directly, without borrowing the worker's session/connection. */
 final class FormsDeferredAccess {
     public function __construct(private GrantPolicy $policy,private IAppManager $apps,private IUserManager $users,
-        private GuestRestrictions $guests,private ConnectionToolsStore $selections,private IGroupManager $groups) {}
+        private GuestRestrictions $guests,private ConnectionToolsStore $selections,private IGroupManager $groups,private FormsPrincipal $principal) {}
     public function assert(array $origin):void {
         $uid=$origin['uid'];$tool=$origin['tool'];$connection=$origin['connection'];
         $this->policy->freshWithin($uid,function(GrantPolicy $fresh)use($uid,$tool,$connection,$origin):void {
@@ -29,7 +29,9 @@ final class FormsDeferredAccess {
             $selection=$this->selections->get($uid,$connection);
             $definition=FormsCommands::definitions()[$tool]??throw new ToolFailure(ToolFailure::FORBIDDEN);
             if($selection===null||!in_array($tool,$selection['tools'],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
-            if(!((new ToolAvailability($fresh,$this->apps,$this->users,$this->guests,null,$this->groups))->allowed($definition,$uid)))throw new ToolFailure(ToolFailure::FORBIDDEN);
+            $this->principal->assert($uid,(bool)($definition['requiresAdmin']??false));
+            $availabilityDefinition=$definition;unset($availabilityDefinition['requiresAdmin']);
+            if(!((new ToolAvailability($fresh,$this->apps,$this->users,$this->guests,null,$this->groups))->allowed($availabilityDefinition,$uid)))throw new ToolFailure(ToolFailure::FORBIDDEN);
             foreach($origin['operations'] as $operation) {
                 if(!is_string($operation)||!in_array($operation,GrantPolicy::CATALOG['forms'],true)||!$fresh->granted($uid,'forms',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
                 if(isset($definition['grantAnyOf'])&&!in_array($operation,$selection['variants'][$tool]??[],true))throw new ToolFailure(ToolFailure::FORBIDDEN);

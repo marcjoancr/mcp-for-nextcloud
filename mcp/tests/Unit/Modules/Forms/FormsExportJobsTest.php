@@ -49,6 +49,11 @@ final class FormsExportJobsTest extends TestCase {
         $this->slowReads=false;$resumed=$this->engine->step('alice',$id,$this->native(...));
         self::assertTrue($resumed['complete']);self::assertSame(205,$resumed['done']);
     }
+    public function testRetainedJobFromAnotherNativeBuildRequiresNewApproval():void {
+        $id=$this->start()['references']['job_id'];$this->jobs[$id]['payload']['native_runtime']=str_repeat('f',64);
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->engine->status('alice',$id);
+    }
     public function testSourceChangesNeverProduceMixedRevisionExport():void {
         $first=$this->start();$job=$first['references']['job_id'];$this->engine->step('alice',$job,$this->native(...));$this->revision++;
         $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);$this->engine->step('alice',$job,$this->native(...));

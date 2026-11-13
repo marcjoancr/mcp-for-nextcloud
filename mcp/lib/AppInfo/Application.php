@@ -635,13 +635,24 @@ class Application extends App implements IBootstrap {
             $c->get(IAppManager::class), $c->get(IUserManager::class),
             static fn (string $class) => $c->get($class), static fn () => $c->get(IUserSession::class)->getUser()?->getUID(),
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Access\FormsPrincipal::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Access\FormsPrincipal(
+            static function(string $uid,bool $requiresAdmin) use($c):void {
+                $root=$c->get(IAppManager::class)->getAppPath('forms');
+                if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($root))throw new \RuntimeException('Unqualified Forms principal boundary.');
+                $c->get('OCA\\Forms\\Mcp\\Guard')->assertPrincipal($uid,$requiresAdmin);
+            }
+        ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsCapabilities(
             $c->get(IAppManager::class), $c->get(IUserManager::class), static fn() => $c->get(IUserSession::class)->getUser()?->getUID(),
             static function() use($c): array {
                 try {
                     $root=$c->get(IAppManager::class)->getAppPath('forms');
                     if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($root))return [];
-                    return $c->get('OCA\\Forms\\Mcp\\Guard')->capabilities();
+                    $guard=$c->get('OCA\\Forms\\Mcp\\Guard');$capabilities=$guard->capabilities();
+                    if(($capabilities['qualified']??false)!==true)return [];
+                    $uid=$c->get(IUserSession::class)->getUser()?->getUID();if($uid===null)return [];
+                    $guard->assertPrincipal($uid);
+                    return $capabilities;
                 } catch(\Throwable) { return []; }
             }
         ));

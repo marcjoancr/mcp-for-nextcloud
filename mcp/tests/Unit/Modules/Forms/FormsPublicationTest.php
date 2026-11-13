@@ -10,6 +10,14 @@ namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 use OCA\Mcp\Modules\Forms\Integration\FormsPublication;
 use PHPUnit\Framework\TestCase;
 final class FormsPublicationTest extends TestCase {
+    public function testAnswerWritersRequireReadOnlyNativeValidationBeforeApproval():void {
+        $tools=['forms_submit_response','forms_update_response','forms_update_own_response'];
+        $native=['qualified'=>true,'protocol'=>1,'actions'=>$tools];
+        foreach($tools as $tool) {
+            self::assertFalse(FormsPublication::supported($tool,$native));
+            self::assertTrue(FormsPublication::supported($tool,$native+['answers_preflight'=>true]));
+        }
+    }
     public function testFilesWritersRequireQualifiedPostLockSinks():void {
         $native=['qualified'=>true,'protocol'=>1,'actions'=>['forms_save_response_file']];
         foreach(['forms_export_results','forms_save_response_file'] as $tool) {
