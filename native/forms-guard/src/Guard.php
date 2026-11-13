@@ -12,7 +12,8 @@ final class Guard {
     public function __construct(private FormsRevisionFence $fence, private ApprovedFormsOperation $operations) {}
     public function capabilities(): array {
         $identity = SourceIdentity::verify();
-        $provider = Server::get(\OCP\IDBConnection::class)->getDatabaseProvider(true);
+        $db = Server::get(\OCP\IDBConnection::class);
+        $provider = $db->getDatabaseProvider(true);
         $core=Server::get(\OCP\ServerVersion::class)->getVersion();
         $databaseVersion=in_array($provider,['mariadb','postgres'],true) ? (string)Server::get(\OCP\IDBConnection::class)->executeQuery('SELECT VERSION()')->fetchOne() : '';
         $runtimeQualified=PHP_INT_SIZE===8 && array_slice($core,0,3)===[35,0,2]
@@ -20,9 +21,10 @@ final class Guard {
                 || ($provider==='mariadb' && str_starts_with($databaseVersion,'10.11.19-MariaDB')));
         $config=Server::get(\OCP\IConfig::class);
         $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
-        $qualified = $identity && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
+        $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113040000'])->fetchOne()!==false;
+        $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
-            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified && $provider==='mariadb','event_delivery'=>'independently_reported'];
+            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
     }
     /** Current native principal authority without borrowing a request or worker session. */
     public function assertPrincipal(string $uid, bool $requiresAdmin = false): void {
@@ -101,7 +103,7 @@ final class Guard {
         $after=$this->fence->revision();
         if ($before!==$after) {throw new \RuntimeException('Forms changed during preview');}
         return ['file_manifest'=>$fileManifest,'revision'=>$after,'form'=>$form,'config'=>$config,'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$input['id']??null,'action'=>$action],
-            'impact'=>['database'=>true,'files'=>'requires_separate_qualification','events'=>in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_share'],true)]];
+            'impact'=>['database'=>true,'files'=>'requires_separate_qualification','events'=>($fileManifest['files_share']??false) || in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_share'],true)]];
     }
     /** Read-only semantic admission before the MCP journal reserves an operation. */
     public function preflightAnswers(string $uid, string $action, array $input, string $revision): void {

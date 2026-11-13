@@ -17,6 +17,8 @@ final class ApprovedFormsOperation {
         foreach ($receipt['phases']['events'] as $event) {
             if ($event['phase'] !== 'delivered') { $receipt['state'] = 'partial'; }
         }
+        $files=\OCP\Server::get(ManagedSharePhase::class)->phase($key);
+        if ($files!==null) {$receipt['phases']['files']=$files;if ($files!=='native_files_shares_verified') {$receipt['state']='partial';}}
         return $receipt;
     }
     public function apply(string $uid, string $action, array $input, string $expectedRevision, string $operationKey, callable $authorize, callable $work): array {
@@ -33,7 +35,8 @@ final class ApprovedFormsOperation {
             // Acquiring the fence increments exactly once; compare the preceding committed generation.
             if ((string)((int)$this->fence->revision() - 1) !== $expectedRevision) { throw new \OCA\Forms\Mcp\BeforeEffect('Forms preview is stale'); }
             $this->outbox->operation($operationKey);
-            try { $outcome = $work(); } finally { $this->outbox->operation(null); }
+            \OCP\Server::get(ManagedSharePhase::class)->operation($operationKey);
+            try { $outcome = $work(); } finally { $this->outbox->operation(null); \OCP\Server::get(ManagedSharePhase::class)->operation(null); }
             $receipt = ['state'=>'succeeded','operation_key'=>$operationKey,'references'=>$outcome['references'] ?? [],
                 'revision'=>$this->fence->revision(),'phases'=>['database'=>'committed','files'=>$outcome['files_phase']??'not_applicable','events'=>[]]];
             $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_operations (operation_key, actor_hash, fingerprint, receipt) VALUES (?, ?, ?, ?)',

@@ -1,0 +1,10 @@
+{
+    "OC\\Share20\\Manager": "4a13c43b201fc1458657c44e731f1814d937d97e935cc49222860c1e80dfaa44",
+    "OC\\Share20\\ProviderFactory": "e64b4715b48e5c7a9c3ddc9e05c7edfa1414fc2173f35f7717ae917b6036bda9",
+    "OC\\Share20\\DefaultShareProvider": "9810df22fd4780bd96ef6e89c27daf1dca21125c735875726628ee101f5e012c",
+    "OC\\Files\\Config\\UserMountCache": "0bbabe3291e0610101bc6370359858a892a9450cdd7f1552659212c9121dcd4e",
+    "OC\\DB\\Connection": "ad351f958e9d292c5d46312c9303812001075eb570dc5f8e51ff89035f437599",
+    "OC\\DB\\ConnectionAdapter": "e5116e7218f2f88c4c9e739f36d62fb22aa9ad35dc5844ce2a30c4b11dc2b776",
+    "OC\\AllConfig": "a1c28c24a9e19d540a371a460f4dcd87afabae1b5242ad6c1520e3fdb8894937",
+    "OC\\User\\Manager": "4d70b669ede78e84e646e5df63c103b9a910c7b65a18083c24ba153ab4fa6c29"
+}

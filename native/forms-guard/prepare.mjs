@@ -59,14 +59,26 @@ for (const [file,method,body] of [
 const uploadSharesFile=join(output,'lib/Service/UploadedFilesShareService.php');let uploadShares=readFileSync(uploadSharesFile,'utf8');
 const removeHeader='public function removeForCollaborator(Form $form, Share $formShare): void {';
 if (!uploadShares.includes(removeHeader)) throw new Error('Native uploaded-share removal hook missing');
-uploadShares=uploadShares.replace(removeHeader,removeHeader+'\n if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::active()) { \\OCA\\Forms\\Mcp\\Service\\ManagedShares::remove($form,$formShare); return; }');
+uploadShares=uploadShares.replace(removeHeader,removeHeader+'\n \\OCA\\Forms\\Mcp\\Service\\ManagedShares::remove($form,$formShare); return;');
 writeFileSync(uploadSharesFile,uploadShares);
+const deletingShareFile=join(output,'lib/Db/FormMapper.php');let deletingShare=readFileSync(deletingShareFile,'utf8');
+const removeAllCall='$this->uploadedFilesShareService->removeAllForForm($form);';
+if (!deletingShare.includes(removeAllCall)) throw new Error('Native form share deletion hook missing');
+deletingShare=deletingShare.replace(removeAllCall,'\\OCA\\Forms\\Mcp\\Service\\ManagedSharePhase::removeForDeletedForm($form);');
+writeFileSync(deletingShareFile,deletingShare);
 const managedShareFile=join(output,'lib/Controller/ShareApiController.php');let managedShare=readFileSync(managedShareFile,'utf8');
-const newFolderLine='$folder = $userFolder->newFolder($uploadedFilesFolderPath);';
-if (!managedShare.includes(newFolderLine) || !managedShare.includes('$this->shareManager->createShare($folderShare);')) throw new Error('Native uploaded-share creation hook missing');
-managedShare=managedShare.replace(newFolderLine,newFolderLine+'\n \\OCA\\Forms\\Mcp\\Service\\ManagedShares::registerFolder($form,$folder);');
-managedShare=managedShare.replace('$this->shareManager->createShare($folderShare);','\\OCA\\Forms\\Mcp\\Service\\ManagedShares::create($form,$formShare,$folderShare);');
+const shareBlockStart=managedShare.indexOf("\t\t\t\t$userFolder = $this->rootFolder->getUserFolder($form->getOwnerId());");
+const shareBlockEnd=managedShare.indexOf('$this->shareManager->createShare($folderShare);',shareBlockStart);
+if (shareBlockStart<0 || shareBlockEnd<0) throw new Error('Native uploaded-share creation block missing');
+managedShare=managedShare.slice(0,shareBlockStart)+'\\OCA\\Forms\\Mcp\\Service\\ManagedSharePhase::schedule($form,$formShare,true);'+managedShare.slice(shareBlockEnd+'$this->shareManager->createShare($folderShare);'.length);
+managedShare=managedShare.replaceAll('\\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run(', '\\OCA\\Forms\\Mcp\\Service\\ManagedSharePhase::nativeRun(');
 writeFileSync(managedShareFile,managedShare);
+const nativeDeleteFile=join(output,'lib/Controller/ApiController.php');let nativeDelete=readFileSync(nativeDeleteFile,'utf8');
+const nativeDeletePattern=/(public function deleteForm\([^)]*\)[^{]*\{\s*return )\\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run/;
+if (!nativeDeletePattern.test(nativeDelete)) throw new Error('Native delete form request hook missing');
+nativeDelete=nativeDelete.replace(nativeDeletePattern,'$1\\OCA\\Forms\\Mcp\\Service\\ManagedSharePhase::nativeRun');
+writeFileSync(nativeDeleteFile,nativeDelete);
+
 // An expired opaque handle is not authorization to delete its bytes. Retain MCP staging until approved recovery-backed cleanup.
 const temporaryFile=join(output,'lib/BackgroundJob/CleanupUploadedFilesJob.php');let temporary=readFileSync(temporaryFile,'utf8');
 const temporaryLoop='foreach ($uploadedFiles as $uploadedFile) {';

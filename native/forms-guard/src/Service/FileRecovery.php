@@ -37,9 +37,12 @@ final class FileRecovery {
         return self::project($action,$input,$data);
     }
     private static function project(string $action,array $input,array $data): array {
+        $removals=$action==='forms_delete_form'?ManagedShares::removalSnapshots((int)$input['id'],$data['files']):[];
+        $shareImpact=in_array($action,['forms_update_share','forms_unshare'],true)?ManagedShares::snapshot((int)$input['id'],$data['files'],$input):[];
+        $shareEffect=($shareImpact['create']??false) || array_filter($shareImpact['managed_shares']??[],static fn(array $row):bool=>!($row['missing']??false))!==[];
         return ['digest'=>hash_hmac('sha256',json_encode($data,JSON_THROW_ON_ERROR),Server::get(\OCP\IConfig::class)->getSystemValueString('secret')),'form_id'=>(int)$input['id'],'files'=>$data['files'],
-            'delete_file_ids'=>self::deletions($action,$input,$data),'files_share'=>in_array($action,['forms_update_share','forms_unshare'],true),
-            'share_impact'=>in_array($action,['forms_update_share','forms_unshare'],true)?ManagedShares::snapshot((int)$input['id'],$data['files'],$input):[],
+            'delete_file_ids'=>self::deletions($action,$input,$data),'files_share'=>$shareEffect||$removals!==[],'share_removals'=>$removals,
+            'share_impact'=>$shareImpact,
             'folders'=>'retained','recovery'=>str_starts_with($action,'forms_delete_') || str_starts_with($action,'forms_update_')];
     }
     private static function capture(int $id,string $action,array $input): array {
@@ -87,14 +90,20 @@ final class FileRecovery {
         }
         return $data+['files'=>$files];
     }
-    private static function fileMeta(File $file): array {
+    private static function fileMeta(File $file,bool $underFolderLock=false): array {
         StorageAdmission::node($file);
         $size=(int)$file->getSize();$etag=$file->getEtag();
         if ($size<0 || $size>AnswerFiles::MAX_BYTES) {throw new \RuntimeException('Recovery file exceeds the byte limit');}
-        $stream=$file->fopen('rb');if (!is_resource($stream)) {throw new \RuntimeException('Managed file cannot be read');}
+        $stream=$underFolderLock?$file->getStorage()->fopen($file->getInternalPath(),'rb'):$file->fopen('rb');if (!is_resource($stream)) {throw new \RuntimeException('Managed file cannot be read');}
         try {$ctx=hash_init('sha256');$read=hash_update_stream($ctx,$stream,AnswerFiles::MAX_BYTES+1);$sha=hash_final($ctx);} finally {if (is_resource($stream)) {fclose($stream);}}
         if ($read!==$size || $etag!==$file->getEtag()) {throw new \RuntimeException('Managed file changed during capture');}
         return ['file_id'=>(int)$file->getId(),'path'=>$file->getPath(),'name'=>$file->getName(),'etag'=>$etag,'size'=>$size,'sha256'=>$sha];
+    }
+    public static function verifyShareFiles(array $files,Folder $root): void {
+        foreach ($files as $meta) {
+            $file=$root->getById((int)$meta['file_id'])[0]??null;
+            if (!$file instanceof File || self::fileMeta($file,true)!==$meta) {throw new \RuntimeException('Approved Forms share file changed');}
+        }
     }
     private static function assertImpact(string $action,array $input,array $data): void {
         $id=(int)$input['id'];$form=Server::get(FormMapper::class)->findById($id);
@@ -148,7 +157,10 @@ final class FileRecovery {
         $impact = $approved ?? [];
         $impact['source_files'] = $input['_mcp_sources'] ?? [];
         return OriginContext::withFileImpact($action, $impact,
-            fn () => self::execute($uid, $action, $input, $approved, $operationKey, $work));
+            function () use ($uid,$action,$input,$approved,$operationKey,$work): array {
+                try {return self::execute($uid,$action,$input,$approved,$operationKey,$work);}
+                finally {Server::get(ManagedSharePhase::class)->completeImpact($operationKey,OriginContext::current()['verified_deleted_ids']??[]);}
+            });
     }
     private static function execute(string $uid,string $action,array $input,?array $approved,string $operationKey,callable $work): array {
         try {StorageAdmission::operation($uid,$action,$input);} catch (\Throwable $e) {throw new \OCA\Forms\Mcp\BeforeEffect('Forms storage admission failed',0,$e);}
@@ -201,7 +213,7 @@ final class FileRecovery {
                 }
             }
             if ($backup!==null) {$outcome['references']['backup_id']=$backup;}
-            $outcome['files_phase']=$action==='forms_transfer' && $data['files']!==[]?'ownership_file_copies_verified':($current['share_impact']!==[]?'native_files_shares_verified':($current['delete_file_ids']!==[]?'managed_files_removed_recovery_verified':($data['files']!==[]?'managed_files_preserved':'not_applicable')));
+            $outcome['files_phase']=$action==='forms_transfer' && $data['files']!==[]?'ownership_file_copies_verified':($current['share_impact']!==[]?(Server::get(ManagedSharePhase::class)->hasPending((int)$input['id'],(int)$current['share_impact']['native_share_id'])?'native_files_shares_pending':'native_files_shares_verified'):($current['delete_file_ids']!==[]?'managed_files_removed_recovery_verified':($data['files']!==[]?'managed_files_preserved':'not_applicable')));
             return $outcome;
         } finally {
             self::$active=false;

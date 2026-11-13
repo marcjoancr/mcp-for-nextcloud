@@ -22,6 +22,13 @@ function formsCommitFault(\OCP\IDBConnection $db,string $mode='commit'): \OCP\ID
         $return=$renderType($method->getReturnType());$name=$method->getName();
         $body=$name==='commit'?'$this->inner->commit(); if ($this->mode==="commit") { throw new \\RuntimeException("Injected lost database commit acknowledgement"); }':($return==='void'?'':'return ').'$this->inner->'.$name.'('.implode(',',$arguments).');';
         if($name==='executeStatement'){$body='if ($this->mode==="wait" && !$this->signaled && str_contains((string)$'.$method->getParameters()[0]->getName().',"forms_mcp_fence SET revision")) {$this->signaled=true;fwrite(STDOUT,"WAITING\n");fflush(STDOUT);}'. $body;}
+        if($name==='executeQuery'){
+            $query='$'.$method->getParameters()[0]->getName();
+            $lock='(str_contains((string)'.$query.',"pg_advisory_lock(") || str_contains((string)'.$query.',"GET_LOCK("))';
+            $body='if ($this->mode==="wait_session" && !$this->signaled && '.$lock.') {$this->signaled=true;fwrite(STDOUT,"WAITING\n");fflush(STDOUT);}'
+                .'$result=$this->inner->executeQuery('.implode(',',$arguments).');'
+                .'if ($this->mode==="lock_ack" && !$this->signaled && '.$lock.') {$this->signaled=true;throw new \\RuntimeException("Injected lost advisory acquisition acknowledgement");}return $result;';
+        }
         $methods.='public function '.$name.'('.implode(',',$parameters).')'.($return===''?'':': '.$return).'{'.$body.'}';
     }
     return eval('return new class($db,$mode) implements \\OCP\\IDBConnection { public function __construct(private \\OCP\\IDBConnection $inner,private string $mode){} private bool $signaled=false; '.$methods.'};');

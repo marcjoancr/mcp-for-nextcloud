@@ -41,7 +41,7 @@ final class OriginContext {
         }
     }
     /** Called at the storage or share sink after its lock has been acquired. */
-    public static function assertFileEffect(): void {
+    public static function assertFileEffect(array $currentFolderIds=[]): void {
         self::assertFresh();
         $context = self::current();
         if (isset($context['file_action'], $context['file_impact'])) {
@@ -49,6 +49,9 @@ final class OriginContext {
             $completed = $context['verified_deleted_ids'] ?? [];
             $remaining['files'] = array_values(array_filter($remaining['files'] ?? [],
                 static fn (array $file): bool => !in_array((int)$file['file_id'], $completed, true)));
+            if ($currentFolderIds!==[]) {
+                $remaining['share_impact']['folder_ids']=array_values(array_unique(array_merge($remaining['share_impact']['folder_ids']??[],$currentFolderIds)));
+            }
             self::assertFiles($context['file_action'], $remaining);
         }
     }
