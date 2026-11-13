@@ -22,7 +22,7 @@ final class Guard {
         $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
         $qualified = $identity && $runtimeQualified && $fileLocks;
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
-            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'files_recovery'=>true,'files_shares'=>$qualified && $provider==='mariadb','event_delivery'=>'independently_reported'];
+            'database'=>$provider,'actions'=>$qualified ? NativeActions::WRITES : [], 'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified && $provider==='mariadb','event_delivery'=>'independently_reported'];
     }
     private function actor(string $uid): void {
         $user=Server::get(\OCP\IUserSession::class)->getUser();
@@ -165,6 +165,78 @@ final class Guard {
             return $result+['revision'=>$after];
         });
     }
+    /** Trusted callback for one exact allocation or content write. No additional Forms transaction is opened. */
+    public function fileBoundary(string $uid, array $origin, \OCP\Files\Node $node, ?string $childName, \Closure $authorize, \Closure $work): mixed {
+        $this->actor($uid);
+        if (!in_array($origin['tool'] ?? '', ['forms_save_response_file', 'forms_export_results', 'forms_link_results_file'], true)) {
+            throw new \RuntimeException('Unsupported Forms file origin');
+        }
+        $formId = (int)($origin['references']['form_id'] ?? 0);
+        try {
+            return OriginContext::within($uid, $origin, $origin['tool'], ['id' => $formId], function () use ($uid, $origin, $node, $childName, $authorize, $work, $formId): mixed {
+                if ($childName !== null) {
+                    if (!$node instanceof \OCP\Files\Folder || $childName === '' || str_contains($childName, '/') || str_contains($childName, '\\')) {
+                        throw new \InvalidArgumentException('Invalid Forms destination');
+                    }
+                    Server::get(\OCP\Files\IFilenameValidator::class)->validateFilename($childName);
+                    $path = rtrim($node->getPath(), '/') . '/' . $childName;
+                    $expectedId = null;
+                    $expectedEtag = null;
+                } else {
+                    if (!$node instanceof \OCP\Files\File) {
+                        throw new \InvalidArgumentException('Forms destination must be a file');
+                    }
+                    $path = $node->getPath();
+                    $expectedId = (int)$node->getId();
+                    $expectedEtag = (string)$node->getEtag();
+                }
+                \OCA\Forms\Mcp\Service\StorageAdmission::node($node);
+                \OCA\Forms\Mcp\Service\StorageAdmission::path($path);
+                $mount = Server::get(\OCP\Files\Mount\IMountManager::class)->find($path);
+                if ($mount === null) {
+                    throw new \RuntimeException('Forms destination mount is unavailable');
+                }
+                $target = $mount->getInternalPath($path);
+                $check = function () use ($uid, $origin, $formId, $authorize, $path, $mount): void {
+                    OriginContext::assertFresh();
+                    $this->actor($uid);
+                    if (Server::get(\OCP\Files\Mount\IMountManager::class)->find($path) !== $mount) {
+                        throw new \RuntimeException('Forms destination mount changed');
+                    }
+                    $forms = (new ScopedServices($uid))->forms();
+                    $form = $forms->getFormIfAllowed($formId, 'results');
+                    if (!in_array('results', $forms->getPermissions($form), true)
+                        || (isset($origin['references']['owner_id']) && $origin['references']['owner_id'] !== $form->getOwnerId())) {
+                        throw new \RuntimeException('Original Forms results authority changed');
+                    }
+                    if (isset($origin['references']['submission_id'])) {
+                        $submission = Server::get(SubmissionMapper::class)->findById((int)$origin['references']['submission_id']);
+                        if ($submission->getFormId() !== $formId) {
+                            throw new \RuntimeException('Original Forms response changed');
+                        }
+                    }
+                    $authorize();
+                };
+                $check();
+                $wrapper = null;
+                $mount->wrapStorage(function ($mountPath, $storage) use ($target, $expectedId, $expectedEtag, $check, &$wrapper) {
+                    $wrapper = new \OCA\Forms\Mcp\Service\MutationBoundaryStorage($storage, $target, $expectedId, $expectedEtag, $check);
+                    return $wrapper;
+                });
+            try {
+                return $work();
+            } finally {
+                if ($wrapper !== null) {
+                    $wrapper->enabled = false;
+                }
+            }
+        });
+        } catch (BeforeEffect $error) {
+            // This sink can follow an already-created empty file or recovery copy.
+            throw new \RuntimeException('Forms file authority is unavailable', 0, $error);
+        }
+    }
+
     private function resultsMetadata(string $uid,int $id): array {
         $form=Server::get(FormMapper::class)->findById($id);
         $result=['form'=>['id'=>$id,'title'=>$form->getTitle(),'isAnonymous'=>(bool)$form->getIsAnonymous(),'ownerId'=>$form->getOwnerId()],

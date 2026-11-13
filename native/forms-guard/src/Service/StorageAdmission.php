@@ -161,7 +161,7 @@ final class StorageAdmission {
             }
             $seen[spl_object_id($storage)] = true;
             $class = $storage::class;
-            if ($class === ManagedFileStorage::class || $class === NewFileStorage::class) {
+            if ($class === ManagedFileStorage::class || $class === NewFileStorage::class || $class === MutationBoundaryStorage::class) {
                 // These exact final classes are covered by the independently pinned companion manifest.
                 $storage = $storage->getWrapperStorage();
                 continue;

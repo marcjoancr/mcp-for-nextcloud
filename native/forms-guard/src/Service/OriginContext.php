@@ -33,6 +33,7 @@ final class OriginContext {
         $old = self::current();
         self::$current['file_action'] = $action;
         self::$current['file_impact'] = $manifest;
+        self::$current['verified_deleted_ids'] = [];
         try {
             return $work();
         } finally {
@@ -44,8 +45,20 @@ final class OriginContext {
         self::assertFresh();
         $context = self::current();
         if (isset($context['file_action'], $context['file_impact'])) {
-            self::assertFiles($context['file_action'], $context['file_impact']);
+            $remaining = $context['file_impact'];
+            $completed = $context['verified_deleted_ids'] ?? [];
+            $remaining['files'] = array_values(array_filter($remaining['files'] ?? [],
+                static fn (array $file): bool => !in_array((int)$file['file_id'], $completed, true)));
+            self::assertFiles($context['file_action'], $remaining);
         }
+    }
+    /** Called only after the approved deletion returned and storage absence was verified. */
+    public static function verifiedDeletion(int $fileId): void {
+        $context = self::current();
+        if (!in_array($fileId, $context['file_impact']['delete_file_ids'] ?? [], true)) {
+            throw new \LogicException('Completed file deletion was not approved');
+        }
+        self::$current['verified_deleted_ids'][] = $fileId;
     }
     public static function active(): bool {return self::$current!==null;}
     public static function current(): array {return self::$current??throw new \OCA\Forms\Mcp\BeforeEffect('Signed Forms origin is required');}

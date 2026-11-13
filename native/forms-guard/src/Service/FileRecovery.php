@@ -188,6 +188,7 @@ final class FileRecovery {
                 if (in_array($fileId,$current['delete_file_ids'],true)) {
                     $storage=$file->getStorage();$path=$file->getInternalPath();$file->delete();
                     if ($storage->file_exists($path)) {throw new \RuntimeException('Managed file removal was not verified');}
+                    OriginContext::verifiedDeletion($fileId);
                     Server::get(IDBConnection::class)->executeStatement('DELETE FROM *PREFIX*forms_mcp_artifacts WHERE file_id = ?',[$fileId]);
                 }
             }
