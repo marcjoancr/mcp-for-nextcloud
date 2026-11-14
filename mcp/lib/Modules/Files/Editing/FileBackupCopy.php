@@ -63,9 +63,10 @@ final class FileBackupCopy {
 			}
 			try {
 				// The new copy is checked right before the original goes into it: a WebDAV client may have locked it.
+				$writeCopy = static fn () => $copy->putContent($stream);
 				$put = static fn () => $mutationBoundary === null
-					? $copy->putContent($stream)
-					: $mutationBoundary($copy, null, static fn () => null, static fn () => $copy->putContent($stream));
+					? $writeCopy()
+					: $mutationBoundary($copy, null, static fn () => null, $writeCopy);
 				NodeAccess::mutate(fn () => $this->locks === null ? $put() : $this->locks->run($put, $copy, $userId, null, $asUser), $this->visibilityGuard);
 			} finally {
 				if (is_resource($stream)) {
