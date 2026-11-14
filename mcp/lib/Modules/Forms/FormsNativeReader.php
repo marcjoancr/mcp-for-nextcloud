@@ -123,13 +123,28 @@ final class FormsNativeReader implements FormsReader, FormsResponseReader {
         }
 
         $submissionService = ($this->service)('OCA\\Forms\\Service\\SubmissionService');
+        $submissions = $submissionService->getSubmissions($formId, null, null, $limit + 1, $offset);
+        // Native active-question metadata omits hidden questions, but their answers remain in results.
+        $types = array_column($questions, 'type', 'id');
+        $questionMapper = null;
+        foreach (array_slice($submissions, 0, $limit) as $submission) {
+            foreach (array_slice($submission['answers'] ?? [], 0, FormsOutput::MAX_ANSWERS_PER_SUBMISSION) as $answer) {
+                $qid = $answer['questionId'] ?? null;
+                if (!is_int($qid) || array_key_exists($qid, $types)) { continue; }
+                $questionMapper ??= ($this->service)('OCA\\Forms\\Db\\QuestionMapper');
+                $question = $questionMapper->findById($qid);
+                if ($question->getFormId() !== $formId) { throw new ToolFailure('Historical Forms question is unavailable.'); }
+                $types[$qid] = $question->getType();
+                if ($types[$qid] === 'file') { $fileQuestionIds[] = $qid; }
+            }
+        }
         return [
             'formId' => $formId,
             'isAnonymous' => (bool)$form->getIsAnonymous(),
             'fileQuestionIds' => $fileQuestionIds,
             'questions' => $questionMetadata,
             'questionsTruncated' => $questionsTruncated,
-            'submissions' => $submissionService->getSubmissions($formId, null, null, $limit + 1, $offset),
+            'submissions' => $submissions,
         ];
     }
 

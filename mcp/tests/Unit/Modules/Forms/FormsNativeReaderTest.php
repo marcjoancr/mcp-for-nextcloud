@@ -114,6 +114,49 @@ final class FormsNativeReaderTest extends TestCase {
         self::assertSame([12, null, null, 11, 20], $submissions->query);
     }
 
+    public function testHiddenFileQuestionHistoryRemainsPrivateWithoutHidingHistoricalText():void {
+        $user=$this->createMock(IUser::class);
+        $forms=new class {
+            public function getFormIfAllowed(int $id,string $permission):object {return new class {public function getIsAnonymous():bool{return false;}};}
+            public function getPermissions(object $form):array{return ['results'];}
+            public function getQuestions(int $id):array{return [['id'=>9,'type'=>'short']];}
+        };
+        $submissions=new class {
+            public function getSubmissions(int $formId,?string $userId,?string $query,?int $limit,int $offset):array {return [
+                ['id'=>1,'answers'=>[
+                    ['questionId'=>7,'text'=>'private-historical.pdf','fileId'=>null],
+                    ['questionId'=>8,'text'=>'Retained historical text'],
+                    ['questionId'=>7,'text'=>'another-private.pdf','fileId'=>null],
+                    ['questionId'=>9,'text'=>'Current text'],
+                ]],
+                ['id'=>2,'answers'=>[['questionId'=>999,'text'=>'Lookahead is not the requested page']]],
+            ];}
+        };
+        $questions=new class {
+            public array $lookups=[];
+            public function findById(int $id):object {$this->lookups[]=$id;if(!in_array($id,[7,8],true))throw new \RuntimeException('Unrequested native question lookup.');
+                return new class($id){public function __construct(private int $id){}public function getFormId():int{return 12;}public function getType():string{return $this->id===7?'file':'long';}};
+            }
+        };
+        $reader=$this->reader($user,['OCA\\Forms\\Service\\FormsService'=>$forms,'OCA\\Forms\\Service\\SubmissionService'=>$submissions,'OCA\\Forms\\Db\\QuestionMapper'=>$questions]);
+        $page=$reader->readResponses('alice',12,0,1);$out=\OCA\Mcp\Modules\Forms\FormsOutput::responses($page,0,1);
+        self::assertSame([7,8],$questions->lookups);self::assertTrue($out['fileAnswersOmitted']);
+        self::assertSame(['Retained historical text','Current text'],array_column($out['submissions'][0]['answers'],'text'));
+        self::assertStringNotContainsString('private',json_encode($out));self::assertTrue($out['hasMore']);
+    }
+    public function testUnknownHistoricalQuestionCannotBeReadThroughAnotherForm():void {
+        $user=$this->createMock(IUser::class);
+        $forms=new class {
+            public function getFormIfAllowed(int $id,string $permission):object {return new class {public function getIsAnonymous():bool{return false;}};}
+            public function getPermissions(object $form):array{return ['results'];}
+            public function getQuestions(int $id):array{return [];}
+        };
+        $submissions=new class {public function getSubmissions(int $id,?string $uid,?string $query,?int $limit,int $offset):array{return [['id'=>1,'answers'=>[['questionId'=>7,'text'=>'foreign-private.pdf']]]];}};
+        $questions=new class {public function findById(int $id):object{return new class {public function getFormId():int{return 99;}public function getType():string{return 'file';}};}};
+        $reader=$this->reader($user,['OCA\\Forms\\Service\\FormsService'=>$forms,'OCA\\Forms\\Service\\SubmissionService'=>$submissions,'OCA\\Forms\\Db\\QuestionMapper'=>$questions]);
+        $this->expectException(ToolFailure::class);$reader->readResponses('alice',12,0,1);
+    }
+
     public function testSubmitterWithoutExplicitResultsPermissionCannotReadTheSharedResponseSet(): void {
         $user = $this->createMock(IUser::class);
         $forms = new class {
