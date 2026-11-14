@@ -15,6 +15,6 @@ final class FormsCommentsHttpTest extends TestCase {
         $out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
         self::assertSame(0,proc_close($process),$out."\n".$err);
         $result=json_decode($out,true,64,JSON_THROW_ON_ERROR);self::assertTrue($result['ok']);
-        foreach(['native_access','add_marker_and_no_replay','reads_and_author_projection','strict_author','grant_revocation','form_switch','update_delete_history'] as $key)self::assertTrue($result['checks'][$key],$key);
+        foreach(['native_access','add_marker_and_no_replay','reads_and_author_projection','strict_author','complete_paging_51','grant_revocation','native_revocation','global_switch','stale_confirmation','form_switch','update_delete_history'] as $key)self::assertTrue($result['checks'][$key],$key);
     }
 }

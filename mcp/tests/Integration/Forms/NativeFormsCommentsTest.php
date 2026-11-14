@@ -15,6 +15,7 @@ final class NativeFormsCommentsTest extends TestCase {
         self::assertNotEmpty($result['checks']);
         foreach ($result['checks'] as $name=>$passed) {self::assertTrue($passed,$name);}
     }
+    public function testGlobalAndFormCommentSwitchesProtectOriginalMcpReadsWritesAndEvents(): void {$this->probe('comments-global-probe.php');}
     public function testRolledBackFullEventBudgetAllowsSameProcessSave(): void {$this->probe('comments-rollback-budget-probe.php');}
     public function testRealCommentSqlDefersBothConsumersAndClearsRollbackCache(): void {$this->probe('comments-probe.php');}
     public function testRealDavReadMarkersCrudAndPostWaitAuthority(): void {$this->probe('comments-dav-probe.php');}
