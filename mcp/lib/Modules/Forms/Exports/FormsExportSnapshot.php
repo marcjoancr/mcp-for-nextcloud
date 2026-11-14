@@ -9,28 +9,44 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Forms\Exports;
 /** Stable active-question columns; historical anonymous identities and unscoped files never enter the spool. */
 final class FormsExportSnapshot {
-    private array $columns=[];private \DateTimeZone $zone;
+    private array $columns=[];private \DateTimeZone $zone;private int $columnBytes=2;
     public function __construct(private array $metadata,private bool $identities,private bool $files) {
         try{$this->zone=new \DateTimeZone($metadata['timeZone']??'UTC');}catch(\Throwable){$this->zone=new \DateTimeZone('UTC');}
-        $this->columns[]=['id'=>'submission_id','title'=>'Submission ID','kind'=>'submission_id'];
-        if($identities)foreach(['user_id'=>'User ID','user_display_name'=>'User display name'] as $id=>$title)$this->columns[]=['id'=>$id,'title'=>$title,'kind'=>$id];
-        $this->columns[]=['id'=>'timestamp','title'=>'Timestamp','kind'=>'timestamp'];
+        $this->append(['id'=>'submission_id','title'=>'Submission ID','kind'=>'submission_id']);
+        if($identities)foreach(['user_id'=>'User ID','user_display_name'=>'User display name'] as $id=>$title)$this->append(['id'=>$id,'title'=>$title,'kind'=>$id]);
+        $this->append(['id'=>'timestamp','title'=>'Timestamp','kind'=>'timestamp']);
         foreach($metadata['questions']??[] as $q) {
             $base=['question_id'=>$q['id'],'type'=>$q['type'],'numeric'=>in_array($q['type'],['ranking','linearscale'],true)];
             if($q['type']==='grid') {
                 $options=$q['options']??[];$labels=array_column($options,'text','id');
                 $rows=array_filter($options,static fn(array $o):bool=>($o['optionType']??'')==='row');
                 $cols=array_filter($options,static fn(array $o):bool=>($o['optionType']??'')==='column');
+                $numeric=($q['extraSettings']['questionType']??'')==='number';
+                $this->capacity($numeric?count($rows)*count($cols):count($rows));
                 foreach($rows as $row) {
                     if(($q['extraSettings']['questionType']??'')==='number') {
-                        foreach($cols as $col)$this->columns[]=['id'=>"question-id-{$q['id']}-{$row['id']}-{$col['id']}",'title'=>$q['text'].' ('.$row['text'].' - '.$col['text'].')','kind'=>'grid_number','row'=>$row['id'],'column'=>$col['id'],'numeric'=>true]+$base;
-                    } else $this->columns[]=['id'=>"question-id-{$q['id']}-{$row['id']}",'title'=>$q['text'].' ('.$row['text'].')','kind'=>'grid_choice','row'=>$row['id'],'labels'=>$labels]+$base;
+                        foreach($cols as $col)$this->append(['id'=>"question-id-{$q['id']}-{$row['id']}-{$col['id']}",'title'=>$q['text'].' ('.$row['text'].' - '.$col['text'].')','kind'=>'grid_number','row'=>$row['id'],'column'=>$col['id'],'numeric'=>true]+$base);
+                    } else $this->append(['id'=>"question-id-{$q['id']}-{$row['id']}",'title'=>$q['text'].' ('.$row['text'].')','kind'=>'grid_choice','row'=>$row['id'],'labels'=>$labels]+$base);
                 }
             } elseif($q['type']==='ranking') {
-                foreach($q['options']??[] as $option)$this->columns[]=['id'=>"question-id-{$q['id']}-{$option['id']}",'title'=>$q['text'].' ('.$option['text'].')','kind'=>'ranking','option_id'=>$option['id']]+$base;
-            } else $this->columns[]=['id'=>"question-id-{$q['id']}",'title'=>$q['text'],'kind'=>$q['type']==='file'?'file':'text']+$base;
+                $this->capacity(count($q['options']??[]));
+                foreach($q['options']??[] as $option)$this->append(['id'=>"question-id-{$q['id']}-{$option['id']}",'title'=>$q['text'].' ('.$option['text'].')','kind'=>'ranking','option_id'=>$option['id']]+$base);
+            } else $this->append(['id'=>"question-id-{$q['id']}",'title'=>$q['text'],'kind'=>$q['type']==='file'?'file':'text']+$base);
         }
-        if(count($this->columns)>16384)throw new \RuntimeException('Forms export exceeds spreadsheet column capacity.');
+
+    }
+    private function capacity(int $additional):void {
+        if($additional>16384-count($this->columns))throw new \RuntimeException('Forms export exceeds spreadsheet column capacity.');
+    }
+    private function append(array $column):void {
+        $this->capacity(1);$public=$column;unset($public['labels']);
+        $bytes=strlen(json_encode($public,JSON_THROW_ON_ERROR))+1;
+        if($bytes>1048576-$this->columnBytes)throw new \RuntimeException('Forms export exceeds its projection byte quota.');
+        $this->columnBytes+=$bytes;$this->columns[]=$column;
+    }
+    /** Ordered fields shown during approval, without internal answer-label dictionaries. */
+    public function approvalColumns():array {
+        return array_map(static function(array $column):array {unset($column['labels']);return $column;},$this->columns);
     }
     public function columns():array {return $this->columns;}
     public function row(array $submission,array $visibleFiles=[]):array {

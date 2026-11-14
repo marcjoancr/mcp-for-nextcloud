@@ -24,9 +24,9 @@ final class FormsExportJobs {
         $metadata=$native('forms_results_metadata',['id'=>$args['id']]);
         $after=$native('snapshot',['id'=>$args['id']]);
         if($after['revision']!==$snapshot['revision'])throw new ToolFailure('Forms changed during export preview.');
-        new FormsExportSnapshot($metadata,(bool)($args['include_respondents']??false),(bool)($args['include_files']??false));
+        $projection=new FormsExportSnapshot($metadata,(bool)($args['include_respondents']??false),(bool)($args['include_files']??false));
         $snapshot['export_metadata']=$metadata;
-        $snapshot['impact']['complete_results']=['submissions'=>$metadata['submissionCount'],'source_revision'=>self::sourceRevision($snapshot),
+        $snapshot['impact']['complete_results']=['submissions'=>$metadata['submissionCount'],'source_revision'=>self::sourceRevision($snapshot),'columns'=>$projection->approvalColumns(),
             'rows_per_step'=>100,'projection_bytes_per_step'=>1048576,'seconds_per_step'=>20,'output_quota_bytes'=>26214400,'temporary_ciphertext_reservation_bytes'=>134217728,'temporary_retention_seconds'=>604800,
             'identities'=>(bool)($args['include_respondents']??false),'file_references'=>(bool)($args['include_files']??false),'format'=>$args['format']??'summary','order'=>'submission_id_ascending'];
         return $snapshot;

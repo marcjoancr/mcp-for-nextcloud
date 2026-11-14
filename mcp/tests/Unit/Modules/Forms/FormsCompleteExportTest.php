@@ -79,6 +79,25 @@ final class FormsCompleteExportTest extends TestCase {
             self::assertSame($row[0],$xp->evaluate('string(//s:row[@r="3"]/s:c[@r="A3"])'));
         } finally {unlink($file);}
     }
+    public function testExpandedGridHeadersRespectTheProjectionByteBudget():void {
+        $options=[];
+        for($i=1;$i<=100;$i++)$options[]=['id'=>$i,'text'=>'Row '.$i,'optionType'=>'row'];
+        for($i=101;$i<=200;$i++)$options[]=['id'=>$i,'text'=>'Column '.$i,'optionType'=>'column'];
+        $metadata=['questions'=>[['id'=>1,'text'=>str_repeat('Q',200),'type'=>'grid','extraSettings'=>['questionType'=>'number'],'options'=>$options]]];
+        self::assertLessThan(1048576,strlen(json_encode($metadata,JSON_THROW_ON_ERROR)));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('projection byte quota');
+        new FormsExportSnapshot($metadata,false,false);
+    }
+    public function testApprovalColumnsIncludeAllFieldsWithoutInternalLabelDictionaries():void {
+        $metadata=$this->metadata();$metadata['questions'][1]['extraSettings']['questionType']='radio';
+        $snapshot=new FormsExportSnapshot($metadata,true,false);
+        $columns=$snapshot->approvalColumns();
+        self::assertSame(array_column($snapshot->columns(),'id'),array_column($columns,'id'));
+        self::assertSame('Grid (Row)',$columns[5]['title']);
+        self::assertArrayNotHasKey('labels',$columns[5]);
+        self::assertSame('grid_choice',$columns[5]['kind']);
+    }
     public function testFinalOutputQuotaIncludesContainerAndCsvBom():void {
         $this->expectException(\RuntimeException::class);
         (new FormsExportRenderer())->assemble('csv',[str_repeat('a',26214400)]);
